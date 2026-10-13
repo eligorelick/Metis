@@ -8,7 +8,7 @@
  * MINIMUM of the rules below, and a label above it is lowered to it with the
  * reason recorded in `confidenceCap`. A lower model label is always kept.
  *
- * Rules (house conventions, not fitted; see docs/audit/DECISIONS.md D-50):
+ * Rules (house conventions, not fitted; see decision record D-50):
  *  - the aspect's deterministic score is unscored for lack of data → low
  *  - the aspect is not applicable to the route (no score exists)  → medium
  *  - aspect applicableCompleteness < 0.5                          → low
