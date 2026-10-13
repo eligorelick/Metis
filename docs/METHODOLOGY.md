@@ -1521,6 +1521,19 @@ are injected from Stage B; a model-authored replacement is not the authority
 for those tables. AI narrative grades and qualitative case text remain model
 judgments and can diverge from numeric bands when explained.
 
+Section confidence is capped at assembly (D-50,
+`src/pipeline/stageC/confidenceCeiling.ts`), after the judge pass and before
+verification, from Stage B data only. The ceiling is the lowest of: aspect
+unscored → low; aspect `dataCompleteness` below 0.5 → low, below 0.75 →
+medium; valuation with the fair value (DCF / excess-return) withheld, or the
+scenario fan suppressed on the general DCF route → medium. These thresholds are
+conventions, not fitted. A label above the ceiling is lowered and the section
+shows "Confidence capped at <x>: <reason>" (`GradeBlock.confidenceCap`); a
+lower model label is kept. There is no verification-rate rule (it would be
+circular) and no annual-period-count rule (Stage B does not record a
+per-aspect period count). Motivation: verbalised LLM confidence is
+overconfident (Xiong et al. 2024, ICLR; Tian et al. 2023, EMNLP).
+
 Verification in `src/pipeline/stageC/passes.ts` and `provenance.ts` matches
 source identity, value, compatible unit/currency and as-of/period. A fetched
 web URL can establish citation retrieval, not numeric correctness. A computed

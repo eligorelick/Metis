@@ -357,6 +357,21 @@ export const GradeBlockSchema = z
     oneLineWhy: ratingSafeString(),
     reasoning: z.array(SourcedClaimSchema),
     confidence: ConfidenceSchema,
+    /**
+     * D-50: set by the pipeline when the model's confidence label exceeded the
+     * deterministic data-coverage ceiling and was lowered to it
+     * (src/pipeline/stageC/confidenceCeiling.ts). Pipeline-owned, removed from
+     * the judge request schema; absent on reports written before D-50 and on
+     * sections whose label was at or below the ceiling.
+     */
+    confidenceCap: z
+      .object({
+        from: ConfidenceSchema,
+        to: ConfidenceSchema,
+        reason: z.string().trim().min(1),
+      })
+      .strict()
+      .optional(),
     keyNumbers: z.array(TracedNumberSchema),
     /**
      * Fuller "what this means" interpretation for the aspect (rating-safe).
@@ -2351,8 +2366,12 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       if ("grade" in props && "oneLineWhy" in props && "assessmentStatus" in props) {
         // A deterministic data-only display decision, never model-authored.
         delete props.assessmentStatus;
+        // D-50: the confidence ceiling is applied at assembly, never model-authored.
+        delete props.confidenceCap;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => key !== "assessmentStatus");
+          obj.required = (obj.required as string[]).filter(
+            (key) => key !== "assessmentStatus" && key !== "confidenceCap",
+          );
         }
       }
       if (

@@ -5065,6 +5065,43 @@
           }
         }
       ]
+    },
+    {
+      "name": "d-50-confidence-ceiling",
+      "decisions": [
+        "D-50"
+      ],
+      "reason": "D-50 caps each graded section's confidence label at a deterministic ceiling from Stage B data coverage (unscored -> low; dataCompleteness < 0.5 -> low, < 0.75 -> medium; valuation with a withheld fair value or a scenario fan suppressed on the DCF route -> medium); the model may go lower, never higher. DEMO's leadership aspect is scored on 0.63 of its intended weight (since D-49), so the judge's 'high' on the leadership section and its grade-strip twin is lowered to 'medium' and the new confidenceCap field records {from: high, to: medium, reason}. No other section's label was above its ceiling.",
+      "deltas": [
+        {
+          "path": "report.leadership.graded.confidence",
+          "before": "high",
+          "after": "medium"
+        },
+        {
+          "path": "report.leadership.graded.confidenceCap",
+          "beforeMissing": true,
+          "after": {
+            "from": "high",
+            "to": "medium",
+            "reason": "the deterministic leadership score rests on under three quarters of its intended inputs"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.confidence",
+          "before": "high",
+          "after": "medium"
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.confidenceCap",
+          "beforeMissing": true,
+          "after": {
+            "from": "high",
+            "to": "medium",
+            "reason": "the deterministic leadership score rests on under three quarters of its intended inputs"
+          }
+        }
+      ]
     }
   ]
 }

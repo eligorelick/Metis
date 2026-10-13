@@ -1955,8 +1955,10 @@ describe("assembleReport", () => {
     computed.scores!.aspects.balanceSheet = { ...computed.scores!.aspects.balanceSheet, score: null, band: null, dataCompleteness: 0 };
     const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: output,
       verify: { verificationRate: 0.9, log: [] }, costEntries: [], model: "chatgpt/gpt-6.1-sol" }, GENERATED_AT);
-    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence" });
-    expect(report.quality.graded).toEqual({ ...output.quality.graded, assessmentStatus: "limited-evidence" });
+    // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
+    const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of its intended inputs" };
+    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.quality.graded).toEqual({ ...output.quality.graded, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(report.verdict.gradeStrip.balanceSheet?.assessmentStatus).toBe("not-assessed");
     expect(ReportSchema.safeParse(report).success).toBe(true);

@@ -257,6 +257,11 @@ export function GradeReasoning({
       </div>
       <div className="px-2.5 py-2">
         <p className="text-[12px] leading-snug text-fg">{block.oneLineWhy}</p>
+        {block.confidenceCap && (
+          <p className="mono mt-1 text-[10px] text-faint">
+            Confidence capped at {block.confidenceCap.to}: {block.confidenceCap.reason}
+          </p>
+        )}
         {block.interpretation && (
           <p className="mt-1.5 border-l-2 border-edge-strong pl-2 text-[12px] leading-relaxed text-muted">
             {block.interpretation}

@@ -13,6 +13,51 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-50 (report assembly 2026-10-13) Section confidence is capped by measured data coverage; the model can lower but not raise it
+
+- **Problem**: each graded section's confidence (high / medium / low) was
+  chosen by the judge and never audited. Verbalised LLM confidence clusters
+  high and is overconfident (Xiong et al. 2024, ICLR, "Can LLMs Express Their
+  Uncertainty?"; Tian et al. 2023, EMNLP, finds it better than token
+  probabilities for RLHF models but still miscalibrated); overprecision is the
+  most robust form of overconfidence (Moore & Healy 2008, Psychological
+  Review 115). A "high" label on a section whose score covered two fifths of
+  its inputs was possible.
+- **Options**: (a) leave the label to the model; (b) compute the label
+  deterministically; (c) let the model choose, but cap it at a ceiling set
+  from Stage B data coverage, and show the cap.
+- **Risks**: the thresholds are conventions, not fitted, until a track record
+  exists; too many caps could make every report read as uncertain, so the
+  rules are few and each cap states its reason. The plan's
+  verification-rate rule (rate < 0.9 → medium) is not applied: the ceiling
+  runs before verification on the object verification measures, so the rule
+  would be circular. The plan's annual-period-count rule is not applied:
+  Stage B does not record how many annual periods each aspect's inputs span,
+  and a count derived here would be unmeasured. The plan's unverified-estimate-
+  currency rule is likewise not applied (owner-approved Stage-B-only scope).
+- **Choice**: (c), owner-approved Stage-B-only form.
+  `src/pipeline/stageC/confidenceCeiling.ts` computes, per aspect, the minimum
+  of: unscored aspect → low; `dataCompleteness` < 0.5 → low, < 0.75 → medium;
+  valuation only, fair value (DCF / excess-return) withheld or the scenario
+  fan suppressed on the general DCF route → medium. `assembleReport` applies
+  it to each section's grade block and its grade-strip twin after the judge
+  pass and before verification. A label above the ceiling is lowered to it
+  and `GradeBlock.confidenceCap = {from, to, reason}` records it; a lower
+  model label is kept; a re-assembly keeps the original `from`. The field is
+  optional (stored reports parse unchanged), pipeline-owned (removed from the
+  judge request schema; any model-emitted value is recomputed), and the
+  report renders "Confidence capped at <x>: <reason>" under the section's
+  one-line why. Reasons carry no numerals, so nothing uncitable enters the
+  report. The judge prompt says the cap exists and that it may only go lower.
+- **Why**: the decision in one line: section confidence is capped by measured
+  data coverage; the model can lower but not raise it. The thresholds are
+  conventions.
+- **Disclosure**: no payload, score or band change. The audited-fixture
+  group `d-50-confidence-ceiling` covers DEMO's leadership section (completeness
+  0.63 since D-49): high → medium on the section and its strip twin. Test:
+  `tests/stageC.confidenceCeiling.test.ts` (rule table, application,
+  idempotence, legacy parse, rendered line).
+
 ## D-47 (bank disclosures 2026-10-13) HTM unrealised loss, marked TCE, ACL / loans and three-year loan growth are disclosed with warning signs, not graded
 
 - **Problem**: nothing in the bundle showed unrealised losses on

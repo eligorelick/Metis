@@ -107,6 +107,7 @@ import {
   type PassContinuation,
 } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
+import { applyConfidenceCeilings } from "@/pipeline/stageC/confidenceCeiling";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
 import {
@@ -3458,7 +3459,9 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
       parsed.error.message,
     );
   }
-  return applyReportAssessmentStatus(parsed.data);
+  // D-50: cap each section's confidence label at the deterministic data-coverage
+  // ceiling (the model may go lower, never higher). Runs before verification.
+  return applyReportAssessmentStatus(applyConfidenceCeilings(parsed.data));
 }
 
 function firstProfileName(bundle: DataBundle): string | null {
