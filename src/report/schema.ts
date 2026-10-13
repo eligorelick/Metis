@@ -1320,6 +1320,17 @@ export const VerificationLogEntrySchema = z
         "named-individual-web-source",
         "credibility-source-restricted",
         // end WS7
+        // D-43 (2026-10-13): gap/unestablished citations never carry a
+        // number, person-row citations are read for the person and title, and
+        // a currency on a figure of unknown currency fails. Additive.
+        "gap-source-number",
+        "named-individual-not-in-source",
+        "named-individual-title-mismatch",
+        "currency-not-established",
+        // D-45 (2026-10-13): a number cited to a filing/transcript excerpt is
+        // read against that excerpt's text. Additive.
+        "text-ambiguous",
+        "text-context-mismatch",
       ])
       .optional(),
     /**
@@ -1337,12 +1348,15 @@ export const VerificationLogEntrySchema = z
      *  - "source-cited": exact payload text source/date or observed fetched URL.
      *  - "computed-derived": exact computed registry ID plus numeric dimensions
      *    and a versioned formula identity — traceability, not independent audit.
+     *  - "excerpt-match" (D-45): the value is printed, at its precision and
+     *    unit, in the exact filing/transcript excerpt it cites, beside most of
+     *    the words of its own description. The period is not machine-checked.
      *  - "untraced": neither — flagged, never counted as traced.
      * NONE of these is factual verification; the value is not re-derived or
      * re-fetched (see runVerifyPass docstring).
      */
     traceKind: z
-      .enum(["payload-match", "source-cited", "computed-derived", "untraced"])
+      .enum(["payload-match", "source-cited", "computed-derived", "excerpt-match", "untraced"])
       .optional(),
   })
   .strict();
@@ -1359,6 +1373,8 @@ export function traceKindLabel(
       return "source cited";
     case "computed-derived":
       return "computed";
+    case "excerpt-match":
+      return "filing/transcript text match";
     case "untraced":
       return "untraced";
   }

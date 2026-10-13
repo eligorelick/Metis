@@ -69,6 +69,7 @@ import {
   degradationDisclosures,
   serializePayloadForPrompt,
   payloadFingerprint,
+  excerptBodyForVerification,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -76,11 +77,13 @@ import {
   canonicalizeFetchedUrl,
   canonicalizeTracedUnit,
   matchProvenanceRecord,
+  namedUnitMatchesRecord,
   periodsAgree,
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
+import { matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import {
   citationAsOf,
   citationSourceId,
@@ -131,8 +134,12 @@ import {
 } from "@/pipeline/stageC/judgeProtocol";
 import {
   collectPersonNames,
+  collectPersonRows,
   consistencyManifestEntries,
+  proseNumbers,
   runConsistencyChecks,
+  statesNumberWord,
+  statesOnlyAllowedDates,
 } from "@/pipeline/stageC/consistency";
 import { annotateSharedModelFamily, sharedModelFamilyOf } from "@/report/execution";
 import type {
@@ -2344,6 +2351,12 @@ export function collectTracedNumbers(root: unknown): TracedNumber[] {
 interface TracedNumberRef {
   number: TracedNumber;
   path: string;
+  /**
+   * The label of the metric row the number sits in ({label, values[]}), the
+   * only description a TracedNumber has besides its unit. Read by the
+   * excerpt-text match (D-45); never by the registry match.
+   */
+  rowLabel?: string;
 }
 
 function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
@@ -2354,22 +2367,36 @@ function collectTracedNumberRefs(root: unknown): TracedNumberRef[] {
     (typeof o.sourceId === "string" || typeof o.source === "string") &&
     ("asOf" in o) &&
     ("verified" in o);
-  const walk = (node: unknown, path: string): void => {
+  const walk = (node: unknown, path: string, rowLabel: string | undefined): void => {
     if (node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
       for (let index = 0; index < node.length; index++) {
-        walk(node[index], `${path}[${index}]`);
+        walk(node[index], `${path}[${index}]`, rowLabel);
       }
       return;
     }
     const obj = node as Record<string, unknown>;
     if (isTraced(obj)) {
-      out.push({ number: obj as unknown as TracedNumber, path: path || "$" });
+      out.push({ number: obj as unknown as TracedNumber, path: path || "$", ...(rowLabel === undefined ? {} : { rowLabel }) });
       return; // a TracedNumber has no nested TracedNumbers
     }
-    for (const key of Object.keys(obj)) walk(obj[key], path ? `${path}.${key}` : key);
+    // A MetricRow ({label, values: [{period, value}]}) labels the numbers
+    // under its own `values` only; no sibling branch inherits the label.
+    const ownRowLabel = typeof obj.label === "string" && Array.isArray(obj.values) ? obj.label : undefined;
+    // A named row (a segment {name, revenue}, a peer {name, metrics[]}, a
+    // macro series {name, latest}) is rendered under its name, so its numbers
+    // are described by it too (review, 2026-10-13): without it a segment's
+    // revenue verified on the unit text alone, against another segment's
+    // figure, while the report printed it under this segment's name.
+    const ownName = ownRowLabel === undefined && typeof obj.name === "string" ? obj.name : undefined;
+    for (const key of Object.keys(obj)) {
+      const childLabel = ownRowLabel !== undefined
+        ? key === "values" ? ownRowLabel : undefined
+        : ownName ?? rowLabel;
+      walk(obj[key], path ? `${path}.${key}` : key, childLabel);
+    }
   };
-  walk(root, "");
+  walk(root, "", undefined);
   return out;
 }
 
@@ -2412,26 +2439,68 @@ function claimSourceMatch(
   numericRegistry: readonly NumericProvenanceRecord[],
   citationRegistry: readonly CitationProvenanceRecord[],
   fetchedUrls: ReadonlySet<string>,
-): { supported: boolean; reason: "supported" | "unknown-source" | "date-mismatch" } {
+): {
+  supported: boolean;
+  reason: "supported" | "unknown-source" | "date-mismatch" | "gap-source-number" | "value-mismatch";
+} {
   const sourceId = citationSourceId(claim);
   if (sourceId === null) return { supported: false, reason: "unknown-source" };
   const asOf = citationAsOf(claim);
+  const numericMatches = numericRegistry.filter((record) => record.id === sourceId);
+  const textMatches = citationRegistry.filter((record) => record.id === sourceId);
   const candidates = [
-    ...numericRegistry
-      .filter((record) => record.id === sourceId)
-      .map((record) => record.asOf),
-    ...citationRegistry
-      .filter((record) => record.id === sourceId)
-      .map((record) => record.asOf),
+    ...numericMatches.map((record) => record.asOf),
+    ...textMatches.map((record) => record.asOf),
   ];
   if (candidates.length > 0) {
     // A judgment can be timeless while still citing exact evidence. FACT and
     // ESTIMATE claims must reproduce the source's as-of date exactly.
     const dateMatches =
       claim.label === "JUDGMENT" || candidates.some((candidate) => candidate === asOf);
-    return dateMatches
-      ? { supported: true, reason: "supported" }
-      : { supported: false, reason: "date-mismatch" };
+    if (!dateMatches) return { supported: false, reason: "date-mismatch" };
+    // D-43: a citation of an absence (an n/a row, a manifest entry) or of a
+    // figure whose unit, currency or date is not established supports prose
+    // that states no number. Registering those printed tags is what lets
+    // "EBIT interest coverage is not meaningful for this bank" verify; without
+    // this guard "Net debt/EBITDA is 1.2x" citing the same n/a row verified too
+    // (simulated 2026-10-13). Every record the claim could mean is read, so a
+    // judgment citing an id with a gap row at any date is held to it.
+    if (numericMatches.length === 0) {
+      const cited = claim.label === "JUDGMENT"
+        ? textMatches
+        : textMatches.filter((record) => record.asOf === asOf);
+      const stated = proseNumbers(claim.text);
+      // A number written in words is a number too (review, 2026-10-13: "Net
+      // debt/EBITDA is two times" citing the n/a row verified).
+      if (
+        (stated.length > 0 || statesNumberWord(claim.text)) &&
+        cited.some((record) => record.kind !== "payload-text")
+      ) {
+        return { supported: false, reason: "gap-source-number" };
+      }
+      // A text row that shows numbers ("25/50/25") supports exactly that
+      // sequence: the numbers in the row's order, all of them. Membership
+      // alone let "the bull case carries a 50% weight" verify against
+      // bull/base/bear 25/50/25 (review, 2026-10-13); prose that states the
+      // numbers some other way fails closed.
+      const allowed = cited.flatMap((record) => record.allowedNumbers ?? []);
+      if (
+        (stated.length > 0 || statesNumberWord(claim.text)) &&
+        cited.some((record) => record.allowedNumbers !== undefined) &&
+        (stated.length !== allowed.length || stated.some((value, i) => value !== allowed[i]))
+      ) {
+        return { supported: false, reason: "value-mismatch" };
+      }
+      // A row whose content is a date (the next-earnings note) supports that
+      // date only, and no other number (review, 2026-10-13).
+      if (
+        cited.some((record) => record.allowedDates !== undefined) &&
+        !statesOnlyAllowedDates(claim.text, cited.flatMap((record) => record.allowedDates ?? []))
+      ) {
+        return { supported: false, reason: "value-mismatch" };
+      }
+    }
+    return { supported: true, reason: "supported" };
   }
   const canonical = canonicalizeFetchedUrl(sourceId);
   return canonical !== null && fetchedUrls.has(canonical)
@@ -2490,7 +2559,10 @@ function reportExecutiveNames(root: unknown): string[] {
  * Deterministic CITATION-COVERAGE pass (the authority for the `verified` flag).
  * This measures PROVENANCE, not correctness. A TracedNumber is supported only
  * when its exact registry ID resolves and value, unit, currency, period, and
- * as-of all match that record within its declared display precision. A claim is
+ * as-of all match that record within its declared display precision, or (D-45)
+ * when it cites a filing/transcript excerpt and that excerpt prints it as a
+ * specific figure beside words of its own description — logged as
+ * "excerpt-match", with its period not machine-checked. A claim is
  * supported only by an exact numeric/text registry tag (including its as-of for
  * FACT/ESTIMATE) or a URL actually observed in provider web-search results.
  * Untraceable evidence is never deleted: numbers are marked
@@ -2528,6 +2600,14 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   // WS7 (D-20): the deterministic no-model checks. Run before the coverage loop
   // because the named-individual restriction can reject a claim the citation
   // check would otherwise have counted as supported.
+  // D-43: the payload's person rows, which a claim citing one is read
+  // against. The compensation rows' names join the known names, so a claim
+  // naming a proxy-listed officer is recognised as naming a person.
+  const personRows = collectPersonRows({
+    leadershipNotes: payload.leadership?.notes,
+    insiderNotes: payload.insiders?.notes,
+    leadershipFigures: payload.leadership?.figures,
+  });
   const consistency = runConsistencyChecks({
     claims,
     registry,
@@ -2536,19 +2616,39 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     personNames: collectPersonNames({
       leadershipNotes: payload.leadership?.notes,
       insiderNotes: payload.insiders?.notes,
-      executiveNames: reportExecutiveNames(verifiedReport),
+      executiveNames: [
+        ...reportExecutiveNames(verifiedReport),
+        ...personRows.filter((row) => row.tag !== "fmp:key-executives" && !row.anyOrder).map((row) => row.name),
+      ],
     }),
     organizationNames: payloadOrganizationNames(payload),
+    personRows,
   });
 
   const log: VerificationLogEntry[] = [];
   let traced = 0;
 
-  for (const { number, path } of numbers) {
+  // D-45: the excerpts a number may be read against, and the one currency a
+  // printed "$" can mean — the issuer's statements' own, when they agree on a
+  // single one. No statement currency, or two, and no money figure in the
+  // excerpts can verify.
+  const excerpts = [payload.transcript ?? null, ...(payload.filings ?? [])].filter(
+    (excerpt): excerpt is NonNullable<typeof excerpt> => excerpt !== null,
+  );
+  const statementCurrencies = new Set(
+    registry.flatMap((record) =>
+      record.id.startsWith("payload.statements.") && record.currency !== null ? [record.currency] : []),
+  );
+  const reportingCurrency = statementCurrencies.size === 1 ? [...statementCurrencies][0] : null;
+  const issuerWords = [payload.companyName ?? "", payload.symbol ?? ""];
+
+  for (const { number, path, rowLabel } of numbers) {
     const sourceId = citationSourceId(number);
     const sourceAsOf = citationAsOf(number);
     if (sourceId !== null) number.sourceId = sourceId;
     let periodNote: string | null = null;
+    let excerptNote: string | null = null;
+    let excerptMatched = false;
     const record = sourceId === null
       ? undefined
       : registry.find((entry) => entry.id === sourceId);
@@ -2558,14 +2658,61 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       // A number lifted from filing or transcript prose cites a registered
       // TEXT source. It is still unverifiable (numbers trace only against
       // numeric records) but the log should say that, not call a source the
-      // payload itself advertised "unknown".
-      reason =
-        sourceId !== null && citationRegistry.some((entry) => entry.id === sourceId)
-          ? "text-source"
-          : "unknown-source";
-      // Nothing establishes an omitted currency here: record it as unknown.
+      // payload itself advertised "unknown". A row that shows no verifiable
+      // number (an n/a row, a manifest entry, a figure of unestablished
+      // currency, unit or date) says so instead (D-43): it is not prose.
+      const cited = sourceId === null
+        ? []
+        : citationRegistry.filter((entry) => entry.id === sourceId);
+      reason = cited.length === 0
+        ? "unknown-source"
+        : cited.some((entry) => entry.kind !== "payload-text")
+          ? "gap-source-number"
+          : "text-source";
       const unitOnly = canonicalizeTracedUnit(number.unit, number.currency);
+      // D-45: a number citing a filing or transcript excerpt is read against
+      // that excerpt's own text — the exact (source, as-of) excerpt only, its
+      // body without the truncation marker — and verifies only when printed
+      // there at its precision, as a specific figure, beside most words of the
+      // claim's own description (excerptNumbers.ts). Other text rows (news,
+      // string figures, insider notes) carry no text to read and stay
+      // text-source.
+      const excerpt = reason === "text-source"
+        ? excerpts.find((entry) => entry.source === sourceId && entry.asOf === sourceAsOf)
+        : undefined;
+      if (excerpt !== undefined) {
+        if (unitOnly === null) {
+          reason = "unit-mismatch";
+        } else {
+          const match = matchExcerptNumber(
+            { value: number.value, unit: unitOnly.unit, currency: unitOnly.currency },
+            excerptBodyForVerification(excerpt),
+            {
+              reportingCurrency,
+              description: `${number.unit} ${rowLabel ?? ""}`,
+              ignoreWords: issuerWords,
+            },
+          );
+          if (match.ok) {
+            ok = true;
+            excerptMatched = true;
+            if (match.currency !== null) number.currency = match.currency;
+            excerptNote = `value printed in the cited excerpt as "${match.mention.raw}" beside "${match.token}"; period not machine-checked`;
+          } else {
+            reason = match.reason;
+            excerptNote = match.reason === "text-source"
+              ? "value not printed in the cited excerpt"
+              : match.reason === "text-ambiguous"
+                ? `printed only as a low-precision figure (${(match.mentions ?? []).map((mention) => `"${mention.raw}"`).join(", ")})`
+                : match.reason === "text-context-mismatch"
+                  ? "printed, but no word of the number's own description appears beside it"
+                  : null;
+          }
+        }
+      }
+      // Nothing establishes an omitted currency here: record it as unknown.
       if (
+        !ok &&
         unitOnly !== null &&
         (unitOnly.unit === "currency" || unitOnly.unit === "currency-per-share") &&
         unitOnly.currency === null
@@ -2574,7 +2721,10 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       }
     } else {
       const normalized = canonicalizeTracedUnit(number.unit, number.currency);
-      if (normalized === null) {
+      // A unit that names an indicator ("RSI", "MACD histogram") is read only
+      // on that indicator's record: the report prints the unit verbatim
+      // beside the verified number (D-44).
+      if (normalized === null || !namedUnitMatchesRecord(number.unit, record.id)) {
         reason = "unit-mismatch";
       } else {
         // Tolerate an OMITTED optional dimension the payload never gave the model
@@ -2635,9 +2785,11 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     number.verified = ok;
     const traceKind: NonNullable<VerificationLogEntry["traceKind"]> = !ok
       ? "untraced"
-      : record?.kind === "computed"
-        ? "computed-derived"
-        : "payload-match";
+      : excerptMatched
+        ? "excerpt-match"
+        : record?.kind === "computed"
+          ? "computed-derived"
+          : "payload-match";
     const renderedCitation = sourceId === null
       ? "[unsupported citation]"
       : serializeCitationRef({ sourceId, asOf: sourceAsOf });
@@ -2647,7 +2799,9 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       log.push({
         claim: rendered,
         outcome: "verified",
-        note: periodNote === null ? "exact provenance record matched" : `exact provenance record matched (${periodNote})`,
+        note: excerptNote !== null
+          ? excerptNote
+          : periodNote === null ? "exact provenance record matched" : `exact provenance record matched (${periodNote})`,
         traceKind,
         path,
         evidenceKind: "number",
@@ -2659,7 +2813,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       log.push({
         claim: rendered,
         outcome: "unverified",
-        note: `[unverified] ${reason}`,
+        note: excerptNote === null ? `[unverified] ${reason}` : `[unverified] ${reason}: ${excerptNote}`,
         traceKind,
         path,
         evidenceKind: "number",
@@ -2694,13 +2848,23 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const registryRecord = sourceId === null
       ? undefined
       : registry.find((record) => record.id === sourceId);
+    // The check's own reason, not a blanket "unknown-source": a claim that
+    // cited a registered row and was rejected for its content (a person the
+    // row does not list, a currency the row does not establish) was not
+    // unsourced (D-43).
+    const rejection = rejected
+      ? consistency.findings.find((finding) => finding.path === path &&
+        (finding.check === "named-individual" || finding.reason === "currency-not-established"))
+      : undefined;
     log.push({
       claim: claim.text,
       outcome: supported ? "verified" : "unverified",
       note: supported
         ? "citation observed"
         : rejected
-          ? "[unverified] rejected by the named-individual restriction; see the check entry for this path"
+          ? rejection?.check === "named-individual"
+            ? "[unverified] rejected by the named-individual restriction; see the check entry for this path"
+            : "[unverified] rejected by a consistency check; see the check entry for this path"
           : `[unverified] ${match.reason}`,
       traceKind: supported
         ? registryRecord?.kind === "computed"
@@ -2712,7 +2876,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",
       source: sourceId ?? claim.source,
-      reason: rejected ? "unknown-source" : match.reason,
+      reason: rejected ? (rejection?.reason ?? "unknown-source") : match.reason,
     });
   }
 

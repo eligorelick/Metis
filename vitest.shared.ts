@@ -136,4 +136,8 @@ export const RISK_SOURCE_MANIFEST = [
   // target's currency, read by both the Stage B valuation and the Stage C
   // payload registry (tests/currency.analystEstimates.test.ts).
   "src/pipeline/estimateCurrency.ts",
+  // Added 2026-10-13 (D-45): the filing/transcript text matcher. It is an
+  // acceptance path of the verifier — a number it matches is marked verified
+  // — so it carries the verifier's per-file coverage floor.
+  "src/pipeline/stageC/excerptNumbers.ts",
 ];

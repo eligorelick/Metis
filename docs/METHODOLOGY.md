@@ -5,7 +5,9 @@ convention is this project's own choice rather than a standard.
 
 The implemented behavior below was checked against the source and synthetic
 tests on 2026-10-05 and reflects report 1.10.0 / payload 1.11.0, including the
-same-day growth-anchor span (D-39) and scenario-horizon (D-40) rules. The historical literature citations remain the project's
+same-day growth-anchor span (D-39) and scenario-horizon (D-40) rules. The
+2026-10-13 sections (D-42 to D-45) were checked the same way and set payload
+1.12.0. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
 
@@ -927,6 +929,13 @@ bases. A goodwill-heavy acquirer at 1.0× book can be at 2.0× tangible book.
 The current multiple names its balance date; the annual return and model name
 their fiscal-year date. Preferred stock is deducted in both tangible bases.
 Undisclosed preferred is treated as zero and that convention is disclosed.
+From EDGAR companyfacts, preferred is the carrying value
+(`PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount`, then
+`PreferredStockIncludingAdditionalPaidInCapital`) before the par value
+(`PreferredStockValue`). Other intangibles are `IntangibleAssetsNetExcludingGoodwill`,
+else the sum of the finite- and indefinite-lived pieces the filer tags.
+Mortgage servicing rights are not deducted, following the TCE convention, so
+a servicer's EDGAR intangibles can sit below FMP's, which include them (D-42).
 Statements reconstructed from EDGAR companyfacts cannot independently verify
 themselves: their FMP↔XBRL check is marked skipped with an informational identity
 disclosure. Balance-sheet identities and other independent checks still run.
@@ -1374,7 +1383,10 @@ route-applicable ceiling, the published composite is `50 + (R − 50) × C`.
 Thus sparse favorable evidence shrinks toward neutral; full route-applicable
 coverage leaves the mean unchanged. A null composite is retained when no
 aspect has evidence. This score completeness is distinct from the report's
-provider/XBRL, citation and consistency coverage measures.
+provider/XBRL, citation and consistency coverage measures. Since 2026-10-13
+(D-44) the AI payload prints each aspect's completeness as its own row and
+record (`<aspect> evidence completeness`, a fraction), not inside the score
+row's unit, so a number citing the score record is read as the score.
 
 Altman values are mapped onto the original model's 1.81/2.99 zones before
 scoring, so different variants share comparable grade bands. Scoring growth
@@ -1450,6 +1462,109 @@ web URL can establish citation retrieval, not numeric correctness. A computed
 record is `computed-derived`; a forecast never becomes an observed fact
 because its calculation can be traced. Unresolved claims remain disclosed,
 and retrieved citation dates do not permit arbitrary report dates to verify.
+
+Provider rows rendered as text notes (news, insider trades, key executives,
+and, since 2026-10-13, the next scheduled earnings date) end in one
+assembler-owned tag. Only that trailing, allowlisted tag is registered as a
+citable source; a tag inside provider text never is. The next-earnings note
+renders only the date from the FMP or Finnhub calendar, labelled a provider
+schedule rather than a company confirmation, and only when the date and its
+observation date are real ISO days. A calendar row that already carries an
+actual EPS or revenue figure is treated as reported, never as the next event,
+even when it is dated today. The row's estimates carry no currency and are
+not rendered. A sentence citing the note may state its date (ISO, "January
+14, 2027", "14 Jan" or "January 2027") and no other date or number; any other
+fails as value-mismatch.
+
+Since 2026-10-13 (D-43) every tag the payload prints is citable, and a
+citation supports only what its row shows:
+
+- An n/a row and each missing-data manifest line (tagged
+  `[manifest.<field>]`) are gap records. They support a statement that the
+  figure is absent, and fail (`gap-source-number`) a sentence that states a
+  number. The sentence is read with tags, dates, filing forms, regulatory
+  labels ("Tier 1", "Form 4") and identifiers (CET1, FY2025) set aside, so
+  "the CET1 ratio is withheld" is not read as stating 1. A currency code
+  glued to a number ("EUR5bn") still states it, and so do numbers written in
+  words ("two times", "twice"; "one" and "half" are left out). A bare
+  year-like number with no unit ("employs 2050 people") is read as a year and
+  not caught.
+- A row printed with a number whose unit, currency or date is not
+  established is treated the same way. This covers peer market caps,
+  compensation totals, analyst estimates and targets, and quarter cells of
+  unknown currency. Such a row also fails (`currency-not-established`) a
+  sentence that puts a currency on a number. None of these rows can verify a
+  structured number.
+- The general route prints its scenario weights as a citable row, which
+  supports only the numbers it shows, all of them, in the row's bull/base/bear
+  order: "25/50/25" verifies, "the bull case carries a 50% weight" does not. The bank route prints no weights,
+  because nothing is weighted there. It prints an n/a projections row
+  instead.
+
+A claim naming a person that cites a key-executive, executive-compensation or
+insider-trade row passes only when the cited rows, at the claim's as-of, list
+that person and any title the claim states:
+
+- The name must be spelled as the row spells it. The first and last names
+  must match, with no nickname and no initial the row lacks.
+- The title must be one whole role of the row, keeping its modifiers and
+  scope. "CEO" does not match "Co-CEO, Commercial & Investment Bank". A title
+  is read after the name ("as", ", the", "(", "is", "was", "serves as",
+  "remains", "became", "has been") or as a role written just before it
+  ("CFO James Dimon").
+- Every name in such a claim must be the rows'. Besides the known names and
+  role patterns, the claim is read for capitalized word runs, split at
+  function, title and document words and at the person rows' title words;
+  organisations, initials and one word opening the sentence (unless a verb
+  such as "received" follows it, as in "Sandberg received …") are skipped. So
+  "Sheryl Sandberg is CEO" citing JPM's compensation rows fails, and a
+  capitalized word that is not a name fails closed. A first name alone is not
+  read as a person.
+
+This reads the rows' identity content only. Verbs and comparisons in the
+sentence ("pay rose") are not checked.
+
+Units (D-44, 2026-10-13). Every numeric payload row prints a bare unit the
+model can copy; RSI, the MACD histogram and the MSPR rows print "index", the
+registry's dimensionless bucket (for the MACD histogram, a difference of price
+averages, that is the bucket and not its true dimension). The verifier reads
+the indicator spellings "RSI", "RSI index", "rsi" and "MACD histogram" as
+index, but only on that indicator's own record: the report prints the unit
+beside the number, so "RSI" on the MACD record fails as unit-mismatch.
+
+Numbers cited to a filing or transcript excerpt (D-45, 2026-10-13) are read
+against that excerpt's text — the exact excerpt the number cites (source and
+as-of), without the truncation marker — in
+`src/pipeline/stageC/excerptNumbers.ts`. Such a number verifies, logged as
+`excerpt-match`, only when all of these hold:
+
+- Its unit is "%", "currency", "count" or "shares", and the excerpt prints it
+  that way: a percent with "%"/"percent"; money with "$", read as the
+  issuer's reporting currency only when its statement records establish one
+  dollar currency; a count with neither, as a whole number or a scaled
+  figure ("3.60 billion"), never a bare decimal cell. A comma-grouped whole-number cell
+  takes the scale of an "(in millions" header above it when the table is a
+  money table; a decimal cell never does, and no "$" cell does under an
+  "except per share" header. Per-share and every other unit fail.
+- The value is what the text prints, at the printed precision: "$915
+  billion" supports 915e9, not 915.3e9.
+- The printed figure is specific: three significant digits, or two with a
+  decimal or a scale word. "7%", "20%" and a bare Change-column "4" are
+  `text-ambiguous`.
+- More than half of the distinctive words of the number's own description
+  appear beside it. The description is its unit text beyond the bare unit
+  ("% Standardized CET1 ratio"), the label of the metric row it sits in, and
+  the name of the named row it sits in (a segment, a peer, a macro series).
+  "Beside it" means within 250 characters and inside its sentence or bullet,
+  or, for a table cell, in that row's own label. A number with no
+  description words fails (`text-context-mismatch`).
+
+The period is not compared with the column a figure was printed in, and two
+figures that share the description's words in one sentence ("Standardized
+and Advanced CET1 ratios were 14.6% and 14.1%") cannot be told apart. The
+log note on every match says the period is not machine-checked. News rows,
+string figures and insider notes carry no text to read and stay
+`text-source`.
 
 `src/pipeline/stageC/consistency.ts` separately checks locally identifiable
 direction words against signed changes, year phrases against cited record

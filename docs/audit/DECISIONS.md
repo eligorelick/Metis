@@ -13,6 +13,358 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-45 (verification 2026-10-13) A number cited to a filing excerpt is read against that excerpt, beside its own description
+
+- **Problem**: a TracedNumber citing `edgar:10-K item7` or a transcript could
+  never verify. The verifier knew only numeric registry records and never read
+  the excerpt text it already had. JPM report 26 logged 25 numbers as
+  `text-source`, and META report 25 logged 5, although the excerpts print most
+  of them ("$915 billion", "14.2 %", a "95,640" cell in an "(in millions"
+  table). A FACT claim citing the same excerpt already counts as verified on
+  the citation alone, so reading the number is stricter than the existing bar.
+- **Options**: (a) the finding's matcher: value, unit, scale, table and
+  specificity rules over the cited excerpt; (b) (a) plus a rule that the
+  number's own description must name the printed figure; (c) a quote anchor
+  (an optional `quote` on TracedNumber); (d) leave excerpt numbers
+  unverifiable.
+- **Risks**: (a) proves only that the value is printed somewhere in the
+  section, not what it means. keyNumbers carry no label, so a right value
+  could verify under the wrong meaning. Measured on report 26's excerpts, (a)
+  accepted every deliberate swap to another specific figure of the same unit
+  in the same excerpt (795 of 795). (c) changes a strict, shared
+  structured-output schema and adds output tokens after the 15-minute-limit
+  work. (d) leaves true, printed figures unverified.
+- **Choice**: (b), in `src/pipeline/stageC/excerptNumbers.ts`, with the
+  verify-pass hook in `passes.ts`.
+  - Only the excerpt with the cited (source, as-of) is read, and only its body
+    (`excerptBodyForVerification` drops the truncation marker). Other sections
+    of the same filing, and other excerpts, are never searched.
+  - Unit and currency: a percent needs a printed "%"/"percent". Money needs a
+    printed "$", read as the reporting currency only when the issuer's
+    statement records agree on one dollar currency; a claim in another
+    currency fails. A count needs neither. Per-share and every other unit
+    fail as `unit-mismatch`, and "people" never canonicalizes.
+  - Table scale: an "(in millions" header applies only to a comma-grouped
+    whole-number cell in a money table. A decimal cell never takes it (the
+    prototype read "$ 126.99" book value per share as $126.99m), and no "$"
+    cell takes it under an "except per share" header.
+  - Precision: within half a printed step and an exact multiple of it, so
+    915.3e9 does not match "$915 billion". Specificity: three significant
+    digits, or two with a decimal or a scale word; otherwise the reason is
+    `text-ambiguous`.
+  - Description (new, beyond the finding): the number's description is its
+    unit text beyond the bare unit plus the label of the metric row it sits
+    in. Stopwords, unit, period and label words, and the issuer's name are
+    ignored. More than half of the distinctive words must appear within 250
+    characters of the printed figure and inside its sentence or bullet, or,
+    for a table cell, in that row's own label. A number with no description
+    words fails (`text-context-mismatch`, fail-closed).
+  - The minimum asked for was one word within ±250 characters. Measured, it
+    accepted 126/795 swaps, every one a table cell or a figure near a common
+    word ("provision" for "pre-provision profit"). The majority rule, the row
+    label and the sentence clip are each stricter than that minimum.
+  - A match logs traceKind `excerpt-match` with the note `value printed in
+    the cited excerpt as "<raw>" beside "<words>"; period not machine-checked`,
+    and fills an omitted currency. A miss keeps `text-source`, with the note
+    "value not printed in the cited excerpt".
+  - The prompt's shared system block (which the judge also receives) gains an
+    EXCERPT NUMBERS rule: copy the figure exactly as printed; the unit is
+    "%", "currency", "count" or "shares" followed by the excerpt's own words
+    for the figure. It names what cannot be checked (bare table cells, whole
+    percents of one or two digits, per-share amounts).
+- **Review amendments (2026-10-13)**, each with a regression test in
+  `tests/stageC.excerptNumbers.test.ts`:
+  - A named row's name is part of its numbers' description. A segment
+    `{name, revenue}`, a peer `{name, metrics[]}` or a macro series
+    `{name, latest}` renders its number under that name, yet the description
+    read only the unit text: "currency eligible HQLA" verified $915 billion as
+    Consumer & Community Banking's revenue.
+  - A bare decimal with no scale word is never a count. Only a flattened
+    table's first row prints its "%" or "$", so "Tier 1 capital 15.1" (a
+    percent) and "Tangible book value per share 113.35" read as counts.
+  - "count …" and "shares …" units now canonicalize like "% …" and
+    "currency …". Before, the EXCERPT NUMBERS rule's own shape ("count daily
+    active people") failed as unit-mismatch, so no excerpt count could
+    verify.
+  - `src/pipeline/stageC/excerptNumbers.ts` joins the risk coverage manifest
+    (`vitest.shared.ts`): it is an acceptance path of the verifier.
+- **Not done**: the quote anchor (c), which needs a schema change and its own
+  decision; a check of the period against the printed column; spoken
+  transcript forms ("$4.6B", "twelve percent"); non-dollar filers.
+- **Evidence** (2026-10-13; a throwaway script rebuilt report 26's excerpts
+  from the cached JPM 10-K and 10-Q with `extractSection` and
+  `truncateWithDisclosure`, byte-identical to the investigator's copies, and
+  ran the real matcher):
+  - Report 26's 25 text-source numbers, as stored: 20 verify without the
+    description rule (the finding's A–D), 4 with it. The 4 are the
+    marginTrend cells, whose rows are labelled "Annual pre-provision profit"
+    and "Annual noninterest expense". 16 are printed but carry the bare unit
+    "%" or "currency" and nothing saying what they are. 3 are ambiguous
+    (20%, 29%, 7%), and 2 are not printed as percents (the bare "4" cells).
+  - With the description the new prompt asks for (hand-written from the
+    excerpt: "Standardized CET1 ratio", "eligible HQLA", "Investment Banking
+    fees wallet share", …), the same 20 verify.
+  - Deliberately wrong values, keeping each claim's own description: ±1 in
+    the last printed digit, 0/50 accepted with or without the rule. Every
+    other specific figure of the same unit in the same excerpt: 795/795 with
+    no rule, 5/795 (0.6%) with it as stored, and 26/795 (3.3%) with the
+    hand-written descriptions.
+  - The 3.3% left are the other column of the same table row (the prior
+    year: a period, not a meaning, error) and figures that share the
+    description's words in one sentence: "Standardized and Advanced CET1
+    ratios were 14.6% and 14.1%", and the HQLA sentence's $548 billion and
+    $1.5 trillion.
+- **Compatibility**: additive. The log reason enum gains `text-ambiguous` and
+  `text-context-mismatch`, and traceKind gains `excerpt-match` ("filing/
+  transcript text match"); old reports still parse. Stored reports keep their
+  entries, since no registry or payload is persisted to re-verify against.
+  The system block grows, so the cached prefix is rebuilt once. No numeric
+  record moves, and `npm run audit:deltas` records no delta.
+
+## D-44 (verification 2026-10-13) Every numeric row prints a unit, and an indicator's name is read only on its own record
+
+- **Problem**: reports 25/26 logged 10 unit-mismatch key numbers.
+  - "RSI" and "RSI index" (5): the bare-ISO-code branch of
+    `canonicalizeTracedUnit` ran before the indicator spellings and read "RSI"
+    as a currency.
+  - "MACD histogram" (3): the payload row printed no unit at all (`unit: ""`),
+    and the judge, which writes every graded key number, never received the
+    analysts' bare-unit rule.
+  - "evidence-completeness fraction" 0.4 / 0.45 (2): these cited the quality
+    and leadership SCORE records. Completeness was shown only inside the score
+    row's unit qualifier, which no record carries.
+  - Simulating the finding's first fix showed that indicator spellings
+    accepted on id, value and as-of alone would verify "-4.8154 RSI" on the
+    MACD record. Lowercase "rsi" already did. The report prints the unit
+    verbatim beside a verified number.
+- **Options**: (a) map the spellings to `index` only; (b) (a) plus binding a
+  spelling that names an indicator to that indicator's record; (c) read
+  "<description> <unit>" for completeness.
+- **Risks**: (a) renders verified numbers under the wrong indicator's name.
+  (c) would make the two genuine mis-citations verify against a record whose
+  value (79.11, 72.35) they do not state.
+- **Choice**: (b), and no (c).
+  - The indicator spellings (rank, pctile, z, m, rsi, "rsi index", "macd
+    histogram") are read as index before the ISO branch. "RSI %" and "RSI
+    P/E" fail closed rather than reading "RSI" as an ISO head.
+  - `namedUnitMatchesRecord`: "RSI"/"RSI index"/"rsi" verify only on a
+    record whose last id segment starts with "rsi" (rsi-14, the rsi14
+    driver), and "MACD histogram" only on macd-histogram.
+  - RSI-14, MACD histogram and the MSPR rows print "index", their unchanged
+    registry unit. The excess-return horizon prints "years", so its record
+    moves from index to years, its true dimension.
+  - Each aspect's completeness is its own row and record (`<aspect> evidence
+    completeness`, fraction → ratio), and leaves the score row's qualifier.
+  - The bare-unit rule is one constant, `TRACED_NUMBER_UNIT_RULE`, given to
+    the judge as well as the analysts, with a line that indicator readings
+    use "index".
+- **Evidence**: `tests/stageC.indicatorUnits.test.ts` builds the real bank
+  payload, whose quality and leadership completeness are 0.4 and 0.45 as in
+  report 26.
+  - Report 25/26's spellings verify on their own records.
+  - The cross-indicator pairs, including lowercase "rsi" on MACD, fail.
+  - Report 26's completeness-on-score citation still fails, and 0.4 on the
+    new completeness record verifies.
+  - No numeric row in any section prints without a unit.
+- **Compatibility**: tightening only, except the 8 indicator spellings now
+  accepted on their own records. The DEMO pin moves by +7 records, +829
+  prompt bytes and the fingerprint. The MACD histogram's "index" is the
+  existing bucket, not a price-point dimension. Stored reports keep their
+  entries (no re-verify path).
+
+## D-43 (verification 2026-10-13) Every printed tag is citable, and a citation supports only what its row shows
+
+- **Problem**: the prompt says "Every figure below is tagged [source · as-of].
+  Cite that tag", but the verifier registered a tag only when it became a
+  numeric record or was a text row. Three kinds of printed tag were in
+  neither registry. (1) n/a rows, such as `net debt/EBITDA: n/a
+  [computed.capital.netDebtToEbitda · 2025-12-31]` on a bank. (2) Money rows
+  of unknown currency: peer market caps, executive-compensation totals, and
+  the consensus price target and analyst estimates. (3) Missing-data manifest
+  lines, which had no tag at all, while the prompt told the model to
+  "preserve an explicit unsupported state". So in reports 25 (META) and 26
+  (JPM) every claim citing these rows failed as unknown-source. That included
+  true gap statements ("EBIT interest coverage is not meaningful for this
+  bank") and ten named-officer FACTs taken from the proxy rows. Gap
+  statements were written with the source "unsupported". Separately, a claim
+  naming a person passed on the person-row TAG alone. The rows were never
+  read, so "Tim Cook has led the company since 2011" passed with no row at
+  all. Registering the compensation tag without a content check would also
+  have let "Sheryl Sandberg is CEO" pass.
+- **Options**: (a) register the printed tags as ordinary text citations, the
+  investigator's first proposal; (b) register them by what they are, and
+  guard what each can support; (c) leave them unregistered and tell the model
+  not to cite them.
+- **Risks**: (a) loosens verification. A text citation gets no prose-number
+  check (`consistency.ts`: the numeric checks need a numeric record). In a
+  simulation, "Net debt/EBITDA is 1.2x" citing the n/a row verified, and so
+  did "consensus target $781" citing a target of unknown currency. (c) keeps
+  true claims unverified and contradicts the prompt.
+- **Choice**: (b), as one change.
+  - `CitationProvenanceRecord.kind` is now `payload-text`, `payload-gap` (an
+    n/a row, a manifest entry) or `payload-unestablished` (a row printed with
+    a number whose unit, currency or date is not established). When one tag
+    and date carry several kinds, unestablished outranks text, and text
+    outranks gap. A money row of unknown currency also carries
+    `currencyUnknown`.
+  - Each manifest line renders `[manifest.<field>]`. The tag is omitted when
+    the field cannot be written as one source id. Each tagged line is
+    registered as a gap.
+  - The general route prints the projection weights as a citable row
+    (`computed.projections.scenarioWeights`, "25/50/25"). A text row whose
+    value shows numbers supports only those numbers (`allowedNumbers`; a
+    different number fails as value-mismatch). The bank route, where nothing
+    is weighted, prints a `weighted projections: n/a [computed.projections]`
+    gap row and no weights.
+  - Guard, in `claimSourceMatch`: a claim citing a gap or unestablished
+    record with no numeric record fails as `gap-source-number` if it states a
+    number. Before the sentence is parsed, the guard sets aside tags, ISO
+    dates, filing forms, "Form/Item/Tier/Rule/Basel n", identifiers (CET1,
+    Q3, FY2025, 7A, 10b5-1), "n-year" and bare years. "The CET1 ratio is
+    withheld" therefore passes, while "1.2x", "$4.5 billion", "is 3" and
+    "25 bps" fail. A structured number citing such a row logs
+    `gap-source-number` rather than `text-source`.
+  - Guard, in the unit check: a sentence that puts a currency on a number
+    citing a `currencyUnknown` row is rejected as `currency-not-established`.
+    The check looks for a $ € £ ¥ ₩ ₹ symbol, a deliberate ISO-code list
+    (not a generic [A-Z]{3}, which would catch tickers), or "dollars"/"usd".
+  - Person rows: `fmp:executive-compensation` joins the person-row tags. A
+    claim naming a person that cites a person row passes only when that tag's
+    rows (at the claim's as-of) list the person and any title the claim
+    states. This branch runs before a numeric record could accept the claim.
+    - A name passes if the claim writes the row's first and last names, with
+      every written token present in order. So "Mark Zuckerberg" passes for
+      "Mark Elliot Zuckerberg", while "Chris Cox", "Susan J. Li" against
+      "Susan Li", and "Mary Callahan" fail. Insider names match in any order.
+    - A title passes only as one whole role of the row, keeping its modifiers
+      and scope. "CEO" fails for "Co-CEO, Commercial & Investment Bank", and
+      "Chairman" fails for "Vice Chairman". "Former" must agree. Ambiguous
+      abbreviations (CIO, CMO, CAO, CPO) do not expand.
+    - The new failure reasons are `named-individual-not-in-source` and
+      `named-individual-title-mismatch`.
+    - A credibility-path claim that names nobody and cites a person row is
+      still accepted, as before. Comp rows render as payload figures, which
+      the credibility rule admits.
+  - A rejected claim's coverage entry now carries the check's reason, not a
+    blanket unknown-source.
+  - The prompt names the manifest and n/a tags for data-gap statements,
+    forbids "unsupported" as a source and any number in a gap sentence, says
+    "not in the evidence reviewed" rather than "the company does not
+    disclose", names the compensation rows with the spell-as-the-row rule,
+    and drops the literal "25/50/25" from the style example.
+- **Review amendments (2026-10-13)**: an adversarial pass over the new
+  acceptance paths found claims that verified without support. Each is now
+  rejected, with a regression test in `tests/stageC.verifyChecks.test.ts` or
+  `tests/stageC.gapCitations.test.ts`.
+  - Unlisted names: a name no known-name list or role pattern finds was
+    invisible, so "Sheryl Sandberg is CEO" citing JPM's compensation rows
+    named nobody and passed on the tag. A claim citing a person row is now
+    also read for capitalized word runs. Runs are split at function, title
+    and document words and at the person rows' title words; organisations,
+    initials-only runs and one word opening a sentence (unless a verb such as
+    "received" follows it) are skipped. What is left must be a name the rows
+    list. A capitalized word that is no name fails closed.
+  - Titles: only "as", ", the" and "(" introduced a title, so "Jeremy Barnum
+    is the CEO" (his row says CFO) and "CFO James Dimon" passed as name-only
+    claims. "is", "was", "serves as", "remains", "became" and "has been" now
+    introduce a title, and a role written before a known name is read with its
+    modifiers ("Co-CEO Troy Rohrbaugh").
+  - Numbers on a gap or unestablished row: "two times" / "twice" (written in
+    words) and "EUR5bn" (a currency code glued to the number, which the
+    identifier strip removed) stated no number. Both now count.
+  - The weights row: membership let "the bull scenario carries a 50% weight"
+    verify against bull/base/bear 25/50/25. A row's `allowedNumbers` now
+    supports only the full sequence in the row's order.
+  - The next-earnings note (D-42) was a plain text citation, so "reports on
+    2027-02-14" verified against a note saying 2027-01-14. The note's date is
+    registered as `allowedDates`: a sentence citing it may state that date
+    (ISO, "January 14, 2027", "14 Jan", "January 2027") and no other number.
+  - `PAYLOAD_VERSION` moves 1.11.0 → 1.12.0 once for D-42..D-45. The
+    fingerprint already hashes the prompt, so no stored pass could resume
+    across the change; the version names the new evidence conventions.
+- **Not done (deferred)**: compensation currency from the proxy's Item 402
+  accession, and peer currencies from each peer's profile. Until they land,
+  peer market caps and compensation amounts stay non-verifiable as numbers.
+  A bare year-like number without a unit ("employs 2050 people") is still
+  read as a year and set aside; a single first name ("Sheryl is CEO") is not
+  read as a person.
+- **Evidence** (reports 25 and 26 replayed through the new checks, in
+  `tests/stageC.verifyChecks.test.ts` and `tests/stageC.gapCitations.test.ts`):
+  - All ten compensation-row officer FACTs pass the content check.
+  - The number-free judgments citing peers, the target and compensation, and
+    the bank gap statements ("EBIT interest coverage is not meaningful…",
+    "No quantitative balance-sheet score is available…"), verify.
+  - "Net debt/EBITDA is 1.2x." on the n/a row, "The consensus target is
+    $781.", a peer cap as a number, "Douglas Petno as CEO", and "Sheryl
+    Sandberg, the CEO" all fail.
+  - The stored peer and compensation NUMBERS stay unverified (now
+    `gap-source-number`), as do the "unsupported"-sourced claims, until a
+    report is regenerated under the new prompt.
+- **Compatibility**: the log reason enum gains four additive values
+  (`gap-source-number`, `named-individual-not-in-source`,
+  `named-individual-title-mismatch`, `currency-not-established`). The prompt
+  grows by the manifest tags and the weights row (DEMO fixture +872 bytes, 11
+  → 48 citation records), so the fingerprint moves and no stored pass
+  resumes. No numeric record or finance figure moves, and `npm run
+  audit:deltas` records no delta. Person-row citations are stricter, which is
+  fail-closed: a true claim that respells a name or shortens a title is now
+  rejected.
+
+## D-42 (EDGAR bank equity 2026-10-13) Tangible common equity deducts the carrying value of preferred and every non-goodwill intangible
+
+- **Problem**: JPM report 26 was served by EDGAR (FMP returned 429), and its
+  tangible common equity kept about 20B of preferred stock in it. The
+  `preferredStock` chain read only `PreferredStockValue`, which JPM last
+  tagged in 2009. Since then it files the carrying value as
+  `PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount` (20,045M
+  FY2025, 20,050M FY2024; FMP's figure). `tangibleCommonEquity` treats an
+  unresolved line as zero, while the tangible-leverage basis still printed
+  "− preferred". Separately, `intangibleAssets` fell back to
+  `FiniteLivedIntangibleAssetsNet` alone, which dropped JPM's indefinite-lived
+  intangibles (1.3B FY2025, 1.2B FY2024). Seventeen "verified" figures were
+  numerically wrong as a result (ROTE, P/TBV, justified P/TBV,
+  excess-return per share, fair value and the moat return drivers).
+- **Options**: (a) leave the chains; (b) add the APIC-inclusive preferred
+  elements, and sum the finite- and indefinite-lived intangible pieces when
+  the filer tags no total; (c) also deduct mortgage servicing rights, as
+  FMP's `intangibleAssets` does.
+- **Choice**: (b). `preferredStock` reads the carrying value first, then the
+  par value. `intangibleAssets` is a chain: the tagged
+  `IntangibleAssetsNetExcludingGoodwill` total, else the sum of whichever
+  pieces are tagged. The pieces are disjoint by taxonomy definition and run
+  only when the total misses, and an absent piece is named in the notes. MSRs
+  are not deducted, because the TCE convention (JPM's included) keeps them in
+  TCE. So for a mortgage servicer the EDGAR and FMP intangibles legitimately
+  differ (JPM FY2025: 2.6B vs 11.73B). When no preferred line is tagged, the
+  tangible-leverage basis now says "preferred (none tagged, assumed zero)"
+  instead of claiming a deduction.
+- **Open, not changed: common dividends beside outstanding preferred.** The
+  aggregate-dividend guard in `buildStatementsFromCompanyFacts` still reads
+  `PreferredStockValue` alone. Widening it to the chain withholds JPM's common
+  dividends for 2023-2025, and the whole excess-return valuation with them
+  (CRITICAL gap). JPM tags no cash common-dividend element
+  (`PaymentsOfDividendsCommonStock`, `PaymentsOfDividendsPreferredStockAndPreferenceStock`
+  and `DividendsCommonStockCash` are all absent from its companyfacts), so the
+  common payout cannot be established from a direct cash tag. JPM's payout
+  therefore still includes about 1.1B a year of preferred dividends
+  (`DividendsPreferredStock` 1,099M FY2025, inside `PaymentsOfDividends`
+  16,625M). Withholding the valuation, or approving a disclosed stand-in
+  (aggregate less preferred dividends declared, which the code currently
+  rejects as non-cash evidence), is an owner decision.
+- **Evidence** (2026-10-13, JPM, live bundle served by EDGAR): balance rows
+  carry preferred 20,045M / 20,050M / 27,404M (FY2025/24/23) and intangibles
+  2.6B / 2.9B / 3.2B. TCE 308,407M -> 287,062M (FY2025) and
+  290,493M -> 269,243M (FY2024). ROTE 18.59% -> 20.02%, P/TBV 2.904x ->
+  3.120x, justified P/TBV 2.222x -> 2.418x, tangible leverage 7.06% ->
+  6.57%.
+- **Compatibility**: no report shape or payload change. `npm run
+  audit:deltas` records no delta, because the DEMO/DBNK fixtures are not
+  built from companyfacts. Any filer tagging only the APIC-inclusive
+  preferred element now has preferred resolved. That lowers its TCE and adds
+  the preferred to every EV bridge, and where neither filed common earnings
+  nor a cash preferred dividend exists, ROTE is withheld (fail-closed).
+  `TAG_SYNONYMS_REVIEWED_ON` moves to 2026-10-13.
+
 ## D-41 (financial grading 2026-10-12) Banks get the DCF's evidenced-excess rule and an equity value-creation signal
 
 - **Problem**: a live sweep of JPM, BAC, WFC and C graded every one F on

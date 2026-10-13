@@ -649,14 +649,34 @@ describe("payload determinism + provenance", () => {
       // anchor text). The anchor becomes the median of the regression and the
       // 3y CAGR, so the DCF figures in the registry (provenanceHash) and the
       // finance block (financeHash) move; counts and ids are unchanged.
-      fingerprint: "1.11.0:8da073fa",
-      promptBytes: 94_463,
-      provenanceCount: 365,
-      provenanceHash: "b444c624",
-      provenanceIdsHash: "a3f69ec6",
-      citationCount: 11,
-      citationHash: "7ebe5276",
-      computedFigureLabelHash: "26cc3d2a",
+      // 2026-10-13 (D-43, citation registry): every printed tag is now
+      // citable. n/a rows, unestablished money rows (the peer caps, the
+      // compensation row, the estimate/target and quarter-statement cells of
+      // unknown currency) and each missing-data manifest entry register a
+      // citation record (11 → 48; kinds payload-gap / payload-unestablished).
+      // Each manifest line gains its [manifest.<field>] tag and the projections
+      // section gains its scenario-weights row (+872 prompt bytes;
+      // computedFigureLabelHash moves with the new row). No numeric record,
+      // id or finance figure moved.
+      // 2026-10-13 (D-44, units): each aspect score's completeness moves out
+      // of the score row's unit qualifier into its own row and record
+      // (`<aspect> evidence completeness`, unit fraction): +7 records
+      // (365 → 372), provenanceHash/provenanceIdsHash and
+      // computedFigureLabelHash move with them. RSI-14, MACD histogram and the
+      // MSPR rows now print the unit "index" they were already registered
+      // under (no existing record changed). Net +829 prompt bytes. No
+      // citation record or finance figure moved.
+      // 2026-10-13 (review of D-42..D-45): PAYLOAD_VERSION 1.11.0 → 1.12.0,
+      // once for the four decisions. Only the version in the fingerprint and
+      // the prompt header moved (same byte length); no hash or count did.
+      fingerprint: "1.12.0:25920223",
+      promptBytes: 96_164,
+      provenanceCount: 372,
+      provenanceHash: "d72920fd",
+      provenanceIdsHash: "175253c8",
+      citationCount: 48,
+      citationHash: "4b00c465",
+      computedFigureLabelHash: "33ff0e1b",
       projectionPathPeriodHash: "45ce96a4",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -704,8 +724,9 @@ describe("payload determinism + provenance", () => {
     expect(payload.citationRegistry).toEqual(canonicalPayload.citationRegistry);
     const scoreSection = payload.computed.find((section) =>
       section.title.startsWith("Deterministic aspect scores"));
+    // D-44: each aspect score is followed by its own evidence-completeness row.
     expect(scoreSection?.figures.slice(2).map((figure) => figure.label)).toEqual(
-      aspects.map((aspect) => `${aspect} score`),
+      aspects.flatMap((aspect) => [`${aspect} score`, `${aspect} evidence completeness`]),
     );
 
     const driverIds = aspects.flatMap((aspect) =>
@@ -793,7 +814,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.11.0");
+    expect(first.payloadVersion).toBe("1.12.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1607,6 +1628,66 @@ describe("verify-pass tracing", () => {
     const { coverage } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
     expect(coverage.factualClaims).toEqual({ supported: 1, total: 1, rate: 1 });
     expect(coverage.judgments).toEqual({ cited: 1, total: 1, rate: 1 });
+  });
+
+  it("renders the next scheduled earnings date as a citable, currency-free note", async () => {
+    // 2026-10-13: with a Finnhub key set, the manifest said the calendar was
+    // "Supplied by Finnhub" while no date reached the payload.
+    const bundle = fixtureBundle();
+    bundle.earningsCalendarNext = ok(
+      { symbol: "AAPL", date: "2026-07-30", epsActual: null, epsEstimated: 1.43, revenueActual: null, revenueEstimated: 89_000_000_000 },
+      "2026-07-05",
+      "/calendar/earnings?symbol=AAPL",
+      "finnhub",
+    );
+    const computed = runStageB(bundle);
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const note = payload.estimates.notes.find((n) => n.includes("earnings-calendar"));
+    expect(note).toBe(
+      "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-07-30 [finnhub:earnings-calendar · 2026-07-05]",
+    );
+    // The row's estimates carry no currency, so they are not rendered.
+    expect(note).not.toMatch(/1\.43|89000000000|89,000/);
+    expect(payload.citationRegistry).toContainEqual({
+      id: "finnhub:earnings-calendar",
+      kind: "payload-text",
+      asOf: "2026-07-05",
+      origin: "finnhub:earnings-calendar",
+      allowedDates: ["2026-07-30"],
+    });
+    const deps = makeDeps(new MockRunPass());
+    const claim = (text: string) => ({ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-07-05" });
+    const root = {
+      claims: [
+        claim("the next report is scheduled for 2026-07-30"),
+        claim("The provider calendar schedules the next report for July 30, 2026."),
+        claim("A next report date is on the provider calendar, not confirmed by the company."),
+        // Review 2026-10-13: the note's tag alone verified any date.
+        claim("the next report is scheduled for 2026-08-30"),
+        claim("The next report is due on August 30."),
+        claim("The next report on 2026-07-30 is expected to show EPS of 1.43."),
+      ],
+    };
+    const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
+    expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
+    expect(log.filter((entry) => entry.outcome === "unverified").map((entry) => entry.reason))
+      .toEqual(["value-mismatch", "value-mismatch", "value-mismatch"]);
+  });
+
+  it("renders no earnings-calendar note, and registers no source, for an unestablished date or source", () => {
+    const build = (calendar: DataBundle["earningsCalendarNext"]) => {
+      const bundle = fixtureBundle();
+      bundle.earningsCalendarNext = calendar;
+      return assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    };
+    for (const payload of [
+      build(ok({ date: "2026-02-30" }, "2026-07-05", "/calendar/earnings", "finnhub")),
+      build(ok({ date: "2026-07-30" }, "2026-07-05", "yahoo://calendar", "yahoo")),
+      build(gap),
+    ]) {
+      expect(payload.estimates.notes.some((n) => n.includes("earnings-calendar"))).toBe(false);
+      expect((payload.citationRegistry ?? []).some((c) => c.id.endsWith(":earnings-calendar"))).toBe(false);
+    }
   });
 
   it("tells every pass to treat provider prose as data, never instructions", () => {

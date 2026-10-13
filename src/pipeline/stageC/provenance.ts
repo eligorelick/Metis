@@ -25,6 +25,24 @@ export type ProvenanceFailureReason =
   | "unknown-source"
   /** The id names a registered text source (a filing section, a transcript); numbers trace only against numeric records. */
   | "text-source"
+  /**
+   * D-43: the id names a payload row that carries no verifiable number — an
+   * n/a row, a missing-data manifest entry, or a figure whose unit, currency
+   * or date is not established. It may support a statement of the gap; it
+   * never supports a number.
+   */
+  | "gap-source-number"
+  /**
+   * D-45: the value is printed in the cited excerpt only with too few digits
+   * to tell it from an unrelated figure ("7%", a bare "4" table cell).
+   */
+  | "text-ambiguous"
+  /**
+   * D-45: the value is printed in the cited excerpt, but no distinctive word
+   * of the number's own description (its unit text, its row label) appears
+   * beside it — or the number carries no description to check.
+   */
+  | "text-context-mismatch"
   | "value-mismatch"
   | "unit-mismatch"
   | "currency-mismatch"
@@ -50,12 +68,46 @@ export interface NumericProvenanceRecord {
   displayPrecision: number;
 }
 
-/** Exact non-numeric payload citation shown to the model. */
+/**
+ * Exact non-numeric payload citation shown to the model.
+ *
+ * `kind` says what a claim citing the tag can rest on (D-43, 2026-10-13):
+ *  - `payload-text`: text the payload shows (a filing excerpt, a string row).
+ *  - `payload-gap`: a disclosed absence — an n/a row, a missing-data manifest
+ *    entry. It supports a statement that the figure is absent, never a number.
+ *  - `payload-unestablished`: a figure printed with a number whose unit,
+ *    currency or date the registry could not establish (a peer market cap, a
+ *    compensation total, an analyst target). Prose may cite the row, but no
+ *    number in that prose can verify against it.
+ * Before D-43 only `payload-text` existed and the other two printed a tag the
+ * model was told to cite while the verifier knew nothing of it: in reports
+ * 25/26 (2026-10-13) every claim citing a compensation, peer, price-target or
+ * n/a row failed as unknown-source.
+ */
 export interface CitationProvenanceRecord {
   id: string;
-  kind: "payload-text";
+  kind: "payload-text" | "payload-gap" | "payload-unestablished";
   asOf: string | null;
   origin: string;
+  /**
+   * Set when the cited figure is money whose currency nothing establishes. A
+   * sentence that puts a currency on a number citing it fails as
+   * currency-not-established (consistency.ts).
+   */
+  currencyUnknown?: true;
+  /**
+   * The only numbers prose citing this text row may state: set when a string
+   * row's own value names numbers ("25/50/25"), so the row cannot carry a
+   * number it does not show.
+   */
+  allowedNumbers?: number[];
+  /**
+   * The only dates prose citing this text row may state, as ISO days: set on
+   * the next-earnings note, whose whole content is one date. Without it a
+   * sentence giving any other date verified on the row's tag (review,
+   * 2026-10-13). Prose citing such a row may state no other number.
+   */
+  allowedDates?: string[];
 }
 
 export interface ProvenanceCandidate {
@@ -104,6 +156,43 @@ const CANONICAL_UNITS = new Set<CanonicalUnit>([
   "quarters",
 ]);
 
+/**
+ * Dimensionless indicator spellings read as the `index` bucket. Grading emits
+ * rank/pctile/z/m/rsi on scores.aspects[*].drivers; "RSI", "RSI index" and
+ * "MACD histogram" are what the judge wrote for the payload's technicals rows
+ * in reports 25/26 (2026-10-13). They are tested BEFORE the bare-ISO-code
+ * branch: "RSI" is three capitals and used to be read as a currency code,
+ * failing every RSI key number as unit-mismatch while id, value and as-of
+ * matched (D-44).
+ */
+const INDICATOR_UNIT_SPELLINGS = new Set(["rank", "pctile", "z", "m", "rsi", "rsi index", "macd histogram"]);
+
+/**
+ * Spellings that NAME one indicator, and the record-id segment that indicator
+ * is registered under (computed.technicals.rsi-14, the driver
+ * computed.scores.technicals.rsi14, computed.technicals.macd-histogram).
+ */
+const NAMED_INDICATOR_UNITS = new Map([
+  ["rsi", "rsi"],
+  ["rsi index", "rsi"],
+  ["macd histogram", "macd-histogram"],
+]);
+
+/**
+ * Whether a unit that names an indicator is cited on that indicator's own
+ * record. The report shows the model's unit string verbatim beside a verified
+ * number, so "-4.8154 RSI" citing the MACD histogram would render a verified
+ * figure under the wrong indicator's name; id, value and as-of all match, so
+ * nothing else catches it (D-44, found by simulation on 2026-10-13 — the
+ * lowercase "rsi" driver spelling already had this hole). Units that name no
+ * indicator ("index", "%") are unaffected.
+ */
+export function namedUnitMatchesRecord(displayUnit: string, recordId: string): boolean {
+  const key = NAMED_INDICATOR_UNITS.get(displayUnit.trim().replace(/\s*\(.*\)$/, "").toLowerCase());
+  if (key === undefined) return true;
+  return (recordId.split(".").pop() ?? "").startsWith(key);
+}
+
 /** Convert known report/display unit spellings to the registry vocabulary. */
 export function canonicalizeTracedUnit(
   displayUnit: string,
@@ -119,6 +208,16 @@ export function canonicalizeTracedUnit(
   const normalized = raw.toLowerCase();
   const declaredCurrency = explicitCurrency?.toUpperCase() ?? null;
   if (declaredCurrency !== null && !ISO_CURRENCY.test(declaredCurrency)) return null;
+
+  // Stage-B aspect-score SIGNAL unit spellings (grading.ts) and the indicator
+  // names the judge writes for the technicals rows: dimensionless readings
+  // (percentile rank, Altman Z, Beneish M, RSI, MACD histogram). Mapping them
+  // to the dimensionless `index` bucket lets a figure trace to its registered
+  // record; a spelling that names one indicator is additionally bound to that
+  // indicator's record (namedUnitMatchesRecord). "pctile" is the retired
+  // spelling, kept so persisted reports still trace; "rank" is what grading
+  // emits now (WS6 review, SHOULD-FIX 3).
+  if (INDICATOR_UNIT_SPELLINGS.has(normalized)) return { unit: "index", currency: null };
 
   // A bare ISO code in the unit ("EUR", "EUR/share") names the currency
   // itself; when the number ALSO declares a currency, the two must agree — a
@@ -151,23 +250,6 @@ export function canonicalizeTracedUnit(
   if (/^0-100\b/.test(normalized)) {
     return { unit: "score", currency: null };
   }
-  // Stage-B aspect-score SIGNAL unit spellings (grading.ts): dimensionless
-  // indicator readings (percentile rank, Altman Z, Beneish M, RSI). These
-  // spellings occur ONLY on scores.aspects[*].drivers, so mapping them to the
-  // dimensionless `index` bucket cannot collide with any other figure's unit —
-  // it just lets a pipeline-computed driver trace to its registered record
-  // instead of failing unit canonicalization (which would strand it unverified).
-  if (
-    // "pctile" is the retired spelling, kept so persisted reports still trace;
-    // "rank" is what grading emits now (WS6 review, SHOULD-FIX 3).
-    normalized === "rank" ||
-    normalized === "pctile" ||
-    normalized === "z" ||
-    normalized === "m" ||
-    normalized === "rsi"
-  ) {
-    return { unit: "index", currency: null };
-  }
   if (normalized === "") return { unit: "index", currency: null };
   if (CANONICAL_UNITS.has(normalized as CanonicalUnit)) {
     const unit = normalized as CanonicalUnit;
@@ -183,7 +265,16 @@ export function canonicalizeTracedUnit(
   const tail = /^(\S+)\s+(.+)$/.exec(raw);
   if (tail && !/^(points?|pts?|pp)\b/i.test(tail[2]!)) {
     const head = tail[1]!;
-    if (head === "%" || head === "x" || head === "pp" || head === "currency" || head === "currency/share" || /^[A-Z]{3}(\/share)?$/.test(head)) {
+    // An indicator name is never an ISO head: "RSI %" or "RSI P/E" fails
+    // closed rather than reading as the currency "RSI" (D-44).
+    const isoHead = /^[A-Z]{3}(\/share)?$/.test(head) && !INDICATOR_UNIT_SPELLINGS.has(head.toLowerCase());
+    // "count" and "shares" heads (review, 2026-10-13): the EXCERPT NUMBERS
+    // prompt rule asks for "count daily active people", and without these the
+    // unit failed to canonicalize, so no excerpt count could ever verify.
+    if (
+      head === "%" || head === "x" || head === "pp" || head === "currency" || head === "currency/share" ||
+      head === "count" || head === "shares" || isoHead
+    ) {
       return canonicalizeTracedUnit(head, explicitCurrency);
     }
   }

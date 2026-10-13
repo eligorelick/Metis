@@ -21,11 +21,15 @@
  *    this one only writes a log entry, and prose names bare years ("in 2025")
  *    that no fiscal calendar in the payload can adjudicate.
  *  - UNIT: the unit token attached to the cited figure ("%", "bps", "billion")
- *    must belong to the family the record's registry unit can express.
+ *    must belong to the family the record's registry unit can express. A
+ *    sentence that puts a currency on a number citing a figure whose currency
+ *    is not established fails as currency-not-established (D-43).
  *  - NAMED INDIVIDUAL: a claim that names a person may cite filings, transcripts,
- *    registry figures or the payload's own key-executive / insider-trade rows —
- *    never a web-search result, never any other web citation (news, a press
- *    release), and never nothing.
+ *    registry figures or the payload's own key-executive / executive-compensation
+ *    / insider-trade rows — never a web-search result, never any other web
+ *    citation (news, a press release), and never nothing. A person-row citation
+ *    passes only when the cited rows list that person, and the title the claim
+ *    states (D-43).
  *
  * DESIGN RULE — precision over recall. Every check first has to LOCATE the cited
  * figure inside the sentence (a number in the text whose magnitude, after any
@@ -52,7 +56,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
-import { citationSourceId } from "@/pipeline/stageC/citations";
+import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
 
 export type ConsistencyCheckKind = NonNullable<VerificationLogEntry["check"]>;
 export type ConsistencyFailureReason = Extract<
@@ -63,6 +67,9 @@ export type ConsistencyFailureReason = Extract<
   | "named-individual-unsourced"
   | "named-individual-web-source"
   | "credibility-source-restricted"
+  | "named-individual-not-in-source"
+  | "named-individual-title-mismatch"
+  | "currency-not-established"
 >;
 
 export interface ConsistencyFinding {
@@ -97,6 +104,13 @@ export interface ConsistencyInput {
    * Laboratories") is a company, not a person (audit 2026-09-06, F187).
    */
   organizationNames?: readonly string[];
+  /**
+   * The payload's rows about people ({@link collectPersonRows}). A claim
+   * naming a person that cites a person-row tag passes only when that tag's
+   * rows list the person (D-43). Absent means none: such a claim then fails,
+   * never passes on the tag alone.
+   */
+  personRows?: readonly PersonRow[];
 }
 
 export interface ConsistencyResult {
@@ -226,6 +240,149 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
     if (NUMBER_PATTERN.lastIndex === match.index) NUMBER_PATTERN.lastIndex += 1;
   }
   return out;
+}
+
+/**
+ * Spans that contain digits but state no quantity, removed before a sentence
+ * is asked whether it states a number (D-43). parseNumbers has no word
+ * boundaries, so on the raw text "The CET1 ratio is withheld" states 1,
+ * "No Form 4 filings for 2025" states 4 and 2025, and "Rule 10b5-1" states 10,
+ * 5 and 1 — every natural way to write a bank's or an insider's data gap would
+ * fail. Order matters: tags first (they hold dates), then dates and forms,
+ * then identifiers. A scale or unit suffix keeps its number ("1.2x", "4.5bn",
+ * "25bps"), and a year written as an amount ("$2025", "2025 million") is
+ * kept. A currency code glued to a number ("EUR5bn") is an amount, not an
+ * identifier, and is kept (review, 2026-10-13: "Net debt is EUR5bn" citing an
+ * n/a row stated no number). Spelled-out numbers ("three times") are read by
+ * {@link statesNumberWord}.
+ */
+// ISO codes checked beside a number. A generic [A-Z]{3} would read tickers
+// ("JPM 43") as currencies, so the list is deliberate; extend it on evidence.
+const CURRENCY_CODES =
+  "USD|EUR|GBP|JPY|CNY|RMB|HKD|KRW|INR|CHF|CAD|AUD|NZD|TWD|SEK|NOK|DKK|BRL|MXN|ZAR|SGD|ILS";
+const NON_QUANTITY_PATTERNS: readonly RegExp[] = [
+  /\[[^[\]\n]*\]/g,
+  /\b\d{4}-\d{2}-\d{2}\b/g,
+  /\b(?:10|20|40)-[KQF](?:\/A)?\b|\b8-K(?:\/A)?\b|\bDEF ?14[AC]\b/g,
+  /\b(?:Form|Item|Tier|Rule|Section|Part|Level|Pillar|Stage|Basel)\s+[0-9IVX]+[A-Za-z]?\b/g,
+  new RegExp(String.raw`\b(?!(?:${CURRENCY_CODES})\d)[A-Za-z]+\d[\w-]*`, "g"),
+  /\b\d+(?!(?:x|b|bn|m|mm|mn|k|t|tn|bps?|pps?|pct|percent)\b)[A-Za-z][\w-]*/gi,
+  /\b\d+-(?:year|month|quarter|day|week)s?\b/gi,
+  /(?<![$€£¥\d.,])\b(?:19|20)\d{2}\b(?![.,]\d|\s*(?:%|percent|percentage|pps?\b|bps?\b|basis|x\b|times\b|k\b|thousand|mm\b|m\b|mn\b|million|bn\b|billion|tn\b|trillion|dollars?\b|usd\b|shares?\b))/gi,
+];
+
+function stripNonQuantities(text: string): string {
+  let out = text;
+  for (const pattern of NON_QUANTITY_PATTERNS) out = out.replace(pattern, " ");
+  return out;
+}
+
+/**
+ * The numbers a sentence states, as written (magnitude, before any scale
+ * word), once tags, dates, filing forms and identifiers are set aside. Used
+ * where a citation can support no number at all — a gap or an unestablished
+ * figure — and to read the numbers a text row itself shows.
+ */
+export function proseNumbers(text: string): number[] {
+  return parseNumbers(stripNonQuantities(text)).map((parsed) => parsed.magnitude);
+}
+
+const MONTH_NUMBERS: Readonly<Record<string, number>> = {
+  january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4, may: 5, june: 6,
+  jun: 6, july: 7, jul: 7, august: 8, aug: 8, september: 9, sept: 9, sep: 9, october: 10, oct: 10,
+  november: 11, nov: 11, december: 12, dec: 12,
+};
+const MONTH_NAME = String.raw`(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)`;
+
+interface ProseDate { year: number | null; month: number; day: number | null }
+
+// Date spellings, most specific first; each match is removed before the next
+// pattern runs, so "January 14, 2027" is read once, as one date.
+const DATE_PATTERNS: readonly { pattern: RegExp; read: (m: RegExpMatchArray) => ProseDate }[] = [
+  {
+    pattern: /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+    read: (m) => ({ year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) }),
+  },
+  {
+    pattern: new RegExp(String.raw`\b(${MONTH_NAME})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s+(\d{4})\b)?`, "gi"),
+    read: (m) => ({ year: m[3] === undefined ? null : Number(m[3]), month: MONTH_NUMBERS[m[1].toLowerCase()], day: Number(m[2]) }),
+  },
+  {
+    pattern: new RegExp(String.raw`\b(\d{1,2})(?:st|nd|rd|th)?\s+(${MONTH_NAME})\b\.?(?:,?\s+(\d{4})\b)?`, "gi"),
+    read: (m) => ({ year: m[3] === undefined ? null : Number(m[3]), month: MONTH_NUMBERS[m[2].toLowerCase()], day: Number(m[1]) }),
+  },
+  {
+    pattern: new RegExp(String.raw`\b(${MONTH_NAME})\.?\s+(\d{4})\b`, "gi"),
+    read: (m) => ({ year: Number(m[2]), month: MONTH_NUMBERS[m[1].toLowerCase()], day: null }),
+  },
+  {
+    pattern: /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g,
+    read: (m) => ({ year: Number(m[3]), month: Number(m[1]), day: Number(m[2]) }),
+  },
+];
+
+/**
+ * Does the sentence state only the given dates, and no other number? For a
+ * text row whose whole content is a date (the next-earnings note): every
+ * date the sentence writes — ISO, "January 14, 2027", "14 Jan", "January
+ * 2027" — must agree with an allowed ISO day at the precision written, and
+ * nothing else may be a number (review, 2026-10-13). A sentence that states
+ * no date at all passes: it asserts nothing the row would have to show.
+ */
+export function statesOnlyAllowedDates(text: string, allowedIsoDates: readonly string[]): boolean {
+  const allowed = allowedIsoDates.map((iso) => iso.split("-").map(Number));
+  let rest = stripTags(text);
+  const dates: ProseDate[] = [];
+  for (const { pattern, read } of DATE_PATTERNS) {
+    rest = rest.replace(pattern, (...args) => {
+      dates.push(read(args.slice(0, -2) as unknown as RegExpMatchArray));
+      return " ";
+    });
+  }
+  if (proseNumbers(rest).length > 0 || statesNumberWord(rest)) return false;
+  return dates.every((date) => allowed.some(([year, month, day]) =>
+    (date.year === null || date.year === year) && date.month === month && (date.day === null || date.day === day)));
+}
+
+function stripTags(text: string): string {
+  return text.replace(/\[[^[\]\n]*\]/g, " ");
+}
+
+/**
+ * Does the sentence write a number in words? A gap or unestablished citation
+ * supports no number, and "Net debt/EBITDA is two times" citing an n/a row
+ * stated one that proseNumbers cannot see (review, 2026-10-13). "One" and
+ * "half" are left out: "one of the" and "the first half" are how a gap is
+ * written, not quantities.
+ */
+const NUMBER_WORD =
+  /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|trillion|dozen|twice|thrice|double|doubled|tripled|quadrupled)\b/i;
+export function statesNumberWord(text: string): boolean {
+  return NUMBER_WORD.test(stripNonQuantities(text));
+}
+
+const CODE_BEFORE_NUMBER = new RegExp(String.raw`\b(?:${CURRENCY_CODES})\s?[-+−]?\d`);
+const CODE_AFTER_NUMBER = new RegExp(
+  String.raw`\d(?:\s?(?:thousand|million|billion|trillion|bn|mm|mn|k|m|b|tn))?\s?(?:${CURRENCY_CODES})\b`,
+  "i",
+);
+const SYMBOL_BEFORE_NUMBER = /[$€£¥₩₹]\s?[-+−]?\d/;
+
+/**
+ * Does the sentence put a currency on a number? A currency symbol or code
+ * beside a digit, or a money unit word after one ("781 dollars"). Checked on
+ * the sentence with dates, forms and identifiers set aside, so "FY2025 USD
+ * reporting" is not read as 2025 dollars.
+ */
+export function statesCurrencyOnNumber(text: string): boolean {
+  const stripped = stripNonQuantities(text);
+  if (SYMBOL_BEFORE_NUMBER.test(stripped)) return true;
+  if (CODE_BEFORE_NUMBER.test(stripped) || CODE_AFTER_NUMBER.test(stripped)) return true;
+  // A code glued to its number ("USD781") is an identifier to the strip.
+  if (new RegExp(String.raw`\b(?:${CURRENCY_CODES})\d`).test(text)) return true;
+  return parseNumbers(stripped).some(
+    (parsed) => parsed.hadCurrencyPrefix || (parsed.unitToken !== null && MONEY_TOKENS.has(parsed.unitToken)),
+  );
 }
 
 /**
@@ -569,10 +726,13 @@ const ROLE_WORDS = String.raw`(?:CEO|CFO|COO|CTO|CIO|CMO|CAO|[Cc]hief\s+[A-Za-z]
 const NAME_TOKEN = String.raw`[A-Z][a-zÀ-ɏ'’\-]{1,}`;
 const NAME_PAIR = String.raw`${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,2}`;
 
+// Named groups (D-43) so the person-row content check can read the NAME a
+// pattern found, apart from the honorific or role around it: an honorific
+// yields a surname only, a role yields the role as the stated title.
 const PERSON_PATTERNS: readonly RegExp[] = [
-  new RegExp(String.raw`\b${HONORIFIC}\s+${NAME_TOKEN}`, "g"),
-  new RegExp(String.raw`\b${ROLE_WORDS}\s+${NAME_PAIR}`, "g"),
-  new RegExp(String.raw`\b${NAME_PAIR},\s+(?:the\s+)?${ROLE_WORDS}\b`, "g"),
+  new RegExp(String.raw`\b${HONORIFIC}\s+(?<surname>${NAME_TOKEN})`, "g"),
+  new RegExp(String.raw`\b(?<role>${ROLE_WORDS})\s+(?<name>${NAME_PAIR})`, "g"),
+  new RegExp(String.raw`\b(?<name>${NAME_PAIR}),\s+(?:the\s+)?${ROLE_WORDS}\b`, "g"),
 ];
 
 /**
@@ -606,14 +766,57 @@ export function collectPersonNames(sources: {
   return [...names];
 }
 
-/** Does this sentence name an identifiable person? */
-export function namesIndividual(
+/** One person a sentence names, and where. */
+export interface NamedIndividual {
+  /** What the sentence says that marks a person (a known name, or a whole pattern hit such as "CEO Jane Roe"). */
+  match: string;
+  /** The person's name as written; a surname alone after an honorific. */
+  name: string;
+  surnameOnly: boolean;
+  /** The title the sentence attaches to the name, when it attaches one. */
+  title: string | null;
+}
+
+/**
+ * Every person a sentence names: known names first, in list order, then
+ * pattern hits, skipping a hit inside a name already found. The order keeps
+ * {@link namesIndividual} returning what it always returned.
+ */
+export function namedIndividuals(
   sentence: string,
   knownNames: readonly string[],
   organizationNames: readonly string[] = [],
-): string | null {
-  for (const name of knownNames) {
-    if (sentence.includes(name)) return name;
+  /**
+   * Also read capitalized runs no known name or pattern found as names
+   * ({@link unlistedNames}); `extraWords` are words that are no name here
+   * (the person rows' titles). Only for a claim citing a person row.
+   */
+  options: { unlistedNames?: { extraWords: readonly string[] } } = {},
+): NamedIndividual[] {
+  const found: NamedIndividual[] = [];
+  const spans: [number, number][] = [];
+  // A pattern hit that overlaps a name already found is that person, not a
+  // second one: "Under Jeremy Barnum, the CFO" matched the comma pattern as
+  // "Under Jeremy Barnum" around the known "Jeremy Barnum" (review,
+  // 2026-10-13).
+  const overlaps = (start: number, end: number): boolean =>
+    spans.some(([s, e]) => start < e && end > s);
+  const known = knownNames
+    .flatMap((name) => {
+      const index = sentence.indexOf(name);
+      return index < 0 ? [] : [{ name, start: index, end: index + name.length }];
+    });
+  for (const hit of known) {
+    // "Susan Li" inside "Susan Li Chen" is the longer name, not a second person.
+    if (known.some((other) => other !== hit && other.start <= hit.start && other.end >= hit.end &&
+      other.end - other.start > hit.end - hit.start)) continue;
+    spans.push([hit.start, hit.end]);
+    found.push({
+      match: hit.name,
+      name: hit.name,
+      surnameOnly: false,
+      title: titleAfterName(sentence, hit.end) ?? titleBeforeName(sentence, hit.start),
+    });
   }
   const organisations = organizationNames.map((name) => name.toLowerCase());
   const isOrganisation = (candidate: string): boolean => {
@@ -625,7 +828,427 @@ export function namesIndividual(
     for (const match of sentence.matchAll(pattern)) {
       const candidate = match[0].trim();
       if (isOrganisation(candidate)) continue;
-      return candidate;
+      const groups = match.groups ?? {};
+      // A clause-opening word the name pattern swept in ("Under Jeremy
+      // Barnum, the CFO") is not part of the name.
+      const swept = (groups.name ?? groups.surname ?? candidate).trim().split(/\s+/);
+      while (swept.length > 1 && NOT_A_NAME_WORDS.has(swept[0].toLowerCase())) swept.shift();
+      const name = swept.join(" ");
+      const start = (match.index ?? 0) + Math.max(0, match[0].indexOf(name));
+      const end = start + name.length;
+      if (overlaps(start, end)) continue;
+      spans.push([start, end]);
+      found.push({
+        match: candidate,
+        name,
+        surnameOnly: groups.surname !== undefined,
+        title: groups.role !== undefined
+          ? titleBeforeName(sentence, start) ?? groups.role
+          : titleAfterName(sentence, end) ?? titleBeforeName(sentence, start),
+      });
+    }
+  }
+  if (options.unlistedNames !== undefined) {
+    found.push(...unlistedNames(sentence, spans, options.unlistedNames, isOrganisation));
+  }
+  return found;
+}
+
+// Capitalized words that are not a person's name in a sentence about one:
+// function words a sentence or clause may open with, role and title words,
+// the documents a compensation or executive row comes from, and months.
+const NOT_A_NAME_WORDS = new Set([
+  "the", "a", "an", "this", "that", "these", "those", "under", "after", "before", "while", "when", "since",
+  "with", "both", "its", "their", "his", "her", "our", "in", "on", "at", "for", "from", "by", "as", "and",
+  "but", "also", "each", "neither", "no", "not", "per", "of", "according", "during", "latest", "prior",
+  "total", "pay", "if", "although", "however", "only", "all", "other", "one", "two", "new",
+  "mr", "mrs", "ms", "miss", "dr", "sir", "prof",
+  "chief", "executive", "officer", "officers", "operating", "financial", "technology", "product",
+  "information", "investment", "marketing", "legal", "risk", "people", "chairman", "chairwoman",
+  "chairperson", "chair", "president", "vice", "senior", "managing", "director", "directors", "founder",
+  "cofounder", "co-founder", "general", "counsel", "head", "former", "interim", "acting", "group",
+  "global", "deputy", "treasurer", "secretary", "controller", "board", "committee", "lead", "independent",
+  "summary", "compensation", "table", "proxy", "statement", "annual", "report", "form", "item", "filing",
+  "filings", "definitive", "schedule", "fiscal", "insider", "insiders", "trade", "trades",
+  "january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+  "november", "december",
+  // Nouns that open sentences about executives and their rows.
+  "tenure", "currency", "revenue", "performance", "governance", "leadership", "management", "ownership",
+  "disclosure", "evidence", "information", "records", "record", "rows", "row", "notes", "note", "listing",
+  "title", "titles", "appointment", "appointments", "succession", "shareholders", "holdings", "sales",
+  "purchases", "transactions", "activity", "it", "there", "he", "she", "they", "which", "who", "none",
+  "nothing", "salary", "bonus", "awards", "equity", "stock", "options", "incentive", "incentives",
+]);
+
+// A verb that follows a person's name. A lone capitalized word opening a
+// sentence is read as a name only when one follows it: "Sandberg received
+// the largest award" names someone, "Without a covered period …" does not.
+const PERSON_VERB = /^\s+(?:is|was|has|had|serves|served|received|receives|earned|earns|leads|led|joined|became|becomes|remains|remained|holds|held|took|takes|sold|bought|chairs|chaired|runs|ran|oversees|oversaw|said|says|will|would|also|currently)\b/;
+
+const CAPITALIZED_WORD = String.raw`(?:[A-Z][a-zÀ-ɏ'’]+(?:-[A-Za-zÀ-ɏ'’]+)*|[A-Z]\.)(?![A-Za-z0-9\-])`;
+const CAPITALIZED_RUN = new RegExp(
+  String.raw`(?<![A-Za-z0-9'’\-])${CAPITALIZED_WORD}(?:\s+${CAPITALIZED_WORD})*`,
+  "g",
+);
+
+/**
+ * Capitalized word runs that read as a person's name and that no known name
+ * or pattern found (review, 2026-10-13). Used only for a claim citing a
+ * person row: a name the payload never listed is invisible to exact matching
+ * and to the role patterns, so "Sheryl Sandberg is CEO" citing JPM's
+ * compensation rows named nobody and passed on the tag. Each run is split at
+ * {@link NOT_A_NAME_WORDS} and at the person rows' own title words ("Asset &
+ * Wealth Management"); an organisation, a run of initials only, and a single
+ * word opening the sentence ("Latest annual pay …") are skipped, unless a
+ * verb a person takes follows it ("Sandberg received …", {@link PERSON_VERB}).
+ * What is left is read as a name the cited rows must list — a capitalized
+ * word that is no name fails closed.
+ */
+function unlistedNames(
+  sentence: string,
+  spans: readonly [number, number][],
+  options: { extraWords: readonly string[] },
+  isOrganisation: (candidate: string) => boolean,
+): NamedIndividual[] {
+  const extra = new Set(options.extraWords.flatMap((text) => text.toLowerCase().match(/[a-zà-ɏ'’-]+/g) ?? []));
+  const notAName = (token: string): boolean => {
+    const word = token.replace(/['’]s$/, "");
+    // "Co-CEO", "Co-President": a hyphenated part that is a role or an
+    // abbreviation makes the whole word a title.
+    return word.split("-").some((part) => {
+      const lower = part.toLowerCase();
+      return NOT_A_NAME_WORDS.has(lower) || extra.has(lower) || lower === "co" || /^[A-Z]{2,}$/.test(part);
+    });
+  };
+  const out: NamedIndividual[] = [];
+  CAPITALIZED_RUN.lastIndex = 0;
+  for (const run of sentence.matchAll(CAPITALIZED_RUN)) {
+    const runStart = run.index ?? 0;
+    // Split the run into pieces of name-like words, keeping offsets.
+    const pieces: { start: number; end: number; words: string[] }[] = [];
+    let current: { start: number; end: number; words: string[] } | null = null;
+    for (const word of run[0].matchAll(/\S+/g)) {
+      const start = runStart + (word.index ?? 0);
+      const end = start + word[0].length;
+      if (notAName(word[0])) {
+        current = null;
+        continue;
+      }
+      if (current === null) {
+        current = { start, end, words: [] };
+        pieces.push(current);
+      }
+      current.end = end;
+      current.words.push(word[0]);
+    }
+    for (const piece of pieces) {
+      if (spans.some(([s, e]) => piece.start < e && piece.end > s)) continue;
+      if (piece.words.every((word) => /^[A-Z]\.$/.test(word))) continue;
+      const name = sentence.slice(piece.start, piece.end).replace(/['’]s$/, "");
+      if (isOrganisation(name)) continue;
+      const opensSentence = /^\s*$|[.!?;:]\s*$/.test(sentence.slice(0, piece.start));
+      if (piece.words.length === 1 && opensSentence && !PERSON_VERB.test(sentence.slice(piece.end))) continue;
+      out.push({
+        match: name,
+        name,
+        surnameOnly: piece.words.length === 1,
+        title: titleAfterName(sentence, piece.end) ?? titleBeforeName(sentence, piece.start),
+      });
+    }
+  }
+  return out;
+}
+
+/** Does this sentence name an identifiable person? */
+export function namesIndividual(
+  sentence: string,
+  knownNames: readonly string[],
+  organizationNames: readonly string[] = [],
+): string | null {
+  return namedIndividuals(sentence, knownNames, organizationNames)[0]?.match ?? null;
+}
+
+/* ------------------------------------------------------------------------ *
+ * Person rows: what the payload's own rows say about people (D-43)
+ * ------------------------------------------------------------------------ */
+
+/**
+ * One payload row about a person, as the model saw it. Until 2026-10-13 a
+ * claim naming a person that cited one of these tags passed on the tag alone
+ * — "Tim Cook has led the company since 2011" passed with no row at all, and
+ * citing the executive-compensation rows would have let "Sheryl Sandberg is
+ * CEO" pass. The content check below reads the cited tag's rows.
+ */
+export interface PersonRow {
+  /** The tag the row prints, which a claim cites. */
+  tag: string;
+  asOf: string | null;
+  name: string;
+  title: string | null;
+  /** Insider reporting names come surname first ("Li Susan J."). */
+  anyOrder: boolean;
+}
+
+// A token that opens the position text of a compensation row, which FMP
+// writes as one string: "Christopher K. Cox Chief Product Officer",
+// "Mary Callahan Erdoes CEO, Asset & Wealth Management".
+const POSITION_TOKEN =
+  /^(?:CEO|CFO|COO|CTO|CIO|CMO|CAO|CPO|CLO|CHRO|CRO|CSO|CDO|EVP|SVP|VP|GC|Chief|Chairman|Chairwoman|Chairperson|Chair|President|Vice|Executive|Senior|Managing|Head|Former|General|Director|Treasurer|Secretary|Founder|Cofounder|Controller|Deputy|Interim|Acting|Group|Global|Co-\S*)$/;
+
+/**
+ * Split "<name> <position>" at the FIRST position token or separator. The
+ * tokens before it are the name. Splitting at the last name-like token
+ * instead read "Mary Callahan" as the name in "Mary Callahan Erdoes CEO, …".
+ */
+export function splitNameAndPosition(text: string): { name: string; title: string | null } {
+  const dash = /\s+[—–]\s+|\s+-\s+/.exec(text);
+  if (dash) {
+    return { name: text.slice(0, dash.index).trim(), title: text.slice(dash.index + dash[0].length).trim() || null };
+  }
+  const tokens = text.trim().split(/\s+/);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (i > 0 && POSITION_TOKEN.test(token.replace(/[,:]$/, ""))) {
+      return { name: tokens.slice(0, i).join(" "), title: tokens.slice(i).join(" ") };
+    }
+    if (/[,:]$/.test(token) && i < tokens.length - 1) {
+      return { name: tokens.slice(0, i + 1).join(" ").replace(/[,:]$/, ""), title: tokens.slice(i + 1).join(" ") };
+    }
+  }
+  return { name: text.trim(), title: null };
+}
+
+/**
+ * The person rows the payload shows, read from the same rendered rows the
+ * model read (the key-executive and insider notes, whose formats
+ * payload.ts owns) and from the compensation figures' labels.
+ */
+export function collectPersonRows(sources: {
+  leadershipNotes?: readonly string[];
+  insiderNotes?: readonly string[];
+  leadershipFigures?: readonly { label: string; source: string; asOf: string | null; provenanceId?: string }[];
+}): PersonRow[] {
+  const rows: PersonRow[] = [];
+  const usable = (value: string | undefined): string | null => {
+    const trimmed = value?.trim();
+    return trimmed === undefined || trimmed === "" || trimmed === "?" ? null : trimmed;
+  };
+  for (const note of sources.leadershipNotes ?? []) {
+    const match = /^(.+?) — (.+?)(?: \(since [^)]*\))?(?:, pay [^[]*)? \[fmp:key-executives\]$/.exec(note);
+    const name = usable(match?.[1]);
+    if (match === null || name === null) continue;
+    rows.push({ tag: "fmp:key-executives", asOf: null, name, title: usable(match[2]), anyOrder: false });
+  }
+  for (const note of sources.insiderNotes ?? []) {
+    const match = /^\S+ (.+?) \(([^)]*)\): .* \[fmp:insider-trades · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
+    const name = usable(match?.[1]);
+    if (match === null || name === null) continue;
+    // The owner type reads "director" or "officer: Chief Financial Officer".
+    const owner = usable(match[2]);
+    const title = owner === null ? null : usable(owner.split(":").pop());
+    rows.push({ tag: "fmp:insider-trades", asOf: match[3], name, title, anyOrder: true });
+  }
+  for (const figure of sources.leadershipFigures ?? []) {
+    if (figure.source !== "fmp:executive-compensation") continue;
+    const body = /^comp (.+) FY\S*$/.exec(figure.label)?.[1];
+    if (body === undefined) continue;
+    const { name, title } = splitNameAndPosition(body);
+    if (usable(name) === null) continue;
+    rows.push({
+      tag: figure.provenanceId ?? figure.source,
+      asOf: figure.asOf,
+      name,
+      title: usable(title ?? undefined),
+      anyOrder: false,
+    });
+  }
+  return rows;
+}
+
+const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
+
+function nameTokens(name: string): string[] {
+  return name
+    .toLowerCase()
+    .replace(/[’]/g, "'")
+    .split(/[\s,]+/)
+    .map((token) => token.replace(/\./g, ""))
+    .filter((token) => token !== "" && !NAME_SUFFIXES.has(token));
+}
+
+/**
+ * Does the name a sentence writes name the row's person? The first and last
+ * names must be the row's, and every token written must be in the row in
+ * order: "Mark Zuckerberg" names "Mark Elliot Zuckerberg", while "Chris Cox"
+ * (a nickname), "Susan J. Li" (an initial the row lacks) and "Mary Callahan"
+ * (a dropped surname) do not. An insider row's name is surname first, so its
+ * tokens match in any order. A surname alone (after an honorific) must be the
+ * row's surname.
+ */
+export function personNameMatches(written: string, surnameOnly: boolean, row: PersonRow): boolean {
+  const claimed = nameTokens(written);
+  const recorded = nameTokens(row.name);
+  if (claimed.length === 0 || recorded.length === 0) return false;
+  if (surnameOnly || claimed.length === 1) {
+    return row.anyOrder ? recorded.includes(claimed[0]) : recorded[recorded.length - 1] === claimed[0];
+  }
+  if (row.anyOrder) {
+    const pool = [...recorded];
+    return claimed.every((token) => {
+      const at = pool.indexOf(token);
+      if (at < 0) return false;
+      pool.splice(at, 1);
+      return true;
+    });
+  }
+  if (claimed[0] !== recorded[0] || claimed[claimed.length - 1] !== recorded[recorded.length - 1]) return false;
+  let cursor = 0;
+  for (const token of claimed) {
+    const at = recorded.indexOf(token, cursor);
+    if (at < 0) return false;
+    cursor = at + 1;
+  }
+  return true;
+}
+
+// Only unambiguous abbreviations expand: CIO, CMO, CAO and CPO each name two
+// different offices (information/investment, marketing/medical, …), so a row
+// that abbreviates one matches only the same abbreviation.
+const TITLE_ABBREVIATIONS: Readonly<Record<string, string>> = {
+  ceo: "chief executive officer",
+  cfo: "chief financial officer",
+  coo: "chief operating officer",
+  cto: "chief technology officer",
+  evp: "executive vice president",
+  svp: "senior vice president",
+  vp: "vice president",
+  gc: "general counsel",
+  cofounder: "co founder",
+};
+
+const TITLE_ROLE_START = new Set([
+  "chief", "chairman", "chairwoman", "chairperson", "chair", "president", "founder", "director",
+  "treasurer", "controller", "general", "vice", "co", "executive", "senior", "head", "managing",
+  "former", "secretary", "deputy", "interim", "acting", "group", "global", "cio", "cmo", "cao",
+  "cpo", "clo", "chro", "cro", "cso", "cdo",
+]);
+
+/**
+ * A title as comparable tokens: abbreviations expanded, "&" read as "and",
+ * hyphens as spaces ("Co-CEO" is "co chief executive officer"), and a comma
+ * read as "and" before another role ("Founder, Chairman") and as "of" before
+ * a scope ("CEO, Asset & Wealth Management" is "CEO of Asset & Wealth
+ * Management").
+ */
+function titleTokens(title: string): string[] {
+  const raw = title
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[’]/g, "'")
+    .match(/[a-z0-9']+|,/g) ?? [];
+  const expanded = raw.flatMap((token) => (TITLE_ABBREVIATIONS[token] ?? token).split(" "));
+  const out: string[] = [];
+  for (let i = 0; i < expanded.length; i += 1) {
+    const token = expanded[i];
+    if (token === ",") {
+      const next = expanded[i + 1];
+      if (next === undefined) continue;
+      out.push(TITLE_ROLE_START.has(next) ? "and" : "of");
+      continue;
+    }
+    out.push(token);
+  }
+  while (out[0] === "the" || out[0] === "its" || out[0] === "his" || out[0] === "her" || out[0] === "their") out.shift();
+  return out;
+}
+
+/** Does the text open with a role or a role modifier — that is, is it a title at all? */
+function opensWithRole(text: string): boolean {
+  const first = titleTokens(text)[0];
+  return first !== undefined && (TITLE_ROLE_START.has(first) || first === "chief");
+}
+
+/**
+ * Does the title a sentence states match the row's title? The written title
+ * must be one whole role the row lists, with its scope: it may not drop a
+ * modifier the row has ("CEO" for "Co-CEO", "Chairman" for "Vice Chairman",
+ * "Chief Operating Officer" for "Former Chief Operating Officer") or the
+ * row's scope ("CEO" for "CEO of Consumer & Community Banking"), and may not
+ * add one. "Chief Executive Officer" is one role of "Founder, Chairman & Chief
+ * Executive Officer".
+ */
+export function personTitleMatches(written: string, rowTitle: string): boolean {
+  const claimed = titleTokens(written);
+  const recorded = titleTokens(rowTitle);
+  if (claimed.length === 0 || recorded.length < claimed.length) return false;
+  for (let start = 0; start + claimed.length <= recorded.length; start += 1) {
+    if (!claimed.every((token, i) => recorded[start + i] === token)) continue;
+    const end = start + claimed.length;
+    const cleanStart = start === 0 || recorded[start - 1] === "and";
+    const next = recorded[end + 1];
+    const cleanEnd = end === recorded.length ||
+      (recorded[end] === "and" && next !== undefined && TITLE_ROLE_START.has(next));
+    if (cleanStart && cleanEnd) return true;
+  }
+  return false;
+}
+
+// Where a title written after a name stops: punctuation, or a word that
+// starts the rest of the sentence ("CFO since 2022", "CEO who …").
+const TITLE_STOP =
+  /[.;:()!?]|,\s|\s(?:since|from|until|through|with|who|which|whose|where|while|after|before|during|when|in|at|for|on|to|has|had|have|is|was|were|are|will|would|reported|received|earned|led|leads|oversees|runs|said|says)\b/;
+
+/**
+ * The title a sentence attaches right after a name: "<name> as <title>",
+ * "<name>, the <title>", "<name> (<title>)" or "<name> is/was/serves as
+ * <title>". Null when what follows is not a title (it opens with no role
+ * word) — the claim then gets a name-only check, which is all it asserts
+ * about the row. The copular forms were added in review (2026-10-13): without
+ * them "Jeremy Barnum is the CEO" citing his "CFO" compensation row was read
+ * as naming him only, and passed.
+ */
+function titleAfterName(sentence: string, end: number): string | null {
+  const rest = sentence.slice(end);
+  const lead = /^\s*(?:,\s*(?:the\s+|its\s+|our\s+)?|\s+(?:as|is|was|remains|became|(?:has|had)\s+been|(?:serves|served|acts|acted)\s+as)\s+(?:also\s+|currently\s+|now\s+|still\s+)?(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:company's\s+|firm's\s+|bank's\s+)?|\s*\()/.exec(rest);
+  if (lead === null) return null;
+  const tail = rest.slice(lead[0].length);
+  const stop = TITLE_STOP.exec(tail);
+  const title = (stop === null ? tail : tail.slice(0, stop.index)).trim();
+  return title !== "" && opensWithRole(title) ? title : null;
+}
+
+// A role written right before a name ("CFO James Dimon", "its Co-CEO, Troy
+// Rohrbaugh"), with the modifiers a row's title keeps.
+const ROLE_BEFORE_NAME = new RegExp(
+  String.raw`(?:^|[^A-Za-z-])(?<role>(?:(?:[Cc]o-|[Ff]ormer\s+|[Vv]ice\s+|[Ee]xecutive\s+|[Ss]enior\s+|[Dd]eputy\s+|[Ii]nterim\s+|[Aa]cting\s+))*${ROLE_WORDS})\s*,?\s*$`,
+);
+
+/**
+ * The title a sentence writes right before a name. Read in review
+ * (2026-10-13) for names found by exact match, whose role-before-name pattern
+ * hit was dropped as lying inside the known name's span: "CFO James Dimon"
+ * citing Dimon's "Chairman and CEO" row passed as a name-only claim.
+ */
+function titleBeforeName(sentence: string, start: number): string | null {
+  return ROLE_BEFORE_NAME.exec(sentence.slice(0, start))?.groups?.role ?? null;
+}
+
+/**
+ * Check each named person against the cited tag's rows. Null when every
+ * person is in a row and every stated title matches one of that person's
+ * rows; otherwise the first failure.
+ */
+function personRowProblem(
+  people: readonly NamedIndividual[],
+  rows: readonly PersonRow[],
+): { reason: "named-individual-not-in-source" | "named-individual-title-mismatch"; person: NamedIndividual } | null {
+  for (const person of people) {
+    const theirs = rows.filter((row) => personNameMatches(person.name, person.surnameOnly, row));
+    if (theirs.length === 0) return { reason: "named-individual-not-in-source", person };
+    if (person.title === null) continue;
+    const title = person.title;
+    if (!theirs.some((row) => row.title !== null && personTitleMatches(title, row.title))) {
+      return { reason: "named-individual-title-mismatch", person };
     }
   }
   return null;
@@ -650,14 +1273,18 @@ export function isFilingOrTranscriptSource(id: string): boolean {
 }
 
 /**
- * The payload's own rows ABOUT people: key-executive and insider-trade notes,
- * registered as citations under these tags (payload.ts). They are the rows the
- * person names are harvested from, so a claim about a person that cites one
- * cites the payload itself (audit 2026-09-06, F188: they were rejected as
- * "neither a registry figure nor a filing or transcript").
+ * The payload's own rows ABOUT people: key-executive and insider-trade notes
+ * and the executive-compensation rows, registered as citations under these
+ * tags (payload.ts). A claim about a person that cites one cites the payload
+ * itself (audit 2026-09-06, F188: they were rejected as "neither a registry
+ * figure nor a filing or transcript"). The compensation rows joined on
+ * 2026-10-13 (D-43): they come from the issuer's proxy and the prompt already
+ * called them payload figures, yet every claim citing them was rejected. A
+ * person-row citation is no longer accepted on its tag: the cited rows must
+ * list the person and any title the claim states (runConsistencyChecks).
  */
 export function isPayloadPersonRowSource(id: string): boolean {
-  return /^fmp:(?:key-executives|insider-trades)$/i.test(id);
+  return /^fmp:(?:key-executives|insider-trades|executive-compensation)$/i.test(id);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -699,13 +1326,57 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       findings.push({ check, reason, sentence, figure, sourceId, path, note });
     };
 
+    const citation = sourceId === null
+      ? undefined
+      : input.citationRegistry.find((entry) => entry.id === sourceId);
+
     /* ---- named individuals (applies to every claim, cited or not) -------- */
-    const person = namesIndividual(sentence, input.personNames, input.organizationNames ?? []);
+    // D-43: a claim naming a person that cites a person row is checked
+    // against that row's CONTENT, first — before a numeric record could accept
+    // it — so a compensation row that later gains a currency (and prints its
+    // own registry id) is still read. The tag has to be registered at all.
+    const rowsForTag = sourceId === null
+      ? []
+      : (input.personRows ?? []).filter((row) => row.tag === sourceId);
+    const personRowCited =
+      sourceId !== null &&
+      (citation !== undefined || record !== undefined) &&
+      (isPayloadPersonRowSource(sourceId) || rowsForTag.length > 0);
+    // A claim citing a person row is also read for names the payload never
+    // listed: the rows are its only support, so every name in it must be
+    // theirs (review, 2026-10-13).
+    const people = namedIndividuals(
+      sentence,
+      input.personNames,
+      input.organizationNames ?? [],
+      // Every person row's title words ("Commercial & Investment Bank") are
+      // scope, not names, whichever row the claim cites.
+      personRowCited
+        ? { unlistedNames: { extraWords: (input.personRows ?? []).flatMap((row) => (row.title === null ? [] : [row.title])) } }
+        : {},
+    );
+    const person = people[0]?.match ?? null;
     const credibility = isCredibilityPath(path);
-    if (person !== null || credibility) {
-      const citation = sourceId === null
-        ? undefined
-        : input.citationRegistry.find((entry) => entry.id === sourceId);
+    if (people.length > 0 && personRowCited) {
+      const claimAsOf = claim.label === "JUDGMENT" ? null : citationAsOf(claim);
+      const rows = claimAsOf === null
+        ? rowsForTag
+        : rowsForTag.filter((row) => row.asOf === null || row.asOf === claimAsOf);
+      const problem = personRowProblem(people, rows);
+      if (problem === null) {
+        namedIndividual.pass();
+      } else {
+        namedIndividual.fail();
+        rejectedClaimPaths.add(path);
+        fail(
+          "named-individual",
+          problem.reason,
+          problem.reason === "named-individual-not-in-source"
+            ? `The claim names ${problem.person.name} but no ${sourceId} row it cites lists that person as named (the row's spelling, without a nickname, an added initial or a dropped name).`
+            : `The claim calls ${problem.person.name} "${problem.person.title}", but no ${sourceId} row it cites gives that person that title (the row's title, with its modifiers and scope).`,
+        );
+      }
+    } else if (person !== null || credibility) {
       const canonicalUrl = sourceId === null ? null : canonicalizeFetchedUrl(sourceId);
       const isWeb = canonicalUrl !== null;
       // The filing-or-transcript restriction applies to EVERY claim that names
@@ -741,10 +1412,33 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
           fail(
             "named-individual",
             "named-individual-unsourced",
-            `The claim names ${person ?? "an individual"} but cites ${sourceId === null ? "nothing" : `"${sourceId}"`}, which is neither a registry figure, a filing or transcript, nor a payload executive or insider row.`,
+            `The claim names ${person ?? "an individual"} but cites ${sourceId === null ? "nothing" : `"${sourceId}"`}, which is neither a registry figure, a filing or transcript, nor a payload executive, compensation or insider row.`,
           );
         }
       }
+    }
+
+    /* ---- currency on a figure whose currency is unknown (D-43) ----------- */
+    // Registering the printed tags of money rows with no established currency
+    // (a peer market cap, a compensation total, an analyst target) made them
+    // citable, and nothing else would read the sentence: the numeric checks
+    // below need a numeric record, which these rows never get. Without this,
+    // "the consensus target is $781" citing fmp:price-target-consensus would
+    // have gone from unknown-source to supported, on exactly the dimension the
+    // row does not establish.
+    if (
+      record === undefined &&
+      sourceId !== null &&
+      input.citationRegistry.some((entry) => entry.id === sourceId && entry.currencyUnknown === true) &&
+      statesCurrencyOnNumber(sentence)
+    ) {
+      unit.fail();
+      rejectedClaimPaths.add(path);
+      fail(
+        "unit",
+        "currency-not-established",
+        `The sentence puts a currency on a figure from ${sourceId}, whose currency the source does not establish.`,
+      );
     }
 
     /* ---- the numeric checks need a located registry figure --------------- */
@@ -850,9 +1544,9 @@ export function emptyConsistencyChecks(): ConsistencyChecks {
 const CHECK_MANIFEST_TEXT: Record<keyof ConsistencyChecks, string> = {
   direction: "sentence(s) whose direction word contradicts the sign of the change they cite",
   period: "sentence(s) naming a period the figure they cite is not registered for",
-  unit: "sentence(s) writing a cited figure in a unit the registry does not record it in",
+  unit: "sentence(s) writing a cited figure in a unit the registry does not record it in, or putting a currency on a figure whose currency is not established",
   namedIndividual:
-    "claim(s) about a named individual, or in the executive-credibility section, resting on a source that is neither a filing, a transcript, a registry figure nor a payload executive or insider row",
+    "claim(s) about a named individual, or in the executive-credibility section, resting on a source that is neither a filing, a transcript, a registry figure nor a payload executive, compensation or insider row that lists that person and title",
 };
 
 /**
