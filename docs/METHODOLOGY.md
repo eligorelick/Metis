@@ -864,15 +864,22 @@ Equity value = BV0 + Σ_{t=1..N}  (ROE_t − CoE) × BV_{t−1} / (1 + CoE)^t
 with, all printed as assumptions in their own right:
 
 - **Horizon `N`** — explicit, 10 years by default. The excess return is
-  discounted year by year to year `N`, and **no continuing value is added**
-  beyond it.
-- **Fade** — ROE fades **linearly** from the current ROE to the cost of equity
-  over exactly that horizon, so the year-`N` excess return is zero by
-  construction. This is the equity-side analogue of the DCF core's terminal
-  ROIC = WACC rule, and it is why no terminal value is needed. A caller may
-  override the terminal ROE to assert persistent excess; the override is
-  reflected honestly in a non-zero `terminalExcess` and in the basis string.
-  Production never supplies it.
+  discounted year by year to year `N`. A continuing value is added beyond it
+  only when durable excess returns are evidenced (next bullet).
+- **Fade** — ROE fades **linearly** from the current return to its terminal
+  target over exactly that horizon. The target is the DCF core's own terminal
+  excess-return house convention, applied on the equity side (D-41): when the
+  same return (ROTE for banks, common ROE otherwise) beat that fiscal year's own
+  cost of equity in **every** one of the last 4+ years, the target is the cost
+  of equity plus half the median spread, capped at 5pp (below 0.5pp the
+  evidence is treated as noise). That carried spread is valued past year `N` as
+  residual income growing at `min(2.5%, risk-free)`:
+  `CV_N = (ROE_T − CoE) × BV_N / (CoE − g)`, discounted `N` years, behind the
+  DCF's 2pp `CoE − g` guard. Without that evidence the target is the cost of
+  equity, the year-`N` excess is zero and no continuing value is added — the
+  behaviour before D-41, which valued every high-ROTE bank as if its returns
+  collapsed by year 10 (JPM's price "required" a 54% starting ROTE). A caller
+  may still override the terminal ROE; the override wins over the evidence.
 - **Discount rate** — the **cost of equity**, never a WACC. A WACC would blend
   in the cost of deposits, policy reserves or repo, which are this company's raw
   material rather than its financing. A null cost of equity **suppresses** the
@@ -1343,7 +1350,7 @@ These bands have not been outcome-backtested.
 | --- | ---: | ---: | ---: | --- |
 | Fundamentals | 20 | 15 | 15 | Revenue/EPS/FCF growth and operating-margin slope |
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
-| Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models |
+| Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
 | Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF, share trend |
 | Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
 | Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, share trend, SBC/revenue |

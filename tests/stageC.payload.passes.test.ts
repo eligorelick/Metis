@@ -662,7 +662,10 @@ describe("payload determinism + provenance", () => {
       // 2026-10-03: P/TBV basis now explicitly deducts preferred equity;
       // this general-company fixture has zero preferred, so values are unchanged.
       // 2026-10-05 (D-39): the growth anchor drops the 4-year "5y" CAGR.
-      financeHash: "ef6e55f2",
+      // 2026-10-12 (D-41): the quality aspect's note names the equity-side
+      // value-creation measure financial routes use. This general-company
+      // fixture scores no new driver; fingerprint and promptBytes are unchanged.
+      financeHash: "d02542ad",
     });
   });
 

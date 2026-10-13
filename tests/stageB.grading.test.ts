@@ -516,7 +516,7 @@ describe("grading — sector routing", () => {
         valuation: {
           kind: "excess-return",
           route: "bank",
-          excessReturn: { roePathPct: { value: [14, 12], basis: "" }, reverseSolve: { impliedCurrentRoePct: 10, notes: [] } } as never,
+          excessReturn: { roePathPct: { value: [14, 12], basis: "" }, costOfEquityPct: { value: 10, basis: "" }, reverseSolve: { impliedCurrentRoePct: 10, notes: [] } } as never,
           multiples: { multiples: [{ key: "priceToTbv", current: 1.3, basis: "", ownHistory: { percentileRank: 35, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 10, basis: "" }, peers: null }], sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
           notes: [],
           gaps: [],
@@ -531,7 +531,11 @@ describe("grading — sector routing", () => {
     const qNames = s.aspects.quality.drivers.map((d) => d.source);
     expect(qNames.some((n) => n.includes("altmanZ"))).toBe(false);
     expect(qNames.some((n) => n.includes("beneishM"))).toBe(false);
-    expect(qNames.some((n) => n.includes("roicVsWaccSpread"))).toBe(true);
+    // Value creation on an excess-return valuation is the equity-side spread
+    // (ROE 14% − CoE 10% = 4pp), in the slot ROIC − WACC holds elsewhere.
+    expect(qNames.some((n) => n.includes("roicVsWaccSpread"))).toBe(false);
+    const spread = s.aspects.quality.drivers.find((d) => d.source.endsWith("equityReturnVsCoeSpread"));
+    expect(spread?.value).toBe(4);
     // Financial weights used.
     expect(s.composite.weights.quality).toBe(26);
   });
@@ -561,7 +565,7 @@ describe("grading — sector routing", () => {
     return {
       kind: "excess-return",
       route: "bank",
-      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
+      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, costOfEquityPct: { value: 10, basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
       multiples: { multiples: [{ key: "priceToTbv", current: 1.2, basis: "", ownHistory: { percentileRank: tbvPercentile, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 10, basis: "" }, peers: null }], sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
       notes: [],
       gaps: [],
@@ -690,7 +694,7 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     return {
       kind: "excess-return",
       route: "bank",
-      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
+      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, costOfEquityPct: { value: 10, basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
       multiples: { multiples: [{ key: "priceToTbv", current: 1.2, basis: "", ownHistory: { percentileRank: tbvPercentile, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 10, basis: "" }, peers: null }], sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
       notes: [],
       gaps: [],
@@ -738,7 +742,7 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
 
     // compWeight can never reach 100 on a bank: balanceSheet (10) is dropped and
     // quality/moat lose their suppressed signals. Hand-derived route-applicable
-    // weight = 15·0.55 + 22 + 26·0.22 + 15·0.75 + 7·0.75 + 5 = 57.47.
+    // weight = 15·0.55 + 22 + 26·0.57 + 15·0.75 + 7·0.75 + 5 = 66.57.
     // Fundamentals retain revenue/EPS growth; industrial FCF growth and
     // operating-margin slope are route-inapplicable, not missing evidence.
     //
@@ -756,7 +760,10 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //    "equity-only (CoE, never WACC)". Grading a spread against a WACC the
     //    valuation refuses to use is contradictory under either reading.
     //    roicLevel/roicStability deliberately REMAIN (see the moat test below).
-    expect(round2(compWeight)).toBe(57.47);
+    //  - Quality 0.22 -> 0.57 (2026-10-12): the ROIC − WACC slot (0.35) is
+    //    filled by the equity-side spread (ROE − cost of equity) the route's own
+    //    disclosure names as its value-creation measure: +26·0.35 = +9.10.
+    expect(round2(compWeight)).toBe(66.57);
 
     // The OLD denominator (a fixed 100) would have shrunk this identical bank
     // by ×0.7897 toward 50 — a structural cap the fix removes.

@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-05",
+  "generatedAt": "2026-10-13",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -2347,11 +2347,6 @@
           "after": 30.81
         },
         {
-          "path": "report.scores.aspects.quality.note",
-          "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
-          "after": "Value creation (ROIC−WACC, dropped where the route suppresses it — financial routes are costed on equity alone) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
-        },
-        {
           "path": "report.scores.aspects.valuation.drivers.1.value",
           "before": -26.36,
           "after": -25.94
@@ -2575,11 +2570,6 @@
           "path": "stageB.scores.aspects.quality.drivers.0.value",
           "before": 27.2,
           "after": 30.81
-        },
-        {
-          "path": "stageB.scores.aspects.quality.note",
-          "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
-          "after": "Value creation (ROIC−WACC, dropped where the route suppresses it — financial routes are costed on equity alone) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
         },
         {
           "path": "stageB.scores.aspects.valuation.drivers.1.value",
@@ -4839,6 +4829,25 @@
           "path": "report.valuation.scenarios.2.horizon",
           "before": "12 months",
           "after": "n/a"
+        }
+      ]
+    },
+    {
+      "name": "bank-equity-value-creation",
+      "decisions": [
+        "D-41"
+      ],
+      "reason": "Under D-41 the quality aspect fills its ROIC − WACC slot with return on equity against the cost of equity on excess-return (financial) valuations, so the aspect note now says which value-creation measure each route uses. The fixtures carry no multi-year return history and their routes score no new driver, so only the two note strings move; no number, score, band or composite changes.",
+      "deltas": [
+        {
+          "path": "report.scores.aspects.quality.note",
+          "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
+          "after": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+        },
+        {
+          "path": "stageB.scores.aspects.quality.note",
+          "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
+          "after": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
         }
       ]
     }

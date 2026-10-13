@@ -13,6 +13,39 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-41 (financial grading 2026-10-12) Banks get the DCF's evidenced-excess rule and an equity value-creation signal
+
+- **Problem**: a live sweep of JPM, BAC, WFC and C graded every one F on
+  valuation and scattered quality from A to F. Two causes. (1) The excess-return
+  model always faded ROE to the cost of equity with no continuing value. The
+  DCF had already replaced that default with an evidenced-excess convention
+  (`terminalRoic`, after the 2026-09-02 sweep graded 19 of 21 large caps D/F),
+  but the equity model was never moved with it, so JPM's price "required" a
+  53.8% starting ROTE against 20.7% earned. (2) Financial routes suppress
+  ROIC − WACC and name return on equity against the cost of equity as the
+  value-creation measure, but nothing scored it: quality rested on a 3-5
+  signal Piotroski battery, about 7% of its intended evidence.
+- **Options**: (a) leave both; (b) re-band the valuation and quality aspects
+  for financials; (c) apply the existing house conventions to the equity side.
+  (b) would need an outcome backtest this tree does not have.
+- **Choice**: (c). `excessReturnModel` reads a per-year return history against
+  each year's own cost of equity through `terminalRoic` (same constants: 4+
+  years, half the median spread, 5pp cap, 0.5pp floor); a carried spread is
+  valued past the horizon as residual income growing at
+  min(2.5%, risk-free), behind the DCF's 2pp CoE − g guard, and the reverse
+  solve uses the same terminal. On excess-return valuations the quality
+  aspect's ROIC − WACC slot (weight 0.35, `SPREAD_BAND`) is filled by
+  current return minus cost of equity. No band table moves.
+- **Evidence** (data and compute only, 2026-10-12): JPM value per share
+  144.61 -> 209.07, implied starting ROTE 53.8% -> 39.5%, quality F -> B;
+  WFC quality A -> B; BAC C -> C; C quality C -> D (it earns below its cost of
+  equity and carries no excess). AAPL (general route) unchanged. Valuation
+  stays F for all four: they also trade near the top of their own P/TBV
+  history, which is half the aspect.
+- **Compatibility**: no report shape change. Without a return history the
+  model behaves exactly as before. The DEMO/DBNK fixtures lack the history, so
+  only the quality-aspect note moves (`bank-equity-value-creation` group).
+
 ## D-40 (scenario horizon 2026-10-05) The horizon beside a computed target is set in code
 
 - **Problem**: AI reports replaced each scenario's price target with the

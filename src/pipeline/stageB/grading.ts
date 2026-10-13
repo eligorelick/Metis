@@ -669,10 +669,32 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     forensics.piotroski && isNum(forensics.piotroski.score) && forensics.piotroski.outOf > 0
       ? forensics.piotroski.score / forensics.piotroski.outOf
       : null;
+  // Financial routes suppress ROIC − WACC because invested capital is undefined
+  // when deposits fund the balance sheet; the route's own disclosure names the
+  // equity-side spread (return on common equity against the cost of equity) as
+  // the value-creation measure to use instead. It is scored here in the same
+  // slot, weight and band. Without it, a bank's quality rested on a 3-5 signal
+  // Piotroski battery alone (~7% of intended evidence), which swung JPM to F and
+  // WFC to A on the same thin basis (2026-10-12 sweep).
+  const er = valuation.kind === "excess-return" ? valuation.excessReturn : null;
+  const equityReturn = er?.roePathPct?.value?.[0];
+  const equityCoe = er?.costOfEquityPct?.value;
+  // It REPLACES the ROIC − WACC signal (never added beside it), so the aspect's
+  // weights still sum to 1 like every other aspect's.
+  const valueCreationSignal: Signal =
+    valuation.kind === "excess-return"
+      ? {
+          name: "equityReturnVsCoeSpread",
+          raw: isNum(equityReturn) && isNum(equityCoe) ? equityReturn - equityCoe : null,
+          unit: "pp",
+          weight: 0.35,
+          band: SPREAD_BAND,
+        }
+      : { name: "roicVsWaccSpread", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.35, band: SPREAD_BAND, suppressedBy: "roicVsWacc" };
   const quality = scoreAspect(
     "quality",
     [
-      { name: "roicVsWaccSpread", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.35, band: SPREAD_BAND, suppressedBy: "roicVsWacc" },
+      valueCreationSignal,
       // A reduced battery (7 signals on two years, 3-5 on a financial route)
       // is banded on the same fraction but carries only its share of the
       // evidence: two coin-flip signals must not swing the aspect the way nine
@@ -703,7 +725,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.quality,
     inputs.asOf,
-    "Value creation (ROIC−WACC, dropped where the route suppresses it — financial routes are costed on equity alone) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on).",
+    "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on).",
     policy,
   );
 
