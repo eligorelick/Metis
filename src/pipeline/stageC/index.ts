@@ -264,6 +264,8 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
     if (!connectionId) throw new Error("Subscription pass is missing its captured account connection");
     return {
       model: deps.analysisModel, signal: deps.signal, jobSeed: deps.jobSeed,
+      // The plan endpoint closes any single response at 15 minutes.
+      sectionedOutput: true,
       runPass: (args) => runSubscriptionPass(args, connectionId, steppedDownOptions(deps.subscriptionOptions, args.effortStepDown)),
       validateRunPass: (args) => {
         if (args.model !== deps.analysisModel || JSON.stringify(args.messages).length > 2_000_000) {

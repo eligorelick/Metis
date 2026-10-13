@@ -85,7 +85,11 @@ import {
   SCENARIO_TARGET_HORIZON,
   type PassDeps,
   type RunPassOutcome,
+  JUDGE_SECTION_PARTS,
+  ANALYST_SECTION_PARTS,
+  type RunPassArgs,
 } from "@/pipeline/stageC/passes";
+import { completedTopLevelFields } from "@/pipeline/stageC/continuation";
 import type { CostBreakdownEntry as _CBE } from "@/report/schema";
 
 /* ------------------------------------------------------------------------ *
@@ -3051,6 +3055,99 @@ describe("mock-driven bull/bear/judge passes", () => {
     mock.onText("llm.judge", `{"verdict":${JSON.stringify(verdict)}}, ${tail}`);
     const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
     expect(run.ok).toBe(true);
+  });
+
+  describe("responses produced in parts on a time-limited connection", () => {
+    /** A provider that answers each part with exactly the sections it asked for. */
+    function partProvider(whole: Record<string, unknown>, failOn?: number) {
+      const prompts: string[] = [];
+      const runPass = async (args: RunPassArgs): Promise<RunPassOutcome> => {
+        const last = args.messages.at(-1)!;
+        const text = typeof last.content === "string" ? last.content : last.content.map((b) => b.text).join("");
+        prompts.push(text);
+        const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(text)![1]!.split(", ");
+        const part = Object.fromEntries(asked.map((key) => [key, whole[key]]));
+        if (failOn === prompts.length) {
+          return {
+            ok: false,
+            gap: { field: args.field ?? "llm", reason: "dropped", severity: "critical" },
+            error: {
+              kind: "transport",
+              message: "ChatGPT stream ended before completion",
+              model: "chatgpt/gpt-6.1-sol",
+              costUsd: 0,
+              // The part was cut off after its first section.
+              partialText: JSON.stringify(part).slice(0, JSON.stringify({ [asked[0]!]: part[asked[0]!] }).length - 1) + ',"x":',
+            },
+          };
+        }
+        return {
+          ok: true,
+          value: { data: {
+            message: { content: [{ type: "text", text: JSON.stringify(part) }], usage: { input_tokens: 10, output_tokens: 5 }, model: "chatgpt/gpt-6.1-sol" },
+            usage: { input_tokens: 10, output_tokens: 5 },
+            costUsd: 0,
+            fallbackUsed: false,
+            model: "chatgpt/gpt-6.1-sol",
+          } },
+        };
+      };
+      return { runPass, prompts };
+    }
+    const sectioned = (runPass: PassDeps["runPass"]): PassDeps => ({ runPass, model: "chatgpt/gpt-6.1-sol", sectionedOutput: true });
+
+    it("assembles a judge report from three parts, each seeing the sections already written", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const provider = partProvider(whole);
+      const run = await runJudgePass(sectioned(provider.runPass), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(JUDGE_SECTION_PARTS);
+      expect(provider.prompts[0]).not.toContain("SECTIONS ALREADY WRITTEN");
+      expect(provider.prompts[1]).toContain("SECTIONS ALREADY WRITTEN");
+      if (run.ok) expect(run.result.usage.input_tokens).toBe(10 * JUDGE_SECTION_PARTS);
+    });
+
+    it("hands back every finished section when a later part is cut off", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const provider = partProvider(whole, 2);
+      const run = await runJudgePass(sectioned(provider.runPass), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(false);
+      if (run.ok) return;
+      const kept = completedTopLevelFields(run.error.partialText ?? "");
+      const firstGroup = Object.keys(whole).slice(0, Math.ceil(Object.keys(whole).length / JUDGE_SECTION_PARTS));
+      for (const key of firstGroup) expect(kept).toHaveProperty(key);
+      expect(Object.keys(kept).length).toBe(firstGroup.length + 1);
+    });
+
+    it("re-asks once for a section a part left out", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const provider = partProvider(whole);
+      let first = true;
+      const dropOne: PassDeps["runPass"] = async (args) => {
+        const out = await provider.runPass(args);
+        if (first && out.ok) {
+          first = false;
+          const part = JSON.parse(out.value.data.message.content[0]!.text!) as Record<string, unknown>;
+          delete part[Object.keys(part)[0]!];
+          return { ...out, value: { data: { ...out.value.data, message: { ...out.value.data.message, content: [{ type: "text", text: JSON.stringify(part) }] } } } };
+        }
+        return out;
+      };
+      const run = await runJudgePass(sectioned(dropOne), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(JUDGE_SECTION_PARTS + 1);
+    });
+
+    it("assembles an analyst case from its parts", async () => {
+      const { payload } = buildInputs();
+      const provider = partProvider(analystCase("bull") as Record<string, unknown>);
+      const run = await runBullPass(sectioned(provider.runPass), payload);
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(ANALYST_SECTION_PARTS);
+    });
   });
 
   it("a judge continuation asks only for the missing sections and validates the merged whole", async () => {

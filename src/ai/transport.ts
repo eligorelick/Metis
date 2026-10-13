@@ -41,10 +41,15 @@ function providerErrorDetail(failure: unknown, event: { type?: unknown; response
 }
 export function subscriptionMessages(args: RunPassArgs) {
   const evidenceRule = "Use only evidence in the supplied research payload. Web search is unavailable for this connection. Do not invent URLs or claim you fetched a source. Return JSON only, without Markdown fences.";
+  // The schema rides in the developer message, not as a trailing user turn: a
+  // response produced in parts ends with "return ONLY these sections now",
+  // and a trailing "must match the full schema" turn would contradict it.
+  const schemaRule = args.outputSchema
+    ? `\n\nThe complete response object must match this JSON schema. When a later instruction asks for only some top-level sections, return only those sections, each matching its part of the schema:\n${JSON.stringify(args.outputSchema)}`
+    : "";
   return [
-    { role: "developer", content: `${args.system}\n\n${evidenceRule}` },
+    { role: "developer", content: `${args.system}\n\n${evidenceRule}${schemaRule}` },
     ...args.messages.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : m.content.map((b) => b.text).join("\n") })),
-    ...(args.outputSchema ? [{ role: "user", content: `Your response must match this JSON schema:\n${JSON.stringify(args.outputSchema)}` }] : []),
   ];
 }
 

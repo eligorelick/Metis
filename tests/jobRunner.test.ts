@@ -7044,6 +7044,34 @@ describe("runJob — model-resolution failure", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — judge retry after a dropped connection", () => {
+  it("waits before retrying when the provider reports it is overloaded, instead of re-sending at once", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const startedAt: number[] = [];
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+      ];
+      startedAt.push(Date.now());
+      if (startedAt.length === 1) {
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT did not complete the pass (error: server_is_overloaded)."), {
+          retryable: true,
+          kind: "transport",
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 60 });
+
+    expect(result.status).toBe("done");
+    expect(startedAt).toHaveLength(2);
+    expect(startedAt[1]! - startedAt[0]!).toBeGreaterThanOrEqual(55);
+  });
+
   it("lowers the effort a step only when the dropped attempt ran into the provider's time limit", async () => {
     const run = async (attemptMinutes: number): Promise<unknown[]> => {
       const { jobId } = createJob("AAPL");
@@ -8485,6 +8513,25 @@ describe("review regressions — cost rehydration, live-job guard, resumability 
     expect(prepareJobResume(jobId, "done")).toBeNull();
   });
 
+  it("a linked data-only fallback report does not lock away the analyst work that finished", async () => {
+    // A real data-only report, written by the runner's own no-AI path.
+    const fallbackJob = createJob("AAPL").jobId;
+    const fallback = await runJob(fallbackJob, mockPasses().passes, { bundle: fakeBundle(), hasAnthropicKey: false, now: NOW });
+    expect(fallback.dataOnly).toBe(true);
+
+    const { jobId } = createJob("AAPL");
+    seedResumableLegacyJob(jobId, "done", "1.3.0:data-only-linked");
+    handle.db.update(jobs).set({ reportId: fallback.reportId }).where(eq(jobs.id, jobId)).run();
+
+    expect(readJobResumeState(jobId)).toMatchObject({ resumable: true });
+    const prepared = prepareJobResume(jobId, "done");
+    expect(prepared).not.toBeNull();
+    expect(prepared?.bull).not.toBeNull();
+    expect(prepared?.bear).not.toBeNull();
+    // The claim re-checks the link with the same rule, so it agrees with the plan.
+    expect(claimPreparedJobResume(prepared!)).toBe(true);
+  });
+
   it.each([null, "", "   "])(
     "legacy analyst snapshots with fingerprint %j fail closed",
     (payloadFingerprint) => {
@@ -9216,6 +9263,60 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const report = ReportSchema.parse(JSON.parse(reportRow.reportJson ?? "{}"));
     const bearGap = report.appendix.missingData.find((gap) => gap.field === "llm.bear");
     expect(bearGap?.reason).toMatch(/^repair attempt after schema-invalid output also failed: .*\(again\)/);
+  });
+
+  it("gives a plan-connection analyst side several backed-off tries through transient provider faults", async () => {
+    vi.mocked(resolveModel).mockResolvedValueOnce({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    // Plan-connection passes cost nothing per request.
+    const plan = (side: "bull" | "bear") => ({ ...testAnalystPass(side, 0), model: "chatgpt/gpt-6.1-sol" });
+    const bull = plan("bull");
+    const bear = plan("bear");
+    const FAULT = "bear pass failed (transport): ChatGPT did not complete the pass (error: server_is_overloaded).";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(FAULT), {
+        bull,
+        bearError: FAULT,
+        bullLaunched: true,
+        bearLaunched: true,
+        bearRetryable: true,
+        bearFailureKind: "transport",
+      });
+    };
+    const paidJudge = passes.runJudgePass;
+    passes.runJudgePass = (async (...args: Parameters<PipelinePasses["runJudgePass"]>) => ({
+      ...(await paidJudge(args[0], args[1], args[2])),
+      costUsd: 0,
+      model: "chatgpt/gpt-6.1-sol",
+    })) as PipelinePasses["runJudgePass"];
+    const paidVerify = passes.runVerifyPass;
+    passes.runVerifyPass = (async (...args: Parameters<PipelinePasses["runVerifyPass"]>) => ({
+      ...(await paidVerify(...args)),
+      costUsd: 0,
+      model: "chatgpt/gpt-6.1-sol",
+    })) as PipelinePasses["runVerifyPass"];
+    let calls = 0;
+    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch) => {
+      calls += 1;
+      await beforeProviderLaunch?.();
+      if (calls === 1) {
+        throw Object.assign(new Error("bear pass failed (transport): ChatGPT did not complete the pass (error: server_error)."), {
+          retryable: true,
+          kind: "transport",
+        });
+      }
+      await settlement?.(testSuccessSettlement(bear, false));
+      return bear;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 1 });
+
+    expect(calls).toBe(2);
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
   });
 
   it("continues a cut-off analyst side from the sections it completed", async () => {

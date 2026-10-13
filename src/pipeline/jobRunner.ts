@@ -117,6 +117,7 @@ import {
   type PassTelemetry,
 } from "@/pipeline/jobArtifacts";
 import {
+  linkedReportBlocksResume,
   readQueuedSourceJobResumeInTransaction,
   readStoredJobResumeInTransaction,
 } from "@/pipeline/jobStore";
@@ -566,6 +567,19 @@ export const ACTIVE_JOB_STALE_MS = 30 * 60 * 1000;
 export const DEFAULT_JOB_DEADLINE_MS = 90 * 60 * 1000;
 export const DEFAULT_FETCH_DEADLINE_MS = 10 * 60 * 1000;
 export const DEFAULT_MODEL_STAGE_DEADLINE_MS = MODEL_STAGE_DEADLINE_MS;
+/**
+ * Subscription (plan) connections produce each response in parts to stay
+ * under the provider's 15-minute response limit, and back off when the
+ * provider reports overload. A max-effort run measured ~35 minutes for the
+ * analysts alone (2026-10-13), so the general 90/45-minute bounds would
+ * truncate legitimate work that costs nothing per request. Hangs stay bounded.
+ */
+export const SUBSCRIPTION_JOB_DEADLINE_MS = 180 * 60 * 1000;
+export const SUBSCRIPTION_MODEL_STAGE_DEADLINE_MS = 90 * 60 * 1000;
+/** Wait before retrying after the provider reports it is overloaded (x attempt number). */
+export const OVERLOAD_BACKOFF_MS = 60_000;
+/** Tries for an analyst side after a transient plan-connection failure. */
+export const SUBSCRIPTION_ANALYST_ATTEMPTS = 3;
 
 /** Job lifecycle statuses (owned by this module; jobs.status is free TEXT). */
 export type JobStatus = "queued" | "running" | "done" | "error" | "unsupported";
@@ -1899,12 +1913,7 @@ export function queuedResumeSourceMatchesInTransaction(
   ) {
     return false;
   }
-  const sourceReportExists = prepared.sourceReportId !== null &&
-    db
-      .select({ id: reports.id })
-      .from(reports)
-      .where(eq(reports.id, prepared.sourceReportId))
-      .get() !== undefined;
+  const sourceReportExists = linkedReportBlocksResume(db, prepared.sourceReportId);
   return sourceReportExists === prepared.sourceReportExists;
 }
 
@@ -1984,12 +1993,7 @@ export function claimPreparedJobResume(prepared: PreparedJobResume): boolean {
       ) {
         return false;
       }
-      const sourceReportExists = prepared.sourceReportId !== null &&
-        tx
-          .select({ id: reports.id })
-          .from(reports)
-          .where(eq(reports.id, prepared.sourceReportId))
-          .get() !== undefined;
+      const sourceReportExists = linkedReportBlocksResume(tx, prepared.sourceReportId);
       if (sourceReportExists !== prepared.sourceReportExists) return false;
       const result = mutateJobSnapshotInTransaction(tx as ThesisDb, {
         jobId: prepared.jobId,
@@ -2270,6 +2274,8 @@ export interface RunJobOptions<TPayload = unknown> {
    * values are clamped to the audited production maximum.
    */
   maxJudgeRetries?: number;
+  /** Base wait before retrying after a provider overload (x attempt). Default OVERLOAD_BACKOFF_MS. */
+  overloadBackoffMs?: number;
   /** Optional upstream cancellation (tests/embedding); composed with local cancel/deadline. */
   signal?: AbortSignal;
   /** Overall wall-clock deadline. Default 90 minutes. */
@@ -2619,16 +2625,21 @@ export async function runJob<TPayload = unknown>(
 
   const deadlineMs = positiveDeadline(opts.deadlineMs, DEFAULT_JOB_DEADLINE_MS);
   const fetchDeadlineMs = positiveDeadline(opts.fetchDeadlineMs, DEFAULT_FETCH_DEADLINE_MS);
-  const modelStageDeadlineMs = positiveDeadline(
+  let modelStageDeadlineMs = positiveDeadline(
     opts.modelStageDeadlineMs,
     DEFAULT_MODEL_STAGE_DEADLINE_MS,
   );
-  const overallTimer = setTimeout(() => {
-    if (!jobController.signal.aborted) {
-      jobController.abort(new JobDeadlineError(`overall deadline exceeded after ${deadlineMs}ms`));
-    }
-  }, deadlineMs);
-  overallTimer.unref?.();
+  const runStartedAt = Date.now();
+  const armOverallDeadline = (ms: number): ReturnType<typeof setTimeout> => {
+    const timer = setTimeout(() => {
+      if (!jobController.signal.aborted) {
+        jobController.abort(new JobDeadlineError(`overall deadline exceeded after ${ms}ms`));
+      }
+    }, Math.max(0, ms - (Date.now() - runStartedAt)));
+    timer.unref?.();
+    return timer;
+  };
+  let overallTimer = armOverallDeadline(deadlineMs);
   try {
     persistSteps(state);
   } catch (error) {
@@ -2652,6 +2663,23 @@ export async function runJob<TPayload = unknown>(
   heartbeat.unref?.();
 
   const now = opts.now ?? ((): Date => new Date());
+  const overloadBackoffMs = Math.max(0, opts.overloadBackoffMs ?? OVERLOAD_BACKOFF_MS);
+  /** Wait out a provider overload before retrying; returns early if the job is canceled. */
+  const backOffIfOverloaded = async (err: unknown, attemptNumber: number, step: PipelineStep): Promise<void> => {
+    if (!/server_is_overloaded|server_error/.test(errMessage(err)) || overloadBackoffMs === 0) return;
+    const wait = overloadBackoffMs * attemptNumber;
+    updateRunningStepDetail(state, step, `provider reported it is overloaded or failing; waiting ${Math.round(wait / 1000)}s before retrying`);
+    await new Promise<void>((resolve) => {
+      const done = (): void => {
+        clearTimeout(timer);
+        jobSignal.removeEventListener("abort", done);
+        resolve();
+      };
+      const timer = setTimeout(done, wait);
+      jobSignal.addEventListener("abort", done, { once: true });
+    });
+    throwIfJobAborted(jobSignal);
+  };
   const maxJudgeRetries =
     opts.maxJudgeRetries !== undefined && Number.isFinite(opts.maxJudgeRetries)
       ? Math.min(MAX_JUDGE_RETRIES, Math.max(0, Math.trunc(opts.maxJudgeRetries)))
@@ -2690,6 +2718,14 @@ export async function runJob<TPayload = unknown>(
       ? captureAiSelection() : { provider: "anthropic" as const };
     const capturedSettings = getWritableSettingsAuthority();
     const hasKey = opts.hasAnthropicKey ?? selectionIsConnected(aiSelection);
+    // A plan connection gets the longer bounds, unless the caller set its own.
+    if ("connectionId" in aiSelection) {
+      if (opts.deadlineMs === undefined) {
+        clearTimeout(overallTimer);
+        overallTimer = armOverallDeadline(SUBSCRIPTION_JOB_DEADLINE_MS);
+      }
+      if (opts.modelStageDeadlineMs === undefined) modelStageDeadlineMs = SUBSCRIPTION_MODEL_STAGE_DEADLINE_MS;
+    }
 
     // -- fetch ----------------------------------------------------------------
     startStep(state, "fetch");
@@ -3127,6 +3163,7 @@ export async function runJob<TPayload = unknown>(
             const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${lastValidationDetail}${keptNote}`;
             if (retrying) {
               startStep(state, "synthesize");
+              await backOffIfOverloaded(err, attempt + 1, "synthesize");
               updateRunningStepDetail(state, "synthesize", detail);
               continue;
             }
@@ -3593,13 +3630,14 @@ export async function runJob<TPayload = unknown>(
       mode: AnalystRecovery,
       feedback: string | undefined,
       failureDetail: string,
-      continuation?: PassContinuation,
-    ): Promise<PassResultLike<AnalystCase> | null> => {
+      continuation: PassContinuation | undefined,
+      attemptLabel: string,
+    ): Promise<{ ok: true; value: PassResultLike<AnalystCase> } | { ok: false; error: unknown }> => {
       startStep(state, side);
       updateRunningStepDetail(
         state,
         side,
-        `${side} attempt 2/${MAX_ANALYST_REPAIRS + 1}: ${RECOVERY_LABEL[mode]} — ${failureDetail}`,
+        `${side} attempt ${attemptLabel}: ${RECOVERY_LABEL[mode]} — ${failureDetail}`,
       );
       const checkpoint = createSettlementCheckpoint<AnalystCase>(
         state,
@@ -3634,7 +3672,7 @@ export async function runJob<TPayload = unknown>(
         if (!checkpoint.wasCalled() && checkpoint.hasLease()) {
           await checkpoint.hook(successSettlement(fresh));
         }
-        return fresh;
+        return { ok: true, value: fresh };
       } catch (repairErr) {
         throwIfJobAborted(jobSignal);
         if (repairErr instanceof PassSettlementHookError) throw repairErr;
@@ -3647,15 +3685,7 @@ export async function runJob<TPayload = unknown>(
             failureSettlement(repairErr, telemetryFromAttempt(billedAttempt, analysisModel)),
           );
         }
-        computed.gaps.push({
-          field: `llm.${side}`,
-          reason: `${RECOVERY_GAP[mode]}: ${errMessage(repairErr)}`,
-          severity: "critical",
-          attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
-        });
-        markSkipped(state, "synthesize", "upstream bull/bear pass failed");
-        markSkipped(state, "verify", "upstream bull/bear pass failed");
-        return null;
+        return { ok: false, error: repairErr };
       } finally {
         checkpoint.releaseIfPrelaunch();
         checkpoint.stopRenewal();
@@ -3815,24 +3845,61 @@ export async function runJob<TPayload = unknown>(
           const kept = recoveryOf(side) === "retry"
             ? completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? "")
             : {};
-          const continuation: PassContinuation | undefined =
+          let continuation: PassContinuation | undefined =
             Object.keys(kept).length > 0 ? { completed: kept } : undefined;
-          const mode: AnalystRecovery = continuation !== undefined ? "continue" : recoveryOf(side);
-          const feedback = mode !== "repair"
+          let mode: AnalystRecovery = continuation !== undefined ? "continue" : recoveryOf(side);
+          let feedback = mode !== "repair"
             ? undefined
             : raw.length > 0
               ? `${detail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${raw}`
               : detail;
-          const repaired = await runAnalystRepairAttempt(
-            side,
-            mode,
-            feedback,
-            continuation === undefined ? detail : `${detail} (kept: ${Object.keys(kept).join(", ")})`,
-            continuation,
-          );
-          if (repaired === null) {
-            return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+          let currentDetail = detail;
+          // A rejected output gets one repair. A dropped plan-connection request
+          // costs nothing to re-send, and the provider's transient faults
+          // (overload, server_error) cluster, so it gets a few backed-off tries.
+          const attempts = mode !== "repair" && parseSubscriptionModel(analysisModel) !== null
+            ? SUBSCRIPTION_ANALYST_ATTEMPTS
+            : MAX_ANALYST_REPAIRS;
+          let repaired: PassResultLike<AnalystCase> | null = null;
+          for (let n = 1; n <= attempts; n++) {
+            if (mode !== "repair") {
+              startStep(state, side);
+              await backOffIfOverloaded(new Error(currentDetail), n, side);
+            }
+            const out = await runAnalystRepairAttempt(
+              side,
+              mode,
+              feedback,
+              continuation === undefined
+                ? currentDetail
+                : `${currentDetail} (kept: ${Object.keys(continuation.completed).join(", ")})`,
+              continuation,
+              `${n + 1}/${attempts + 1}`,
+            );
+            if (out.ok) {
+              repaired = out.value;
+              break;
+            }
+            const again = n < attempts && mode !== "repair" && isTransportFailure(out.error) && isRetryableJudgeError(out.error);
+            if (!again) {
+              computed.gaps.push({
+                field: `llm.${side}`,
+                reason: `${RECOVERY_GAP[mode]}: ${errMessage(out.error)}`,
+                severity: "critical",
+                attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
+              });
+              markSkipped(state, "synthesize", "upstream bull/bear pass failed");
+              markSkipped(state, "verify", "upstream bull/bear pass failed");
+              return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+            }
+            // Keep whatever this attempt finished, beside what was kept before.
+            const keptNow = { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) };
+            continuation = Object.keys(keptNow).length > 0 ? { completed: keptNow } : undefined;
+            mode = continuation !== undefined ? "continue" : "retry";
+            feedback = undefined;
+            currentDetail = errMessage(out.error);
           }
+          if (repaired === null) return persistDataOnly(state, bundle, validation, computed, now, hasKey);
           if (side === "bull") repairedBull = repaired;
           else repairedBear = repaired;
         }

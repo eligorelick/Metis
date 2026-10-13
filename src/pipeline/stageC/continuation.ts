@@ -133,3 +133,42 @@ export function mergeContinuation(completed: Record<string, unknown>, raw: unkno
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
   return { ...(raw as Record<string, unknown>), ...completed };
 }
+
+/**
+ * Split the schema's top-level sections into `parts` consecutive groups of
+ * near-equal size, in schema order (the order a single response writes them).
+ */
+export function splitSections(keys: readonly string[], parts: number): string[][] {
+  const n = Math.max(1, Math.min(parts, keys.length));
+  const groups: string[][] = [];
+  let start = 0;
+  for (let i = 0; i < n; i++) {
+    const size = Math.ceil((keys.length - start) / (n - i));
+    groups.push(keys.slice(start, start + size));
+    start += size;
+  }
+  return groups.filter((group) => group.length > 0);
+}
+
+/**
+ * The instruction for one part of a response produced in parts: only the
+ * named sections now, consistent with any sections already written.
+ */
+export function sectionRequestInstruction(
+  completed: Record<string, unknown>,
+  requestKeys: readonly string[],
+  allKeys: readonly string[],
+): string {
+  const later = allKeys.filter((key) => !(key in completed) && !requestKeys.includes(key));
+  const done = Object.keys(completed);
+  return (
+    "This response is produced in parts so that no single part runs into the provider's response time limit. " +
+    `Return a single JSON object containing ONLY these top-level sections now: ${requestKeys.join(", ")}. ` +
+    "Use the same schema for them and do not include any other section." +
+    (later.length > 0 ? ` The remaining sections (${later.join(", ")}) will be requested next.` : "") +
+    (done.length > 0
+      ? ` Sections already written (stay consistent with them; do not repeat them): ${done.join(", ")}.\n\n` +
+        `SECTIONS ALREADY WRITTEN (for reference only — do not re-emit):\n${JSON.stringify(completed)}`
+      : "")
+  );
+}

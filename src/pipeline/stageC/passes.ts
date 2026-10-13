@@ -94,7 +94,15 @@ import {
   type EntityIssue,
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
-import { continuationInstruction, hasCompletedSections, mergeContinuation, type PassContinuation } from "@/pipeline/stageC/continuation";
+import {
+  completedTopLevelFields,
+  continuationInstruction,
+  hasCompletedSections,
+  mergeContinuation,
+  sectionRequestInstruction,
+  splitSections,
+  type PassContinuation,
+} from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
@@ -286,6 +294,13 @@ export interface PassDeps {
   model: string;
   /** Effort for analysis passes (default "high"). */
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Produce each structured response in parts (JUDGE_SECTION_PARTS /
+   * ANALYST_SECTION_PARTS) because the connection closes any single response
+   * at a time limit. Set for subscription connections; the paid API has no
+   * such limit and keeps one request per pass.
+   */
+  sectionedOutput?: boolean;
   /** One job-scoped cancellation/deadline signal. */
   signal?: AbortSignal;
   /** Per-request cost admission, by pass (DECISIONS D-10). */
@@ -684,6 +699,133 @@ async function runStructuredPass<T>(a: StructuredPassArgs<T>): Promise<PassRun<T
   return finishStructuredPass(outcome, a.parse, a.field, a.model);
 }
 
+/**
+ * Requests per structured response on a connection that closes any single
+ * response at 15 minutes (the ChatGPT plan endpoint). A whole judge report at
+ * high effort took 10.7-15+ minutes, and every long failure ended at exactly
+ * 15.0, so one request per report sits on the wall; at max effort it is past
+ * it. Each part asks for a slice of the sections, well under the limit.
+ */
+export const JUDGE_SECTION_PARTS = 3;
+export const ANALYST_SECTION_PARTS = 2;
+
+function sumUsage(a: PassUsage, b: PassUsage): PassUsage {
+  return {
+    input_tokens: a.input_tokens + b.input_tokens,
+    output_tokens: a.output_tokens + b.output_tokens,
+    cache_creation_input_tokens: (a.cache_creation_input_tokens ?? 0) + (b.cache_creation_input_tokens ?? 0),
+    cache_read_input_tokens: (a.cache_read_input_tokens ?? 0) + (b.cache_read_input_tokens ?? 0),
+  };
+}
+
+/**
+ * Produce one structured response in parts (see JUDGE_SECTION_PARTS): each
+ * request returns only its group of top-level sections, later groups see the
+ * earlier ones, and the merged object is parsed and schema-validated exactly
+ * as a single response would be. A dropped part hands every section finished
+ * so far to the caller as `partialText`, so a retry continues from there.
+ */
+async function runPassInSections<T>(a: {
+  deps: PassDeps;
+  base: RunPassArgs;
+  allKeys: readonly string[];
+  parts: number;
+  completed?: Record<string, unknown>;
+  parse: (raw: unknown) => { ok: true; value: T } | { ok: false; error: string };
+  field: string;
+  requestedModel: string;
+}): Promise<PassRun<T>> {
+  const completed: Record<string, unknown> = { ...(a.completed ?? {}) };
+  let last: Extract<RunPassOutcome, { ok: true }> | null = null;
+  let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
+  let costUsd = 0;
+  const pending = (keys: readonly string[]): string[] => keys.filter((key) => !(key in completed));
+
+  /** Request one part; a PassRun when the attempt must end here, else null. */
+  const requestPart = async (keys: string[]): Promise<PassRun<T> | null> => {
+    // One immediate re-ask when a part's JSON does not parse; a part is short,
+    // so this costs far less than failing the whole attempt.
+    for (let tries = 0; ; tries++) {
+      const request: RunPassArgs = {
+        ...a.base,
+        messages: [
+          ...a.base.messages,
+          { role: "user", content: sectionRequestInstruction(completed, keys, a.allKeys) },
+        ],
+      };
+      a.deps.validateRunPass?.(request);
+      const outcome = await a.deps.runPass(request);
+      if (!outcome.ok) {
+        const kept = { ...completed };
+        for (const [key, value] of Object.entries(completedTopLevelFields(outcome.error.partialText ?? ""))) {
+          if (keys.includes(key)) kept[key] = value;
+        }
+        const partialText = Object.keys(kept).length > 0 ? JSON.stringify(kept) : undefined;
+        return finishStructuredPass(
+          { ...outcome, error: { ...outcome.error, ...(partialText === undefined ? {} : { partialText }) } },
+          a.parse,
+          a.field,
+          a.requestedModel,
+        );
+      }
+      let json: unknown;
+      try {
+        json = parseJsonSalvaging(extractText(outcome.value.data.message));
+      } catch {
+        if (tries === 0) continue;
+        // Report the unparseable part exactly as a single response would be.
+        return finishStructuredPass(outcome, a.parse, a.field, a.requestedModel);
+      }
+      usage = sumUsage(usage, outcome.value.data.usage);
+      costUsd += outcome.value.data.costUsd;
+      last = outcome;
+      if (json !== null && typeof json === "object" && !Array.isArray(json)) {
+        for (const key of keys) {
+          if (key in (json as Record<string, unknown>)) completed[key] = (json as Record<string, unknown>)[key];
+        }
+      }
+      return null;
+    }
+  };
+
+  for (const group of splitSections(a.allKeys, a.parts)) {
+    const keys = pending(group);
+    if (keys.length === 0) continue;
+    const ended = await requestPart(keys);
+    if (ended !== null) return ended;
+  }
+  // A part may leave a section out. Optional sections can be absent, so ask
+  // again only when the assembled object does not validate and something is
+  // missing — never a request for an optional section the model omitted.
+  const missing = pending(a.allKeys);
+  if (missing.length > 0 && !a.parse(completed).ok) {
+    const ended = await requestPart(missing);
+    if (ended !== null) return ended;
+  }
+
+  // Assigned inside requestPart; TypeScript cannot see through the closure.
+  const lastOk = last as Extract<RunPassOutcome, { ok: true }> | null;
+  const data: PassOutcomeLike = lastOk !== null
+    ? { ...lastOk.value.data, usage, costUsd }
+    : {
+        message: { content: [], usage, model: a.requestedModel },
+        usage,
+        costUsd: 0,
+        fallbackUsed: false,
+        model: a.requestedModel,
+      };
+  const merged: RunPassOutcome = {
+    ok: true,
+    value: {
+      data: {
+        ...data,
+        message: { ...data.message, usage, content: [{ type: "text", text: JSON.stringify(completed) }] },
+      },
+    },
+  };
+  return finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+}
+
 /** Exact provider request used by either analyst side. */
 export function buildAnalystRunPassArgs(
   deps: PassDeps,
@@ -1006,8 +1148,7 @@ export async function runBullPass(
   const request = buildAnalystRunPassArgs(deps, payload, "bull");
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
-  const outcome = await deps.runPass(request);
-  const run = finishStructuredPass(outcome, parseAnalystCase, "llm.bull", deps.model);
+  const run = await runAnalystRequest(deps, request, "bull");
   return settlePassRun(run, deps.model, settlement);
 }
 
@@ -1021,8 +1162,7 @@ export async function runBearPass(
   const request = buildAnalystRunPassArgs(deps, payload, "bear");
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
-  const outcome = await deps.runPass(request);
-  const run = finishStructuredPass(outcome, parseAnalystCase, "llm.bear", deps.model);
+  const run = await runAnalystRequest(deps, request, "bear");
   return settlePassRun(run, deps.model, settlement);
 }
 
@@ -1068,8 +1208,7 @@ export async function runAnalystRepairPass(
   const request = buildAnalystRepairRunPassArgs(deps, payload, side, validationFeedback);
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
-  const outcome = await deps.runPass(request);
-  const run = finishStructuredPass(outcome, parseAnalystCase, `llm.${side}`, deps.model);
+  const run = await runAnalystRequest(deps, request, side);
   return settlePassRun(run, deps.model, settlement);
 }
 
@@ -1088,23 +1227,44 @@ export async function runAnalystContinuationPass(
   beforeProviderLaunch?: () => void | Promise<void>,
 ): Promise<PassRun<AnalystCase>> {
   const base = buildAnalystRunPassArgs(deps, payload, side);
-  const request: RunPassArgs = {
-    ...base,
-    messages: hasCompletedSections(continuation)
-      ? [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }]
-      : base.messages,
-    ...(continuation.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {}),
-  };
+  const stepDown = continuation.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {};
+  const request: RunPassArgs = deps.sectionedOutput
+    ? { ...base, ...stepDown }
+    : {
+        ...base,
+        messages: hasCompletedSections(continuation)
+          ? [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }]
+          : base.messages,
+        ...stepDown,
+      };
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
-  const outcome = await deps.runPass(request);
-  const run = finishStructuredPass(
-    outcome,
-    (raw: unknown) => parseAnalystCase(mergeContinuation(continuation.completed, raw)),
-    `llm.${side}`,
-    deps.model,
-  );
+  const run = await runAnalystRequest(deps, request, side, continuation.completed);
   return settlePassRun(run, deps.model, settlement);
+}
+
+/** One analyst request: whole, or in parts on a time-limited connection. */
+async function runAnalystRequest(
+  deps: PassDeps,
+  request: RunPassArgs,
+  side: "bull" | "bear",
+  completed: Record<string, unknown> = {},
+): Promise<PassRun<AnalystCase>> {
+  const parse = (raw: unknown) => parseAnalystCase(mergeContinuation(completed, raw));
+  if (deps.sectionedOutput) {
+    return runPassInSections({
+      deps,
+      base: request,
+      allKeys: ANALYST_CASE_KEYS,
+      parts: ANALYST_SECTION_PARTS,
+      completed,
+      parse,
+      field: `llm.${side}`,
+      requestedModel: deps.model,
+    });
+  }
+  const outcome = await deps.runPass(request);
+  return finishStructuredPass(outcome, parse, `llm.${side}`, deps.model);
 }
 
 export interface BullBearResult {
@@ -1942,10 +2102,29 @@ export async function runJudgePass(
       ? parseJudgeOutput
       : (raw: unknown) => parseJudgeOutput(mergeContinuation(continuation.completed, raw));
   const attempt = async (order: JudgeOrder): Promise<PassRun<JudgeOutput>> => {
-    const request = buildJudgeRunPassArgs(deps, payload, bull, bear, validationFeedback, order, continuation);
-    deps.validateRunPass?.(request);
-    const outcome = await deps.runPass(request);
-    const finished = finishStructuredPass(outcome, parse, "llm.judge", judgeModel);
+    let finished: PassRun<JudgeOutput>;
+    if (deps.sectionedOutput) {
+      // In parts: the kept sections seed the parts instead of a continuation turn.
+      const base = buildJudgeRunPassArgs(
+        deps, payload, bull, bear, validationFeedback, order,
+        continuation === undefined ? undefined : { completed: {}, effortStepDown: continuation.effortStepDown },
+      );
+      finished = await runPassInSections({
+        deps,
+        base,
+        allKeys: JUDGE_OUTPUT_KEYS,
+        parts: JUDGE_SECTION_PARTS,
+        completed: continuation?.completed,
+        parse,
+        field: "llm.judge",
+        requestedModel: judgeModel,
+      });
+    } else {
+      const request = buildJudgeRunPassArgs(deps, payload, bull, bear, validationFeedback, order, continuation);
+      deps.validateRunPass?.(request);
+      const outcome = await deps.runPass(request);
+      finished = finishStructuredPass(outcome, parse, "llm.judge", judgeModel);
+    }
     if (judgeModel === deps.model) return finished;
     // The provider sees the internally floored request. Keep the original
     // selection in durable evidence so a resumed run still discloses the floor.

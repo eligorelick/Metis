@@ -41,7 +41,10 @@ describe("subscription transport boundaries", () => {
     expect(input[0].role).toBe("developer");
     expect(input[0].content).toContain("Web search is unavailable");
     expect(input[1].content).toBe("evidence");
-    expect(input.at(-1)?.content).toContain('{"type":"object"}');
+    // The schema rides in the developer message: a trailing "match the full
+    // schema" turn would contradict a "return only these sections" part request.
+    expect(input[0].content).toContain('{"type":"object"}');
+    expect(input).toHaveLength(2);
     expect(JSON.stringify(input)).not.toContain("cache_control");
   });
 });
