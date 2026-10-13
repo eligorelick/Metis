@@ -38,6 +38,7 @@ import {
   type FmpPayload,
   type FmpRawRow,
 } from "@/providers/fmp";
+import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import {
   createDbCachedEdgarTransport,
   createEdgarClient,
@@ -1988,6 +1989,19 @@ export async function buildDataBundle(
       for (const note of keyless.notes) progress(`keyless: ${note}`);
       progress(`keyless: replaced ${keyless.replaced.join(", ") || "nothing"}`);
     }
+
+    // Banks with preferred stock: the vendor income row has no net income
+    // available to common, which suppressed ROTE and the excess-return
+    // valuation. One filed field, same period end, disclosed (see module).
+    // Runs whether or not the keyless layer did, since the vendor rows need it
+    // either way.
+    const commonEarnings = supplementCommonEarnings(
+      statements.incomeAnnual,
+      statements.balanceAnnual,
+      edgarConfirmedIssuer && edgarBundle.companyFacts.ok ? edgarBundle.companyFacts.value.data : null,
+    );
+    statements = { ...statements, incomeAnnual: commonEarnings.income };
+    keylessGaps.push(...commonEarnings.gaps);
   } else if (opts.keyless !== false) {
     progress(
       `keyless: skipped — EDGAR did not confirm ${sym} as a registrant${fmp.fixtureMode ? " and FMP is serving fixtures, so even the benchmark series stay synthetic" : ""}`,
