@@ -566,6 +566,11 @@ function bankMetrics(
     );
     const t = tangible(bal0);
     const denom = pos(t.assets);
+    // `tangibleCommonEquity` treats an untagged preferred line as zero. JPM's
+    // report 26 (2026-10-13) printed "− preferred" here with nothing deducted,
+    // because its preferred was tagged under an element the chain did not yet
+    // read (D-42); say so instead, as the P/TBV basis does.
+    const preferredTerm = isNum(bal0?.preferredStock) ? "preferred" : "preferred (none tagged, assumed zero)";
     out.push(
       t.equity !== null && denom !== null
         ? metric({
@@ -574,7 +579,7 @@ function bankMetrics(
             unit: "%",
             value: (t.equity / denom) * 100,
             basis:
-              `(equity − goodwill − other intangibles − preferred) ${t.equity} / (total assets − goodwill − other ` +
+              `(equity − goodwill − other intangibles − ${preferredTerm}) ${t.equity} / (total assets − goodwill − other ` +
               `intangibles) ${denom} × 100. A LEVERAGE ratio standing in for CET1: it does not risk-weight assets, ` +
               "so it is not comparable to a regulatory capital ratio and has no guaranteed ordering relative to CET1.",
             sources: [

@@ -48,4 +48,28 @@ describe("deriveNextEarnings", () => {
     );
     expect(result.ok).toBe(false);
   });
+  it("skips a today-dated row that has already been reported", () => {
+    // Finnhub's JPM calendar on 2026-10-13: the morning's print still sat on
+    // today's date with its actuals filled in.
+    const result = deriveNextEarnings(
+      earnings([
+        { date: "2027-01-14", epsActual: null, revenueActual: null },
+        { date: "2026-10-13", epsActual: 5.75, revenueActual: 50_172_000_000 },
+      ]),
+      "2026-10-13",
+      "JPM",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.data.date).toBe("2027-01-14");
+  });
+
+  it("treats a row with only an actual revenue figure as reported", () => {
+    const result = deriveNextEarnings(
+      earnings([{ date: "2026-10-13", epsActual: null, revenueActual: 50_172_000_000 }]),
+      "2026-10-13",
+      "JPM",
+    );
+    expect(result.ok).toBe(false);
+  });
 });

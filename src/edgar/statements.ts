@@ -705,7 +705,20 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   totalCurrentAssets: lineItemChain("totalCurrentAssets", "money"),
   propertyPlantEquipmentNet: lineItemChain("propertyPlantEquipmentNet", "money"),
   goodwill: lineItemChain("goodwill", "money"),
-  intangibleAssets: lineItemChain("intangibleAssets", "money"),
+  /**
+   * The tagged total, else the finite- plus indefinite-lived pieces (JPM tags
+   * no total). Same shape as the lease chain above; `sumAny` names a piece
+   * that is absent. See `intangibleAssets` in tagSynonyms.ts for why MSRs are
+   * not a piece.
+   */
+  intangibleAssets: {
+    kind: "chain",
+    unit: "money",
+    steps: [
+      { kind: "first", tags: tagsFor("intangibleAssets"), unit: "money" },
+      { kind: "sumAny", tags: tagsFor("intangibleAssetsParts"), unit: "money" },
+    ],
+  },
   totalAssets: lineItemChain("totalAssets", "money"),
   /**
    * D-13 order: the filed total (`DebtCurrent`) first; then the sum of the
@@ -2506,6 +2519,13 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
       const common = context.resolved.get("commonDividendsPaid");
       const aggregateOnly = common?.tags.length === 1 && common.tags[0] === "PaymentsOfDividends";
       if (!aggregateOnly || values.commonDividendsPaid === 0) return;
+      // Deliberately still the par-value element alone, not the whole
+      // `preferredStock` chain (D-42, open): resolving the chain here withholds
+      // JPM's common dividends for 2023-2025, which suppresses its entire
+      // excess-return valuation, and JPM files no cash common-dividend element
+      // (no PaymentsOfDividendsCommonStock) to establish them instead. Its
+      // aggregate PaymentsOfDividends (16,625M FY2025) therefore still carries
+      // ~1.1B of preferred dividends into the payout until the owner decides.
       const preferred = instantResolver(index, date)("PreferredStockValue", "money")?.value ?? null;
       if (preferred === null || preferred <= 0) return;
       const reason = "preferred stock is outstanding but only aggregate dividends paid are tagged; common dividends are withheld until the common or preferred CASH distribution is disclosed (earnings allocations are not cash payments)";

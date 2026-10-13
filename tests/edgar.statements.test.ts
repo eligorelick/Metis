@@ -1067,6 +1067,60 @@ describe("buildStatementsFromCompanyFacts — bank cash tags", () => {
   });
 });
 
+describe("buildStatementsFromCompanyFacts — bank preferred stock and intangibles (D-42)", () => {
+  // JPM's companyfacts (fetched 2026-10-13): no PreferredStockValue after
+  // 2009, no IntangibleAssetsNetExcludingGoodwill, the pieces below instead.
+  const k = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13" } as const;
+  const at = (val: number): Pt[] => [{ end: "2025-12-31", val, ...k }];
+  const jpmLike = (extra: Record<string, Pt[]> = {}): CompanyFacts =>
+    facts({
+      NetIncomeLoss: [{ start: "2025-01-01", end: "2025-12-31", val: 57_048, ...k }],
+      Assets: at(4_424_900),
+      StockholdersEquity: at(362_438),
+      Goodwill: at(52_731),
+      PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount: at(20_045),
+      FiniteLivedIntangibleAssetsNet: at(1_300),
+      IndefiniteLivedIntangibleAssetsExcludingGoodwill: at(1_300),
+      // Mortgage servicing rights stay inside tangible common equity.
+      ServicingAssetAtFairValueAmount: at(9_167),
+      ...extra,
+    });
+
+  it("resolves preferred from the APIC-inclusive carrying value and sums both intangible pieces", () => {
+    const built = buildStatementsFromCompanyFacts(jpmLike(), { ...OPTS, symbol: "JPM" });
+    expect(built.balanceAnnual.rows[0]).toMatchObject({ preferredStock: 20_045, intangibleAssets: 2_600, goodwill: 52_731 });
+  });
+
+  it("prefers the carrying value over the par value when both are tagged", () => {
+    const built = buildStatementsFromCompanyFacts(jpmLike({ PreferredStockValue: at(5) }), { ...OPTS, symbol: "JPM" });
+    expect(built.balanceAnnual.rows[0].preferredStock).toBe(20_045);
+    const parOnly = buildStatementsFromCompanyFacts(
+      facts({ Assets: at(900), PreferredStockValue: at(40) }),
+      OPTS,
+    );
+    expect(parOnly.balanceAnnual.rows[0].preferredStock).toBe(40);
+  });
+
+  it("uses the tagged intangibles total when present, never adding the pieces to it", () => {
+    const built = buildStatementsFromCompanyFacts(
+      jpmLike({ IntangibleAssetsNetExcludingGoodwill: at(2_560) }),
+      { ...OPTS, symbol: "JPM" },
+    );
+    expect(built.balanceAnnual.rows[0].intangibleAssets).toBe(2_560);
+  });
+
+  it("names the absent piece when only one is tagged", () => {
+    const built = buildStatementsFromCompanyFacts(
+      facts({ Assets: at(900), FiniteLivedIntangibleAssetsNet: at(70) }),
+      OPTS,
+    );
+    expect(built.balanceAnnual.rows[0].intangibleAssets).toBe(70);
+    expect(built.balanceAnnual.notes.join(" ")).toMatch(
+      /intangibleAssets.*absent and excluded: IndefiniteLivedIntangibleAssetsExcludingGoodwill/,
+    );
+  });
+});
+
 describe("buildStatementsFromCompanyFacts — FMP field names Stage B reads", () => {
   const K = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-20" } as const;
   const annual = (val: number): Pt[] => [{ start: "2025-01-01", end: "2025-12-31", val, ...K }];

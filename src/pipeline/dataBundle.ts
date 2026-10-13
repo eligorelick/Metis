@@ -675,8 +675,9 @@ function sortRowsNumeric<TRow extends FmpRawRow>(
 }
 
 /**
- * Derive the next expected earnings date: the earliest future-dated row of
- * /stable/earnings (future rows carry epsActual=null).
+ * Derive the next expected earnings date: the earliest row dated today or
+ * later that has not been reported yet (no actual EPS or revenue) — from
+ * /stable/earnings, or the Finnhub calendar mapped to the same row shape.
  */
 function isValidIsoDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -694,7 +695,16 @@ export function deriveNextEarnings(
   if (!earnings.ok) {
     return gapResult(field, `earnings history unavailable: ${earnings.gap.reason}`, "info", earnings.gap.attemptedSources, earnings.gap.expected);
   }
+  // A row dated today can already be REPORTED: Finnhub's JPM calendar of
+  // 2026-10-13 listed {2026-10-13, epsActual 5.75, revenueActual 50.172B, bmo}
+  // beside {2027-01-14, epsActual null}, and the date filter alone picked the
+  // quarter JPM had published that morning as its "next" report. A row that
+  // carries an actual figure is history, whatever its date.
+  const reported = (r: FmpEarningsRow): boolean =>
+    (typeof r.epsActual === "number" && Number.isFinite(r.epsActual)) ||
+    (typeof r.revenueActual === "number" && Number.isFinite(r.revenueActual));
   const dated = earnings.value.data.rows
+    .filter((r) => !reported(r))
     .map((r) => ({ row: r, date: typeof r.date === "string" ? r.date.slice(0, 10) : "" }))
     .filter((x) => isValidIsoDate(x.date) && x.date >= todayIso)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));

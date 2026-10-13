@@ -198,6 +198,19 @@ describe("bank route metrics", () => {
     expect(proxy.basis).toContain("no guaranteed ordering");
   });
 
+  it("says preferred was assumed zero when no preferred line is tagged (D-42)", () => {
+    // JPM report 26 (2026-10-13): the basis read "− preferred" while nothing
+    // was deducted, because the preferred line had not resolved.
+    const base = bankInputs();
+    const [bal0, ...rest] = base.balance;
+    const r = computeFinancialMetrics("bank", { ...base, balance: [{ ...bal0!, preferredStock: null }, ...rest] });
+    const proxy = find(r.metrics, "tangibleLeverage");
+    expect(proxy.value).toBeCloseTo((240_000 / 3_340_000) * 100, 9);
+    expect(proxy.basis).toContain("− preferred (none tagged, assumed zero)");
+    // With the line tagged, the plain term stays.
+    expect(find(computeFinancialMetrics("bank", base).metrics, "tangibleLeverage").basis).not.toContain("assumed zero");
+  });
+
   it("uses a reported CET1 when the filer tags one, normalising a filed fraction", () => {
     const asFraction = computeFinancialMetrics(
       "bank",

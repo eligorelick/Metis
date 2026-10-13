@@ -8,7 +8,9 @@
  * Review stamp: the element names below were reviewed against the US-GAAP
  * 2025 taxonomy element list on 2026-09-02 (an offline review of names; no
  * live taxonomy fetch — the same names resolved at live issuers during the
- * 21-issuer keyless sweep of 2026-09-02). `InterestExpense` was deprecated by
+ * 21-issuer keyless sweep of 2026-09-02). The preferred-stock carrying-value
+ * elements and the intangible-asset parts were added on 2026-10-13 and
+ * checked against JPM's live companyfacts (D-42). `InterestExpense` was deprecated by
  * the 2024 taxonomy in favour of `InterestExpenseNonoperating` and
  * `InterestExpenseOperating`; it stays in the chain because filers on older
  * taxonomy versions still tag it.
@@ -23,7 +25,7 @@
  */
 
 export const TAG_SYNONYMS_TAXONOMY = "us-gaap-2025";
-export const TAG_SYNONYMS_REVIEWED_ON = "2026-09-02";
+export const TAG_SYNONYMS_REVIEWED_ON = "2026-10-13";
 
 export interface TagStandIn {
   tag: string;
@@ -255,7 +257,23 @@ export const LINE_ITEM_TAGS = {
     "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization",
   ]),
   goodwill: entry(["Goodwill"]),
-  intangibleAssets: entry(["IntangibleAssetsNetExcludingGoodwill", "FiniteLivedIntangibleAssetsNet"]),
+  /**
+   * The tagged total of intangibles other than goodwill. A filer without it
+   * (JPM) tags the finite-lived and indefinite-lived pieces separately; the
+   * taxonomy defines the two as disjoint, so `intangibleAssetsParts` sums the
+   * ones present. The parts step runs only when the total misses, so a piece
+   * is never added to a total that already contains it. Taking the
+   * finite-lived piece alone (as this did until 2026-10-13) dropped JPM's
+   * indefinite-lived intangibles (1.3B FY2025, 1.2B FY2024) and overstated
+   * its tangible common equity by that much. Mortgage servicing rights
+   * (`ServicingAssetAtFairValueAmount`) are deliberately NOT a part: the
+   * tangible-common-equity convention, JPM's own included, keeps them in TCE.
+   * FMP's `intangibleAssets` does include them (JPM FY2025 11.73B = ~2.56B
+   * other intangibles + 9.17B MSRs), so for a mortgage servicer the EDGAR and
+   * FMP figures legitimately differ.
+   */
+  intangibleAssets: entry(["IntangibleAssetsNetExcludingGoodwill"]),
+  intangibleAssetsParts: entry(["FiniteLivedIntangibleAssetsNet", "IndefiniteLivedIntangibleAssetsExcludingGoodwill"]),
   totalAssets: entry(["Assets"]),
   /** The balance sheet's own total-current-debt line; a superset of every tag below. */
   debtCurrent: entry(["DebtCurrent"]),
@@ -273,7 +291,20 @@ export const LINE_ITEM_TAGS = {
   operatingLeaseLiabilityParts: entry(["OperatingLeaseLiabilityCurrent", "OperatingLeaseLiabilityNoncurrent"]),
   financeLeaseLiability: entry(["FinanceLeaseLiability", "CapitalLeaseObligations"]),
   financeLeaseLiabilityParts: entry(["FinanceLeaseLiabilityCurrent", "FinanceLeaseLiabilityNoncurrent"]),
-  preferredStock: entry(["PreferredStockValue"]),
+  /**
+   * The carrying value first. `PreferredStockValue` is the par or stated
+   * value; a filer that carries its preferred at par plus paid-in capital tags
+   * an APIC-inclusive element instead. JPM has tagged only
+   * `PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount` since 2009
+   * (20,045M FY2025, 20,050M FY2024: the face-of-balance-sheet figure FMP also
+   * reports), so until 2026-10-13 its preferred resolved to nothing and its
+   * tangible common equity kept ~20B of preferred inside it (D-42).
+   */
+  preferredStock: entry([
+    "PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount",
+    "PreferredStockIncludingAdditionalPaidInCapital",
+    "PreferredStockValue",
+  ]),
   commonStock: entry(["CommonStockValue"]),
   retainedEarnings: entry(["RetainedEarningsAccumulatedDeficit"]),
   accumulatedOtherComprehensiveIncomeLoss: entry(["AccumulatedOtherComprehensiveIncomeLossNetOfTax"]),
