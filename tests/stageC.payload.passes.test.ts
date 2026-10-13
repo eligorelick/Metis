@@ -62,6 +62,7 @@ import {
   runBullPass,
   runBearPass,
   runBullThenBear,
+  isTransientSubscriptionFailure,
   runJudgePass,
   runVerifyPass,
   buildAnalystRunPassArgs,
@@ -74,6 +75,7 @@ import {
   totalCost,
   extractText,
   parseJsonSalvaging,
+  parseJsonMergingTrailingFields,
   judgeRetryFeedback,
   judgeModelFor,
   JUDGE_MODEL_FLOOR,
@@ -3016,6 +3018,47 @@ describe("mock-driven bull/bear/judge passes", () => {
     expect(() => parseJsonSalvaging('prose {"a":1')).toThrow();
   });
 
+  it("parseJsonMergingTrailingFields recovers fields written after an early-closed root", () => {
+    // root closed after the first section, the rest continues as key/values
+    expect(parseJsonMergingTrailingFields('{"verdict":{"x":1}}, "business":{"y":2}, "macro":[3]}')).toEqual({
+      verdict: { x: 1 },
+      business: { y: 2 },
+      macro: [3],
+    });
+    // a second object carrying the remaining sections
+    expect(parseJsonMergingTrailingFields('{"verdict":{"x":1}}\n{"business":{"y":"a } b"}}')).toEqual({
+      verdict: { x: 1 },
+      business: { y: "a } b" },
+    });
+    // a duplicated copy (repeated keys), trailing prose, or a whole document: nothing to merge
+    expect(parseJsonMergingTrailingFields('{"a":1}\n{"a":1}')).toBeNull();
+    expect(parseJsonMergingTrailingFields('{"a":1}\nHere is my summary.')).toBeNull();
+    expect(parseJsonMergingTrailingFields('{"a":1}')).toBeNull();
+    // an unparseable trailing fragment is not guessed at
+    expect(parseJsonMergingTrailingFields('{"a":1}, "b": oops}')).toBeNull();
+  });
+
+  it("a judge output with an early-closed root passes once its trailing sections are merged", async () => {
+    const { payload } = buildInputs();
+    const whole = judgeOutput() as Record<string, unknown>;
+    const { verdict, ...rest } = whole;
+    const tail = JSON.stringify(rest).slice(1); // `"business":…}` — the root's own closing brace
+    const mock = new MockRunPass();
+    mock.onText("llm.judge", `{"verdict":${JSON.stringify(verdict)}}, ${tail}`);
+    const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+  });
+
+  it("an output that already validates is never altered by the trailing-field fallback", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onText("llm.judge", `${JSON.stringify(judgeOutput())}\n{"note":"extra"}`);
+    const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+    if (!run.ok) return;
+    expect(run.result.output).not.toHaveProperty("note");
+  });
+
   it("judgeRetryFeedback echoes the failed output so retries repair instead of regenerate", () => {
     const withOutput = judgeRetryFeedback('[{"path":["verdict"]}]', '{"verdict":{}}');
     expect(withOutput).toContain("FAILED report-schema validation");
@@ -3375,6 +3418,36 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
     if (bear.ok) return;
     expect(bear.error.notLaunched).toBe(true);
     expect(mock.calls.map((call) => call.field)).toEqual(["llm.bull"]);
+  });
+
+  it("still runs bear when bull's failure is a retryable zero-cost subscription drop", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.on("llm.bull", {
+      kind: "error",
+      error: { kind: "transport", message: "ChatGPT stream ended before completion", model: "chatgpt/gpt-5.6-luna", costUsd: 0 },
+    });
+    mock.onJson("llm.bear", analystCase("bear"));
+    const deps = makeDeps(mock, { model: "chatgpt/gpt-5.6-luna" });
+    delete (deps as { runPassStreaming?: unknown }).runPassStreaming;
+
+    const { bull, bear } = await runBullThenBear(deps, payload);
+
+    expect(bull.ok).toBe(false);
+    expect(isTransientSubscriptionFailure(bull)).toBe(true);
+    expect(bear.ok).toBe(true);
+    expect(mock.calls.map((call) => call.field)).toEqual(["llm.bull", "llm.bear"]);
+  });
+
+  it("treats only unbilled, unaborted subscription transport failures as transient", () => {
+    const fail = (error: Record<string, unknown>) =>
+      ({ ok: false, gap: { field: "llm.bull", reason: "x", severity: "critical" }, error: { kind: "transport", message: "x", ...error } }) as never;
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0 }))).toBe(true);
+    expect(isTransientSubscriptionFailure(fail({ model: "claude-opus-4-8", costUsd: 0 }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0.2 }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0, aborted: true }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0, notLaunched: true }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0, kind: "schema" }))).toBe(false);
   });
 
   it("keeps each side's own failure message when both fail on their own in the same instant", async () => {

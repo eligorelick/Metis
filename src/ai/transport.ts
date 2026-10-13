@@ -4,7 +4,8 @@ import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt"
 import { runGemini } from "./gemini";
 import { CHATGPT_EFFORTS, parseSubscriptionModel, subscriptionModel, validModelId, type ChatGptEffort, type ChatGptModelChoice, type ChatGptRunOptions } from "./contracts";
 
-const MAX_RESPONSE_BYTES = 4_000_000;
+// Counts every streamed byte (lifecycle events echo the request), not just the answer text.
+const MAX_RESPONSE_BYTES = 16_000_000;
 interface ChatGptObservation {
   model?: string;
   usage?: { input_tokens: number; output_tokens: number };
@@ -22,6 +23,13 @@ function chatGptFailure(error: unknown): string | null {
   if (param === "reasoning.effort") return "ChatGPT did not accept the selected reasoning effort. Choose Provider default or a supported effort.";
   if (code === "model_not_found" || param === "model") return "ChatGPT did not grant access to the selected model. Refresh the account model list or choose another model. No paid fallback was attempted.";
   return null;
+}
+/** Short, sanitized provider error code for diagnostics (never the request or any payload text). */
+function providerErrorDetail(failure: unknown, event: { type?: unknown; response?: { incomplete_details?: { reason?: unknown } } }): string {
+  const code = failure && typeof failure === "object" ? (failure as Record<string, unknown>).code : undefined;
+  const reason = event.response?.incomplete_details?.reason;
+  const parts = [event.type, code, reason].filter((v): v is string => typeof v === "string" && /^[\w.-]{1,60}$/.test(v));
+  return parts.length ? ` (${parts.join(": ")})` : "";
 }
 export function subscriptionMessages(args: RunPassArgs) {
   const evidenceRule = "Use only evidence in the supplied research payload. Web search is unavailable for this connection. Do not invent URLs or claim you fetched a source. Return JSON only, without Markdown fences.";
@@ -79,7 +87,8 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
           completedItems.set(event.output_index, event.item);
         }
         if (["error", "response.failed", "response.incomplete"].includes(event.type)) {
-          throw new Error(chatGptFailure(event.response?.error ?? event.error ?? event) ?? "ChatGPT did not complete the pass. Check your model access and plan allowance. No paid fallback was attempted.");
+          const failure = event.response?.error ?? event.error ?? event;
+          throw new Error(chatGptFailure(failure) ?? `ChatGPT did not complete the pass${providerErrorDetail(failure, event)}. Check your model access and plan allowance. No paid fallback was attempted.`);
         }
         if (event.type === "response.completed") {
           const data = event.response;
@@ -162,6 +171,11 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
           // The plan-usage preview does not accept max_output_tokens or temperature.
           body: JSON.stringify({ model: parsed.model, input: messages, store: false, stream: true,
             ...(options.effort === undefined ? {} : { reasoning: { effort: options.effort } }),
+            // Prompt-only JSON intermittently produced unescaped quotes in long judge
+            // output, so JSON mode is requested too. The endpoint accepts it but has
+            // still returned invalid JSON on large reports, so the caller's parse and
+            // schema validation (and their retries) remain the real guard.
+            ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
             service_tier: options.serviceTier ?? "default",
           }),
         }));

@@ -462,29 +462,105 @@ export function parseJsonSalvaging(text: string): unknown {
   } catch (wholeError) {
     const start = text.search(/[{[]/);
     if (start === -1) throw wholeError;
-    const open = text[start];
-    const close = open === "{" ? "}" : "]";
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i];
-      if (escaped) {
-        escaped = false;
-      } else if (inString) {
-        if (ch === "\\") escaped = true;
-        else if (ch === '"') inString = false;
-      } else if (ch === '"') {
-        inString = true;
-      } else if (ch === open) {
-        depth++;
-      } else if (ch === close) {
-        depth--;
-        if (depth === 0) return JSON.parse(text.slice(start, i + 1));
-      }
-    }
-    throw wholeError;
+    const end = balancedEnd(text, start);
+    if (end === -1) throw wholeError;
+    return JSON.parse(text.slice(start, end));
   }
+}
+
+/**
+ * The first top-level object plus the top-level fields written AFTER it, for
+ * an output whose root was closed too early — `{"verdict":{…}}, "business":
+ * {…}, …}` — or split into a second `{"business":…}` object. Salvaging only
+ * the first object there throws away every later section (observed live on a
+ * ChatGPT plan model, 2026-10-12: a 44 KB judge output parsed to `verdict`
+ * alone and the retry was told twelve sections were missing). Fragments are
+ * merged only when each is a plain object whose keys are all new, so a
+ * duplicated second copy or trailing prose yields null. Callers use this only
+ * as a fallback after the first object FAILED validation, so it can rescue an
+ * output but never change one that already passes.
+ */
+export function parseJsonMergingTrailingFields(text: string): Record<string, unknown> | null {
+  try {
+    JSON.parse(text);
+    return null; // a whole document has nothing trailing to merge
+  } catch {
+    const start = text.indexOf("{");
+    if (start === -1) return null;
+    const end = balancedEnd(text, start);
+    if (end === -1) return null;
+    let first: unknown;
+    try {
+      first = JSON.parse(text.slice(start, end));
+    } catch {
+      return null;
+    }
+    return mergeTrailingFields(first, text.slice(end));
+  }
+}
+
+/** Index just past the balanced JSON value opening at `start`, or -1. */
+function balancedEnd(text: string, start: number): number {
+  const open = text[start];
+  const close = open === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+    } else if (inString) {
+      if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === open) {
+      depth++;
+    } else if (ch === close) {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * The first object plus the top-level fields that follow it, or null when
+ * nothing mergeable follows (prose, a repeated key, an unparseable fragment).
+ */
+function mergeTrailingFields(first: unknown, rest: string): Record<string, unknown> | null {
+  if (!isPlainObject(first)) return null;
+  const merged: Record<string, unknown> = { ...first };
+  let remaining = rest;
+  let mergedAny = false;
+  for (;;) {
+    remaining = remaining.replace(/^\s*,?\s*/, "");
+    // An early-closed root continues with `"key": …` up to its own closing
+    // brace; a second object starts with `{`. Anything else ends the scan.
+    const source = remaining.startsWith('"') ? `{${remaining}` : remaining;
+    if (!source.startsWith("{")) break;
+    const end = balancedEnd(source, 0);
+    if (end === -1) return null;
+    let fragment: unknown;
+    try {
+      fragment = JSON.parse(source.slice(0, end));
+    } catch {
+      return null;
+    }
+    if (!isPlainObject(fragment)) return null;
+    for (const key of Object.keys(fragment)) {
+      if (key in merged) return null;
+    }
+    Object.assign(merged, fragment);
+    mergedAny = true;
+    remaining = source.slice(end);
+  }
+  return mergedAny ? merged : null;
 }
 
 /** Thrown when the report fails ReportSchema validation (caught by the runner to retry). */
@@ -666,7 +742,16 @@ function finishStructuredPass<T>(
       ...billedAttempt,
     };
   }
-  const parsed = parse(json);
+  let parsed = parse(json);
+  if (!parsed.ok) {
+    // Fallback only: an early-closed root left later sections outside the
+    // salvaged object. Accept the merged object if — and only if — it passes.
+    const merged = parseJsonMergingTrailingFields(text);
+    if (merged !== null) {
+      const retried = parse(merged);
+      if (retried.ok) parsed = retried;
+    }
+  }
   if (!parsed.ok) {
     const reason = `pass output failed schema validation: ${parsed.error}`;
     return {
@@ -1107,7 +1192,26 @@ function hardFailure(field: string, err: unknown, model: string): PassRun<Analys
  * remaining spend buys, at best, one pass on a run the user may never resume.
  */
 function endsTheRun(run: PassRun<AnalystCase>): boolean {
-  return !run.ok && run.validationError === undefined;
+  // A dropped zero-cost subscription stream is retried by the runner, so the
+  // sibling's output is still worth finishing: aborting it would turn one
+  // retryable side into two.
+  return !run.ok && run.validationError === undefined && !isTransientSubscriptionFailure(run);
+}
+
+/**
+ * A dropped stream on a plan-billed (zero-cost) subscription connection is
+ * safe to retry: nothing was billed and the caller bounds the attempts. Paid
+ * API transport failures stay non-retryable so a retry can never double-spend.
+ */
+export function isTransientSubscriptionFailure<T>(run: PassRun<T>): boolean {
+  if (run.ok || run.error.kind !== "transport" || run.error.notLaunched === true) return false;
+  const { model, costUsd } = run.error;
+  return (
+    costUsd === 0 &&
+    run.error.aborted !== true &&
+    typeof model === "string" &&
+    parseSubscriptionModel(model) !== null
+  );
 }
 
 /** A per-side signal that aborts with the job's, or on its own. */

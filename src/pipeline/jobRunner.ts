@@ -493,6 +493,22 @@ export const PIPELINE_VERSION = "stage-c-1.0.0" as const;
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
 
+/** Reason recorded when the ticker resolved to no usable data, so no model is called. */
+export const NO_ANALYZABLE_DATA_REASON =
+  "No profile, quote, price history or annual income statement could be retrieved for this ticker — no model was called; this is a data-only report. Check the symbol.";
+
+/** True when at least one core provider member returned rows worth analyzing. */
+function hasAnalyzableData(bundle: DataBundle): boolean {
+  const rows = (f: { ok: boolean; value?: { data: { rows: readonly unknown[] } } }): number =>
+    f.ok && f.value ? f.value.data.rows.length : 0;
+  return (
+    rows(bundle.profile) > 0 ||
+    rows(bundle.quote) > 0 ||
+    rows(bundle.eodPrices) > 0 ||
+    rows(bundle.statements.incomeAnnual) > 0
+  );
+}
+
 /** Adapter contract for the non-swallowed immediate pre-provider authority fence. */
 export const DURABLE_LAUNCH_AUTHORITY_CAPABILITY = "durable-preprovider-v1" as const;
 
@@ -1434,6 +1450,11 @@ function rawTextOfError(err: unknown): string {
  * formatting one.
  */
 export const MAX_ANALYST_REPAIRS = 1;
+
+/** True when a pass failed in transit (dropped stream), not on a rejected output. */
+function isTransportFailure(err: unknown): boolean {
+  return err !== null && typeof err === "object" && (err as { kind?: unknown }).kind === "transport";
+}
 
 function isRetryableJudgeError(err: unknown): boolean {
   if (err !== null && typeof err === "object" && "retryable" in err) {
@@ -2730,6 +2751,19 @@ export async function runJob<TPayload = unknown>(
     );
     if (!stageCSupport.supported) return finishUnsupported(state, stageCSupport);
 
+    // An unresolved issuer (no profile, quote, prices or annual income rows —
+    // a mistyped or delisted ticker) gives the analysts nothing to reason
+    // about. Skip the paid passes and persist the disclosed data-only report.
+    if (!hasAnalyzableData(bundle)) {
+      for (const step of LLM_STEPS) {
+        startStep(state, step);
+        finishStep(state, step, "skipped", NO_ANALYZABLE_DATA_REASON);
+      }
+      return persistDataOnly(state, bundle, validation, computed, now, hasKey, {
+        reason: NO_ANALYZABLE_DATA_REASON,
+      });
+    }
+
     const reusableSynthesize = opts.resume === true
       ? (preparedResume?.synthesize ?? null)
       : null;
@@ -2933,6 +2967,10 @@ export async function runJob<TPayload = unknown>(
         costBreakdown: { step: string; model: string; costUsd: number }[];
       } | null = null;
       let lastValidationDetail = "";
+      // What the next judge attempt is told to repair. A dropped connection is
+      // not something the model can repair, so it neither becomes feedback nor
+      // erases the feedback an earlier rejected output left behind.
+      let lastFeedbackDetail = "";
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
       let judgeProviderAttempted = false;
@@ -2962,10 +3000,10 @@ export async function runJob<TPayload = unknown>(
             break;
           }
           const feedback =
-            lastValidationDetail.length > 0
+            lastFeedbackDetail.length > 0
               ? lastFailedRawOutput.length > 0
-                ? `${lastValidationDetail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${lastFailedRawOutput}`
-                : lastValidationDetail
+                ? `${lastFeedbackDetail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${lastFailedRawOutput}`
+                : lastFeedbackDetail
               : undefined;
           const judgeCheckpoint = createSettlementCheckpoint<JudgeOutput>(
             state,
@@ -3012,7 +3050,10 @@ export async function runJob<TPayload = unknown>(
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
             lastValidationDetail = errMessage(err);
-            lastFailedRawOutput = rawTextOfError(err);
+            if (!isTransportFailure(err)) {
+              lastFeedbackDetail = lastValidationDetail;
+              lastFailedRawOutput = rawTextOfError(err);
+            }
             lastJudgeFailureRetryable = isRetryableJudgeError(err);
             if (
               !judgeCheckpoint.wasCalled() &&
@@ -3207,6 +3248,7 @@ export async function runJob<TPayload = unknown>(
           lastValidationDetail = reusedArtifact
             ? `durable synthesize artifact could not be assembled without rerunning upstream paid work: ${errMessage(err)}`
             : errMessage(err);
+          lastFeedbackDetail = lastValidationDetail;
           // The judge output parsed but failed report-schema validation — echo it
           // back (JSON) so the retry repairs rather than regenerates.
           try {
@@ -3472,16 +3514,33 @@ export async function runJob<TPayload = unknown>(
      * after recording the failure and skipping synthesis, so the caller can
      * persist data-only exactly as the first-attempt path does.
      */
+    /**
+     * `repair`: the output was received but rejected, so it is fed back.
+     * `retry`: the connection dropped, so the same request is simply re-run.
+     * `fresh`: the side never launched because its sibling failed first.
+     */
+    type AnalystRecovery = "repair" | "retry" | "fresh";
+    const RECOVERY_LABEL: Record<AnalystRecovery, string> = {
+      repair: "repairing schema-invalid output",
+      retry: "retrying after a dropped connection",
+      fresh: "running now that its sibling pass is being retried",
+    };
+    const RECOVERY_GAP: Record<AnalystRecovery, string> = {
+      repair: "repair attempt after schema-invalid output also failed",
+      retry: "retry after a dropped connection also failed",
+      fresh: "pass launched after its sibling's retry also failed",
+    };
     const runAnalystRepairAttempt = async (
       side: "bull" | "bear",
-      feedback: string,
+      mode: AnalystRecovery,
+      feedback: string | undefined,
       failureDetail: string,
     ): Promise<PassResultLike<AnalystCase> | null> => {
       startStep(state, side);
       updateRunningStepDetail(
         state,
         side,
-        `${side} attempt 2/${MAX_ANALYST_REPAIRS + 1}: repairing schema-invalid output — ${failureDetail}`,
+        `${side} attempt 2/${MAX_ANALYST_REPAIRS + 1}: ${RECOVERY_LABEL[mode]} — ${failureDetail}`,
       );
       const checkpoint = createSettlementCheckpoint<AnalystCase>(
         state,
@@ -3530,7 +3589,7 @@ export async function runJob<TPayload = unknown>(
         }
         computed.gaps.push({
           field: `llm.${side}`,
-          reason: `repair attempt after schema-invalid output also failed: ${errMessage(repairErr)}`,
+          reason: `${RECOVERY_GAP[mode]}: ${errMessage(repairErr)}`,
           severity: "critical",
           attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
         });
@@ -3658,15 +3717,28 @@ export async function runJob<TPayload = unknown>(
       // the schema — the judge has had this loop all along; the analysts had
       // none, so a haiku bull pass writing "2026-Q1" for `asOf` (2026-09-02)
       // lost both paid passes and the whole analysis. The sibling's paid
-      // output is kept. A transport failure, a refusal, or a sibling that
-      // never launched (the non-streaming path stops at a failed bull) still
-      // degrades to data-only below.
+      // output is kept. A dropped zero-cost subscription stream is retried the
+      // same way (the facade marks it retryable), and a side that never
+      // launched because that sibling failed first runs fresh. A paid transport
+      // failure or a refusal still degrades to data-only below.
       const sideResult = (side: "bull" | "bear"): PassResultLike<AnalystCase> | undefined =>
         side === "bull" ? partial?.bull : partial?.bear;
+      const retryableSide = (side: "bull" | "bear"): boolean =>
+        (side === "bull" ? partial?.bullRetryable : partial?.bearRetryable) === true;
+      // Decided by the launch flag, not by the absence of an error: the facade
+      // records a "not launched" message for such a side.
+      const neverLaunched = (side: "bull" | "bear"): boolean =>
+        sideResult(side) === undefined && !(side === "bull" ? bullLaunched : bearLaunched);
+      const recoveryOf = (side: "bull" | "bear"): AnalystRecovery =>
+        neverLaunched(side)
+          ? "fresh"
+          : (side === "bull" ? partial?.bullFailureKind : partial?.bearFailureKind) === "transport"
+            ? "retry"
+            : "repair";
       const repairable = (side: "bull" | "bear"): boolean =>
         passes.runAnalystPass !== undefined &&
         sideResult(side) === undefined &&
-        (side === "bull" ? partial?.bullRetryable : partial?.bearRetryable) === true;
+        (retryableSide(side) || (neverLaunched(side) && retryableSide(side === "bull" ? "bear" : "bull")));
       const recoverable = (["bull", "bear"] as const).every(
         (side) => sideResult(side) !== undefined || repairable(side),
       );
@@ -3678,11 +3750,13 @@ export async function runJob<TPayload = unknown>(
           const detail =
             (side === "bull" ? partial?.bullError : partial?.bearError) ?? errMessage(err);
           const raw = capRawOutput((side === "bull" ? partial?.bullRawText : partial?.bearRawText) ?? "");
-          const feedback =
-            raw.length > 0
+          const mode = recoveryOf(side);
+          const feedback = mode !== "repair"
+            ? undefined
+            : raw.length > 0
               ? `${detail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${raw}`
               : detail;
-          const repaired = await runAnalystRepairAttempt(side, feedback, detail);
+          const repaired = await runAnalystRepairAttempt(side, mode, feedback, detail);
           if (repaired === null) {
             return persistDataOnly(state, bundle, validation, computed, now, hasKey);
           }

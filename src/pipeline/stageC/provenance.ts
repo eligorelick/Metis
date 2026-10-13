@@ -174,6 +174,19 @@ export function canonicalizeTracedUnit(
     const monetary = unit === "currency" || unit === "currency-per-share";
     return { unit, currency: monetary ? declaredCurrency : null };
   }
+  // A recognised unit token followed by a DESCRIPTION ("x P/E", "currency
+  // stockholders equity", "% Standardized CET1"): the model sometimes writes the
+  // figure label into the unit slot. The first token still has to be a canonical
+  // unit, and id, value, currency, period and as-of are all matched separately,
+  // so the description cannot change what is verified. "% points" is excluded:
+  // it would silently turn percentage points into a percent.
+  const tail = /^(\S+)\s+(.+)$/.exec(raw);
+  if (tail && !/^(points?|pts?|pp)\b/i.test(tail[2]!)) {
+    const head = tail[1]!;
+    if (head === "%" || head === "x" || head === "pp" || head === "currency" || head === "currency/share" || /^[A-Z]{3}(\/share)?$/.test(head)) {
+      return canonicalizeTracedUnit(head, explicitCurrency);
+    }
+  }
   return null;
 }
 

@@ -135,10 +135,13 @@ describe("response validation boundaries", () => {
   ])("rejects a malformed terminal result %j", async (response) => {
     await expect(consumeChatGptStream(event({ type: "response.completed", response }))).rejects.toThrow();
   });
+  it("names the provider error code when a pass fails without a recognised reason", async () => {
+    await expect(consumeChatGptStream(event({ type: "response.failed", response: { error: { code: "server_error" } } }))).rejects.toThrow("(response.failed: server_error)");
+  });
   it("ignores comments, DONE, and non-text blocks but enforces the size limit", async () => {
     const valid = { ...completed, response: { ...completed.response, output: [{ type: "reasoning" }, { type: "message" }, { type: "message", content: [{ type: "other" }, { type: "output_text" }, { type: "output_text", text: "{}" }] }] } };
     expect((await consumeChatGptStream(new Response(`: heartbeat\n\ndata: [DONE]\n\ndata: ${JSON.stringify(valid)}\n\n`))).text.trim()).toBe("{}");
-    await expect(consumeChatGptStream(new Response("x".repeat(4_000_001)))).rejects.toThrow("size limit");
+    await expect(consumeChatGptStream(new Response("x".repeat(16_000_001)))).rejects.toThrow("size limit");
     await expect(consumeChatGptStream(new Response(null))).rejects.toThrow("start");
   });
 });

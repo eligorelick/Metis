@@ -91,6 +91,7 @@ import {
   runVerifyPass as runVerifyPass_,
   assembleReport as assembleReport_,
   BullBearOverlapLaunchFailure,
+  isTransientSubscriptionFailure,
   type PassDeps,
   type PassResult,
   type PassRun,
@@ -319,6 +320,8 @@ class PassRunError extends Error {
     readonly retryable = false,
     /** Raw text of a received-but-invalid output, for repair-style retries. */
     readonly rawText?: string,
+    /** The pass failure kind ("schema", "parse", "transport", ...). */
+    readonly kind?: string,
   ) {
     super(message);
     this.name = "PassRunError";
@@ -364,8 +367,8 @@ function repairDetailsOf<T>(
 > {
   if (run.ok) return {};
   return side === "bull"
-    ? { bullRetryable: run.validationError !== undefined, bullRawText: run.rawText, bullFailureKind: run.error.kind }
-    : { bearRetryable: run.validationError !== undefined, bearRawText: run.rawText, bearFailureKind: run.error.kind };
+    ? { bullRetryable: run.validationError !== undefined || isTransientSubscriptionFailure(run), bullRawText: run.rawText, bullFailureKind: run.error.kind }
+    : { bearRetryable: run.validationError !== undefined || isTransientSubscriptionFailure(run), bearRawText: run.rawText, bearFailureKind: run.error.kind };
 }
 
 function passRunFailureMessage<T>(run: PassRun<T>, label: string): string {
@@ -389,8 +392,9 @@ function unwrap<T>(run: PassRun<T>, label: string): PassResult<T> {
   throw new PassRunError(
     passRunFailureMessage(run, label),
     billedAttemptFromRun(run),
-    run.validationError !== undefined,
+    run.validationError !== undefined || isTransientSubscriptionFailure(run),
     run.rawText,
+    run.error.kind,
   );
 }
 

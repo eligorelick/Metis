@@ -140,6 +140,7 @@ import {
   initialSteps,
   LLM_STEPS,
   NO_KEY_SKIP_REASON,
+  NO_ANALYZABLE_DATA_REASON,
   MAX_JUDGE_RETRIES,
   MODEL_RESOLUTION_SKIP_PREFIX,
   COMPUTE_FAILURE_DATA_ONLY_REASON,
@@ -6625,6 +6626,36 @@ describe("runJob — no-key degraded path", () => {
   });
 });
 
+describe("runJob — unresolved ticker", () => {
+  it("skips every paid pass and persists a data-only report when nothing could be fetched", async () => {
+    const { jobId } = createJob("ZZZZQ");
+    const { passes, calls } = mockPasses();
+    const empty = { ok: false as const, gap: { field: "x", reason: "not found", severity: "critical" as const } };
+    const base = fakeBundle("ZZZZQ");
+    const bundle = {
+      ...base,
+      profile: empty,
+      quote: empty,
+      eodPrices: empty,
+      statements: { ...base.statements, incomeAnnual: empty },
+    } as unknown as DataBundle;
+
+    const result = await runJob(jobId, passes, { bundle, hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(true);
+    expect(calls).toEqual([]);
+    const jobRow = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
+    const steps = JSON.parse(jobRow?.stepsJson ?? "[]") as StepProgress[];
+    for (const step of LLM_STEPS) {
+      const found = steps.find((s) => s.step === step);
+      expect(found?.status).toBe("skipped");
+      expect(found?.detail).toBe(NO_ANALYZABLE_DATA_REASON);
+    }
+    expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()).toHaveLength(0);
+  });
+});
+
 /* ------------------------------------------------------------------------ *
  * runJob — LLM pass failure degrades to a data-only report
  * ------------------------------------------------------------------------ */
@@ -7011,6 +7042,51 @@ describe("runJob — model-resolution failure", () => {
 /* ------------------------------------------------------------------------ *
  * runJob — judge/verify/assemble retry-on-validation contract
  * ------------------------------------------------------------------------ */
+
+describe("runJob — judge retry after a dropped connection", () => {
+  it("never feeds a transport failure back as repair feedback, and keeps earlier schema feedback", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const feedbacks: Array<string | undefined> = [];
+    const validJudge = passes.runJudgePass;
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, feedback] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        string | undefined,
+      ];
+      feedbacks.push(feedback);
+      attempt += 1;
+      if (attempt === 1) {
+        throw Object.assign(new Error("judge pass failed (schema): missing outlook"), {
+          retryable: true,
+          kind: "schema",
+          rawText: '{"verdict":{}}',
+        });
+      }
+      if (attempt === 2) {
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+          retryable: true,
+          kind: "transport",
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+
+    expect(feedbacks).toHaveLength(3);
+    expect(feedbacks[0]).toBeUndefined();
+    expect(feedbacks[1]).toContain("missing outlook");
+    expect(feedbacks[1]).toContain('{"verdict":{}}');
+    // The dropped connection did not replace the schema feedback.
+    expect(feedbacks[2]).toBe(feedbacks[1]);
+    expect(feedbacks[2]).not.toContain("stream ended");
+    expect(result.status).toBe("done");
+  });
+});
 
 describe("runJob — judge retry on schema-validation failure", () => {
   it("retries the judge on schema-invalid output twice then succeeds (2 retries, then done)", async () => {
@@ -9063,6 +9139,80 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const report = ReportSchema.parse(JSON.parse(reportRow.reportJson ?? "{}"));
     const bearGap = report.appendix.missingData.find((gap) => gap.field === "llm.bear");
     expect(bearGap?.reason).toMatch(/^repair attempt after schema-invalid output also failed: .*\(again\)/);
+  });
+
+  it("retries a dropped first analyst pass and runs the never-launched sibling fresh", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    const DROPPED = "bull pass failed (transport): ChatGPT stream ended before completion";
+    // The shape the real facade throws: the never-launched bear carries its own
+    // "not launched" message and a false launch flag (a missing message was
+    // what this test used to assume, and the live failure did not match it).
+    const NOT_LAUNCHED = "bear pass failed (transport): bear pass not launched because bull stream did not reach a first token (error)";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      throw Object.assign(new Error(`${DROPPED}; ${NOT_LAUNCHED}`), {
+        bullError: DROPPED,
+        bearError: NOT_LAUNCHED,
+        bullLaunched: true,
+        bearLaunched: false,
+        bullRetryable: true,
+        bullFailureKind: "transport",
+        bearRetryable: false,
+        bearFailureKind: "transport",
+      });
+    };
+    const seen: Array<[string, string | undefined]> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch, feedback) => {
+      seen.push([side, feedback]);
+      await beforeProviderLaunch?.();
+      const result = side === "bull" ? bull : bear;
+      await settlement?.(testSuccessSettlement(result));
+      return result;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen.map(([side]) => side)).toEqual(["bull", "bear"]);
+    // A dropped connection is re-run as-is, not "repaired": no feedback for either side.
+    expect(seen[0]?.[1]).toBeUndefined();
+    expect(seen[1]?.[1]).toBeUndefined();
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("still repairs a schema-rejected side with its error and output fed back", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("bear pass failed (schema): bad asOf"), {
+        bull,
+        bearError: "bear pass failed (schema): bad asOf",
+        bearRetryable: true,
+        bearFailureKind: "schema",
+        bearRawText: '{"asOf":"2026-Q1"}',
+      });
+    };
+    const seen: Array<string | undefined> = [];
+    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch, feedback) => {
+      seen.push(feedback);
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bear));
+      return bear;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain("bad asOf");
+    expect(seen[0]).toContain('{"asOf":"2026-Q1"}');
+    expect(result.dataOnly).toBe(false);
   });
 
   it("does not attempt a repair for a failure that was not a schema rejection", async () => {

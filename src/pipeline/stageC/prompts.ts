@@ -197,6 +197,9 @@ function analystCommon(capChars: number): string {
     "  you cite in that sentence.",
     "- The unit you write beside a figure (\"%\", \"bps\", \"billion\") must be the unit the payload",
     "  registered for it. Do not write a dollar figure as a percentage or the reverse.",
+    "- A TracedNumber `unit` is the bare registered unit exactly as the payload shows it (\"x\", \"%\",",
+    "  \"currency\", \"currency/share\", \"index\", \"0-100\") — never a description such as \"x current P/TBV\" or",
+    "  \"stockholders equity\". Put the description in the figure label, not the unit.",
     "Each failure is reported in the report with your sentence, the figure it cited, and the reason.",
   ].join("\n");
 }

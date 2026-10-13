@@ -166,6 +166,16 @@ describe("canonical traced units", () => {
     expect(canonicalizeTracedUnit(unit, currency)).toEqual(expected);
   });
 
+  it("reads a recognised unit followed by a description, but not an ambiguous or unknown one", () => {
+    expect(canonicalizeTracedUnit("x P/E", null)).toEqual({ unit: "ratio", currency: null });
+    expect(canonicalizeTracedUnit("% Standardized CET1", null)).toEqual({ unit: "percent", currency: null });
+    expect(canonicalizeTracedUnit("currency stockholders equity", "USD")).toEqual({ unit: "currency", currency: "USD" });
+    expect(canonicalizeTracedUnit("currency/share SMA50", "USD")).toEqual({ unit: "currency-per-share", currency: "USD" });
+    expect(canonicalizeTracedUnit("% points", null)).toBeNull();
+    expect(canonicalizeTracedUnit("EUR stockholders equity", "USD")).toBeNull();
+    expect(canonicalizeTracedUnit("widgets per fortnight", null)).toBeNull();
+  });
+
   it("fails closed for an unknown unit", () => {
     expect(canonicalizeTracedUnit("widgets per fortnight", null)).toBeNull();
   });
