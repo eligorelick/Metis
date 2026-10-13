@@ -4871,16 +4871,6 @@
           "after": "SCORE_BANDS_2026_10"
         },
         {
-          "path": "report.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 88.05% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "report.scores.composite.score",
-          "before": 77.59,
-          "after": 77.45
-        },
-        {
           "path": "stageB.scores.aspects.balanceSheet.drivers.4",
           "before": {
             "value": -0.96,
@@ -4931,16 +4921,148 @@
           "path": "stageB.scores.bandsVersion",
           "before": "SCORE_BANDS_2026_07",
           "after": "SCORE_BANDS_2026_10"
+        }
+      ]
+    },
+    {
+      "name": "technicals-momentum-12-1",
+      "decisions": [
+        "D-48"
+      ],
+      "reason": "D-48 grades technicals on 12-1 month relative strength vs SPY (0.45), 52-week position (0.35) and the SMA50/200 gap (0.20); RSI-14 and the 6-month window are displayed and no longer scored. DEMO has no SPY history, so the new 12-1 window is withheld (technicals.relativeStrength.benchmark.momentum12m1m is all null, a new leaf) and its 0.45 counts as missing evidence: technicals completeness 0.7 -> 0.55. The driver list loses rsi14 (93.69, which the old RSI band haircut as overbought) and re-indexes to position52w, smaGap, so the technicals score moves 72.24 -> 83.92 on the two remaining signals. The aspect note is rewritten. The composite (77.45 -> 77.6) and the route-applicable completeness in its methodology (89.5% -> 87.3%) move with it; both were pinned under score-once-dilution-sbc (D-49) and their new values are this change.",
+      "deltas": [
+        {
+          "path": "report.scores.aspects.technicals.dataCompleteness",
+          "before": 0.7,
+          "after": 0.55
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.0.source",
+          "before": "computed.scores.technicals.smaGap",
+          "after": "computed.scores.technicals.position52w"
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.0.value",
+          "before": 7.5,
+          "after": 95.88
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.1.source",
+          "before": "computed.scores.technicals.rsi14",
+          "after": "computed.scores.technicals.smaGap"
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.1.unit",
+          "before": "rsi",
+          "after": "%"
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.1.value",
+          "before": 93.69,
+          "after": 7.5
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.2",
+          "before": {
+            "value": 95.88,
+            "unit": "%",
+            "source": "computed.scores.technicals.position52w",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "report.scores.aspects.technicals.note",
+          "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
+          "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), 52-week position and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
+        },
+        {
+          "path": "report.scores.aspects.technicals.score",
+          "before": 72.24,
+          "after": 83.92
+        },
+        {
+          "path": "report.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 87.3% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "report.scores.composite.score",
+          "before": 77.59,
+          "after": 77.6
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.dataCompleteness",
+          "before": 0.7,
+          "after": 0.55
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.0.source",
+          "before": "computed.scores.technicals.smaGap",
+          "after": "computed.scores.technicals.position52w"
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.0.value",
+          "before": 7.5,
+          "after": 95.88
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.1.source",
+          "before": "computed.scores.technicals.rsi14",
+          "after": "computed.scores.technicals.smaGap"
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.1.unit",
+          "before": "rsi",
+          "after": "%"
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.1.value",
+          "before": 93.69,
+          "after": 7.5
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.2",
+          "before": {
+            "value": 95.88,
+            "unit": "%",
+            "source": "computed.scores.technicals.position52w",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.note",
+          "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
+          "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), 52-week position and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.score",
+          "before": 72.24,
+          "after": 83.92
         },
         {
           "path": "stageB.scores.composite.methodology",
           "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 88.05% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 87.3% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         },
         {
           "path": "stageB.scores.composite.score",
           "before": 77.59,
-          "after": 77.45
+          "after": 77.6
+        },
+        {
+          "path": "stageB.technicals.relativeStrength.benchmark.momentum12m1m",
+          "beforeMissing": true,
+          "after": {
+            "startDate": null,
+            "endDate": null,
+            "symbolReturnPct": null,
+            "benchmarkReturnPct": null,
+            "differentialPctPoints": null
+          }
         }
       ]
     }

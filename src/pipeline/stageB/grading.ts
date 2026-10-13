@@ -401,15 +401,6 @@ const ACCRUALS_ABS_BAND: readonly BandPoint[] = [
   [0.2, 38],
   [0.4, 16],
 ];
-// RSI-14 (0–100): momentum, with an overbought haircut past ~75.
-const RSI_BAND: readonly BandPoint[] = [
-  [20, 28],
-  [40, 52],
-  [55, 70],
-  [70, 80],
-  [80, 62],
-  [90, 45],
-];
 // SMA50/SMA200 gap (percent): trend strength.
 const SMA_GAP_BAND: readonly BandPoint[] = [
   [-10, 22],
@@ -425,13 +416,17 @@ const POSITION_BAND: readonly BandPoint[] = [
   [60, 68],
   [85, 86],
 ];
-// Relative strength vs SPY, 6-month differential (pp).
-const REL_STRENGTH_BAND: readonly BandPoint[] = [
-  [-25, 22],
-  [-5, 48],
-  [0, 55],
-  [10, 72],
-  [30, 90],
+/**
+ * 12-1 month relative strength vs SPY (pp), D-48. A house convention, not
+ * fitted: monotone, neutral (50) at zero, anchored on the 3-12 month winner-
+ * minus-loser spread of about 1%/month (Jegadeesh & Titman 1993), so +20pp —
+ * roughly a year of that spread — reads 75 and the scale flattens at ±30-40pp.
+ */
+const REL_STRENGTH_12M1M_BAND: readonly BandPoint[] = [
+  [-30, 15],
+  [0, 50],
+  [20, 75],
+  [40, 90],
 ];
 // Valuation: DCF upside (percent) — more upside = more attractive.
 const UPSIDE_BAND: readonly BandPoint[] = [
@@ -824,22 +819,27 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     isNum(technicals.smaCross.sma50) && isNum(technicals.smaCross.sma200) && technicals.smaCross.sma200 > 0
       ? (technicals.smaCross.sma50 / technicals.smaCross.sma200 - 1) * 100
       : null;
-  const rs6 = technicals.relativeStrength.benchmark.points.find((p) => p.months === 6)?.differentialPctPoints ?? null;
+  // D-48: the scored momentum is the 12-1 month window, which skips the
+  // latest month. RSI-14 (no standalone predictive evidence) and the 6-month
+  // window stay in the technicals section, unscored. Never substituted: a
+  // withheld 12-1 window is missing evidence, not a 6- or 12-month read.
+  const rs12m1m = technicals.relativeStrength.benchmark.momentum12m1m?.differentialPctPoints ?? null;
   const technicalsScore = scoreAspect(
     "technicals",
     [
-      { name: "smaGap", raw: smaGap, unit: "%", weight: 0.25, band: SMA_GAP_BAND, suppressedBy: "sma200" },
-      { name: "rsi14", raw: technicals.rsi14, unit: "rsi", weight: 0.2, band: RSI_BAND },
+      { name: "relStrength12m1m", raw: rs12m1m, unit: "pp", weight: 0.45, band: REL_STRENGTH_12M1M_BAND },
       // suppressedBy: the recent-ipo route already lists "fiftyTwoWeekRange" in
       // its suppress set, but no signal carried the tag, so the policy was
       // inert and a company with a few months of trading was still scored on a
       // "52-week" position it cannot have.
-      { name: "position52w", raw: technicals.range52w.positionPct, unit: "%", weight: 0.25, band: POSITION_BAND, suppressedBy: "fiftyTwoWeekRange" },
-      { name: "relStrength6m", raw: rs6, unit: "pp", weight: 0.3, band: REL_STRENGTH_BAND },
+      { name: "position52w", raw: technicals.range52w.positionPct, unit: "%", weight: 0.35, band: POSITION_BAND, suppressedBy: "fiftyTwoWeekRange" },
+      { name: "smaGap", raw: smaGap, unit: "%", weight: 0.2, band: SMA_GAP_BAND, suppressedBy: "sma200" },
     ],
     weights.technicals,
     inputs.asOf,
-    "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
+    "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), 52-week position and the SMA50/200 gap. " +
+      "Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. " +
+      "RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence.",
     policy,
   );
 

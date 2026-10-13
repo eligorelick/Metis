@@ -978,6 +978,41 @@ would be a modest, well-evidenced extension; it is not a gap.
 | 7 | G-score for low book-to-market issuers (§8.8) | Mohanram | small | optional |
 | — | Cross-sectional accrual ranks (§8.3) | Green–Hand–Soliman argue against | new pipeline | no |
 
+## 9. Price signals in the technicals grade
+
+### 9.1 Momentum, 52-week-high proximity and RSI (D-48)
+
+**Published.** Jegadeesh and Titman, *Returns to Buying Winners and Selling
+Losers*, Journal of Finance 48, 1993: stocks ranked on their past 3–12 month
+return keep outperforming for a further 3–12 months, by about 1% a month
+winners over losers. Jegadeesh (Journal of Finance 45, 1990) and Lehmann
+(Quarterly Journal of Economics 105, 1990) find the opposite at one month:
+last month's return tends to reverse. That is why the standard momentum
+measure skips the latest month (the "12-1" window). George and Hwang, *The
+52-Week High and Momentum Investing*, Journal of Finance 59, 2004: how close
+a price is to its 52-week high predicts returns and explains much of
+momentum. Fama and French (Journal of Finance 63, 2008) find momentum in
+every size group, and Hou, Xue and Zhang (Review of Financial Studies 33,
+2020) find that it largely survives replication, with weaker effects among
+large caps. Daniel and Moskowitz, *Momentum Crashes*, Journal of Financial
+Economics 122, 2016: momentum loses sharply when the market rebounds after a
+decline. Park and Irwin (Journal of Economic Surveys 21, 2007) find that
+profits from technical trading rules largely vanish after about 1990. This
+review found no peer-reviewed evidence that RSI predicts returns on its own.
+
+**What the code has.** The technicals aspect (5% of the composite) used to
+score RSI-14 at 0.2 and a 6-month relative strength that ended at the latest
+bar, so it included the reversal month and missed the horizon the evidence
+covers.
+
+**Verdict — changed (D-48).** It now scores 12-1 month relative strength vs
+SPY at 0.45, 52-week position at 0.35 and the SMA50/200 gap at 0.20. RSI-14
+and the 6-month window are still shown, but not scored. The 12-1 band (−30pp
+→ 15, 0 → 50, +20pp → 75, +40pp → 90) is a convention, not fitted: it is
+anchored on Jegadeesh–Titman's roughly 1%-a-month spread. The aspect note
+says that momentum is a 3–12 month tilt that has crashed after rebounds,
+and is not an entry-timing signal.
+
 ## What would improve this
 
 Honest gaps in the evidence base, listed so they are not mistaken for settled;

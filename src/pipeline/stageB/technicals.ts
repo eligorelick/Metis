@@ -491,9 +491,28 @@ export interface RelativeStrengthPoint {
   differentialPctPoints: number | null;
 }
 
+/**
+ * 12-1 month relative strength (D-48): the return from month −12 to month −1
+ * before the aligned end, skipping the latest month, which tends to reverse
+ * (Jegadeesh 1990; Lehmann 1990). Same price basis and the same exact-common-
+ * date and tolerance rules as the 3/6/12-month points; null fields with a gap
+ * when either endpoint cannot be aligned.
+ */
+export interface SkipMonthRelativeStrength {
+  /** Exact shared observation on or before month −12, when aligned. */
+  startDate: string | null;
+  /** Exact shared observation on or before month −1, when aligned. */
+  endDate: string | null;
+  symbolReturnPct: number | null;
+  benchmarkReturnPct: number | null;
+  /** symbol − benchmark, percentage points; null when either side is missing */
+  differentialPctPoints: number | null;
+}
+
 export interface RelativeStrengthSet {
   benchmarkSymbol: string;
   points: RelativeStrengthPoint[];
+  momentum12m1m: SkipMonthRelativeStrength;
   notes: string[];
   gaps: ManifestEntry[];
   asOf: string | null;
@@ -695,6 +714,89 @@ export function alignRelativeStrengthWindow(
   };
 }
 
+export type AlignedSkipMonthWindow =
+  | {
+      ok: true;
+      startCutoff: string;
+      endCutoff: string;
+      startDate: string;
+      endDate: string;
+      symbolStartClose: number;
+      symbolEndClose: number;
+      benchmarkStartClose: number;
+      benchmarkEndClose: number;
+    }
+  | { ok: false; reason: string };
+
+const isPositiveClose = (v: number | undefined): v is number =>
+  typeof v === "number" && Number.isFinite(v) && v > 0;
+
+/**
+ * The latest exact common observation on or before `cutoffDate`, within the
+ * same start tolerance every relative-strength cutoff uses.
+ */
+function exactCommonOnOrBefore(
+  symbolCloseByDate: ReadonlyMap<string, number>,
+  benchmarkCloseByDate: ReadonlyMap<string, number>,
+  cutoffDate: string,
+  side: "start" | "end",
+): { ok: true; date: string; symbolClose: number; benchmarkClose: number } | { ok: false; reason: string } {
+  const candidates = [...symbolCloseByDate.keys()]
+    .filter((day) => isoDay(day) !== null && day <= cutoffDate && benchmarkCloseByDate.has(day))
+    .sort();
+  const date = candidates.length > 0 ? candidates[candidates.length - 1] : null;
+  if (!date) {
+    return { ok: false, reason: `no exact common ${side} on or before ${cutoffDate} for the 12-1 month window` };
+  }
+  const lagDays = elapsedDays(cutoffDate, date);
+  if (!Number.isFinite(lagDays) || lagDays > RS_START_TOLERANCE_DAYS) {
+    return {
+      ok: false,
+      reason: `latest exact common ${side} ${date} is ${lagDays} days before the 12-1 month ${side} cutoff ${cutoffDate}, exceeding the ${RS_START_TOLERANCE_DAYS}-day tolerance`,
+    };
+  }
+  const symbolClose = symbolCloseByDate.get(date);
+  const benchmarkClose = benchmarkCloseByDate.get(date);
+  if (!isPositiveClose(symbolClose) || !isPositiveClose(benchmarkClose)) {
+    return { ok: false, reason: `12-1 month ${side} ${date} lacks finite positive closes for both series` };
+  }
+  return { ok: true, date, symbolClose, benchmarkClose };
+}
+
+/**
+ * Align the 12-1 month window (D-48) on a pre-selected shared end: start on
+ * or before shiftMonths(end, −12), end on or before shiftMonths(end, −1), each
+ * an exact date both series observed. Fails closed with a reason.
+ */
+export function alignSkipMonthWindow(
+  symbolCloseByDate: ReadonlyMap<string, number>,
+  benchmarkCloseByDate: ReadonlyMap<string, number>,
+  alignedEnd: string,
+): AlignedSkipMonthWindow {
+  const strictEnd = isoDay(alignedEnd);
+  if (!strictEnd) return { ok: false, reason: "invalid aligned end date" };
+  const startCutoff = shiftMonths(strictEnd, -12);
+  const endCutoff = shiftMonths(strictEnd, -1);
+  if (!(startCutoff < endCutoff && endCutoff < strictEnd)) {
+    return { ok: false, reason: "cannot derive the 12-1 month cutoffs before Gregorian year 1" };
+  }
+  const end = exactCommonOnOrBefore(symbolCloseByDate, benchmarkCloseByDate, endCutoff, "end");
+  if (!end.ok) return end;
+  const start = exactCommonOnOrBefore(symbolCloseByDate, benchmarkCloseByDate, startCutoff, "start");
+  if (!start.ok) return start;
+  return {
+    ok: true,
+    startCutoff,
+    endCutoff,
+    startDate: start.date,
+    endDate: end.date,
+    symbolStartClose: start.symbolClose,
+    symbolEndClose: end.symbolClose,
+    benchmarkStartClose: start.benchmarkClose,
+    benchmarkEndClose: end.benchmarkClose,
+  };
+}
+
 function finitePriceReturnPct(startClose: number, endClose: number): number | null {
   const ratio = endClose / startClose;
   if (!Number.isFinite(ratio)) return null;
@@ -702,7 +804,7 @@ function finitePriceReturnPct(startClose: number, endClose: number): number | nu
   return Number.isFinite(result) ? result : null;
 }
 
-/** Price-relative strength vs a benchmark over exact aligned 3/6/12-month windows. */
+/** Price-relative strength vs a benchmark over exact aligned 3/6/12-month and 12-1 month windows. */
 export function relativeStrength(
   rows: readonly OhlcvRow[],
   benchmarkRows: readonly BenchmarkRow[],
@@ -721,6 +823,13 @@ export function relativeStrength(
     benchmarkReturnPct: null,
     differentialPctPoints: null,
   }));
+  const momentum12m1m: SkipMonthRelativeStrength = {
+    startDate: null,
+    endDate: null,
+    symbolReturnPct: null,
+    benchmarkReturnPct: null,
+    differentialPctPoints: null,
+  };
 
   const symbol = buildCloseByDate(rows);
   const benchmark = buildCloseByDate(benchmarkRows);
@@ -787,7 +896,7 @@ export function relativeStrength(
       reason: endFailure ?? "no valid exact common end for relative-strength alignment",
       severity: "warn",
     });
-    return { benchmarkSymbol, points, notes, gaps, asOf: null };
+    return { benchmarkSymbol, points, momentum12m1m, notes, gaps, asOf: null };
   }
 
   for (const point of points) {
@@ -840,7 +949,36 @@ export function relativeStrength(
       `${point.months}-month price-relative-strength window aligned on ${aligned.startDate} to ${aligned.endDate}.`,
     );
   }
-  return { benchmarkSymbol, points, notes, gaps, asOf: commonEnd };
+
+  // D-48: 12-1 month window on the same common end, skipping the latest month.
+  const skip = alignSkipMonthWindow(symbol.closes, benchmark.closes, commonEnd);
+  if (!skip.ok) {
+    gaps.push({ field: `${fieldPrefix}.12m1m`, reason: skip.reason, severity: "info" });
+  } else {
+    const symbolReturnPct = finitePriceReturnPct(skip.symbolStartClose, skip.symbolEndClose);
+    const benchmarkReturnPct = finitePriceReturnPct(skip.benchmarkStartClose, skip.benchmarkEndClose);
+    const differentialPctPoints =
+      symbolReturnPct !== null && benchmarkReturnPct !== null
+        ? symbolReturnPct - benchmarkReturnPct
+        : Number.NaN;
+    if (!Number.isFinite(differentialPctPoints)) {
+      gaps.push({
+        field: `${fieldPrefix}.12m1m`,
+        reason: `non-finite price return for aligned 12-1 month window ${skip.startDate} to ${skip.endDate}`,
+        severity: "info",
+      });
+    } else {
+      momentum12m1m.startDate = skip.startDate;
+      momentum12m1m.endDate = skip.endDate;
+      momentum12m1m.symbolReturnPct = symbolReturnPct;
+      momentum12m1m.benchmarkReturnPct = benchmarkReturnPct;
+      momentum12m1m.differentialPctPoints = differentialPctPoints;
+      notes.push(
+        `12-1 month price-relative-strength window (latest month skipped) aligned on ${skip.startDate} to ${skip.endDate}.`,
+      );
+    }
+  }
+  return { benchmarkSymbol, points, momentum12m1m, notes, gaps, asOf: commonEnd };
 }
 
 // ---------------------------------------------------------------------------

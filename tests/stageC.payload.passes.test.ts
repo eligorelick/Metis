@@ -675,14 +675,20 @@ describe("payload determinism + provenance", () => {
       // (372 → 370) and the moved aspect scores change provenanceHash and
       // financeHash. Prompt bytes are unchanged (same-length version and band
       // stamps, same-width scores).
-      fingerprint: "1.13.0:c2a75bf2",
-      promptBytes: 96_164,
+      // 2026-10-13 (D-48, same 1.13.0): the technicals section gains the
+      // 12-1 month and 6-month relative-strength rows. This fixture has no SPY
+      // history, so both print n/a and register as payload-gap citations
+      // (48 → 50; +196 prompt bytes; computedFigureLabelHash moves). The
+      // technicals aspect's drivers and note change (financeHash); no numeric
+      // record moved.
+      fingerprint: "1.13.0:d5fb94b4",
+      promptBytes: 96_360,
       provenanceCount: 370,
       provenanceHash: "2a115f44",
       provenanceIdsHash: "3cfec89d",
-      citationCount: 48,
-      citationHash: "4b00c465",
-      computedFigureLabelHash: "33ff0e1b",
+      citationCount: 50,
+      citationHash: "0a646a41",
+      computedFigureLabelHash: "263e663f",
       projectionPathPeriodHash: "45ce96a4",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -696,7 +702,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "1b1cc91b",
+      financeHash: "76992625",
     });
   });
 

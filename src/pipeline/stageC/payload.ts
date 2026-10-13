@@ -253,9 +253,11 @@ export interface ContextPayload {
 // is citable (gap / unestablished kinds, manifest tags, the weights row); the
 // next earnings date is shown; completeness and indicator units have their
 // own rows. Analyst work written against the 1.11.0 evidence cannot resume.
-// 1.13.0 (D-49, 2026-10-13): the aspect scores the analysts anchor to come
-// from band table SCORE_BANDS_2026_10, which scores net share-count change and
-// the SBC charge once each; prior partial passes cannot resume.
+// 1.13.0 (D-49, D-48, 2026-10-13): the aspect scores the analysts anchor to
+// come from band table SCORE_BANDS_2026_10, which scores net share-count
+// change and the SBC charge once each and grades technicals on 12-1 month
+// relative strength; the technicals rows add that window and the displayed
+// 6-month window vs SPY. Prior partial passes cannot resume.
 export const PAYLOAD_VERSION = "1.13.0" as const;
 
 /* ------------------------------------------------------------------------ *
@@ -582,6 +584,7 @@ function computedSections(
 
   // --- Technicals ----------------------------------------------------------
   const t = computed.technicals;
+  const rs = t.relativeStrength.benchmark;
   const techFigures: PayloadFigureInput[] = [
     { label: "last close", value: t.lastClose, unit: "currency/share", currency: currencies.trading, source: "computed.technicals", asOf: t.asOf },
     { label: "SMA50", value: t.smaCross.sma50, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
@@ -597,6 +600,12 @@ function computedSections(
     { label: "52w high", value: t.range52w.high52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "52w low", value: t.range52w.low52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "% from 52w high", value: t.range52w.pctFromHigh, unit: "%", source: "computed.technicals.range52w", asOf: t.asOf },
+    // D-48: the scored momentum signal, as of its own window end (a month
+    // before the latest close), and the 6-month window, which is no longer
+    // scored but stays visible. n/a rows are withheld windows; the reason is
+    // in the gap list.
+    { label: "relative strength vs SPY, 12-1 month (latest month skipped)", value: rs.momentum12m1m?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.12m1m", asOf: rs.momentum12m1m?.endDate ?? null },
+    { label: "relative strength vs SPY, 6-month", value: rs.points.find((p) => p.months === 6)?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.6mo", asOf: rs.asOf },
     { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.read", asOf: t.asOf },
     { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.read", asOf: t.asOf },
   ];

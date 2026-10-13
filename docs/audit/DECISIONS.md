@@ -13,6 +13,61 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-48 (grading 2026-10-13) Technicals score 12-1 relative momentum, 52-week-high proximity and the SMA gap; RSI is display-only
+
+- **Problem**: RSI-14 carried 0.2 of the technicals aspect, but there is no
+  peer-reviewed evidence that it predicts returns on its own. Technical-rule
+  profits largely vanish after about 1990 (Park & Irwin 2007, J. Economic
+  Surveys). The momentum signal was a 6-month window ending at the latest
+  bar. That window includes the latest month, which tends to reverse
+  (Jegadeesh 1990, J. Finance; Lehmann 1990, QJE), and it is not the horizon
+  the effect is published at (Jegadeesh & Titman 1993, J. Finance 48: 3-12
+  months).
+- **Options**: (a) keep the weights; (b) drop RSI and keep the 6-month
+  window; (c) score 12-1 month relative strength, give 52-week-high
+  proximity more weight (George & Hwang 2004, J. Finance 59) and keep RSI
+  and the 6-month window as display-only.
+- **Risks**: momentum crashes when the market rebounds (Daniel & Moskowitz
+  2016, JFE 122), and the effect is weaker among large caps (Hou, Xue & Zhang
+  2020, RFS; Fama & French 2008, J. Finance 63, still find it in every size
+  group). The aspect's 5% composite weight limits both risks. Grades on
+  existing reports shift slightly, which the band-version stamp covers.
+- **Choice**: (c).
+  - `src/pipeline/stageB/technicals.ts`: `alignSkipMonthWindow` uses the
+    common end the 3/6/12-month windows use. The start is the latest exact
+    common date on or before `shiftMonths(end, −12)` and the end the latest
+    on or before `shiftMonths(end, −1)`, each within the same seven days.
+    `RelativeStrengthSet.momentum12m1m` carries the issuer and SPY returns
+    and their difference. A window that cannot be aligned is all null, with
+    an info gap `…<benchmark>.12m1m` giving the reason.
+  - It uses the same split-adjusted close price basis as the other windows
+    (dividends excluded). The technicals rows do not carry adjusted closes,
+    so it is a price return, not a total return.
+  - `src/pipeline/stageB/grading.ts`: technicals are graded on
+    `relStrength12m1m` 0.45 (new band −30pp → 15, 0 → 50, +20pp → 75,
+    ≥ +40pp → 90; a convention, not fitted, anchored on Jegadeesh–Titman's
+    roughly 1%-a-month spread), `position52w` 0.35 and `smaGap` 0.20. The
+    12-1 window is never substituted by the 6- or 12-month window. The
+    unused RSI and 6-month bands are deleted. The aspect weight stays at 5.
+  - The aspect note, and a digit-free line in the judge prompt, say that
+    momentum is a 3-12 month tilt that has reversed sharply after market
+    rebounds and is not an entry-timing signal, and that RSI is shown for
+    context and not scored.
+  - `src/pipeline/stageC/payload.ts`: the technicals section prints
+    "relative strength vs SPY, 12-1 month (latest month skipped)", dated at
+    its window end, and the 6-month window. Both are registered records the
+    analysts can cite; a withheld window prints n/a and registers a
+    payload-gap citation. The scored value is also the
+    `computed.scores.technicals.relStrength12m1m` driver record.
+- **Disclosure**: `SCORE_BANDS_2026_10` and payload 1.13.0, both shared with
+  D-49. The audited-fixture group `technicals-momentum-12-1` covers the DEMO
+  leaves. DEMO has no SPY history, so its 12-1 window is withheld and
+  technicals completeness falls 0.7 → 0.55. Stored reports keep their
+  `rsi14` and `relStrength6m` drivers; new reports have no such records.
+  Tests: `tests/stageB.technicals.test.ts` (window dates, and withholding
+  past the 7-day tolerance) and `tests/stageB.grading.test.ts` (no
+  substitution; RSI and the 6-month window are not drivers).
+
 ## D-49 (grading 2026-10-13) Net share-count change is scored once (leadership) and the SBC charge once (balance sheet, % of FCF); both remain displayed elsewhere
 
 - **Problem**: `shareCountTrend` was a driver of both the balance-sheet

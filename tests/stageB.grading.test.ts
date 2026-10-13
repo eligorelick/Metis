@@ -160,6 +160,7 @@ function technicals(): TechnicalsResult {
           { months: 6, startDate: "2025-03-31", endDate: "2025-09-30", symbolReturnPct: 20, benchmarkReturnPct: 8, differentialPctPoints: 12 },
           { months: 12, startDate: "2024-09-30", endDate: "2025-09-30", symbolReturnPct: 30, benchmarkReturnPct: 15, differentialPctPoints: 15 },
         ],
+        momentum12m1m: { startDate: "2024-09-30", endDate: "2025-08-29", symbolReturnPct: 26, benchmarkReturnPct: 14, differentialPctPoints: 12 },
         notes: [],
         gaps: [],
         asOf: "2025-09-30",
@@ -460,16 +461,23 @@ describe("grading — computeScores", () => {
 });
 
 describe("grading — relative strength driver isolation", () => {
-  it("does not substitute a valid 12-month flag for a missing 6-month grade signal", () => {
+  it("does not substitute a valid 6- or 12-month window for a missing 12-1 month grade signal", () => {
     const t = technicals();
+    t.relativeStrength.benchmark.momentum12m1m = {
+      startDate: null,
+      endDate: null,
+      symbolReturnPct: null,
+      benchmarkReturnPct: null,
+      differentialPctPoints: null,
+    };
     t.relativeStrength.benchmark.points = [
       {
         months: 6,
-        startDate: null,
+        startDate: "2025-12-30",
         endDate: "2026-06-30",
-        symbolReturnPct: null,
-        benchmarkReturnPct: null,
-        differentialPctPoints: null,
+        symbolReturnPct: 20,
+        benchmarkReturnPct: 5,
+        differentialPctPoints: 15,
       },
       {
         months: 12,
@@ -486,9 +494,10 @@ describe("grading — relative strength driver isolation", () => {
     };
 
     const technical = computeScores(makeInputs({ technicals: t })).aspects.technicals;
-    expect(technical.drivers.some((driver) => driver.source.endsWith(".relStrength6m"))).toBe(false);
-    expect(technical.dataCompleteness).toBeCloseTo(0.7, 12);
-    expect(technical.drivers).toHaveLength(3);
+    // D-48: RSI and the 6-month window are displayed, never scored, and the
+    // withheld 12-1 window is missing evidence (0.45 of the aspect).
+    expect(technical.drivers.map((driver) => driver.source.split(".").pop())).toEqual(["position52w", "smaGap"]);
+    expect(technical.dataCompleteness).toBeCloseTo(0.55, 12);
   });
 });
 

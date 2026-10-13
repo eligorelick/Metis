@@ -6,8 +6,9 @@
  * the ISO currency "RSI"), "MACD histogram" (the row printed no unit), and
  * report 26's "evidence-completeness fraction" 0.4 / 0.45, which cited the
  * quality/leadership SCORE records — completeness had no record of its own.
- * The bank fixture's quality and leadership completeness are 0.4 and 0.45,
- * the same as report 26's.
+ * The bank fixture's quality and leadership completeness were 0.4 and 0.45,
+ * the same as report 26's (leadership is 0.31 since D-49). Since D-48 RSI-14
+ * is no longer a scored driver, so only its payload row carries it.
  */
 
 import { describe, expect, it } from "vitest";
@@ -71,15 +72,16 @@ describe("indicator and completeness rows (D-44)", () => {
     const payload = build();
     const rsi = record(payload, "computed.technicals.rsi-14");
     const macd = record(payload, "computed.technicals.macd-histogram");
-    const driver = record(payload, "computed.scores.technicals.rsi14");
     const at = (r: typeof rsi, value: number, unit: string) => ({ value, unit, source: r.id, asOf: r.asOf, verified: null });
     expect(await verifyNumbers(payload, [
       at(rsi, rsi.value, "RSI"),
       at(rsi, rsi.value, "RSI index"),
       at(macd, macd.value, "MACD histogram"),
       at(macd, macd.value, "index"),
-      at(driver, driver.value, "rsi"),
+      at(rsi, rsi.value, "rsi"),
     ])).toEqual(["supported", "supported", "supported", "supported", "supported"]);
+    // D-48: RSI-14 is displayed, not scored, so no driver record exists.
+    expect((payload.provenanceRegistry ?? []).some((entry) => entry.id === "computed.scores.technicals.rsi14")).toBe(false);
     // The same values under the other indicator's name: id, value and as-of
     // match, and before D-44 lowercase "rsi" on the MACD record verified.
     expect(await verifyNumbers(payload, [

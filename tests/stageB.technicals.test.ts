@@ -403,6 +403,37 @@ describe("relative strength alignment", () => {
     }
   });
 
+  it("aligns the 12-1 month window on exact common dates a year and a month before the end, skipping the latest month (D-48)", () => {
+    // Cutoffs from the 2026-06-30 end: start 2025-06-30, end 2026-05-30. The
+    // skipped month's observations (2026-06-01, the end itself) are never used.
+    const rs = relativeStrength(
+      closeRows([["2025-06-30", 80], ["2026-05-28", 111], ["2026-05-29", 112], ["2026-06-01", 999], [end, 120]]),
+      closeRows([["2025-06-30", 100], ["2026-05-29", 104], ["2026-06-01", 1], [end, 110]]),
+      "SPY",
+    );
+    expect(rs.momentum12m1m).toMatchObject({ startDate: "2025-06-30", endDate: "2026-05-29" });
+    expect(rs.momentum12m1m.symbolReturnPct).toBeCloseTo(40, 12);
+    expect(rs.momentum12m1m.benchmarkReturnPct).toBeCloseTo(4, 12);
+    expect(rs.momentum12m1m.differentialPctPoints).toBeCloseTo(36, 12);
+
+    // No exact common date within 7 days of the month −1 cutoff: withheld.
+    const stale = relativeStrength(
+      closeRows([["2025-06-30", 80], ["2026-05-22", 112], [end, 120]]),
+      closeRows([["2025-06-30", 100], ["2026-05-22", 104], [end, 110]]),
+      "SPY",
+    );
+    expect(stale.momentum12m1m).toEqual({
+      startDate: null,
+      endDate: null,
+      symbolReturnPct: null,
+      benchmarkReturnPct: null,
+      differentialPctPoints: null,
+    });
+    const gaps = stale.gaps.filter((gap) => gap.field === "technicals.relativeStrength.SPY.12m1m");
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].reason).toMatch(/2026-05-22 is 8 days before the 12-1 month end cutoff 2026-05-30.*7-day tolerance/);
+  });
+
   it("uses the same exact start/end observations for hand-calculated 3/6/12-month price-relative strength", () => {
     const rs = relativeStrength(closeRows(symbolEntries), closeRows(benchmarkEntries), "SPY");
     const p3 = rs.points.find((p) => p.months === 3);

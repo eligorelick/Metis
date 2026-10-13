@@ -1363,7 +1363,7 @@ These bands have not been outcome-backtested.
 | Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49) |
 | Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
 | Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, net share-count trend (scored only here, D-49); SBC/revenue is displayed, not scored |
-| Technicals | 5 | 5 | 5 | SMA gap, RSI-14, 52-week position and six-month SPY-relative return |
+| Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, 52-week position 0.35, SMA50/200 gap 0.20 (D-48); RSI-14 and the six-month window are displayed, not scored |
 
 The financial vector covers banks, insurers and mortgage REITs. Their numeric
 balance-sheet aspect is explicitly unscored: route metrics can compute capital
@@ -1417,7 +1417,20 @@ points over 3/6/12 calendar months. Endpoints must be shared dates and within
 seven days of each series' latest observation; starts are shared dates on or
 before the requested cutoff, with seven-day tolerance. Conflicting same-date
 closes cannot establish an endpoint. These are price returns, not dividend
-total returns. Volume trend compares complete 20-row and 90-row averages:
+total returns. The scored momentum window (D-48) is 12-1 months: on the same
+common end, its start is the latest shared date on or before 12 months back
+and its end the latest shared date on or before one month back, each within
+seven days, so the latest month (which tends to reverse; Jegadeesh 1990,
+Lehmann 1990) is skipped. A window that cannot be aligned is withheld with a
+`technicals.relativeStrength.<benchmark>.12m1m` gap, never filled from the
+6- or 12-month window. Its grade band (−30pp → 15, 0 → 50, +20pp → 75, +40pp
+→ 90) is a convention, not fitted, anchored on the roughly 1%-a-month
+winner-minus-loser spread of Jegadeesh and Titman (1993). Momentum is a 3–12
+month tilt that has reversed sharply after market rebounds (Daniel and
+Moskowitz 2016), not an entry-timing signal; RSI-14 has no standalone
+predictive evidence and is shown for context only (RESEARCH §9.1). The AI
+payload prints the 12-1 and 6-month windows as citable technicals rows, the
+12-1 row dated at its own window end. Volume trend compares complete 20-row and 90-row averages:
 at least 1.2 is rising, at most 0.8 falling, otherwise flat. RSI 70/30, proximity
 to highs/lows, recent crossover and drawdown flags are house display rules,
 not return forecasts. See `tests/stageB.technicals.test.ts`,
