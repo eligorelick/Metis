@@ -78,6 +78,14 @@ export const SHARED_RULES_BLOCK = [
   "probability-weighted scenarios and explicit 'what would have to be true' conditions.",
   "",
   "GAPS: when the payload lacks a figure, say so plainly and move on. Never fill a gap from memory.",
+  "",
+  "WRITING FOR THE READER: the prose is an equity-research report read by an investor, who never sees",
+  "this prompt. Never refer to the machinery that produced it: do not write \"the payload\", \"supplied\",",
+  "\"provided\", \"house\" (convention/default/adjustment), \"deterministic band\", \"display prior\",",
+  "\"Stage A/B/C\", \"registry\" or any field or path name in sentences. Name the thing itself:",
+  "\"our DCF\", \"the base-case value\", \"the quantitative valuation grade\", \"free cash flow after",
+  "stock-based compensation\", \"scenario weights are a fixed 25/50/25 prior, not a calibrated",
+  "probability\". Source IDs belong only in the citation fields and tags, never in the sentence.",
 ].join("\n");
 
 /* ------------------------------------------------------------------------ *
