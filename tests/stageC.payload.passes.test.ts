@@ -683,7 +683,10 @@ describe("payload determinism + provenance", () => {
       // record moved.
       // 2026-10-13 (D-46, PAYLOAD_VERSION 1.14.0): only the version moved for
       // this general-company fixture (a bank gains its own section).
-      fingerprint: "1.14.0:dc27f0b5",
+      // 2026-10-13 (review of D-46..D-50, PAYLOAD_VERSION 1.15.0): the
+      // technicals aspect note names the 52-week-high distance (financeHash);
+      // no registered record, citation or prompt byte moved.
+      fingerprint: "1.15.0:ac4cea0a",
       promptBytes: 96_360,
       provenanceCount: 370,
       provenanceHash: "2a115f44",
@@ -704,7 +707,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "76992625",
+      financeHash: "a75f2283",
     });
   });
 
@@ -828,7 +831,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.14.0");
+    expect(first.payloadVersion).toBe("1.15.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1951,12 +1954,12 @@ describe("assembleReport", () => {
     output.balanceSheet.graded = { ...output.quality.graded, grade: "C" };
     output.verdict.gradeStrip.balanceSheet = { ...output.balanceSheet.graded };
     const original = JSON.stringify(output);
-    computed.scores!.aspects.quality = { ...computed.scores!.aspects.quality, score: 96, band: "A", dataCompleteness: 0.05 };
-    computed.scores!.aspects.balanceSheet = { ...computed.scores!.aspects.balanceSheet, score: null, band: null, dataCompleteness: 0 };
+    computed.scores!.aspects.quality = { ...computed.scores!.aspects.quality, score: 96, band: "A", dataCompleteness: 0.05, applicableCompleteness: 0.05 };
+    computed.scores!.aspects.balanceSheet = { ...computed.scores!.aspects.balanceSheet, score: null, band: null, dataCompleteness: 0, applicableCompleteness: 0 };
     const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: output,
       verify: { verificationRate: 0.9, log: [] }, costEntries: [], model: "chatgpt/gpt-6.1-sol" }, GENERATED_AT);
     // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
-    const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of its intended inputs" };
+    const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of the inputs its route supports" };
     expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.quality.graded).toEqual({ ...output.quality.graded, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");

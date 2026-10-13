@@ -453,7 +453,7 @@ direction is published; their cut points are not:
 
 | Sign | Threshold | Evidence for the direction |
 | --- | --- | --- |
-| Tangible leverage | below 5% | the PCA "well capitalized" leverage line; leverage predicts failure (§6.3) |
+| Tangible leverage | below 5% | leverage predicts failure (§6.3). A house cut point on TCE / tangible assets, which excludes preferred stock and runs below the regulatory Tier 1 leverage ratio; it is not the PCA "well capitalized" line and a bank below it is not below a regulatory minimum |
 | HTM loss after tax / TCE | above 25% | marking assets to market cut US bank asset values by about 10% in 2022Q1-2023Q1, and fragility came from those losses combined with low capital and uninsured funding (Jiang, Matvos, Piskorski & Seru 2024, *JFE* 159, 103899); Fed Board, *Review of the Federal Reserve's Supervision and Regulation of Silicon Valley Bank* (Apr 2023). Counterweight: the deposit franchise hedges asset duration, so the loss matters mainly if deposits run (Drechsler, Savov & Schnabl 2021, *J. Finance* 76) |
 | Marked TCE ratio | below 4% | as above |
 | Three-year loan growth | above 15% a year | banks in the top quartile of three-year loan growth underperformed the bottom quartile by more than 12pp over the next three years, reserved less while growing and later had lower ROA and higher provisions; mergers do not explain it (Fahlenbrach, Prilmeier & Stulz 2018, *RFS*, doi 10.1093/rfs/hhx109). The figure includes acquisitions |
@@ -601,11 +601,17 @@ and bank stock losses:
 
 The grade therefore reads tangible common equity / tangible assets, net
 charge-offs / average loans, the NPL ratio and loans / deposits. The studies
-agree on direction, not on cut points, so every band is a convention: the
-capital band is anchored to the US prompt-corrective-action "well capitalized"
-5% Tier 1 leverage line and the Basel III 3% leverage minimum, and the
-charge-off rate follows the FDIC Quarterly Banking Profile definition. None is
-fitted. A leverage ratio is not comparable across business models (custody and
+agree on direction, not on cut points, so every band is a convention, none
+fitted. The capital band's cut points echo the US prompt-corrective-action 5%
+Tier 1 leverage line and the Basel III 3% minimum in scale only: TCE /
+tangible assets is a holding-company GAAP ratio that excludes preferred stock
+(which counts in Tier 1) and is read over period-end, not average, assets, so
+it runs structurally below Tier 1 leverage. A bank at the PCA line can read
+near 4.5% here, and the GSIBs (JPM 6.4%, BAC 6.2%, C 6.4% at FY2025) score in
+the low 50s on capital. Nothing in the report may call a bank below a
+regulatory minimum on this ratio; the judge prompt says so (review of D-46,
+2026-10-13). The charge-off rate follows the FDIC Quarterly Banking Profile
+definition, over gross loans where tagged. A leverage ratio is not comparable across business models (custody and
 trust banks run thin by design), which is also why a low loans / deposits ratio
 is never penalised.
 
@@ -636,11 +642,32 @@ $15.16B, after the assumed 21% tax $11.97B, which is 101% of tangible common
 equity; marked TCE ratio −0.07%; tangible leverage 5.61%. Both the HTM and the
 marked-TCE warning signs fire; the tangible-leverage sign does not. SVB tags
 no undimensioned loan total, so its charge-off rate, loans / deposits, ACL and
-loan growth are withheld and its balance sheet would be unscored. For
-comparison, at FY2025 (cached companyfacts): JPM 4.3% HTM loss / TCE, marked
-6.78%, no sign fires; PNC 3.4%, marked 8.55%, none fires; BAC 27.3%, marked
-5.18% — the HTM sign fires on a large, sound bank, which is why it carries the
-deposit-franchise caveat; WFC 18.2%, marked 5.45%, none fires.
+loan growth are withheld and its balance sheet would be unscored.
+
+For comparison, recomputed on review (2026-10-13) with the pipeline's own
+`computeFinancialMetrics` over the cached FMP balance sheets and
+companyfacts, which deducts preferred stock and all intangibles from TCE. The
+first version of this table was a scratch formula without the preferred
+deduction and understated BAC's exposure:
+
+| Bank | FY | HTM loss after tax / TCE | Marked TCE | Signs fired |
+| --- | --- | --- | --- | --- |
+| JPM | 2025 | 4.8% | 6.09% | none |
+| JPM | 2024 | 8.1% | 6.11% | none |
+| BAC | 2025 | 30.5% | 4.44% | HTM loss |
+| BAC | 2024 | 42.0% | 3.82% | HTM loss, marked TCE |
+| WFC | 2025 | 19.1% | 5.17% | none |
+| WFC | 2024 | 25.5% | 5.12% | HTM loss |
+| C | 2025 | 4.8% | 6.13% | none |
+| C | 2024 | 8.5% | 6.61% | none |
+
+BAC sits about 0.4pp above the marked-TCE line at FY2025 and fires it at
+FY2024; both HTM signs fire on a large bank that did not fail. That is
+accurate as an exposure and wrong as a distress reading, so the threshold is
+kept (it was not tuned to SVB and is not re-tuned to BAC after the fact) and
+both signs carry the deposit-franchise caveat. PNC was not recomputed (no
+FMP balance sheet cached). The SVB figures above are from the first scratch
+script and were not recomputed.
 
 ---
 
@@ -1083,10 +1110,18 @@ bar, so it included the reversal month and missed the horizon the evidence
 covers.
 
 **Verdict — changed (D-48).** It now scores 12-1 month relative strength vs
-SPY at 0.45, 52-week position at 0.35 and the SMA50/200 gap at 0.20. RSI-14
-and the 6-month window are still shown, but not scored. The 12-1 band (−30pp
-→ 15, 0 → 50, +20pp → 75, +40pp → 90) is a convention, not fitted: it is
-anchored on Jegadeesh–Titman's roughly 1%-a-month spread. The aspect note
+SPY at 0.45, the distance below the 52-week high at 0.35 and the SMA50/200 gap
+at 0.20. RSI-14, the 6-month window and the 52-week range position are still
+shown, but not scored. The 12-1 band (−30pp → 15, 0 → 50, +20pp → 75, +40pp
+→ 90) is an unfitted monotone mapping, a convention: Jegadeesh–Titman's
+roughly 1%-a-month figure is the next-period winner-minus-loser payoff, so it
+gives the direction and puts no scale on the formation-period return the
+signal measures. The 52-week signal is (close / 52-week high − 1) × 100, the
+ratio George and Hwang rank on (band −50% → 15, −30% → 30, −15% → 50, −5% →
+70, at the high → 85, convention, not fitted). The first version scored the
+range position (close − low) / (high − low), which ranks stocks differently: a
+stock 4% off the top of a narrow range read 20%, below one at half its high
+(review, 2026-10-13). The aspect note
 says that momentum is a 3–12 month tilt that has crashed after rebounds,
 and is not an entry-timing signal.
 

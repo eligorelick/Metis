@@ -28,7 +28,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { ManifestEntry } from "@/types/core";
 import type { AnalystCase, JudgeOutput, Report } from "@/report/schema";
 import { BullBearPassFailure, type AssembleReportInput, type PassDeps } from "@/pipeline/jobRunner";
-import type { ContextPayload, PayloadSection } from "@/pipeline/stageC/payload";
+import { PAYLOAD_VERSION, type ContextPayload, type PayloadSection } from "@/pipeline/stageC/payload";
 import { pipelinePasses } from "@/pipeline/stageC/index";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import {
@@ -412,7 +412,8 @@ describe("pipelinePasses construction", () => {
     const { bundle, computed, validation } = buildInputs();
     const payload = pipelinePasses.assembleContextPayload(bundle, computed, validation);
     const fp = pipelinePasses.fingerprintPayload?.(payload);
-    expect(fp).toMatch(/^1\.12\.0:[0-9a-f]{8}$/);
+    // Built from the constant: a literal went stale at the 1.13.0 bump (D-49).
+    expect(fp).toMatch(new RegExp(`^${PAYLOAD_VERSION.replace(/\./g, "\\.")}:[0-9a-f]{8}$`));
   });
 });
 

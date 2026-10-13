@@ -263,7 +263,12 @@ export interface ContextPayload {
 // credit and funding, and a bank payload gains the section of route metrics it
 // is computed from. Prior partial passes cannot resume. D-47 (same 1.14.0)
 // adds the display-only HTM, reserve and loan-growth rows and the warning signs.
-export const PAYLOAD_VERSION = "1.14.0" as const;
+// 1.15.0 (review of D-46..D-50, 2026-10-13): the technicals score reads the
+// distance below the 52-week high (driver pctFromHigh52w, not position52w); a
+// bank's loan ratios divide by gross loans first; the bank capital note and
+// tangible-leverage caveat no longer call the house cut point a regulatory
+// line. Prior partial passes cannot resume.
+export const PAYLOAD_VERSION = "1.15.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

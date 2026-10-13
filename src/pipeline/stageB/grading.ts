@@ -204,6 +204,9 @@ function scoreAspect(
         band: null,
         weightPct,
         dataCompleteness: 0,
+        // D-50 review: null when the route cannot score the aspect at all, so
+        // the confidence ceiling does not read "not applicable" as "unscored".
+        applicableCompleteness: notApplicableReason !== null || applicableWeight === 0 ? null : 0,
         drivers,
         notApplicableReason:
           notApplicableReason ??
@@ -228,6 +231,7 @@ function scoreAspect(
       band: scoreToBand(score),
       weightPct,
       dataCompleteness: round2(usedWeight / totalWeight),
+      applicableCompleteness: round2(usedWeight / applicableWeight),
       drivers,
       notApplicableReason: null,
       note,
@@ -417,12 +421,19 @@ const SMA_GAP_BAND: readonly BandPoint[] = [
   [3, 70],
   [10, 86],
 ];
-// 52-week position (percent 0–100).
-const POSITION_BAND: readonly BandPoint[] = [
-  [10, 30],
-  [40, 52],
-  [60, 68],
-  [85, 86],
+/**
+ * Proximity to the 52-week high: (close / 52-week high − 1) × 100, ≤ 0 (D-48,
+ * corrected on review 2026-10-13). George & Hwang (2004) rank on price / 52-week
+ * high; the range position (close − low) / (high − low) it replaced ranks
+ * differently (a stock 4% off a narrow range's high read 20%). A house
+ * convention, not fitted: the paper gives the direction, not these cut points.
+ */
+const HIGH_PROXIMITY_BAND: readonly BandPoint[] = [
+  [-50, 15],
+  [-30, 30],
+  [-15, 50],
+  [-5, 70],
+  [0, 85],
 ];
 /**
  * 12-1 month relative strength vs SPY (pp), D-48. A house convention, not
@@ -443,9 +454,12 @@ const REL_STRENGTH_12M1M_BAND: readonly BandPoint[] = [
  * Haldane & Madouros 2012), and better-capitalised, more deposit-funded banks
  * did better in 2007-08 (Beltratti & Stulz 2012) — but not on cut points.
  */
-// Tangible common equity / tangible assets (percent). Anchored to the US PCA
-// "well capitalized" Tier 1 leverage line (5% → 35) and the Basel III 3%
-// leverage minimum, which sits below the first breakpoint.
+// Tangible common equity / tangible assets (percent). House cut points on a
+// holding-company GAAP ratio, NOT the regulatory leverage ratio: TCE excludes
+// preferred stock (which counts in Tier 1) and is read over period-end
+// tangible assets, so it runs structurally below Tier 1 leverage, and a bank at
+// a cut point is not at a regulatory minimum (review of D-46, 2026-10-13). The
+// numbers echo the PCA and Basel leverage lines in scale only.
 const TCE_TO_TANGIBLE_ASSETS_BAND: readonly BandPoint[] = [
   [4, 20],
   [5, 35],
@@ -636,9 +650,10 @@ function bankBalanceSheet(
     asOf,
     "Bank capital, credit and funding: tangible common equity / tangible assets (weight 0.40), net charge-offs / " +
       "average loans (0.25), nonperforming loans / loans where the filer tags them (0.15) and loans / deposits (0.20). " +
-      "The bands are house conventions, not fitted: capital is anchored to the US prompt-corrective-action " +
-      "\"well capitalized\" 5% Tier 1 leverage line and the Basel III 3% leverage minimum, and the charge-off rate " +
-      "follows the FDIC Quarterly Banking Profile definition. A leverage ratio is not comparable across business " +
+      "The bands are house conventions, not fitted. The capital ratio is a holding-company GAAP ratio that excludes " +
+      "preferred stock, so it runs below the regulatory Tier 1 leverage ratio and is not comparable to any regulatory " +
+      "minimum or prompt-corrective-action category; the charge-off rate follows the FDIC Quarterly Banking Profile " +
+      "definition. A leverage ratio is not comparable across business " +
       "models — custody and trust banks run thin by design — and a low loans / deposits ratio is not penalised for " +
       "the same reason. CET1 is shown when the filer tags it and is never graded, because the largest filers do not " +
       "tag it. No supervisory rating is used.",
@@ -937,12 +952,12 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       // its suppress set, but no signal carried the tag, so the policy was
       // inert and a company with a few months of trading was still scored on a
       // "52-week" position it cannot have.
-      { name: "position52w", raw: technicals.range52w.positionPct, unit: "%", weight: 0.35, band: POSITION_BAND, suppressedBy: "fiftyTwoWeekRange" },
+      { name: "pctFromHigh52w", raw: technicals.range52w.pctFromHigh, unit: "%", weight: 0.35, band: HIGH_PROXIMITY_BAND, suppressedBy: "fiftyTwoWeekRange" },
       { name: "smaGap", raw: smaGap, unit: "%", weight: 0.2, band: SMA_GAP_BAND, suppressedBy: "sma200" },
     ],
     weights.technicals,
     inputs.asOf,
-    "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), 52-week position and the SMA50/200 gap. " +
+    "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), distance below the 52-week high and the SMA50/200 gap. " +
       "Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. " +
       "RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence.",
     policy,

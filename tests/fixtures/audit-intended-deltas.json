@@ -4937,16 +4937,6 @@
           "after": 0.55
         },
         {
-          "path": "report.scores.aspects.technicals.drivers.0.source",
-          "before": "computed.scores.technicals.smaGap",
-          "after": "computed.scores.technicals.position52w"
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.0.value",
-          "before": 7.5,
-          "after": 95.88
-        },
-        {
           "path": "report.scores.aspects.technicals.drivers.1.source",
           "before": "computed.scores.technicals.rsi14",
           "after": "computed.scores.technicals.smaGap"
@@ -4973,39 +4963,14 @@
           "afterMissing": true
         },
         {
-          "path": "report.scores.aspects.technicals.note",
-          "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
-          "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), 52-week position and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
-        },
-        {
-          "path": "report.scores.aspects.technicals.score",
-          "before": 72.24,
-          "after": 83.92
-        },
-        {
           "path": "report.scores.composite.methodology",
           "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
           "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 87.3% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         },
         {
-          "path": "report.scores.composite.score",
-          "before": 77.59,
-          "after": 77.6
-        },
-        {
           "path": "stageB.scores.aspects.technicals.dataCompleteness",
           "before": 0.7,
           "after": 0.55
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.0.source",
-          "before": "computed.scores.technicals.smaGap",
-          "after": "computed.scores.technicals.position52w"
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.0.value",
-          "before": 7.5,
-          "after": 95.88
         },
         {
           "path": "stageB.scores.aspects.technicals.drivers.1.source",
@@ -5034,24 +4999,9 @@
           "afterMissing": true
         },
         {
-          "path": "stageB.scores.aspects.technicals.note",
-          "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
-          "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), 52-week position and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.score",
-          "before": 72.24,
-          "after": 83.92
-        },
-        {
           "path": "stageB.scores.composite.methodology",
           "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
           "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 87.3% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "stageB.scores.composite.score",
-          "before": 77.59,
-          "after": 77.6
         },
         {
           "path": "stageB.technicals.relativeStrength.benchmark.momentum12m1m",
@@ -5079,18 +5029,88 @@
           "after": "medium"
         },
         {
+          "path": "report.verdict.gradeStrip.leadership.confidence",
+          "before": "high",
+          "after": "medium"
+        }
+      ]
+    },
+    {
+      "name": "review-d46-d50",
+      "decisions": [
+        "D-48",
+        "D-50"
+      ],
+      "reason": "Review of D-48 and D-50 (2026-10-13). D-48: the 0.35-weight 52-week signal now scores proximity to the 52-week high, (close / high - 1) x 100 on HIGH_PROXIMITY_BAND, the measure George & Hwang (2004) rank on, instead of position in the high-low range, which ranks stocks differently. DEMO sits 1.06% below its high, so the driver becomes pctFromHigh52w -1.06 (was position52w 95.88) and technicals moves 83.92 -> 81.25 (72.24 at the audited commit); the note names the new signal; the composite moves 77.6 -> 77.53. D-50: every aspect gains applicableCompleteness, evidence present over the weight its route can support (dataCompleteness also counts route-suppressed signals as missing, which falsely capped fully observed banks). DEMO is a general company with no suppressed signal on any scored aspect, so each value equals its dataCompleteness and no ceiling moves; only the leadership cap reason is reworded to \"the inputs its route supports\".",
+      "deltas": [
+        {
           "path": "report.leadership.graded.confidenceCap",
           "beforeMissing": true,
           "after": {
             "from": "high",
             "to": "medium",
-            "reason": "the deterministic leadership score rests on under three quarters of its intended inputs"
+            "reason": "the deterministic leadership score rests on under three quarters of the inputs its route supports"
           }
         },
         {
-          "path": "report.verdict.gradeStrip.leadership.confidence",
-          "before": "high",
-          "after": "medium"
+          "path": "report.scores.aspects.balanceSheet.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 1
+        },
+        {
+          "path": "report.scores.aspects.fundamentals.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 1
+        },
+        {
+          "path": "report.scores.aspects.leadership.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.63
+        },
+        {
+          "path": "report.scores.aspects.moat.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 1
+        },
+        {
+          "path": "report.scores.aspects.quality.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.95
+        },
+        {
+          "path": "report.scores.aspects.technicals.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.55
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.0.source",
+          "before": "computed.scores.technicals.smaGap",
+          "after": "computed.scores.technicals.pctFromHigh52w"
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.0.value",
+          "before": 7.5,
+          "after": -1.06
+        },
+        {
+          "path": "report.scores.aspects.technicals.note",
+          "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
+          "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), distance below the 52-week high and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
+        },
+        {
+          "path": "report.scores.aspects.technicals.score",
+          "before": 72.24,
+          "after": 81.25
+        },
+        {
+          "path": "report.scores.aspects.valuation.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.7
+        },
+        {
+          "path": "report.scores.composite.score",
+          "before": 77.59,
+          "after": 77.53
         },
         {
           "path": "report.verdict.gradeStrip.leadership.confidenceCap",
@@ -5098,8 +5118,68 @@
           "after": {
             "from": "high",
             "to": "medium",
-            "reason": "the deterministic leadership score rests on under three quarters of its intended inputs"
+            "reason": "the deterministic leadership score rests on under three quarters of the inputs its route supports"
           }
+        },
+        {
+          "path": "stageB.scores.aspects.balanceSheet.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 1
+        },
+        {
+          "path": "stageB.scores.aspects.fundamentals.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 1
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.63
+        },
+        {
+          "path": "stageB.scores.aspects.moat.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 1
+        },
+        {
+          "path": "stageB.scores.aspects.quality.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.95
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.55
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.0.source",
+          "before": "computed.scores.technicals.smaGap",
+          "after": "computed.scores.technicals.pctFromHigh52w"
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.0.value",
+          "before": 7.5,
+          "after": -1.06
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.note",
+          "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
+          "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), distance below the 52-week high and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.score",
+          "before": 72.24,
+          "after": 81.25
+        },
+        {
+          "path": "stageB.scores.aspects.valuation.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.7
+        },
+        {
+          "path": "stageB.scores.composite.score",
+          "before": 77.59,
+          "after": 77.53
         }
       ]
     }

@@ -9,9 +9,16 @@
  * reason recorded in `confidenceCap`. A lower model label is always kept.
  *
  * Rules (house conventions, not fitted; see docs/audit/DECISIONS.md D-50):
- *  - the aspect's deterministic score is unscored                 → low
- *  - aspect dataCompleteness < 0.5                                → low
- *  - aspect dataCompleteness < 0.75                               → medium
+ *  - the aspect's deterministic score is unscored for lack of data → low
+ *  - the aspect is not applicable to the route (no score exists)  → medium
+ *  - aspect applicableCompleteness < 0.5                          → low
+ *  - aspect applicableCompleteness < 0.75                         → medium
+ *
+ * Completeness is read over what the ROUTE can support (review of D-50,
+ * 2026-10-13): `dataCompleteness` also counts route-suppressed signals as
+ * missing, which capped every fully observed bank's fundamentals, quality and
+ * leadership at medium with a reason that was false for it. A stored report
+ * without `applicableCompleteness` falls back to `dataCompleteness`.
  *  - valuation only: the fair value (DCF / excess-return) is withheld, or the
  *    scenario fan is suppressed on the general DCF route           → medium
  *
@@ -66,22 +73,30 @@ export function confidenceCeilingFor(
   const label = ASPECT_LABEL[aspect];
   const score = report.scores?.aspects[aspect];
   if (score !== undefined) {
-    if (score.score === null || score.band === null) {
+    const completeness = score.applicableCompleteness ?? score.dataCompleteness;
+    if ((score.score === null || score.band === null) && score.applicableCompleteness === null) {
+      // Route-inapplicable (an insurer's balance sheet, a pre-revenue
+      // valuation): nothing is missing, but there is no measured anchor.
+      candidates.push({
+        ceiling: "medium",
+        reason: `no deterministic ${label} score applies to this company's route`,
+      });
+    } else if (score.score === null || score.band === null) {
       candidates.push({
         ceiling: "low",
         // The score's own notApplicableReason is shown with the score; it is
         // not copied here because it may carry figures.
         reason: `the deterministic ${label} score is unscored`,
       });
-    } else if (score.dataCompleteness < LOW_CONFIDENCE_COMPLETENESS) {
+    } else if (completeness < LOW_CONFIDENCE_COMPLETENESS) {
       candidates.push({
         ceiling: "low",
-        reason: `the deterministic ${label} score rests on under half of its intended inputs`,
+        reason: `the deterministic ${label} score rests on under half of the inputs its route supports`,
       });
-    } else if (score.dataCompleteness < MEDIUM_CONFIDENCE_COMPLETENESS) {
+    } else if (completeness < MEDIUM_CONFIDENCE_COMPLETENESS) {
       candidates.push({
         ceiling: "medium",
-        reason: `the deterministic ${label} score rests on under three quarters of its intended inputs`,
+        reason: `the deterministic ${label} score rests on under three quarters of the inputs its route supports`,
       });
     }
   }

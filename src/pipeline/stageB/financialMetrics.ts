@@ -146,11 +146,17 @@ export const EARNING_ASSETS_TAGS = [
   "AverageEarningAssets",
   "InterestBearingAssets",
 ] as const;
+/**
+ * Total loans, gross of the allowance first: the FDIC Quarterly Banking Profile
+ * coverage and net charge-off rates divide by gross loans, and ACL / net loans
+ * would divide the allowance by loans it was already taken out of (review of
+ * D-46/D-47, 2026-10-13). Net loans are the fallback; the basis names the tag.
+ */
 export const LOANS_TAGS = [
+  "FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss",
+  "LoansAndLeasesReceivableGrossCarryingAmount",
   "LoansAndLeasesReceivableNetReportedAmount",
   "FinancingReceivableExcludingAccruedInterestAfterAllowanceForCreditLoss",
-  "LoansAndLeasesReceivableGrossCarryingAmount",
-  "FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss",
 ] as const;
 export const NONACCRUAL_LOAN_TAGS = [
   "FinancingReceivableExcludingAccruedInterestNonaccrualStatus",
@@ -1165,7 +1171,10 @@ function bankRiskFlags(metrics: readonly RouteMetric[]): BankRiskFlag[] {
       label: "tangible common equity / tangible assets below the threshold",
       threshold: T.tangibleLeverageBelowPct,
       direction: "below",
-      caveat: "Leverage is not comparable across business models; custody and trust banks run thin by design.",
+      caveat:
+        "This is a holding-company GAAP ratio that excludes preferred stock, so it runs below the regulatory leverage " +
+        "ratio; it is a house threshold, not a regulatory minimum. Leverage is not comparable across business " +
+        "models; custody and trust banks run thin by design.",
     },
     {
       key: "htmLossVsCapital",

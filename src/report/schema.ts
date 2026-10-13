@@ -1505,6 +1505,15 @@ export const AspectScoreSchema = z
     weightPct: z.number(),
     /** Fraction (0–1) of intended signal weight actually available. */
     dataCompleteness: z.number().min(0).max(1),
+    /**
+     * Fraction (0–1) of the signal weight this ROUTE can support that was
+     * actually available: `dataCompleteness` with route-suppressed signals
+     * left out of the denominator, so a metric meaningless for the route is not
+     * read as missing data. Null when the aspect is inapplicable to the route
+     * as a whole. Feeds the confidence ceiling (D-50). Absent on reports
+     * written before it existed.
+     */
+    applicableCompleteness: z.number().min(0).max(1).nullable().optional(),
     /** The sub-signals behind the score, as traced numbers. */
     drivers: z.array(TracedNumberSchema),
     /** Non-null when the aspect cannot be scored for this route/data. */

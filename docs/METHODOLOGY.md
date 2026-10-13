@@ -998,6 +998,12 @@ every metric:
 | Net charge-offs / average loans | the fiscal year's charge-offs net of recoveries / average of the same loan element at the two year ends (the FDIC Quarterly Banking Profile net charge-off rate) | when no fiscal-year after-recovery element or write-off/recovery pair from one family is tagged, a pair's periods differ, or the prior year-end loan balance is not tagged under the same element (D-46) |
 | Loans / deposits | total loans / `Deposits` at one balance-sheet date | when either is untagged or the two dates differ (D-46) |
 
+"Total loans" in these ratios is gross of the allowance first
+(`FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss`, then
+`LoansAndLeasesReceivableGrossCarryingAmount`), as in the FDIC Quarterly
+Banking Profile coverage and charge-off rates; net loans are the fallback, and
+each basis names the element used (review of D-46/D-47, 2026-10-13).
+
 The bank balance-sheet grade (see *Numeric grades and completeness*) reads
 tangible leverage, the charge-off rate, the NPL ratio and loans / deposits.
 Since payload 1.14.0 the analysts see them, with CET1, as citable rows in a
@@ -1398,7 +1404,7 @@ These bands have not been outcome-backtested.
 | Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
 | Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
 | Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, net share-count trend (scored only here, D-49); SBC/revenue is displayed, not scored |
-| Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, 52-week position 0.35, SMA50/200 gap 0.20 (D-48); RSI-14 and the six-month window are displayed, not scored |
+| Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, distance below the 52-week high 0.35, SMA50/200 gap 0.20 (D-48); RSI-14, the six-month window and the 52-week range position are displayed, not scored |
 
 The financial vector covers banks, insurers and mortgage REITs. For insurers
 and mortgage REITs the numeric balance-sheet aspect is explicitly unscored
@@ -1407,7 +1413,7 @@ funding:
 
 | Bank input | Weight | Band (convention, not fitted) |
 | --- | ---: | --- |
-| Tangible common equity / tangible assets | 0.40 | 4% → 20, 5% → 35, 6% → 50, 8% → 70, 10% → 85, ≥ 12% → 90. Anchored to the US prompt-corrective-action "well capitalized" Tier 1 leverage line of 5% (12 CFR 324.403) and the Basel III 3% leverage minimum |
+| Tangible common equity / tangible assets | 0.40 | 4% → 20, 5% → 35, 6% → 50, 8% → 70, 10% → 85, ≥ 12% → 90. House cut points (convention, not fitted) on a holding-company GAAP ratio that excludes preferred stock and so runs below the regulatory Tier 1 leverage ratio; they echo the PCA leverage line (12 CFR 324.403) in scale only, and a bank below a cut point is not below a regulatory minimum |
 | Net charge-offs / average loans | 0.25 | ≤ 0.25% → 85, 0.5% → 70, 1% → 50, 2% → 25, ≥ 3% → 10; the FDIC Quarterly Banking Profile rate definition |
 | NPL ratio (nonaccrual / loans) | 0.15 | ≤ 0.25% → 85, 0.5% → 75, 1% → 60, 2% → 40, ≥ 4% → 15 |
 | Loans / deposits | 0.20 | ≤ 80% → 80, 90% → 70, 100% → 50, 110% → 30, ≥ 125% → 15; a low ratio is not penalised, because custody and trust banks run low by design |
@@ -1424,7 +1430,9 @@ Moat and leadership scores are quantitative proxies, not a finding about the
 company's competitive advantage or management competence.
 
 An aspect is the weighted mean of available, route-permitted signal scores.
-Its `dataCompleteness` is used signal weight / all intended signal weight;
+Its `dataCompleteness` is used signal weight / all intended signal weight,
+and its `applicableCompleteness` the same over the weight the route does not
+suppress (null when the route cannot score the aspect at all);
 Piotroski's used weight is additionally scaled by `outOf/9`. Missing data
 contributes no score but reduces completeness; zero available evidence yields
 a null score. The composite first weights each available aspect by its route
@@ -1476,8 +1484,12 @@ seven days, so the latest month (which tends to reverse; Jegadeesh 1990,
 Lehmann 1990) is skipped. A window that cannot be aligned is withheld with a
 `technicals.relativeStrength.<benchmark>.12m1m` gap, never filled from the
 6- or 12-month window. Its grade band (−30pp → 15, 0 → 50, +20pp → 75, +40pp
-→ 90) is a convention, not fitted, anchored on the roughly 1%-a-month
-winner-minus-loser spread of Jegadeesh and Titman (1993). Momentum is a 3–12
+→ 90) is an unfitted monotone mapping, a convention: Jegadeesh and Titman
+(1993) give the direction, not the scale of the formation-period return. The
+52-week signal is the distance below the 52-week high, (close / high − 1) ×
+100, the ratio George and Hwang (2004) rank on, on a convention band (−50% →
+15, −30% → 30, −15% → 50, −5% → 70, at the high → 85); the range position is
+displayed only (review of D-48, 2026-10-13). Momentum is a 3–12
 month tilt that has reversed sharply after market rebounds (Daniel and
 Moskowitz 2016), not an entry-timing signal; RSI-14 has no standalone
 predictive evidence and is shown for context only (RESEARCH §9.1). The AI
@@ -1524,8 +1536,10 @@ judgments and can diverge from numeric bands when explained.
 Section confidence is capped at assembly (D-50,
 `src/pipeline/stageC/confidenceCeiling.ts`), after the judge pass and before
 verification, from Stage B data only. The ceiling is the lowest of: aspect
-unscored → low; aspect `dataCompleteness` below 0.5 → low, below 0.75 →
-medium; valuation with the fair value (DCF / excess-return) withheld, or the
+unscored for lack of data → low; not applicable to the route → medium;
+aspect `applicableCompleteness` (stored reports without it: `dataCompleteness`)
+below 0.5 → low, below 0.75 → medium, so a metric the route suppresses is not
+read as missing data (review of D-50, 2026-10-13); valuation with the fair value (DCF / excess-return) withheld, or the
 scenario fan suppressed on the general DCF route → medium. These thresholds are
 conventions, not fitted. A label above the ceiling is lowered and the section
 shows "Confidence capped at <x>: <reason>" (`GradeBlock.confidenceCap`); a

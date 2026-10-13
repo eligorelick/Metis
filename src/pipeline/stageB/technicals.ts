@@ -409,7 +409,7 @@ export interface Range52w {
    * "52-week" high/low would describe a shorter window than its own label
    * claims. Mirrors DrawdownResult.insufficientHistory. When true, every field
    * above is null: a 3-month range presented as a 52-week range is a false
-   * statement, and `positionPct` feeds a 0.25-weight momentum signal.
+   * statement, and `pctFromHigh` feeds the 0.35-weight 52-week-high signal (D-48).
    */
   insufficientHistory: boolean;
   asOf: string | null;

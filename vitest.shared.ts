@@ -140,4 +140,7 @@ export const RISK_SOURCE_MANIFEST = [
   // acceptance path of the verifier — a number it matches is marked verified
   // — so it carries the verifier's per-file coverage floor.
   "src/pipeline/stageC/excerptNumbers.ts",
+  // Added 2026-10-13 (review of D-50): the section-confidence ceiling, which
+  // rewrites a model label at assembly; it was left out when D-50 added it.
+  "src/pipeline/stageC/confidenceCeiling.ts",
 ];

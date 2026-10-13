@@ -497,8 +497,20 @@ describe("grading — relative strength driver isolation", () => {
     const technical = computeScores(makeInputs({ technicals: t })).aspects.technicals;
     // D-48: RSI and the 6-month window are displayed, never scored, and the
     // withheld 12-1 window is missing evidence (0.45 of the aspect).
-    expect(technical.drivers.map((driver) => driver.source.split(".").pop())).toEqual(["position52w", "smaGap"]);
+    expect(technical.drivers.map((driver) => driver.source.split(".").pop())).toEqual(["pctFromHigh52w", "smaGap"]);
     expect(technical.dataCompleteness).toBeCloseTo(0.55, 12);
+  });
+
+  // Review of D-48: George & Hwang rank on price / 52-week high. A stock 4%
+  // off the top of a narrow range must outrank one at half its high, which the
+  // old range-position signal reversed (20% vs 37.5% of the range).
+  it("scores proximity to the 52-week high, not position in the range", () => {
+    const score = (high: number, low: number, close: number): number => {
+      const t = technicals();
+      t.range52w = { ...t.range52w, high52w: high, low52w: low, pctFromHigh: (close / high - 1) * 100, positionPct: ((close - low) / (high - low)) * 100 };
+      return computeScores(makeInputs({ technicals: t })).aspects.technicals.score!;
+    };
+    expect(score(100, 95, 96)).toBeGreaterThan(score(100, 20, 50));
   });
 });
 
@@ -854,6 +866,11 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //  - Balance sheet 0 -> 10 (D-46, SCORE_BANDS_2026_10): a bank's balance
     //    sheet is graded on capital, credit and funding, all observed here.
     expect(round2(compWeight)).toBe(76.15);
+    // Review of D-50: over what the route supports, every aspect of this bank
+    // is fully observed, which is what the confidence ceiling reads.
+    for (const a of Object.values(s.aspects)) {
+      if (a.score !== null) expect(a.applicableCompleteness).toBe(1);
+    }
 
     // The OLD denominator (a fixed 100) would have shrunk this identical bank
     // by ×0.7897 toward 50 — a structural cap the fix removes.

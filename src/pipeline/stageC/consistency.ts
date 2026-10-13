@@ -254,7 +254,9 @@ export function parseNumbers(sentence: string): ParsedNumber[] {
  * kept. A currency code glued to a number ("EUR5bn") is an amount, not an
  * identifier, and is kept (review, 2026-10-13: "Net debt is EUR5bn" citing an
  * n/a row stated no number). Spelled-out numbers ("three times") are read by
- * {@link statesNumberWord}.
+ * {@link statesNumberWord}. The momentum window's name "12-1 month" is a
+ * label, not a quantity (review of D-48, 2026-10-13: an absence statement in
+ * the row's own wording failed as gap-source-number).
  */
 // ISO codes checked beside a number. A generic [A-Z]{3} would read tickers
 // ("JPM 43") as currencies, so the list is deliberate; extend it on evidence.
@@ -267,6 +269,10 @@ const NON_QUANTITY_PATTERNS: readonly RegExp[] = [
   /\b(?:Form|Item|Tier|Rule|Section|Part|Level|Pillar|Stage|Basel)\s+[0-9IVX]+[A-Za-z]?\b/g,
   new RegExp(String.raw`\b(?!(?:${CURRENCY_CODES})\d)[A-Za-z]+\d[\w-]*`, "g"),
   /\b\d+(?!(?:x|b|bn|m|mm|mn|k|t|tn|bps?|pps?|pct|percent)\b)[A-Za-z][\w-]*/gi,
+  // The skip-month momentum window's name (D-48), the technicals row's own
+  // label; before the next rule, which would leave "12-" of "12-1-month". Only
+  // this window: a general "3-6 months" range can state a duration.
+  /\b12[-–]1[\s-]months?\b/gi,
   /\b\d+-(?:year|month|quarter|day|week)s?\b/gi,
   /(?<![$€£¥\d.,])\b(?:19|20)\d{2}\b(?![.,]\d|\s*(?:%|percent|percentage|pps?\b|bps?\b|basis|x\b|times\b|k\b|thousand|mm\b|m\b|mn\b|million|bn\b|billion|tn\b|trillion|dollars?\b|usd\b|shares?\b))/gi,
 ];

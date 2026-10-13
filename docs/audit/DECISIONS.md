@@ -57,6 +57,23 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   0.63 since D-49): high → medium on the section and its strip twin. Test:
   `tests/stageC.confidenceCeiling.test.ts` (rule table, application,
   idempotence, legacy parse, rendered line).
+- **Amended on review (2026-10-13)**: `dataCompleteness` counts
+  route-suppressed signals as missing, so every fully observed bank had
+  fundamentals (0.55), quality (0.57) and leadership (0.69) capped at medium
+  with the false reason "under three quarters of its intended inputs", and a
+  route-inapplicable aspect read as "unscored". `AspectScore` gains optional
+  `applicableCompleteness` (used weight / route-applicable weight; null when
+  the route cannot score the aspect). The ceiling reads it (stored reports
+  fall back to `dataCompleteness`), a route-inapplicable aspect caps at
+  medium with "no deterministic <aspect> score applies to this company's
+  route", and the completeness reasons say "the inputs its route supports".
+  The field is a registered optional surface field (audit scorecard table,
+  exports), and `confidenceCeiling.ts` joins the risk-coverage manifest.
+  Audited-fixture group `review-d46-d50` (DEMO is general: each value equals
+  its `dataCompleteness`, no ceiling moves, the leadership reason is
+  reworded). Tests: `tests/stageC.confidenceCeiling.test.ts`,
+  `tests/stageB.grading.test.ts` (the fully observed bank reads 1 on every
+  scored aspect).
 
 ## D-47 (bank disclosures 2026-10-13) HTM unrealised loss, marked TCE, ACL / loans and three-year loan growth are disclosed with warning signs, not graded
 
@@ -71,8 +88,8 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   deterministic warning signs, and grade none of them.
 - **Risks**: (b) has no fitted bands, and the deposit franchise hedges asset
   duration (Drechsler, Savov & Schnabl 2021, J. Finance 76), so an HTM loss
-  is not a solvency verdict. Under (c) the HTM sign fires on BAC (27% of TCE
-  at FY2025), a large, sound bank: accurate as an exposure, wrong as a
+  is not a solvency verdict. Under (c) the HTM sign fires on BAC (30.5% of TCE
+  at FY2025; both HTM signs at FY2024, marked TCE 3.82%), a large, sound bank: accurate as an exposure, wrong as a
   distress reading, so the wording must carry the caveat. The 21% tax is an
   assumption; the loss is point-in-time and pulls to par; uninsured-deposit
   data is text-only, so the run-risk half of the Jiang et al. test is absent.
@@ -108,6 +125,17 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   signs; thresholds were not tuned to it. Test:
   `tests/stageB.financialMetrics.test.ts` (HTM loss and marked TCE
   arithmetic, the fallback pair, and the instant-mismatch withholding).
+- **Amended on review (2026-10-13)**: the large-bank comparison in RESEARCH
+  §6.3 came from a scratch formula that did not deduct preferred stock; it is
+  recomputed with `computeFinancialMetrics` (BAC FY2025 30.5% / 4.44%, about
+  0.4pp above the marked-TCE line; FY2024 fires both HTM signs). Thresholds
+  kept, not re-tuned after the fact. ACL / loans, the charge-off rate, NPL,
+  provisions / loans, loans / deposits and loan growth now divide by gross
+  loans first (`LOANS_TAGS` order: before-allowance, gross carrying amount,
+  then the net elements), the FDIC QBP basis; ACL over net loans divided the
+  allowance by loans it was already taken from. The tangible-leverage sign's
+  caveat says the ratio excludes preferred stock and is a house threshold,
+  not a regulatory minimum. Payload 1.15.0.
 
 ## D-46 (bank grading 2026-10-13) The bank balance sheet is scored on capital, credit and funding
 
@@ -170,6 +198,17 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   `tests/stageB.grading.test.ts` (scored and renormalised with NPL withheld;
   unscored with only tangible leverage; the fully observed bank's ceiling
   66.15 → 76.15).
+- **Amended on review (2026-10-13)**: "anchored to the PCA 5% well
+  capitalized line" overstated the link. TCE / tangible assets is a
+  holding-company GAAP ratio that excludes preferred stock (in Tier 1) and
+  uses period-end assets, so it runs below Tier 1 leverage; a bank at the PCA
+  line can read near 4.5% and score in the 20s, and the GSIBs score in the low
+  50s. The cut points are unchanged (no fitted basis for a shift) but are now
+  described as house cut points that echo the regulatory lines in scale only,
+  in the band comment, the aspect note, RESEARCH §5/§6.3 and METHODOLOGY. The
+  judge prompt adds a digit-free line: never say a bank is below, near or
+  above a regulatory minimum or capital category on the strength of this
+  ratio. Payload 1.15.0.
 
 ## D-48 (grading 2026-10-13) Technicals score 12-1 relative momentum, 52-week-high proximity and the SMA gap; RSI is display-only
 
@@ -225,6 +264,22 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   Tests: `tests/stageB.technicals.test.ts` (window dates, and withholding
   past the 7-day tolerance) and `tests/stageB.grading.test.ts` (no
   substitution; RSI and the 6-month window are not drivers).
+- **Amended on review (2026-10-13)**: (1) the 0.35 signal was range
+  position, (close − low) / (high − low), not the price / 52-week high ratio
+  George & Hwang rank on, and the two order stocks differently. It is now
+  `pctFromHigh52w`, (close / high − 1) × 100, on `HIGH_PROXIMITY_BAND`
+  (−50% → 15, −30% → 30, −15% → 50, −5% → 70, 0 → 85; convention, not
+  fitted); the range position stays displayed. (2) The 12-1 band's "anchored
+  on Jegadeesh–Titman's 1%-a-month spread" confused the next-period payoff
+  with the formation-period return the signal measures; it is described as
+  an unfitted monotone mapping, JT cited for direction only. (3) The verifier
+  read "12-1 month" in the row's own label as the numbers 12 and 1, so an
+  honest absence statement on the withheld row failed as gap-source-number;
+  `consistency.ts` strips that window name (only it) as a non-quantity.
+  Audited-fixture group `review-d46-d50` (DEMO technicals 83.92 → 81.25,
+  composite 77.6 → 77.53). Payload 1.15.0. Tests:
+  `tests/stageB.grading.test.ts` (a stock near the top of a narrow range
+  outranks one at half its high), `tests/stageC.gapCitations.test.ts`.
 
 ## D-49 (grading 2026-10-13) Net share-count change is scored once (leadership) and the SBC charge once (balance sheet, % of FCF); both remain displayed elsewhere
 

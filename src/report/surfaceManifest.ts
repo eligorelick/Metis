@@ -300,6 +300,7 @@ export const ASPECT_SCORE_FIELD_ORDER = [
   "band",
   "weightPct",
   "dataCompleteness",
+  "applicableCompleteness",
   "drivers",
   "notApplicableReason",
   "note",
@@ -309,6 +310,7 @@ export const ASPECT_SCORE_FIELDS = [
   { id: "aspect-score-field:band", key: "band", label: "Band", optional: false },
   { id: "aspect-score-field:weightPct", key: "weightPct", label: "Weight", optional: false },
   { id: "aspect-score-field:dataCompleteness", key: "dataCompleteness", label: "Data completeness", optional: false },
+  { id: "aspect-score-field:applicableCompleteness", key: "applicableCompleteness", label: "Route-applicable completeness", optional: true },
   { id: "aspect-score-field:drivers", key: "drivers", label: "Drivers", optional: false },
   { id: "aspect-score-field:notApplicableReason", key: "notApplicableReason", label: "Not applicable reason", optional: false },
   { id: "aspect-score-field:note", key: "note", label: "Method note", optional: false },
@@ -318,9 +320,10 @@ export const ASPECT_SCORE_FIELD_BY_KEY = {
   band: ASPECT_SCORE_FIELDS[1],
   weightPct: ASPECT_SCORE_FIELDS[2],
   dataCompleteness: ASPECT_SCORE_FIELDS[3],
-  drivers: ASPECT_SCORE_FIELDS[4],
-  notApplicableReason: ASPECT_SCORE_FIELDS[5],
-  note: ASPECT_SCORE_FIELDS[6],
+  applicableCompleteness: ASPECT_SCORE_FIELDS[4],
+  drivers: ASPECT_SCORE_FIELDS[5],
+  notApplicableReason: ASPECT_SCORE_FIELDS[6],
+  note: ASPECT_SCORE_FIELDS[7],
 } as const satisfies Record<AspectScoreFieldKey, FieldDescriptor<AspectScoreFieldKey>>;
 
 export type CompositeScoreFieldKey = keyof CompositeScore;

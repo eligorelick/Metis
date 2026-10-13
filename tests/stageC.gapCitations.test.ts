@@ -158,6 +158,24 @@ describe("a citation of an absence supports the absence only (D-43)", () => {
     expect(result.log.map((entry) => entry.reason)).toEqual(["gap-source-number", "gap-source-number", "gap-source-number"]);
   });
 
+  // Review of D-48: "12-1 month" read as the numbers 12 and 1, so an absence
+  // written in the row's own label failed. The window name is a label; a
+  // figure on the same n/a row still fails.
+  it("lets an absence on the withheld 12-1 month row use the row's own label", async () => {
+    const payload = build(false);
+    expect(serializePayloadForPrompt(payload)).toContain(
+      "- relative strength vs SPY, 12-1 month (latest month skipped): n/a [computed.technicals.relativeStrength.12m1m]",
+    );
+    const result = await verify(payload, {
+      notes: [
+        fact("The 12-1 month relative strength vs SPY is not available.", "computed.technicals.relativeStrength.12m1m", null),
+        fact("Relative strength vs SPY over the 12-1-month window is withheld.", "computed.technicals.relativeStrength.12m1m", null),
+        fact("The 12-1 month relative strength vs SPY is 8pp.", "computed.technicals.relativeStrength.12m1m", null),
+      ],
+    });
+    expect(result.log.map((entry) => entry.reason)).toEqual(["supported", "supported", "gap-source-number"]);
+  });
+
   it("lets the weights row support its numbers only in the row's own order", async () => {
     const result = await verify(build(false), {
       notes: [

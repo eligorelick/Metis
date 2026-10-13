@@ -53,6 +53,27 @@ describe("confidence ceiling (D-50)", () => {
     expect(ReportSchema.safeParse(task28SentinelReport()).success).toBe(true);
 
     const html = renderToStaticMarkup(createElement(GradeReasoning, { title: "Quality", block: capped.quality.graded }));
-    expect(html).toContain("Confidence capped at medium: the deterministic quality score rests on under three quarters of its intended inputs");
+    expect(html).toContain("Confidence capped at medium: the deterministic quality score rests on under three quarters of the inputs its route supports");
+  });
+
+  // Review of D-50: completeness is read over what the route can score. A
+  // fully observed bank (tests/stageB.grading.test.ts: fundamentals 0.55,
+  // quality 0.57, leadership 0.69 of ALL weight, every applicable input on
+  // file) is not capped, and a route-inapplicable aspect is not "unscored".
+  it("reads completeness over route-applicable inputs and words a route-inapplicable aspect as such", () => {
+    const report = task28SentinelReport();
+    const aspects = report.scores!.aspects;
+    aspects.fundamentals = { ...aspects.fundamentals, score: 70, band: "B", dataCompleteness: 0.55, applicableCompleteness: 1 };
+    aspects.leadership = { ...aspects.leadership, score: 70, band: "B", dataCompleteness: 0.69, applicableCompleteness: 0.6 };
+    aspects.balanceSheet = { ...aspects.balanceSheet, score: null, band: null, dataCompleteness: 0, applicableCompleteness: null };
+    aspects.moat = { ...aspects.moat, score: null, band: null, dataCompleteness: 0, applicableCompleteness: 0 };
+    expect(confidenceCeilingFor("fundamentals", report)).toEqual({ ceiling: "high", reason: null });
+    expect(confidenceCeilingFor("leadership", report).ceiling).toBe("medium");
+    expect(confidenceCeilingFor("balanceSheet", report)).toEqual({
+      ceiling: "medium",
+      reason: "no deterministic balance-sheet score applies to this company's route",
+    });
+    expect(confidenceCeilingFor("moat", report).reason).toBe("the deterministic moat score is unscored");
+    expect(ReportSchema.safeParse(report).success).toBe(true);
   });
 });
