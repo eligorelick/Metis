@@ -33,6 +33,7 @@ import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { estimateCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
+import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import type { TracedNumber } from "@/report/schema";
 import {
   PROJECTION_PATH_ORDER,
@@ -260,7 +261,8 @@ export interface ContextPayload {
 // 6-month window vs SPY. Prior partial passes cannot resume.
 // 1.14.0 (D-46, 2026-10-13): a bank's balance-sheet score is graded on capital,
 // credit and funding, and a bank payload gains the section of route metrics it
-// is computed from. Prior partial passes cannot resume.
+// is computed from. Prior partial passes cannot resume. D-47 (same 1.14.0)
+// adds the display-only HTM, reserve and loan-growth rows and the warning signs.
 export const PAYLOAD_VERSION = "1.14.0" as const;
 
 /* ------------------------------------------------------------------------ *
@@ -470,6 +472,13 @@ const BANK_PAYLOAD_METRICS = [
   "nplRatio",
   "loansToDeposits",
   "cet1Reported",
+  // D-47: display only, never graded.
+  "htmUnrealizedLossNet",
+  "htmLossAfterTax",
+  "htmLossToTce",
+  "markedTceRatio",
+  "aclToLoans",
+  "loanCagr3y",
 ] as const;
 
 /** Stage B computed-metrics sections — the analytical spine of the payload. */
@@ -593,6 +602,29 @@ function computedSections(
         asOf: m.asOf,
       });
     }
+    const htmAfterTax = fm.metrics.find((x) => x.key === "htmLossAfterTax");
+    if (htmAfterTax !== undefined && htmAfterTax.withheldReason === null) {
+      // The after-tax loss rests on an assumed rate; the rate is a row so a
+      // sentence stating it has a record to cite.
+      bankFigures.push({
+        label: "tax rate assumed on held-to-maturity losses (US federal statutory rate)",
+        value: HTM_LOSS_TAX_RATE_PCT,
+        unit: "%",
+        source: "computed.financialMetrics.htmLossAfterTax.taxRate",
+        asOf: htmAfterTax.asOf,
+      });
+    }
+    // D-47: each evaluable warning sign as its value, its threshold and its
+    // status, all citable. Caveats go to the notes, digit-free.
+    const flags = fm.flags ?? [];
+    for (const f of flags) {
+      const src = `computed.financialMetrics.flags.${f.key}`;
+      bankFigures.push(
+        { label: `warning sign, ${f.label}: value`, value: f.value, unit: f.unit, source: `${src}.value`, asOf: f.asOf },
+        { label: `warning sign, ${f.label}: threshold (heuristic, not validated)`, value: f.threshold, unit: f.unit, source: `${src}.threshold`, asOf: f.asOf },
+        { label: `warning sign, ${f.label}: status`, value: f.triggered ? "triggered" : "not triggered", unit: "", source: src, asOf: f.asOf },
+      );
+    }
     sections.push(payloadSection({
       title: "Bank capital, credit and funding (computed — public-filing proxies, not a supervisory rating)",
       figures: bankFigures,
@@ -602,6 +634,20 @@ function computedSections(
         "Tangible common equity / tangible assets is a leverage ratio, not CET1. It is not comparable across business " +
           "models: custody and trust banks run thin leverage and low loans / deposits by design. CET1 is shown only " +
           "when the filer tags it and is never graded.",
+        "Held-to-maturity securities are carried at amortised cost, so their unrealised loss is in neither book nor " +
+          "regulatory capital. The marked ratio deducts only that loss: available-for-sale losses are already in " +
+          "tangible common equity. The loss would be realised only if deposits had to be funded by selling the " +
+          "securities; a sticky deposit base offsets it.",
+        ...(flags.length === 0
+          ? []
+          : [
+              "Warning signs use heuristic thresholds that have not been validated. They are shown, not graded. " +
+                "Discuss every triggered one; a count of warning signs is not a probability of anything.",
+              // One note per caveat; two HTM signs share theirs.
+              ...[...new Set(flags.map((f) => f.caveat))].map(
+                (caveat) => `${flags.filter((f) => f.caveat === caveat).map((f) => f.label).join("; ")}: ${caveat}`,
+              ),
+            ]),
       ],
     }));
   }

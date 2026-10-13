@@ -1003,6 +1003,33 @@ tangible leverage, the charge-off rate, the NPL ratio and loans / deposits.
 Since payload 1.14.0 the analysts see them, with CET1, as citable rows in a
 "Bank capital, credit and funding" section whose notes say they are
 public-filing proxies, not a supervisory rating.
+
+Rate-risk and credit-cycle figures (D-47) are shown in the same block and
+section and are **never graded**:
+
+| Metric | Definition | When withheld |
+| --- | --- | --- |
+| HTM unrealised loss (net) | `HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingLoss` − `…Gain`; else amortised cost (`DebtSecuritiesHeldToMaturityExcludingAccruedInterestBeforeAllowanceForCreditLoss`, then `HeldToMaturitySecurities`) − `HeldToMaturitySecuritiesFairValue` | when neither pair is tagged, or a pair's two facts are at different dates or in different units |
+| HTM loss after tax | the loss × (1 − 21%). The 21% US federal statutory rate is an assumption (state taxes and the bank's deferred-tax position are not modelled), printed as its own row | with the loss |
+| HTM loss / TCE | after-tax loss / tangible common equity | with the loss, or when the loss and the balance sheet differ in date or currency |
+| Marked TCE ratio | (TCE − after-tax loss) / (tangible assets − pre-tax loss). AFS losses are already in TCE through AOCI, so only the HTM loss is deducted | as above |
+| ACL / loans | `FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest` (else `LoansAndLeasesReceivableAllowance`) / loans at one date. Its direction is ambiguous: conservative reserving or a riskier book | when either is untagged or the dates differ |
+| Loan growth, 3-year | CAGR of the same loan element at four fiscal year ends; includes acquisitions | when any of the four is untagged or they do not span three years |
+
+**Bank warning signs** (`bankRiskFlags`, `BANK_FLAG_THRESHOLDS`). Each is a
+heuristic threshold, not validated, evaluated only when its input is on file:
+tangible leverage below 5%; HTM loss after tax above 25% of TCE; marked TCE
+ratio below 4%; three-year loan growth above 15% a year; loans / deposits above
+110%; and provisions below net charge-offs while the NPL ratio rose (only when
+provisions, charge-offs and the NPL ratio for both years are tagged). The
+payload prints each evaluated sign's value, threshold and status as citable
+rows, with digit-free caveats as notes; the report's route-metrics notes state
+every triggered one. The judge prompt requires every triggered sign to be
+discussed, HTM losses to be presented as conditional on deposits having to be
+funded by selling the securities (a sticky deposit base offsets them), loan
+growth to be said to include acquisitions, a count of signs never to be
+presented as a probability, and the figures to be called public-filing
+proxies with no supervisory rating.
 | NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
 | Provisions / loans | provision for credit losses / total loans | when neither the provision element nor its component sum resolves |
 | Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |

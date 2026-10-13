@@ -13,6 +13,57 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-47 (bank disclosures 2026-10-13) HTM unrealised loss, marked TCE, ACL / loans and three-year loan growth are disclosed with warning signs, not graded
+
+- **Problem**: nothing in the bundle showed unrealised losses on
+  held-to-maturity securities, which are missing from book and regulatory
+  capital and were the central post-SVB blind spot (Jiang, Matvos, Piskorski
+  & Seru 2024, JFE 159: marking to market cut bank asset values by about 10%
+  in 2022Q1-2023Q1; Fed Board review of SVB, Apr 2023). Fast loan growth
+  predicts later poor bank performance (Fahlenbrach, Prilmeier & Stulz 2018,
+  RFS), and nothing measured it. Both inputs are reliably tagged.
+- **Options**: (a) leave them out; (b) grade them; (c) disclose them, with
+  deterministic warning signs, and grade none of them.
+- **Risks**: (b) has no fitted bands, and the deposit franchise hedges asset
+  duration (Drechsler, Savov & Schnabl 2021, J. Finance 76), so an HTM loss
+  is not a solvency verdict. Under (c) the HTM sign fires on BAC (27% of TCE
+  at FY2025), a large, sound bank: accurate as an exposure, wrong as a
+  distress reading, so the wording must carry the caveat. The 21% tax is an
+  assumption; the loss is point-in-time and pulls to par; uninsured-deposit
+  data is text-only, so the run-risk half of the Jiang et al. test is absent.
+- **Choice**: (c).
+  - `src/pipeline/stageB/financialMetrics.ts` (bank route, display only):
+    `htmUnrealizedLossNet` (loss − gain, else amortised cost − fair value;
+    a pair at different dates or units withholds), `htmLossAfterTax` (× (1 −
+    21%), stated as an assumption), `htmLossToTce`, `markedTceRatio` ((TCE −
+    after-tax loss) / (tangible assets − pre-tax loss); AFS losses are
+    already in TCE through AOCI, so no double deduction; a loss whose date or
+    currency differs from the balance sheet's withholds), `aclToLoans`
+    (direction ambiguous) and `loanCagr3y` (same loan element at four FY
+    ends). `bankRiskFlags` evaluates, each a heuristic threshold, not
+    validated: tangible leverage < 5%, HTM loss / TCE > 25%, marked TCE
+    < 4%, loan growth > 15%/yr, loans / deposits > 110%, and provisions <
+    net charge-offs while NPL rose (only when every input is tagged).
+    Triggered signs become route-metrics notes in the report, with the
+    public-filing CAMELS-style proxy note.
+  - `src/pipeline/stageC/payload.ts`: the bank section adds the six metrics,
+    the assumed tax rate as a row, and for each evaluated sign its value,
+    threshold and status as citable rows; caveats are digit-free notes.
+  - `src/pipeline/stageC/prompts.ts`: the judge discusses every triggered
+    sign, presents HTM losses as conditional on deposits having to be funded
+    by selling the securities, says loan growth includes acquisitions, never
+    presents a count of signs as a probability, and calls the figures
+    public-filing proxies with no supervisory rating. Digit-free.
+- **Why**: the decision in one line: bank rate-risk (HTM unrealised loss,
+  marked TCE) and credit-cycle (loan growth, reserves) measures are disclosed
+  and flagged, not graded; HTM losses are presented as conditional on
+  funding, not as realised.
+- **Disclosure**: payload 1.14.0 (shared with D-46); no score or band moves.
+  The one-off SVB FY2022 check (RESEARCH §6.3) fires the HTM and marked-TCE
+  signs; thresholds were not tuned to it. Test:
+  `tests/stageB.financialMetrics.test.ts` (HTM loss and marked TCE
+  arithmetic, the fallback pair, and the instant-mismatch withholding).
+
 ## D-46 (bank grading 2026-10-13) The bank balance sheet is scored on capital, credit and funding
 
 - **Problem**: a bank's balance-sheet aspect was a placeholder

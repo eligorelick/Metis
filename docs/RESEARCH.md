@@ -446,6 +446,24 @@ Growth-based flags are suppressed entirely when base-year revenue is below a
 floor, because a percentage change on a near-zero base is arithmetic noise
 rather than a signal.
 
+**Bank warning signs (D-47)** follow the same rule: heuristic thresholds, not
+validated, shown and never graded (`BANK_FLAG_THRESHOLDS` in
+`src/pipeline/stageB/financialMetrics.ts`; METHODOLOGY *Route metrics*). Their
+direction is published; their cut points are not:
+
+| Sign | Threshold | Evidence for the direction |
+| --- | --- | --- |
+| Tangible leverage | below 5% | the PCA "well capitalized" leverage line; leverage predicts failure (§6.3) |
+| HTM loss after tax / TCE | above 25% | marking assets to market cut US bank asset values by about 10% in 2022Q1-2023Q1, and fragility came from those losses combined with low capital and uninsured funding (Jiang, Matvos, Piskorski & Seru 2024, *JFE* 159, 103899); Fed Board, *Review of the Federal Reserve's Supervision and Regulation of Silicon Valley Bank* (Apr 2023). Counterweight: the deposit franchise hedges asset duration, so the loss matters mainly if deposits run (Drechsler, Savov & Schnabl 2021, *J. Finance* 76) |
+| Marked TCE ratio | below 4% | as above |
+| Three-year loan growth | above 15% a year | banks in the top quartile of three-year loan growth underperformed the bottom quartile by more than 12pp over the next three years, reserved less while growing and later had lower ROA and higher provisions; mergers do not explain it (Fahlenbrach, Prilmeier & Stulz 2018, *RFS*, doi 10.1093/rfs/hhx109). The figure includes acquisitions |
+| Loans / deposits | above 110% | lending beyond the deposit base relies on wholesale funding (Beltratti & Stulz 2012) |
+| Provisions below net charge-offs while NPL rose | provisions / NCO below 1 | reserves drawn down as credit worsens; evaluated only when every input is tagged |
+
+Uninsured-deposit shares are disclosed only in filing text, so the run-risk
+half of the Jiang et al. test is not computed, and the HTM figures are
+point-in-time losses that pull to par as the securities mature.
+
 ### 5.1 Receivables tie-in
 
 **House rule.** Receivables growing materially faster than revenue is
@@ -602,6 +620,27 @@ total); C uses `FinancingReceivableAllowanceForCreditLossesWriteOffs` /
 `…Recovery`. None tags a CET1 ratio after 2013, so CET1 is displayed when
 tagged and never graded. Undimensioned nonaccrual totals end in 2021-22, so the
 NPL input is usually withheld and the other weights renormalise.
+
+#### Rate risk and the credit cycle (D-47)
+
+The held-to-maturity loss, the marked TCE ratio, ACL / loans and three-year
+loan growth are disclosed and flagged, never graded (§5). HTM losses are
+presented as conditional on funding, not as realised. All five large filers
+tag the HTM loss and gain pair at FY2025; ACL is tagged by JPM, BAC, C and PNC
+(not WFC after 2021).
+
+**One-off sanity check (2026-10-13, scratch script, not a test; thresholds
+not tuned to it).** From SVB Financial's FY2022 companyfacts (CIK 719739, one
+EDGAR request), with the balance sheet read from the same XBRL: net HTM loss
+$15.16B, after the assumed 21% tax $11.97B, which is 101% of tangible common
+equity; marked TCE ratio −0.07%; tangible leverage 5.61%. Both the HTM and the
+marked-TCE warning signs fire; the tangible-leverage sign does not. SVB tags
+no undimensioned loan total, so its charge-off rate, loans / deposits, ACL and
+loan growth are withheld and its balance sheet would be unscored. For
+comparison, at FY2025 (cached companyfacts): JPM 4.3% HTM loss / TCE, marked
+6.78%, no sign fires; PNC 3.4%, marked 8.55%, none fires; BAC 27.3%, marked
+5.18% — the HTM sign fires on a large, sound bank, which is why it carries the
+deposit-franchise caveat; WFC 18.2%, marked 5.45%, none fires.
 
 ---
 

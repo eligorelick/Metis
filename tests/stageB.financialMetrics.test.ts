@@ -266,6 +266,50 @@ describe("bank route metrics", () => {
     expect(r.notes.some((n) => n.includes("companyfacts HTTP 503"))).toBe(true);
   });
 
+  it("D-47: computes the HTM loss and marked TCE at one instant, and withholds when the instants differ", () => {
+    const withHtm = (htm: Record<string, Pt[]>): FinancialMetricsInputs => {
+      const base = bankInputs();
+      const usGaap = (base.companyFacts as { ok: true; value: { data: CompanyFacts } }).value.data.facts["us-gaap"] as Record<string, { units: { USD: Pt[] } }>;
+      const existing = Object.fromEntries(Object.entries(usGaap).map(([tag, c]) => [tag, c.units.USD]));
+      const [bal0, ...rest] = base.balance;
+      return { ...base, companyFacts: okFacts({ ...existing, ...htm }), balance: [{ ...bal0!, reportedCurrency: "USD" }, ...rest] };
+    };
+    const r = computeFinancialMetrics("bank", withHtm({
+      HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingLoss: [{ end: "2025-12-31", val: 40_000 }],
+      HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingGain: [{ end: "2025-12-31", val: 2_000 }],
+    }));
+    // Net 38,000; after the assumed 21% tax 30,020. TCE 220,000; tangible assets 3,340,000.
+    expect(find(r.metrics, "htmUnrealizedLossNet").value).toBe(38_000);
+    expect(find(r.metrics, "htmUnrealizedLossNet").currency).toBe("USD");
+    expect(find(r.metrics, "htmLossAfterTax").value).toBeCloseTo(30_020, 6);
+    expect(find(r.metrics, "htmLossAfterTax").basis).toContain("ASSUMPTION");
+    expect(find(r.metrics, "htmLossToTce").value).toBeCloseTo((30_020 / 220_000) * 100, 9);
+    const marked = find(r.metrics, "markedTceRatio");
+    expect(marked.value).toBeCloseTo(((220_000 - 30_020) / (3_340_000 - 38_000)) * 100, 9);
+    expect(marked.basis).toContain("no double count");
+    // The warning sign reads the same value; 13.6% is under the 25% threshold.
+    const flag = r.flags?.find((f) => f.key === "htmLossVsCapital");
+    expect(flag).toMatchObject({ threshold: 25, direction: "above", triggered: false });
+
+    // Fallback pair: amortised cost − fair value.
+    const fallback = computeFinancialMetrics("bank", withHtm({
+      DebtSecuritiesHeldToMaturityExcludingAccruedInterestBeforeAllowanceForCreditLoss: [{ end: "2025-12-31", val: 500_000 }],
+      HeldToMaturitySecuritiesFairValue: [{ end: "2025-12-31", val: 470_000 }],
+    }));
+    expect(find(fallback.metrics, "htmUnrealizedLossNet").value).toBe(30_000);
+
+    // A gain measured a day earlier than the loss is a different instant: fail closed.
+    const mismatch = computeFinancialMetrics("bank", withHtm({
+      HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingLoss: [{ end: "2025-12-31", val: 40_000 }],
+      HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingGain: [{ end: "2025-12-30", val: 2_000 }],
+    }));
+    for (const key of ["htmUnrealizedLossNet", "htmLossAfterTax", "htmLossToTce", "markedTceRatio"]) {
+      expect(find(mismatch.metrics, key).value, key).toBeNull();
+      expect(find(mismatch.metrics, key).withheldReason, key).toContain("different dates");
+    }
+    expect(mismatch.flags?.some((f) => f.key === "htmLossVsCapital" || f.key === "lowMarkedCapital")).toBe(false);
+  });
+
   it("never throws on empty statements — it withholds", () => {
     const r = computeFinancialMetrics("bank", {
       companyFacts: null,
