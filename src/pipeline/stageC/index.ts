@@ -30,7 +30,7 @@
  */
 
 import type { DataBundle } from "@/pipeline/types";
-import { parseSubscriptionModel } from "@/ai/contracts";
+import { CHATGPT_EFFORTS, parseSubscriptionModel, type ChatGptRunOptions } from "@/ai/contracts";
 import { runSubscriptionPass } from "@/ai/transport";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -244,13 +244,27 @@ const runPassStreaming: RunPassStreamingFn = (args) => {
  * thinking tokens are billed as output and dominate per-pass cost, so this is
  * the user's cost/quality knob; the default stays "high".
  */
+/**
+ * The selected subscription options with the reasoning effort lowered by
+ * `steps`, floored at the lowest level. Only a captured explicit effort is
+ * lowered: the provider default is not a known level to step down from.
+ */
+export function steppedDownOptions(
+  options: ChatGptRunOptions | undefined,
+  steps: number | undefined,
+): ChatGptRunOptions | undefined {
+  if (!steps || steps <= 0 || options?.effort === undefined) return options;
+  const index = CHATGPT_EFFORTS.indexOf(options.effort);
+  return { ...options, effort: CHATGPT_EFFORTS[Math.max(0, index - steps)] };
+}
+
 function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
   if (parseSubscriptionModel(deps.analysisModel)) {
     const connectionId = deps.connectionId;
     if (!connectionId) throw new Error("Subscription pass is missing its captured account connection");
     return {
       model: deps.analysisModel, signal: deps.signal, jobSeed: deps.jobSeed,
-      runPass: (args) => runSubscriptionPass(args, connectionId, deps.subscriptionOptions),
+      runPass: (args) => runSubscriptionPass(args, connectionId, steppedDownOptions(deps.subscriptionOptions, args.effortStepDown)),
       validateRunPass: (args) => {
         if (args.model !== deps.analysisModel || JSON.stringify(args.messages).length > 2_000_000) {
           throw new Error("Subscription pass changed model or exceeded the local input size limit");

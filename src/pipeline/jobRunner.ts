@@ -1448,6 +1448,13 @@ function capRawOutput(raw: string): string {
 }
 
 /** Raw text of a received-but-invalid pass output, when the error carries it. */
+/**
+ * A dropped response this long ran into the ChatGPT plan endpoint's 15-minute
+ * response limit: every long judge failure on record ended at exactly 15.0
+ * minutes, and every success finished under 13 (2026-10-12).
+ */
+const SUBSCRIPTION_TIME_LIMIT_NEAR_MS = 14 * 60_000;
+
 /** Answer text a cut-off provider response had streamed, when the error carries it. */
 function partialTextOfError(err: unknown): string {
   if (err === null || typeof err !== "object") return "";
@@ -2995,6 +3002,10 @@ export async function runJob<TPayload = unknown>(
       // for the rest and merges these back in before validation, instead of
       // regenerating (and running into the provider's time limit again).
       let carriedSections: Record<string, unknown> = {};
+      // Attempts that ran into the provider's response time limit. Each one
+      // lowers the next attempt's reasoning effort a step: re-sending the same
+      // request is the request that just hit the wall.
+      let timeLimitCutoffs = 0;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
       let judgeProviderAttempted = false;
@@ -3024,7 +3035,10 @@ export async function runJob<TPayload = unknown>(
             break;
           }
           const continuation: PassContinuation | undefined =
-            Object.keys(carriedSections).length > 0 ? { completed: carriedSections } : undefined;
+            Object.keys(carriedSections).length > 0 || timeLimitCutoffs > 0
+              ? { completed: carriedSections, ...(timeLimitCutoffs > 0 ? { effortStepDown: timeLimitCutoffs } : {}) }
+              : undefined;
+          const attemptStartedAt = now().getTime();
           const feedback =
             lastFeedbackDetail.length > 0
               ? lastFailedRawOutput.length > 0
@@ -3090,6 +3104,10 @@ export async function runJob<TPayload = unknown>(
               const kept = Object.keys(carriedSections);
               if (kept.length > 0) {
                 keptNote = ` (kept ${kept.length} completed section${kept.length === 1 ? "" : "s"} of the cut-off response: ${kept.join(", ")}; the retry asks only for the rest)`;
+              }
+              if (now().getTime() - attemptStartedAt >= SUBSCRIPTION_TIME_LIMIT_NEAR_MS) {
+                timeLimitCutoffs += 1;
+                keptNote += ` (the response ran into the provider's time limit; the retry lowers reasoning effort by ${timeLimitCutoffs} step${timeLimitCutoffs === 1 ? "" : "s"} where an explicit effort was chosen)`;
               }
             }
             lastJudgeFailureRetryable = isRetryableJudgeError(err);

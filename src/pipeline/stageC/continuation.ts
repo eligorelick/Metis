@@ -19,6 +19,17 @@
 /** Sections carried into a retry, and the keys the full response must hold. */
 export interface PassContinuation {
   completed: Record<string, unknown>;
+  /**
+   * How many earlier attempts of this pass ran into the provider's response
+   * time limit. A subscription connection lowers the reasoning effort by this
+   * many steps, so the retry is not the same request that just hit the wall.
+   */
+  effortStepDown?: number;
+}
+
+/** True when the continuation carries sections to keep (not only an effort step-down). */
+export function hasCompletedSections(continuation: PassContinuation | undefined): continuation is PassContinuation {
+  return continuation !== undefined && Object.keys(continuation.completed).length > 0;
 }
 
 /** Index just past the JSON value starting at `start` (string, object, array or scalar), or -1. */

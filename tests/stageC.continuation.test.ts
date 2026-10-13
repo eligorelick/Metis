@@ -45,3 +45,21 @@ describe("continuationInstruction / mergeContinuation", () => {
     expect(mergeContinuation({ a: 1 }, null)).toBeNull();
   });
 });
+
+describe("steppedDownOptions — the retry after a time-limit cut is not the same request", () => {
+  it("lowers an explicit effort by the given steps, floored at the lowest level", async () => {
+    const { steppedDownOptions } = await import("@/pipeline/stageC/index");
+    expect(steppedDownOptions({ effort: "high", serviceTier: "default" }, 1)).toEqual({ effort: "medium", serviceTier: "default" });
+    expect(steppedDownOptions({ effort: "max" }, 2)).toEqual({ effort: "high" });
+    expect(steppedDownOptions({ effort: "medium" }, 5)).toEqual({ effort: "low" });
+  });
+
+  it("leaves the options alone with no step-down, or when no explicit effort was chosen", async () => {
+    const { steppedDownOptions } = await import("@/pipeline/stageC/index");
+    const opts = { effort: "high" as const };
+    expect(steppedDownOptions(opts, 0)).toBe(opts);
+    expect(steppedDownOptions(opts, undefined)).toBe(opts);
+    expect(steppedDownOptions({ serviceTier: "fast" }, 1)).toEqual({ serviceTier: "fast" });
+    expect(steppedDownOptions(undefined, 1)).toBeUndefined();
+  });
+});

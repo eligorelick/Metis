@@ -94,7 +94,7 @@ import {
   type EntityIssue,
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
-import { continuationInstruction, mergeContinuation, type PassContinuation } from "@/pipeline/stageC/continuation";
+import { continuationInstruction, hasCompletedSections, mergeContinuation, type PassContinuation } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
@@ -247,6 +247,12 @@ export interface RunPassArgs {
   admission?: unknown;
   /** Reservation identity for the per-request maximum. */
   reservationPass?: "bull" | "bear" | "synthesize" | "verify";
+  /**
+   * Steps to lower a subscription connection's reasoning effort for this
+   * request, after earlier attempts ran into the provider's time limit.
+   * Ignored by the paid API, which has no such limit.
+   */
+  effortStepDown?: number;
 }
 
 /** The injected non-streaming runner. */
@@ -1084,7 +1090,10 @@ export async function runAnalystContinuationPass(
   const base = buildAnalystRunPassArgs(deps, payload, side);
   const request: RunPassArgs = {
     ...base,
-    messages: [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }],
+    messages: hasCompletedSections(continuation)
+      ? [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }]
+      : base.messages,
+    ...(continuation.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {}),
   };
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
@@ -1882,7 +1891,7 @@ export function buildJudgeRunPassArgs(
   const presentation = judgePresentationFor(deps, payload, bull, bear);
   const baseTurns = judgeUserTurns(payload, bull, bear, presentation, orderOverride);
   const userTurns =
-    continuation !== undefined
+    hasCompletedSections(continuation)
       ? [...baseTurns, { role: "user" as const, content: continuationInstruction(continuation.completed, JUDGE_OUTPUT_KEYS) }]
       : validationFeedback === undefined || validationFeedback.length === 0
       ? baseTurns
@@ -1903,6 +1912,7 @@ export function buildJudgeRunPassArgs(
     signal: deps.signal,
     admission: deps.admissionFor?.("synthesize"),
     reservationPass: "synthesize",
+    ...(continuation?.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {}),
   };
 }
 

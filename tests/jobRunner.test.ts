@@ -7044,6 +7044,44 @@ describe("runJob — model-resolution failure", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — judge retry after a dropped connection", () => {
+  it("lowers the effort a step only when the dropped attempt ran into the provider's time limit", async () => {
+    const run = async (attemptMinutes: number): Promise<unknown[]> => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      const validJudge = passes.runJudgePass;
+      let t = NOW().getTime();
+      const clock = (): Date => new Date(t);
+      const continuations: unknown[] = [];
+      let attempt = 0;
+      passes.runJudgePass = (async (...args: unknown[]) => {
+        const [deps, bull, bear, , , , continuation] = args as [
+          Parameters<PipelinePasses["runJudgePass"]>[0],
+          Parameters<PipelinePasses["runJudgePass"]>[1],
+          Parameters<PipelinePasses["runJudgePass"]>[2],
+          unknown, unknown, unknown, unknown,
+        ];
+        continuations.push(continuation);
+        attempt += 1;
+        if (attempt === 1) {
+          t += attemptMinutes * 60_000;
+          throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+            retryable: true,
+            kind: "transport",
+          });
+        }
+        return validJudge(deps, bull, bear);
+      }) as PipelinePasses["runJudgePass"];
+      const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: clock });
+      expect(result.status).toBe("done");
+      return continuations;
+    };
+
+    // Cut at 15 minutes with nothing completed: the retry steps effort down.
+    expect(await run(15)).toEqual([undefined, { completed: {}, effortStepDown: 1 }]);
+    // A quick drop is an ordinary transient failure: same request again.
+    expect(await run(2)).toEqual([undefined, undefined]);
+  });
+
   it("keeps the sections a cut-off judge response completed and asks the retry only for the rest", async () => {
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
