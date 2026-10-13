@@ -1151,3 +1151,84 @@ each is weighed against the published evidence, with a verdict, in §8:
   in the report rather than buried here. §8.2 describes the point-in-time
   backtest that could fit the scenario weights and the fade, and §8.7 why the
   fade should wait for it.
+
+## Literature review 2026-10-13: open owner decisions and rejected candidates
+
+The 2026-10-13 review implemented D-46 to D-50. The items below were weighed
+and either left for the owner or rejected. They are listed here so they are
+not mistaken for settled or overlooked.
+
+**Open owner decisions** (title: why it is open; key evidence):
+
+- **Size-conditioned growth base rates** (show the growth anchor's percentile,
+  then perhaps cap or shrink it): the primary tables could not be retrieved
+  and a size-band ceiling is a material methodology change. Ship the
+  percentile disclosure first, and decide the ceiling after §8.2 or D-51 data
+  exist. Evidence: Chan, Karceski & Lakonishok 2003 (*J. Finance* 58);
+  Mauboussin, Callahan & Majd 2016, *The Base Rate Book* (secondary figures
+  only); Kahneman & Lovallo 1993.
+- **Novy-Marx gross profitability in moat, asset growth in quality**: these
+  move every general-route grade on unfitted bands, and moat is meant to
+  measure durability, not to predict returns. Evidence: Novy-Marx 2013 (*JFE*
+  108); Cooper, Gulen & Schill 2008; Hou, Xue & Zhang 2020.
+- **Re-weighting accounting integrity in quality** (demote accruals, make
+  Beneish penalty-only, move Altman to solvency): what quality should mean is
+  a judgement, and the change moves composite attribution. Evidence: Green,
+  Hand & Soliman 2011; McLean & Pontiff 2016; Campbell, Hilscher & Szilagyi
+  2008.
+- **Earnings yield and EBIT/EV in valuation, with own-history rank as
+  context**: absolute yield bands depend on the rate regime without a peer
+  table, so decide this with the §8.1 peer work. Evidence: Loughran & Wellman
+  2011; Fama & French 2008; Liu, Nissim & Thomas 2002.
+- **Concave growth bands and a growth-stability driver**: the kink point is a
+  house rule, the change would mildly underrate durable compounders, and it
+  interacts with base rates. Evidence: Lakonishok, Shleifer & Vishny 1994;
+  Fama & French 2000.
+- **A value-vs-price verdict only outside a model-error dead zone, and/or
+  Monte Carlo P10/P50/P90**: either changes the headline, and simulated
+  percentiles can be misread as price probabilities. Decide after D-51 or §8.2.
+  Evidence: Bessembinder 2018; Fama & French 1997.
+- **Bounding the judge's scenario probabilities around 25/50/25**: the bands
+  would be unfitted, and over-tight bounds remove the judge's value. Pair it
+  with D-51 data. Evidence: Mellers et al. 2014; Satopaa et al. 2014.
+- **Structured falsifiable revision triggers and a pre-mortem bear framing**:
+  this adds schema fields against the optional-parameter budget, and the
+  pre-mortem evidence is a single study. Evidence: CFA Standard V(A)/V(B);
+  Mitchell, Russo & Pennington 1989; Asquith, Mikhail & Au 2005.
+- **Grading marked TCE, and the uninsured-deposit share from 10-K text**:
+  grading would penalise sticky-deposit large banks (BAC, §6.3), and the
+  run-risk half exists only as inconsistent text. D-47 discloses both risks.
+  Evidence: Jiang et al. 2024; Drechsler, Savov & Schnabl 2021.
+
+**Rejected** (title: reason):
+
+- Market-implied cost of capital: circular, because the cash flows are
+  Thesis's own forecasts (Hou, van Dijk & Zhang 2012); the reverse DCF already
+  answers what the price requires.
+- Residual-income cross-check for non-financials: it uses the same internal
+  forecasts, so its published advantage disappears, and it is unreliable on
+  buyback-depleted books.
+- CET1 as a graded bank driver: verified infeasible, since no large filer tags
+  it after 2013. It stays display-only.
+- Deposit beta from five annual points: too few observations.
+- ACL / loans as a graded signal: the direction is ambiguous, so it is
+  disclosed instead (D-47).
+- Short-interest penalty and PEAD scoring: the effects concentrate in small,
+  illiquid names, and PEAD has largely vanished for large caps. Both stay
+  narrative context only.
+- Self-consistency (3×) judge sampling: it triples cost and latency against
+  the 15-minute limit, and temperature cannot be set.
+- A symmetric "improving margin regime" target: the evidence is
+  cross-sectional, so let the §8.2 backtest vary it rather than hand-tune it.
+- Bank ROA / efficiency-ratio bands and a DuPont leverage note: small gain,
+  since ROTE vs cost of equity and D-46 already cover them.
+- Catalyst auto-dating, an "About this report" box, length caps and a
+  consensus-target bias check: presentation gains only; the bias check waits
+  on currency gating and §8.1.
+- Out-of-payload web-claim segregation: mostly in place, because the
+  verifier accepts a web claim only against a URL actually returned by search.
+
+**Deferred: D-51, the forward track record.** Saved reports already store
+`reportJson` and `createdAt`, so the realised outcome of each report's
+grades, fair value and scenario targets can be computed once its horizons
+elapse. Nothing needs to be captured now.
