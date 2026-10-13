@@ -66,6 +66,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageA/manifest.ts",
   "src/pipeline/stageA/validate.ts",
   "src/pipeline/stageC/citations.ts",
+  "src/pipeline/stageC/continuation.ts",
   "src/pipeline/stageC/entityValidation.ts",
   "src/pipeline/stageC/index.ts",
   "src/pipeline/stageC/passes.ts",

@@ -7044,6 +7044,45 @@ describe("runJob — model-resolution failure", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — judge retry after a dropped connection", () => {
+  it("keeps the sections a cut-off judge response completed and asks the retry only for the rest", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const seen: Array<{ feedback: string | undefined; continuation: unknown }> = [];
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, feedback, , , continuation] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        string | undefined,
+        unknown,
+        unknown,
+        unknown,
+      ];
+      seen.push({ feedback, continuation });
+      attempt += 1;
+      if (attempt === 1) {
+        // The provider closed the response mid-way through `fundamentals`.
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+          retryable: true,
+          kind: "transport",
+          partialText: '{"verdict":{"synthesis":"s"},"business":{"b":1},"fundamentals":{"gra',
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]!.continuation).toBeUndefined();
+    expect(seen[1]!.feedback).toBeUndefined();
+    expect(seen[1]!.continuation).toEqual({ completed: { verdict: { synthesis: "s" }, business: { b: 1 } } });
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
+  });
+
   it("never feeds a transport failure back as repair feedback, and keeps earlier schema feedback", async () => {
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
@@ -9139,6 +9178,41 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const report = ReportSchema.parse(JSON.parse(reportRow.reportJson ?? "{}"));
     const bearGap = report.appendix.missingData.find((gap) => gap.field === "llm.bear");
     expect(bearGap?.reason).toMatch(/^repair attempt after schema-invalid output also failed: .*\(again\)/);
+  });
+
+  it("continues a cut-off analyst side from the sections it completed", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    const DROPPED = "bull pass failed (transport): ChatGPT stream ended before completion";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(DROPPED), {
+        bear,
+        bullError: DROPPED,
+        bullLaunched: true,
+        bearLaunched: true,
+        bullRetryable: true,
+        bullFailureKind: "transport",
+        bullPartialText: '{"thesis":[{"text":"t"}],"keyDrivers":[],"risksToCase":[{"te',
+      });
+    };
+    const seen: Array<{ side: string; feedback: string | undefined; continuation: unknown }> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch, feedback, continuation) => {
+      seen.push({ side, feedback, continuation });
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bull));
+      return bull;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toEqual([
+      { side: "bull", feedback: undefined, continuation: { completed: { thesis: [{ text: "t" }], keyDrivers: [] } } },
+    ]);
+    expect(result.dataOnly).toBe(false);
   });
 
   it("retries a dropped first analyst pass and runs the never-launched sibling fresh", async () => {

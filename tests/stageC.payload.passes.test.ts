@@ -62,6 +62,7 @@ import {
   runBullPass,
   runBearPass,
   runBullThenBear,
+  runAnalystContinuationPass,
   isTransientSubscriptionFailure,
   runJudgePass,
   runVerifyPass,
@@ -3049,6 +3050,34 @@ describe("mock-driven bull/bear/judge passes", () => {
     const mock = new MockRunPass();
     mock.onText("llm.judge", `{"verdict":${JSON.stringify(verdict)}}, ${tail}`);
     const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+  });
+
+  it("a judge continuation asks only for the missing sections and validates the merged whole", async () => {
+    const { payload } = buildInputs();
+    const whole = judgeOutput() as Record<string, unknown>;
+    const keys = Object.keys(whole);
+    const completed = Object.fromEntries(keys.slice(0, 4).map((k) => [k, whole[k]]));
+    const rest = Object.fromEntries(keys.slice(4).map((k) => [k, whole[k]]));
+    const mock = new MockRunPass();
+    mock.onJson("llm.judge", rest);
+    const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"), undefined, undefined, undefined, { completed });
+    expect(run.ok).toBe(true);
+    const sent = mock.calls[0]!.messages.at(-1)!;
+    const text = typeof sent.content === "string" ? sent.content : sent.content.map((b) => b.text).join("");
+    expect(text).toContain(`KEPT exactly as written: ${keys.slice(0, 4).join(", ")}`);
+    expect(text).toContain(`ONLY the remaining top-level sections: ${keys.slice(4).join(", ")}`);
+  });
+
+  it("an analyst continuation merges the kept sections and validates the case", async () => {
+    const { payload } = buildInputs();
+    const whole = analystCase("bull") as Record<string, unknown>;
+    const keys = Object.keys(whole);
+    const completed = Object.fromEntries(keys.slice(0, 2).map((k) => [k, whole[k]]));
+    const rest = Object.fromEntries(keys.slice(2).map((k) => [k, whole[k]]));
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", rest);
+    const run = await runAnalystContinuationPass(makeDeps(mock), payload, "bull", { completed });
     expect(run.ok).toBe(true);
   });
 

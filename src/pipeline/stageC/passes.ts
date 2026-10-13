@@ -40,6 +40,8 @@ import type { MultipleKey } from "@/pipeline/stageB/valuation";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
+  JUDGE_OUTPUT_KEYS,
+  ANALYST_CASE_KEYS,
   ReportSchema,
   DISCLAIMER_TEXT,
   FRED_ATTRIBUTION_TEXT,
@@ -92,6 +94,7 @@ import {
   type EntityIssue,
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
+import { continuationInstruction, mergeContinuation, type PassContinuation } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
@@ -199,6 +202,12 @@ export interface PassErrorLike {
   notLaunched?: boolean;
   /** The caller aborted the request; the provider did not fail it. */
   aborted?: boolean;
+  /**
+   * Answer text streamed before the response ended without completing. Never
+   * a successful pass; a retry may keep the sections of it that validate (see
+   * stageC/continuation.ts).
+   */
+  partialText?: string;
 }
 
 /** Structural mirror of the provider's RunPassResult. */
@@ -1058,6 +1067,37 @@ export async function runAnalystRepairPass(
   return settlePassRun(run, deps.model, settlement);
 }
 
+/**
+ * Run one analyst CONTINUATION attempt: the side's previous response was cut
+ * off by the provider's time limit after completing some sections. Only the
+ * rest is requested, and the kept sections are merged back in before schema
+ * validation (see stageC/continuation.ts).
+ */
+export async function runAnalystContinuationPass(
+  deps: PassDeps,
+  payload: ContextPayload,
+  side: "bull" | "bear",
+  continuation: PassContinuation,
+  settlement?: PassSettlementHook<AnalystCase>,
+  beforeProviderLaunch?: () => void | Promise<void>,
+): Promise<PassRun<AnalystCase>> {
+  const base = buildAnalystRunPassArgs(deps, payload, side);
+  const request: RunPassArgs = {
+    ...base,
+    messages: [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }],
+  };
+  deps.validateRunPass?.(request);
+  await beforeProviderLaunch?.();
+  const outcome = await deps.runPass(request);
+  const run = finishStructuredPass(
+    outcome,
+    (raw: unknown) => parseAnalystCase(mergeContinuation(continuation.completed, raw)),
+    `llm.${side}`,
+    deps.model,
+  );
+  return settlePassRun(run, deps.model, settlement);
+}
+
 export interface BullBearResult {
   bull: PassRun<AnalystCase>;
   bear: PassRun<AnalystCase>;
@@ -1836,11 +1876,15 @@ export function buildJudgeRunPassArgs(
   validationFeedback?: string,
   // WS7 (D-20): `both` mode builds the mirrored request with the swapped order.
   orderOverride?: JudgeOrder,
+  /** Sections kept from a response the provider cut off; only the rest is requested. */
+  continuation?: PassContinuation,
 ): RunPassArgs {
   const presentation = judgePresentationFor(deps, payload, bull, bear);
   const baseTurns = judgeUserTurns(payload, bull, bear, presentation, orderOverride);
   const userTurns =
-    validationFeedback === undefined || validationFeedback.length === 0
+    continuation !== undefined
+      ? [...baseTurns, { role: "user" as const, content: continuationInstruction(continuation.completed, JUDGE_OUTPUT_KEYS) }]
+      : validationFeedback === undefined || validationFeedback.length === 0
       ? baseTurns
       : [
           ...baseTurns,
@@ -1878,14 +1922,20 @@ export async function runJudgePass(
   validationFeedback?: string,
   settlement?: PassSettlementHook<JudgeOutput>,
   beforeProviderLaunch?: () => void | Promise<void>,
+  /** Sections kept from a cut-off response; merged in before validation. */
+  continuation?: PassContinuation,
 ): Promise<PassRun<JudgeOutput>> {
   const judgeModel = judgeModelFor(deps.model);
   const presentation = judgePresentationFor(deps, payload, bull, bear);
+  const parse =
+    continuation === undefined
+      ? parseJudgeOutput
+      : (raw: unknown) => parseJudgeOutput(mergeContinuation(continuation.completed, raw));
   const attempt = async (order: JudgeOrder): Promise<PassRun<JudgeOutput>> => {
-    const request = buildJudgeRunPassArgs(deps, payload, bull, bear, validationFeedback, order);
+    const request = buildJudgeRunPassArgs(deps, payload, bull, bear, validationFeedback, order, continuation);
     deps.validateRunPass?.(request);
     const outcome = await deps.runPass(request);
-    const finished = finishStructuredPass(outcome, parseJudgeOutput, "llm.judge", judgeModel);
+    const finished = finishStructuredPass(outcome, parse, "llm.judge", judgeModel);
     if (judgeModel === deps.model) return finished;
     // The provider sees the internally floored request. Keep the original
     // selection in durable evidence so a resumed run still discloses the floor.

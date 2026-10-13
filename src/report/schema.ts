@@ -1788,6 +1788,8 @@ const JudgeOutputObjectSchema = z
     disagreements: z.array(DisagreementSchema),
   })
   .strict();
+/** The judge output's top-level sections, in schema order. */
+export const JUDGE_OUTPUT_KEYS: readonly string[] = Object.keys(JudgeOutputObjectSchema.shape);
 export const JUDGE_OUTPUT_SCHEMA = JudgeOutputObjectSchema.superRefine((value, ctx) => {
   enforceRecursiveRatingSafety(value, ctx);
   value.valuation.scenarios.forEach((scenario, index) => {
@@ -1907,6 +1909,8 @@ const AnalystCaseObjectSchema = z
     case_strength: z.number().int().min(1).max(5).nullable().optional(),
   })
   .strict();
+/** The analyst case's top-level sections, in schema order. */
+export const ANALYST_CASE_KEYS: readonly string[] = Object.keys(AnalystCaseObjectSchema.shape);
 export const ANALYST_CASE_SCHEMA = AnalystCaseObjectSchema.superRefine(
   enforceRecursiveRatingSafety,
 );

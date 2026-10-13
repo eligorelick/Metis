@@ -99,6 +99,7 @@ import {
 } from "@/pipeline/events";
 import { mutateJobSnapshotInTransaction } from "@/pipeline/jobState";
 import { normalizeLinkedReportRecoverySteps } from "@/pipeline/jobSteps";
+import { completedTopLevelFields, type PassContinuation } from "@/pipeline/stageC/continuation";
 import {
   classifyInstrumentSupport,
   type InstrumentSupport,
@@ -211,6 +212,9 @@ export interface BullBearPassFailureDetails {
    */
   bullFailureKind?: string;
   bearFailureKind?: string;
+  /** Answer text a side streamed before the provider cut its response off. */
+  bullPartialText?: string;
+  bearPartialText?: string;
 }
 
 /**
@@ -233,6 +237,8 @@ export class BullBearPassFailure extends Error {
   readonly bearRawText?: string;
   readonly bullFailureKind?: string;
   readonly bearFailureKind?: string;
+  readonly bullPartialText?: string;
+  readonly bearPartialText?: string;
 
   constructor(message: string, details: BullBearPassFailureDetails) {
     super(message);
@@ -251,6 +257,8 @@ export class BullBearPassFailure extends Error {
     this.bearRawText = details.bearRawText;
     this.bullFailureKind = details.bullFailureKind;
     this.bearFailureKind = details.bearFailureKind;
+    this.bullPartialText = details.bullPartialText;
+    this.bearPartialText = details.bearPartialText;
   }
 }
 
@@ -344,6 +352,7 @@ export interface PipelinePasses<TPayload = unknown> {
           bull: PassResultLike<AnalystCase>;
           bear: PassResultLike<AnalystCase>;
           validationFeedback?: string;
+          continuation?: PassContinuation;
         }
       | {
           pass: "verify";
@@ -401,6 +410,8 @@ export interface PipelinePasses<TPayload = unknown> {
     settlement?: PassSettlementHook<AnalystCase>,
     beforeProviderLaunch?: () => void | Promise<void>,
     validationFeedback?: string,
+    /** Sections kept from a response the provider cut off; only the rest is requested. */
+    continuation?: PassContinuation,
   ): Promise<PassResultLike<AnalystCase>>;
 
   /** Judge/synthesis pass: bull + bear + payload → JudgeOutput (report minus meta/appendix). */
@@ -411,6 +422,8 @@ export interface PipelinePasses<TPayload = unknown> {
     validationFeedback?: string,
     settlement?: PassSettlementHook<JudgeOutput>,
     beforeProviderLaunch?: () => void | Promise<void>,
+    /** Sections kept from a response the provider cut off; only the rest is requested. */
+    continuation?: PassContinuation,
   ): Promise<PassResultLike<JudgeOutput>>;
 
   /** Verification pass: trace every numeric claim; returns the verified Report + rate. */
@@ -1435,6 +1448,13 @@ function capRawOutput(raw: string): string {
 }
 
 /** Raw text of a received-but-invalid pass output, when the error carries it. */
+/** Answer text a cut-off provider response had streamed, when the error carries it. */
+function partialTextOfError(err: unknown): string {
+  if (err === null || typeof err !== "object") return "";
+  const partial = (err as { partialText?: unknown }).partialText;
+  return typeof partial === "string" ? partial : "";
+}
+
 function rawTextOfError(err: unknown): string {
   if (err === null || typeof err !== "object" || !("rawText" in err)) return "";
   const raw = (err as { rawText?: unknown }).rawText;
@@ -2971,6 +2991,10 @@ export async function runJob<TPayload = unknown>(
       // not something the model can repair, so it neither becomes feedback nor
       // erases the feedback an earlier rejected output left behind.
       let lastFeedbackDetail = "";
+      // Sections a cut-off judge response completed. The next attempt asks only
+      // for the rest and merges these back in before validation, instead of
+      // regenerating (and running into the provider's time limit again).
+      let carriedSections: Record<string, unknown> = {};
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
       let judgeProviderAttempted = false;
@@ -2999,6 +3023,8 @@ export async function runJob<TPayload = unknown>(
             lastJudgeFailureRetryable = false;
             break;
           }
+          const continuation: PassContinuation | undefined =
+            Object.keys(carriedSections).length > 0 ? { completed: carriedSections } : undefined;
           const feedback =
             lastFeedbackDetail.length > 0
               ? lastFailedRawOutput.length > 0
@@ -3020,6 +3046,7 @@ export async function runJob<TPayload = unknown>(
               bull,
               bear,
               validationFeedback: feedback,
+              ...(continuation === undefined ? {} : { continuation }),
             });
             passAdmissions.set("synthesize", judgeCheckpoint.admission);
             await judgeCheckpoint.beforeLaunch();
@@ -3033,6 +3060,7 @@ export async function runJob<TPayload = unknown>(
                 () => {
                   judgeCheckpoint.authorizeLaunch(false);
                 },
+                continuation,
               ),
               jobSignal,
               jobController,
@@ -3050,9 +3078,19 @@ export async function runJob<TPayload = unknown>(
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
             lastValidationDetail = errMessage(err);
+            let keptNote = "";
             if (!isTransportFailure(err)) {
               lastFeedbackDetail = lastValidationDetail;
               lastFailedRawOutput = rawTextOfError(err);
+              // A rejected output is repaired whole; carried sections are not
+              // mixed into that path.
+              carriedSections = {};
+            } else {
+              carriedSections = { ...completedTopLevelFields(partialTextOfError(err)), ...carriedSections };
+              const kept = Object.keys(carriedSections);
+              if (kept.length > 0) {
+                keptNote = ` (kept ${kept.length} completed section${kept.length === 1 ? "" : "s"} of the cut-off response: ${kept.join(", ")}; the retry asks only for the rest)`;
+              }
             }
             lastJudgeFailureRetryable = isRetryableJudgeError(err);
             if (
@@ -3068,7 +3106,7 @@ export async function runJob<TPayload = unknown>(
               );
             }
             const retrying = lastJudgeFailureRetryable && attempt < maxJudgeRetries;
-            const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${lastValidationDetail}`;
+            const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${lastValidationDetail}${keptNote}`;
             if (retrying) {
               startStep(state, "synthesize");
               updateRunningStepDetail(state, "synthesize", detail);
@@ -3519,15 +3557,17 @@ export async function runJob<TPayload = unknown>(
      * `retry`: the connection dropped, so the same request is simply re-run.
      * `fresh`: the side never launched because its sibling failed first.
      */
-    type AnalystRecovery = "repair" | "retry" | "fresh";
+    type AnalystRecovery = "repair" | "retry" | "continue" | "fresh";
     const RECOVERY_LABEL: Record<AnalystRecovery, string> = {
       repair: "repairing schema-invalid output",
       retry: "retrying after a dropped connection",
+      continue: "continuing from the completed sections of the cut-off response",
       fresh: "running now that its sibling pass is being retried",
     };
     const RECOVERY_GAP: Record<AnalystRecovery, string> = {
       repair: "repair attempt after schema-invalid output also failed",
       retry: "retry after a dropped connection also failed",
+      continue: "continuation of the cut-off response also failed",
       fresh: "pass launched after its sibling's retry also failed",
     };
     const runAnalystRepairAttempt = async (
@@ -3535,6 +3575,7 @@ export async function runJob<TPayload = unknown>(
       mode: AnalystRecovery,
       feedback: string | undefined,
       failureDetail: string,
+      continuation?: PassContinuation,
     ): Promise<PassResultLike<AnalystCase> | null> => {
       startStep(state, side);
       updateRunningStepDetail(
@@ -3564,6 +3605,7 @@ export async function runJob<TPayload = unknown>(
               checkpoint.authorizeLaunch(false);
             },
             feedback,
+            continuation,
           ),
           jobSignal,
           jobController,
@@ -3750,13 +3792,26 @@ export async function runJob<TPayload = unknown>(
           const detail =
             (side === "bull" ? partial?.bullError : partial?.bearError) ?? errMessage(err);
           const raw = capRawOutput((side === "bull" ? partial?.bullRawText : partial?.bearRawText) ?? "");
-          const mode = recoveryOf(side);
+          // A dropped side that had already completed some sections keeps them:
+          // the retry asks only for the rest instead of starting over.
+          const kept = recoveryOf(side) === "retry"
+            ? completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? "")
+            : {};
+          const continuation: PassContinuation | undefined =
+            Object.keys(kept).length > 0 ? { completed: kept } : undefined;
+          const mode: AnalystRecovery = continuation !== undefined ? "continue" : recoveryOf(side);
           const feedback = mode !== "repair"
             ? undefined
             : raw.length > 0
               ? `${detail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${raw}`
               : detail;
-          const repaired = await runAnalystRepairAttempt(side, mode, feedback, detail);
+          const repaired = await runAnalystRepairAttempt(
+            side,
+            mode,
+            feedback,
+            continuation === undefined ? detail : `${detail} (kept: ${Object.keys(kept).join(", ")})`,
+            continuation,
+          );
           if (repaired === null) {
             return persistDataOnly(state, bundle, validation, computed, now, hasKey);
           }
