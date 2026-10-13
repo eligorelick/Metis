@@ -76,6 +76,12 @@ export const SHARED_RULES_BLOCK = [
   "If no row discloses the gap, leave that list empty. Say what this report's evidence lacks",
   "(\"not in the filings and data reviewed\"), never that the company does not disclose it.",
   "A figure shown with \"(currency unknown)\" has no established currency: never write a currency symbol or code beside it.",
+  // 2026-10-13: with peer market caps unverifiable as numbers (currency not
+  // established, D-43), a medium-effort JPM report dropped its peer table
+  // entirely (10 rows -> 0). The peer identities are established; only the
+  // caps are not.
+  "Peer table: list every provider peer by the name and symbol shown in the Peers rows. Give a peer a metric only",
+  "when it cites a registered record; a peer market cap of unknown currency is not one, so leave that peer's metrics empty.",
   // D-45 (2026-10-13): numbers cited to an excerpt are now read against the
   // cited excerpt's own text. In system so the judge, which writes the final
   // key numbers, sees it (the analysts' WRITING NUMBERS block never reaches it).
