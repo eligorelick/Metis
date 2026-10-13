@@ -44,7 +44,7 @@ import type {
 } from "@/report/schema";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_07" as const;
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives
@@ -333,14 +333,6 @@ const SBC_FCF_BAND: readonly BandPoint[] = [
   [25, 52],
   [50, 30],
   [100, 10],
-];
-// SBC as % of revenue: lower better.
-const SBC_REV_BAND: readonly BandPoint[] = [
-  [0, 88],
-  [3, 68],
-  [8, 46],
-  [15, 24],
-  [25, 10],
 ];
 // Share-count annualised change (percent): buybacks (negative) reward.
 const SHARE_TREND_BAND: readonly BandPoint[] = [
@@ -745,14 +737,17 @@ export function computeScores(inputs: ScoringInputs): Scoring {
           // ratio it is; both ratios are reported.
           { name: "fcfConversionBeforeSbc", raw: capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
           { name: "sbcPctOfFcf", raw: capital.sbc.pctOfFcf, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
-          { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.15, band: SHARE_TREND_BAND },
+          // D-49: net share-count change is scored once, under leadership,
+          // where it reads as stewardship net of buybacks. Scoring it here as
+          // well double-weighted one signal.
         ],
         weights.balanceSheet,
         inputs.asOf,
-        "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence. " +
+        "Financial strength: leverage, coverage, FCF conversion and the cost of stock-based compensation. " +
           "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
           "this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
-          "charge itself is scored exactly once, by SBC as a percentage of free cash flow.",
+          "charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is " +
+          "scored once, under leadership.",
         policy,
       );
 
@@ -813,11 +808,14 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       { name: "buybackDiscipline", raw: capital.buybackPriceAnalysis.premiumDiscountPct, unit: "%", weight: 0.3, band: BUYBACK_DISCIPLINE_BAND },
       { name: "capitalDeployment", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.25, band: SPREAD_BAND, suppressedBy: "roicVsWacc" },
       { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.25, band: SHARE_TREND_BAND },
-      { name: "sbcPctOfRevenue", raw: capital.sbc.pctOfRevenue, unit: "%", weight: 0.2, band: SBC_REV_BAND },
+      // D-49: SBC % of revenue is no longer scored here. The SBC charge is
+      // scored once (balance sheet, % of FCF) and the dilution it causes is
+      // in shareCountTrend net of buybacks; the ratio stays in the capital
+      // figures.
     ],
     weights.leadership,
     inputs.asOf,
-    "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, dilution). Qualitative leadership assessed in the analyst grade.",
+    "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade.",
     policy,
   );
 

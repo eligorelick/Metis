@@ -283,6 +283,12 @@ describe("grading — computeScores", () => {
     expect(s.aspects.balanceSheet.note).toContain("BEFORE stock-based compensation");
     // SBC is still scored — exactly once.
     expect(sources).toContain("computed.scores.balanceSheet.sbcPctOfFcf");
+    // D-49: net share-count change is scored once, under leadership, and
+    // SBC % of revenue is not scored anywhere.
+    const leadership = s.aspects.leadership.drivers.map((d) => d.source);
+    expect(sources).not.toContain("computed.scores.balanceSheet.shareCountTrend");
+    expect(leadership).toContain("computed.scores.leadership.shareCountTrend");
+    expect(leadership).not.toContain("computed.scores.leadership.sbcPctOfRevenue");
   });
 
   it("a healthy company scores well across aspects with a composite band", () => {
@@ -742,7 +748,7 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
 
     // compWeight can never reach 100 on a bank: balanceSheet (10) is dropped and
     // quality/moat lose their suppressed signals. Hand-derived route-applicable
-    // weight = 15·0.55 + 22 + 26·0.57 + 15·0.75 + 7·0.75 + 5 = 66.57.
+    // weight = 15·0.55 + 22 + 26·0.57 + 15·0.75 + 7·0.69 + 5 = 66.15.
     // Fundamentals retain revenue/EPS growth; industrial FCF growth and
     // operating-margin slope are route-inapplicable, not missing evidence.
     //
@@ -763,7 +769,10 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //  - Quality 0.22 -> 0.57 (2026-10-12): the ROIC − WACC slot (0.35) is
     //    filled by the equity-side spread (ROE − cost of equity) the route's own
     //    disclosure names as its value-creation measure: +26·0.35 = +9.10.
-    expect(round2(compWeight)).toBe(66.57);
+    //  - Leadership 0.75 -> 0.69 (D-49, SCORE_BANDS_2026_10): sbcPctOfRevenue
+    //    (0.2) is no longer scored, so the applicable 0.55 (capitalDeployment
+    //    still suppressed) is now read against 0.8: 7·0.69 = 4.83.
+    expect(round2(compWeight)).toBe(66.15);
 
     // The OLD denominator (a fixed 100) would have shrunk this identical bank
     // by ×0.7897 toward 50 — a structural cap the fix removes.

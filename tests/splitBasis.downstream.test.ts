@@ -126,7 +126,8 @@ describe("share-basis uncertainty in Stage B, the grades and the AI payload", ()
     expect(drivers(c0, "fundamentals")).toContain("epsCagr");
     expect(drivers(c1, "fundamentals")).not.toContain("epsCagr");
     expect(drivers(c1, "valuation")).not.toContain("dcfUpside");
-    expect(drivers(c1, "balanceSheet")).not.toContain("shareCountTrend");
+    expect(drivers(c0, "leadership")).toContain("shareCountTrend");
+    expect(drivers(c1, "leadership")).not.toContain("shareCountTrend");
   });
 
   it("preserves every calculation whose inputs are unaffected", () => {

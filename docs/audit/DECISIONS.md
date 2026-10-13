@@ -13,6 +13,43 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-49 (grading 2026-10-13) Net share-count change is scored once (leadership) and the SBC charge once (balance sheet, % of FCF); both remain displayed elsewhere
+
+- **Problem**: `shareCountTrend` was a driver of both the balance-sheet
+  (0.15) and the leadership (0.25) aspects. Leadership also scored
+  `sbcPctOfRevenue` (0.2), although the balance-sheet note said "the SBC
+  charge itself is scored exactly once" (by `sbcPctOfFcf`). Net issuance and
+  stock-based compensation were each weighted twice, and the code broke its
+  own stated rule.
+- **Options**: (a) leave both double counts; (b) halve each duplicate's
+  weight; (c) score each signal in one aspect only.
+- **Risks**: (a) quietly over-weights one family of signals. Net issuance is
+  among the best-replicated return predictors (Pontiff & Woodford 2008,
+  J. Finance 63; Daniel & Titman 2006, J. Finance 61, whose composite
+  issuance includes SBC; Fama & French 2008, J. Finance 63; Hou, Xue & Zhang
+  2020, RFS). That is a reason to show it once, clearly, not to count it
+  twice. (b) keeps two drivers for one fact. (c) moves composites a little
+  for issuers with heavy SBC.
+- **Choice**: (c), in `src/pipeline/stageB/grading.ts`.
+  - The balance sheet (general and equity-REIT routes; financial routes do
+    not score it) drops `shareCountTrend` and is scored on net debt/EBITDA
+    0.3, interest coverage 0.2, before-SBC FCF conversion 0.2 and SBC/FCF
+    0.15. The existing weighted-mean machinery renormalises them. Its note
+    no longer says "dilution".
+  - Leadership drops `sbcPctOfRevenue` and is scored on buyback discipline
+    0.3, capital deployment 0.25 and share-count trend 0.25. Dilution from
+    SBC already shows in the share count net of buybacks, and the SBC cost
+    is in SBC/FCF. The unused `SBC_REV_BAND` is deleted.
+  - Both SBC ratios still appear in the capital payload rows and the
+    data-only report. The band table is now `SCORE_BANDS_2026_10`.
+- **Disclosure**: both aspect notes say where each signal is scored. The
+  audited-fixture group `score-once-dilution-sbc` lists the DEMO leaves that
+  moved. A bank's leadership completeness drops from 0.75 to 0.69, because
+  the 0.55 of available weight is now read against 0.8
+  (`tests/stageB.grading.test.ts`). `PAYLOAD_VERSION` moves to 1.13.0, so an
+  analyst pass that anchored to the old band table is never resumed; the DEMO
+  pin loses the two driver records (372 → 370).
+
 ## D-45 (verification 2026-10-13) A number cited to a filing excerpt is read against that excerpt, beside its own description
 
 - **Problem**: a TracedNumber citing `edgar:10-K item7` or a transcript could

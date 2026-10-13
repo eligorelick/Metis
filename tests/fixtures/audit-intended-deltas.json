@@ -2317,11 +2317,6 @@
           "after": 30.81
         },
         {
-          "path": "report.scores.aspects.leadership.note",
-          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
-          "after": "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, dilution). Qualitative leadership assessed in the analyst grade."
-        },
-        {
           "path": "report.scores.aspects.moat.drivers.0.value",
           "before": 36.46,
           "after": 40.06
@@ -2350,11 +2345,6 @@
           "path": "report.scores.aspects.valuation.drivers.1.value",
           "before": -26.36,
           "after": -25.94
-        },
-        {
-          "path": "report.scores.composite.score",
-          "before": 77.59,
-          "after": 77.19
         },
         {
           "path": "stageB.forensics.notes.0",
@@ -2542,11 +2532,6 @@
           "after": 30.81
         },
         {
-          "path": "stageB.scores.aspects.leadership.note",
-          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
-          "after": "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, dilution). Qualitative leadership assessed in the analyst grade."
-        },
-        {
           "path": "stageB.scores.aspects.moat.drivers.0.value",
           "before": 36.46,
           "after": 40.06
@@ -2575,11 +2560,6 @@
           "path": "stageB.scores.aspects.valuation.drivers.1.value",
           "before": -26.36,
           "after": -25.94
-        },
-        {
-          "path": "stageB.scores.composite.score",
-          "before": 77.59,
-          "after": 77.19
         },
         {
           "path": "stageB.technicals.gaps.1.reason",
@@ -2766,11 +2746,6 @@
           "after": "computed.scores.balanceSheet.fcfConversionBeforeSbc"
         },
         {
-          "path": "report.scores.aspects.balanceSheet.note",
-          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
-          "after": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow."
-        },
-        {
           "path": "report.scores.aspects.valuation.note",
           "before": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and multiple percentile.",
           "after": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and where the current multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile of a distribution; N is published beside every rendered rank)."
@@ -2855,11 +2830,6 @@
           "after": "computed.scores.balanceSheet.fcfConversionBeforeSbc"
         },
         {
-          "path": "stageB.scores.aspects.balanceSheet.note",
-          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
-          "after": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow."
-        },
-        {
           "path": "stageB.scores.aspects.valuation.note",
           "before": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and multiple percentile.",
           "after": "Attractiveness vs intrinsic value: DCF upside, reverse-DCF implied vs achievable growth, and where the current multiple RANKS among the issuer's own quarters (a rank within the observed 8-20 quarter sample, not a percentile of a distribution; N is published beside every rendered rank)."
@@ -2908,11 +2878,6 @@
           "after": 88.24
         },
         {
-          "path": "report.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 88.75% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
           "path": "stageB.forensics.altman.asOf.marketCap",
           "before": "2025-12-31",
           "after": "2026-07-06"
@@ -2956,11 +2921,6 @@
           "path": "stageB.scores.aspects.quality.score",
           "before": 88.62,
           "after": 88.24
-        },
-        {
-          "path": "stageB.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 88.75% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
         }
       ]
     },
@@ -4848,6 +4808,139 @@
           "path": "stageB.scores.aspects.quality.note",
           "before": "Value creation (ROIC−WACC) and accounting integrity (Piotroski, Altman, accruals, Beneish).",
           "after": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
+        }
+      ]
+    },
+    {
+      "name": "score-once-dilution-sbc",
+      "decisions": [
+        "D-49"
+      ],
+      "reason": "D-49 scores each issuance signal once. The annualised net share-count change left the balance-sheet aspect and is scored only under leadership (net of buybacks); SBC as a share of revenue left leadership, so the SBC charge is scored only under balance sheet, as a share of FCF. Both ratios are still shown with the capital figures. DEMO therefore loses balanceSheet driver 4 (shareCountTrend) and leadership driver 2 (sbcPctOfRevenue); the balance-sheet score (78.65 -> 81.27), leadership score (76.97 -> 77.88) and leadership completeness (0.7 -> 0.63, the same available weight now read against 0.8) move with them, and with them the composite (77.59 -> 77.45) and the route-applicable completeness printed in the composite methodology (89.5% -> 88.05%). Both aspect notes now say where each signal is scored, and the band table is stamped SCORE_BANDS_2026_10. The composite score and the two notes were previously pinned under pre-remediation-drift, valuation-review-repairs and forensics-and-grading-audit-2026-09-06; their new values are this change.",
+      "deltas": [
+        {
+          "path": "report.scores.aspects.balanceSheet.drivers.4",
+          "before": {
+            "value": -0.96,
+            "unit": "%",
+            "source": "computed.scores.balanceSheet.shareCountTrend",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "report.scores.aspects.balanceSheet.note",
+          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
+          "after": "Financial strength: leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership."
+        },
+        {
+          "path": "report.scores.aspects.balanceSheet.score",
+          "before": 78.65,
+          "after": 81.27
+        },
+        {
+          "path": "report.scores.aspects.leadership.dataCompleteness",
+          "before": 0.7,
+          "after": 0.63
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.2",
+          "before": {
+            "value": 2,
+            "unit": "%",
+            "source": "computed.scores.leadership.sbcPctOfRevenue",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "report.scores.aspects.leadership.note",
+          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
+          "after": "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade."
+        },
+        {
+          "path": "report.scores.aspects.leadership.score",
+          "before": 76.97,
+          "after": 77.88
+        },
+        {
+          "path": "report.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10"
+        },
+        {
+          "path": "report.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 88.05% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "report.scores.composite.score",
+          "before": 77.59,
+          "after": 77.45
+        },
+        {
+          "path": "stageB.scores.aspects.balanceSheet.drivers.4",
+          "before": {
+            "value": -0.96,
+            "unit": "%",
+            "source": "computed.scores.balanceSheet.shareCountTrend",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "stageB.scores.aspects.balanceSheet.note",
+          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
+          "after": "Financial strength: leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership."
+        },
+        {
+          "path": "stageB.scores.aspects.balanceSheet.score",
+          "before": 78.65,
+          "after": 81.27
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.dataCompleteness",
+          "before": 0.7,
+          "after": 0.63
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.2",
+          "before": {
+            "value": 2,
+            "unit": "%",
+            "source": "computed.scores.leadership.sbcPctOfRevenue",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.note",
+          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
+          "after": "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade."
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.score",
+          "before": 76.97,
+          "after": 77.88
+        },
+        {
+          "path": "stageB.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10"
+        },
+        {
+          "path": "stageB.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 88.05% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "stageB.scores.composite.score",
+          "before": 77.59,
+          "after": 77.45
         }
       ]
     }

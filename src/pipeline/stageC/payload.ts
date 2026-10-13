@@ -253,7 +253,10 @@ export interface ContextPayload {
 // is citable (gap / unestablished kinds, manifest tags, the weights row); the
 // next earnings date is shown; completeness and indicator units have their
 // own rows. Analyst work written against the 1.11.0 evidence cannot resume.
-export const PAYLOAD_VERSION = "1.12.0" as const;
+// 1.13.0 (D-49, 2026-10-13): the aspect scores the analysts anchor to come
+// from band table SCORE_BANDS_2026_10, which scores net share-count change and
+// the SBC charge once each; prior partial passes cannot resume.
+export const PAYLOAD_VERSION = "1.13.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

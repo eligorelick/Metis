@@ -64,7 +64,7 @@ describe("indicator and completeness rows (D-44)", () => {
     expect(prompt).not.toMatch(/completeness [\d.]+\)/);
     expect(prompt).toMatch(/quality evidence completeness: 0\.4 fraction \[computed\.deterministic-aspect-scores\.quality-evidence-completeness · /);
     expect(record(payload, "computed.deterministic-aspect-scores.quality-evidence-completeness")).toMatchObject({ value: 0.4, unit: "ratio" });
-    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.45, unit: "ratio" });
+    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.31, unit: "ratio" });
   });
 
   it("verifies report 25/26's indicator spellings on their own records and rejects them on another indicator's", async () => {

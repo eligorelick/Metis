@@ -669,11 +669,17 @@ describe("payload determinism + provenance", () => {
       // 2026-10-13 (review of D-42..D-45): PAYLOAD_VERSION 1.11.0 → 1.12.0,
       // once for the four decisions. Only the version in the fingerprint and
       // the prompt header moved (same byte length); no hash or count did.
-      fingerprint: "1.12.0:25920223",
+      // 2026-10-13 (D-49, PAYLOAD_VERSION 1.13.0): balanceSheet no longer
+      // scores shareCountTrend and leadership no longer scores
+      // sbcPctOfRevenue, so their two driver records leave the registry
+      // (372 → 370) and the moved aspect scores change provenanceHash and
+      // financeHash. Prompt bytes are unchanged (same-length version and band
+      // stamps, same-width scores).
+      fingerprint: "1.13.0:c2a75bf2",
       promptBytes: 96_164,
-      provenanceCount: 372,
-      provenanceHash: "d72920fd",
-      provenanceIdsHash: "175253c8",
+      provenanceCount: 370,
+      provenanceHash: "2a115f44",
+      provenanceIdsHash: "3cfec89d",
       citationCount: 48,
       citationHash: "4b00c465",
       computedFigureLabelHash: "33ff0e1b",
@@ -690,7 +696,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "d02542ad",
+      financeHash: "1b1cc91b",
     });
   });
 
@@ -814,7 +820,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.12.0");
+    expect(first.payloadVersion).toBe("1.13.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");

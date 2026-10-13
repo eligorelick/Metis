@@ -1350,7 +1350,7 @@ See `tests/stageB.projections.test.ts`, `tests/stageB.scenarioTargets.test.ts`,
 ## Numeric grades and completeness
 
 `src/pipeline/stageB/grading.ts` owns versioned house bands
-(`SCORE_BANDS_2026_07`). Each metric is mapped to 0–100 by piecewise-linear
+(`SCORE_BANDS_2026_10`). Each metric is mapped to 0–100 by piecewise-linear
 interpolation between the source's named breakpoints and held at endpoint
 scores beyond them. A/B/C/D/F thresholds are 85/70/55/40; there is no E.
 These bands have not been outcome-backtested.
@@ -1360,9 +1360,9 @@ These bands have not been outcome-backtested.
 | Fundamentals | 20 | 15 | 15 | Revenue/EPS/FCF growth and operating-margin slope |
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
-| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF, share trend |
+| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49) |
 | Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
-| Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, share trend, SBC/revenue |
+| Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, net share-count trend (scored only here, D-49); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | SMA gap, RSI-14, 52-week position and six-month SPY-relative return |
 
 The financial vector covers banks, insurers and mortgage REITs. Their numeric
