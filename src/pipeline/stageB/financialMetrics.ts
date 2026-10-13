@@ -25,10 +25,12 @@
  *    available is published beside it under its own name,
  *    `niiToAverageAssets` — never as NIM.
  *
- * 2. A proxy is labeled a proxy. CET1 is a risk-weighted regulatory ratio; when
- *    the filer tags none, tangible common equity over tangible assets is shown
- *    as `tangibleLeverage` with the difference stated. It is a leverage ratio,
- *    not a capital-adequacy ratio, and the report says so.
+ * 2. A proxy is labeled a proxy. CET1 is a risk-weighted regulatory ratio;
+ *    tangible common equity over tangible assets is shown as
+ *    `tangibleLeverage` with the difference stated (marked a proxy when no
+ *    CET1 is tagged). It is a leverage ratio, not a capital-adequacy ratio, and
+ *    the report says so. Since D-46 it is always computed, because it is the
+ *    capital input of the bank balance-sheet grade; CET1 is display-only.
  *
  * Every value carries the tags that produced it, its formula and its as-of
  * date; every withheld value carries the reason, which reaches the notes and
@@ -159,6 +161,21 @@ export const PROVISION_TAGS = [
   "ProvisionForLoanLossesExpensed",
   "ProvisionForCreditLossExpenseReversal",
   "ProvisionForLoanAndLeaseLosses",
+] as const;
+/**
+ * Net charge-offs (D-46): the after-recovery element where tagged, else one of
+ * the write-off / recovery pairs below, both halves from the same family. The
+ * second pair is the pre-CECL-named family some filers (Citigroup) still use.
+ */
+export const NET_CHARGE_OFF_TAGS = [
+  "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossWriteoffAfterRecovery",
+] as const;
+export const CHARGE_OFF_RECOVERY_PAIRS = [
+  [
+    "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossWriteoff",
+    "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossRecovery",
+  ],
+  ["FinancingReceivableAllowanceForCreditLossesWriteOffs", "FinancingReceivableAllowanceForCreditLossesRecovery"],
 ] as const;
 export const DEPOSITS_TAGS = ["Deposits"] as const;
 export const INTEREST_EXPENSE_DEPOSITS_TAGS = [
@@ -292,6 +309,8 @@ interface TagHit {
   /** The XBRL fact's unit (an ISO code for monetary facts). */
   unit: string;
   tag: string;
+  /** Period start of a duration fact; undefined for an instant. */
+  start?: string;
   end: string;
   /** Filing date of the winning fact. */
   filed: string;
@@ -309,7 +328,7 @@ function resolveTag(
   const r = getConcept(facts, chain, { period });
   if (!r.ok) return null;
   const v = r.value.data;
-  return { value: v.value, unit: v.unit, tag: v.tag, end: v.period.end, filed: v.filed, sourcePath: tagPath(v.tag) };
+  return { value: v.value, unit: v.unit, tag: v.tag, start: v.period.start, end: v.period.end, filed: v.filed, sourcePath: tagPath(v.tag) };
 }
 
 /** An ISO-4217 code, or null: the currency a money metric is stated in. */
@@ -535,7 +554,7 @@ function bankMetrics(
     );
   }
 
-  // --- CET1 (reported) or the labeled tangible-leverage proxy
+  // --- CET1 (reported, display only) and tangible leverage (always; D-46)
   const cet1 = instant === null ? null : resolveTag(facts, CET1_TAGS, instant);
   if (cet1 !== null) {
     // Filers tag the ratio either as a fraction (0.15) or as a percent (15).
@@ -564,44 +583,48 @@ function bankMetrics(
         CET1_TAGS.map(tagPath),
       ),
     );
-    const t = tangible(bal0);
-    const denom = pos(t.assets);
-    // `tangibleCommonEquity` treats an untagged preferred line as zero. JPM's
-    // report 26 (2026-10-13) printed "− preferred" here with nothing deducted,
-    // because its preferred was tagged under an element the chain did not yet
-    // read (D-42); say so instead, as the P/TBV basis does.
-    const preferredTerm = isNum(bal0?.preferredStock) ? "preferred" : "preferred (none tagged, assumed zero)";
-    out.push(
-      t.equity !== null && denom !== null
-        ? metric({
-            key: "tangibleLeverage",
-            label: "tangible common equity / tangible assets",
-            unit: "%",
-            value: (t.equity / denom) * 100,
-            basis:
-              `(equity − goodwill − other intangibles − ${preferredTerm}) ${t.equity} / (total assets − goodwill − other ` +
-              `intangibles) ${denom} × 100. A LEVERAGE ratio standing in for CET1: it does not risk-weight assets, ` +
-              "so it is not comparable to a regulatory capital ratio and has no guaranteed ordering relative to CET1.",
-            sources: [
-              "statements:balance.totalStockholdersEquity",
-              "statements:balance.totalAssets",
-              "statements:balance.goodwill",
-              "statements:balance.intangibleAssets",
-              "statements:balance.preferredStock",
-            ],
-            asOf: bal0?.date ?? null,
-            proxy: true,
-          })
-        : withheld(
-            "tangibleLeverage",
-            "tangible common equity / tangible assets",
-            "%",
-            "total equity and/or total assets unavailable — the CET1 stand-in could not be computed either",
-            "(equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles)",
-            ["statements:balance.totalStockholdersEquity", "statements:balance.totalAssets"],
-          ),
-    );
   }
+  // Computed whether or not CET1 is tagged (D-46): it is the capital driver of
+  // the bank balance-sheet grade, and CET1 is display-only because the largest
+  // filers do not tag it.
+  const t = tangible(bal0);
+  const tangibleDenom = pos(t.assets);
+  // `tangibleCommonEquity` treats an untagged preferred line as zero. JPM's
+  // report 26 (2026-10-13) printed "− preferred" here with nothing deducted,
+  // because its preferred was tagged under an element the chain did not yet
+  // read (D-42); say so instead, as the P/TBV basis does.
+  const preferredTerm = isNum(bal0?.preferredStock) ? "preferred" : "preferred (none tagged, assumed zero)";
+  out.push(
+    t.equity !== null && tangibleDenom !== null
+      ? metric({
+          key: "tangibleLeverage",
+          label: "tangible common equity / tangible assets",
+          unit: "%",
+          value: (t.equity / tangibleDenom) * 100,
+          basis:
+            `(equity − goodwill − other intangibles − ${preferredTerm}) ${t.equity} / (total assets − goodwill − other ` +
+            `intangibles) ${tangibleDenom} × 100. A LEVERAGE ratio${cet1 === null ? " shown where CET1 is not tagged" : ""}: ` +
+            "it does not risk-weight assets, so it is not comparable to a regulatory capital ratio and has no guaranteed " +
+            "ordering relative to CET1.",
+          sources: [
+            "statements:balance.totalStockholdersEquity",
+            "statements:balance.totalAssets",
+            "statements:balance.goodwill",
+            "statements:balance.intangibleAssets",
+            "statements:balance.preferredStock",
+          ],
+          asOf: bal0?.date ?? null,
+          proxy: cet1 === null,
+        })
+      : withheld(
+          "tangibleLeverage",
+          "tangible common equity / tangible assets",
+          "%",
+          "total equity and/or total assets unavailable — tangible leverage could not be computed",
+          "(equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles)",
+          ["statements:balance.totalStockholdersEquity", "statements:balance.totalAssets"],
+        ),
+  );
 
   // --- loans (denominator for NPL and provisions)
   const loans = instant === null ? null : resolveTag(facts, LOANS_TAGS, instant);
@@ -704,7 +727,108 @@ function bankMetrics(
     );
   }
 
+  // --- net charge-offs / average loans (D-46). The FDIC Quarterly Banking
+  // Profile rate: a year's charge-offs net of recoveries over average loans.
+  // The prior balance must be the SAME loan element, so the two ends measure
+  // one thing; a missing prior balance withholds rather than falling back to
+  // the period end.
+  const nco = flow === null ? null : netChargeOffs(facts, flow);
+  const loansPrior = loans === null || priorInstant === null ? null : resolveTag(facts, [loans.tag], priorInstant);
+  const avgLoans = loans !== null && loansPrior !== null ? pos((loans.value + loansPrior.value) / 2) : null;
+  out.push(
+    nco !== null && "value" in nco && loans !== null && loansPrior !== null && avgLoans !== null
+      ? metric({
+          key: "ncoToAverageLoans",
+          label: "net charge-offs / average loans",
+          unit: "%",
+          value: (nco.value / avgLoans) * 100,
+          basis:
+            `net charge-offs ${nco.value} (${nco.basis}) / average loans ${avgLoans} (${loans.tag} at ${loans.end} ` +
+            `and ${loansPrior.end}) × 100 — the year's loan losses after recoveries, as a share of the book`,
+          sources: [...nco.sources, loans.sourcePath],
+          asOf: end,
+        })
+      : withheld(
+          "ncoToAverageLoans",
+          "net charge-offs / average loans",
+          "%",
+          facts === null
+            ? noFacts
+            : nco === null || !("value" in nco)
+              ? (nco?.reason ?? noPeriod)
+              : loans === null
+                ? `the filer tags no undimensioned total-loans element at ${end}`
+                : loansPrior === null
+                  ? `the filer tags no ${loans.tag} fact at the prior fiscal year end — average loans need both ends`
+                  : "average loans are not positive",
+          "net charge-offs (write-offs − recoveries) / average loans",
+          [...NET_CHARGE_OFF_TAGS.map(tagPath), ...CHARGE_OFF_RECOVERY_PAIRS.flat().map(tagPath), ...LOANS_TAGS.slice(0, 1).map(tagPath)],
+        ),
+  );
+
+  // --- loans / deposits at one balance-sheet date (D-46)
+  out.push(
+    loans !== null && deposits !== null && loans.end === deposits.end && pos(deposits.value) !== null
+      ? metric({
+          key: "loansToDeposits",
+          label: "loans / deposits",
+          unit: "%",
+          value: (loans.value / deposits.value) * 100,
+          basis:
+            `total loans ${loans.value} (${loans.tag}) / deposits ${deposits.value} (${deposits.tag}) at ${loans.end} × 100 — ` +
+            "how much of the deposit base is lent out; a high ratio leans on wholesale funding",
+          sources: [loans.sourcePath, deposits.sourcePath],
+          asOf: loans.end,
+        })
+      : withheld(
+          "loansToDeposits",
+          "loans / deposits",
+          "%",
+          facts === null
+            ? noFacts
+            : loans === null
+              ? `the filer tags no undimensioned total-loans element at ${end}`
+              : deposits === null
+                ? `the filer tags no ${DEPOSITS_TAGS[0]} fact at ${end}`
+                : loans.end !== deposits.end
+                  ? `loans (${loans.end}) and deposits (${deposits.end}) are not measured at the same date`
+                  : "deposits are not positive",
+          "total loans / deposits",
+          [...LOANS_TAGS.slice(0, 1).map(tagPath), ...DEPOSITS_TAGS.map(tagPath)],
+        ),
+  );
+
   return out;
+}
+
+/**
+ * A fiscal year's net charge-offs: the tagged after-recovery figure, else
+ * write-offs minus recoveries from ONE tag family over the same annual period.
+ * Fiscal-year duration facts only; a pair whose periods differ fails closed.
+ */
+function netChargeOffs(
+  facts: CompanyFacts | null,
+  flow: { end: string; durationHint: "FY" },
+): { value: number; basis: string; sources: string[] } | { reason: string } | null {
+  if (facts === null) return null;
+  const net = resolveTag(facts, NET_CHARGE_OFF_TAGS, flow);
+  if (net !== null) return { value: net.value, basis: net.tag, sources: [net.sourcePath] };
+  for (const [writeoffTag, recoveryTag] of CHARGE_OFF_RECOVERY_PAIRS) {
+    const writeoff = resolveTag(facts, [writeoffTag], flow);
+    const recovery = resolveTag(facts, [recoveryTag], flow);
+    if (writeoff === null || recovery === null) continue;
+    if (writeoff.start !== recovery.start || writeoff.end !== recovery.end || writeoff.unit !== recovery.unit) {
+      return { reason: `${writeoffTag} and ${recoveryTag} cover different periods or units — net charge-offs not computed` };
+    }
+    return {
+      value: writeoff.value - recovery.value,
+      basis: `${writeoffTag} ${writeoff.value} − ${recoveryTag} ${recovery.value}`,
+      sources: [writeoff.sourcePath, recovery.sourcePath],
+    };
+  }
+  return {
+    reason: `the filer tags no fiscal-year charge-off and recovery pair for ${flow.end} (some filers report them only by loan class, a dimensional fact companyfacts carries no total for)`,
+  };
 }
 
 // ---------------------------------------------------------------------------

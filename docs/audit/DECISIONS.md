@@ -13,6 +13,68 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-46 (bank grading 2026-10-13) The bank balance sheet is scored on capital, credit and funding
+
+- **Problem**: a bank's balance-sheet aspect was a placeholder
+  (`scoreAspect('balanceSheet', [], …)`, "capital adequacy not computed"),
+  so 10 of the financial route's 100 weight points dropped out and bank
+  grades rested on earnings and valuation. The evidence on bank failure and
+  bank stock losses is clearest on exactly what was missing. The simple
+  leverage ratio predicted failure about as well as risk-weighted ratios
+  (Estrella, Park & Peristiani 2000, FRBNY EPR 6(2)) and out-predicted them
+  in the crisis (Haldane & Madouros 2012). Better-capitalised, more
+  deposit-funded banks had better 2007-08 returns (Beltratti & Stulz 2012,
+  JFE 105). CAMELS-style capital, asset-quality and liquidity proxies explain
+  the 2009 failures (Cole & White 2012, JFSR 42).
+- **Options**: (a) keep the placeholder; (b) grade on CET1; (c) grade on
+  tangible leverage, the net charge-off rate, the NPL ratio and loans /
+  deposits, with CET1 displayed only.
+- **Risks**: (b) is impossible: none of JPM, BAC, WFC, C or PNC tags a CET1
+  ratio after 2013. (c)'s bands are not fitted, and a leverage ratio is not
+  comparable across business models (custody banks look thin by design).
+  Filers that tag loans only by class (WFC after 2021) lose the loan-based
+  inputs. Bank composites move, which the band version covers.
+- **Choice**: (c).
+  - `src/pipeline/stageB/financialMetrics.ts`: `tangibleLeverage` is always
+    computed on the bank route (a stand-in only when CET1 is untagged).
+    `ncoToAverageLoans` is the fiscal year's net charge-offs (the
+    after-recovery element, else write-offs − recoveries from one tag family,
+    10-K FY durations, a pair whose periods differ fails closed) over the
+    average of the SAME loan element at the two year ends; a missing prior
+    balance withholds. `loansToDeposits` is loans / `Deposits` at one date;
+    different dates withhold.
+  - `src/pipeline/stageB/grading.ts`: on the bank route the aspect is
+    `tceToTangibleAssets` 0.40 (4% → 20, 5% → 35, 6% → 50, 8% → 70, 10% → 85,
+    ≥ 12% → 90), `ncoToAverageLoans` 0.25 (≤ 0.25% → 85 … ≥ 3% → 10),
+    `nplRatio` 0.15 (≤ 0.25% → 85 … ≥ 4% → 15) and `loansToDeposits` 0.20
+    (≤ 80% → 80 … ≥ 125% → 15, no penalty for low ratios). All conventions,
+    not fitted; capital is anchored to the PCA 5% "well capitalized" Tier 1
+    leverage line and the Basel III 3% leverage minimum, the charge-off rate
+    to the FDIC Quarterly Banking Profile definition. It is graded only with
+    tangible leverage plus one other input; otherwise it is unscored with
+    the reason and counts as missing evidence (a new `noDataReason`, not a
+    route-inapplicable reason). A withheld NPL ratio drops out and the other
+    weights renormalise, with completeness 0.85. Insurers and mortgage REITs
+    keep the placeholder. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
+  - `src/pipeline/stageC/payload.ts`: a bank payload gains "Bank capital,
+    credit and funding", with the four inputs and CET1 as registered rows
+    and digit-free notes (public-filing proxies, leverage not comparable
+    across business models, CET1 never graded). The graded values are also
+    the `computed.scores.balanceSheet.*` driver records.
+- **Why**: the aspect most supported by the bank-failure evidence was the one
+  left empty. The decision in one line: the bank balance-sheet aspect is
+  scored on tangible common equity/tangible assets, net charge-offs/average
+  loans, NPL where tagged, and loans/deposits; the bands are conventions
+  anchored to the PCA/Basel leverage lines, not fitted; CET1 is displayed but
+  not graded, because the largest filers do not tag it.
+- **Disclosure**: `SCORE_BANDS_2026_10` (shared with D-48/D-49) and payload
+  1.14.0. The aspect note states the conventions, the comparability caveat,
+  that CET1 is never graded and that no supervisory rating is used. The
+  audited fixture is a general company and does not move. Tests:
+  `tests/stageB.grading.test.ts` (scored and renormalised with NPL withheld;
+  unscored with only tangible leverage; the fully observed bank's ceiling
+  66.15 → 76.15).
+
 ## D-48 (grading 2026-10-13) Technicals score 12-1 relative momentum, 52-week-high proximity and the SMA gap; RSI is display-only
 
 - **Problem**: RSI-14 carried 0.2 of the technicals aspect, but there is no

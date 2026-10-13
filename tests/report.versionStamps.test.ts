@@ -6,7 +6,9 @@
  * equity, the citable gap/manifest tags and the unit rows; a pass stored under
  * 1.11.0 is never resumed. Payload 1.13.0 (2026-10-13, D-49) carries aspect
  * scores from band table SCORE_BANDS_2026_10; a pass stored under 1.12.0 is
- * never resumed. Earlier stamps:
+ * never resumed. Payload 1.14.0 (D-46) grades a bank's balance sheet and
+ * shows the route metrics it is graded on; a pass stored under 1.13.0 is never
+ * resumed. Earlier stamps:
  *
  *  - REPORT_SPEC_VERSION 1.4.0: every share count and per-share figure is on
  *    the share basis of the price it meets, or withheld. A 1.3.0 report's
@@ -81,16 +83,16 @@ function newReport(): Report {
 describe("new version stamps", () => {
   it("stamps the growth-anchor CAGR span convention", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.10.0");
-    expect(PAYLOAD_VERSION).toBe("1.13.0");
+    expect(PAYLOAD_VERSION).toBe("1.14.0");
   });
 
   it("stamps a newly built report and payload with them", () => {
     expect(newReport().meta.specVersion).toBe("1.10.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.13.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.13\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.13\.0\)/);
+    expect(payload.payloadVersion).toBe("1.14.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.14\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.14\.0\)/);
   });
 
   it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {

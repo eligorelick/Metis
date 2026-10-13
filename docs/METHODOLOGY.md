@@ -993,8 +993,16 @@ every metric:
 | Net interest margin | net interest income / average **earning** assets | whenever the filer tags no earning-assets element. us-gaap carries no standard average-earning-assets concept, and total assets include premises, goodwill and other non-earning items, so dividing by them would understate the margin. |
 | Net interest income / average total assets | the honest denominator that *is* available | published as a labeled stand-in beside a withheld NIM, stating that it sits below a true NIM |
 | Efficiency ratio | noninterest expense / (net interest income + noninterest income) | when the noninterest split is not tagged. This split exists in the filings even though vendor income statements omit it. |
-| CET1 | company-reported CET1 capital / risk-weighted assets | when no CET1 element is tagged (it is often only in the regulatory-capital footnote text) |
-| Tangible leverage | (equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles) | the labeled stand-in for CET1; its numerator and denominator differ from regulatory CET1, so it is not comparable and has no guaranteed ordering relative to it. [Basel risk weights](https://www.bis.org/committees/bcbs/basel-framework/standard/cre/20/inforce/2023-01-01/published/2022-12-08) can exceed 100%. |
+| CET1 | company-reported CET1 capital / risk-weighted assets | when no CET1 element is tagged (it is often only in the regulatory-capital footnote text). Display only, never graded (D-46): none of JPM, BAC, WFC, C or PNC tags it after 2013. |
+| Tangible leverage | (equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles) | computed whenever equity and assets are on file, CET1 or not (D-46); marked a stand-in only when CET1 is untagged. Its numerator and denominator differ from regulatory CET1, so it is not comparable and has no guaranteed ordering relative to it. [Basel risk weights](https://www.bis.org/committees/bcbs/basel-framework/standard/cre/20/inforce/2023-01-01/published/2022-12-08) can exceed 100%. |
+| Net charge-offs / average loans | the fiscal year's charge-offs net of recoveries / average of the same loan element at the two year ends (the FDIC Quarterly Banking Profile net charge-off rate) | when no fiscal-year after-recovery element or write-off/recovery pair from one family is tagged, a pair's periods differ, or the prior year-end loan balance is not tagged under the same element (D-46) |
+| Loans / deposits | total loans / `Deposits` at one balance-sheet date | when either is untagged or the two dates differ (D-46) |
+
+The bank balance-sheet grade (see *Numeric grades and completeness*) reads
+tangible leverage, the charge-off rate, the NPL ratio and loans / deposits.
+Since payload 1.14.0 the analysts see them, with CET1, as citable rows in a
+"Bank capital, credit and funding" section whose notes say they are
+public-filing proxies, not a supervisory rating.
 | NPL ratio | nonaccrual loans / total loans | when nonaccrual loans are filed only by loan class (dimensional facts companyfacts does not expose as a total) |
 | Provisions / loans | provision for credit losses / total loans | when neither the provision element nor its component sum resolves |
 | Cost of deposits | interest expense on deposits / average deposits | when `InterestExpenseDeposits` is untagged — total interest expense covers borrowings too and would overstate it |
@@ -1360,14 +1368,31 @@ These bands have not been outcome-backtested.
 | Fundamentals | 20 | 15 | 15 | Revenue/EPS/FCF growth and operating-margin slope |
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
-| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49) |
+| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
 | Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
 | Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, net share-count trend (scored only here, D-49); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, 52-week position 0.35, SMA50/200 gap 0.20 (D-48); RSI-14 and the six-month window are displayed, not scored |
 
-The financial vector covers banks, insurers and mortgage REITs. Their numeric
-balance-sheet aspect is explicitly unscored: route metrics can compute capital
-information, but the scoring engine has no calibrated capital-adequacy signal.
+The financial vector covers banks, insurers and mortgage REITs. For insurers
+and mortgage REITs the numeric balance-sheet aspect is explicitly unscored
+(route-inapplicable). Since D-46 a bank's is graded on capital, credit and
+funding:
+
+| Bank input | Weight | Band (convention, not fitted) |
+| --- | ---: | --- |
+| Tangible common equity / tangible assets | 0.40 | 4% → 20, 5% → 35, 6% → 50, 8% → 70, 10% → 85, ≥ 12% → 90. Anchored to the US prompt-corrective-action "well capitalized" Tier 1 leverage line of 5% (12 CFR 324.403) and the Basel III 3% leverage minimum |
+| Net charge-offs / average loans | 0.25 | ≤ 0.25% → 85, 0.5% → 70, 1% → 50, 2% → 25, ≥ 3% → 10; the FDIC Quarterly Banking Profile rate definition |
+| NPL ratio (nonaccrual / loans) | 0.15 | ≤ 0.25% → 85, 0.5% → 75, 1% → 60, 2% → 40, ≥ 4% → 15 |
+| Loans / deposits | 0.20 | ≤ 80% → 80, 90% → 70, 100% → 50, 110% → 30, ≥ 125% → 15; a low ratio is not penalised, because custody and trust banks run low by design |
+
+The aspect is graded only when tangible common equity / tangible assets and at
+least one other input are on file; otherwise it is unscored with that reason
+and counts as missing evidence in the composite, not as route-inapplicable. A
+withheld input (usually the NPL ratio, which the large filers tag only by loan
+class) drops out, the remaining weights renormalise, and completeness falls by
+its weight. A leverage ratio is not comparable across business models, CET1 is
+shown when tagged and never graded, and no supervisory rating is used; the
+aspect note says all three. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
 Moat and leadership scores are quantitative proxies, not a finding about the
 company's competitive advantage or management competence.
 

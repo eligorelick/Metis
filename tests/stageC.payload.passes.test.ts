@@ -681,7 +681,9 @@ describe("payload determinism + provenance", () => {
       // (48 → 50; +196 prompt bytes; computedFigureLabelHash moves). The
       // technicals aspect's drivers and note change (financeHash); no numeric
       // record moved.
-      fingerprint: "1.13.0:d5fb94b4",
+      // 2026-10-13 (D-46, PAYLOAD_VERSION 1.14.0): only the version moved for
+      // this general-company fixture (a bank gains its own section).
+      fingerprint: "1.14.0:dc27f0b5",
       promptBytes: 96_360,
       provenanceCount: 370,
       provenanceHash: "2a115f44",
@@ -826,7 +828,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.13.0");
+    expect(first.payloadVersion).toBe("1.14.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");

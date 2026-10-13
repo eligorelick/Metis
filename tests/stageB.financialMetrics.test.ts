@@ -223,8 +223,9 @@ describe("bank route metrics", () => {
     const cet1 = find(asFraction.metrics, "cet1Reported");
     expect(cet1.value).toBeCloseTo(15.2, 9);
     expect(cet1.basis).toContain("filed as a fraction");
-    // The proxy is not published beside a real CET1.
-    expect(asFraction.metrics.some((m) => m.key === "tangibleLeverage")).toBe(false);
+    // D-46: tangible leverage is published beside a real CET1 too (it is the
+    // graded capital input), but it is no longer marked a stand-in for it.
+    expect(find(asFraction.metrics, "tangibleLeverage").proxy).toBe(false);
 
     const asPercent = computeFinancialMetrics(
       "bank",

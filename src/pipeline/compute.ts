@@ -1832,6 +1832,8 @@ export function runStageB(bundle: DataBundle): ComputedMetrics {
     forensics,
     technicals,
     valuation,
+    // D-46: the bank balance sheet is graded on these route metrics.
+    financialMetrics,
     currentPrice,
     asOf: asOfDay,
   });

@@ -258,7 +258,10 @@ export interface ContextPayload {
 // change and the SBC charge once each and grades technicals on 12-1 month
 // relative strength; the technicals rows add that window and the displayed
 // 6-month window vs SPY. Prior partial passes cannot resume.
-export const PAYLOAD_VERSION = "1.13.0" as const;
+// 1.14.0 (D-46, 2026-10-13): a bank's balance-sheet score is graded on capital,
+// credit and funding, and a bank payload gains the section of route metrics it
+// is computed from. Prior partial passes cannot resume.
+export const PAYLOAD_VERSION = "1.14.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -460,6 +463,15 @@ function computedCurrencies(bundle: DataBundle, computed: ComputedMetrics): Comp
   };
 }
 
+/** Bank route metrics shown to the analysts, in display order (D-46). */
+const BANK_PAYLOAD_METRICS = [
+  "tangibleLeverage",
+  "ncoToAverageLoans",
+  "nplRatio",
+  "loansToDeposits",
+  "cet1Reported",
+] as const;
+
 /** Stage B computed-metrics sections — the analytical spine of the payload. */
 function computedSections(
   computed: ComputedMetrics,
@@ -561,6 +573,38 @@ function computedSections(
     { label: "buyback price vs current", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
   ];
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
+
+  // --- Bank capital, credit and funding (D-46) ------------------------------
+  // The route metrics the bank balance-sheet grade is computed from, as rows
+  // the analysts can cite. Notes stay digit-free: every number a sentence may
+  // state is a row above them.
+  const fm = computed.financialMetrics as ComputedMetrics["financialMetrics"] | undefined;
+  if (fm?.route === "bank") {
+    const bankFigures: PayloadFigureInput[] = [];
+    for (const key of BANK_PAYLOAD_METRICS) {
+      const m = fm.metrics.find((x) => x.key === key);
+      if (m === undefined) continue;
+      bankFigures.push({
+        label: m.label,
+        value: m.withheldReason === null ? m.value : null,
+        unit: m.unit,
+        currency: m.currency ?? null,
+        source: `computed.financialMetrics.${m.key}`,
+        asOf: m.asOf,
+      });
+    }
+    sections.push(payloadSection({
+      title: "Bank capital, credit and funding (computed — public-filing proxies, not a supervisory rating)",
+      figures: bankFigures,
+      notes: [
+        "These are proxies built from public filings for a bank's capital, credit quality and funding. Management " +
+          "quality and interest-rate sensitivity cannot be observed from them, and no supervisory rating is used.",
+        "Tangible common equity / tangible assets is a leverage ratio, not CET1. It is not comparable across business " +
+          "models: custody and trust banks run thin leverage and low loans / deposits by design. CET1 is shown only " +
+          "when the filer tags it and is never graded.",
+      ],
+    }));
+  }
 
   // --- Forensics -----------------------------------------------------------
   const fx = computed.forensics;

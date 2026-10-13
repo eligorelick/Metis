@@ -25,6 +25,7 @@ import type { CompanyRouteResult, MetricPolicy } from "@/pipeline/stageB/sectorR
 import type { GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, WaccResult } from "@/pipeline/stageB/returns";
 import type { CapitalResult } from "@/pipeline/stageB/capital";
+import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import type { ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import type { ValuationResult } from "@/pipeline/stageB/valuation";
@@ -522,7 +523,7 @@ describe("grading — sector routing", () => {
       expect(before.drivers.map((d) => d.source)).not.toContain("operatingMarginSlope");
     }
   });
-  it("a bank route suppresses Altman/Beneish and marks balance sheet not-applicable", () => {
+  it("a bank route suppresses Altman/Beneish and leaves balance sheet unscored without bank metrics", () => {
     const bankPolicy = policy(["evEbitda", "netDebt", "netDebtToEbitda", "fcfDcf", "altmanZ", "beneishM"]);
     const s = computeScores(
       makeInputs({
@@ -538,9 +539,10 @@ describe("grading — sector routing", () => {
         } as unknown as ValuationResult,
       }),
     );
-    // Balance sheet not scored for financials.
+    // D-46: a bank's balance sheet is graded on its route metrics; with none
+    // supplied it is unscored for lack of data.
     expect(s.aspects.balanceSheet.score).toBeNull();
-    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/financial/i);
+    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/tangible common equity/i);
     // Quality dropped the suppressed Altman/Beneish signals -> completeness < 1.
     expect(s.aspects.quality.dataCompleteness).toBeLessThan(1);
     const qNames = s.aspects.quality.drivers.map((d) => d.source);
@@ -597,7 +599,68 @@ describe("grading — sector routing", () => {
     expect(rich.aspects.valuation.score).not.toBeNull();
     expect(cheap.aspects.valuation.score!).toBeGreaterThan(rich.aspects.valuation.score!);
   });
+
+  it("D-46: grades a bank balance sheet on capital, credit and funding, renormalising when NPL is withheld", () => {
+    const s = computeScores(makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 8, ncoToAverageLoans: 0.5, nplRatio: null, loansToDeposits: 90 }),
+    }));
+    const bs = s.aspects.balanceSheet;
+    // Bands: TCE/TA 8% → 70, NCO 0.5% → 70, L/D 90% → 70; NPL withheld, so the
+    // other three weights (0.40/0.25/0.20) renormalise over 0.85.
+    expect(bs.score).toBe(70);
+    expect(bs.dataCompleteness).toBe(0.85);
+    expect(bs.drivers.map((d) => d.source)).toEqual([
+      "computed.scores.balanceSheet.tceToTangibleAssets",
+      "computed.scores.balanceSheet.ncoToAverageLoans",
+      "computed.scores.balanceSheet.loansToDeposits",
+    ]);
+    expect(bs.note).toContain("not fitted");
+    expect(bs.note).toContain("CET1 is shown when the filer tags it and is never graded");
+
+    // Renormalised, not averaged with a neutral stand-in for the missing NPL.
+    const mixed = computeScores(makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 5, ncoToAverageLoans: 2, nplRatio: null, loansToDeposits: 110 }),
+    }));
+    // (35·0.40 + 25·0.25 + 30·0.20) / 0.85
+    expect(mixed.aspects.balanceSheet.score).toBeCloseTo((35 * 0.4 + 25 * 0.25 + 30 * 0.2) / 0.85, 2);
+  });
+
+  it("D-46: leaves the bank balance sheet unscored when only tangible common equity / tangible assets is available", () => {
+    const s = computeScores(makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 8, ncoToAverageLoans: null, nplRatio: null, loansToDeposits: null }),
+    }));
+    expect(s.aspects.balanceSheet.score).toBeNull();
+    expect(s.aspects.balanceSheet.drivers).toEqual([]);
+    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/at least one of net charge-offs/);
+  });
 });
+
+/** Bank route metrics as financialMetrics.ts emits them; null ⇒ withheld. */
+function bankRouteMetrics(values: Record<string, number | null>): FinancialMetricsResult {
+  return {
+    route: "bank",
+    metrics: Object.entries(values).map(([key, value]) => ({
+      key,
+      label: key,
+      unit: "%" as const,
+      value,
+      basis: "",
+      sources: [],
+      asOf: "2025-12-31",
+      withheldReason: value === null ? "not tagged" : null,
+      proxy: false,
+    })),
+    notes: [],
+    gaps: [],
+    asOf: "2025-12-31",
+  };
+}
 
 /* ------------------------------------------------------------------------ *
  * Altman variant normalization (2026-07 audit Defect A)
@@ -719,14 +782,21 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
   /**
    * A bank observed on every metric its route allows. Using the REAL bank
    * metric policy, three things are route-suppressed / meaningless (NOT missing):
-   *   - balanceSheet: net-debt/coverage framing not meaningful for a bank,
+   *   - balanceSheet: net-debt/coverage framing not meaningful for a bank (since
+   *     D-46 it is graded on capital, credit and funding instead),
    *   - quality: Altman Z (0.16) + Beneish M (0.12) suppressed,
    *   - moat: gross margin (0.25) suppressed (FMP emits garbage for banks).
    * Everything else (revenue/EPS/FCF growth, ROIC level+stability, excess-return
    * valuation, capital stewardship, technicals) is fully present.
    */
   function fullyObservedBank(): ScoringInputs {
-    return makeInputs({ route: route("bank"), policy: metricPolicy("bank"), valuation: bankExcessReturn() });
+    return makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      valuation: bankExcessReturn(),
+      // D-46: capital, credit and funding, all four inputs on file.
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 7, ncoToAverageLoans: 0.6, nplRatio: 0.8, loansToDeposits: 85 }),
+    });
   }
 
   /** Recompute the raw completeness-weighted mean + its supporting weight from the returned aspects. */
@@ -755,7 +825,7 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     expect(s.composite.score).toBe(round2(raw));
     expect(s.composite.score!).toBeGreaterThan(50);
 
-    // compWeight can never reach 100 on a bank: balanceSheet (10) is dropped and
+    // compWeight can never reach 100 on a bank: balanceSheet (10) was dropped and
     // quality/moat lose their suppressed signals. Hand-derived route-applicable
     // weight = 15·0.55 + 22 + 26·0.57 + 15·0.75 + 7·0.69 + 5 = 66.15.
     // Fundamentals retain revenue/EPS growth; industrial FCF growth and
@@ -781,7 +851,9 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //  - Leadership 0.75 -> 0.69 (D-49, SCORE_BANDS_2026_10): sbcPctOfRevenue
     //    (0.2) is no longer scored, so the applicable 0.55 (capitalDeployment
     //    still suppressed) is now read against 0.8: 7·0.69 = 4.83.
-    expect(round2(compWeight)).toBe(66.15);
+    //  - Balance sheet 0 -> 10 (D-46, SCORE_BANDS_2026_10): a bank's balance
+    //    sheet is graded on capital, credit and funding, all observed here.
+    expect(round2(compWeight)).toBe(76.15);
 
     // The OLD denominator (a fixed 100) would have shrunk this identical bank
     // by ×0.7897 toward 50 — a structural cap the fix removes.

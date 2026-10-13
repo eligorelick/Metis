@@ -1057,6 +1057,10 @@ const BASE_POLICIES: Readonly<Record<SectorRoute, { suppress: readonly string[];
       "provisionsToLoans",
       "cet1Reported",
       "depositCost",
+      // D-46: the bank balance-sheet grade's capital, credit and funding inputs.
+      "tangibleLeverage",
+      "ncoToAverageLoans",
+      "loansToDeposits",
       "pe",
     ],
   },

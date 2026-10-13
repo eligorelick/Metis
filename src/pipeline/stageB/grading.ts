@@ -32,6 +32,7 @@ import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
 import type { CapitalResult } from "@/pipeline/stageB/capital";
+import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import type { ValuationResult } from "@/pipeline/stageB/valuation";
@@ -164,6 +165,12 @@ function scoreAspect(
   note: string,
   policy: MetricPolicy,
   notApplicableReason: string | null = null,
+  /**
+   * Reason shown when no signal had data. Unlike `notApplicableReason`, the
+   * aspect stays route-applicable, so its absence still counts as missing
+   * evidence in the composite.
+   */
+  noDataReason: string | null = null,
 ): ScoredAspect {
   const drivers: TracedNumber[] = [];
   let acc = 0;
@@ -200,6 +207,7 @@ function scoreAspect(
         drivers,
         notApplicableReason:
           notApplicableReason ??
+          noDataReason ??
           "no applicable signals available for this route — aspect not scored",
         note,
       },
@@ -428,6 +436,50 @@ const REL_STRENGTH_12M1M_BAND: readonly BandPoint[] = [
   [20, 75],
   [40, 90],
 ];
+/*
+ * Bank balance sheet (D-46). House conventions, not fitted. The leverage
+ * literature agrees on direction — the simple leverage ratio predicted failure
+ * about as well as risk-weighted ratios (Estrella, Park & Peristiani 2000;
+ * Haldane & Madouros 2012), and better-capitalised, more deposit-funded banks
+ * did better in 2007-08 (Beltratti & Stulz 2012) — but not on cut points.
+ */
+// Tangible common equity / tangible assets (percent). Anchored to the US PCA
+// "well capitalized" Tier 1 leverage line (5% → 35) and the Basel III 3%
+// leverage minimum, which sits below the first breakpoint.
+const TCE_TO_TANGIBLE_ASSETS_BAND: readonly BandPoint[] = [
+  [4, 20],
+  [5, 35],
+  [6, 50],
+  [8, 70],
+  [10, 85],
+  [12, 90],
+];
+// Net charge-offs / average loans (percent; the FDIC Quarterly Banking Profile
+// net charge-off rate definition): lower is better.
+const NCO_RATE_BAND: readonly BandPoint[] = [
+  [0.25, 85],
+  [0.5, 70],
+  [1.0, 50],
+  [2.0, 25],
+  [3.0, 10],
+];
+// Nonperforming (nonaccrual) loans / loans (percent): lower is better.
+const NPL_RATIO_BAND: readonly BandPoint[] = [
+  [0.25, 85],
+  [0.5, 75],
+  [1.0, 60],
+  [2.0, 40],
+  [4.0, 15],
+];
+// Loans / deposits (percent). Flat at the low end: custody and trust banks run
+// low ratios by design, so a low ratio is never penalised.
+const LOANS_TO_DEPOSITS_BAND: readonly BandPoint[] = [
+  [80, 80],
+  [90, 70],
+  [100, 50],
+  [110, 30],
+  [125, 15],
+];
 // Valuation: DCF upside (percent) — more upside = more attractive.
 const UPSIDE_BAND: readonly BandPoint[] = [
   [-40, 15],
@@ -517,8 +569,9 @@ const WEIGHTS_GENERAL: WeightVector = {
   leadership: 10,
   technicals: 5,
 };
-// Financials: balance sheet is capital-adequacy (not net-debt) and we don't
-// compute it, so it usually drops out — tilt toward quality/valuation.
+// Financials: balance sheet is capital, credit and funding (not net-debt). It
+// is scored on the bank route (D-46) and still drops out for insurers and
+// mortgage REITs — tilt toward quality/valuation.
 const WEIGHTS_FINANCIAL: WeightVector = {
   fundamentals: 15,
   valuation: 22,
@@ -551,6 +604,51 @@ function weightsForRoute(route: CompanyRouteResult): WeightVector {
   }
 }
 
+/**
+ * The bank balance-sheet aspect (D-46): capital, credit and funding. Graded
+ * only when tangible common equity / tangible assets AND at least one other
+ * input are on file; otherwise unscored for lack of data (still counted as
+ * missing evidence, never as route-inapplicable). A withheld NPL ratio — the
+ * usual case, since large filers tag nonaccrual loans only by loan class — is
+ * dropped and the other weights renormalise, with the gap in completeness.
+ */
+function bankBalanceSheet(
+  fm: FinancialMetricsResult | null,
+  weightPct: number,
+  asOf: string,
+  policy: MetricPolicy,
+): ScoredAspect {
+  const value = (key: string): number | null => {
+    const m = fm?.route === "bank" ? fm.metrics.find((x) => x.key === key) : undefined;
+    return m !== undefined && m.withheldReason === null && isNum(m.value) ? m.value : null;
+  };
+  const signals: Signal[] = [
+    { name: "tceToTangibleAssets", raw: value("tangibleLeverage"), unit: "%", weight: 0.4, band: TCE_TO_TANGIBLE_ASSETS_BAND },
+    { name: "ncoToAverageLoans", raw: value("ncoToAverageLoans"), unit: "%", weight: 0.25, band: NCO_RATE_BAND },
+    { name: "nplRatio", raw: value("nplRatio"), unit: "%", weight: 0.15, band: NPL_RATIO_BAND },
+    { name: "loansToDeposits", raw: value("loansToDeposits"), unit: "%", weight: 0.2, band: LOANS_TO_DEPOSITS_BAND },
+  ];
+  const sufficient = isNum(signals[0].raw) && signals.filter((s) => isNum(s.raw)).length >= 2;
+  return scoreAspect(
+    "balanceSheet",
+    sufficient ? signals : signals.map((s) => ({ ...s, raw: null })),
+    weightPct,
+    asOf,
+    "Bank capital, credit and funding: tangible common equity / tangible assets (weight 0.40), net charge-offs / " +
+      "average loans (0.25), nonperforming loans / loans where the filer tags them (0.15) and loans / deposits (0.20). " +
+      "The bands are house conventions, not fitted: capital is anchored to the US prompt-corrective-action " +
+      "\"well capitalized\" 5% Tier 1 leverage line and the Basel III 3% leverage minimum, and the charge-off rate " +
+      "follows the FDIC Quarterly Banking Profile definition. A leverage ratio is not comparable across business " +
+      "models — custody and trust banks run thin by design — and a low loans / deposits ratio is not penalised for " +
+      "the same reason. CET1 is shown when the filer tags it and is never graded, because the largest filers do not " +
+      "tag it. No supervisory rating is used.",
+    policy,
+    null,
+    "Not graded: tangible common equity / tangible assets and at least one of net charge-offs / average loans, " +
+      "nonperforming loans / loans or loans / deposits are needed, and the filings on hand do not provide them.",
+  );
+}
+
 /* ------------------------------------------------------------------------ *
  * computeScores — the public entry point
  * ------------------------------------------------------------------------ */
@@ -568,6 +666,11 @@ export interface ScoringInputs {
   forensics: ForensicsReport;
   technicals: TechnicalsResult;
   valuation: ValuationResult;
+  /**
+   * Route metrics from financialMetrics.ts. The bank balance sheet (D-46) is
+   * graded on four of them; absent ⇒ that aspect is unscored for lack of data.
+   */
+  financialMetrics?: FinancialMetricsResult | null;
   /** Latest quote price (for DCF upside); null when unavailable. */
   currentPrice: number | null;
   /** Fallback as-of (bundle builtAt slice) for drivers lacking their own. */
@@ -717,7 +820,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   );
 
   // --- Balance sheet & capital --------------------------------------------
-  const balanceSheet = financial
+  const balanceSheet = route.base === "bank"
+    ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
+    : financial
     ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, "Balance-sheet strength for financials is capital-adequacy (CET1/leverage), not net-debt — not modelled in v1.", policy, "Financial route: net-debt/coverage framing not meaningful; capital adequacy not computed.")
     : scoreAspect(
         "balanceSheet",

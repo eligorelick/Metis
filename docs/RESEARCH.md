@@ -565,6 +565,44 @@ The alternative — computing them anyway and letting a reader assume they mean
 what they mean for an industrial — is the single most common way these scores
 are misused in practice.
 
+#### Capital, credit and funding (D-46)
+
+**Published direction, house cut points.** What replaces the forensic models
+in a bank's balance-sheet grade is the evidence on what predicts bank failure
+and bank stock losses:
+
+- **Capital.** The simple leverage ratio predicted failure about as well as
+  risk-weighted ratios (Estrella, Park & Peristiani 2000, FRBNY *Economic
+  Policy Review* 6(2)), and out-predicted them in the 2007-09 crisis (Haldane
+  & Madouros 2012, "The Dog and the Frisbee", Jackson Hole). Banks with more
+  capital and more deposit funding had better 2007-08 stock returns (Beltratti
+  & Stulz 2012, *JFE* 105).
+- **Asset quality and liquidity.** CAMELS-style proxies for capital, asset
+  quality, earnings and liquidity explain the 2009 failures (Cole & White
+  2012, *J. Financial Services Research* 42).
+
+The grade therefore reads tangible common equity / tangible assets, net
+charge-offs / average loans, the NPL ratio and loans / deposits. The studies
+agree on direction, not on cut points, so every band is a convention: the
+capital band is anchored to the US prompt-corrective-action "well capitalized"
+5% Tier 1 leverage line and the Basel III 3% leverage minimum, and the
+charge-off rate follows the FDIC Quarterly Banking Profile definition. None is
+fitted. A leverage ratio is not comparable across business models (custody and
+trust banks run thin by design), which is also why a low loans / deposits ratio
+is never penalised.
+
+**What the tags allow** (cached companyfacts, 2026-10-13). `Deposits` is tagged
+for JPM, BAC, WFC, C and PNC through FY2025. JPM, BAC, C and PNC tag
+undimensioned loans under the `FinancingReceivableExcludingAccruedInterest…`
+elements; WFC's undimensioned loan, allowance and charge-off facts stop in
+2021-22, so its charge-off rate and loans / deposits are withheld and, with
+only tangible leverage on file, its balance sheet is unscored. JPM, BAC and PNC tag the
+`…AllowanceForCreditLossWriteoff` / `…Recovery` pair (and the after-recovery
+total); C uses `FinancingReceivableAllowanceForCreditLossesWriteOffs` /
+`…Recovery`. None tags a CET1 ratio after 2013, so CET1 is displayed when
+tagged and never graded. Undimensioned nonaccrual totals end in 2021-22, so the
+NPL input is usually withheld and the other weights renormalise.
+
 ---
 
 ## 7. Valuation inputs
