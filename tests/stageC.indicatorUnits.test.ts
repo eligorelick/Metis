@@ -63,9 +63,11 @@ describe("indicator and completeness rows (D-44)", () => {
     const payload = build();
     const prompt = serializePayloadForPrompt(payload);
     expect(prompt).not.toMatch(/completeness [\d.]+\)/);
-    expect(prompt).toMatch(/quality evidence completeness: 0\.4 fraction \[computed\.deterministic-aspect-scores\.quality-evidence-completeness · /);
-    expect(record(payload, "computed.deterministic-aspect-scores.quality-evidence-completeness")).toMatchObject({ value: 0.4, unit: "ratio" });
-    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.31, unit: "ratio" });
+    expect(prompt).toMatch(/quality evidence completeness: 0\.3989 fraction \[computed\.deterministic-aspect-scores\.quality-evidence-completeness · /);
+    const quality = record(payload, "computed.deterministic-aspect-scores.quality-evidence-completeness");
+    expect(quality.unit).toBe("ratio");
+    expect(quality.value).toBeCloseTo(0.39888888888888885, 14);
+    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.3125, unit: "ratio" });
   });
 
   it("verifies report 25/26's indicator spellings on their own records and rejects them on another indicator's", async () => {
@@ -100,9 +102,10 @@ describe("indicator and completeness rows (D-44)", () => {
       // Report 26 quality.graded.keyNumbers[1], verbatim apart from the as-of.
       { value: 0.4, unit: "evidence-completeness fraction", source: score.id, asOf: score.asOf, verified: null },
       { value: 0.4, unit: "fraction", source: score.id, asOf: score.asOf, verified: null },
+      { value: 0.3989, unit: "fraction", source: completeness.id, asOf: completeness.asOf, verified: null },
       { value: 0.4, unit: "fraction", source: completeness.id, asOf: completeness.asOf, verified: null },
       { value: 0.45, unit: "fraction", source: completeness.id, asOf: completeness.asOf, verified: null },
-    ])).toEqual(["unit-mismatch", "unit-mismatch", "supported", "value-mismatch"]);
+    ])).toEqual(["unit-mismatch", "unit-mismatch", "supported", "value-mismatch", "value-mismatch"]);
   });
 });
 

@@ -51,6 +51,7 @@ import {
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
+import { selectMaterialEvidence, type EvidenceSpan, type EvidenceCoverage } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -164,6 +165,10 @@ export interface TextExcerpt {
   truncated: boolean;
   /** Original character length before truncation (0 when absent). */
   originalChars: number;
+  /** Exact retained source passages; offsets refer to the original source text. */
+  spans?: EvidenceSpan[];
+  /** A keyword family being retained does not imply all of its passages survived. */
+  coverage?: EvidenceCoverage;
 }
 
 /**
@@ -268,7 +273,10 @@ export interface ContextPayload {
 // bank's loan ratios divide by gross loans first; the bank capital note and
 // tangible-leverage caveat no longer call the house cut point a regulatory
 // line. Prior partial passes cannot resume.
-export const PAYLOAD_VERSION = "1.15.0" as const;
+// 1.16.0 (META audit): section-aware bounded source spans and omissions,
+// metric-labelled numeric prose evidence, current financial bridges, explicit
+// accrual operands, and flat-share/alternative EPS evidence. Older passes cannot resume.
+export const PAYLOAD_VERSION = "1.16.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -436,6 +444,7 @@ interface ComputedCurrencies {
   runwayBurn: string | null;
   /** Runway liquidity: the balance row it was read from. */
   runwayLiquidity: string | null;
+  forensics: string | null;
 }
 
 /** The one ISO code every row carries, or null when any row lacks it or two differ. */
@@ -456,6 +465,7 @@ function computedCurrencies(bundle: DataBundle, computed: ComputedMetrics): Comp
   const rw = computed.runway;
   const cashflowQuarterly = rowsOf(bundle.statements.cashflowQuarterly);
   const burnRows = (rw?.burnWindowDates ?? []).flatMap((d) => rowsOn(cashflowQuarterly, isoDay(d)));
+  const accrualDates = [computed.forensics.accruals?.asOf.current ?? null, computed.forensics.accruals?.asOf.prior ?? null];
   return {
     trading: currencies.trading,
     model: currencies.model,
@@ -467,6 +477,11 @@ function computedCurrencies(bundle: DataBundle, computed: ComputedMetrics): Comp
       ...rowsOn(rowsOf(bundle.statements.balanceQuarterly), rw?.liquidAssetsAsOf ?? null),
       ...rowsOn(rowsOf(bundle.statements.balanceAnnual), rw?.liquidAssetsAsOf ?? null),
     ]),
+    forensics: sharedRowCurrency(accrualDates.flatMap((date) => [
+      ...rowsOn(rowsOf(bundle.statements.incomeAnnual), date),
+      ...rowsOn(rowsOf(bundle.statements.balanceAnnual), date),
+      ...rowsOn(rowsOf(bundle.statements.cashflowAnnual), date),
+    ])),
   };
 }
 
@@ -668,14 +683,56 @@ function computedSections(
     // and the withheld signals by name), so a 3-of-3 on a bank is never read
     // against the paper's 9-point scale.
     { label: fx.piotroski?.label ?? "Piotroski F", value: fx.piotroski?.score ?? null, unit: "score", source: "computed.forensics.piotroski", asOf: fx.piotroski?.asOf.current ?? null },
-    { label: "accrual ratio (cash-flow)", value: fx.accruals?.cashFlowAccrualRatio ?? null, unit: "x", source: "computed.forensics.accruals", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual ratio (cash-flow)", value: fx.accruals?.cashFlowAccrualRatio ?? null, unit: "x", source: "computed.forensics.accruals.cashFlowAccrualRatio", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual operand net income (NI)", value: fx.accruals?.netIncome ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.netIncome", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual operand operating cash flow (CFO)", value: fx.accruals?.operatingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual operand investing cash flow (CFI)", value: fx.accruals?.investingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.investingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "operating accruals only (NI minus CFO)", value: fx.accruals?.operatingAccruals ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingAccruals", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual band", value: fx.accruals?.band ?? null, unit: "", source: "computed.forensics.accruals.band", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual ratio (balance-sheet)", value: fx.accruals?.balanceSheetAccrualRatio ?? null, unit: "x", source: "computed.forensics.accruals.balanceSheetAccrualRatio", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "aggregate accruals (cash-flow)", value: fx.accruals?.aggregateAccrualsCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.aggregateAccrualsCashFlow", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "aggregate accruals (balance-sheet)", value: fx.accruals?.aggregateAccrualsBalanceSheet ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.aggregateAccrualsBalanceSheet", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "net operating assets (current)", value: fx.accruals?.noaCurrent ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.noaCurrent", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "net operating assets (prior)", value: fx.accruals?.noaPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.noaPrior", asOf: fx.accruals?.asOf.prior ?? null },
+    { label: "accrual scaler", value: fx.accruals?.scaler ?? null, unit: "", source: "computed.forensics.accruals.scaler", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual scaler value", value: fx.accruals?.scalerValue ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.scalerValue", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "absolute cash-flow versus balance-sheet accrual divergence", value: fx.accruals?.cashFlowAccrualRatio != null && fx.accruals.balanceSheetAccrualRatio !== null ? Math.abs(fx.accruals.cashFlowAccrualRatio - fx.accruals.balanceSheetAccrualRatio) * 100 : null, unit: "pp", source: "computed.forensics.accruals.divergence", asOf: fx.accruals?.asOf.current ?? null },
   ];
   const forensicNotes = [...fx.notes];
+  if (fx.accruals !== null) {
+    forensicNotes.push(
+      `Broad aggregate cash-flow accruals = NI - CFO - CFI; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}. NI uses the cash-flow statement's net income, with income-statement fallback; CFO/CFI are net cash provided by operating/investing activities for ${fx.accruals.asOf.current ?? "unknown period"}. Read those exact-dated statement rows, not another cash-flow definition.`,
+      "Investing outflows are negative CFI: subtracting them can make this broad accrual numerator positive even when CFO exceeds NI. That sign alone is not evidence of aggressive revenue recognition. The balance-sheet alternative is (NOA current - NOA prior) / the same scaler; reconcile divergence before drawing an earnings-quality conclusion.",
+    );
+  }
   for (const flag of fx.flags) {
     forensicNotes.push(`FLAG [${flag.severity}] ${flag.message} (rule: ${flag.rule})`);
   }
   sections.push(payloadSection({ title: "Forensics (computed)", figures: forensicFigures, notes: forensicNotes }));
+
+  const currentCapital = computed.capital.current;
+  if (currentCapital) {
+    const figures: PayloadFigureInput[] = [];
+    const add = (key: string, value: number | null, unit: string): void => {
+      const period = key.startsWith("debtBridge.") ? currentCapital.asOf
+        : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
+      figures.push({ label: key.replace(/\./g, " ").replace(/([a-z])([A-Z])/g, "$1 $2"), value, unit, currency: unit === "currency" ? currentCapital.currency : null,
+        source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period });
+    };
+    for (const key of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc"] as const) add(key, currentCapital[key], "x");
+    add("sbcPctOfFcf", currentCapital.sbcPctOfFcf, "%");
+    for (const key of ["netDebt", "ebitda"] as const) add(key, currentCapital[key], "currency");
+    for (const [key, value] of Object.entries(currentCapital.cashBridge)) {
+      if (key !== "definition" && (typeof value === "number" || value === null)) add(`cashBridge.${key}`, value, "currency");
+    }
+    for (const [key, value] of Object.entries(currentCapital.debtBridge)) add(`debtBridge.${key}`, value, "currency");
+    figures.push({ label: "capital basis", value: `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`,
+      unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
+    sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
+      `Current capital basis: ${currentCapital.basis}; exact window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
+      ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
+    ] }));
+  }
 
   // --- Technicals ----------------------------------------------------------
   const t = computed.technicals;
@@ -822,6 +879,15 @@ function computedSections(
         : null;
       if (b5) projFigures.push({ label: `${s.metric} bull ${b5.period}`, value: b5.value.value, unit: s.unit, currency: b5.value.currency, period: b5.period, source: `computed.projections.${s.metric}.bull`, asOf: b5.value.asOf });
       if (be5) projFigures.push({ label: `${s.metric} bear ${be5.period}`, value: be5.value.value, unit: s.unit, currency: be5.value.currency, period: be5.period, source: `computed.projections.${s.metric}.bear`, asOf: be5.value.asOf });
+      for (const alternative of ["flatShare", "shareTrend"] as const) {
+        for (const i of idxs) {
+          const point = s[alternative]?.weighted[i];
+          if (!point) continue;
+          projFigures.push({ label: `${alternative === "flatShare" ? "flat-share EPS" : "hypothetical historical-share-trend EPS"} weighted ${point.period}`,
+            value: point.value.value, unit: s.unit, currency: point.value.currency, period: point.period,
+            source: `computed.projections.${s.metric}.${alternative}.weighted`, asOf: point.value.asOf });
+        }
+      }
     }
     // The weights as a citable row (D-43). They were printed only inside the
     // section title, so a sentence about them had no tag to cite and the
@@ -839,7 +905,7 @@ function computedSections(
     sections.push(payloadSection({
       title: `Weighted projections (computed — ${pr.horizonYears}y forward, prob-weighted ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
       figures: projFigures,
-      notes: projectionSeries[0]?.assumptions ?? [],
+      notes: [...new Set(projectionSeries.flatMap((series) => series.assumptions))],
     }));
   } else if (computed.projections && computed.projections.notApplicableReason) {
     // No weights here: nothing is weighted on this route, so none are shown.
@@ -899,6 +965,8 @@ const INCOME_LINE_ITEMS: { key: keyof FmpIncomeStatementRow; label: string; unit
   { key: "epsDiluted", label: "diluted EPS", unit: "currency/share" },
   { key: "weightedAverageShsOutDil", label: "diluted shares", unit: "shares" },
   { key: "interestExpense", label: "interest expense", unit: "currency" },
+  { key: "incomeBeforeTax", label: "income before tax", unit: "currency" },
+  { key: "incomeTaxExpense", label: "income tax expense", unit: "currency" },
 ];
 
 const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: string }[] = [
@@ -911,7 +979,10 @@ const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: 
 ];
 
 const CASHFLOW_LINE_ITEMS: { key: keyof FmpCashFlowRow; label: string; unit: string }[] = [
+  { key: "netIncome", label: "net income (cash-flow)", unit: "currency" },
   { key: "operatingCashFlow", label: "operating cash flow", unit: "currency" },
+  { key: "netCashProvidedByOperatingActivities", label: "cash flow from operating activities (CFO)", unit: "currency" },
+  { key: "netCashProvidedByInvestingActivities", label: "cash flow from investing activities (CFI)", unit: "currency" },
   { key: "capitalExpenditure", label: "capex (negative)", unit: "currency" },
   { key: "freeCashFlow", label: "free cash flow", unit: "currency" },
   { key: "stockBasedCompensation", label: "stock-based comp", unit: "currency" },
@@ -1291,7 +1362,7 @@ function transcriptExcerpt(bundle: DataBundle): TextExcerpt | null {
   const content = strOrNull(t?.content);
   if (!content) return null;
   const asOf = isoDay(t?.date);
-  const cut = truncateWithDisclosure(content, PAYLOAD_BUDGETS.transcriptChars);
+  const cut = selectMaterialEvidence(content, PAYLOAD_BUDGETS.transcriptChars);
   const period = strOrNull(t?.period);
   const year = numOrNull(t?.year);
   return {
@@ -1301,6 +1372,8 @@ function transcriptExcerpt(bundle: DataBundle): TextExcerpt | null {
     asOf,
     truncated: cut.truncated,
     originalChars: cut.originalChars,
+    spans: cut.spans,
+    coverage: cut.coverage,
   };
 }
 
@@ -1314,7 +1387,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   ): void => {
     if (!res.ok || !res.value) return;
     const sec = res.value.data;
-    const cut = truncateWithDisclosure(sec.text, budget);
+    const cut = selectMaterialEvidence(sec.text, budget);
     const markerNote = sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "";
     out.push({
       title: `${title(sec.form)}${markerNote} (${sec.form} ${sec.accession})`,
@@ -1323,6 +1396,8 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
       asOf: isoDay(sec.reportDate),
       truncated: cut.truncated,
       originalChars: cut.originalChars,
+      spans: cut.spans,
+      coverage: cut.coverage,
     });
   };
   add(
@@ -1339,6 +1414,27 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   );
   add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2");
   return out;
+}
+
+function excerptCoverageDisclosures(excerpts: readonly (TextExcerpt | null)[]): ManifestEntry[] {
+  return excerpts.flatMap((excerpt) => {
+    if (excerpt === null || excerpt.coverage === undefined || !excerpt.truncated) return [];
+    const coverage = excerpt.coverage;
+    const families = coverage.categories.map((entry) =>
+      `${entry.category}: ${entry.status} (${entry.retainedPassages}/${entry.availablePassages} candidate passages retained)`).join("; ");
+    return [{ field: `evidenceCoverage.${excerpt.source}`,
+      reason: `${coverage.omittedChars} of ${excerpt.originalChars} source chars omitted by ${coverage.version} for ${excerpt.source} as of ${excerpt.asOf ?? "unknown date"}. ${families}. Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.`,
+      severity: "info" as const, attemptedSources: [excerpt.source] }];
+  });
+}
+
+/** Same bounded-source limitations in the model context and report appendix. */
+export function sourceEvidenceDisclosures(bundle: DataBundle): ManifestEntry[] {
+  // Verification's legacy unregistered-context stand-in has no source bundle.
+  return excerptCoverageDisclosures([
+    bundle.transcript?.latest ? transcriptExcerpt(bundle) : null,
+    ...(bundle.edgar ? filingExcerpts(bundle) : []),
+  ]);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -1538,6 +1634,7 @@ function attachProvenanceRegistry(
     figure.asOf = asOf;
     registry.push({
       id,
+      label: figure.label,
       kind,
       value: figure.value,
       unit,
@@ -1590,6 +1687,17 @@ function attachProvenanceRegistry(
   for (const section of payload.computed) {
     const sectionName = semanticSlug(section.title.split("(", 1)[0] ?? section.title);
     registerSection(`computed.${sectionName}`, section, "computed");
+    // Report-injected bridge rows use stable object-field IDs. Keep the model's
+    // printed semantic tag too; both identities refer to the same typed record.
+    for (const figure of section.figures) {
+      if (!/^computed\.(?:capital\.current\.|forensics\.accruals\.)/.test(figure.source)) continue;
+      const record = registry.find((entry) => entry.id === figure.provenanceId);
+      if (record && /^computed\.forensics\.accruals\./.test(figure.source) && isFullIsoDate(figure.asOf)) {
+        figure.period = figure.asOf;
+        record.period = figure.asOf;
+      }
+      if (record && !registry.some((entry) => entry.id === figure.source)) registry.push({ ...record, id: figure.source });
+    }
   }
   for (const block of payload.statements) {
     const blockName = semanticSlug(block.title);
@@ -1635,6 +1743,7 @@ function attachProvenanceRegistry(
         cell.provenanceId = id;
         registry.push({
           id,
+          label: line.lineItem,
           kind: "provider",
           value: cell.value,
           unit,
@@ -1727,6 +1836,16 @@ function attachProvenanceRegistry(
           }
         }
       }
+      for (const alternative of ["flatShare", "shareTrend"] as const) {
+        const paths = series[alternative];
+        if (!paths) continue;
+        for (const scenario of ["bull", "base", "bear", "weighted"] as const) {
+          for (const point of paths[scenario]) {
+            registerStageBNumber(projectionProvenanceId(series.metric, `${alternative}.${scenario}`, point.period),
+              point.value, point.period, projections.weightsVersion);
+          }
+        }
+      }
     }
   }
 
@@ -1816,11 +1935,14 @@ export function assembleContextPayload(
   // items/notes are info-severity disclosures (e.g. a recent-IPO's shortened
   // CAGR windows) that Stage B computes but that otherwise never reach the model
   // — surfacing them here keeps the prompt and the rendered appendix in agreement.
+  const transcript = transcriptExcerpt(bundle);
+  const filings = filingExcerpts(bundle);
   const missingData = mergeManifest([
     bundle.gaps,
     computed.gaps,
     validation.gaps,
     degradationDisclosures(computed.degradation),
+    excerptCoverageDisclosures([transcript, ...filings]),
   ]);
 
   const payload: PayloadWithoutRegistry = {
@@ -1844,8 +1966,8 @@ export function assembleContextPayload(
     shortInterest: shortInterestSection(bundle),
     segments: segmentsSection(bundle),
     macro: macroSection(bundle),
-    transcript: transcriptExcerpt(bundle),
-    filings: filingExcerpts(bundle),
+    transcript,
+    filings,
     news: newsSection(bundle),
     validationFlags,
     missingData,
@@ -1948,6 +2070,7 @@ function renderExcerpt(ex: TextExcerpt): string {
     title: ex.title,
     source: provenanceTag(ex.source, ex.asOf),
     truncated: ex.truncated,
+    coverage: ex.coverage,
     content: ex.text,
   });
   return [

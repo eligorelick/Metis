@@ -440,7 +440,7 @@ describe("valuation.reverseDcf — deterministic injection (assembly)", () => {
     const report = assemble(bundle, computed, judgeOutput());
 
     expect(report.valuation.reverseDcf.impliedValue).toBe(7.3); // NOT the judge's 42.42
-    expect(report.valuation.reverseDcf.impliedMetric).toBe("constant revenue growth (explicit horizon)");
+    expect(report.valuation.reverseDcf.impliedMetric).toBe("revenue growth (path family unavailable)");
     expect(report.valuation.reverseDcf.narrative).toBe("the market is pricing mid-single-digit growth");
     expect(() => ReportSchema.parse(report)).not.toThrow();
   });

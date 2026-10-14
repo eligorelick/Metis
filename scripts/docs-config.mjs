@@ -57,6 +57,8 @@ export const COMMAND_DESCRIPTIONS = {
   "audit:security": "Audit production and dev dependencies; fail on low or higher severity.",
   "check:dependencies": "Assert the dependency tree's shape.",
   "export:corrected": "Write corrected HTML/JSON from a stored run; requires new output filenames.",
+  "research:evaluate": "Evaluate frozen point-in-time forecasts offline; never changes production grades.",
+  "research:replay": "Reproduce Stage B from an immutable input snapshot without provider or model calls.",
 };
 
 /** Commands that exist for the suite's own plumbing and are not user-facing. */

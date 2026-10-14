@@ -34,9 +34,9 @@ import {
   type CurrencyEvidenceRow,
 } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
+import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
-import { windowCagr } from "@/pipeline/stageB/growth";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
@@ -500,14 +500,6 @@ function balanceSheetSection(
  * Valuation
  * ------------------------------------------------------------------------ */
 
-function bestMeasuredCagr(points: ComputedMetrics["growth"]["revenueCagrs"]): { windowYears: number; cagrPct: number } | null {
-  for (const window of [5, 3, 1]) {
-    const { cagrPct } = windowCagr(points, window);
-    if (cagrPct !== null) return { windowYears: window, cagrPct };
-  }
-  return null;
-}
-
 function reverseDcfNarrative(computed: ComputedMetrics): string {
   const v = computed.valuation;
   if (v.kind !== "dcf" || v.reverseDcf === null || v.reverseDcf.method === "none") {
@@ -515,11 +507,13 @@ function reverseDcfNarrative(computed: ComputedMetrics): string {
   }
   const r = v.reverseDcf;
   if (r.method === "growth" && isNum(r.impliedRevenueGrowthPct)) {
-    const achievable = bestMeasuredCagr(computed.growth.revenueCagrs);
-    const compare = achievable
-      ? ` The measured ${achievable.windowYears}-year revenue CAGR is ${fmtPct(achievable.cagrPct)}, a ${fmtSignedPp(r.impliedRevenueGrowthPct - achievable.cagrPct)} gap between what the price requires and what was delivered.`
+    const compare = r.growthPathFamily === "linear-fade-to-terminal" && isNum(r.baseRevenueGrowthPct)
+      ? ` Against base starting growth of ${fmtPct(r.baseRevenueGrowthPct)} on the same fading path, the starting-growth gap is ${fmtSignedPp(r.impliedRevenueGrowthPct - r.baseRevenueGrowthPct)}.`
       : "";
-    return `The market price is consistent with ${fmtPct(r.impliedRevenueGrowthPct)} constant revenue growth over the explicit DCF horizon, with every other DCF input held at its base value.${compare} Deterministic solve; no completed narrative assessment is available.`;
+    const path = r.growthPathFamily === "linear-fade-to-terminal"
+      ? "starting revenue growth, fading to the terminal rate over the explicit DCF horizon"
+      : "revenue growth (growth-path family unavailable)";
+    return `The market price is consistent with ${fmtPct(r.impliedRevenueGrowthPct)} ${path}, with every other DCF input held at its base value.${compare} Deterministic solve; no completed narrative assessment is available.`;
   }
   if (r.method === "margin" && isNum(r.impliedTerminalMarginPct)) {
     return `The market price is consistent with a ${fmtPct(r.impliedTerminalMarginPct)} terminal EBIT margin, with growth held at its base path (margin-solve fallback). Deterministic solve; no completed narrative assessment is available.`;
@@ -795,7 +789,7 @@ function synthesis(
   const v = computed.valuation;
   if (v.kind === "dcf" && v.reverseDcf?.method === "growth" && isNum(v.reverseDcf.impliedRevenueGrowthPct)) {
     parts.push(
-      `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} constant revenue growth over the explicit DCF horizon.`,
+      `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} starting revenue growth${v.reverseDcf.growthPathFamily === "linear-fade-to-terminal" ? ", fading to the terminal rate over the explicit DCF horizon" : " (growth-path family unavailable)"}.`,
     );
   }
   const flags = computed.forensics.flags.length;
@@ -894,9 +888,10 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
 
   // Templates and copied pipeline values have known origins, but no citation
   // check ran. A provider/path prefix alone cannot justify 100% support.
-  const { provenanceCoverage: _metaCoverage, ...meta } = candidate.meta;
-  const { provenanceCoverage: _appendixCoverage, ...appendix } = candidate.appendix;
+  const enriched = applyFinancialDiagnostics(candidate, computed, bundle);
+  const { provenanceCoverage: _metaCoverage, ...meta } = enriched.meta;
+  const { provenanceCoverage: _appendixCoverage, ...appendix } = enriched.appendix;
   void _metaCoverage;
   void _appendixCoverage;
-  return { ...candidate, meta, appendix };
+  return { ...enriched, meta, appendix };
 }

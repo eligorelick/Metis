@@ -74,7 +74,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // only when its measured span is its window; DCF, targets and notes can move.
 // D-40 (same release): AI-report scenario horizon labels are set in code, not
 // by the judge; the report shape is unchanged.
-export const REPORT_SPEC_VERSION = "1.10.0" as const;
+// 1.11.0: audit remediation adds numeric factual validation, explicit periods,
+// financial/valuation bridges and unassessed executive evidence. Legacy fields
+// remain readable; new deterministic outputs carry the revised conventions.
+export const REPORT_SPEC_VERSION = "1.11.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -405,6 +408,22 @@ export const ProvenanceCoverageSchema = z
     numeric: CoverageRateSchema,
     factualClaims: CoverageRateSchema,
     judgments: JudgmentCoverageSchema,
+    factualValidation: z.object({
+      cited: z.number().int().nonnegative(),
+      validated: z.number().int().nonnegative(),
+      unchecked: z.number().int().nonnegative(),
+      contradicted: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+      rate: z.number().min(0).max(1).nullable(),
+    }).strict().superRefine((v, ctx) => {
+      if (v.validated + v.unchecked + v.contradicted !== v.total || v.cited > v.total || v.validated > v.cited) {
+        ctx.addIssue({ code: "custom", message: "Factual validation counts must partition total and validated must be cited" });
+      }
+      const expected = v.total === 0 ? null : v.validated / v.total;
+      if (v.rate !== expected && !(v.rate !== null && expected !== null && Math.abs(v.rate - expected) < 1e-12)) {
+        ctx.addIssue({ code: "custom", path: ["rate"], message: "rate must equal validated / total" });
+      }
+    }).optional(),
   })
   .strict()
   .superRefine((coverage, ctx) => {
@@ -741,6 +760,7 @@ export const MetaSchema = z
     dataCompleteness: DataCompletenessSchema.optional(),
     /** Requested versus effective per-pass execution settings. */
     execution: z.array(ExecutionMetadataEntrySchema).optional(),
+    runSnapshot: z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), formatVersion: z.literal("RUN_INPUT_SNAPSHOT_1"), capturedAt: z.iso.datetime() }).strict().optional(),
     /**
      * DISCLAIMER: stored verbatim from the constant in force at generation time.
      * Parse-side accepts ANY non-empty string so a future edit to DISCLAIMER_TEXT
@@ -925,6 +945,18 @@ export const DcfSchema = z
     /** Flat list of cells (5×5 grid flattened; sensitivity). */
     sensitivityGrid: z.array(SensitivityCellSchema),
     upsidePct: z.number().nullable(),
+    bridge: z.object({
+      enterpriseValue: z.number().nullable(), netDebt: z.number().nullable(), minorityInterest: z.number().nullable(),
+      preferredEquity: z.number().nullable(), equityValue: z.number().nullable(), dilutedShares: z.number().nullable(),
+      presentValueExplicit: z.number().nullable(), presentValueTerminal: z.number().nullable(),
+      currency: z.string().nullable(), asOf: IsoDateSchema.nullable(),
+    }).strict().optional(),
+    forecastRows: z.array(z.object({
+      year: z.number().int().positive(), period: z.string(), revenue: z.number(), growthPct: z.number(),
+      ebitMarginPct: z.number(), taxRatePct: z.number(), nopat: z.number(), reinvestment: z.number(),
+      fcff: z.number(), presentValue: z.number(), periodStart: IsoDateSchema.optional(), periodEnd: IsoDateSchema.optional(),
+      periodBasis: z.enum(["rolling-12-month", "fiscal-year"]).optional(),
+    }).strict()).optional(),
   })
   .strict();
 export type Dcf = z.infer<typeof DcfSchema>;
@@ -1125,8 +1157,9 @@ export const ExecutiveSchema = z
     name: z.string(),
     title: z.string(),
     tenureYears: z.number().nullable(),
-    grade: GradeSchema,
-    credibilityGrade: GradeSchema,
+    grade: z.enum(["A", "B", "C", "D", "F", "not-assessed"]),
+    credibilityGrade: z.enum(["A", "B", "C", "D", "F", "not-assessed"]),
+    assessmentReason: z.string().optional(),
     reasoning: z.array(SourcedClaimSchema),
     evidence: ExecutiveEvidenceSchema,
   })
@@ -1311,6 +1344,11 @@ export const VerificationLogEntrySchema = z
   .object({
     claim: z.string(),
     outcome: z.enum(["verified", "unverified", "removed"]),
+    validationStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
+    sourceSpans: z.array(z.object({
+      source: z.string(), asOf: IsoDateSchema.nullable(),
+      start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string(),
+    }).strict().refine(v => v.end >= v.start, "Source span must end after it starts")).optional(),
     note: z.string().optional(),
     /** Exact report path and evidence identity for 1.2.0+ logs. */
     path: z.string().optional(),
@@ -1495,6 +1533,17 @@ export const ScoreAspectSchema = z.enum([
 ]);
 export type ScoreAspect = z.infer<typeof ScoreAspectSchema>;
 
+export const ScoreSignalSchema = z.object({
+  id: z.string(), raw: z.number(), unit: z.string(), transformedScore: z.number().min(0).max(100),
+  signalWeight: z.number().nonnegative(), evidenceFraction: z.number().min(0).max(1),
+  effectiveCompositeWeightPct: z.number().nonnegative(), contributionPoints: z.number(),
+  family: z.string(), asOf: IsoDateSchema.nullable(), period: z.string().nullable(),
+  startDate: IsoDateSchema.nullable(), endDate: IsoDateSchema.nullable(), windowYears: z.number().nullable(),
+  fallbackReason: z.string().nullable(),
+  operands: z.array(z.object({ name: z.string(), value: z.number().nullable(), source: z.string(), asOf: IsoDateSchema.nullable() }).strict()),
+}).strict();
+export type ScoreSignal = z.infer<typeof ScoreSignalSchema>;
+
 export const AspectScoreSchema = z
   .object({
     /** 0–100; null when the aspect is not applicable for the route. */
@@ -1516,6 +1565,7 @@ export const AspectScoreSchema = z
     applicableCompleteness: z.number().min(0).max(1).nullable().optional(),
     /** The sub-signals behind the score, as traced numbers. */
     drivers: z.array(TracedNumberSchema),
+    signals: z.array(ScoreSignalSchema).optional(),
     /** Non-null when the aspect cannot be scored for this route/data. */
     notApplicableReason: z.string().nullable(),
     /** One-line methodology / caveat (rating-safe). */
@@ -1561,6 +1611,13 @@ export const ScoringSchema = z
     composite: CompositeScoreSchema,
     /** Versioned band table id (e.g. "SCORE_BANDS_2026_01"). */
     bandsVersion: z.string(),
+    assessments: z.object({
+      businessQuality: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string() }).strict(),
+      valuation: z.object({ score: z.number().nullable(), band: GradeSchema.nullable(), basis: z.string() }).strict(),
+      evidenceCompleteness: z.number().min(0).max(1),
+      calibration: z.literal("unbacktested-house-rules"),
+    }).strict().optional(),
+    factorExposure: z.array(z.object({ family: z.string(), weightPct: z.number(), aboveNeutralPoints: z.number() }).strict()).optional(),
   })
   .strict();
 export type Scoring = z.infer<typeof ScoringSchema>;
@@ -1586,9 +1643,21 @@ export const ProjectionMetricSchema = z.enum([
 export type ProjectionMetric = z.infer<typeof ProjectionMetricSchema>;
 
 export const ProjectionPointSchema = z
-  .object({ period: z.string(), value: TracedNumberSchema })
-  .strict();
+  .object({ period: z.string(), value: TracedNumberSchema,
+    periodStart: IsoDateSchema.optional(), periodEnd: IsoDateSchema.optional(),
+    periodBasis: z.enum(["rolling-12-month", "fiscal-year"]).optional(),
+  })
+  .strict().refine(v => !v.periodStart || !v.periodEnd || v.periodStart <= v.periodEnd, "Forecast period start must precede its end");
 export type ProjectionPoint = z.infer<typeof ProjectionPointSchema>;
+
+const ProjectionPathsSchema = z.object({ bull: z.array(ProjectionPointSchema), base: z.array(ProjectionPointSchema), bear: z.array(ProjectionPointSchema), weighted: z.array(ProjectionPointSchema) }).strict();
+export const ScenarioAssumptionsSchema = z.object({
+  methodVersion: z.string(), shockPersistence: z.literal("persistent-explicit-horizon"), terminalTransition: z.string(),
+  growthMarginCorrelation: z.number().min(-1).max(1).nullable(),
+  scenarios: z.array(z.object({ name: z.enum(["bull", "base", "bear"]), growthDeltaPp: z.number(), marginDeltaPp: z.number() }).strict()),
+  alternatives: z.array(z.object({ name: z.literal("decaying-growth-shock"), bullPerShare: z.number().nullable(), bearPerShare: z.number().nullable(), basis: z.string() }).strict()),
+}).strict();
+export type ScenarioAssumptions = z.infer<typeof ScenarioAssumptionsSchema>;
 
 export const ProjectionSeriesSchema = z
   .object({
@@ -1601,6 +1670,12 @@ export const ProjectionSeriesSchema = z
     bear: z.array(ProjectionPointSchema),
     /** Probability-weighted expected path (the headline projection). */
     weighted: z.array(ProjectionPointSchema),
+    flatShare: ProjectionPathsSchema.optional(),
+    shareTrend: ProjectionPathsSchema.optional(),
+    capitalReturn: z.object({
+      shareCountAnnualizedPct: z.number().nullable(), appliedShareCountAnnualizedPct: z.number(),
+      policy: z.enum(["flat-share-conservative", "dilution-trend"]), basis: z.string(), netIncomeToEbit: z.number(),
+    }).strict().optional(),
     /** Human-readable basis lines (from DcfAssumptions.notes + dispersion). */
     assumptions: z.array(ratingSafeString()),
     disclosures: z.array(ManifestEntrySchema),
@@ -1644,6 +1719,7 @@ export const ProjectionsSchema = z
       .strict(),
     /** Versioned scenario-weight prior id (e.g. "PROJECTION_WEIGHTS_2026_01"). */
     weightsVersion: z.string(),
+    scenarioAssumptions: ScenarioAssumptionsSchema.optional(),
     series: z.array(ProjectionSeriesSchema),
     /** Non-null when projections are suppressed for the route / thin data. */
     notApplicableReason: z.string().nullable(),
@@ -1689,6 +1765,7 @@ export const ScenarioTargetsSchema = z
     method: z.string(),
     /** Versioned method prior (e.g. "SCENARIO_TARGETS_2026_07"). */
     methodVersion: z.string(),
+    scenarioAssumptions: ScenarioAssumptionsSchema.optional(),
     /** Human formula/dependency + assumption-delta disclosure lines. */
     basis: z.array(z.string()),
     /** The ±σ band actually used; null when suppressed. */
@@ -1817,7 +1894,7 @@ const JudgeOutputObjectSchema = z
     business: BusinessSchema,
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
-    valuation: ValuationSchema,
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,
@@ -2263,6 +2340,7 @@ export function collapseNullableComplexity<T>(schema: T): T {
  * honest as omitting the key).
  */
 const ALWAYS_FILLED_BY_GENERATION = new Set([
+  "assessmentReason",
   "executiveSummary",
   "interpretation",
   "graded",

@@ -26,6 +26,7 @@ import {
 } from "@/pipeline/stageB/growth";
 import { resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import type { CurrentCapitalSnapshot } from "@/pipeline/stageB/currentCapital";
 
 // ---------------------------------------------------------------------------
 // Input interfaces — FMP field names
@@ -62,6 +63,9 @@ export interface CapitalCashFlowRow {
   /** NEGATIVE in FMP (freeCashFlow = operatingCashFlow + capitalExpenditure). */
   capitalExpenditure?: number | null;
   freeCashFlow?: number | null;
+  financeLeasePrincipalPayments?: number | null;
+  issuerFreeCashFlow?: number | null;
+  issuerFreeCashFlowDefinition?: string | null;
   /** NEGATIVE in FMP (cash outflow). */
   commonStockRepurchased?: number | null;
 }
@@ -72,6 +76,8 @@ export interface CapitalBalanceRow {
   acceptedDate?: string | null;
   filingDate?: string | null;
   totalDebt?: number | null;
+  operatingLeaseLiability?: number | null;
+  financeLeaseLiability?: number | null;
   /** FMP: netDebt = totalDebt − cash (short-term investments NOT netted). */
   netDebt?: number | null;
   cashAndCashEquivalents?: number | null;
@@ -199,6 +205,8 @@ export interface ShareCountTrend {
 }
 
 export interface CapitalResult {
+  /** Current comparable flow/balance window used in capital grading. Annual series remain historical. */
+  current?: CurrentCapitalSnapshot;
   /** Latest statement date used — provenance anchor. */
   asOf: string | null;
   fcf: {
@@ -309,7 +317,7 @@ const FCF_SBC_BASIS =
   "\"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; " +
   "years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: " +
   "FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the " +
-  "balance-sheet grading band was calibrated on and the one that is GRADED — grading the after-SBC ratio on that " +
+  "unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that " +
   "band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric.";
 
 const MAINT_CAPEX_HEURISTIC_NOTE =

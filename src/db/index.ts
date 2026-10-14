@@ -124,6 +124,18 @@ CREATE TABLE IF NOT EXISTS "settings" (
 `;
 
 const DURABLE_JOB_TABLE_DDL = `
+CREATE TABLE IF NOT EXISTS "run_input_snapshots" (
+  "hash" TEXT PRIMARY KEY NOT NULL,
+  "snapshotJson" TEXT NOT NULL,
+  "createdAt" TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS "job_run_inputs" (
+  "jobId" TEXT NOT NULL REFERENCES "jobs"("id") ON DELETE CASCADE,
+  "runGeneration" INTEGER NOT NULL,
+  "snapshotHash" TEXT NOT NULL REFERENCES "run_input_snapshots"("hash"),
+  "capturedAt" TEXT NOT NULL,
+  CONSTRAINT "job_run_inputs_pk" PRIMARY KEY ("jobId", "runGeneration")
+);
 CREATE TABLE IF NOT EXISTS "job_pass_artifacts" (
   "jobId" TEXT NOT NULL REFERENCES "jobs"("id") ON DELETE CASCADE,
   "runGeneration" INTEGER NOT NULL,

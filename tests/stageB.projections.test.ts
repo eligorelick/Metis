@@ -129,7 +129,9 @@ describe("projections — structure", () => {
     expect(pt.value.source).toBe("computed.projections.revenue.weighted");
     expect(pt.value.verified).toBe(true);
     expect(pt.value.unit).toBe("USD");
-    expect(pt.period).toMatch(/^FY\d{4}$/);
+    expect(pt.period).toBe("12M ending 2026-12-31");
+    expect(pt.periodStart).toBe("2026-01-01");
+    expect(pt.periodEnd).toBe("2026-12-31");
   });
 });
 
@@ -242,9 +244,9 @@ describe("projections — scenarios", () => {
   });
 
   it("forward labels track the DCF's TTM base period (mid-year filer not mislabelled early)", () => {
-    // Base fixture: TTM date 2025-12-31 → forward starts FY2026 regardless of annual tail.
+    // TTM anchor stays explicitly rolling even when its date coincides with December.
     const rev = byMetric(computeProjections(makeInputs()), "revenue");
-    expect(rev.base[0].period).toBe("FY2026");
+    expect(rev.base[0].period).toBe("12M ending 2026-12-31");
   });
 });
 
@@ -264,12 +266,14 @@ describe("projections — EPS derivation", () => {
     expect(p.series.length).toBe(3);
   });
 
-  it("suppresses EPS when the share-count trend is missing but preserves a finite zero trend", () => {
+  it("uses a disclosed flat-share base when the trend is missing and preserves zero trend", () => {
     const p = computeProjections(makeInputs({ shareCountAnnualizedPct: null }));
     const disclosures = p.series.flatMap((series) => series.disclosures);
     const revenue = byMetric(p, "revenue");
 
-    expect(p.series.some((series) => series.metric === "epsDiluted")).toBe(false);
+    expect(p.series.some((series) => series.metric === "epsDiluted")).toBe(true);
+    expect(byMetric(p, "epsDiluted").capitalReturn?.appliedShareCountAnnualizedPct).toBe(0);
+    expect(byMetric(p, "epsDiluted").shareTrend).toBeUndefined();
     expect(revenue.disclosures).toContainEqual(
       expect.objectContaining({
         field: "projections.eps.shareCountTrend",
@@ -286,7 +290,10 @@ describe("projections — EPS derivation", () => {
 
     const flatShares = computeProjections(makeInputs({ shareCountAnnualizedPct: 0 }));
     expect(flatShares.series.some((series) => series.metric === "epsDiluted")).toBe(true);
-    expect(JSON.stringify(flatShares)).toContain("0%/yr (buyback/dilution history)");
+    expect(byMetric(flatShares, "epsDiluted").base).toEqual(
+      byMetric(flatShares, "epsDiluted").flatShare?.base.map(pt => ({ ...pt,
+        value: { ...pt.value, source: "computed.projections.epsDiluted.base" } })),
+    );
   });
 });
 

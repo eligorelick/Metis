@@ -42,7 +42,7 @@ const METRICS = ["revenue", "operatingMargin", "fcf", "epsDiluted"] as const;
 const METRIC_LABELS = [
   "Revenue",
   "Operating margin",
-  "Free cash flow (FCFF)",
+  "Cash flow (historical FCF; forecast FCFF)",
   "Diluted EPS",
 ] as const;
 const PATHS = ["historical", "bull", "base", "bear", "weighted"] as const;

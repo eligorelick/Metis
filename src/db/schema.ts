@@ -286,6 +286,21 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
 });
 
+/** Content-addressed normalized inputs/evidence; never updated from mutable cache. */
+export const runInputSnapshots = sqliteTable("run_input_snapshots", {
+  hash: text("hash").primaryKey(),
+  snapshotJson: text("snapshotJson").notNull(),
+  createdAt: text("createdAt").notNull(),
+});
+
+/** Separate immutable association; retries/generations cannot replace prior inputs. */
+export const jobRunInputs = sqliteTable("job_run_inputs", {
+  jobId: text("jobId").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  runGeneration: integer("runGeneration").notNull(),
+  snapshotHash: text("snapshotHash").notNull().references(() => runInputSnapshots.hash),
+  capturedAt: text("capturedAt").notNull(),
+}, t => [primaryKey({ columns: [t.jobId, t.runGeneration], name: "job_run_inputs_pk" })]);
+
 // ---------------------------------------------------------------------------
 // Inferred row types
 // ---------------------------------------------------------------------------

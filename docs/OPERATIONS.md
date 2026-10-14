@@ -298,3 +298,26 @@ Implementation anchors: `src/app/api/`, `src/app/requestSecurity.ts`,
 `src/report/history.ts`, `src/report/export/`, `src/ai/`, `scripts/`,
 `Start-Thesis.ps1`, `Stop-Thesis.ps1`, `vitest.shared.ts` and
 `.github/workflows/ci.yml`.
+
+
+## Immutable run inputs and offline Stage B replay
+
+New report runs save a content-addressed snapshot after acquisition and before validation/computation. It contains the normalized full `DataBundle`, its build timestamp, provider envelopes, source excerpts, calculation/report/score-band versions, and the explicit `evIncludeLeases` calculation option. The snapshot used by Stage B is the same frozen normalized object that was saved. API credentials are excluded and credential-bearing query strings/authorization values are redacted, with affected paths recorded.
+
+`run_input_snapshots` stores the immutable JSON by SHA-256 digest. `job_run_inputs` associates each job ID and execution generation with one digest and capture timestamp. Different generations can retain different inputs. Repeated persistence of the same run is idempotent; replacing its inputs or encountering different content at the same digest fails. Capture time is association metadata, so identical input content can be shared by independent jobs. Every read checks the stored content against its digest. Deleting a job association does not delete the content blob.
+
+Saved reports expose `meta.runSnapshot` with the digest, format and capture time. A durable verification resume retains its source generation's frozen inputs and original capture time. Legacy reports without a snapshot remain readable, but the application does not invent immutable historical inputs from today's mutable API cache.
+
+Run from the repository directory using the existing local Node/tsx runtime:
+
+```powershell
+node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --job JOB_ID --generation 0 --export-snapshot frozen-inputs.json --output replayed-stageb.json
+node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --hash SHA256_DIGEST --output replayed-stageb.json
+node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --snapshot frozen-inputs.json --output replayed-stageb.json
+```
+
+The first two forms read the local application database (`THESIS_DB_PATH` may select an explicit database). The third reads only the exported file. The CLI never fetches a provider or calls a model. Output files use exclusive creation and fail if the destination already exists. Omit `--output` to write the replay JSON to standard output. The output includes `offline: true`, `snapshotHash`, and deterministic `computed` Stage B results.
+
+Replay uses the snapshot's build date and explicit calculation options, independent of the present clock, cache or lease configuration. It checks digest integrity and requires the installed calculation/report/score-band versions to match. An unavailable historical implementation fails explicitly; running today's changed rules on yesterday's input is not labeled an exact replay. These version stamps must be bumped when their calculation meanings change.
+
+This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.

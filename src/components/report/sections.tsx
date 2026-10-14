@@ -16,6 +16,7 @@
 import type { ReactNode } from "react";
 import { gradeForDisplay, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import { formatExecutionMetadata } from "@/report/execution";
+import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
 
 import {
   Badge,
@@ -216,8 +217,9 @@ function AuditTable({
   );
 }
 
-function auditValue(value: string | number | boolean | null | undefined): string {
+function auditValue(value: unknown): string {
   if (value === null || value === undefined) return "n/a";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
@@ -322,6 +324,13 @@ export function GradeStripBar({
  * 0–100 score pill per aspect, each deep-linking to its section. Sub-100 data
  * completeness is surfaced so a thinly-scored aspect is disclosed, not hidden.
  */
+function ExtraAuditTables({ tables }: { tables: ReportAuditTable[] }) {
+  return <>{tables.map(t=><SubBlock key={t.heading} label={t.heading}>
+    <AuditTable headers={t.headers} rows={t.rows.map((cells,index)=>({key:`${t.heading}:${index}`,cells}))}/>
+    {t.note && <p className="mt-2 text-[11px] leading-snug text-muted">{t.note}</p>}
+  </SubBlock>)}</>;
+}
+
 export function CompositeScorecard({ scores }: { scores: Scoring }) {
   const c = scores.composite;
   return (
@@ -409,7 +418,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
             headers={[
               "Aspect",
               ...ASPECT_SCORE_FIELDS
-                .filter((field) => field.key !== "drivers")
+                .filter((field) => field.key !== "drivers" && field.key !== "signals")
                 .map((field) => field.label),
             ]}
             rows={SCORE_SURFACES.flatMap((descriptor) => {
@@ -418,7 +427,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
               return [{
                 key: descriptor.id,
                 cells: [descriptor.label, ...ASPECT_SCORE_FIELDS
-                  .filter((field) => field.key !== "drivers")
+                  .filter((field) => field.key !== "drivers" && field.key !== "signals")
                   .map((field) => {
                     if (field.key === "dataCompleteness") {
                       return String(aspect.dataCompleteness);
@@ -442,6 +451,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
           />
         </SubBlock>
       </div>
+      <ExtraAuditTables tables={scoreAuditTables(scores)}/>
       <div className="border-t border-edge px-3 py-1.5">
         <p className="text-[10px] leading-snug text-faint">{c.methodology}</p>
       </div>
@@ -515,6 +525,7 @@ export function ProjectionsSection({
           </ul>
         </SubBlock>
       )}
+      <ExtraAuditTables tables={projectionAuditTables(projections)}/>
       <SubBlock label="Projection audit trail">
         <div className="flex flex-col gap-4">
           <AuditTable
@@ -540,7 +551,7 @@ export function ProjectionsSection({
               }
               return [{
                 key: field.id,
-                cells: [field.label, auditValue(projections.notApplicableReason)],
+                cells: [field.label, auditValue(projections[field.key])],
               }];
             })}
           />
@@ -556,6 +567,7 @@ export function ProjectionsSection({
                     "Metric",
                     "Path",
                     PROJECTION_POINT_FIELD_BY_KEY.period.label,
+                    "Period start", "Period end", "Period basis",
                     "Series unit",
                     ...TRACED_AUDIT_HEADERS,
                   ]}
@@ -566,6 +578,7 @@ export function ProjectionsSection({
                         metric.label,
                         path.label,
                         point.period,
+                        auditValue(point.periodStart), auditValue(point.periodEnd), auditValue(point.periodBasis),
                         projectionSeries.unit,
                         ...tracedAuditCells(point.value),
                       ],
@@ -1089,6 +1102,7 @@ export function ValuationSection({
 
       <SubBlock label="sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low">
         <SensitivityGrid dcf={dcf} />
+        <ExtraAuditTables tables={valuationAuditTables(dcf)}/>
       </SubBlock>
 
       <SubBlock label="multiples vs peers & own 5-yr history">
@@ -1406,6 +1420,7 @@ function ExecutiveCard({ exec }: { exec: Executive }) {
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2.5 py-2">
+        {exec.assessmentReason && <p className="text-[11px] text-muted">{exec.assessmentReason}</p>}
         <ClaimList claims={exec.reasoning} />
         {EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => ({
           descriptor,
@@ -2019,6 +2034,7 @@ export function AppendixSection({
       {dataOnly && <p className="text-[11px] text-faint">No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.</p>}
       {provenance && (
         <SubBlock label="provenance coverage (support, not correctness)">
+          {factualValidationText(provenance) && <p className="mb-2 text-[11px] text-muted">{factualValidationText(provenance)}</p>}
           <div className="grid gap-2 text-[11px] sm:grid-cols-3">
             <div>
               <span className="text-faint">numeric provenance</span>{" "}
@@ -2225,6 +2241,8 @@ export function ReportMetaStrip({
           Data completeness · {presentation.statusText}
         </span>
       </div>
+      {factualValidationText(m.provenanceCoverage) && <p className="mt-2 text-[11px] text-muted">{factualValidationText(m.provenanceCoverage)}</p>}
+      {m.runSnapshot && <p className="mt-1 break-all text-[10px] text-faint">Frozen input snapshot: {m.runSnapshot.hash} · {m.runSnapshot.capturedAt}</p>}
       {/* WS6 (D-19): the stored disclaimer, verbatim, on the page that shows
           seven letter grades and three price targets — the Markdown and print
           exports already printed it; the live view did not (audit 2026-09-06,

@@ -18,6 +18,7 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
@@ -489,6 +490,8 @@ export interface GrowthAnchor {
 }
 
 export interface DcfAssumptions {
+  /** Exact basis of the revenue anchor; absent on legacy/manual assumptions. */
+  forecastPeriod?: { basis: "rolling-12-month" | "fiscal-year"; anchorEndDate: string; anchorStartDate: string | null };
   startRevenue: Assumption<number>;
   /** Explicit horizon (default 10). */
   years: number;
@@ -942,6 +945,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   notes.push(sbcBasis);
 
   const assumptions: DcfAssumptions = {
+    ...(ttm?.date ? { forecastPeriod: {
+      basis: ttm.basis === "annual" ? "fiscal-year" as const : "rolling-12-month" as const,
+      anchorEndDate: ttm.date,
+      anchorStartDate: forecastYearPeriod(ttm.date, 0, "rolling-12-month")?.startDate ?? null,
+    } } : {}),
     startRevenue: { value: startRev, basis: `${periodBasis} revenue as of ${ttm?.date ?? "?"}` },
     years,
     wacc: {
@@ -1006,6 +1014,7 @@ export interface DcfRunOptions {
 }
 
 export interface DcfYearRow {
+  period?: DcfForecastPeriod;
   year: number;
   revenue: number;
   growthPct: number;
@@ -1017,6 +1026,31 @@ export interface DcfYearRow {
   fcff: number;
   discountFactor: number;
   pv: number;
+}
+
+export interface DcfForecastPeriod {
+  basis: "rolling-12-month" | "fiscal-year";
+  startDate: string;
+  endDate: string;
+  label: string;
+}
+
+/** Calendar-anniversary windows, clamped for leap days; never a guessed fiscal year. */
+export function forecastYearPeriod(anchorEndDate: string, t: number, basis: DcfForecastPeriod["basis"]): DcfForecastPeriod | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorEndDate)) return null;
+  const anchor = new Date(`${anchorEndDate}T00:00:00Z`);
+  if (!Number.isFinite(anchor.getTime()) || anchor.toISOString().slice(0, 10) !== anchorEndDate) return null;
+  const anniversary = (offset: number) => {
+    const year = anchor.getUTCFullYear() + offset;
+    const month = anchor.getUTCMonth();
+    const day = Math.min(anchor.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+    return new Date(Date.UTC(year, month, day));
+  };
+  const endDate = anniversary(t).toISOString().slice(0, 10);
+  const start = anniversary(t - 1);
+  start.setUTCDate(start.getUTCDate() + 1);
+  return { basis, startDate: start.toISOString().slice(0, 10), endDate,
+    label: basis === "fiscal-year" ? `FY${endDate.slice(0, 4)} ending ${endDate}` : `12M ending ${endDate}` };
 }
 
 /** The EV→equity→per-share bridge a DCF result was computed with. */
@@ -1146,6 +1180,8 @@ function dcfCore(
     pvExplicit += pv;
     yearRows.push({
       year: t,
+      ...(a.forecastPeriod && forecastYearPeriod(a.forecastPeriod.anchorEndDate, t, a.forecastPeriod.basis)
+        ? { period: forecastYearPeriod(a.forecastPeriod.anchorEndDate, t, a.forecastPeriod.basis)! } : {}),
       revenue: rev,
       growthPct: g,
       ebitMarginPct: m,
@@ -1384,8 +1420,11 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
 
 export interface ReverseDcfResult {
   method: "growth" | "margin" | "none";
-  /** Constant explicit-horizon revenue growth (pct) that justifies the price. */
+  /** First-year growth (pct), linearly fading to the forward model's final rate. */
   impliedRevenueGrowthPct: number | null;
+  growthPathFamily?: "linear-fade-to-terminal";
+  baseRevenueGrowthPct?: number | null;
+  impliedGrowthPathPct?: number[] | null;
   /** Market-implied terminal EBIT margin (pct) — margin-fallback mode. */
   impliedTerminalMarginPct: number | null;
   notes: string[];
@@ -1439,7 +1478,7 @@ function nearestBracket(brackets: Bracket[], anchor: number): Bracket | null {
   return best;
 }
 
-/** Derivative-free bisection to BISECTION_TOL_PP (or |f| < 0.05% of price). */
+/** Derivative-free bisection to BISECTION_TOL_PP, retaining exact price roots. */
 function bisect(
   f: (x: number) => number | null,
   bracket: Bracket,
@@ -1447,7 +1486,7 @@ function bisect(
 ): number | null {
   let { lo, hi, fLo } = bracket;
   if (lo === hi) return lo; // exact grid root
-  const fTol = 0.0005 * Math.abs(price);
+  const fTol = 1e-10 * Math.abs(price);
   for (let iter = 0; iter < BISECTION_MAX_ITER && hi - lo > BISECTION_TOL_PP; iter++) {
     const mid = (lo + hi) / 2;
     const fMid = f(mid);
@@ -1464,7 +1503,8 @@ function bisect(
 }
 
 /**
- * Reverse DCF: what constant explicit-horizon revenue growth justifies the
+ * Reverse DCF: what first-year revenue-growth anchor, fading linearly to the
+ * forward path's final growth rate, justifies the
  * current price, everything else frozen at base case? Pre-scans f(g) on a
  * 17-point grid over [-20, +60] (value is non-monotone in growth when
  * ROIC < WACC — picks the sign-change bracket whose midpoint is nearest the
@@ -1481,7 +1521,9 @@ export function reverseDcf(
   const gaps: ManifestEntry[] = [];
   const none = (why: string): ReverseDcfResult => {
     notes.push(why);
-    return { method: "none", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: null, notes, gaps };
+    return { method: "none", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: null,
+      growthPathFamily: "linear-fade-to-terminal", baseRevenueGrowthPct: assumptions.growthPath.value[0] ?? null,
+      impliedGrowthPathPct: null, notes, gaps };
   };
 
   const price = posOrNull(currentPrice);
@@ -1514,30 +1556,21 @@ export function reverseDcf(
   const baseRows = dcfCore(assumptions, opts.waccPct, { guardMode: "clamp" });
   const baseFcff1 = baseRows?.yearRows[0]?.fcff ?? null;
   const baseG1 = assumptions.growthPath.value[0];
+  const finalGrowth = assumptions.growthPath.value[n - 1];
 
   const solveGrowth = (): ReverseDcfResult | null => {
     const [lo, hi] = REVERSE_GROWTH_RANGE_PCT;
-    const xs = prescanGrid(lo, hi);
+    const xs = [...new Set([...prescanGrid(lo, hi), ...(baseG1 >= lo && baseG1 <= hi ? [baseG1] : [])])].sort((a, b) => a - b);
     const fG = (g: number): number | null => {
-      const v = perShareAt({ growthPathPct: Array.from({ length: n }, () => g) });
+      const v = perShareAt({ growthPathPct: fadePath(g, finalGrowth, n) });
       return v === null ? null : v - price;
     };
     const fs = xs.map(fG);
     const brackets = findBrackets(xs, fs);
     if (brackets.length === 0) {
-      const fLo = fs[0];
-      const fHi = fs[fs.length - 1];
-      if (fLo !== null && fLo > 0) {
-        notes.push(
-          `market price implies < ${lo}%/yr revenue growth — deep-value/distress framing (no root on pre-scan grid)`,
-        );
-      } else if (fHi !== null && fHi < 0) {
-        notes.push(
-          `market price implies > ${hi}%/yr revenue growth — not justifiable on these margins (no root on pre-scan grid)`,
-        );
-      } else {
-        notes.push("no sign change of f(growth) on the 17-point pre-scan grid");
-      }
+      const reason = `no root bracket for the fading year-one growth anchor on the [${lo}, ${hi}]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone`;
+      notes.push(reason);
+      gaps.push(gapEntry("valuation.reverseDcf.growthBracket", reason, "warn"));
       return null;
     }
     if (brackets.length > 1) {
@@ -1550,9 +1583,11 @@ export function reverseDcf(
     const root = bisect(fG, bracket, price);
     if (root === null) return null;
     notes.push(
-      `implied CONSTANT revenue growth over ${n} explicit years (no fade); all other assumptions frozen at base case`,
+      `implied first-year revenue growth, linearly fading to the forward path's final ${fmtNum(finalGrowth)}% growth over ${n} explicit years; compare with the base year-one anchor ${fmtNum(baseG1)}%, not a historical CAGR; all other assumptions frozen at base case`,
     );
-    return { method: "growth", impliedRevenueGrowthPct: root, impliedTerminalMarginPct: null, notes, gaps };
+    return { method: "growth", impliedRevenueGrowthPct: root, impliedTerminalMarginPct: null,
+      growthPathFamily: "linear-fade-to-terminal", baseRevenueGrowthPct: baseG1,
+      impliedGrowthPathPct: fadePath(root, finalGrowth, n), notes, gaps };
   };
 
   const solveMargin = (): ReverseDcfResult | null => {
@@ -1589,7 +1624,9 @@ export function reverseDcf(
     notes.push(
       `market-implied steady-state (terminal) EBIT margin, fading from current ${fmtNum(m0)}% over ${n} years; growth path frozen at base case`,
     );
-    return { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: root, notes, gaps };
+    return { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: root,
+      growthPathFamily: "linear-fade-to-terminal", baseRevenueGrowthPct: baseG1,
+      impliedGrowthPathPct: null, notes, gaps };
   };
 
   if (baseFcff1 !== null && baseFcff1 <= 0) {
@@ -1767,6 +1804,7 @@ export interface VendorMultiplesRow {
 export interface PeerMultiples {
   symbol: string;
   multiples: Partial<Record<MultipleKey, number | null>>;
+  economicEvidence?: import("@/pipeline/stageB/peerComparability").PeerEconomicEvidence;
 }
 
 export interface MultiplesFrameworkInputs {
@@ -1782,6 +1820,9 @@ export interface MultiplesFrameworkInputs {
   /** Vendor pre-baked ratio history — used only when derivation impossible AND currencies match. */
   keyMetricsHistory?: VendorMultiplesRow[];
   peers?: PeerMultiples[];
+  subjectEconomicEvidence?: import("@/pipeline/stageB/peerComparability").PeerEconomicEvidence;
+  /** Dated quote/analysis observation for point-in-time comparability evidence. */
+  peerComparisonAsOf?: string;
   /** REIT-only: FFO/AFFO totals provided by the caller (labeled approximate upstream). */
   ffoApprox?: number | null;
   affoApprox?: number | null;
@@ -2490,6 +2531,12 @@ export function multiplesFramework(
       return { key, current: null, basis: "Not applicable to financial companies: debt is an operating input and industrial free cash flow is not meaningful.", ownHistory: null, peers: null };
     }
     const cur = current[key] ?? null;
+    const comparison = comparablePeers(inputs.subjectEconomicEvidence, inputs.peers ?? [], key, inputs.peerComparisonAsOf ?? null);
+    if (comparison.excluded.length) {
+      const disclosure = `${key}: economic/accounting comparability excluded ${comparison.excluded.map((peer) => `${peer.symbol} (${peer.reasons.join("; ")})`).join(", ")}; raw peer observations retained; no median uses excluded rows`;
+      notes.push(disclosure);
+      gaps.push(gapEntry(`valuation.multiples.peers.${key}.comparability`, disclosure, "info"));
+    }
     return {
       key,
       current: cur,
@@ -2497,7 +2544,7 @@ export function multiplesFramework(
       ownHistory: priceCurrency.comparable
         ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history")
         : null,
-      peers: peerStats((inputs.peers ?? []).map((p) => p.multiples[key]), notes, key),
+      peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
   });
   // WS6 (D-19): state N per multiple. The report's multiples table carries the

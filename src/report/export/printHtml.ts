@@ -21,6 +21,7 @@
 
 import { formatExecutionMetadata } from "@/report/execution";
 import { gradeDisplayLabel, gradeForDisplay } from "@/report/assessment";
+import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
 import type {
   Appendix,
   BalanceSheet,
@@ -111,7 +112,7 @@ function coverageCellHtml(
 }
 
 function provenanceCoverageHtml(coverage: ProvenanceCoverage): string {
-  return table(
+  return `<p>${esc(factualValidationText(coverage) ?? "")}</p>` + table(
     ["Evidence class", "Supported / total"],
     [
       [
@@ -209,8 +210,9 @@ function gradeClass(grade: string): string {
   return `g-${grade.toLowerCase()}`;
 }
 
-function auditValue(value: string | number | boolean | null | undefined): string {
+function auditValue(value: unknown): string {
   if (value === null || value === undefined) return "n/a";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
@@ -360,11 +362,15 @@ function sectionVerdict(report: Report): string {
   )}</p>${execSummary}${strip}</section>`;
 }
 
+function auditTablesHtml(tables: ReportAuditTable[]): string {
+  return tables.map(t=>`<h3>${esc(t.heading)}</h3>${table(t.headers,t.rows.map(row=>row.map(esc)))}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}`).join("");
+}
+
 function sectionScores(scores: Scoring): string {
   const c = scores.composite;
   const aspectDescriptors = SCORE_SURFACES.filter((descriptor) => descriptor.kind === "aspect");
   const compositeFields = COMPOSITE_SCORE_FIELDS.filter((field) => field.key !== "weights");
-  const aspectFields = ASPECT_SCORE_FIELDS.filter((field) => field.key !== "drivers");
+  const aspectFields = ASPECT_SCORE_FIELDS.filter((field) => field.key !== "drivers" && field.key !== "signals");
   const compositeChip = c.band
     ? `<span class="chip ${gradeClass(c.band)}">${esc(c.band)}</span>`
     : DASH;
@@ -413,7 +419,7 @@ function sectionScores(scores: Scoring): string {
           ...tracedAuditCells(driver),
         ])),
     )}
-    <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
+    ${auditTablesHtml(scoreAuditTables(scores))}<p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
 }
 
 function sectionProjections(p: Projections): string {
@@ -454,7 +460,7 @@ function sectionProjections(p: Projections): string {
       if (field.key === "horizonYears") return [[esc(field.label), esc(String(p.horizonYears))]];
       if (field.key === "weightsVersion") return [[esc(field.label), esc(p.weightsVersion)]];
       if (field.key === "series") return [[esc(field.label), esc(String(p.series.length))]];
-      return [[esc(field.label), esc(auditValue(p.notApplicableReason))]];
+      return [[esc(field.label), esc(auditValue(p[field.key]))]];
     }),
   );
   const seriesAudit = series.map((s) => {
@@ -464,6 +470,7 @@ function sectionProjections(p: Projections): string {
         PROJECTION_SERIES_FIELD_BY_KEY.metric.label,
         "Path",
         PROJECTION_POINT_FIELD_BY_KEY.period.label,
+        "Period start", "Period end", "Period basis",
         "Series unit",
         ...TRACED_NUMBER_FIELDS.map((field) => field.label),
       ],
@@ -472,6 +479,7 @@ function sectionProjections(p: Projections): string {
           esc(metric.label),
           esc(path.label),
           esc(point.period),
+          esc(auditValue(point.periodStart)), esc(auditValue(point.periodEnd)), esc(auditValue(point.periodBasis)),
           esc(s.unit),
           ...tracedAuditCells(point.value),
         ])),
@@ -500,7 +508,7 @@ function sectionProjections(p: Projections): string {
   return `<section class="block">${sectionHeading("projections")}
     <p class="faint">Horizon ${p.horizonYears}y · unbacktested display prior weights ${p.scenarioWeights.bull}/${p.scenarioWeights.base}/${p.scenarioWeights.bear} (bull/base/bear). Forward figures are ESTIMATEs, not facts or empirically calibrated odds.</p>
     ${series.length === 0 ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
-    ${blocks}<h3>Projection audit trail</h3>${rootAudit}${seriesAudit}</section>`;
+    ${blocks}${auditTablesHtml(projectionAuditTables(p))}<h3>Projection audit trail</h3>${rootAudit}${seriesAudit}</section>`;
 }
 
 function sectionBusiness(b: Business): string {
@@ -592,6 +600,7 @@ function sectionValuation(
   );
 
   const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
+  parts.push(auditTablesHtml(valuationAuditTables(v.dcf)));
   const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
   if (waccs.length > 0 && gterms.length > 0) {
     const lookup = new Map<string, number | null>();
@@ -754,7 +763,7 @@ function sectionLeadership(l: Leadership): string {
           e.credibilityGrade,
         )}">${esc(e.credibilityGrade)}</span>${
           e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`
-        }</p>${claimList(e.reasoning)}${evidence}</div>`;
+        }</p>${e.assessmentReason ? `<p>${esc(e.assessmentReason)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
     })
     .join("");
   return `<section class="block">${sectionHeading("leadership")}${gradeBlock(
@@ -984,6 +993,8 @@ function headerBlock(
       ["Spec version", m.specVersion],
       ["Pipeline version", m.pipelineVersion],
       ["Data completeness", completeness.statusText],
+      ["Factual validation", factualValidationText(m.provenanceCoverage) ?? "Not recorded; citation coverage alone is not factual validation."],
+      ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
       ["Cost (USD)", formatCostUsd(displayedCost)],
       [
         "Citation coverage",

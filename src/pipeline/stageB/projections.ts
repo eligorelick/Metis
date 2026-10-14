@@ -18,7 +18,8 @@
  *
  * EPS is the one series not directly a DcfYearRow: it is derived from the
  * forward operating path (EBIT × historical net-income/EBIT ratio) over a
- * buyback-trended diluted-share count, and is disclosed + skipped when those
+ * conservatively flat or dilution-trended share count, with a separate,
+ * explicitly unfunded historical-share-trend sensitivity. EPS is skipped when
  * inputs are missing.
  *
  * Every forward number is a TracedNumber sourced "computed.projections.<metric>.
@@ -30,12 +31,11 @@
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { yearsBetweenDates } from "@/pipeline/stageB/growth";
 import {
-  MARGIN_CLAMP_PP,
-  runDcf,
-  type DcfAssumptions,
   type DcfYearRow,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
+import { buildScenarioPaths, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
+export { perturbScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import { perShareUnit } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
 import type {
@@ -58,15 +58,6 @@ export const DISPERSION_K = 1.0;
 /** Upper sanity bounds only; stable firms are no longer forced to show a band. */
 const SIGMA_GROWTH_MAX = 25; // pp
 const SIGMA_MARGIN_MAX = 12; // pp
-/** Perturbed-path sanity clamps. */
-const GROWTH_CLAMP: readonly [number, number] = [-30, 60]; // pct/yr
-// The margin bound is the BASE engine's own (valuation's MARGIN_CLAMP_PP,
-// [-20, 45]), not a second, tighter one. A local [0, 60] floored the perturbed
-// path at zero while the base DCF path may legitimately be negative, so for a
-// loss-making issuer BOTH the bull and the bear leg were lifted ABOVE the base
-// case — a bear scenario that cannot model a loss, and two targets that are
-// inflated rather than bracketing. Sharing the bound also makes
-// perturbScenarioAssumptions(a, 0, 0) reproduce the base path exactly.
 
 const isNum = (v: number | null | undefined): v is number =>
   typeof v === "number" && Number.isFinite(v);
@@ -169,11 +160,6 @@ function point(period: string, value: number, unit: string, metric: ProjectionMe
 function fyLabel(dateIso: string): string {
   const y = Number.parseInt(dateIso.slice(0, 4), 10);
   return Number.isFinite(y) ? `FY${y}` : dateIso;
-}
-
-/** Shift a path by a constant delta with sanity clamps. */
-function shiftPath(path: number[], delta: number, lo: number, hi: number): number[] {
-  return path.map((v) => clamp(v + delta, lo, hi));
 }
 
 /** Weighted blend of three same-length scenario paths. */
@@ -304,42 +290,6 @@ export function scenarioDispersion(incomeHistory: ProjectionIncomeRow[]): Scenar
   };
 }
 
-/**
- * Clone the base DCF assumptions and shift the growth + operating-margin paths
- * by a constant delta (percentage points), with the same sanity clamps the fan
- * uses. Pure — the caller runs the shifted assumptions through the DCF engine.
- */
-export function perturbScenarioAssumptions(
-  assumptions: DcfAssumptions,
-  growthDelta: number,
-  marginDelta: number,
-): DcfAssumptions {
-  const cloned: DcfAssumptions = structuredClone(assumptions);
-  // Same headroom the margin path gets below: clamping the perturbed path with
-  // the bound the BASE path already satisfies truncates the bear leg for a
-  // low-growth issuer, biasing the fan upward while the disclosure claims the
-  // full shock.
-  cloned.growthPath.value = shiftPath(
-    assumptions.growthPath.value,
-    growthDelta,
-    GROWTH_CLAMP[0] - Math.abs(growthDelta),
-    GROWTH_CLAMP[1] + Math.abs(growthDelta),
-  );
-  // The base path was ALREADY clamped to MARGIN_CLAMP_PP, so reusing that exact
-  // bound as the perturbation's clamp annihilates the shock for any issuer
-  // sitting at the boundary: a 45%-margin company's bull leg would be clamped
-  // straight back to 45 while the report still claims the full +dm. Give the
-  // perturbation the headroom the base clamp consumed, so a shift of dm always
-  // moves the path by dm.
-  cloned.ebitMarginPath.value = shiftPath(
-    assumptions.ebitMarginPath.value,
-    marginDelta,
-    MARGIN_CLAMP_PP[0] - Math.abs(marginDelta),
-    MARGIN_CLAMP_PP[1] + Math.abs(marginDelta),
-  );
-  return cloned;
-}
-
 /* ------------------------------------------------------------------------ *
  * computeProjections
  * ------------------------------------------------------------------------ */
@@ -354,7 +304,15 @@ function notApplicable(reason: string): Projections {
   };
 }
 
-export function computeProjections(inputs: ProjectionsInputs): Projections {
+export type ScenarioPointPaths = Pick<ProjectionSeries, "bull" | "base" | "bear" | "weighted">;
+export type AuditableProjectionSeries = ProjectionSeries & {
+  flatShare?: ScenarioPointPaths;
+  shareTrend?: ScenarioPointPaths;
+  capitalReturn?: { shareCountAnnualizedPct: number | null; appliedShareCountAnnualizedPct: number; policy: "flat-share-conservative" | "dilution-trend"; basis: string; netIncomeToEbit: number };
+};
+export type AuditableProjections = Projections & { scenarioAssumptions?: ScenarioAssumptions; series: AuditableProjectionSeries[] };
+
+export function computeProjections(inputs: ProjectionsInputs): AuditableProjections {
   const { valuation, asOf, currency } = inputs;
 
   // Projections run only on the general FCFF-DCF route (docs/METHODOLOGY.md "Financial-company routes": financials /
@@ -409,30 +367,23 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
 
   // --- Bull / bear paths via the SAME DCF engine ---------------------------
   const dg = DISPERSION_K * sigmaGrowth;
-  const dm = DISPERSION_K * sigmaMargin * (rawDisp.growthMarginCorrelation ?? 0);
 
-  const runScenario = (growthDelta: number, marginDelta: number): DcfYearRow[] =>
-    runDcf(perturbScenarioAssumptions(assumptions, growthDelta, marginDelta), {
+  const shared = buildScenarioPaths(assumptions, {
       waccPct: inputs.waccPct as number,
       netDebt: baseDcf.bridge.netDebt,
       dilutedShares: baseDcf.bridge.dilutedShares,
       minorityInterest: baseDcf.bridge.minorityInterest,
       preferred: baseDcf.bridge.preferred,
-    }).yearRows;
-
-  const bullRows = runScenario(dg, dm);
-  const bearRows = runScenario(-dg, -dm);
+    }, { sigmaGrowth, sigmaMargin, growthMarginCorrelation: rawDisp.growthMarginCorrelation });
+  const bullRows = shared.bull.result.yearRows;
+  const bearRows = shared.bear.result.yearRows;
   const baseRows = baseDcf.yearRows;
+  const effectiveCorr = shared.scenarioAssumptions.growthMarginCorrelation;
+  const dm = DISPERSION_K * sigmaMargin * (effectiveCorr ?? 0);
 
-  // Forward fiscal-year labels track the DCF's BASE period. The base path grows
-  // from startRevenue (= the TTM/statements figure), so labelling off the last
-  // ANNUAL date would mislabel mid-year filers (TTM more recent than the last
-  // FYE) by up to a year. Prefer the statements date the DCF actually built from.
-  const baseDate =
-    assumptions.asOf.statements ??
-    (incomeAsc.length > 0 ? incomeAsc[incomeAsc.length - 1].date : asOf);
-  const lastFy = Number.parseInt(baseDate.slice(0, 4), 10);
-  const fwdPeriod = (t: number): string => (Number.isFinite(lastFy) ? `FY${lastFy + t}` : `Y+${t}`);
+  // Legacy assumptions without period metadata remain readable, but do not
+  // acquire a guessed fiscal year/date from annual history or analysis time.
+  const fwdPeriod = (t: number): string => baseRows[t - 1]?.period?.label ?? `Y+${t} (period basis unavailable)`;
 
   // The anchor is described from the growth-anchor record, never from a
   // substring of the basis string: that string names every method including
@@ -447,7 +398,10 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
       : "");
   const assumptionLines: string[] = [
     `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${rawDisp.growthMarginCorrelation === null ? "unavailable" : round2(rawDisp.growthMarginCorrelation)}).`,
+    `Bull/bear shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}).`,
+    "Forward periods are modeled annual anniversary windows of the DCF revenue anchor, not company-issued fiscal guidance; a TTM anchor remains rolling for every forecast year.",
+    `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
+    shared.scenarioAssumptions.terminalTransition,
     `Weighted path uses the coarse unbacktested display prior ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear; these are not empirical probabilities.`,
   ];
 
@@ -455,7 +409,7 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
   // Absolute-currency series (revenue, FCF). Unknown currency must not silently
   // read as USD downstream, so it is stated rather than defaulted.
   const revUnit = currency !== null && currency.trim().length > 0 ? currency : "currency unknown";
-  const series: ProjectionSeries[] = [];
+  const series: AuditableProjectionSeries[] = [];
 
   // Historical helpers (last up to 4 actual years, oldest→newest).
   const histTail = <T,>(rows: T[]): T[] => rows.slice(Math.max(0, rows.length - 4));
@@ -510,7 +464,7 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
         ...assumptionLines,
         "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment).",
         "HISTORICAL FCF on this series is the reported levered figure (freeCashFlow, or operatingCashFlow + capitalExpenditure), which is stated AFTER interest. The two segments are therefore different measures: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
-        "Scenario paths can cross: the higher-growth (bull) case reinvests more up front, so its near-term FCF may sit BELOW the lower-growth (bear) case before overtaking it as growth matures. The shaded band is the scenario range, not a strict bull-over-bear ordering.",
+        "Scenario paths can cross: the higher-growth case reinvests more up front, so near-term FCF may be lower before growth matures. Bull/bear names follow intrinsic-value ordering, and the shaded band is the scenario range.",
       ],
       disclosures,
       asOf,
@@ -532,7 +486,7 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
   if (!isNum(inputs.shareCountAnnualizedPct)) {
     series.find((candidate) => candidate.metric === "revenue")?.disclosures.push({
       field: "projections.eps.shareCountTrend",
-      reason: "Annualized diluted-share trend unavailable; EPS projection suppressed rather than assuming a flat share count.",
+      reason: "Annualized diluted-share trend unavailable; EPS uses an explicit conservative flat-share assumption. No historical-share-trend alternative is available.",
       severity: "warn",
     });
   }
@@ -541,10 +495,22 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
   const epsSeries = buildEpsSeries(inputs, { bullRows, baseRows, bearRows }, H, incomeAsc, fwdPeriod, assumptionLines, asOf);
   if (epsSeries) series.push(epsSeries);
 
+  const dated = (points: ProjectionPoint[]) => points.map((pt, i) => {
+    const period = baseRows[i]?.period;
+    return period ? { ...pt, periodStart: period.startDate, periodEnd: period.endDate, periodBasis: period.basis } : pt;
+  });
+  for (const s of series) {
+    for (const key of ["bull", "base", "bear", "weighted"] as const) s[key] = dated(s[key]);
+    for (const alternate of [s.flatShare, s.shareTrend]) {
+      if (alternate) for (const key of ["bull", "base", "bear", "weighted"] as const) alternate[key] = dated(alternate[key]);
+    }
+  }
+
   return {
     horizonYears: H,
     scenarioWeights: { ...PROJECTION_WEIGHTS },
     weightsVersion: PROJECTION_WEIGHTS_VERSION,
+    scenarioAssumptions: shared.scenarioAssumptions,
     series,
     notApplicableReason: null,
   };
@@ -590,7 +556,7 @@ function buildEpsSeries(
   fwdPeriod: (t: number) => string,
   assumptionLines: string[],
   asOf: string,
-): ProjectionSeries | null {
+): AuditableProjectionSeries | null {
   const shares0 = inputs.dilutedShares;
   const niToEbit = median(
     incomeAsc
@@ -601,9 +567,11 @@ function buildEpsSeries(
   if (!isNum(shares0) || shares0 <= 0 || niToEbit === null) {
     return null;
   }
-  // The caller records a missing share trend once on the surviving revenue series.
-  if (!isNum(inputs.shareCountAnnualizedPct)) return null;
-  const g = inputs.shareCountAnnualizedPct / 100;
+  // Historical repurchases are not a funded forward capital-return schedule.
+  // The conservative base never shrinks shares; positive dilution still applies.
+  const observedTrend = isNum(inputs.shareCountAnnualizedPct) ? inputs.shareCountAnnualizedPct : null;
+  const appliedTrend = Math.max(0, observedTrend ?? 0);
+  const g = appliedTrend / 100;
   const sharesAt = (t: number): number => shares0 * Math.pow(1 + g, t); // t = 1..H
 
   const epsPath = (dcfRows: DcfYearRow[]): number[] =>
@@ -622,6 +590,12 @@ function buildEpsSeries(
   const weighted = weightedPath(bull, base, bear);
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>
     arr.map((v, i) => point(fwdPeriod(i + 1), v, unit, "epsDiluted", scenario, asOf));
+  const alternate = (trend: number, name: string): ScenarioPointPaths => {
+    const values = (rs: DcfYearRow[]) => rs.slice(0, H).map((r, i) => r.ebit * niToEbit / (shares0 * (1 + trend / 100) ** (i + 1)));
+    const b = values(rows.bullRows), m = values(rows.baseRows), d = values(rows.bearRows);
+    return { bull: mk(b, `${name}.bull`), base: mk(m, `${name}.base`), bear: mk(d, `${name}.bear`), weighted: mk(weightedPath(b, m, d), `${name}.weighted`) };
+  };
+  const capitalBasis = "Historical share shrinkage has no funded future repurchase schedule in these inputs, so it is excluded from the base. A positive dilution trend is retained. The historical-share-trend alternative is hypothetical, unfunded and does not deduct repurchase cash from equity value; flat-share EPS isolates operating performance. Net income uses the historical EBIT conversion, separate from DCF NOPAT tax rates, and is not a forecast statutory tax reconciliation.";
   return {
     metric: "epsDiluted",
     unit,
@@ -630,9 +604,14 @@ function buildEpsSeries(
     base: mk(base, "base"),
     bear: mk(bear, "bear"),
     weighted: mk(weighted, "weighted"),
+    flatShare: alternate(0, "flatShare"),
+    ...(observedTrend !== null && observedTrend > -100 ? { shareTrend: alternate(observedTrend, "shareTrend") } : {}),
+    capitalReturn: { shareCountAnnualizedPct: observedTrend, appliedShareCountAnnualizedPct: appliedTrend,
+      policy: appliedTrend > 0 ? "dilution-trend" : "flat-share-conservative", basis: capitalBasis, netIncomeToEbit: niToEbit },
     assumptions: [
       ...assumptionLines,
-      `EPS = forward EBIT × median historical net-income/EBIT ratio (${round2(niToEbit)}) ÷ diluted shares trended ${round2(g * 100)}%/yr (buyback/dilution history).`,
+      `EPS = forward EBIT × median historical net-income/EBIT ratio (${round2(niToEbit)}) ÷ diluted shares with applied change ${round2(g * 100)}%/yr.`,
+      capitalBasis,
     ],
     disclosures: [],
   };

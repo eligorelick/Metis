@@ -22,7 +22,7 @@
  * value is SUPPRESSED, never fabricated.
  */
 
-import type { DcfAssumptions, ValuationResult } from "@/pipeline/stageB/valuation";
+import type { DcfAssumptions, DcfYearRow, ValuationResult } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 
@@ -201,6 +201,7 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
     { name: "near-term growth anchor (median of methods, after the house clamp)", value: anchorValue, basis: anchor.basis },
     { name: "revenue growth (yr1 → yrN)", value: `${pct1(g[0])} → ${pct1(g[g.length - 1])}`, basis: a.growthPath.basis },
     { name: "EBIT margin (yr1 → yrN)", value: `${pct1(m[0])} → ${pct1(m[m.length - 1])}`, basis: a.ebitMarginPath.basis },
+    { name: "forecast tax rate (yr1 → yrN)", value: `${pct1(a.taxRatePath.value[0])} → ${pct1(a.taxRatePath.value.at(-1)!)}`, basis: `${a.taxRatePath.basis}; actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path.` },
     { name: "sales-to-capital", value: num2(a.salesToCapital.value), basis: a.salesToCapital.basis },
     { name: "terminal growth", value: pct1(a.terminal.gTermPct.value), basis: a.terminal.gTermPct.basis },
     { name: "terminal ROIC", value: pct1(a.terminal.roicTermPct.value), basis: a.terminal.roicTermPct.basis },
@@ -220,9 +221,16 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
 export interface DcfDisplay {
   assumptions: DcfAssumption[];
   sensitivityGrid: SensitivityCell[];
+  bridge?: {
+    enterpriseValue: number | null; netDebt: number | null; minorityInterest: number | null; preferredEquity: number | null;
+    equityValue: number | null; dilutedShares: number | null; presentValueExplicit: number | null; presentValueTerminal: number | null;
+    currency: string | null; asOf: string | null;
+  };
+  forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
+    revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
 }
 
-export function computeDcfDisplay(valuation: ValuationResult): DcfDisplay {
+export function computeDcfDisplay(valuation: ValuationResult, currency: string | null = null): DcfDisplay {
   // Only the general FCFF-DCF route carries DCF assumptions + a WACC×g grid.
   if (valuation.kind !== "dcf" || valuation.assumptions === null) {
     return { assumptions: [], sensitivityGrid: [] };
@@ -237,5 +245,16 @@ export function computeDcfDisplay(valuation: ValuationResult): DcfDisplay {
       });
     });
   }
-  return { assumptions, sensitivityGrid };
+  const dcf = valuation.dcf;
+  if (dcf === null) return { assumptions, sensitivityGrid };
+  const mapRow = (r: DcfYearRow) => ({ year: r.year, period: r.period?.label ?? `Y+${r.year}`,
+    ...(r.period ? { periodStart: r.period.startDate, periodEnd: r.period.endDate, periodBasis: r.period.basis } : {}),
+    revenue: r.revenue, growthPct: r.growthPct, ebitMarginPct: r.ebitMarginPct, taxRatePct: r.taxRatePct,
+    nopat: r.nopat, reinvestment: r.reinvestment, fcff: r.fcff, presentValue: r.pv });
+  return { assumptions, sensitivityGrid, bridge: {
+    enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.minorityInterest,
+    preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
+    presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
+    asOf: valuation.assumptions.asOf.statements,
+  }, forecastRows: dcf.yearRows.map(mapRow) };
 }

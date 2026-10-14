@@ -474,6 +474,15 @@ function bindDeterministicReportProvenance(
           );
         }
       }
+      for (const alternative of ["flatShare", "shareTrend"] as const) {
+        const paths = series[alternative];
+        if (!paths) continue;
+        for (const scenario of ["bull", "base", "bear", "weighted"] as const) {
+          for (const point of paths[scenario]) {
+            bind(point.value, projectionProvenanceId(series.metric, `${alternative}.${scenario}`, point.period), point.period);
+          }
+        }
+      }
     }
   }
 
@@ -665,6 +674,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         bundle: ctx?.bundle ?? MINIMAL_BUNDLE,
         computed: ctx?.computed ?? MINIMAL_COMPUTED,
         judgeOutput,
+        provisionalVerification: true,
         verify: {
           verificationRate: null,
           coverage: emptyCoverage,

@@ -39,6 +39,9 @@ import {
   type FmpRawRow,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
+import { enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
+import { discoverCompanyIrEarnings, type CompanyIrOptions } from "@/providers/companyIr";
 import {
   createDbCachedEdgarTransport,
   createEdgarClient,
@@ -1137,6 +1140,9 @@ async function buildEdgarBundle(
   const pSub = settle(`edgar.submissions(${symbol})`, edgar.submissions(cik));
   const pFacts = settle(`edgar.companyFacts(${symbol})`, edgar.companyFacts(cik));
   const sub = await pSub;
+  const pCompanyEvents = sub.ok
+    ? discoverFiledEarningsAnnouncement(edgar, String(cik), sub.value.data.recentFilings, symbol, nowIso.slice(0, 10), nowIso)
+    : Promise.resolve([]);
 
   let latestTenK: FetchResult<EdgarFiling>;
   let latestTenQ: FetchResult<EdgarFiling>;
@@ -1328,6 +1334,7 @@ async function buildEdgarBundle(
 
   return {
     cik: cikRes,
+    earningsAnnouncements: (await pCompanyEvents).flatMap((event) => event.ok ? [event.value] : []),
     latestTenK,
     latestTenQ,
     item1a,
@@ -1495,6 +1502,8 @@ export interface BuildDataBundleOptions {
   fredFetch?: FredSeriesFetch;
   finnhub?: FinnhubConfig;
   finra?: FinraConfig;
+  /** Bounded public website/IR fallback; injected providers require an explicit config to permit this extra network source. */
+  companyIr?: CompanyIrOptions | false;
   /** Injectable clock (deterministic windows/quarters in tests). */
   now?: () => Date;
   /** Years of EOD history (default 5). */
@@ -2016,6 +2025,27 @@ export async function buildDataBundle(
     progress(
       `keyless: skipped — EDGAR did not confirm ${sym} as a registrant${fmp.fixtureMode ? " and FMP is serving fixtures, so even the benchmark series stay synthetic" : ""}`,
     );
+  }
+
+  if (edgarConfirmedIssuer && edgarBundle.companyFacts.ok) {
+    const facts = edgarBundle.companyFacts.value.data;
+    const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt);
+    const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt);
+    statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow };
+    keylessGaps.push(...annual.gaps, ...quarterly.gaps);
+  }
+  const website = profile.ok && typeof profile.value.data.rows[0]?.website === "string" ? profile.value.data.rows[0].website : null;
+  earningsCalendarNext = preferCompanyEarnings(earningsCalendarNext, [
+    ...(edgarBundle.earningsAnnouncements ?? []).map((value) => ({ ok: true as const, value })),
+    ...pressReleaseEarningsAnnouncements(pressReleases, website, sym, today),
+  ], today);
+  if (!reserved && edgarConfirmedIssuer && website && opts.companyIr !== false && (opts.fmp === undefined || opts.companyIr !== undefined) && (!earningsCalendarNext.ok || earningsCalendarNext.value.data.confirmation !== "company_confirmed")) {
+    const ir = await discoverCompanyIrEarnings(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal });
+    earningsCalendarNext = preferCompanyEarnings(earningsCalendarNext, ir.announcements, today);
+    keylessGaps.push(...ir.gaps);
+  }
+  if (earningsCalendarNext.ok && earningsCalendarNext.value.data.confirmation !== "company_confirmed") {
+    keylessGaps.push({ field: "earningsCalendarNext.confirmation", reason: "No unambiguous company earnings announcement was established from company-owned press releases or bounded recent SEC 8-K/exhibit reads; next earnings date is a vendor estimate", severity: "info", expected: true, attemptedSources: ["company-owned press releases", "edgar:recent 8-K/EX-99"] });
   }
 
   const benchmarkPrices: BenchmarkPrices = {

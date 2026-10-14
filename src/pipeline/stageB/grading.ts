@@ -42,10 +42,12 @@ import type {
   Scoring,
   ScoreAspect,
   TracedNumber,
+  ScoreSignal,
 } from "@/report/schema";
+import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10" as const;
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_AUDIT" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives
@@ -131,6 +133,7 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  */
 interface ScoredAspect {
   aspect: AspectScore;
+  rawScore: number | null;
   /**
    * Sum of signal weights whose metric is NOT suppressed by the route policy —
    * i.e. the weight this aspect COULD support if every route-applicable input
@@ -173,6 +176,7 @@ function scoreAspect(
   noDataReason: string | null = null,
 ): ScoredAspect {
   const drivers: TracedNumber[] = [];
+  const signalsUsed: ScoreSignal[] = [];
   let acc = 0;
   let usedWeight = 0;
   let applicableWeight = 0;
@@ -188,11 +192,16 @@ function scoreAspect(
     if (evidence === 0) continue;
     acc += sub * s.weight * evidence;
     usedWeight += s.weight * evidence;
+    signalsUsed.push({ id: s.name, raw: s.raw, unit: s.unit, transformedScore: sub,
+      signalWeight: s.weight, evidenceFraction: evidence, effectiveCompositeWeightPct: 0, contributionPoints: 0,
+      family: "unclassified", asOf: null, period: null, startDate: null, endDate: null,
+      windowYears: null, fallbackReason: null, operands: [],
+    });
     drivers.push({
-      value: round2(s.raw),
+      value: s.raw,
       unit: s.unit,
       source: `computed.scores.${aspect}.${s.name}`,
-      asOf,
+      asOf: null,
       verified: true, // deterministic, computed from sourced inputs (not model memory)
     });
   }
@@ -208,6 +217,7 @@ function scoreAspect(
         // the confidence ceiling does not read "not applicable" as "unscored".
         applicableCompleteness: notApplicableReason !== null || applicableWeight === 0 ? null : 0,
         drivers,
+        signals: signalsUsed,
         notApplicableReason:
           notApplicableReason ??
           noDataReason ??
@@ -215,6 +225,7 @@ function scoreAspect(
         note,
       },
       applicableWeight,
+      rawScore: null,
       totalWeight,
       // Route-inapplicable when the caller declared it, or when the route
       // suppresses EVERY signal (nothing applicable to measure here). A default
@@ -230,13 +241,15 @@ function scoreAspect(
       score,
       band: scoreToBand(score),
       weightPct,
-      dataCompleteness: round2(usedWeight / totalWeight),
-      applicableCompleteness: round2(usedWeight / applicableWeight),
+      dataCompleteness: usedWeight / totalWeight,
+      applicableCompleteness: usedWeight / applicableWeight,
       drivers,
+      signals: signalsUsed,
       notApplicableReason: null,
       note,
     },
     applicableWeight,
+    rawScore: acc / usedWeight,
     totalWeight,
     routeInapplicable: false,
   };
@@ -688,7 +701,9 @@ export interface ScoringInputs {
   financialMetrics?: FinancialMetricsResult | null;
   /** Latest quote price (for DCF upside); null when unavailable. */
   currentPrice: number | null;
-  /** Fallback as-of (bundle builtAt slice) for drivers lacking their own. */
+  /** Acquired quote observation; generation time is not a substitute. */
+  quoteAsOf?: string | null;
+  /** Analysis date, separate from each signal's financial measurement date. */
   asOf: string;
 }
 
@@ -696,6 +711,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   const { route, policy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
   const weights = weightsForRoute(route);
   const financial = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
+  const currentCapital = capital.current;
 
   // --- Fundamentals --------------------------------------------------------
   const fundamentals = scoreAspect(
@@ -726,7 +742,11 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         : null;
     valuationSignals.push({ name: "dcfUpside", raw: upside, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
     const impliedG = valuation.reverseDcf?.impliedRevenueGrowthPct ?? null;
-    const achievable = bestCagr(growth.revenueCagrs);
+    // The reverse solve and this anchor must describe the SAME fading path.
+    // A historical CAGR is not an achievable constant-horizon forecast.
+    const achievable = valuation.reverseDcf?.growthPathFamily === "linear-fade-to-terminal"
+      ? valuation.reverseDcf.baseRevenueGrowthPct ?? valuation.assumptions?.growthPath.value[0] ?? null
+      : null;
     const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable : null;
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: impliedVsAchievable, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "peOwnHistoryRank", raw: multipleOwnHistoryRank(valuation, ["peTtm", "evToEbitda", "priceToFcf"]), unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
@@ -842,25 +862,25 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     : scoreAspect(
         "balanceSheet",
         [
-          { name: "netDebtToEbitda", raw: capital.netDebtToEbitda.value, unit: "x", weight: 0.3, band: NET_DEBT_EBITDA_BAND, suppressedBy: "netDebtToEbitda" },
-          { name: "interestCoverage", raw: capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND },
+          { name: "netDebtToEbitda", raw: currentCapital ? currentCapital.netDebtToEbitda : capital.netDebtToEbitda.value, unit: "x", weight: 0.3, band: NET_DEBT_EBITDA_BAND, suppressedBy: "netDebtToEbitda" },
+          { name: "interestCoverage", raw: currentCapital ? currentCapital.interestCoverage : capital.interestCoverage.value, unit: "x", weight: 0.2, band: COVERAGE_BAND },
           // WS6 review (SHOULD-FIX 2): graded on the BEFORE-SBC ratio, the
           // definition FCF_CONVERSION_BAND was calibrated on. Grading the
           // after-SBC ratio on the same band silently moved the metric onto a
           // new definition AND charged stock-based compensation twice, since
           // sbcPctOfFcf below already scores it. The driver name states which
           // ratio it is; both ratios are reported.
-          { name: "fcfConversionBeforeSbc", raw: capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
-          { name: "sbcPctOfFcf", raw: capital.sbc.pctOfFcf, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
+          { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
+          { name: "sbcPctOfFcf", raw: currentCapital ? currentCapital.sbcPctOfFcf : capital.sbc.pctOfFcf, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
           // D-49: net share-count change is scored once, under leadership,
           // where it reads as stewardship net of buybacks. Scoring it here as
           // well double-weighted one signal.
         ],
         weights.balanceSheet,
         inputs.asOf,
-        "Financial strength: leverage, coverage, FCF conversion and the cost of stock-based compensation. " +
+        `Financial strength on ${currentCapital?.basis ?? "annual"} flows and the corresponding balance date${currentCapital?.asOf ? ` ${currentCapital.asOf}` : ""}. ${currentCapital?.fallbackReason ?? ""} Leverage, coverage, FCF conversion and the cost of stock-based compensation. ` +
           "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
-          "this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
+          "used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
           "charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is " +
           "scored once, under leadership.",
         policy,
@@ -1012,7 +1032,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     }
     if (sc.aspect.score !== null) {
       const eff = weights[key] * sc.aspect.dataCompleteness;
-      compAcc += sc.aspect.score * eff;
+      compAcc += (sc.rawScore ?? sc.aspect.score) * eff;
       compWeight += eff;
     }
   }
@@ -1027,6 +1047,31 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ? round2(50 + (rawCompositeScore - 50) * overallCompleteness)
     : null;
 
+  const exposures = new Map<string, { family: string; weightPct: number; aboveNeutralPoints: number }>();
+  for (const key of Object.keys(scored) as ScoreAspect[]) {
+    const sc = scored[key];
+    for (const signal of sc.aspect.signals ?? []) {
+      Object.assign(signal, describeScoreEvidence(inputs, key, signal.id));
+      signal.effectiveCompositeWeightPct = maxCompWeight > 0
+        ? 100 * weights[key] * signal.signalWeight * signal.evidenceFraction / sc.totalWeight / maxCompWeight : 0;
+      signal.contributionPoints = (signal.transformedScore - 50) * signal.effectiveCompositeWeightPct / 100;
+      const exposure = exposures.get(signal.family) ?? { family: signal.family, weightPct: 0, aboveNeutralPoints: 0 };
+      exposure.weightPct += signal.effectiveCompositeWeightPct;
+      exposure.aboveNeutralPoints += signal.contributionPoints;
+      exposures.set(signal.family, exposure);
+      const driver = sc.aspect.drivers.find(d => d.source.endsWith(`.${signal.id}`));
+      if (driver) { driver.asOf = signal.asOf; driver.period = signal.period; }
+    }
+  }
+  const businessKeys: ScoreAspect[] = ["fundamentals", "quality", "balanceSheet", "moat", "leadership"];
+  let businessAcc = 0, businessWeight = 0, businessCeiling = 0;
+  for (const key of businessKeys) {
+    const sc = scored[key];
+    if (!sc.routeInapplicable) businessCeiling += weights[key] * sc.applicableWeight / sc.totalWeight;
+    if (sc.rawScore !== null) { const w = weights[key] * sc.aspect.dataCompleteness; businessAcc += (sc.rawScore - 50) * w; businessWeight += w; }
+  }
+  const businessScore = businessWeight > 0 && businessCeiling > 0 ? round2(50 + businessAcc / businessCeiling) : null;
+
   return {
     aspects,
     composite: {
@@ -1037,5 +1082,11 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         `Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness ${round2(overallCompleteness * 100)}% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.`,
     },
     bandsVersion: SCORE_BANDS_VERSION,
+    factorExposure: [...exposures.values()].sort((a,b)=>b.weightPct-a.weightPct),
+    assessments: {
+      businessQuality: { score: businessScore, band: businessScore === null ? null : scoreToBand(businessScore), basis: "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum." },
+      valuation: { score: aspects.valuation.score, band: aspects.valuation.band, basis: "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary." },
+      evidenceCompleteness: overallCompleteness, calibration: "unbacktested-house-rules",
+    },
   };
 }

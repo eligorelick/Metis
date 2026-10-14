@@ -638,7 +638,7 @@ describe("reportToMarkdown", () => {
       "### Revenue (USD)",
       "### Revenue (USD duplicate metric)",
       "### Operating margin (%)",
-      "### Free cash flow (FCFF) (USD)",
+      "### Cash flow (historical FCF; forecast FCFF) (USD)",
       "### Diluted EPS (USD/share)",
     ];
     let headingCursor = -1;
@@ -672,7 +672,7 @@ describe("reportToMarkdown", () => {
       "Revenue (USD)",
       "Revenue (USD duplicate metric)",
       "Operating margin (%)",
-      "Free cash flow (FCFF) (USD)",
+      "Cash flow (historical FCF; forecast FCFF) (USD)",
       "Diluted EPS (USD/share)",
     ]) {
       const next = printed.indexOf(`>${label}</h3>`);
@@ -2798,7 +2798,7 @@ describe("history diff route-used SSR renderer", () => {
       diffReports(older, newer, persistedVersions(older, newer)),
     );
     const projectionStart = html.indexOf("projection changes");
-    const labels = ["Revenue", "Operating margin", "Free cash flow (FCFF)", "Diluted EPS"];
+    const labels = ["Revenue", "Operating margin", "Cash flow (historical FCF; forecast FCFF)", "Diluted EPS"];
     let cursor = projectionStart;
     for (const label of labels) {
       const next = html.indexOf(label, cursor + 1);

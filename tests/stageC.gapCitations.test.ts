@@ -227,9 +227,9 @@ describe("rows of unestablished currency support number-free prose only (D-43)",
       peerTable: [{ value: 221_304_234_781, unit: "currency", source: "fmp:stock-peers", asOf: "2026-07-01", verified: false }],
     });
     const coverage = (text: string) => result.log.find((entry) => entry.claim === text && entry.check === undefined);
-    expect(coverage(claims[0].text)?.outcome).toBe("verified");
-    expect(coverage(claims[1].text)?.outcome).toBe("verified");
-    expect(coverage(claims[2].text)?.outcome).toBe("verified");
+    expect(coverage(claims[0].text)).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
+    expect(coverage(claims[1].text)).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
+    expect(coverage(claims[2].text)).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
     expect(coverage(claims[3].text)).toMatchObject({ outcome: "unverified", reason: "currency-not-established" });
     expect(coverage(claims[4].text)).toMatchObject({ outcome: "unverified", reason: "gap-source-number" });
     expect(coverage(claims[5].text)).toMatchObject({ outcome: "unverified", reason: "named-individual-title-mismatch" });
@@ -261,6 +261,6 @@ describe("rows of unestablished currency support number-free prose only (D-43)",
     const right = await verify(payload, {
       notes: [fact("Douglas Petno is the Co-CEO of Commercial & Investment Bank.", "fmp:executive-compensation", "2026-04-06")],
     });
-    expect(right.log[0]).toMatchObject({ outcome: "verified" });
+    expect(right.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
   });
 });

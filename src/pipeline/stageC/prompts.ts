@@ -171,7 +171,12 @@ export function buildLeadershipGuidance(
     "- Compensation vs performance (executive-compensation rows vs the return/margin trend).",
     "- Tenure and turnover (titleSince dates; frequent C-suite churn is a JUDGMENT signal).",
     "Output a card per key executive: an overall grade AND a separate credibility grade, each with a",
-    "one-line why and SourcedClaim reasoning. Say plainly when evidence is thin — do not invent a record.",
+    "one-line why and SourcedClaim reasoning. If attributable evidence does not assess execution or",
+    "guidance accuracy, set that card's `grade` or `credibilityGrade` to `not-assessed` and explain",
+    "the missing evidence in `assessmentReason`. Identity, title or compensation alone does not",
+    "establish either grade. Say plainly when evidence is thin — do not invent a record.",
+    "Always include `assessmentReason` on every executive card, briefly stating its evidence basis",
+    "or the missing evidence, including cards that receive letter grades.",
   ].join("\n");
 }
 
@@ -211,6 +216,25 @@ export const TRACED_NUMBER_UNIT_RULE = [
   "  cited to a filing or transcript excerpt, which follows the EXCERPT NUMBERS rule.",
 ].join("\n");
 
+export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
+  "REQUIRED FINANCIAL RECONCILIATIONS:",
+  "- Cover results, dated management guidance, capital expenditure/liquidity, income taxes and exceptional",
+  "  items using retained source passages. Read excerpt coverage: retained means some passages survived,",
+  "  not comprehensive review; omitted or not-found evidence is a limitation, never evidence of absence.",
+  "- Explain broad aggregate cash-flow accruals using NI - CFO - CFI and the displayed scaler. Negative",
+  "  investing cash flow can explain a positive ratio despite CFO above NI. Compare the balance-sheet",
+  "  version and divergence; do not recast this broad investment measure as revenue-recognition proof.",
+  "- Reconcile reported operating income, income before tax, tax expense and net income/EPS for the same",
+  "  period. Identify disclosed exceptional tax, legal, severance and impairment items with their source",
+  "  and date. Separate reported results from any explicitly labelled analytical adjustment; quantify only",
+  "  when all operands and tax treatment are available. If they are missing, state the missing bridge.",
+  "- Distinguish issuer-defined FCF, standardized CFO minus cash capex, after-SBC FCF and unlevered FCFF.",
+  "  Reconcile lease principal and liquidity/debt definitions where supplied. Never equate those measures.",
+  "- Each material numeric assertion in prose must use its exact typed record or its own source passage,",
+  "  metric, period, unit and currency. Prefer one metric/period per sourced sentence. A valid citation",
+  "  or fetched URL alone does not validate a number. Ambiguous columns, currencies or ranges stay unchecked.",
+].join("\n");
+
 /** WS7 (D-20): the per-side length cap, stated to the analyst that must meet it. */
 function analystLengthRule(capChars: number): string {
   return [
@@ -243,6 +267,7 @@ function analystCommon(capChars: number): string {
     analystLengthRule(capChars),
     "",
     CASE_STRENGTH_RUBRIC,
+    REQUIRED_FINANCIAL_RECONCILIATIONS,
     "",
     "WRITING NUMBERS (the verification pass checks these deterministically, with no model call):",
     "- A direction word attached to a figure (\"rose 4.1%\", \"fell 120 bps\") must match that figure's",
@@ -343,6 +368,7 @@ export function buildJudgeFraming(
     "report's metadata so a reader can check it.",
     "",
     "HOW TO ADJUDICATE:",
+    REQUIRED_FINANCIAL_RECONCILIATIONS,
     "- Weigh each side on the EVIDENCE. Accept a claim only if it is supported by the payload or a",
     "  cited source; reject a claim ONLY for lack of support, never to appear balanced.",
     "- DO NOT MANUFACTURE BALANCE. If the evidence is lopsided, say so and grade accordingly. A",

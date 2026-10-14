@@ -499,7 +499,7 @@ describe("payload determinism + provenance", () => {
         path,
         periods: series[path].map((point) => point.period),
       })));
-    expect(fnv1a32(JSON.stringify(projectionPathPeriodMatrix))).toBe("45ce96a4");
+    expect(fnv1a32(JSON.stringify(projectionPathPeriodMatrix))).toBe("fb9c4bf0");
     const finance = {
       scores: computed.scores,
       projections: computed.projections,
@@ -686,15 +686,18 @@ describe("payload determinism + provenance", () => {
       // 2026-10-13 (review of D-46..D-50, PAYLOAD_VERSION 1.15.0): the
       // technicals aspect note names the 52-week-high distance (financeHash);
       // no registered record, citation or prompt byte moved.
-      fingerprint: "1.15.0:ac4cea0a",
-      promptBytes: 96_360,
-      provenanceCount: 370,
-      provenanceHash: "2a115f44",
-      provenanceIdsHash: "3cfec89d",
-      citationCount: 50,
-      citationHash: "0a646a41",
-      computedFigureLabelHash: "263e663f",
-      projectionPathPeriodHash: "45ce96a4",
+      // META audit: matched reverse curve and dates, current TTM/financial
+      // bridges, exact signal metadata, retained evidence and alternative EPS
+      // paths change finance/registries/prompt. Legacy fixture bytes stay pinned.
+      fingerprint: "1.16.0:86606f74",
+      promptBytes: 116_811,
+      provenanceCount: 497,
+      provenanceHash: "d106a8e1",
+      provenanceIdsHash: "1c4287d2",
+      citationCount: 63,
+      citationHash: "0d9484ac",
+      computedFigureLabelHash: "4f111dac",
+      projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
       // points are unlevered FCFF, instead of claiming the whole series is
@@ -707,7 +710,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "a75f2283",
+      financeHash: "c3a8bb60",
     });
   });
 
@@ -831,7 +834,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.15.0");
+    expect(first.payloadVersion).toBe("1.16.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1189,6 +1192,71 @@ describe("payload budget helpers", () => {
     expect(payload.transcript).not.toBeNull();
     expect(payload.transcript?.truncated).toBe(true);
     expect(payload.transcript?.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.transcriptChars);
+  });
+
+  it("preserves late guidance, capex, taxes and exceptional items inside the filing budget", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires MD&A");
+    const original = [
+      "RESULTS OF OPERATIONS\nRevenue was $61 billion; operating margin was 31%.",
+      "General discussion without material figures. ".repeat(1400),
+      "LIQUIDITY AND CAPITAL RESOURCES\nCash and equivalents were $40 billion.",
+      "CFO OUTLOOK\nWe expect capital expenditures of $130 billion to $145 billion in 2026.",
+      "INCOME TAXES\nThe $15.93 billion tax charge included a $14.03 billion valuation allowance.",
+      "EXCEPTIONAL ITEMS\nLegal charges and severance expenses were $3.5 billion.",
+    ].join("\n\n");
+    bundle.edgar.mdna.value.data.text = original;
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const excerpt = payload.filings.find((entry) => entry.source === "edgar:10-K item7")!;
+    expect(excerpt.text).toContain("$130 billion to $145 billion");
+    expect(excerpt.text).toContain("$15.93 billion tax charge");
+    expect(excerpt.text).toContain("Legal charges and severance");
+    expect(excerpt.text).toContain("Cash and equivalents");
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.mdnaChars);
+    expect(excerpt.coverage?.omittedChars).toBeGreaterThan(0);
+    expect(excerpt.coverage?.categories).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "guidance", status: "retained" }),
+      expect.objectContaining({ category: "tax", status: "retained" }),
+    ]));
+    for (const span of excerpt.spans ?? []) expect(original.slice(span.start, span.end)).toBe(span.text);
+    expect(serializePayloadForPrompt(payload)).toContain("coverage");
+    expect(payload.missingData).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "evidenceCoverage.edgar:10-K item7", reason: expect.stringContaining("source chars omitted") }),
+    ]));
+  });
+
+  it("feeds the actual aggregate accrual definition, operands and tax bridge into context", () => {
+    const { payload, computed } = buildInputs();
+    const forensics = payload.computed.find((section) => section.title === "Forensics (computed)")!;
+    expect(forensics.notes.join(" ")).toContain("NI - CFO - CFI");
+    expect(forensics.figures).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "aggregate accruals (cash-flow)", value: computed.forensics.accruals?.aggregateAccrualsCashFlow }),
+      expect.objectContaining({ label: "accrual scaler value", value: computed.forensics.accruals?.scalerValue }),
+      expect.objectContaining({ label: "accrual ratio (balance-sheet)", value: computed.forensics.accruals?.balanceSheetAccrualRatio }),
+      expect.objectContaining({ label: "accrual operand net income (NI)", value: computed.forensics.accruals?.netIncome }),
+      expect.objectContaining({ label: "accrual operand investing cash flow (CFI)", value: computed.forensics.accruals?.investingCashFlow }),
+    ]));
+    const income = payload.statements.find((block) => block.title === "Income statement — annual")!;
+    expect(income.lineItems.map((line) => line.lineItem)).toEqual(expect.arrayContaining(["income before tax", "income tax expense"]));
+    const cashflow = payload.statements.find((block) => block.title === "Cash flow — annual")!;
+    expect(cashflow.lineItems.map((line) => line.lineItem)).toEqual(expect.arrayContaining(["net income (cash-flow)", "cash flow from investing activities (CFI)"]));
+    for (const framing of [buildBullFraming(), buildBearFraming(), buildJudgeFraming()]) {
+      expect(framing).toContain("NI - CFO - CFI");
+      expect(framing).toContain("exceptional");
+    }
+    expect(buildLeadershipGuidance()).toContain("not-assessed");
+  });
+
+  it("registers current capital bridges and accrual diagnostics under their exact deterministic source IDs", () => {
+    const { payload, computed } = buildInputs();
+    const current = computed.capital.current!;
+    expect(current).toBeDefined();
+    expect(payload.provenanceRegistry).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "computed.capital.current.interestCoverage", value: current.interestCoverage, asOf: current.asOf }),
+      expect.objectContaining({ id: "computed.capital.current.cashBridge.operatingCashFlow", value: current.cashBridge.operatingCashFlow, currency: current.currency }),
+      expect.objectContaining({ id: "computed.forensics.accruals.cashFlowAccrualRatio", value: computed.forensics.accruals!.cashFlowAccrualRatio }),
+      expect.objectContaining({ id: "computed.forensics.accruals.aggregateAccrualsCashFlow", value: computed.forensics.accruals!.aggregateAccrualsCashFlow }),
+    ]));
   });
 
   it("wraps provider-controlled prose in explicit untrusted-data envelopes", () => {
@@ -1687,7 +1755,7 @@ describe("verify-pass tracing", () => {
     };
     const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
     expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
-    expect(log.filter((entry) => entry.outcome === "unverified").map((entry) => entry.reason))
+    expect(log.filter((entry) => entry.outcome === "unverified" && entry.validationStatus !== "cited").map((entry) => entry.reason))
       .toEqual(["value-mismatch", "value-mismatch", "value-mismatch"]);
   });
 
@@ -1763,7 +1831,7 @@ describe("verify-pass tracing", () => {
     expect(result.coverage.factualClaims).toEqual({ supported: 2, total: 3, rate: 2 / 3 });
     expect(result.coverage.judgments).toEqual({ cited: 1, total: 2, rate: 0.5 });
     expect(result.coverage.numeric).toEqual({ supported: 0, total: 0, rate: null });
-    expect(result.log.find((entry) => entry.source === observedUrl)?.outcome).toBe("verified");
+    expect(result.log.find((entry) => entry.source === observedUrl)).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
     expect(
       result.log.find((entry) => entry.source === "https://invented.example/a")?.reason,
     ).toBe("unknown-source");
@@ -1778,15 +1846,15 @@ describe("verify-pass tracing", () => {
       {
         claims: [
           { text: "web-backed fact", label: "FACT", source: `web:${observedUrl}`, asOf: "2026-07-05" },
-          // Numeric prose without a TracedNumber is deliberately not counted:
-          // provenance requires structured fields, not a fragile number regex.
+          // Numeric prose is now checked separately; it never enters the
+          // structured-number denominator, and an absent source cannot support it.
           { text: "Revenue reached $5.2B in FY2025.", label: "FACT", source: "", asOf: "2026-07-05" },
         ],
       } as unknown as JudgeOutput,
       { fetchedUrls: [observedUrl] },
     );
     expect(result.coverage.factualClaims).toEqual({ supported: 1, total: 2, rate: 0.5 });
-    expect(result.log.find((entry) => entry.claim === "web-backed fact")?.outcome).toBe("verified");
+    expect(result.log.find((entry) => entry.claim === "web-backed fact")).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
   });
 
   it("recognizes exact filing/transcript citations and rejects a mismatched as-of date", async () => {
@@ -1839,6 +1907,7 @@ describe("verify-pass tracing", () => {
     expect(result.coverage).toEqual({
       numeric: { supported: 0, total: 0, rate: null },
       factualClaims: { supported: 0, total: 0, rate: null },
+      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, total: 0, rate: null },
       judgments: { cited: 0, total: 0, rate: null },
     });
   });
@@ -1924,11 +1993,22 @@ describe("final assembled report verification", () => {
       : [];
     expect(drivers.length).toBeGreaterThan(0);
     expect(drivers.every((driver) => driver.verified === true)).toBe(true);
+    const eps = report.projections?.series.find((series) => series.metric === "epsDiluted");
+    for (const alternate of [eps?.flatShare, eps?.shareTrend]) {
+      if (!alternate) continue;
+      for (const path of ["bull", "base", "bear", "weighted"] as const) {
+        expect(alternate[path].every((point) => point.value.verified === true)).toBe(true);
+        expect(new Set(alternate[path].map((point) => point.value.source)).size).toBe(alternate[path].length);
+      }
+    }
+    const projectionPayload = payload.computed.find((section) => section.title.startsWith("Weighted projections"));
+    expect(projectionPayload?.figures.some((figure) => figure.label.includes("flat-share EPS"))).toBe(true);
+    expect(projectionPayload?.notes.join(" ")).toContain("hypothetical, unfunded");
     // No PIPELINE-computed number may be left unverified — the only unverified
     // numbers are the judge's deliberately-untraceable "analyst memory" fixtures.
     const unverified = numbers.filter((number) => number.verified !== true);
     expect(unverified.length).toBeGreaterThan(0); // the fixture's untraceable ones
-    expect(unverified.every((number) => number.source === "analyst memory")).toBe(true);
+    expect(unverified.filter((number) => number.source !== "analyst memory")).toEqual([]);
 
     if (report.fairValue?.status === "available") {
       expect(report.fairValue.perShare).not.toBeNull();
@@ -1948,6 +2028,13 @@ describe("final assembled report verification", () => {
 });
 
 describe("assembleReport", () => {
+  it("keeps final fallback executive assessments strict when verification produced no log", () => {
+    const {bundle,computed}=buildInputs();
+    const output=judgeOutput();
+    output.leadership.executives=[{name:"Officer Smith",title:"CFO",tenureYears:null,grade:"A",credibilityGrade:"A",assessmentReason:"Proposed assessment",reasoning:[],evidence:{guidanceVsActuals:[{label:"FACT",source:"fmp:key-executives",asOf:"2026-07-06",text:"Officer Smith met 95% of guidance targets."}]}}];
+    const args={symbol:"AAPL",bundle,computed,judgeOutput:output,verify:{verificationRate:null,log:[]},costEntries:[],model:"none"};
+    expect(assembleReport(args,GENERATED_AT).leadership.executives[0]).toMatchObject({grade:"not-assessed",credibilityGrade:"not-assessed"});
+  });
   it("attaches deterministic assessment limits to both full-AI grade surfaces without changing analyst output", () => {
     const { bundle, computed } = buildInputs();
     const output = judgeOutput();
@@ -1961,7 +2048,7 @@ describe("assembleReport", () => {
     // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
     const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of the inputs its route supports" };
     expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
-    expect(report.quality.graded).toEqual({ ...output.quality.graded, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.quality.graded).toEqual({ ...output.quality.graded, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(report.verdict.gradeStrip.balanceSheet?.assessmentStatus).toBe("not-assessed");
     expect(ReportSchema.safeParse(report).success).toBe(true);
@@ -2030,7 +2117,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.10.0");
+    expect(report.meta.specVersion).toBe("1.11.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

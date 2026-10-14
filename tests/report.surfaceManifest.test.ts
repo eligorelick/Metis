@@ -150,7 +150,7 @@ const TRACE_ORDER = [
   "verificationNote",
 ] as const;
 
-const SCORING_ORDER = ["aspects", "composite", "bandsVersion"] as const;
+const SCORING_ORDER = ["aspects", "composite", "bandsVersion", "assessments", "factorExposure"] as const;
 const ASPECT_SCORE_ORDER = [
   "score",
   "band",
@@ -160,6 +160,7 @@ const ASPECT_SCORE_ORDER = [
   "drivers",
   "notApplicableReason",
   "note",
+  "signals",
 ] as const;
 const COMPOSITE_SCORE_ORDER = ["score", "band", "weights", "methodology"] as const;
 const PROJECTION_ROOT_ORDER = [
@@ -168,6 +169,7 @@ const PROJECTION_ROOT_ORDER = [
   "weightsVersion",
   "series",
   "notApplicableReason",
+  "scenarioAssumptions",
 ] as const;
 const PROJECTION_SERIES_ORDER = [
   "metric",
@@ -179,8 +181,11 @@ const PROJECTION_SERIES_ORDER = [
   "weighted",
   "assumptions",
   "disclosures",
+  "flatShare",
+  "shareTrend",
+  "capitalReturn",
 ] as const;
-const PROJECTION_POINT_ORDER = ["period", "value"] as const;
+const PROJECTION_POINT_ORDER = ["period", "value", "periodStart", "periodEnd", "periodBasis"] as const;
 const PROJECTION_DISCLOSURE_ORDER = [
   "field",
   "reason",
@@ -202,6 +207,8 @@ const VERIFICATION_LOG_ORDER = [
   // (direction / period / unit / named-individual) alongside the citation-
   // coverage ones, and `check` is what tells them apart.
   "check",
+  "validationStatus",
+  "sourceSpans",
 ] as const;
 const AS_OF_MAP_ORDER = ["field", "asOf"] as const;
 const DATA_COMPLETENESS_ORDER = [
@@ -287,7 +294,7 @@ describe("shared report surface manifest", () => {
     expect(PROJECTION_METRICS).toEqual([
       { id: "projection-metric:revenue", key: "revenue", label: "Revenue" },
       { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin" },
-      { id: "projection-metric:fcf", key: "fcf", label: "Free cash flow (FCFF)" },
+      { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)" },
       { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "Diluted EPS" },
     ]);
     expect(PROJECTION_PATHS).toEqual([
@@ -497,6 +504,8 @@ describe("shared report surface manifest", () => {
       { id: "verification-log-field:traceKind", key: "traceKind", label: "Trace kind", optional: true },
       // WS7 (D-20)
       { id: "verification-log-field:check", key: "check", label: "Check", optional: true },
+      { id: "verification-log-field:validationStatus", key: "validationStatus", label: "Factual validation", optional: true },
+      { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
     ]);
     expect(AS_OF_MAP_FIELDS).toEqual([
       { id: "as-of-map-field:field", key: "field", label: "Field", optional: false },
