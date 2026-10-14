@@ -116,6 +116,7 @@ import { computeProjections, type ProjectionIncomeRow } from "@/pipeline/stageB/
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import {
   normalizeQuarterRows,
   quarterWindowViolation,
@@ -207,12 +208,23 @@ export interface SuppressedMetric {
 // ---------------------------------------------------------------------------
 
 function rowsOf<TRow extends FmpRawRow>(f: FmpFetch<TRow>): TRow[] {
-  return f.ok ? f.value.data.rows : [];
+  if (!f.ok) return [];
+  return f.value.data.rows.map(row => {
+    const conflicts = row.fieldConflicts;
+    if (!conflicts || typeof conflicts !== "object") return row;
+    const clone = { ...row };
+    for (const [field, evidence] of Object.entries(conflicts)) {
+      if (evidence && typeof evidence === "object" && "usable" in evidence && evidence.usable === false) {
+        (clone as FmpRawRow)[field] = null;
+      }
+    }
+    return clone;
+  });
 }
 
 /** First row of a single-row FMP payload (profile/quote), or null. */
 function firstRow<TRow extends FmpRawRow>(f: FmpFetch<TRow>): TRow | null {
-  return f.ok ? (f.value.data.rows[0] ?? null) : null;
+  return rowsOf(f)[0] ?? null;
 }
 
 function sourcedOf<T>(f: FetchResult<T>): Sourced<T> | null {
@@ -464,6 +476,9 @@ function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
     operatingCashFlow: num(r.operatingCashFlow),
     capitalExpenditure: num(r.capitalExpenditure),
     freeCashFlow: num(r.freeCashFlow),
+    financeLeasePrincipalPayments: num(r.financeLeasePrincipalPayments),
+    issuerFreeCashFlow: num(r.issuerFreeCashFlow),
+    issuerFreeCashFlowDefinition: str(r.issuerFreeCashFlowDefinition),
     commonStockRepurchased: num(r.commonStockRepurchased),
   };
 }
@@ -472,6 +487,8 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
   return {
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),
+    operatingLeaseLiability: num(r.operatingLeaseLiability),
+    financeLeaseLiability: num(r.financeLeaseLiability),
     netDebt: num(r.netDebt),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
@@ -1423,7 +1440,9 @@ function totalDebtSnapshot(
   return { average: a.value ?? b.value, negativeObservation: null, basis, currency };
 }
 
-export function runStageB(bundle: DataBundle): ComputedMetrics {
+export interface StageBReplayConfig { evIncludeLeases: boolean }
+
+export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
 
@@ -1592,7 +1611,7 @@ export function runStageB(bundle: DataBundle): ComputedMetrics {
   // capital) and the valuation block (both EV bridges) — so the lease basis
   // cannot drift between them and the run makes a single settings read
   // (tests/jobRunner.test.ts pins the count).
-  const evIncludeLeases = getConfig().evIncludeLeases;
+  const evIncludeLeases = replayConfig?.evIncludeLeases ?? getConfig().evIncludeLeases;
   const returns = computeReturns(
     bundle,
     incomeAnnual,
@@ -1606,7 +1625,7 @@ export function runStageB(bundle: DataBundle): ComputedMetrics {
   );
 
   // --- Capital ---------------------------------------------------------------
-  const capital = computeCapital(
+  const annualCapital = computeCapital(
     incomeAnnual.map(toCapitalIncome),
     cashflowAnnual.map(toCapitalCashFlow),
     balanceAnnual.map(toCapitalBalance),
@@ -1625,6 +1644,27 @@ export function runStageB(bundle: DataBundle): ComputedMetrics {
       isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
     },
   );
+
+  const sumCurrentFlow = (field: keyof FmpCashFlowRow): number | null => {
+    if (!ttmCf || !currencies.ttmCashFlowUsable || cashflowQuarterly.length < 4) return null;
+    const values = cashflowQuarterly.slice(0,4).map(row => num(row[field]));
+    return values.every((v): v is number => v !== null) ? values.reduce((sum,v)=>sum+v,0) : null;
+  };
+  const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
+  const capital = attachCurrentCapital(annualCapital, {
+    route: route.base,
+    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc } : null,
+    cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
+      netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
+      stockBasedCompensation: sumCurrentFlow("stockBasedCompensation"),
+      financeLeasePrincipalPayments: sumCurrentFlow("financeLeasePrincipalPayments"), issuerFreeCashFlow: sumCurrentFlow("issuerFreeCashFlow"),
+    } : null,
+    balance: currentBalance ? toCapitalBalance(currentBalance) : null,
+    currency: currencies.model,
+    annualCashFlow: cashflowAnnual[0] ? toCapitalCashFlow(cashflowAnnual[0]) : null,
+    annualBalance: balanceAnnual[0] ? toCapitalBalance(balanceAnnual[0]) : null,
+  });
 
   // --- SEC 8-K forensic events -------------------------------------------
   // Item 4.02 (non-reliance on previously issued financial statements) is a
@@ -1838,6 +1878,7 @@ export function runStageB(bundle: DataBundle): ComputedMetrics {
     financialMetrics,
     currentPrice,
     asOf: asOfDay,
+    quoteAsOf: bundle.quote.ok ? bundle.quote.value.asOf : null,
   });
 
   // Same point-in-time anchors as computeValuation (audit H2/M3/M4): the NEWER

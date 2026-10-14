@@ -1460,6 +1460,11 @@ export function classifyAccrualBand(ratio: number): AccrualBand {
 }
 
 export interface AccrualsResult {
+  /** Signed operands, retained to explain investment-inclusive vs operating accruals. */
+  netIncome?: number | null;
+  operatingCashFlow?: number | null;
+  investingCashFlow?: number | null;
+  operatingAccruals?: number | null;
   /** PRIMARY: (NI − CFO − CFI) / scaler (cash-flow approach, Hribar–Collins). */
   cashFlowAccrualRatio: number | null;
   /** SECONDARY: ΔNOA / scaler (balance-sheet approach). */
@@ -1568,6 +1573,10 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
 
   return {
     cashFlowAccrualRatio: cfRatio,
+    netIncome: niT,
+    operatingCashFlow: cfoT,
+    investingCashFlow: cfiT,
+    operatingAccruals: niT !== null && cfoT !== null ? niT-cfoT : null,
     balanceSheetAccrualRatio: bsRatio,
     aggregateAccrualsCashFlow: aggCF,
     aggregateAccrualsBalanceSheet: aggBS,

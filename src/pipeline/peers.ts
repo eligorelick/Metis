@@ -4,6 +4,7 @@ import type { FmpFetch } from "@/pipeline/types";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
 import { routeCompany } from "@/pipeline/stageB/sectorRouting";
+import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import type { SectorRoute } from "@/types/core";
 
 export const PEER_CANDIDATE_LIMIT = 6;
@@ -23,6 +24,8 @@ export interface PeerCoverage {
   comparisons: Array<{ name: string; current: number | null; peerMedian: number | null; peerCount: number; basis: string }>;
 }
 export interface PeerFundamentals {
+  /** Independently sourced comparability evidence; the bounded FMP reads do not establish it. */
+  economicEvidence?: PeerEconomicEvidence;
   profile: FmpFetch<FmpProfileRow>;
   quote: FmpFetch<FmpQuoteRow>;
   incomeQuarterly: FmpFetch<FmpIncomeStatementRow>;
@@ -163,6 +166,14 @@ function statementReason(r: FmpRawRow, currency: string, quoteDate: number): str
   return null;
 }
 
+/** Evidence must describe the actual observation, not merely match another label. */
+function evidenceForObservation(evidence: PeerEconomicEvidence | undefined, periodEnd: unknown, currency: string, quoteDate: number): PeerEconomicEvidence | undefined {
+  if (!evidence || evidence.periodEnd.slice(0, 10) !== periodEnd || evidence.priceCurrency !== currency || evidence.statementCurrency !== currency) return undefined;
+  const availableDay = day(evidence.availableAt);
+  const available = availableDay === null ? Date.parse(evidence.availableAt) : availableDay + DAY - 1;
+  return Number.isFinite(available) && available <= quoteDate ? evidence : undefined;
+}
+
 /** Common-earnings proof is per quarter; latest balance alone cannot establish older preferred claims. */
 function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheetRow[], currency: string, quoteDate: number): { value: number | null; date: string | null; reason: string | null } {
   const normalized = normalizeQuarterRows(income);
@@ -188,7 +199,7 @@ export function comparePeerFundamentals(opts: {
   symbol: string; profile: FmpProfileRow | undefined; quote: FmpFetch<FmpQuoteRow>;
   route: SectorRoute; subject: MultiplesFrameworkInputs; now: Date; collection?: PeerCollection;
   subjectIncomeQuarterly?: FmpFetch<FmpIncomeStatementRow>; subjectBalanceQuarterly?: FmpFetch<FmpBalanceSheetRow>;
-}): { peers: PeerMultiples[]; peerCoverage: PeerCoverage } {
+}): { peers: PeerMultiples[]; peerCoverage: PeerCoverage } & Pick<MultiplesFrameworkInputs, "subjectEconomicEvidence" | "peerComparisonAsOf"> {
   const peers: PeerMultiples[] = [];
   const collection = opts.collection;
   const peerCoverage: PeerCoverage = {
@@ -197,11 +208,12 @@ export function comparePeerFundamentals(opts: {
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+      "Every median also requires independently sourced subject and peer business-model, accounting, exact reporting-period and metric-definition evidence available at the comparison date. FMP industry/profile classification alone does not establish that evidence; absent or incompatible evidence suppresses the comparison.",
       ...(collection?.notes ?? ["Peer fundamentals not collected on this report."]),
     ], candidates: collection?.candidateCount ?? 0, evaluated: Object.keys(collection?.candidates ?? {}).length,
     eligible: [], exclusions: [...(collection?.exclusions ?? [])], comparisons: [],
   };
-  const out = { peers, peerCoverage };
+  const out = { peers, peerCoverage, subjectEconomicEvidence: undefined as PeerEconomicEvidence | undefined, peerComparisonAsOf: opts.subject.peerComparisonAsOf };
   const exclude = (symbol: string, reason: string) => peerCoverage.exclusions.push({ symbol, reason });
   const now = opts.now.getTime(); const symbol = normalize(opts.symbol); const subject = opts.subject;
   const currency = normalize(subject.quote.currency);
@@ -220,13 +232,14 @@ export function comparePeerFundamentals(opts: {
   const targetBalanceReason = !opts.subjectBalanceQuarterly ? "quarterly balance source unavailable"
     : sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik) ?? (targetBalance ? statementReason(targetBalance, currency, targetQuoteMs) : "quarterly balance filing unavailable");
   if (targetBalanceReason) { exclude(symbol, `subject balance: ${targetBalanceReason}`); return out; }
+  out.subjectEconomicEvidence = evidenceForObservation(subject.subjectEconomicEvidence, subject.balance.date, currency, targetQuoteMs);
   const subjectCommon = opts.subjectIncomeQuarterly && opts.subjectBalanceQuarterly && !sourceReason(opts.subjectIncomeQuarterly, symbol, now, targetCik) && !sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik)
     ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs)
     : { value: null, date: null, reason: "subject four-quarter common earnings source/identity unavailable" };
   const targetIncomeEnd = day(subjectCommon.date);
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;
   if (!commonValid) exclude(symbol, `Common earnings comparison: ${subjectCommon.reason ?? "subject TTM statement stale or missing"}`);
-  const commonValues: Array<{ symbol: string; value: number }> = [];
+  const commonValues: Array<{ symbol: string; value: number; economicEvidence?: PeerEconomicEvidence }> = [];
   const ids = new Set([issuer(opts.profile.cik)]); const names = new Set([companyName(opts.profile.companyName)]);
   for (const [requested, candidate] of Object.entries(collection?.candidates ?? {})) {
     const peerSymbol = normalize(requested); const profile = rows(candidate.profile)[0];
@@ -247,6 +260,7 @@ export function comparePeerFundamentals(opts: {
       exclude(peerSymbol, balReason ?? "quarterly balance dates ambiguous, stale or not aligned to subject"); continue;
     }
     const mcap = peerQuote.marketCap as number; const multiples: Partial<Record<MultipleKey, number | null>> = {};
+    const economicEvidence = evidenceForObservation(candidate.economicEvidence, bal.date, currency, quoteMs);
     const equity = positive(bal.totalStockholdersEquity);
     if (equity !== null && positive(subject.balance.totalStockholdersEquity) !== null) multiples.priceToBook = mcap / equity;
     else exclude(peerSymbol, "priceToBook: positive equity required for both issuer and peer");
@@ -262,11 +276,12 @@ export function comparePeerFundamentals(opts: {
     const incomeEnd = day(common.date);
     const commonEligible = commonValid && common.value !== null && incomeEnd !== null && now - incomeEnd <= MAX_STATEMENT_AGE && Math.abs(incomeEnd - (targetIncomeEnd as number)) <= MAX_PERIOD_DIFFERENCE;
     if (commonEligible && common.value !== null) {
-      commonValues.push({ symbol: peerSymbol, value: mcap / common.value });
-      if (subject.incomeTtm?.basis === "ttm" && positive(subject.incomeTtm.epsDiluted) === null && subject.incomeTtm.netIncome === subjectCommon.value) multiples.peTtm = mcap / common.value;
+      commonValues.push({ symbol: peerSymbol, value: mcap / common.value, economicEvidence: evidenceForObservation(candidate.economicEvidence, common.date, currency, quoteMs) });
+      if (subject.incomeTtm?.basis === "ttm" && positive(subject.incomeTtm.epsDiluted) === null && subject.incomeTtm.netIncome === subjectCommon.value
+        && (!economicEvidence || economicEvidence.periodEnd.slice(0, 10) === common.date) && (!out.subjectEconomicEvidence || out.subjectEconomicEvidence.periodEnd.slice(0, 10) === subjectCommon.date)) multiples.peTtm = mcap / common.value;
       else exclude(peerSymbol, "peTtm: subject price/diluted-EPS or annual basis differs; use the separate common-earnings comparison");
     } else exclude(peerSymbol, `peTtm/common earnings: ${common.reason ?? "subject/peer TTM common earnings missing or fiscal dates not comparable"}`);
-    if (Object.keys(multiples).length || commonEligible) { peers.push({ symbol: peerSymbol, multiples }); peerCoverage.eligible.push(peerSymbol); }
+    if (Object.keys(multiples).length || commonEligible) peers.push({ symbol: peerSymbol, multiples, economicEvidence });
     else exclude(peerSymbol, "no supported comparable metric available");
   }
   // The same linear-interpolated IQR policy as the existing multiples framework.
@@ -282,11 +297,23 @@ export function comparePeerFundamentals(opts: {
     }
     return accepted.sort((a, b) => a - b);
   };
+  const eligibleSymbols = new Set<string>();
+  const screen = <T extends { symbol: string; economicEvidence?: PeerEconomicEvidence }>(candidates: T[], metric: string): T[] => {
+    const subjectEvidence = metric === "marketCapToTtmCommonEarnings"
+      ? evidenceForObservation(subject.subjectEconomicEvidence, subjectCommon.date, currency, targetQuoteMs)
+      : out.subjectEconomicEvidence;
+    const comparison = comparablePeers(subjectEvidence, candidates, metric, out.peerComparisonAsOf ?? null);
+    for (const entry of comparison.excluded) exclude(entry.symbol, `${metric}: ${entry.reasons.join("; ")}`);
+    for (const peer of comparison.eligible) eligibleSymbols.add(peer.symbol);
+    return comparison.eligible;
+  };
   for (const key of ["peTtm", "priceToBook", "priceToTbv"] as const) {
-    const surviving = survivors(peers.flatMap(peer => typeof peer.multiples[key] === "number" ? [{ symbol: peer.symbol, value: peer.multiples[key] as number }] : []), key);
+    const economicPeers = screen(peers.filter(peer => typeof peer.multiples[key] === "number"), key);
+    const surviving = survivors(economicPeers.map(peer => ({ symbol: peer.symbol, value: peer.multiples[key] as number })), key);
     if (surviving.length < 4) peerCoverage.methodology.push(`${key}: median withheld; ${surviving.length} usable peers after IQR, four required.`);
   }
-  const trimmed = survivors(commonValues, "common earnings");
+  const trimmed = survivors(screen(commonValues, "marketCapToTtmCommonEarnings"), "common earnings");
+  peerCoverage.eligible = peers.filter(peer => eligibleSymbols.has(peer.symbol)).map(peer => peer.symbol);
   peerCoverage.comparisons.push({ name: "Market cap / TTM common earnings", current: commonValid ? (subject.quote.marketCap as number) / (subjectCommon.value as number) : null,
     peerMedian: commonValid && trimmed.length >= 4 ? quantile(trimmed, .5) : null, peerCount: trimmed.length,
     basis: "Issuer market capitalization / four contiguous quarters of filed common earnings (or net income only with zero preferred and minority claims in each same-date quarterly balance). Not price/diluted EPS. At least four issuers after 1.5×IQR filtering required." });

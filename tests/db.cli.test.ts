@@ -25,8 +25,10 @@ const REQUIRED_TABLES = [
   "cost_log",
   "job_llm_leases",
   "job_pass_artifacts",
+  "job_run_inputs",
   "jobs",
   "reports",
+  "run_input_snapshots",
   "settings",
   "watchlist",
 ] as const;

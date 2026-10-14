@@ -64,6 +64,25 @@ function snapshot() {
 }
 
 describe("immutable evaluation snapshots", () => {
+  it.each([
+    ["12M ending 2026-06-30", "computed.projections.revenue.base"],
+    ["12M ending 2026-06-30", "payload.computed.projections.revenue.base.12m-ending-2026-06-30"],
+    ["FY2026 ending 2026-06-30", "computed.projections.revenue.base"],
+    ["FY2026 ending 2026-06-30", "payload.computed.projections.revenue.base.fy2026-ending-2026-06-30"],
+  ])("freezes exact annual periods with canonical provenance: %s / %s", (label, source) => {
+    const input = structuredClone(report);
+    Object.assign(input.projections.series[0].base[0], {
+      period: label, periodStart: "2025-07-01", periodEnd: "2026-06-30",
+    });
+    input.projections.series[0].base[0].value.source = source;
+    const selection = { ...definition.operating[0], periodLabel: label, periodStart: "2025-07-01", periodEnd: "2026-06-30" };
+    const frozen = createEvaluationSnapshot(input, { ...definition, operating: [selection], market: [] });
+    expect(frozen.operatingForecasts[0].periodExclusionReason).toBeNull();
+    expect(frozen.operatingForecasts[0].sourcePeriodEnd).toBe("2026-06-30");
+    expect(() => createEvaluationSnapshot(input, { ...definition, operating: [{ ...selection, periodEnd: "2026-12-31" }], market: [] })).toThrow(/annual|period|year/i);
+    expect(() => createEvaluationSnapshot(input, { ...definition, operating: [{ ...selection, periodStart: "2025-07-02", periodEnd: "2026-07-01" }], market: [] })).toThrow(/annual|period|year/i);
+  });
+
   it("preserves the report, versions and selected forecast without retaining mutable references", () => {
     const input = structuredClone(report);
     const frozen = createEvaluationSnapshot(input, definition, "2025-01-15T12:00:00.000Z");

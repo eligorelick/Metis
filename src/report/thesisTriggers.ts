@@ -27,12 +27,15 @@ export function buildThesisTriggers(
     "The current quote, net debt, other senior claims and diluted share count remain fixed.",
   ];
   if (validHorizon && reverse?.method === "growth" && finite(reverse.impliedRevenueGrowthPct)) {
+    const fades = reverse.growthPathFamily === "linear-fade-to-terminal";
     triggers.push({
       id: "reverse-growth",
-      metric: "Supported constant annual revenue growth",
+      metric: fades ? "Supported starting annual revenue growth" : "Supported constant annual revenue growth",
       comparator: "below",
       threshold: reverseThreshold(reverse.impliedRevenueGrowthPct),
-      horizon: `Across all ${years} explicit forecast years, with constant growth and no fade`,
+      horizon: fades
+        ? `Starting annual growth, with a linear fade to the base model's final growth rate across ${years} explicit forecast years`
+        : `Across all ${years} explicit forecast years, with constant growth and no fade`,
       fixedAssumptions: [...commonFixed, "The operating-margin path remains at the base case."],
       consequence: "If revised evidence supports growth below this price-implied threshold, reassess the valuation case and recompute the reverse DCF. This is a conditional model comparison, not a next-period growth target or a predicted price change.",
     });
@@ -52,7 +55,12 @@ export function buildThesisTriggers(
   for (const metric of ["revenue", "operatingMargin"] as const) {
     const series = computed.projections.series.find((s) => s.metric === metric);
     const first = series?.base.slice().sort((a, b) => a.period.localeCompare(b.period))[0];
-    if (!first || !/^(?:FY)?\d{4}$/.test(first.period) || !finite(first.value.value)) continue;
+    if (!first || !finite(first.value.value)) continue;
+    const datedLabel = /^(?:12M|FY(\d{4})) ending (\d{4}-\d{2}-\d{2})$/.exec(first.period);
+    const days = first.periodStart && first.periodEnd
+      ? (Date.parse(first.periodEnd) - Date.parse(first.periodStart)) / 86_400_000 + 1 : null;
+    const datedAnnual = datedLabel !== null && first.periodEnd === datedLabel[2] && (!datedLabel[1] || first.periodEnd.slice(0, 4) === datedLabel[1]) && days !== null && days >= 364 && days <= 371;
+    if (!datedAnnual && !/^(?:FY)?\d{4}$/.test(first.period)) continue;
     if (first.value.source !== `computed.projections.${metric}.base`) continue;
     // A monetary milestone needs an established currency; no implicit USD.
     if (metric === "revenue" && establishedCurrency(first.value.unit, first.value.currency) === null) continue;

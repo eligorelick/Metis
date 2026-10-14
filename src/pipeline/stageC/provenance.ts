@@ -23,7 +23,7 @@ export type CanonicalUnit =
 
 export type ProvenanceFailureReason =
   | "unknown-source"
-  /** The id names a registered text source (a filing section, a transcript); numbers trace only against numeric records. */
+  /** Text citation without a located, admissible numeric source-span binding. */
   | "text-source"
   /**
    * D-43: the id names a payload row that carries no verifiable number — an
@@ -47,10 +47,13 @@ export type ProvenanceFailureReason =
   | "unit-mismatch"
   | "currency-mismatch"
   | "period-mismatch"
-  | "date-mismatch";
+  | "date-mismatch"
+  | "direction-mismatch";
 
 export interface NumericProvenanceRecord {
   id: string;
+  /** Metric identity for numeric prose; omitted only by older payloads. */
+  label?: string;
   kind: "provider" | "computed";
   value: number;
   unit: CanonicalUnit;

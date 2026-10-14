@@ -234,7 +234,7 @@ describe("manifest-driven real report consumers", () => {
       expect(html, metric).toContain({
         revenue: "Revenue",
         operatingMargin: "Operating margin",
-        fcf: "Free cash flow (FCFF)",
+        fcf: "Cash flow (historical FCF; forecast FCFF)",
         epsDiluted: "Diluted EPS",
       }[metric]);
     }

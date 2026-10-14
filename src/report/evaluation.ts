@@ -168,9 +168,9 @@ function selectOperatingForecast(report: unknown, item: OperatingDefinition, asO
   const source = nonempty.parse(value.source);
   // The AI report assembly binds deterministic numbers to a canonical exact-
   // period registry ID; data-only reports retain the raw computation tag.
-  // All selectors are restricted enums/FYyyyy, so their canonical slug is just
-  // lower case (the same result as projectionProvenanceId's semanticSlug).
-  const boundSource = `payload.computed.projections.${item.metric.toLowerCase()}.${item.scenario}.${item.periodLabel.toLowerCase()}`;
+  // Match projectionProvenanceId for fiscal and explicit rolling-period labels.
+  const slug = (value: string) => value.normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "value";
+  const boundSource = `payload.computed.projections.${slug(item.metric)}.${item.scenario}.${slug(item.periodLabel)}`;
   if (source !== `computed.projections.${item.metric}.${item.scenario}` && source !== boundSource) {
     throw new Error(`Forecast is not a deterministic forward projection: ${item.id}`);
   }
@@ -193,14 +193,16 @@ function selectOperatingForecast(report: unknown, item: OperatingDefinition, asO
     throw new Error(`EPS forecast basis must identify diluted EPS and its share basis: ${item.id}`);
   }
   if (item.periodStart > item.periodEnd || item.periodEnd <= asOf) throw new Error(`Operating horizon must end after as-of: ${item.id}`);
-  const fiscalYear = /^FY(\d{4})$/.exec(item.periodLabel)?.[1];
+  const fiscalLabel = /^FY(\d{4})(?: ending (\d{4}-\d{2}-\d{2}))?$/.exec(item.periodLabel);
+  const fiscalYear = fiscalLabel?.[1];
+  const explicitEnd = fiscalLabel?.[2] ?? /^12M ending (\d{4}-\d{2}-\d{2})$/.exec(item.periodLabel)?.[1];
   // Stage B labels each annual projection using its period-end calendar year.
   // A sidecar must not silently convert that projection to a quarter or rebind
   // it to an unrelated year. Standard calendar and 52/53-week years fit here;
   // transition-year/stub periods require a separately supported methodology.
   const inclusiveDays = (Date.parse(item.periodEnd) - Date.parse(item.periodStart)) / 86_400_000 + 1;
-  if (!fiscalYear || item.periodEnd.slice(0, 4) !== fiscalYear || inclusiveDays < 364 || inclusiveDays > 371) {
-    throw new Error(`Annual fiscal period must span 364–371 days and end in its FY label year: ${item.id}`);
+  if ((!fiscalYear && !explicitEnd) || (fiscalYear && item.periodEnd.slice(0, 4) !== fiscalYear) || (explicitEnd && item.periodEnd !== explicitEnd) || inclusiveDays < 364 || inclusiveDays > 371) {
+    throw new Error(`Annual period must span 364–371 days and match its FY label year or exact rolling end: ${item.id}`);
   }
   const savedStart = date.safeParse(point.entry.periodStart);
   const savedEnd = date.safeParse(point.entry.periodEnd);
@@ -208,7 +210,7 @@ function selectOperatingForecast(report: unknown, item: OperatingDefinition, asO
   const sourcePeriodEnd = savedEnd.success ? savedEnd.data : null;
   const sourceDays = sourcePeriodStart && sourcePeriodEnd
     ? (Date.parse(sourcePeriodEnd) - Date.parse(sourcePeriodStart)) / 86_400_000 + 1 : null;
-  const periodExclusionReason = sourceDays === null || sourceDays < 364 || sourceDays > 371 || sourcePeriodEnd?.slice(0, 4) !== fiscalYear
+  const periodExclusionReason = sourceDays === null || sourceDays < 364 || sourceDays > 371 || (fiscalYear !== undefined && sourcePeriodEnd?.slice(0, 4) !== fiscalYear) || (explicitEnd !== undefined && sourcePeriodEnd !== explicitEnd)
     ? "unverified-period"
     : sourcePeriodStart !== item.periodStart || sourcePeriodEnd !== item.periodEnd ? "forecast-period-mismatch" : null;
   return {

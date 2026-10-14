@@ -234,6 +234,8 @@ repository's [private advisory form](https://github.com/eligorelick/Thesis-AI-eq
 | `npm run test:coverage` | Both coverage contracts, core and risk. |
 | `npm run test:watch` | The product suite in watch mode. |
 | `npm run export:corrected` | Write corrected HTML/JSON from a stored run; requires new output filenames. |
+| `npm run research:evaluate` | Evaluate frozen point-in-time forecasts offline; never changes production grades. |
+| `npm run research:replay` | Reproduce Stage B from an immutable input snapshot without provider or model calls. |
 | `npm run reports:evaluate` | Freeze immutable report snapshots and evaluate explicitly comparable outcomes offline; see docs/REPORT-EVALUATION.md. |
 | `npm run settings:reset` | Delete stored settings rows so .env takes precedence again. Needs --yes. |
 | `npm run db:push` | Apply the Drizzle schema to the configured database. |
@@ -258,11 +260,9 @@ Contributions should preserve source tracing, add regressions and pass `npm run 
 - Thesis is a research tool for one local user, not a broker or a trading
   system. A traced number can still come from incorrect source data, and AI
   narrative can be wrong even when its citations resolve.
-- Verification traces numbers against the registry only: a figure lifted from
-  filing prose stays unverified, and each consistency check judges only the
-  claims whose figure it can locate. Oversized analyst cases are shortened
-  before judging where possible; protected content may exceed the target.
-  The manifest names removed material and any excess that remains.
+- Verification checks numeric content against dated registry records and retained
+  passages; citation presence alone does not validate a claim or qualitative truth.
+  Oversized analyst cases disclose removed material and any remaining excess.
 
 ## License and data rights
 

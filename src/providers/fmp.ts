@@ -116,6 +116,26 @@ export interface FmpQuoteRow extends FmpRawRow {
   timestamp?: number;
 }
 
+/** Field evidence supplements the row envelope without relabeling vendor fields. */
+export interface StatementFieldProvenance {
+  source: "edgar";
+  unit: string;
+  periodStart: string | null;
+  periodEnd: string;
+  observedAt: string;
+  tags: string[];
+  filings: { accn: string; filed: string; form: string }[];
+  derivation?: "ytd-difference";
+}
+
+export interface StatementFieldConflict {
+  vendorValue: number | null;
+  secValue: number | null;
+  usable: false;
+  reason: string;
+  secEvidence?: StatementFieldProvenance;
+}
+
 export interface FmpStatementRow extends FmpRawRow {
   date?: string;
   symbol?: string;
@@ -125,6 +145,8 @@ export interface FmpStatementRow extends FmpRawRow {
   acceptedDate?: string;
   fiscalYear?: string;
   period?: string;
+  fieldProvenance?: Record<string, StatementFieldProvenance>;
+  fieldConflicts?: Record<string, StatementFieldConflict>;
 }
 
 export interface FmpIncomeStatementRow extends FmpStatementRow {
@@ -178,6 +200,7 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
    * unknown and the EV bridge leaves enterprise value as reported.
    */
   operatingLeaseLiability?: number;
+  financeLeaseLiability?: number;
   treasuryStock?: number;
   preferredStock?: number;
   commonStock?: number;
@@ -211,6 +234,11 @@ export interface FmpCashFlowRow extends FmpStatementRow {
   /** NEGATIVE by convention: freeCashFlow = operatingCashFlow + capitalExpenditure */
   capitalExpenditure?: number;
   freeCashFlow?: number;
+  /** Positive cash outflow; never included silently in cash capex. */
+  financeLeasePrincipalPayments?: number;
+  /** Issuer-defined amount, only when explicitly reported with a definition. */
+  issuerFreeCashFlow?: number;
+  issuerFreeCashFlowDefinition?: string;
   incomeTaxesPaid?: number;
   interestPaid?: number;
 }
@@ -375,6 +403,13 @@ export interface FmpEarningsRow extends FmpRawRow {
   revenueActual?: number | null;
   revenueEstimated?: number | null;
   lastUpdated?: string;
+  confirmation?: "company_confirmed" | "vendor_estimate";
+  announcedAt?: string;
+  observedAt?: string;
+  announcementUrl?: string;
+  evidenceText?: string;
+  /** Official website and investor-link relationship establishing company authority. */
+  authorityChain?: string[];
 }
 
 export interface FmpTranscriptDateRow extends FmpRawRow {

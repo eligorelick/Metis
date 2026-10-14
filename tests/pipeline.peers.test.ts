@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { comparePeerFundamentals, loadPeerFundamentals, type PeerFundamentals } from "@/pipeline/peers";
 import { multiplesFramework, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
+import type { PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import { createFmpClient, type CachedFetchFn, type FmpRawRow } from "@/providers/fmp";
 import { makeLimiter } from "@/providers/http";
 import type { FmpFetch } from "@/pipeline/types";
@@ -11,13 +12,30 @@ function data<T extends FmpRawRow>(rows: T[]): FmpFetch<T> {
 }
 const profile = { symbol: "ROOT", cik: "1", companyName: "Root Inc", industry: "Software - Application", sector: "Technology", currency: "USD", isAdr: false };
 const quote = data([{ symbol: "ROOT", marketCap: 1000, price: 10, timestamp: NOW.getTime() / 1000 }]);
+// Synthetic issuer-filing evidence is supplied independently of FMP discovery.
+// Industry, country and CIK alone cannot establish any of these assertions.
+function economicEvidence(symbol: string): PeerEconomicEvidence {
+  return {
+    businessModel: "subscription application software", accountingStandard: "US_GAAP",
+    periodBasis: "TTM earnings and quarter-end balance", periodEnd: "2026-06-30",
+    priceCurrency: "USD", statementCurrency: "USD", availableAt: "2026-08-01",
+    definitions: {
+      priceToBook: "issuer market capitalization / total stockholders equity",
+      priceToTbv: "issuer market capitalization / (equity - goodwill - intangibles - preferred equity)",
+      peTtm: "issuer market capitalization / four quarters of common net income",
+      marketCapToTtmCommonEarnings: "issuer market capitalization / four quarters of common net income",
+    },
+    sourceIds: [`issuer_filing:${symbol}:business_model`, `issuer_filing:${symbol}:accounting_and_financials`],
+  };
+}
 function subject(): MultiplesFrameworkInputs {
   return { quote: { marketCap: 1000, price: 10, currency: "USD" }, reportedCurrency: "USD",
+    subjectEconomicEvidence: economicEvidence("ROOT"), peerComparisonAsOf: NOW.toISOString(),
     incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: 500, operatingIncome: 100, netIncome: 100, epsDiluted: null }, cashFlowTtm: null,
     balance: { date: "2026-06-30", basis: "quarter", totalStockholdersEquity: 500, goodwill: 50, intangibleAssets: 50, preferredStock: 0, totalDebt: 100, cashAndShortTermInvestments: 50, minorityInterest: 0 } };
 }
 function candidate(symbol = "P1", mcap = 1000): PeerFundamentals {
-  return { profile: data([{ ...profile, symbol, cik: symbol.slice(1), companyName: `Peer ${symbol}` }]),
+  return { economicEvidence: economicEvidence(symbol), profile: data([{ ...profile, symbol, cik: symbol.slice(1), companyName: `Peer ${symbol}` }]),
     quote: data([{ symbol, marketCap: mcap, price: 10, timestamp: NOW.getTime() / 1000 }]),
     incomeQuarterly: data(["2026-06-30", "2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30"].map(date => ({ symbol, date, period: `Q${Math.ceil(Number(date.slice(5, 7)) / 3)}`, reportedCurrency: "USD", netIncome: 25, filingDate: date === "2026-06-30" ? "2026-08-01" : date }))),
     balanceQuarterly: data(["2026-06-30", "2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30"].map(date => ({ totalStockholdersEquity: 500, goodwill: 50, intangibleAssets: 50, preferredStock: 0, minorityInterest: 0, date, symbol, reportedCurrency: "USD", filingDate: date === "2026-06-30" ? "2026-08-01" : date }))) };
@@ -36,6 +54,43 @@ describe("defensible peer comparables", () => {
     expect(computed.multiples.find(m => m.key === "priceToBook")?.peers).toEqual({ median: 3.5, min: 2, max: 5, count: 4 });
     expect(computed.multiples.find(m => m.key === "peTtm")?.peers?.median).toBe(17.5);
     expect(result.peerCoverage.eligible).toEqual(["P2", "P3", "P4", "P5"]);
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ peerMedian: 17.5, peerCount: 4 });
+  });
+
+  it.each(["missing-subject", "missing-peer", "business-model", "accounting", "period", "currency", "definition", "future-evidence"] as const)("withholds every median for %s economic evidence", (mode) => {
+    const target = subject();
+    const candidates = Object.fromEntries(["P2", "P3", "P4", "P5"].map(symbol => [symbol, candidate(symbol)]));
+    if (mode === "missing-subject") delete target.subjectEconomicEvidence;
+    for (const peer of Object.values(candidates)) {
+      if (mode === "missing-peer") { delete peer.economicEvidence; continue; }
+      const evidence = peer.economicEvidence!;
+      if (mode === "business-model") evidence.businessModel = "advertising marketplace";
+      if (mode === "accounting") evidence.accountingStandard = "IFRS";
+      if (mode === "period") evidence.periodEnd = "2026-03-31";
+      if (mode === "currency") evidence.statementCurrency = "EUR";
+      if (mode === "definition") evidence.definitions = { priceToBook: "tangible book", priceToTbv: "total book", peTtm: "adjusted EPS", marketCapToTtmCommonEarnings: "adjusted EPS" };
+      if (mode === "future-evidence") evidence.availableAt = "2026-10-14";
+    }
+    const result = run(candidates, target);
+    const computed = multiplesFramework("general", { ...target, ...result });
+    expect(computed.multiples.every(multiple => multiple.peers === null)).toBe(true);
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ peerMedian: null, peerCount: 0 });
+    expect(result.peerCoverage.eligible).toEqual([]);
+    expect(result.peerCoverage.exclusions.some(entry => /economic|business-model|accounting|period|currency|definition|unavailable/.test(entry.reason))).toBe(true);
+  });
+
+  it("rejects matching evidence dates that do not describe the financial observation periods", () => {
+    const target = subject();
+    target.subjectEconomicEvidence!.periodEnd = "2026-03-31";
+    const candidates = Object.fromEntries(["P2", "P3", "P4", "P5"].map(symbol => {
+      const peer = candidate(symbol);
+      peer.economicEvidence!.periodEnd = "2026-03-31";
+      return [symbol, peer];
+    }));
+    const result = run(candidates, target);
+    const computed = multiplesFramework("general", { ...target, ...result });
+    expect(computed.multiples.every(multiple => multiple.peers === null)).toBe(true);
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ peerMedian: null, peerCount: 0 });
   });
 
   it("excludes self share classes, repeated issuers, contaminated rows and mismatched industries", () => {

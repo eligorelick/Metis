@@ -19,7 +19,10 @@
  *  - runVerifyPass: measures CITATION COVERAGE (provenance, NOT correctness).
  *    Every TracedNumber must resolve an exact registry ID and match value, unit,
  *    currency, period, and as-of. Prose citations must resolve an exact payload
- *    source/date or an observed fetched URL. Untraceable evidence is flagged
+ *    source/date or an observed fetched URL; this is counted separately from
+ *    numeric prose support. Prose numbers additionally require a typed value
+ *    or an unambiguous metric/unit/period binding to retained source spans.
+ *    Qualitative prose remains cited-only. Untraceable evidence is flagged
  *    [unverified] and never silently deleted. The pass does not independently
  *    re-derive formulas or validate whether a cited source itself is correct.
  *  - assembleReport: wraps a JudgeOutput with meta + appendix and validates the
@@ -34,7 +37,7 @@
 import type { ManifestEntry } from "@/types/core";
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
-import { routeMetricsBlock, type ComputedMetrics } from "@/pipeline/compute";
+import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import type { MultipleKey } from "@/pipeline/stageB/valuation";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
@@ -72,6 +75,7 @@ import {
   serializePayloadForPrompt,
   payloadFingerprint,
   excerptBodyForVerification,
+  sourceEvidenceDisclosures,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -86,6 +90,7 @@ import {
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
 import { matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
+import { validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
   citationAsOf,
   citationSourceId,
@@ -109,6 +114,7 @@ import {
   type PassContinuation,
 } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
+import { applyFinancialDiagnostics, assessExecutiveEvidence } from "@/report/financialDiagnostics";
 import { applyConfidenceCeilings } from "@/pipeline/stageC/confidenceCeiling";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
@@ -2545,14 +2551,16 @@ function reportExecutiveNames(root: unknown): string[] {
  * as-of all match that record within its declared display precision, or (D-45)
  * when it cites a filing/transcript excerpt and that excerpt prints it as a
  * specific figure beside words of its own description — logged as
- * "excerpt-match", with its period not machine-checked. A claim is
+ * "excerpt-match", after the source-span binding checks any supplied period
+ * and rejects ambiguous columns. A claim is
  * supported only by an exact numeric/text registry tag (including its as-of for
  * FACT/ESTIMATE) or a URL actually observed in provider web-search results.
  * Untraceable evidence is never deleted: numbers are marked
  * false with an explicit reason, and claims receive an unverified log entry.
- * Numeric prose embedded in claim text is intentionally not regex-extracted;
- * numeric provenance requires a structured TracedNumber. Rates are null when
- * their denominator is zero, never synthetic perfection.
+ * Numeric prose is checked against its exact typed record or an unambiguous
+ * source-span binding. Citation presence is counted separately from numeric
+ * content validation; qualitative content and ambiguous bindings are unchecked.
+ * Rates are null when their denominator is zero, never synthetic perfection.
  *
  * Deterministic-only: an earlier model-side pass (VERIFY_MODEL) was removed
  * because it discarded its output and merely burned tokens — the trace here has
@@ -2624,6 +2632,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   );
   const reportingCurrency = statementCurrencies.size === 1 ? [...statementCurrencies][0] : null;
   const issuerWords = [payload.companyName ?? "", payload.symbol ?? ""];
+  const claimEvidenceIndex: ClaimEvidenceIndex = new Map();
 
   for (const { number, path, rowLabel } of numbers) {
     const sourceId = citationSourceId(number);
@@ -2632,6 +2641,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     let periodNote: string | null = null;
     let excerptNote: string | null = null;
     let excerptMatched = false;
+    let numberSourceSpans: ClaimSourceSpan[] = [];
     const record = sourceId === null
       ? undefined
       : registry.find((entry) => entry.id === sourceId);
@@ -2677,10 +2687,19 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
             },
           );
           if (match.ok) {
-            ok = true;
-            excerptMatched = true;
-            if (match.currency !== null) number.currency = match.currency;
-            excerptNote = `value printed in the cited excerpt as "${match.mention.raw}" beside "${match.token}"; period not machine-checked`;
+            const suffix = unitOnly.unit === "shares" ? " shares" : unitOnly.unit === "count" ? " count" : "";
+            const money = unitOnly.unit === "currency" || unitOnly.unit === "currency-per-share";
+            const currency = money ? match.currency ?? unitOnly.currency ?? "" : "";
+            const quantityText = match.mention.raw.replace(/\$/, `${currency || "$"} `);
+            const binding = validateClaimNumericSupport({ label: "FACT", source: sourceId!, asOf: sourceAsOf,
+              text: `${number.unit} ${rowLabel ?? ""} ${number.period ?? ""}: ${quantityText}${suffix}` },
+            { excerpts: [excerpt], sourceId: sourceId!, reportingCurrency, ignoreWords: issuerWords, index: claimEvidenceIndex });
+            ok = binding.status === "validated";
+            excerptMatched = ok;
+            numberSourceSpans = binding.spans;
+            if (ok && match.currency !== null) number.currency = match.currency;
+            if (!ok) reason = binding.reason === "supported" ? "text-ambiguous" : binding.reason;
+            excerptNote = binding.note;
           } else {
             reason = match.reason;
             excerptNote = match.reason === "text-source"
@@ -2790,6 +2809,8 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         evidenceKind: "number",
         source: sourceId ?? number.source,
         reason: "supported",
+        validationStatus: "validated",
+        ...(numberSourceSpans.length === 0 ? {} : { sourceSpans: numberSourceSpans }),
       });
     } else {
       appendUnverifiedNote(number, reason);
@@ -2802,12 +2823,17 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         evidenceKind: "number",
         source: sourceId ?? number.source,
         reason,
+        validationStatus: reason === "value-mismatch" || reason === "period-mismatch" || reason === "unit-mismatch" || reason === "currency-mismatch" ? "contradicted" : "unchecked",
+        ...(numberSourceSpans.length === 0 ? {} : { sourceSpans: numberSourceSpans }),
       });
     }
   }
 
   let factualSupported = 0;
   let factualTotal = 0;
+  let factualValidated = 0;
+  let factualUnchecked = 0;
+  let factualContradicted = 0;
   let judgmentsCited = 0;
   let judgmentsTotal = 0;
   for (const { claim, path } of claims) {
@@ -2821,16 +2847,30 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const rejected = consistency.rejectedClaimPaths.has(path);
     const supported = match.supported && !rejected;
     const judgment = claim.label === "JUDGMENT";
+    const registryRecord = sourceId === null
+      ? undefined
+      : registry.find((record) => record.id === sourceId);
+    const validation = supported && sourceId !== null
+      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: issuerWords, index: claimEvidenceIndex })
+      : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
+    if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
+      validation.reason = "supported";
+      validation.note = "citation and ordered declared text values matched; metric-specific content remains unchecked";
+    }
+    const semanticFailure = supported ? consistency.findings.find((finding) => finding.path === path &&
+      (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : undefined;
+    const validationStatus = semanticFailure === undefined ? validation.status : "contradicted";
+    const validated = supported && validationStatus === "validated";
     if (judgment) {
       judgmentsTotal += 1;
       if (supported) judgmentsCited += 1;
     } else {
       factualTotal += 1;
       if (supported) factualSupported += 1;
+      if (validated) factualValidated += 1;
+      else if (validationStatus === "contradicted") factualContradicted += 1;
+      else factualUnchecked += 1;
     }
-    const registryRecord = sourceId === null
-      ? undefined
-      : registry.find((record) => record.id === sourceId);
     // The check's own reason, not a blanket "unknown-source": a claim that
     // cited a registered row and was rejected for its content (a person the
     // row does not list, a currency the row does not establish) was not
@@ -2841,25 +2881,27 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       : undefined;
     log.push({
       claim: claim.text,
-      outcome: supported ? "verified" : "unverified",
+      outcome: validated ? "verified" : "unverified",
       note: supported
-        ? "citation observed"
+        ? semanticFailure?.note ?? validation.note
         : rejected
           ? rejection?.check === "named-individual"
             ? "[unverified] rejected by the named-individual restriction; see the check entry for this path"
             : "[unverified] rejected by a consistency check; see the check entry for this path"
           : `[unverified] ${match.reason}`,
       traceKind: supported
-        ? registryRecord?.kind === "computed"
+        ? validated && registryRecord?.kind === "computed"
           ? "computed-derived"
-          : registryRecord
+          : validated && registryRecord
             ? "payload-match"
             : "source-cited"
         : "untraced",
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",
       source: sourceId ?? claim.source,
-      reason: rejected ? (rejection?.reason ?? "unknown-source") : match.reason,
+      reason: rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : semanticFailure?.reason ?? validation.reason,
+      validationStatus,
+      ...(validation.spans.length === 0 ? {} : { sourceSpans: validation.spans }),
     });
   }
 
@@ -2888,6 +2930,14 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const coverage: ProvenanceCoverage = {
     numeric,
     factualClaims,
+    factualValidation: {
+      cited: factualSupported,
+      validated: factualValidated,
+      unchecked: factualUnchecked,
+      contradicted: factualContradicted,
+      total: factualTotal,
+      rate: factualTotal === 0 ? null : factualValidated / factualTotal,
+    },
     judgments: {
       cited: judgmentRate.supported,
       total: judgmentRate.total,
@@ -2903,6 +2953,10 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   // path or re-fetch the cited number — see the runVerifyPass docstring) would
   // slot in here and actually feed back into the report.
 
+  const executiveRoot = verifiedReport as {leadership?: Report["leadership"]};
+  if (executiveRoot.leadership && Array.isArray(executiveRoot.leadership.executives)) {
+    executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership,log);
+  }
   const result = {
     verifiedReport,
     verificationRate: numeric.rate,
@@ -2959,6 +3013,8 @@ export interface AssembleReportArgs {
   judgeProtocol?: JudgeProtocolDraft;
   /** Pipeline version stamped into meta . Defaults to REPORT_SPEC_VERSION. */
   pipelineVersion?: string;
+  /** Internal pre-verification assembly only; final and fallback assembly stay strict. */
+  provisionalVerification?: boolean;
   /**
    * Stage A validation gaps (balance-sheet identity breaks, FMP↔XBRL
    * disagreements, stale-fundamentals flags). Merged into the appendix
@@ -3079,15 +3135,15 @@ export function applyFairValue(
 export function applyDcfDisplay(
   valuation: JudgeOutput["valuation"],
   computedValuation: ComputedMetrics["valuation"] | undefined,
+  currency: string | null = null,
 ): JudgeOutput["valuation"] {
   if (computedValuation === undefined) return valuation;
-  const display = computeDcfDisplay(computedValuation);
+  const display = computeDcfDisplay(computedValuation, currency);
   return {
     ...valuation,
     dcf: {
       ...valuation.dcf,
-      assumptions: display.assumptions,
-      sensitivityGrid: display.sensitivityGrid,
+      ...display,
     },
   };
 }
@@ -3168,7 +3224,9 @@ export function applyReverseDcf(
   ) {
     const r = computedValuation.reverseDcf;
     if (r.method === "growth") {
-      impliedMetric = "constant revenue growth (explicit horizon)";
+      impliedMetric = r.growthPathFamily === "linear-fade-to-terminal"
+        ? "starting revenue growth (fades to terminal rate)"
+        : "revenue growth (path family unavailable)";
       impliedValue = r.impliedRevenueGrowthPct;
     } else if (r.method === "margin") {
       impliedMetric = "terminal EBIT margin";
@@ -3339,6 +3397,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...args.computed.gaps,
     ...(args.validationGaps ?? []),
     ...degradationDisclosures(args.computed.degradation),
+    ...sourceEvidenceDisclosures(args.bundle),
     ...(args.judgeProtocol?.disclosures ?? []),
     ...(judgeProtocol === undefined ? [] : judgeProtocolManifestEntries(judgeProtocol)),
     ...(args.verify.checks === undefined ? [] : consistencyManifestEntries(args.verify.checks)),
@@ -3399,6 +3458,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
           fairValue,
         ),
         args.computed.valuation,
+        args.computed.valuation === undefined ? null : statementCurrencies(args.bundle).model,
       ),
       args.computed.valuation,
     ),
@@ -3439,7 +3499,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(routeMetrics ? { routeMetrics } : {}),
   };
 
-  const parsed = ReportSchema.safeParse(candidate);
+  const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(candidate, args.computed, args.bundle, {pendingVerification:args.provisionalVerification===true}));
   if (!parsed.success) {
     throw new ReportValidationError(
       `assembled report failed ReportSchema validation`,

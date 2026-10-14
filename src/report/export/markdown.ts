@@ -18,6 +18,7 @@
  */
 
 import { formatExecutionMetadata } from "@/report/execution";
+import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
   Appendix,
@@ -119,7 +120,7 @@ function coverageCell(supported: number, total: number, rate: number | null): st
 }
 
 function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
-  return table(
+  return (factualValidationText(coverage) ?? "") + "\n\n" + table(
     ["Evidence class", "Supported / total"],
     [
       [
@@ -212,8 +213,9 @@ function verifiedMark(n: TracedNumber): string {
   return DASH;
 }
 
-function auditValue(value: string | number | boolean | null | undefined): string {
+function auditValue(value: unknown): string {
   if (value === null || value === undefined) return "n/a";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
@@ -340,7 +342,7 @@ function renderScores(scores: Scoring): string {
   const c = scores.composite;
   const aspectDescriptors = SCORE_SURFACES.filter((descriptor) => descriptor.kind === "aspect");
   const compositeFields = COMPOSITE_SCORE_FIELDS.filter((field) => field.key !== "weights");
-  const aspectFields = ASPECT_SCORE_FIELDS.filter((field) => field.key !== "drivers");
+  const aspectFields = ASPECT_SCORE_FIELDS.filter((field) => field.key !== "drivers" && field.key !== "signals");
   return [
     // A sub-heading of the verdict, as on the print surface: the manifest has
     // no separate scorecard section, so it takes no number of its own.
@@ -413,6 +415,7 @@ function renderScores(scores: Scoring): string {
         ])),
     ),
     "",
+    ...scoreAuditTables(scores).flatMap(t=>["",`### ${t.heading}`,"",table(t.headers,t.rows),t.note ?? ""]),
     `_${markdownProse(c.methodology)}_`,
     "",
     `_Band table: ${markdownProse(scores.bandsVersion)}._`,
@@ -427,6 +430,7 @@ function renderProjections(p: Projections): string {
     `Horizon ${p.horizonYears}y · unbacktested display prior weights ${p.scenarioWeights.bull}/${p.scenarioWeights.base}/${p.scenarioWeights.bear} (bull/base/bear). Forward figures are ESTIMATEs, not facts or empirically calibrated odds.`,
     "",
   ];
+  lines.push(...projectionAuditTables(p).flatMap(t=>["",`### ${t.heading}`,"",table(t.headers,t.rows),t.note ?? ""]));
   if (series.length === 0) {
     lines.push(
       `_Not applicable${p.notApplicableReason ? `: ${markdownProse(p.notApplicableReason)}` : "."}_`,
@@ -473,7 +477,7 @@ function renderProjections(p: Projections): string {
         if (field.key === "horizonYears") return [[field.label, String(p.horizonYears)]];
         if (field.key === "weightsVersion") return [[field.label, p.weightsVersion]];
         if (field.key === "series") return [[field.label, String(p.series.length)]];
-        return [[field.label, auditValue(p.notApplicableReason)]];
+        return [[field.label, auditValue(p[field.key])]];
       }),
     ),
     "",
@@ -487,8 +491,7 @@ function renderProjections(p: Projections): string {
           PROJECTION_SERIES_FIELD_BY_KEY.metric.label,
           "Path",
           PROJECTION_POINT_FIELD_BY_KEY.period.label,
-          PROJECTION_POINT_FIELD_BY_KEY.periodStart.label,
-          PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label,
+          PROJECTION_POINT_FIELD_BY_KEY.periodStart.label, PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label, PROJECTION_POINT_FIELD_BY_KEY.periodBasis.label,
           "Series unit",
           ...TRACED_NUMBER_FIELDS.map((field) => field.label),
         ],
@@ -497,8 +500,7 @@ function renderProjections(p: Projections): string {
             metric.label,
             path.label,
             point.period,
-            point.periodStart ?? "not established",
-            point.periodEnd ?? "not established",
+            auditValue(point.periodStart), auditValue(point.periodEnd), auditValue(point.periodBasis),
             s.unit,
             ...tracedAuditCells(point.value),
           ])),
@@ -658,6 +660,7 @@ function renderValuation(
     "",
   );
 
+  lines.push(...valuationAuditTables(v.dcf).flatMap(t=>["",`### ${t.heading}`,"",table(t.headers,t.rows),t.note ?? ""]));
   // Sensitivity grid (WACC × terminal growth), rendered as a pivot table.
   const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
   const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
@@ -890,6 +893,8 @@ function renderLeadership(l: Leadership): string {
       }`,
       "",
       claimList(e.reasoning),
+      "",
+      e.assessmentReason ? markdownProse(e.assessmentReason) : "",
       "",
     );
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
@@ -1197,6 +1202,8 @@ function renderHeader(
         ["Pipeline version", m.pipelineVersion],
         ["Cost (USD)", formatCostUsd(displayedCost)],
         ["Data completeness", completeness.statusText],
+        ["Factual validation", factualValidationText(m.provenanceCoverage) ?? "Not recorded; citation coverage alone is not factual validation."],
+        ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
         [
           "Citation coverage",
           m.verificationRate === null

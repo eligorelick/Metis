@@ -184,7 +184,7 @@ function valuationDcf(perShare = 190, impliedGrowth = 8, pePercentile = 40): Val
     assumptions: null,
     dcf: { perShare } as never,
     sensitivity: null,
-    reverseDcf: { method: "growth", impliedRevenueGrowthPct: impliedGrowth, impliedTerminalMarginPct: null, notes: [], gaps: [] },
+    reverseDcf: { method: "growth", impliedRevenueGrowthPct: impliedGrowth, baseRevenueGrowthPct: 15, growthPathFamily: "linear-fade-to-terminal", impliedTerminalMarginPct: null, notes: [], gaps: [] },
     multiples: {
       multiples: [{ key: "peTtm", current: 28, basis: "", ownHistory: { percentileRank: pePercentile, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 12, basis: "" }, peers: null }],
       sectorAppropriate: [],
@@ -316,7 +316,7 @@ describe("grading — computeScores", () => {
     const d = s.aspects.quality.drivers[0];
     expect(d.source).toMatch(/^computed\.scores\.quality\./);
     expect(d.verified).toBe(true);
-    expect(d.asOf).toBe("2026-07-06");
+    expect(d.asOf).toBe("2025-09-30");
   });
 
   it("dataCompleteness drops when signals are missing", () => {
@@ -622,7 +622,7 @@ describe("grading — sector routing", () => {
     // Bands: TCE/TA 8% → 70, NCO 0.5% → 70, L/D 90% → 70; NPL withheld, so the
     // other three weights (0.40/0.25/0.20) renormalise over 0.85.
     expect(bs.score).toBe(70);
-    expect(bs.dataCompleteness).toBe(0.85);
+    expect(bs.dataCompleteness).toBeCloseTo(0.85, 12);
     expect(bs.drivers.map((d) => d.source)).toEqual([
       "computed.scores.balanceSheet.tceToTangibleAssets",
       "computed.scores.balanceSheet.ncoToAverageLoans",
@@ -865,7 +865,7 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //    still suppressed) is now read against 0.8: 7·0.69 = 4.83.
     //  - Balance sheet 0 -> 10 (D-46, SCORE_BANDS_2026_10): a bank's balance
     //    sheet is graded on capital, credit and funding, all observed here.
-    expect(round2(compWeight)).toBe(76.15);
+    expect(round2(compWeight)).toBe(76.13);
     // Review of D-50: over what the route supports, every aspect of this bank
     // is fully observed, which is what the confidence ceiling reads.
     for (const a of Object.values(s.aspects)) {
@@ -999,5 +999,44 @@ describe("grading — REIT fundamentals never scores on suppressed EPS growth (f
     const names = s.aspects.fundamentals.drivers.map((d) => d.source);
     expect(names.some((n) => n.endsWith(".epsCagr"))).toBe(true);
     expect(s.aspects.fundamentals.dataCompleteness).toBe(1);
+  });
+});
+
+describe("META audit score comparability and provenance", () => {
+  it("keeps the exact evidence fraction for sparse capital stewardship", () => {
+    const cap = capital();
+    cap.buybackPriceAnalysis.premiumDiscountPct = null;
+    const result = computeScores(makeInputs({ capital: cap }));
+    expect(result.aspects.leadership.dataCompleteness).toBe(0.625);
+  });
+
+  it("compares reverse growth with the same fading-path base anchor", () => {
+    const v = valuationDcf(120, 16);
+    if (v.kind !== "dcf" || !v.reverseDcf) throw new Error("fixture");
+    Object.assign(v.reverseDcf, { baseRevenueGrowthPct: 10, growthPathFamily: "linear-fade-to-terminal" });
+    const score = computeScores(makeInputs({ valuation: v }));
+    const driver = score.aspects.valuation.drivers.find(d => d.source.endsWith("reverseImpliedVsAchievable"));
+    expect(driver?.value).toBe(6);
+  });
+
+  it("publishes the actual selected CAGR window and an explanatory fallback", () => {
+    const g = growth();
+    g.epsDilutedCagrs = [{ windowYears: 3, actualYears: 3, cagrPct: 39.842019, startDate: "2022-12-31", endDate: "2025-12-31", startValue: 8.59, endValue: 23.49 }];
+    const result = computeScores(makeInputs({ growth: g }));
+    const signal = result.aspects.fundamentals.signals?.find(s => s.id === "epsCagr");
+    expect(signal).toMatchObject({ raw: 39.842019, asOf: "2025-12-31", windowYears: 3, startDate: "2022-12-31", endDate: "2025-12-31" });
+    expect(signal?.fallbackReason).toMatch(/5.*3/);
+    expect(signal?.transformedScore).toBeGreaterThan(0);
+    expect(result.aspects.fundamentals.drivers.find(d=>d.source.endsWith("epsCagr"))?.period).toContain("2022-12-31");
+  });
+
+  it("publishes exact factor contributions and distinguishes business quality from price", () => {
+    const result = computeScores(makeInputs());
+    expect(result.assessments?.valuation.score).toBe(result.aspects.valuation.score);
+    expect(result.assessments?.businessQuality.score).toBeGreaterThan(0);
+    const signals = Object.values(result.aspects).flatMap(a=>a.signals ?? []);
+    expect(signals.length).toBeGreaterThan(15);
+    expect(50 + signals.reduce((total,s)=>total+s.contributionPoints,0)).toBeCloseTo(result.composite.score!, 2);
+    expect(result.factorExposure?.find(x=>x.family==="capital-returns")?.weightPct).toBeGreaterThan(10);
   });
 });

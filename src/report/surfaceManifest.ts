@@ -185,7 +185,7 @@ export const PROJECTION_METRIC_ORDER = [
 export const PROJECTION_METRICS = [
   { id: "projection-metric:revenue", key: "revenue", label: "Revenue" },
   { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin" },
-  { id: "projection-metric:fcf", key: "fcf", label: "Free cash flow (FCFF)" },
+  { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)" },
   { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "Diluted EPS" },
 ] as const satisfies readonly ProjectionMetricDescriptor[];
 
@@ -282,16 +282,22 @@ export const SCORING_FIELD_ORDER = [
   "aspects",
   "composite",
   "bandsVersion",
+  "assessments",
+  "factorExposure",
 ] as const satisfies readonly ScoringFieldKey[];
 export const SCORING_FIELDS = [
   { id: "scoring-field:aspects", key: "aspects", label: "Aspect scores", optional: false },
   { id: "scoring-field:composite", key: "composite", label: "Composite score", optional: false },
   { id: "scoring-field:bandsVersion", key: "bandsVersion", label: "Score bands version", optional: false },
+  { id: "scoring-field:assessments", key: "assessments", label: "Assessment dimensions", optional: true },
+  { id: "scoring-field:factorExposure", key: "factorExposure", label: "Factor-family exposure", optional: true },
 ] as const satisfies readonly FieldDescriptor<ScoringFieldKey>[];
 export const SCORING_FIELD_BY_KEY = {
   aspects: SCORING_FIELDS[0],
   composite: SCORING_FIELDS[1],
   bandsVersion: SCORING_FIELDS[2],
+  assessments: SCORING_FIELDS[3],
+  factorExposure: SCORING_FIELDS[4],
 } as const satisfies Record<ScoringFieldKey, FieldDescriptor<ScoringFieldKey>>;
 
 export type AspectScoreFieldKey = keyof AspectScore;
@@ -304,6 +310,7 @@ export const ASPECT_SCORE_FIELD_ORDER = [
   "drivers",
   "notApplicableReason",
   "note",
+  "signals",
 ] as const satisfies readonly AspectScoreFieldKey[];
 export const ASPECT_SCORE_FIELDS = [
   { id: "aspect-score-field:score", key: "score", label: "Score", optional: false },
@@ -314,6 +321,7 @@ export const ASPECT_SCORE_FIELDS = [
   { id: "aspect-score-field:drivers", key: "drivers", label: "Drivers", optional: false },
   { id: "aspect-score-field:notApplicableReason", key: "notApplicableReason", label: "Not applicable reason", optional: false },
   { id: "aspect-score-field:note", key: "note", label: "Method note", optional: false },
+  { id: "aspect-score-field:signals", key: "signals", label: "Signal evidence and contributions", optional: true },
 ] as const satisfies readonly FieldDescriptor<AspectScoreFieldKey>[];
 export const ASPECT_SCORE_FIELD_BY_KEY = {
   score: ASPECT_SCORE_FIELDS[0],
@@ -324,6 +332,7 @@ export const ASPECT_SCORE_FIELD_BY_KEY = {
   drivers: ASPECT_SCORE_FIELDS[5],
   notApplicableReason: ASPECT_SCORE_FIELDS[6],
   note: ASPECT_SCORE_FIELDS[7],
+  signals: ASPECT_SCORE_FIELDS[8],
 } as const satisfies Record<AspectScoreFieldKey, FieldDescriptor<AspectScoreFieldKey>>;
 
 export type CompositeScoreFieldKey = keyof CompositeScore;
@@ -353,6 +362,7 @@ export const PROJECTION_ROOT_FIELD_ORDER = [
   "weightsVersion",
   "series",
   "notApplicableReason",
+  "scenarioAssumptions",
 ] as const satisfies readonly ProjectionRootFieldKey[];
 export const PROJECTION_ROOT_FIELDS = [
   { id: "projection-root-field:horizonYears", key: "horizonYears", label: "Horizon years", optional: false },
@@ -360,6 +370,7 @@ export const PROJECTION_ROOT_FIELDS = [
   { id: "projection-root-field:weightsVersion", key: "weightsVersion", label: "Weights version", optional: false },
   { id: "projection-root-field:series", key: "series", label: "Series", optional: false },
   { id: "projection-root-field:notApplicableReason", key: "notApplicableReason", label: "Not applicable reason", optional: false },
+  { id: "projection-root-field:scenarioAssumptions", key: "scenarioAssumptions", label: "Scenario construction", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionRootFieldKey>[];
 export const PROJECTION_ROOT_FIELD_BY_KEY = {
   horizonYears: PROJECTION_ROOT_FIELDS[0],
@@ -367,6 +378,7 @@ export const PROJECTION_ROOT_FIELD_BY_KEY = {
   weightsVersion: PROJECTION_ROOT_FIELDS[2],
   series: PROJECTION_ROOT_FIELDS[3],
   notApplicableReason: PROJECTION_ROOT_FIELDS[4],
+  scenarioAssumptions: PROJECTION_ROOT_FIELDS[5],
 } as const satisfies Record<ProjectionRootFieldKey, FieldDescriptor<ProjectionRootFieldKey>>;
 
 export type ProjectionScenarioWeightKey = keyof Projections["scenarioWeights"];
@@ -397,6 +409,9 @@ export const PROJECTION_SERIES_FIELD_ORDER = [
   "weighted",
   "assumptions",
   "disclosures",
+  "flatShare",
+  "shareTrend",
+  "capitalReturn",
 ] as const satisfies readonly ProjectionSeriesFieldKey[];
 export const PROJECTION_SERIES_FIELDS = [
   { id: "projection-series-field:metric", key: "metric", label: "Metric", optional: false },
@@ -408,6 +423,9 @@ export const PROJECTION_SERIES_FIELDS = [
   { id: "projection-series-field:weighted", key: "weighted", label: "Weighted", optional: false },
   { id: "projection-series-field:assumptions", key: "assumptions", label: "Assumptions", optional: false },
   { id: "projection-series-field:disclosures", key: "disclosures", label: "Disclosures", optional: false },
+  { id: "projection-series-field:flatShare", key: "flatShare", label: "Flat-share EPS", optional: true },
+  { id: "projection-series-field:shareTrend", key: "shareTrend", label: "Hypothetical share-trend EPS", optional: true },
+  { id: "projection-series-field:capitalReturn", key: "capitalReturn", label: "Capital return assumptions", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionSeriesFieldKey>[];
 export const PROJECTION_SERIES_FIELD_BY_KEY = {
   metric: PROJECTION_SERIES_FIELDS[0],
@@ -419,6 +437,9 @@ export const PROJECTION_SERIES_FIELD_BY_KEY = {
   weighted: PROJECTION_SERIES_FIELDS[6],
   assumptions: PROJECTION_SERIES_FIELDS[7],
   disclosures: PROJECTION_SERIES_FIELDS[8],
+  flatShare: PROJECTION_SERIES_FIELDS[9],
+  shareTrend: PROJECTION_SERIES_FIELDS[10],
+  capitalReturn: PROJECTION_SERIES_FIELDS[11],
 } as const satisfies Record<ProjectionSeriesFieldKey, FieldDescriptor<ProjectionSeriesFieldKey>>;
 
 export type ProjectionPointFieldKey = keyof ProjectionPoint;
@@ -427,18 +448,21 @@ export const PROJECTION_POINT_FIELD_ORDER = [
   "value",
   "periodStart",
   "periodEnd",
+  "periodBasis",
 ] as const satisfies readonly ProjectionPointFieldKey[];
 export const PROJECTION_POINT_FIELDS = [
   { id: "projection-point-field:period", key: "period", label: "Period", optional: false },
   { id: "projection-point-field:value", key: "value", label: "Value", optional: false },
   { id: "projection-point-field:periodStart", key: "periodStart", label: "Modeled period start", optional: true },
   { id: "projection-point-field:periodEnd", key: "periodEnd", label: "Modeled period end", optional: true },
+  { id: "projection-point-field:periodBasis", key: "periodBasis", label: "Period basis", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionPointFieldKey>[];
 export const PROJECTION_POINT_FIELD_BY_KEY = {
   period: PROJECTION_POINT_FIELDS[0],
   value: PROJECTION_POINT_FIELDS[1],
   periodStart: PROJECTION_POINT_FIELDS[2],
   periodEnd: PROJECTION_POINT_FIELDS[3],
+  periodBasis: PROJECTION_POINT_FIELDS[4],
 } as const satisfies Record<ProjectionPointFieldKey, FieldDescriptor<ProjectionPointFieldKey>>;
 
 export type ProjectionDisclosureFieldKey = keyof ManifestEntry;
@@ -503,6 +527,8 @@ export const VERIFICATION_LOG_FIELD_ORDER = [
   "reason",
   "traceKind",
   "check", // WS7 (D-20)
+  "validationStatus",
+  "sourceSpans",
 ] as const satisfies readonly VerificationLogFieldKey[];
 export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:claim", key: "claim", label: "Claim", optional: false },
@@ -515,6 +541,8 @@ export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:traceKind", key: "traceKind", label: "Trace kind", optional: true },
   // WS7 (D-20): which deterministic check produced this entry, when one did.
   { id: "verification-log-field:check", key: "check", label: "Check", optional: true },
+  { id: "verification-log-field:validationStatus", key: "validationStatus", label: "Factual validation", optional: true },
+  { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
 ] as const satisfies readonly FieldDescriptor<VerificationLogFieldKey>[];
 export const VERIFICATION_LOG_FIELD_BY_KEY = {
   claim: VERIFICATION_LOG_FIELDS[0],
@@ -526,6 +554,8 @@ export const VERIFICATION_LOG_FIELD_BY_KEY = {
   reason: VERIFICATION_LOG_FIELDS[6],
   traceKind: VERIFICATION_LOG_FIELDS[7],
   check: VERIFICATION_LOG_FIELDS[8], // WS7 (D-20)
+  validationStatus: VERIFICATION_LOG_FIELDS[9],
+  sourceSpans: VERIFICATION_LOG_FIELDS[10],
 } as const satisfies Record<VerificationLogFieldKey, FieldDescriptor<VerificationLogFieldKey>>;
 
 export type AsOfMapFieldKey = "field" | "asOf";

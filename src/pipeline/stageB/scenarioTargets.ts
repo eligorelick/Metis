@@ -26,16 +26,15 @@
  */
 
 import {
-  runDcf,
   type DcfRunOptions,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
 import {
   effectiveScenarioShocks,
-  perturbScenarioAssumptions,
   scenarioDispersion,
   type ProjectionIncomeRow,
 } from "@/pipeline/stageB/projections";
+import { buildScenarioPaths, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { perShareUnit } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
@@ -44,7 +43,7 @@ import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/sch
 /** Method id stamped into the block. */
 export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 /** Versioned method prior — bump when the construction changes. */
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_07B" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
@@ -82,7 +81,7 @@ function suppressed(missingReasons: ManifestEntry[], basis: string[]): ScenarioT
   };
 }
 
-export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioTargets {
+export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioTargets & { scenarioAssumptions?: ScenarioAssumptions } {
   const { valuation, currency, asOf } = inputs;
 
   // Only the general FCFF-DCF route has a per-share intrinsic value to perturb.
@@ -229,8 +228,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
 
   // base = the deterministic DCF fair value (reused). bull/bear re-run the SAME
   // engine with ±σ-shifted growth/margin paths and the SAME equity bridge.
-  const rawUpPerShare = runDcf(perturbScenarioAssumptions(assumptions, dg, dm), opts).perShare; // +growth / +margin·corr
-  const rawDownPerShare = runDcf(perturbScenarioAssumptions(assumptions, -dg, -dm), opts).perShare; // −growth / −margin·corr
+  const shared = buildScenarioPaths(assumptions, opts, { sigmaGrowth: dg, sigmaMargin: disp.sigmaMargin, growthMarginCorrelation: effectiveCorr });
 
   // With a NEGATIVE growth/margin correlation dm < 0, so the +growth run can land
   // BELOW the −growth run (the margin shock dominates the growth shock), which
@@ -239,15 +237,9 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   // labelled bull; each scenario keeps the growth/margin deltas of the path that
   // produced it. base (the DCF fair value) is untouched, so it can never disagree
   // with the DCF page.
-  let optimistic = { value: rawUpPerShare, growthDeltaPp: dg, marginDeltaPp: dm };
-  let pessimistic = { value: rawDownPerShare, growthDeltaPp: -dg, marginDeltaPp: -dm };
-  let orderingInverted = false;
-  if (isNum(rawUpPerShare) && isNum(rawDownPerShare) && rawDownPerShare > rawUpPerShare) {
-    optimistic = { value: rawDownPerShare, growthDeltaPp: -dg, marginDeltaPp: -dm };
-    pessimistic = { value: rawUpPerShare, growthDeltaPp: dg, marginDeltaPp: dm };
-    orderingInverted = true;
-  }
-  if (orderingInverted) {
+  const optimistic = { value: shared.bull.result.perShare, growthDeltaPp: shared.bull.growthDeltaPp, marginDeltaPp: shared.bull.marginDeltaPp };
+  const pessimistic = { value: shared.bear.result.perShare, growthDeltaPp: shared.bear.growthDeltaPp, marginDeltaPp: shared.bear.marginDeltaPp };
+  if (shared.orderingInverted) {
     missingReasons.push({
       field: "valuation.scenarioTargets.ordering",
       reason:
@@ -287,12 +279,14 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
     `bull/bear re-run the SAME DCF with growth shifted ±${round2(dg)}pp and margin shifted ±${round2(dm)}pp; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated. Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
     "Targets are computed-derived DCF sensitivities, not source-verified facts or empirically calibrated outcome probabilities.",
+    shared.scenarioAssumptions.terminalTransition,
   ];
 
   return {
     status: "available",
     method: SCENARIO_TARGET_METHOD,
     methodVersion: SCENARIO_TARGET_METHOD_VERSION,
+    scenarioAssumptions: shared.scenarioAssumptions,
     basis,
     dispersion: {
       growthSigmaPp: round2(disp.sigmaGrowth),

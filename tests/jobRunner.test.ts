@@ -117,6 +117,8 @@ import {
 } from "@/db";
 import { costLog, jobLlmLeases, jobPassArtifacts, jobs, reports } from "@/db/schema";
 import { setSetting } from "@/settings/settings";
+import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
+import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
 import { explainAnalysisModel } from "@/settings/contracts";
 import {
   ACTIVE_JOB_STALE_MS,
@@ -6120,7 +6122,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.11.0");
+    expect(repRow?.specVersion).toBe("1.12.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
@@ -9446,5 +9448,44 @@ describe("analyst repair attempt after schema-invalid output", () => {
 
     expect(calls).not.toContain("runAnalystPass");
     expect(result.dataOnly).toBe(true);
+  });
+});
+
+describe("immutable normalized run input persistence", () => {
+  it("retains the original frozen inputs when a durable verification resume skips fetch", async () => {
+    const { jobId } = createJob("AAPL");
+    const snapshot = captureRunInputSnapshot(fakeBundle(), { evIncludeLeases: false });
+    const sourceRef = persistRunInputSnapshot(jobId, 0, snapshot, NOW().toISOString());
+    persistPassSettlement({ jobId, runGeneration: 0, attemptId: "snapshot-source-verify", pass: "verify",
+      settlement: testSuccessSettlement({ data: fakeReport(fakeJudgeOutput()), model: "deterministic", costUsd: 0, fallbackUsed: false }, false),
+      payloadFingerprint: null, settledAt: NOW().toISOString() });
+    handle.db.update(jobs).set({ status: "error", error: "report link interrupted" }).where(eq(jobs.id, jobId)).run();
+    const options: RunJobOptions = { now: NOW, resume: true };
+    Object.defineProperty(options, "bundle", { get: () => { throw new Error("resume must not fetch replacement inputs"); } });
+    const result = await runJob(jobId, mockPasses().passes, options);
+    expect(result.status).toBe("done");
+    const stored = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(stored.meta.runSnapshot).toEqual(sourceRef);
+    expect(readJobRunSnapshotRef(jobId, 1)).toEqual(sourceRef);
+  });
+  it("saves frozen inputs before Stage B and stamps the persisted data-only report", async () => {
+    const { jobId } = createJob("AAPL");
+    const original = fakeBundle();
+    const actual = await vi.importActual<typeof import("@/pipeline/compute")>("@/pipeline/compute");
+    const compute = await import("@/pipeline/compute");
+    vi.mocked(compute.runStageB).mockImplementationOnce((bundle, config) => {
+      const current = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!;
+      const ref = readJobRunSnapshotRef(jobId, current.runGeneration);
+      expect(ref).not.toBeNull();
+      expect(readRunInputSnapshot(ref!.hash)?.content.bundle).toEqual(bundle);
+      expect(readRunInputSnapshot(ref!.hash)?.content.stageBConfig).toEqual(config);
+      return actual.runStageB(bundle, config);
+    });
+    const result = await runJob(jobId, mockPasses().passes, { bundle: original, hasAnthropicKey: false, now: NOW });
+    expect(result.status).toBe("done");
+    const stored = JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!);
+    const current = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!;
+    expect(stored.meta.runSnapshot).toEqual(readJobRunSnapshotRef(jobId, current.runGeneration));
+    expect(stored.meta.runSnapshot.hash).toMatch(/^[a-f0-9]{64}$/);
   });
 });

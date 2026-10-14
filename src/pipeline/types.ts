@@ -12,7 +12,7 @@
 
 import type { StockSplits } from "@/edgar/splits";
 import type { PeerCollection } from "@/pipeline/peers";
-import type { DataSource, FetchResult, ManifestEntry } from "@/types/core";
+import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type {
   FmpAnalystEstimatesRow,
   FmpBalanceSheetRow,
@@ -132,6 +132,8 @@ export interface EdgarRegistrant {
 }
 
 export interface EdgarBundle {
+  /** Public company-confirmed future events extracted from bounded recent 8-K/EX-99 reads. */
+  earningsAnnouncements?: Sourced<FmpEarningsRow>[];
   cik: FetchResult<CikMapping>;
   /** Latest annual primary filing: prefer 10-K, otherwise Form 20-F. */
   latestTenK: FetchResult<EdgarFiling>;
@@ -291,7 +293,7 @@ export interface DataBundle {
 
   /** Past + future earnings rows (future rows carry epsActual=null). */
   earningsHistory: FmpFetch<FmpEarningsRow>;
-  /** Derived: first future-dated earnings row (next expected report). */
+  /** Company-confirmed future event when supported; otherwise vendor estimate. */
   earningsCalendarNext: FetchResult<FmpEarningsRow>;
 
   transcript: TranscriptBundle;

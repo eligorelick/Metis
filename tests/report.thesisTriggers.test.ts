@@ -14,6 +14,26 @@ function computed(overrides: Record<string, unknown> = {}): Pick<ComputedMetrics
 }
 
 describe("model-derived thesis revision triggers", () => {
+  it("describes a fading reverse solve as starting growth rather than constant growth", () => {
+    const data = computed();
+    if (data.valuation.kind !== "dcf" || !data.valuation.reverseDcf) throw new Error("fixture");
+    data.valuation.reverseDcf.growthPathFamily = "linear-fade-to-terminal";
+    const [trigger] = buildThesisTriggers(data);
+    expect(trigger.metric).toContain("starting");
+    expect(trigger.horizon).toContain("fade");
+    expect(trigger.horizon).not.toContain("no fade");
+  });
+
+  it.each(["12M ending 2027-06-30", "FY2027 ending 2027-06-30"])("retains an annual milestone with its exact model window: %s", (label) => {
+    const trace = { value: 125, unit: "USD", source: "computed.projections.revenue.base", asOf: "2026-10-13" };
+    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", base: [{ period: label, periodStart: "2026-07-01", periodEnd: "2027-06-30", value: trace }] }] } });
+    const trigger = buildThesisTriggers(data).find((t) => t.id === "projection-revenue");
+    expect(trigger?.horizon).toContain("2026-07-01 through 2027-06-30");
+    expect(trigger?.threshold.value).toBe(125);
+    data.projections.series[0].base[0].periodEnd = "2027-07-01";
+    expect(buildThesisTriggers(data).some(t => t.id === "projection-revenue")).toBe(false);
+  });
+
   it("states the actual constant-growth reverse-DCF horizon and fixed assumptions", () => {
     const [trigger] = buildThesisTriggers(computed());
     expect(trigger.id).toBe("reverse-growth");

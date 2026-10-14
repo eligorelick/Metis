@@ -293,6 +293,14 @@ export function proseNumbers(text: string): number[] {
   return parseNumbers(stripNonQuantities(text)).map((parsed) => parsed.magnitude);
 }
 
+/** Quantity-only text with original offsets intact, for source-span binding. */
+export function proseQuantityText(text: string): string {
+  let out = text;
+  for (const { pattern } of DATE_PATTERNS) out = out.replace(pattern, (match) => " ".repeat(match.length));
+  for (const pattern of NON_QUANTITY_PATTERNS) out = out.replace(pattern, (match) => " ".repeat(match.length));
+  return out;
+}
+
 const MONTH_NUMBERS: Readonly<Record<string, number>> = {
   january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4, may: 5, june: 6,
   jun: 6, july: 7, jul: 7, august: 8, aug: 8, september: 9, sept: 9, sep: 9, october: 10, oct: 10,
@@ -588,7 +596,7 @@ function insideProperNoun(sentence: string, start: number, end: number): boolean
   return before !== null || after !== null;
 }
 
-function findDirectionWords(sentence: string): DirectionHit[] {
+export function findDirectionWords(sentence: string): DirectionHit[] {
   const hits: DirectionHit[] = [];
   for (const match of sentence.matchAll(/[A-Za-z]+/g)) {
     const word = match[0].toLowerCase();
@@ -604,6 +612,34 @@ function findDirectionWords(sentence: string): DirectionHit[] {
     });
   }
   return hits;
+}
+
+export interface QuantityDirection {
+  polarity: 1 | -1;
+  relation: "change" | "level";
+  negated: boolean;
+}
+
+/** Direction belongs to the nearest quantity in the clause, never a nearby metric. */
+export function quantityDirection(
+  sentence: string,
+  start: number,
+  end: number,
+  quantities: readonly { start: number; end: number }[],
+): QuantityDirection | null {
+  const distance = (hit: DirectionHit, quantity: { start: number; end: number }): number =>
+    hit.end <= quantity.start ? quantity.start - hit.end : hit.start >= quantity.end ? hit.start - quantity.end : Infinity;
+  const hits = findDirectionWords(sentence).filter((hit) => {
+    const own = distance(hit, { start, end });
+    return own <= DIRECTION_WINDOW_CHARS && quantities.every((quantity) => distance(hit, quantity) >= own);
+  }).sort((a, b) => distance(a, { start, end }) - distance(b, { start, end }));
+  const nearest = hits[0];
+  if (!nearest) return null;
+  const between = nearest.end <= start ? sentence.slice(nearest.end, start) : sentence.slice(end, nearest.start);
+  const before = sentence.slice(Math.max(0, nearest.start - 30), nearest.start);
+  return { polarity: nearest.polarity,
+    relation: nearest.end <= start && DELTA_BREAKERS.test(between) ? "level" : "change",
+    negated: /(?:\b(?:not|never|no|without)\b|n't)\s+(?:[a-z]+\s+){0,2}$/i.test(before) || /\b(?:not|never)\b|n't/i.test(between) };
 }
 
 /**

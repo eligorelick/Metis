@@ -11,6 +11,13 @@ const ALIGNMENT_FIELD = "projections.valueOrderedLabels";
  */
 export function alignProjectionScenarios(projections: Projections, targets: ScenarioTargets): Projections {
   if (targets.status !== "available" || projections.notApplicableReason !== null) return projections;
+  // Fresh shared-path outputs already use the targets' value-ordered identity.
+  // Keep this adapter for legacy projections without that explicit identity.
+  const shared = projections.scenarioAssumptions;
+  if (shared && shared.methodVersion === targets.scenarioAssumptions?.methodVersion
+    && shared.scenarios.length === 3 && shared.scenarios.every(scenario => targets.targets.some(target =>
+      target.name === scenario.name && target.growthDeltaPp === scenario.growthDeltaPp
+        && target.marginDeltaPp === scenario.marginDeltaPp))) return projections;
   const bull = targets.targets.find((target) => target.name === "bull");
   const bear = targets.targets.find((target) => target.name === "bear");
   if (!bull || !bear || bull.growthDeltaPp >= 0 || bear.growthDeltaPp <= 0) return projections;

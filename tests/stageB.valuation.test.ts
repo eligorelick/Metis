@@ -1522,6 +1522,8 @@ describe("multiplesFramework", () => {
   });
 
   it("peer stats: median + min/max, trims outliers, suppresses below 4 survivors", () => {
+    const economicEvidence = { businessModel: "software_subscription", accountingStandard: "US_GAAP", periodBasis: "TTM", periodEnd: "2025-12-31", priceCurrency: "USD", statementCurrency: "USD", definitions: { peTtm: "GAAP diluted earnings" }, sourceIds: ["fixture:issuer-economics"], availableAt: "2026-02-01" };
+    const comparable = { subjectEconomicEvidence: economicEvidence, peerComparisonAsOf: "2026-03-01" };
     const peersMany: PeerMultiples[] = [
       { symbol: "A", multiples: { peTtm: 10 } },
       { symbol: "B", multiples: { peTtm: 12 } },
@@ -1529,7 +1531,7 @@ describe("multiplesFramework", () => {
       { symbol: "D", multiples: { peTtm: 16 } },
       { symbol: "E", multiples: { peTtm: 1000 } }, // IQR outlier -> trimmed
     ];
-    const r = multiplesFramework("general", { ...baseInputs, peers: peersMany });
+    const r = multiplesFramework("general", { ...baseInputs, ...comparable, peers: peersMany.map((peer) => ({ ...peer, economicEvidence })) });
     const pe = r.multiples.find((m) => m.key === "peTtm");
     expect(pe?.peers).not.toBeNull();
     expect(pe?.peers?.count).toBe(4); // outlier dropped
@@ -1540,7 +1542,7 @@ describe("multiplesFramework", () => {
       { symbol: "A", multiples: { peTtm: 10 } },
       { symbol: "B", multiples: { peTtm: 12 } },
     ];
-    const r2 = multiplesFramework("general", { ...baseInputs, peers: peersFew });
+    const r2 = multiplesFramework("general", { ...baseInputs, ...comparable, peers: peersFew.map((peer) => ({ ...peer, economicEvidence })) });
     expect(r2.multiples.find((m) => m.key === "peTtm")?.peers).toBeNull(); // < 4 survivors
   });
 });

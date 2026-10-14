@@ -344,7 +344,7 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
       expect(["low", "medium"]).toContain(block.confidence);
       // The numbers behind the band are the score drivers, and the reasoning
       // still discloses that the LLM did not run — never a fabricated claim.
-      expect(block.keyNumbers).toEqual(score.drivers);
+      expect(block.keyNumbers.filter(n=>n.source.startsWith("computed.scores."))).toEqual(score.drivers);
       expect(block.reasoning.some((c) => /did not run|data-only/i.test(c.text))).toBe(true);
     }
     for (const block of collectGradeBlocks(report)) {
@@ -481,6 +481,15 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     expect(report.fairValue?.perShare?.unit).toBe("USD/share");
     expect(report.verdict.synthesis).toMatch(/model: [\d.,]+ USD per share/);
     expect(report.verdict.synthesis).not.toContain("(currency unknown)");
+  });
+
+  it("describes the matched fading reverse-DCF path and compares only the base starting anchor", () => {
+    const report = dataOnly();
+    expect(report.valuation.reverseDcf.impliedMetric).toContain("starting revenue growth");
+    expect(report.valuation.reverseDcf.narrative).toContain("same fading path");
+    expect(report.valuation.reverseDcf.narrative).toContain("base starting growth");
+    expect(report.valuation.reverseDcf.narrative).not.toContain("what was delivered");
+    expect(report.verdict.synthesis).not.toContain("constant revenue growth");
   });
 
   it("fills the fundamentals, capital, technicals and macro tables from Stage B, and leaves narrative sections empty", () => {

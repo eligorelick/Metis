@@ -84,20 +84,20 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps the deterministic scenario and comparable-peer conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.11.0");
-    expect(PAYLOAD_VERSION).toBe("1.16.0");
+    expect(REPORT_SPEC_VERSION).toBe("1.12.0");
+    expect(PAYLOAD_VERSION).toBe("1.17.0");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.11.0");
+    expect(newReport().meta.specVersion).toBe("1.12.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.16.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.16\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.16\.0\)/);
+    expect(payload.payloadVersion).toBe("1.17.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.17\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.17\.0\)/);
   });
 
-  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
+  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     const prior = payloadFingerprint({ ...payload, payloadVersion: version });

@@ -185,16 +185,22 @@ describe("reading a cited excerpt's figures (D-45)", () => {
 describe("runVerifyPass reads excerpt-cited numbers (D-45)", () => {
   it("verifies a described number printed in the cited excerpt, logs excerpt-match and fills the currency", async () => {
     const payload = payloadWith(K(), Q());
-    const { entry, number } = await verifyOne(payload, num(915e9, "currency eligible HQLA", "edgar:10-K item7", "2025-12-31"));
+    const { entry, number } = await verifyOne(payload, {
+      ...num(915e9, "currency eligible end-of-period High Quality Liquid Assets HQLA approximately", "edgar:10-K item7", "2025-12-31"),
+      period: "2025-12-31",
+    });
     expect(entry).toMatchObject({ outcome: "verified", reason: "supported", traceKind: "excerpt-match" });
-    expect(entry.note).toBe('value printed in the cited excerpt as "$915 billion" beside "eligible hqla"; period not machine-checked');
+    expect(entry.validationStatus).toBe("validated");
+    expect(entry.sourceSpans?.[0]?.text).toContain("$915 billion");
     expect(number).toMatchObject({ verified: true, currency: "USD" });
+    const abridged = await verifyOne(payload, num(915e9, "currency eligible HQLA", "edgar:10-K item7", "2025-12-31"));
+    expect(abridged.entry).toMatchObject({ outcome: "unverified", validationStatus: "unchecked" });
   });
 
-  it("reads a metric row's label as the description (report 26 marginTrend)", async () => {
+  it("leaves a flattened multi-column table unchecked when no period-specific cell binding is established", async () => {
     const payload = payloadWith(K());
     const { entry } = await verifyOne(payload, num(91_797e6, "currency", "edgar:10-K item7", "2025-12-31", "USD"), "FACT: Annual noninterest expense");
-    expect(entry).toMatchObject({ outcome: "verified", traceKind: "excerpt-match" });
+    expect(entry).toMatchObject({ outcome: "unverified", traceKind: "untraced", validationStatus: "unchecked" });
   });
 
   it.each([
@@ -221,8 +227,10 @@ describe("runVerifyPass reads excerpt-cited numbers (D-45)", () => {
     // "count daily active people" did not canonicalize before review
     // (2026-10-13), so the rule's own example shape failed as unit-mismatch.
     const payload = payloadWith(excerpt("edgar:10-Q item2", "2026-06-30", META_TEN_Q_ITEM2));
-    const { entry } = await verifyOne(payload, num(3.6e9, "count daily active people", "edgar:10-Q item2", "2026-06-30"));
+    const { entry } = await verifyOne(payload, num(3.6e9, "count Family daily active people DAP on average for June 2026", "edgar:10-Q item2", "2026-06-30"));
     expect(entry).toMatchObject({ outcome: "verified", traceKind: "excerpt-match" });
+    const abridged = await verifyOne(payload, num(3.6e9, "count daily active people", "edgar:10-Q item2", "2026-06-30"));
+    expect(abridged.entry).toMatchObject({ outcome: "unverified", validationStatus: "unchecked" });
     const { entry: wrong } = await verifyOne(payload, num(3.6e9, "count monthly advertisers", "edgar:10-Q item2", "2026-06-30"));
     expect(wrong).toMatchObject({ outcome: "unverified", reason: "text-context-mismatch" });
   });

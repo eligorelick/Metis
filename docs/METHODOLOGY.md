@@ -4,10 +4,9 @@ What Thesis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The implemented behavior below was checked against the source and synthetic
-tests on 2026-10-05 and reflects report 1.10.0 / payload 1.11.0, including the
-same-day growth-anchor span (D-39) and scenario-horizon (D-40) rules. The
-2026-10-13 sections (D-42 to D-45) were checked the same way and set payload
-1.12.0. The historical literature citations remain the project's
+tests through 2026-10-14 and reflects report 1.12.0 / payload 1.17.0, including
+the growth-anchor span, scenario-horizon, research-reliability and META audit
+rules. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
 
@@ -424,7 +423,7 @@ payload and the data-only report label the rows "after SBC, house default" and
 "before SBC, vendor convention", and both series are shown. Two conversion
 ratios are published the same way, and the **before**-SBC one is the ratio the
 balance-sheet grade scores, under a driver named `fcfConversionBeforeSbc`: that
-is the definition the conversion band was calibrated on, and grading the
+is the definition used by the unbacktested conversion band, and grading the
 after-SBC ratio against it would charge the same expense twice, because SBC as a
 percentage of free cash flow is already one of the five scored metrics. The
 aspect note states the definition. Price to free cash flow uses the **before**
@@ -1735,3 +1734,18 @@ authored by a person.
 Renderers print the disclaimer stored on the report as written, so a report
 generated under an earlier version keeps the text that was in force when it was
 produced.
+## META report audit improvements (October 2026)
+
+Fresh reports distinguish business quality, price attractiveness and evidence availability. Score bands, scenario display weights and forensic thresholds remain unbacktested house rules. They are not calibrated probabilities of returns or accounting misstatement. The score audit records each signal's measured dates, raw value, transformation, effective weight, missingness and contribution. Correlated signals are grouped into factor families so overlapping ROIC evidence is visible.
+
+Capital metrics use complete compatible TTM flows and a matching balance sheet when available, with an explicit annual fallback. Annual history remains available. Cash bridges distinguish operating cash flow minus cash capital expenditure, lease-principal-adjusted FCF, an explicitly supplied issuer definition, and after-SBC economic adjustments. Historical levered FCF and forecast unlevered FCFF are different measures. Debt, liquidity, lease liabilities, enterprise value, equity and diluted shares are reconciled separately.
+
+Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Persistent shocks and terminal transitions are disclosed alongside an illustrative decaying-growth alternative. EPS uses flat shares when historical shrinkage lacks future funding evidence; an unfunded historical-share-trend sensitivity is labeled hypothetical.
+
+Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility without attributable supporting evidence is not assessed. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
+
+### Offline outcome evaluation
+
+`npm run research:evaluate -- frozen-evaluation.json [report.json]` consumes the versioned `research-evaluation-v1` contract without provider, model or database calls. Inputs require immutable snapshot identity, information availability dates, a point-in-time universe including delisting coverage, exact forecast periods, currency/share basis, and frozen baselines. Outcome labels are separate first-reported filing values or benchmark-relative total returns including distributions and delistings. Future restatements, unavailable training labels, mismatched periods and current-constituent-only cohorts fail closed.
+
+The runner reports model and paired-baseline MAE, RMSE and bias; interval coverage and width; Brier scores and reliability only for explicitly defined binary events; missingness cohorts, frozen factor ablations, comparable-version grade stability, factual adjudication and order sensitivity. Chronological holdouts use labels known before each cutoff. Seeded issuer-cluster bootstrap intervals require at least five issuers. Sample counts and insufficient-evidence states are explicit. Synthetic fixtures validate the machinery; prospective forecasts with no realized outcome stay pending. Neither constitutes historical investment validation, and evaluation never retunes production weights.

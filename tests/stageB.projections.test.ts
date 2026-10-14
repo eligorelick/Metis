@@ -54,16 +54,16 @@ const INCOME_HISTORY = [
   { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1 },
 ];
 
-function buildDcf(): { assumptions: DcfAssumptions; dcf: DcfResult } {
+function buildDcf(anchor = "2025-12-31"): { assumptions: DcfAssumptions; dcf: DcfResult } {
   const built = buildDcfAssumptions({
     revenueCagr3yPct: 12,
     revenueCagr5yPct: 12,
     analystEstimates: null,
     waccPct: 9,
     riskFreePct: 4,
-    incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 300, incomeBeforeTax: 280, incomeTaxExpense: 60 },
+    incomeTtm: { date: anchor, revenue: 1000, operatingIncome: 300, incomeBeforeTax: 280, incomeTaxExpense: 60 },
     incomeHistory: INCOME_HISTORY.map((r) => ({ date: r.date, revenue: r.revenue, operatingIncome: r.ebit, incomeBeforeTax: r.ebit - 20, incomeTaxExpense: (r.ebit - 20) * 0.21 })),
-    balance: { date: "2025-12-31", basis: "annual", totalDebt: 200, totalStockholdersEquity: 800, cashAndShortTermInvestments: 300 },
+    balance: { date: anchor, basis: "annual", totalDebt: 200, totalStockholdersEquity: 800, cashAndShortTermInvestments: 300 },
     marketCap: 5000,
   });
   expect(built.assumptions).not.toBeNull();
@@ -72,8 +72,8 @@ function buildDcf(): { assumptions: DcfAssumptions; dcf: DcfResult } {
   return { assumptions, dcf };
 }
 
-function dcfValuation(): ValuationResult {
-  const { assumptions, dcf } = buildDcf();
+function dcfValuation(anchor = "2025-12-31"): ValuationResult {
+  const { assumptions, dcf } = buildDcf(anchor);
   return {
     kind: "dcf",
     route: "general",
@@ -112,13 +112,11 @@ const byMetric = (p: ReturnType<typeof computeProjections>, m: string) => p.seri
 
 describe("projections — structure", () => {
   it("evaluates a newly generated modeled period only against that exact published window", () => {
-    const inputs = makeInputs({ asOf: "2024-07-06" });
-    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
-    inputs.valuation.assumptions.asOf.statements = "2024-03-31";
+    const inputs = makeInputs({ asOf: "2024-07-06", valuation: dcfValuation("2024-03-31") });
     const generated = { meta: { symbol: "TEST", generatedAt: "2024-07-06T12:00:00.000Z", specVersion: "1.11.0", pipelineVersion: "test" }, projections: computeProjections(inputs) };
     const issuer = { scheme: "cik", id: "123", symbol: "TEST" };
     const definition = { schemaVersion: 1, issuer, identitySource: "test issuer", asOf: "2024-07-06", methodVersion: "test", market: [], operating: [{
-      id: "revenue-year1", metric: "revenue", scenario: "base", periodLabel: "FY2025", periodStart: "2024-04-01", periodEnd: "2025-03-31", unit: "USD", currency: "USD", basis: "consolidated-revenue",
+      id: "revenue-year1", metric: "revenue", scenario: "base", periodLabel: "12M ending 2025-03-31", periodStart: "2024-04-01", periodEnd: "2025-03-31", unit: "USD", currency: "USD", basis: "consolidated-revenue",
     }] };
     const frozen = createEvaluationSnapshot(generated, definition, "2024-07-06T12:00:00.000Z");
     const actual = { schemaVersion: 1, outcomes: [{ kind: "operating", id: "revenue-year1", issuer, metric: "revenue", periodStart: "2024-04-01", periodEnd: "2025-03-31", unit: "USD", currency: "USD", basis: "consolidated-revenue", value: 1000, availableDate: "2025-05-01", source: "test exact-window actuals" }] };
@@ -126,23 +124,19 @@ describe("projections — structure", () => {
   });
 
   it("saves annual model windows after the actual TTM anchor rather than guessing fiscal-year dates", () => {
-    const inputs = makeInputs();
-    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
-    inputs.valuation.assumptions.asOf.statements = "2025-03-31";
+    const inputs = makeInputs({ valuation: dcfValuation("2025-03-31") });
     const p = computeProjections(inputs);
     for (const series of p.series) {
       for (const scenario of ["base", "bull", "bear", "weighted"] as const) {
-        expect(series[scenario][0]).toMatchObject({ period: "FY2026", periodStart: "2025-04-01", periodEnd: "2026-03-31" });
-        expect(series[scenario][1]).toMatchObject({ period: "FY2027", periodStart: "2026-04-01", periodEnd: "2027-03-31" });
+        expect(series[scenario][0]).toMatchObject({ period: "12M ending 2026-03-31", periodStart: "2025-04-01", periodEnd: "2026-03-31", periodBasis: "rolling-12-month" });
+        expect(series[scenario][1]).toMatchObject({ period: "12M ending 2027-03-31", periodStart: "2026-04-01", periodEnd: "2027-03-31", periodBasis: "rolling-12-month" });
       }
     }
     expect(byMetric(p, "revenue").assumptions.some(line => /12.month.*fiscal/i.test(line))).toBe(true);
   });
 
   it("clamps a leap-day anchor to February end without gaps between modeled years", () => {
-    const inputs = makeInputs();
-    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
-    inputs.valuation.assumptions.asOf.statements = "2024-02-29";
+    const inputs = makeInputs({ valuation: dcfValuation("2024-02-29") });
     const rows = byMetric(computeProjections(inputs), "revenue").base;
     expect(rows[0]).toMatchObject({ periodStart: "2024-03-01", periodEnd: "2025-02-28" });
     expect(rows[1]).toMatchObject({ periodStart: "2025-03-01", periodEnd: "2026-02-28" });
@@ -153,11 +147,24 @@ describe("projections — structure", () => {
     const inputs = makeInputs();
     if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
     inputs.valuation.assumptions.asOf.statements = anchor;
+    if (anchor === null) delete inputs.valuation.assumptions.forecastPeriod;
+    else inputs.valuation.assumptions.forecastPeriod!.anchorEndDate = anchor;
+    inputs.valuation.dcf = runDcf(inputs.valuation.assumptions, { waccPct: 9, netDebt: -100, dilutedShares: 100 });
     const p = computeProjections(inputs);
     const row = byMetric(p, "revenue").base[0];
     expect(row).not.toHaveProperty("periodStart");
     expect(row).not.toHaveProperty("periodEnd");
     expect(byMetric(p, "revenue").disclosures.some(d => d.field === "projections.period" && /unverified/i.test(d.reason))).toBe(true);
+  });
+
+  it("withholds stale DCF period metadata when the statement anchor changes without rebuilding the model", () => {
+    const inputs = makeInputs();
+    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
+    inputs.valuation.assumptions.asOf.statements = "2025-03-31";
+    const point = byMetric(computeProjections(inputs), "revenue").base[0];
+    expect(point.period).toBe("Y+1 (period basis unavailable)");
+    expect(point).not.toHaveProperty("periodStart");
+    expect(point).not.toHaveProperty("periodEnd");
   });
 
   it("produces revenue, operatingMargin, fcf, epsDiluted series over the horizon", () => {
@@ -180,7 +187,9 @@ describe("projections — structure", () => {
     expect(pt.value.source).toBe("computed.projections.revenue.weighted");
     expect(pt.value.verified).toBe(true);
     expect(pt.value.unit).toBe("USD");
-    expect(pt.period).toMatch(/^FY\d{4}$/);
+    expect(pt.period).toBe("12M ending 2026-12-31");
+    expect(pt.periodStart).toBe("2026-01-01");
+    expect(pt.periodEnd).toBe("2026-12-31");
   });
 });
 
@@ -326,9 +335,9 @@ describe("projections — scenarios", () => {
   });
 
   it("forward labels track the DCF's TTM base period (mid-year filer not mislabelled early)", () => {
-    // Base fixture: TTM date 2025-12-31 → forward starts FY2026 regardless of annual tail.
+    // TTM anchor stays explicitly rolling even when its date coincides with December.
     const rev = byMetric(computeProjections(makeInputs()), "revenue");
-    expect(rev.base[0].period).toBe("FY2026");
+    expect(rev.base[0].period).toBe("12M ending 2026-12-31");
   });
 });
 
@@ -348,12 +357,14 @@ describe("projections — EPS derivation", () => {
     expect(p.series.length).toBe(3);
   });
 
-  it("suppresses EPS when the share-count trend is missing but preserves a finite zero trend", () => {
+  it("uses a disclosed flat-share base when the trend is missing and preserves zero trend", () => {
     const p = computeProjections(makeInputs({ shareCountAnnualizedPct: null }));
     const disclosures = p.series.flatMap((series) => series.disclosures);
     const revenue = byMetric(p, "revenue");
 
-    expect(p.series.some((series) => series.metric === "epsDiluted")).toBe(false);
+    expect(p.series.some((series) => series.metric === "epsDiluted")).toBe(true);
+    expect(byMetric(p, "epsDiluted").capitalReturn?.appliedShareCountAnnualizedPct).toBe(0);
+    expect(byMetric(p, "epsDiluted").shareTrend).toBeUndefined();
     expect(revenue.disclosures).toContainEqual(
       expect.objectContaining({
         field: "projections.eps.shareCountTrend",
@@ -370,7 +381,10 @@ describe("projections — EPS derivation", () => {
 
     const flatShares = computeProjections(makeInputs({ shareCountAnnualizedPct: 0 }));
     expect(flatShares.series.some((series) => series.metric === "epsDiluted")).toBe(true);
-    expect(JSON.stringify(flatShares)).toContain("0%/yr (buyback/dilution history)");
+    expect(byMetric(flatShares, "epsDiluted").base).toEqual(
+      byMetric(flatShares, "epsDiluted").flatShare?.base.map(pt => ({ ...pt,
+        value: { ...pt.value, source: "computed.projections.epsDiluted.base" } })),
+    );
   });
 });
 

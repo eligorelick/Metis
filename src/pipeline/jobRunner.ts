@@ -87,6 +87,8 @@ import {
 import type { RequestAdmission, RequestPermit } from "@/providers/anthropic";
 import { buildDataBundle, type BuildDataBundleOptions } from "@/pipeline/dataBundle";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
+import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
@@ -631,6 +633,7 @@ type JobEventPayload = JobEvent extends infer Event
 interface LiveAuthorityRow {
   revision: number;
   stepsJson: string;
+  resumeSourceGeneration: number | null;
 }
 
 /**
@@ -647,6 +650,7 @@ function withLiveRunAuthority<T>(
     const authorityAt = new Date().toISOString();
     const row = tx.select({
       runGeneration: jobs.runGeneration,
+      resumeSourceGeneration: jobs.resumeSourceGeneration,
       revision: jobs.revision,
       status: jobs.status,
       leaseOwner: jobs.leaseOwner,
@@ -2730,6 +2734,7 @@ export async function runJob<TPayload = unknown>(
     // -- fetch ----------------------------------------------------------------
     startStep(state, "fetch");
     let bundle: DataBundle;
+    const stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
     try {
       bundle =
         opts.bundle ??
@@ -2746,6 +2751,13 @@ export async function runJob<TPayload = unknown>(
           },
         }), jobSignal, jobController, "fetch", fetchDeadlineMs));
       throwIfJobAborted(jobSignal);
+      const inputSnapshot = captureRunInputSnapshot(bundle, stageBConfig);
+      const captured = withLiveRunAuthority(state, null, (db, _row, authorityAt) =>
+        persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, authorityAt, db));
+      if (!captured.authorized) throw new SupersededRunError(state.jobId, state.runGeneration);
+      // The snapshot is the authority actually consumed, including redacted raw
+      // envelopes and normalized JSON semantics, not a later cache reconstruction.
+      bundle = inputSnapshot.content.bundle;
     } catch (err) {
       throwIfJobAborted(jobSignal);
       // A hard fetch failure is terminal for the whole run — there is nothing
@@ -2784,7 +2796,7 @@ export async function runJob<TPayload = unknown>(
     startStep(state, "compute");
     let computed: ComputedMetrics;
     try {
-      computed = runStageB(bundle);
+      computed = runStageB(bundle, stageBConfig);
     } catch (err) {
       // Compute is pure; a throw here is a programming error, but degrade
       // rather than crash the app: finish compute with error and continue to
@@ -4270,6 +4282,16 @@ function persistReport(
   status: string,
 ): number {
   const persisted = withLiveRunAuthority(state, null, (db, _row, authorityAt) => {
+    let runSnapshot = readJobRunSnapshotRef(state.jobId, state.runGeneration, db);
+    // A settled verification resume skips fetch/compute. Carry the exact input
+    // association from its durable source generation, never today's cache.
+    if (runSnapshot === null && _row.resumeSourceGeneration !== null) {
+      const sourceRef = readJobRunSnapshotRef(state.jobId, _row.resumeSourceGeneration, db);
+      if (sourceRef !== null) {
+        const source = readRunInputSnapshot(sourceRef.hash, db)!;
+        runSnapshot = persistRunInputSnapshot(state.jobId, state.runGeneration, source, sourceRef.capturedAt, db);
+      }
+    }
     const ledger = db.select({
       step: costLog.step,
       model: costLog.model,
@@ -4288,6 +4310,7 @@ function persistReport(
           meta: {
             ...parsed.data.meta,
             costUsd: authoritativeCostUsd,
+            runSnapshot: runSnapshot ?? undefined,
           },
           appendix: {
             ...parsed.data.appendix,

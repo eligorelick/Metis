@@ -1,0 +1,26 @@
+{
+  "version": "research-evaluation-v1",
+  "evidenceKind": "synthetic_fixture",
+  "evaluatedAt": "2026-10-13",
+  "universe": { "id": "synthetic-point-in-time-example", "formedAt": "2023-01-01", "selection": "point_in_time", "includesDelisted": true },
+  "rolling": { "firstTestAt": "2024-01-01", "testWindowDays": 366, "minTrainSamples": 1, "minTestSamples": 1 },
+  "samples": [
+    {
+      "id": "fixture-A", "issuerId": "fixture-A", "symbol": "SYNTHETIC-A", "kind": "filing", "snapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "analysisAt": "2024-01-01", "predictionAvailableAt": "2024-01-01", "inputsAvailableAt": ["2023-12-01"], "membership": { "includedAt": "2023-01-01", "delistedAt": null },
+      "basis": { "currency": "USD", "unit": "USD", "shareBasis": "not_per_share" }, "metric": "revenue", "period": { "start": "2024-01-01", "end": "2024-12-31" },
+      "prediction": { "value": 12, "baseline": { "name": "flat_prior_year", "value": 10, "availableAt": "2023-12-01" }, "interval": { "low": 9, "high": 13, "nominalCoverage": 0.8 } },
+      "outcome": { "value": 10, "publishedAt": "2025-02-01", "observedAt": "2025-02-02", "version": "initial", "accession": "synthetic-not-an-sec-accession", "source": "sec_filing", "period": { "start": "2024-01-01", "end": "2024-12-31" }, "basis": { "currency": "USD", "unit": "USD", "shareBasis": "not_per_share" } },
+      "event": { "definition": "Synthetic revenue exceeds nine", "probability": 0.8, "outcome": 1, "resolvedAt": "2025-02-01" },
+      "ablations": { "without_momentum": { "value": 11, "availableAt": "2024-01-01" } }, "writing": { "adjudicatedAt": "2025-02-02", "claims": ["supported", "contradicted", "unchecked"] }, "orderProbe": { "original": 50, "permutations": [52, 49] }
+    },
+    {
+      "id": "fixture-B", "issuerId": "fixture-B", "symbol": "SYNTHETIC-B", "kind": "filing", "snapshotHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "analysisAt": "2024-01-01", "predictionAvailableAt": "2024-01-01", "inputsAvailableAt": ["2023-12-01"], "membership": { "includedAt": "2023-01-01", "delistedAt": null },
+      "basis": { "currency": "USD", "unit": "USD", "shareBasis": "not_per_share" }, "metric": "revenue", "period": { "start": "2024-01-01", "end": "2024-12-31" },
+      "prediction": { "value": 8, "baseline": { "name": "flat_prior_year", "value": 10, "availableAt": "2023-12-01" }, "interval": { "low": 9, "high": 13, "nominalCoverage": 0.8 } },
+      "outcome": { "value": 12, "publishedAt": "2025-02-01", "observedAt": "2025-02-02", "version": "initial", "accession": "synthetic-not-an-sec-accession", "source": "sec_filing", "period": { "start": "2024-01-01", "end": "2024-12-31" }, "basis": { "currency": "USD", "unit": "USD", "shareBasis": "not_per_share" } },
+      "event": { "definition": "Synthetic revenue exceeds nine", "probability": 0.2, "outcome": 0, "resolvedAt": "2025-02-01" }, "missingFields": ["lease_principal"], "ablations": { "without_momentum": { "value": 11, "availableAt": "2024-01-01" } }
+    }
+  ]
+}

@@ -25,7 +25,7 @@ import type { DataBundle } from "@/pipeline/types";
 import type { FmpCashFlowRow, FmpIncomeStatementRow } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 
-function q(over: Partial<Record<string, number | string | null>> = {}): FmpIncomeStatementRow {
+function q(over: Partial<FmpIncomeStatementRow> = {}): FmpIncomeStatementRow {
   return {
     date: "2026-03-31",
     revenue: 100,
