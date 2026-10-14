@@ -180,7 +180,7 @@ const PROJECTION_SERIES_ORDER = [
   "assumptions",
   "disclosures",
 ] as const;
-const PROJECTION_POINT_ORDER = ["period", "value"] as const;
+const PROJECTION_POINT_ORDER = ["period", "value", "periodStart", "periodEnd"] as const;
 const PROJECTION_DISCLOSURE_ORDER = [
   "field",
   "reason",

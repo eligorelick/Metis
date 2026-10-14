@@ -31,7 +31,7 @@ import {
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
 import {
-  DISPERSION_K,
+  effectiveScenarioShocks,
   perturbScenarioAssumptions,
   scenarioDispersion,
   type ProjectionIncomeRow,
@@ -165,19 +165,11 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
       ["Scenario targets unavailable: company-specific dispersion evidence is too thin."],
     );
   }
-  // A (near-)flat growth OR margin history makes the sample correlation
-  // undefined: scenarioDispersion.correlation() returns 0 on an exactly-flat
-  // series and a spurious value on a float-noise-flat one (e.g. a constant-margin
-  // company can report a phantom 0.29 correlation). Treat a σ that rounds to
-  // 0.00pp as no measurable dispersion so the joint shock is not scaled by a
-  // meaningless correlation — report the correlation as unavailable and disclose,
-  // rather than presenting a phantom fan around the base.
-  const dispersionDegenerate =
-    round2(disp.sigmaGrowth) === 0 || round2(disp.sigmaMargin) === 0;
-  const effectiveCorr = dispersionDegenerate ? null : disp.growthMarginCorrelation;
-
-  const dg = DISPERSION_K * disp.sigmaGrowth;
-  const dm = DISPERSION_K * disp.sigmaMargin * (effectiveCorr ?? 0);
+  const shocks = effectiveScenarioShocks(disp.sigmaGrowth, disp.sigmaMargin, disp.growthMarginCorrelation);
+  const dispersionDegenerate = shocks.degenerate;
+  const effectiveCorr = shocks.growthMarginCorrelation;
+  const dg = shocks.growthDeltaPp;
+  const dm = shocks.marginDeltaPp;
   const sigmaSource = "own-history" as const;
 
   const missingReasons: ManifestEntry[] = [];

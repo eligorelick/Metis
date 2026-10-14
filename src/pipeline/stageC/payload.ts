@@ -35,6 +35,7 @@ import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import type { TracedNumber } from "@/report/schema";
+import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
   PROJECTION_PATH_ORDER,
   SCORE_ASPECT_ORDER,
@@ -268,7 +269,8 @@ export interface ContextPayload {
 // bank's loan ratios divide by gross loans first; the bank capital note and
 // tangible-leverage caveat no longer call the house cut point a regulatory
 // line. Prior partial passes cannot resume.
-export const PAYLOAD_VERSION = "1.15.0" as const;
+// 1.16.0: deterministic scenario interpretation and comparable-peer evidence.
+export const PAYLOAD_VERSION = "1.16.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -490,6 +492,7 @@ const BANK_PAYLOAD_METRICS = [
 function computedSections(
   computed: ComputedMetrics,
   currencies: ComputedCurrencies,
+  currentPrice: number | null,
 ): PayloadSection[] {
   const sections: PayloadSection[] = [];
   const g = computed.growth;
@@ -756,6 +759,27 @@ function computedSections(
   }
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: val.notes }));
 
+  const peerCoverage = val.kind === "pre-revenue" ? undefined : val.multiples.peerCoverage;
+  if (peerCoverage) {
+    const peerFigures: PayloadFigureInput[] = peerCoverage.comparisons.flatMap((comparison) => {
+      const source = `computed.valuation.peerCoverage.${semanticSlug(comparison.name)}`;
+      return [
+        { label: `${comparison.name} current`, value: comparison.current, unit: "x", source: `${source}.current`, asOf: null },
+        { label: `${comparison.name} peer median`, value: comparison.peerMedian, unit: "x", source: `${source}.median`, asOf: null },
+        { label: `${comparison.name} eligible peer count after filtering`, value: comparison.peerCount, unit: "count", source: `${source}.count`, asOf: null },
+      ];
+    });
+    sections.push(payloadSection({
+      title: "Comparable peers (computed)",
+      figures: peerFigures.length ? peerFigures : [{ label: "qualified comparable peer valuation", value: null, unit: "x", source: "computed.valuation.peerCoverage", asOf: null }],
+      notes: [
+        ...peerCoverage.methodology,
+        ...peerCoverage.comparisons.map((comparison) => `${comparison.name}: ${comparison.basis}`),
+        ...peerCoverage.exclusions.map((entry) => `${entry.symbol}: ${entry.reason}`),
+      ],
+    }));
+  }
+
   // --- Deterministic aspect scores (feature 1.1.0) -------------------------
   if (computed.scores) {
     const sc = computed.scores;
@@ -837,7 +861,7 @@ function computedSections(
       asOf: null,
     });
     sections.push(payloadSection({
-      title: `Weighted projections (computed — ${pr.horizonYears}y forward, prob-weighted ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
+      title: `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
       figures: projFigures,
       notes: projectionSeries[0]?.assumptions ?? [],
     }));
@@ -851,6 +875,18 @@ function computedSections(
       notes: [`not applicable: ${computed.projections.notApplicableReason}`],
     }));
   }
+
+  const scenarioPresentation = buildScenarioPresentation(computed, currentPrice);
+  const sensitivity = scenarioPresentation.sensitivity;
+  sections.push(payloadSection({
+    title: "Deterministic scenario interpretation",
+    figures: [
+      { label: "sensitivity conclusion within the modeled grid", value: sensitivity.conclusion, unit: "", source: "computed.scenarioPresentation.sensitivity", asOf: null },
+      { label: "minimum available sensitivity-grid value", value: sensitivity.minPerShare, unit: computed.fairValue?.perShare?.unit ?? "per share (currency unknown)", source: "computed.scenarioPresentation.sensitivity.minPerShare", asOf: computed.fairValue?.perShare?.asOf ?? null },
+      { label: "maximum available sensitivity-grid value", value: sensitivity.maxPerShare, unit: computed.fairValue?.perShare?.unit ?? "per share (currency unknown)", source: "computed.scenarioPresentation.sensitivity.maxPerShare", asOf: computed.fairValue?.perShare?.asOf ?? null },
+    ],
+    notes: [scenarioPresentation.weightBasis, scenarioPresentation.interpretation],
+  }));
 
   // --- Runway (overlay-gated) ----------------------------------------------
   if (computed.runway) {
@@ -1834,7 +1870,7 @@ export function assembleContextPayload(
       industry: computed.route.evidence.industry,
     },
     quote: quoteSection(bundle, currencies.trading),
-    computed: computedSections(computed, computedCurrencies(bundle, computed)),
+    computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle)),
     statements: statementExtracts(bundle),
     estimates: estimatesSection(bundle),
     peers: peersSection(bundle),

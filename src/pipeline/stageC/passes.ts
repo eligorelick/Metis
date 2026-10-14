@@ -37,6 +37,8 @@ import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { routeMetricsBlock, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import type { MultipleKey } from "@/pipeline/stageB/valuation";
+import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
+import { buildThesisTriggers } from "@/report/thesisTriggers";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
@@ -1914,13 +1916,6 @@ function entityConflictFailure(
   };
 }
 
-function parseProbabilityLike(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return null;
-  const parsed = Number(value.trim().replace(/%$/, ""));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function cleanRatingSafeArray(value: unknown): unknown {
   return Array.isArray(value)
     ? value.filter((item) => typeof item !== "string" || noBuySellHold(item))
@@ -1957,24 +1952,11 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
         // checkpoint). assembleReport then overwrites this with the computed target
         // or leaves it null when suppressed.
         next.priceTarget = null;
+        // The only displayed weights come from the computed projection prior.
+        // Do not compare, validate or publish model-invented scenario odds.
+        next.probability = null;
         return next;
       });
-      const probabilities = scenarios.map((scenario) =>
-        scenario !== null && typeof scenario === "object" && !Array.isArray(scenario)
-          ? parseProbabilityLike((scenario as Record<string, unknown>).probability)
-          : null,
-      );
-      if (probabilities.every((p): p is number => p !== null)) {
-        const sum = probabilities.reduce((acc, p) => acc + p, 0);
-        if (sum >= 99 && sum <= 101 && probabilities.some((p) => p > 1)) {
-          for (let i = 0; i < scenarios.length; i++) {
-            const scenario = scenarios[i];
-            if (scenario !== null && typeof scenario === "object" && !Array.isArray(scenario)) {
-              (scenario as Record<string, unknown>).probability = Number((probabilities[i] / 100).toFixed(4));
-            }
-          }
-        }
-      }
       valuation.scenarios = scenarios;
     }
     // DCF perShare + upsidePct + assumptions table + sensitivityGrid are ALL
@@ -3151,13 +3133,16 @@ export function applyMultiples(
           name: MULTIPLE_LABELS[stat.key],
           current: stat.current,
           peerMedian: stat.peers?.median ?? null,
+          peerCount: stat.peers?.count ?? null,
           own5yPercentile: stat.ownHistory?.percentileRank ?? null,
           // WS6 review (SHOULD-FIX 3): N travels with the rank so every render
           // surface can print "rank 62 of 12 quarters" instead of a bare 62.
           ownHistoryObservations: stat.ownHistory?.observations ?? null,
           sectorAppropriate: mr.sectorAppropriate.includes(stat.key),
         }));
-  return { ...valuation, multiples: rows };
+  const { peerCoverage: _modelCoverage, ...rest } = valuation;
+  void _modelCoverage;
+  return { ...rest, multiples: rows, ...(mr?.peerCoverage ? { peerCoverage: mr.peerCoverage } : {}) };
 }
 
 /**
@@ -3406,7 +3391,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   const scenarioTargets = args.computed.scenarioTargets;
   const fairValue = args.computed.fairValue;
   const routeMetrics = routeMetricsBlock(args.computed);
-  const valuation = applyReverseDcf(
+  const valuation = applyScenarioPresentation(applyReverseDcf(
     applyMultiples(
       applyDcfDisplay(
         applyFairValue(
@@ -3418,7 +3403,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
       args.computed.valuation,
     ),
     args.computed.valuation,
-  );
+  ), args.computed);
   const quality = applyForensicScores(args.judgeOutput.quality, args.computed.forensics);
   const business = applySegmentShares(args.judgeOutput.business, args.bundle);
 
@@ -3444,6 +3429,8 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(args.computed.scores ? { scores: args.computed.scores } : {}),
     ...(args.computed.projections ? { projections: args.computed.projections } : {}),
     ...(scenarioTargets ? { scenarioTargets } : {}),
+    scenarioPresentation: buildScenarioPresentation(args.computed, comparableScenarioPrice(args.computed, args.bundle)),
+    thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed) : [],
     ...(fairValue ? { fairValue } : {}),
     // WS5 (D-17): the bank / insurer / mortgage-REIT route metrics and the
     // P/TBV-against-ROTE reading, pipeline-filled exactly like the blocks

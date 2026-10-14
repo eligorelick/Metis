@@ -171,6 +171,29 @@ function fyLabel(dateIso: string): string {
   return Number.isFinite(y) ? `FY${y}` : dateIso;
 }
 
+/** Calendar-anniversary model years, not an inferred issuer fiscal calendar. */
+function forwardModelWindow(anchor: string | null, year: number, asOf: string): { periodStart: string; periodEnd: string } | null {
+  const realDate = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+    && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+  if (!anchor || !realDate(anchor) || !realDate(asOf) || anchor > asOf) return null;
+  const base = new Date(`${anchor}T00:00:00Z`);
+  const month = base.getUTCMonth();
+  const day = base.getUTCDate();
+  if (base.getUTCFullYear() + year > 9999) return null;
+  const anniversary = (offset: number): Date => {
+    const targetYear = base.getUTCFullYear() + offset;
+    const lastDay = new Date(base);
+    lastDay.setUTCFullYear(targetYear, month + 1, 0);
+    const shifted = new Date(base);
+    shifted.setUTCFullYear(targetYear, month, Math.min(day, lastDay.getUTCDate()));
+    return shifted;
+  };
+  const start = anniversary(year - 1);
+  start.setUTCDate(start.getUTCDate() + 1);
+  return { periodStart: start.toISOString().slice(0, 10), periodEnd: anniversary(year).toISOString().slice(0, 10) };
+}
+
 /** Shift a path by a constant delta with sanity clamps. */
 function shiftPath(path: number[], delta: number, lo: number, hi: number): number[] {
   return path.map((v) => clamp(v + delta, lo, hi));
@@ -237,6 +260,27 @@ export interface ScenarioDispersion {
   irregularHistory: boolean;
   /** How many adjacent revenue pairs were skipped as off-annual (disclosed, never suppressing). */
   skippedPairs: number;
+}
+
+/**
+ * One effective shock rule for targets and projections. A sigma below the
+ * displayed precision cannot support a meaningful sample correlation: tiny
+ * growth noise must not amplify into a material correlated margin shift.
+ * Keep the measured growth delta; hold only the unsupported margin delta at 0.
+ */
+export function effectiveScenarioShocks(
+  sigmaGrowth: number,
+  sigmaMargin: number,
+  correlation: number | null,
+) {
+  const degenerate = round2(sigmaGrowth) === 0 || round2(sigmaMargin) === 0;
+  const growthMarginCorrelation = degenerate ? null : correlation;
+  return {
+    growthDeltaPp: DISPERSION_K * sigmaGrowth,
+    marginDeltaPp: DISPERSION_K * sigmaMargin * (growthMarginCorrelation ?? 0),
+    growthMarginCorrelation,
+    degenerate,
+  };
 }
 
 /**
@@ -387,8 +431,7 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
       "At least four consecutive annual revenue observations and three margin observations are required for sample dispersion; scenario fan suppressed rather than using house defaults.",
     );
   }
-  const sigmaGrowth = rawDisp.sigmaGrowth;
-  const sigmaMargin = rawDisp.sigmaMargin;
+  const shocks = effectiveScenarioShocks(rawDisp.sigmaGrowth, rawDisp.sigmaMargin, rawDisp.growthMarginCorrelation);
   if (rawDisp.irregularHistory) {
     // Off-annual pairs are skipped individually since 2026-08-31; the fan IS
     // built from the surviving annual steps, and the disclosure says so (it
@@ -405,11 +448,17 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
       reason: "insufficient paired history to estimate growth/margin covariance — margin path left at base in scenarios",
       severity: "warn",
     });
+  } else if (shocks.degenerate) {
+    disclosures.push({
+      field: "projections.dispersion.degenerate",
+      reason: "revenue-growth or operating-margin history shows negligible dispersion (σ rounds to 0.00pp) — growth/margin correlation is unavailable and the scenario margin path stays at base, consistent with the valuation targets",
+      severity: "info",
+    });
   }
 
   // --- Bull / bear paths via the SAME DCF engine ---------------------------
-  const dg = DISPERSION_K * sigmaGrowth;
-  const dm = DISPERSION_K * sigmaMargin * (rawDisp.growthMarginCorrelation ?? 0);
+  const dg = shocks.growthDeltaPp;
+  const dm = shocks.marginDeltaPp;
 
   const runScenario = (growthDelta: number, marginDelta: number): DcfYearRow[] =>
     runDcf(perturbScenarioAssumptions(assumptions, growthDelta, marginDelta), {
@@ -447,7 +496,7 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
       : "");
   const assumptionLines: string[] = [
     `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${rawDisp.growthMarginCorrelation === null ? "unavailable" : round2(rawDisp.growthMarginCorrelation)}).`,
+    `The two scenario shocks shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${shocks.growthMarginCorrelation === null ? "unavailable" : round2(shocks.growthMarginCorrelation)}). Where valuation targets are available, bull/bear labels follow the corresponding higher/lower valuation.`,
     `Weighted path uses the coarse unbacktested display prior ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear; these are not empirical probabilities.`,
   ];
 
@@ -510,7 +559,7 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
         ...assumptionLines,
         "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment).",
         "HISTORICAL FCF on this series is the reported levered figure (freeCashFlow, or operatingCashFlow + capitalExpenditure), which is stated AFTER interest. The two segments are therefore different measures: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
-        "Scenario paths can cross: the higher-growth (bull) case reinvests more up front, so its near-term FCF may sit BELOW the lower-growth (bear) case before overtaking it as growth matures. The shaded band is the scenario range, not a strict bull-over-bear ordering.",
+        "Scenario paths can cross: the higher-growth shock reinvests more up front, so its near-term FCF may sit below the lower-growth shock. The shaded band is the scenario range; bull/bear labels do not imply an ordering of each operating metric.",
       ],
       disclosures,
       asOf,
@@ -540,6 +589,24 @@ export function computeProjections(inputs: ProjectionsInputs): Projections {
   // Diluted EPS (derived; disclosed + skipped when inputs missing)
   const epsSeries = buildEpsSeries(inputs, { bullRows, baseRows, bearRows }, H, incomeAsc, fwdPeriod, assumptionLines, asOf);
   if (epsSeries) series.push(epsSeries);
+
+  const windows = Array.from({ length: H }, (_, index) => forwardModelWindow(assumptions.asOf.statements, index + 1, asOf));
+  for (const item of series) {
+    if (windows.every(window => window !== null)) {
+      for (const scenario of ["bull", "base", "bear", "weighted"] as const) {
+        item[scenario].forEach((point, index) => Object.assign(point, windows[index]));
+      }
+      item.assumptions = [...item.assumptions,
+        `Forward points represent modeled 12-month windows after the DCF statement anchor ${assumptions.asOf.statements}; these need not coincide with issuer fiscal years. FY labels identify each modeled period-end calendar year. Exact periodStart/periodEnd are saved on each forecast point; leap-day anniversaries clamp to February end.`,
+      ];
+    } else {
+      item.disclosures.push({
+        field: "projections.period",
+        reason: "Forecast periods are unverified: an explicit valid, nonfuture DCF statement anchor is unavailable. Annual-history dates and FY labels cannot establish evaluation horizons.",
+        severity: "warn",
+      });
+    }
+  }
 
   return {
     horizonYears: H,

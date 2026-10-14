@@ -802,8 +802,9 @@ describe("z.toJSONSchema output — no Anthropic-unsupported constraints", () =>
       for (const key of Object.keys(obj)) findDescriptions(obj[key], pred, out, seen);
       return out;
     }
-    // ScenarioSchema.probability's stripped [0,1] bound must survive as a description.
-    const hits = findDescriptions(judgeOutputToJsonSchema(), />= 0.*<= 1/, []);
+    // The required three-scenario bound survives as descriptive guidance.
+    // Scenario probabilities are now pipeline-owned and absent from requests.
+    const hits = findDescriptions(judgeOutputToJsonSchema(), /exactly 3 items/, []);
     expect(hits.length).toBeGreaterThan(0);
   });
 });

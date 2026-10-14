@@ -1763,7 +1763,7 @@ export interface VendorMultiplesRow {
   priceToFreeCashFlowRatio?: number | null;
 }
 
-/** Peer multiples computed upstream from peers' quotes/ratios-ttm. */
+/** Peer multiples computed upstream from validated quotes and raw statements. */
 export interface PeerMultiples {
   symbol: string;
   multiples: Partial<Record<MultipleKey, number | null>>;
@@ -1782,6 +1782,7 @@ export interface MultiplesFrameworkInputs {
   /** Vendor pre-baked ratio history — used only when derivation impossible AND currencies match. */
   keyMetricsHistory?: VendorMultiplesRow[];
   peers?: PeerMultiples[];
+  peerCoverage?: import("@/pipeline/peers").PeerCoverage;
   /** REIT-only: FFO/AFFO totals provided by the caller (labeled approximate upstream). */
   ffoApprox?: number | null;
   affoApprox?: number | null;
@@ -1875,6 +1876,7 @@ export interface MultipleStat {
 
 export interface MultiplesResult {
   multiples: MultipleStat[];
+  peerCoverage?: import("@/pipeline/peers").PeerCoverage;
   /** WS6 (D-19): the enterprise-value bridge, both ways. */
   enterpriseValue: EnterpriseValueBridge;
   sectorAppropriate: MultipleKey[];
@@ -2318,16 +2320,21 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.priceToFfo", "FFO (approx.) not provided by caller — P/FFO unavailable", "warn"));
   }
 
-  // Peer comparison is fully specified downstream — PeerStats, the n/m + IQR
-  // trim, the minimum-peer house rule, and both export surfaces render it — but
-  // nothing upstream ever populates `peers`, so every peer median is null on
-  // every report. Disclose that as a typed gap rather than let a permanently
-  // empty section read as "no comparable peers found", which is a factual claim
-  // about the market that was never actually evaluated.
-  if ((inputs.peers ?? []).length === 0) {
+  // The bounded upstream collector discloses evaluated candidates and their
+  // exclusions. Legacy/direct callers without a collector still disclose the
+  // missing input; neither path implies a market-wide search found no peers.
+  if (inputs.peerCoverage) {
+    notes.push(...inputs.peerCoverage.methodology);
+    for (const exclusion of inputs.peerCoverage.exclusions) {
+      notes.push(`Peer ${exclusion.symbol}: ${exclusion.reason}`);
+    }
+    if ((inputs.peers ?? []).length < MIN_PEERS_FOR_STATS) {
+      gaps.push(gapEntry("valuation.multiples.peers", "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.", "info"));
+    }
+  } else if ((inputs.peers ?? []).length === 0) {
     notes.push(
-      "Peer multiples are not supplied by the pipeline in this version — the peer median/IQR columns are " +
-        "unavailable for every multiple. This is a missing input, NOT a finding that the company has no peers.",
+      "Peer multiples were not supplied for this report — the peer median/IQR columns are " +
+        "unavailable. This is a missing input, not a finding that the company has no peers.",
     );
     gaps.push(
       gapEntry(
@@ -2529,6 +2536,7 @@ export function multiplesFramework(
 
   return {
     multiples,
+    ...(inputs.peerCoverage ? { peerCoverage: inputs.peerCoverage } : {}),
     enterpriseValue,
     sectorAppropriate: SECTOR_APPROPRIATE_MULTIPLES[route],
     asOf: { quote: null, statements: inc?.date ?? bal?.date ?? null },

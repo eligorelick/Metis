@@ -159,7 +159,7 @@ export function ReportView({
     business: <BusinessSegments business={report.business} index={reportSection("business").index} />,
     fundamentals: <FundamentalsSection fundamentals={report.fundamentals} index={reportSection("fundamentals").index} chart={fundamentalsChart} />,
     balanceSheet: <BalanceSheetSection balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
-    valuation: <ValuationSection valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} index={reportSection("valuation").index} />,
+    valuation: <ValuationSection valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} index={reportSection("quality").index} />,
     technicals: <TechnicalsSection technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
     leadership: <LeadershipSection leadership={report.leadership} index={reportSection("leadership").index} />,

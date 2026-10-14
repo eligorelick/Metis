@@ -684,9 +684,22 @@ quantiles; the median and quartiles remain robust. A multiple rendered "n/m"
 show a rank for a number it declines to print.
 
 Peer medians are trimmed of n/m values and 1.5×IQR outliers and suppressed
-below four surviving peers. Peer multiples are not currently supplied by the
-pipeline; that is disclosed as a missing input, not reported as a finding that
-the company has no peers.
+below four surviving peers. With FMP access, optional collection inspects at
+most six provider candidates under a bounded request/time budget. Same-industry,
+sector, valuation-route, currency, issuer/share-class and date checks govern
+eligibility; contradictory statement identifiers are rejected. Quotes and
+quarterly statements must be timely and filings available by the quote date.
+The report lists the method, metric-specific counts and excluded candidates.
+Keyless, reserved fixture symbols, unavailable data and thin coverage publish
+no unsupported median. This is a screened provider list, not an exhaustive
+or independently optimized peer universe.
+
+Market-cap/common-earnings comparisons use four quarterly observations with
+established common ownership and appear separately from price/weighted-EPS
+multiples. Those definitions can differ with changing share counts and are
+never silently combined. P/B and P/TBV require supported positive denominators.
+Peer comparisons provide context; they do not change scoring or intrinsic-value
+formulas.
 
 ---
 
@@ -1365,8 +1378,31 @@ zero with a warning. A non-positive base DCF per-share suppresses the entire
 target block; thin dispersion, unavailable WACC/bridge and non-DCF routes
 also suppress it. Sigma rounding to 0.00pp in either series makes target
 correlation unavailable and gives a degenerate-dispersion disclosure. The fan
-and targets share the dispersion helper, but the target labels are ordered
-by valuation while chart paths retain their growth-shock labels.
+and targets share the dispersion helper. When targets are available, chart
+paths use the same value-ordered labels; weights move with their paths, leaving
+the base and weighted projections unchanged. A disclosure identifies reversals
+where a lower-growth shock produces the higher valuation.
+
+Both consumers use the same effective-shock rule when either dispersion rounds
+to 0.00pp: the margin shock is zero and correlation is unavailable. This fixes
+an earlier edge case where the chart still used a large margin shock despite
+the target suppressing it. Only affected perturbed and weighted operating paths
+change; the base DCF and valuation targets retain their existing calculations.
+
+New reports replace model-selected scenario odds with the projection display
+weights and explicitly identify them as uncalibrated. Scenario inputs describe
+the computed shocks and paths; model-authored assumptions are preserved as
+qualitative commentary. Sensitivity conclusions summarize the actual grid
+against the comparable quote. An incomplete grid cannot establish robustness,
+and no grid is described as an empirical prediction interval.
+
+Model-derived thesis review conditions disclose a threshold, horizon, source,
+fixed assumptions and the consequence of crossing it. Reverse-DCF conditions
+ask the reader to re-estimate valuation; projection milestones are model
+benchmarks, not automatic trading instructions. Unsupported routes or missing
+values produce no fabricated triggers. The same details appear in the app,
+Markdown and printable report. See [report evaluation](REPORT-EVALUATION.md)
+for immutable snapshots and eligible realized-outcome comparisons.
 
 `src/pipeline/stageB/fairValue.ts` resolves the deterministic route value:
 FCFF DCF for general companies and excess-return equity value for financial

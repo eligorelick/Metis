@@ -74,7 +74,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // only when its measured span is its window; DCF, targets and notes can move.
 // D-40 (same release): AI-report scenario horizon labels are set in code, not
 // by the judge; the report shape is unchanged.
-export const REPORT_SPEC_VERSION = "1.10.0" as const;
+// 1.11.0: deterministic scenario inputs/display weights, sensitivity conclusions,
+// measurable thesis triggers and explicit comparable-peer coverage.
+export const REPORT_SPEC_VERSION = "1.11.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -943,6 +945,8 @@ export const MultipleRowSchema = z
     name: z.string(),
     current: z.number().nullable(),
     peerMedian: z.number().nullable(),
+    /** Number of eligible peers after metric-specific outlier filtering. */
+    peerCount: z.number().int().nonnegative().nullable().optional(),
     // WS6 (D-19) begin -------------------------------------------------------
     /**
      * RANK AMONG N QUARTERS, 0-100: where the current multiple sits within the
@@ -974,7 +978,7 @@ export type MultipleRow = z.infer<typeof MultipleRowSchema>;
 export const ScenarioSchema = z
   .object({
     name: z.enum(["bull", "base", "bear"]),
-    /** Null only when no scenario analysis ran (data-only degraded report). */
+    /** Legacy key: new reports store a fixed display weight, never calibrated odds. */
     probability: z.number().min(0).max(1).nullable(),
     /**
      * Headline scenario price target. NULLABLE (2026-07-11 scenario-credibility
@@ -987,12 +991,14 @@ export const ScenarioSchema = z
     priceTarget: TracedNumberSchema.nullable(),
     horizon: z.string(),
     assumptions: z.array(ratingSafeString()),
+    /** Model commentary kept separate from deterministic computational inputs. */
+    qualitativeCommentary: z.array(ratingSafeString()).optional(),
     whatWouldHaveToBeTrue: z.array(ratingSafeString()),
   })
   .strict();
 export type Scenario = z.infer<typeof ScenarioSchema>;
 
-/** Numeric probabilities sum to ~1; a data-only report uses three nulls. */
+/** Legacy probabilities/new display weights sum to ~1; unavailable weights are all null. */
 const SCENARIO_PROB_TOLERANCE = 0.01;
 function scenariosProbabilitySumsToOne(
   scenarios: { probability: number | null }[],
@@ -1008,9 +1014,21 @@ export const ScenariosSchema = z
   .length(3)
   .refine(scenariosProbabilitySumsToOne, {
     message:
-      "scenario probabilities must all be null for data-only output or sum to 1 (±0.01)",
+      "scenario probabilities/display weights must all be null when unavailable or sum to 1 (±0.01)",
   });
 export type Scenarios = z.infer<typeof ScenariosSchema>;
+
+export const PeerCoverageSchema = z.object({
+  methodology: z.array(z.string()),
+  candidates: z.number().int().nonnegative(),
+  evaluated: z.number().int().nonnegative(),
+  eligible: z.array(z.string()),
+  exclusions: z.array(z.object({ symbol: z.string(), reason: z.string() }).strict()),
+  comparisons: z.array(z.object({
+    name: z.string(), current: z.number().nullable(), peerMedian: z.number().nullable(),
+    peerCount: z.number().int().nonnegative(), basis: z.string(),
+  }).strict()),
+}).strict();
 
 export const ValuationSchema = z
   .object({
@@ -1019,6 +1037,7 @@ export const ValuationSchema = z
     reverseDcf: ReverseDcfSchema,
     multiples: z.array(MultipleRowSchema),
     scenarios: ScenariosSchema,
+    peerCoverage: PeerCoverageSchema.optional(),
   })
   .strict();
 export type Valuation = z.infer<typeof ValuationSchema>;
@@ -1586,7 +1605,13 @@ export const ProjectionMetricSchema = z.enum([
 export type ProjectionMetric = z.infer<typeof ProjectionMetricSchema>;
 
 export const ProjectionPointSchema = z
-  .object({ period: z.string(), value: TracedNumberSchema })
+  .object({
+    period: z.string(),
+    value: TracedNumberSchema,
+    /** Explicit modeled window after the DCF statement anchor; absent in legacy reports. */
+    periodStart: IsoDateSchema.optional(),
+    periodEnd: IsoDateSchema.optional(),
+  })
   .strict();
 export type ProjectionPoint = z.infer<typeof ProjectionPointSchema>;
 
@@ -1832,21 +1857,38 @@ const JudgeOutputObjectSchema = z
 export const JUDGE_OUTPUT_KEYS: readonly string[] = Object.keys(JudgeOutputObjectSchema.shape);
 export const JUDGE_OUTPUT_SCHEMA = JudgeOutputObjectSchema.superRefine((value, ctx) => {
   enforceRecursiveRatingSafety(value, ctx);
-  value.valuation.scenarios.forEach((scenario, index) => {
-    if (scenario.probability === null) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["valuation", "scenarios", index, "probability"],
-        message: "judge scenario probability is required; null is reserved for data-only reports",
-      });
-    }
-  });
 });
 export type JudgeOutput = z.infer<typeof JUDGE_OUTPUT_SCHEMA>;
 
 /* ------------------------------------------------------------------------ *
  * The root Report — judge output + meta + appendix
  * ------------------------------------------------------------------------ */
+
+export const ThesisTriggerSchema = z.object({
+  id: z.string(),
+  metric: z.string(),
+  comparator: z.enum(["below", "above"]),
+  threshold: TracedNumberSchema,
+  horizon: z.string(),
+  fixedAssumptions: z.array(z.string()),
+  consequence: z.string(),
+}).strict();
+export type ThesisTrigger = z.infer<typeof ThesisTriggerSchema>;
+
+export const ScenarioPresentationSchema = z.object({
+  methodVersion: z.string(),
+  weightBasis: z.string(),
+  interpretation: z.string(),
+  sensitivity: z.object({
+    status: z.enum(["sensitive", "robust-above", "robust-below", "unavailable"]),
+    conclusion: z.string(),
+    validCells: z.number().int().nonnegative(),
+    totalCells: z.number().int().nonnegative(),
+    minPerShare: z.number().finite().nullable(),
+    maxPerShare: z.number().finite().nullable(),
+  }).strict(),
+}).strict();
+export type ScenarioPresentation = z.infer<typeof ScenarioPresentationSchema>;
 
 const ReportObjectSchema = z
   .object({
@@ -1884,6 +1926,8 @@ const ReportObjectSchema = z
      * valuation.scenarios[].priceTarget from it so the two never diverge.
      */
     scenarioTargets: ScenarioTargetsSchema.optional(),
+    scenarioPresentation: ScenarioPresentationSchema.optional(),
+    thesisTriggers: z.array(ThesisTriggerSchema).optional(),
     /**
      * Deterministic intrinsic per-share fair value + its trace/suppression state
      * (pipeline-filled by assembleReport from Stage B; 2026-07-11 DCF-credibility
@@ -2372,6 +2416,17 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
     const obj = node as Record<string, unknown>;
     if (obj.type === "object" && obj.properties && typeof obj.properties === "object") {
       const props = obj.properties as Record<string, unknown>;
+      // These fields are pipeline-owned on freshly assembled reports, and are
+      // optional only for older saved reports. Keep them off provider schemas.
+      for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers"]) {
+        delete props[key];
+        if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
+      }
+      const scenarioName = props.name as { enum?: unknown } | undefined;
+      if (Array.isArray(scenarioName?.enum) && scenarioName.enum.join(",") === "bull,base,bear" && "probability" in props) {
+        delete props.probability;
+        if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== "probability");
+      }
       if ("grade" in props && "oneLineWhy" in props && "assessmentStatus" in props) {
         // A deterministic data-only display decision, never model-authored.
         delete props.assessmentStatus;
@@ -2398,37 +2453,6 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       }
     }
     for (const child of Object.values(obj)) walk(child);
-  };
-  walk(schema);
-  return schema;
-}
-
-/** Data-only reports may store null odds; judge requests must always emit odds. */
-function requireJudgeScenarioProbabilities<T>(schema: T): T {
-  const seen = new WeakSet<object>();
-  const walk = (node: unknown): void => {
-    if (node === null || typeof node !== "object") return;
-    if (seen.has(node as object)) return;
-    seen.add(node as object);
-    if (Array.isArray(node)) {
-      node.forEach(walk);
-      return;
-    }
-    const obj = node as Record<string, unknown>;
-    const props = obj.properties;
-    if (props && typeof props === "object") {
-      const properties = props as Record<string, unknown>;
-      const name = properties.name as { enum?: unknown } | undefined;
-      if (
-        Array.isArray(name?.enum) &&
-        name.enum.join(",") === "bull,base,bear" &&
-        "probability" in properties
-      ) {
-        const required = Array.isArray(obj.required) ? (obj.required as string[]) : [];
-        if (!required.includes("probability")) obj.required = [...required, "probability"];
-      }
-    }
-    Object.values(obj).forEach(walk);
   };
   walk(schema);
   return schema;
@@ -2479,9 +2503,7 @@ export function reportToJsonSchema(): Record<string, unknown> {
 
 /** JSON Schema the judge/synthesis pass requests (report minus meta/appendix). */
 export function judgeOutputToJsonSchema(): Record<string, unknown> {
-  return requireJudgeScenarioProbabilities(
-    toStructuredJsonSchema(JudgeOutputObjectSchema),
-  );
+  return toStructuredJsonSchema(JudgeOutputObjectSchema);
 }
 
 /** JSON Schema the bull/bear passes request. */

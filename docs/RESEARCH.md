@@ -1228,7 +1228,20 @@ not mistaken for settled or overlooked.
 - Out-of-payload web-claim segregation: mostly in place, because the
   verifier accepts a web claim only against a URL actually returned by search.
 
-**Deferred: D-51, the forward track record.** Saved reports already store
-`reportJson` and `createdAt`, so the realised outcome of each report's
-grades, fair value and scenario targets can be computed once its horizons
-elapse. Nothing needs to be captured now.
+**2026-10-13 implementation update.** The options above record the earlier
+research decision; the reliability changes now add structured model-derived
+review conditions, fixed uncalibrated scenario display weights, grid-based
+sensitivity conclusions and screened peer comparisons. They do not change
+grading weights or intrinsic-value formulas. Model commentary is separated
+from computed scenario inputs. These controls improve consistency and evidence
+handling, not demonstrated forecasting skill.
+
+**D-51 infrastructure implemented; empirical track record pending.** The
+[evaluation CLI](REPORT-EVALUATION.md) freezes content-hashed reports together
+with explicit identity, horizon, benchmark and comparison-basis definitions.
+It distinguishes prospective from retrospective registrations and rejects
+immature or incompatible observations. Operating forecast errors and realized
+security/benchmark returns are separate outputs. Current intrinsic DCF values
+and sensitivity targets are not future-price forecasts, so they are not scored
+as such. Saved JSON alone does not establish a prospective evaluation design;
+definitions and snapshots need to be registered before outcomes are known.
