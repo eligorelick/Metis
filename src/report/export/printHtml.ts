@@ -22,6 +22,7 @@
 import { formatExecutionMetadata } from "@/report/execution";
 import { gradeDisplayLabel, gradeForDisplay } from "@/report/assessment";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
+import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
   Appendix,
   BalanceSheet,
@@ -470,7 +471,7 @@ function sectionProjections(p: Projections): string {
         PROJECTION_SERIES_FIELD_BY_KEY.metric.label,
         "Path",
         PROJECTION_POINT_FIELD_BY_KEY.period.label,
-        "Period start", "Period end", "Period basis",
+        PROJECTION_POINT_FIELD_BY_KEY.periodStart.label, PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label, PROJECTION_POINT_FIELD_BY_KEY.periodBasis.label,
         "Series unit",
         ...TRACED_NUMBER_FIELDS.map((field) => field.label),
       ],
@@ -568,6 +569,7 @@ function sectionValuation(
   scenarioTargets?: ScenarioTargets,
   fairValue?: FairValue,
   routeMetrics?: RouteMetrics,
+  review: ValuationReviewInputs = {},
 ): string {
   const parts: string[] = [];
   parts.push(gradeBlock("Valuation", v.graded));
@@ -639,7 +641,7 @@ function sectionValuation(
       v.multiples.map((m) => [
         esc(m.name),
         m.current === null ? DASH : num(m.current, 1),
-        m.peerMedian === null ? DASH : num(m.peerMedian, 1),
+        `${m.peerMedian === null ? DASH : num(m.peerMedian, 1)}${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
         m.own5yPercentile === null
           ? DASH
           : esc(
@@ -654,7 +656,7 @@ function sectionValuation(
 
   parts.push(`<h3>Scenarios</h3>`);
   parts.push(
-    `<p class="faint">Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable.</p>`,
+    `<p class="faint">${esc(review.scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable.")}</p>`,
   );
   // Honest disclosure: computed-derived DCF sensitivity, not analyst targets (or why suppressed).
   if (scenarioTargets) {
@@ -669,13 +671,17 @@ function sectionValuation(
       );
     }
   }
-  for (const sc of v.scenarios) parts.push(scenarioCard(sc));
+  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
+    parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${esc(p)}</p>`));
+    for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${esc(p)}</p>`));
+  }
+  for (const sc of v.scenarios) parts.push(scenarioCard(sc, review.scenarioPresentation !== undefined));
   if (routeMetrics) parts.push(routeMetricsBlock(routeMetrics));
 
   return `<section class="block">${sectionHeading("valuation")}${parts.join("")}</section>`;
 }
 
-function scenarioCard(sc: Scenario): string {
+function scenarioCard(sc: Scenario, computedWeights = false): string {
   const list = (items: readonly string[]): string =>
     items.length > 0
       ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`
@@ -686,11 +692,12 @@ function scenarioCard(sc: Scenario): string {
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
       <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "target unavailable"}</span>
-      <span class="prob">p = ${probability}</span>
+      <span class="prob">${computedWeights ? "Display weight" : "p"} = ${probability}</span>
       <span class="asof">${esc(sc.horizon)}</span></div>
     <div class="scenariobody">
       <div><em>Assumptions</em>${list(sc.assumptions)}</div>
       <div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue)}</div>
+      ${sc.qualitativeCommentary?.length ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(sc.qualitativeCommentary)}</div>` : ""}
     </div></div>`;
 }
 
@@ -1026,7 +1033,7 @@ export function reportToPrintBody(report: Report): string {
     business: sectionBusiness(report.business),
     fundamentals: sectionFundamentals(report.fundamentals),
     balanceSheet: sectionBalanceSheet(report.balanceSheet),
-    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics),
+    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }),
     quality: sectionQuality(report.quality),
     technicals: sectionTechnicals(report.technicals),
     leadership: sectionLeadership(report.leadership),
@@ -1078,7 +1085,7 @@ h2.sec { font-size: 14pt; margin: 18pt 0 6pt; padding-top: 6pt; border-top: 1px 
 .secno { display: inline-block; min-width: 1.6em; color: #8a919e; font-weight: normal; }
 h3 { font-size: 11.5pt; margin: 12pt 0 4pt; color: #2a2e36; }
 h4 { font-size: 10.5pt; margin: 8pt 0 3pt; color: #2a2e36; }
-p { margin: 4pt 0; }
+p { margin: 4pt 0; overflow-wrap: anywhere; }
 .synthesis { font-size: 11.5pt; margin: 0 0 10pt; }
 .faint { color: #8a919e; }
 .mono { font-family: "SF Mono", "Consolas", "Menlo", monospace; font-variant-numeric: tabular-nums; }
@@ -1087,7 +1094,7 @@ p { margin: 4pt 0; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
-th, td { border: 1px solid #d5d9e0; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+th, td { border: 1px solid #d5d9e0; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 th { background: #f1f3f6; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #55606e; }
 td.empty { text-align: center; color: #8a919e; }
 ul.claims { margin: 4pt 0; padding-left: 16pt; }

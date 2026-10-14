@@ -437,6 +437,7 @@ function bindDeterministicReportProvenance(
     number: TracedNumber | null | undefined,
     id: string,
     period: string | null,
+    useComputationDate = false,
   ): void => {
     if (!number) return;
     const record = byId.get(id);
@@ -449,7 +450,7 @@ function bindDeterministicReportProvenance(
         unit: normalized.unit,
         currency: normalized.currency,
         period,
-        asOf: number.asOf ?? "",
+        asOf: number.asOf ?? (useComputationDate ? record.asOf : ""),
         source: id,
       },
       registry,
@@ -457,6 +458,7 @@ function bindDeterministicReportProvenance(
     if (!match.ok) return;
 
     number.source = id;
+    number.asOf = record.asOf;
     number.currency = record.currency;
     number.period = record.period;
     number.verified = null;
@@ -497,6 +499,18 @@ function bindDeterministicReportProvenance(
     }
     for (const scenario of report.valuation.scenarios) {
       bind(scenario.priceTarget, scenarioTargetProvenanceId(scenario.name), null);
+    }
+  }
+
+  for (const trigger of report.thesisTriggers ?? []) {
+    if (trigger.id === "reverse-growth" || trigger.id === "reverse-margin") {
+      const suffix = trigger.id === "reverse-growth" ? "revenue-growth" : "terminal-margin";
+      bind(trigger.threshold, `computed.valuation.reverse-dcf-implied-${suffix}`, null, true);
+    } else if (trigger.id === "projection-revenue" || trigger.id === "projection-operatingMargin") {
+      const metric = trigger.id.slice("projection-".length);
+      const first = report.projections?.series.find((series) => series.metric === metric)?.base
+        .slice().sort((a, b) => a.period.localeCompare(b.period))[0];
+      if (first) bind(trigger.threshold, projectionProvenanceId(metric, "base", first.period), first.period);
     }
   }
 

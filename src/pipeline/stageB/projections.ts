@@ -31,6 +31,7 @@
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { yearsBetweenDates } from "@/pipeline/stageB/growth";
 import {
+  forecastYearPeriod,
   type DcfYearRow,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
@@ -226,6 +227,27 @@ export interface ScenarioDispersion {
 }
 
 /**
+ * One effective shock rule for targets and projections. A sigma below the
+ * displayed precision cannot support a meaningful sample correlation: tiny
+ * growth noise must not amplify into a material correlated margin shift.
+ * Keep the measured growth delta; hold only the unsupported margin delta at 0.
+ */
+export function effectiveScenarioShocks(
+  sigmaGrowth: number,
+  sigmaMargin: number,
+  correlation: number | null,
+) {
+  const degenerate = round2(sigmaGrowth) === 0 || round2(sigmaMargin) === 0;
+  const growthMarginCorrelation = degenerate ? null : correlation;
+  return {
+    growthDeltaPp: DISPERSION_K * sigmaGrowth,
+    marginDeltaPp: DISPERSION_K * sigmaMargin * (growthMarginCorrelation ?? 0),
+    growthMarginCorrelation,
+    degenerate,
+  };
+}
+
+/**
  * The company's OWN historical dispersion of revenue growth + operating margin,
  * capped only at an upper sanity bound. Thin history returns null and suppresses
  * the fan/targets rather than fabricating a default band.
@@ -345,8 +367,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       "At least four consecutive annual revenue observations and three margin observations are required for sample dispersion; scenario fan suppressed rather than using house defaults.",
     );
   }
-  const sigmaGrowth = rawDisp.sigmaGrowth;
-  const sigmaMargin = rawDisp.sigmaMargin;
+  const shocks = effectiveScenarioShocks(rawDisp.sigmaGrowth, rawDisp.sigmaMargin, rawDisp.growthMarginCorrelation);
   if (rawDisp.irregularHistory) {
     // Off-annual pairs are skipped individually since 2026-08-31; the fan IS
     // built from the surviving annual steps, and the disclosure says so (it
@@ -363,10 +384,17 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       reason: "insufficient paired history to estimate growth/margin covariance — margin path left at base in scenarios",
       severity: "warn",
     });
+  } else if (shocks.degenerate) {
+    disclosures.push({
+      field: "projections.dispersion.degenerate",
+      reason: "revenue-growth or operating-margin history shows negligible dispersion (σ rounds to 0.00pp) — growth/margin correlation is unavailable and the scenario margin path stays at base, consistent with the valuation targets",
+      severity: "info",
+    });
   }
 
   // --- Bull / bear paths via the SAME DCF engine ---------------------------
-  const dg = DISPERSION_K * sigmaGrowth;
+  const dg = shocks.growthDeltaPp;
+  const dm = shocks.marginDeltaPp;
 
   const shared = buildScenarioPaths(assumptions, {
       waccPct: inputs.waccPct as number,
@@ -374,16 +402,27 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       dilutedShares: baseDcf.bridge.dilutedShares,
       minorityInterest: baseDcf.bridge.minorityInterest,
       preferred: baseDcf.bridge.preferred,
-    }, { sigmaGrowth, sigmaMargin, growthMarginCorrelation: rawDisp.growthMarginCorrelation });
+    }, { sigmaGrowth: dg, sigmaMargin: DISPERSION_K * rawDisp.sigmaMargin, growthMarginCorrelation: shocks.growthMarginCorrelation });
   const bullRows = shared.bull.result.yearRows;
   const bearRows = shared.bear.result.yearRows;
   const baseRows = baseDcf.yearRows;
   const effectiveCorr = shared.scenarioAssumptions.growthMarginCorrelation;
-  const dm = DISPERSION_K * sigmaMargin * (effectiveCorr ?? 0);
+
+  // The DCF's own dated windows are authoritative. Reject stale/inconsistent,
+  // invalid or future anchors instead of assigning evaluation periods by label.
+  const anchor = assumptions.forecastPeriod?.anchorEndDate;
+  const periodsVerified = Boolean(anchor && anchor === assumptions.asOf.statements
+    && forecastYearPeriod(asOf, 0, "rolling-12-month") && anchor <= asOf
+    && baseRows.slice(0, H).length === H && baseRows.slice(0, H).every((row, i) => {
+      const expected = forecastYearPeriod(anchor, i + 1, assumptions.forecastPeriod!.basis);
+      return expected !== null && row.period?.startDate === expected.startDate
+        && row.period?.endDate === expected.endDate && row.period?.basis === expected.basis
+        && row.period?.label === expected.label;
+    }));
 
   // Legacy assumptions without period metadata remain readable, but do not
   // acquire a guessed fiscal year/date from annual history or analysis time.
-  const fwdPeriod = (t: number): string => baseRows[t - 1]?.period?.label ?? `Y+${t} (period basis unavailable)`;
+  const fwdPeriod = (t: number): string => periodsVerified ? baseRows[t - 1].period!.label : `Y+${t} (period basis unavailable)`;
 
   // The anchor is described from the growth-anchor record, never from a
   // substring of the basis string: that string names every method including
@@ -399,7 +438,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   const assumptionLines: string[] = [
     `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
     `Bull/bear shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}).`,
-    "Forward periods are modeled annual anniversary windows of the DCF revenue anchor, not company-issued fiscal guidance; a TTM anchor remains rolling for every forecast year.",
+    "Forward periods are modeled 12-month anniversary windows of the DCF revenue anchor, not company-issued fiscal guidance; a TTM anchor remains rolling for every forecast year. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
     shared.scenarioAssumptions.terminalTransition,
     `Weighted path uses the coarse unbacktested display prior ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear; these are not empirical probabilities.`,
@@ -464,7 +503,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
         ...assumptionLines,
         "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment).",
         "HISTORICAL FCF on this series is the reported levered figure (freeCashFlow, or operatingCashFlow + capitalExpenditure), which is stated AFTER interest. The two segments are therefore different measures: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
-        "Scenario paths can cross: the higher-growth case reinvests more up front, so near-term FCF may be lower before growth matures. Bull/bear names follow intrinsic-value ordering, and the shaded band is the scenario range.",
+        "Scenario paths can cross: the higher-growth shock reinvests more up front, so its near-term FCF may sit below the lower-growth shock. The shaded band is the scenario range; bull/bear labels do not imply an ordering of each operating metric.",
       ],
       disclosures,
       asOf,
@@ -496,13 +535,20 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   if (epsSeries) series.push(epsSeries);
 
   const dated = (points: ProjectionPoint[]) => points.map((pt, i) => {
-    const period = baseRows[i]?.period;
+    const period = periodsVerified ? baseRows[i]?.period : undefined;
     return period ? { ...pt, periodStart: period.startDate, periodEnd: period.endDate, periodBasis: period.basis } : pt;
   });
   for (const s of series) {
     for (const key of ["bull", "base", "bear", "weighted"] as const) s[key] = dated(s[key]);
     for (const alternate of [s.flatShare, s.shareTrend]) {
       if (alternate) for (const key of ["bull", "base", "bear", "weighted"] as const) alternate[key] = dated(alternate[key]);
+    }
+    if (!periodsVerified) {
+      s.disclosures.push({
+        field: "projections.period",
+        reason: "Forecast periods are unverified: a valid, nonfuture DCF statement anchor and consistent dated DCF rows are required. Annual-history dates and period labels cannot establish evaluation horizons.",
+        severity: "warn",
+      });
     }
   }
 

@@ -11,6 +11,7 @@
  */
 
 import type { StockSplits } from "@/edgar/splits";
+import type { PeerCollection } from "@/pipeline/peers";
 import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type {
   FmpAnalystEstimatesRow,
@@ -302,6 +303,8 @@ export interface DataBundle {
   institutional: InstitutionalBundle;
 
   peers: FmpFetch<FmpStockPeerRow>;
+  /** Optional bounded peer inputs; absent on old persisted/test bundles. */
+  peerFundamentals?: PeerCollection;
   segmentation: {
     product: FmpFetch<FmpSegmentationRow>;
     geographic: FmpFetch<FmpSegmentationRow>;

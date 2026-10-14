@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.10.0** and
-payload **1.11.0** (growth-anchor span and scenario horizon, 2026-10-05). The checked-in
+Current source declares application **0.1.0**, report spec **1.11.0** and
+payload **1.16.0** (research reliability, 2026-10-13). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,26 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased — research reliability (2026-10-13)
+
+- Add immutable evaluation snapshots and explicit comparable-outcome checks;
+  distinguish operating forecast errors from realized benchmark-relative returns.
+- Show model-derived thesis review conditions, actual model-period dates,
+  deterministic scenario assumptions, uncalibrated display weights and
+  grid-based sensitivity conclusions across app, Markdown and print.
+- Add bounded peer collection with issuer/currency/filing/denominator checks,
+  metric-specific counts and named exclusions; preserve grading and base DCF.
+- Align scenario labels and effective shocks between targets and charts.
+  Correct the degenerate-dispersion margin mismatch with a disclosed change
+  to affected perturbed/weighted operating paths.
+- Preserve legacy reports; separate model-authored scenario commentary from
+  computed inputs. Fix mobile table and print text overflow.
+- Patch Next/env/ESLint to 16.3.8 and source-map-js to 1.2.2 to clear the
+  dependency audit without additional financial-output deltas.
+- Prospective forecasting accuracy remains unproven; evaluation infrastructure
+  makes future measurement possible without treating current DCF values as
+  future-price forecasts.
 
 ## Unreleased — growth-anchor span and scenario horizon (2026-10-05)
 

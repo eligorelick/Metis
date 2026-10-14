@@ -453,8 +453,8 @@ export const PROJECTION_POINT_FIELD_ORDER = [
 export const PROJECTION_POINT_FIELDS = [
   { id: "projection-point-field:period", key: "period", label: "Period", optional: false },
   { id: "projection-point-field:value", key: "value", label: "Value", optional: false },
-  { id: "projection-point-field:periodStart", key: "periodStart", label: "Period start", optional: true },
-  { id: "projection-point-field:periodEnd", key: "periodEnd", label: "Period end", optional: true },
+  { id: "projection-point-field:periodStart", key: "periodStart", label: "Modeled period start", optional: true },
+  { id: "projection-point-field:periodEnd", key: "periodEnd", label: "Modeled period end", optional: true },
   { id: "projection-point-field:periodBasis", key: "periodBasis", label: "Period basis", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionPointFieldKey>[];
 export const PROJECTION_POINT_FIELD_BY_KEY = {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDcfAssumptions, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
 import { computeProjections, perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
+import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 
@@ -59,6 +60,9 @@ describe("report audit valuation regressions", () => {
     expect(revenue.bull[0].value.value).toBeCloseTo(2000 * (1 + (a.growthPath.value[0] + bull.growthDeltaPp) / 100), 2);
     expect(p.scenarioAssumptions).toEqual(t.scenarioAssumptions);
     expect(t.scenarioAssumptions?.alternatives[0].name).toBe("decaying-growth-shock");
+    // The main-branch compatibility adapter must not invert the already-shared
+    // labels again, including the flat-share and unfunded-share-trend paths.
+    expect(alignProjectionScenarios(p, t)).toBe(p);
   });
   it("refuses unfunded share shrinkage and provides flat-share and historical-trend EPS", () => {
     const eps = projections().series.find(s => s.metric === "epsDiluted")!;
@@ -94,6 +98,12 @@ describe("report audit valuation regressions", () => {
   it("preserves exact leap-day anniversary windows without inventing a fiscal basis", () => {
     expect(forecastYearPeriod("2024-02-29", 1, "rolling-12-month")).toEqual({ basis: "rolling-12-month", startDate: "2024-03-01", endDate: "2025-02-28", label: "12M ending 2025-02-28" });
     expect(forecastYearPeriod("2024-02-30", 1, "fiscal-year")).toBeNull();
+  });
+  it("rejects forecast dates outside four-digit ISO years and preserves early-year anniversaries", () => {
+    expect(forecastYearPeriod("9999-12-31", 1, "rolling-12-month")).toBeNull();
+    expect(forecastYearPeriod("0000-12-31", 0, "rolling-12-month")).toBeNull();
+    expect(forecastYearPeriod("2024-12-31", 1.5, "rolling-12-month")).toBeNull();
+    expect(forecastYearPeriod("0099-12-31", 1, "rolling-12-month")).toEqual({ basis: "rolling-12-month", startDate: "0100-01-01", endDate: "0100-12-31", label: "12M ending 0100-12-31" });
   });
   it("retains positive dilution while exposing a constant-share EPS comparison", () => {
     const eps = projections(undefined, 5).series.find(s => s.metric === "epsDiluted")!;

@@ -472,6 +472,22 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
  * ------------------------------------------------------------------------ */
 
 describe("payload determinism + provenance", () => {
+  it("exposes qualified peer comparisons and their sample counts as independently citable evidence", () => {
+    const { bundle, computed } = buildInputs();
+    const validation = validateBundle(bundle, { now: new Date(GENERATED_AT) });
+    if (computed.valuation.kind === "pre-revenue") throw new Error("fixture needs multiples");
+    computed.valuation.multiples.peerCoverage = {
+      methodology: ["same currency and issuer-common earnings basis"], candidates: 6, evaluated: 5,
+      eligible: ["P1", "P2", "P3", "P4"], exclusions: [{ symbol: "P5", reason: "incompatible currency" }],
+      comparisons: [{ name: "Market cap / TTM common earnings", current: 18, peerMedian: 15, peerCount: 4, basis: "Market capitalization divided by common net income over four quarters." }],
+    };
+    const payload = assembleContextPayload(bundle, computed, validation);
+    const section = payload.computed.find((entry) => entry.title === "Comparable peers (computed)");
+    expect(section?.figures.map((figure) => figure.value)).toEqual([18, 15, 4]);
+    const ids = section?.figures.map((figure) => figure.provenanceId);
+    expect(ids?.every((id) => payload.provenanceRegistry?.some((record) => record.id === id))).toBe(true);
+    expect(section?.notes.join(" ")).toContain("P5: incompatible currency");
+  });
   it("produces byte-identical serialized output for identical inputs", () => {
     const a = buildInputs();
     const b = buildInputs();
@@ -689,14 +705,20 @@ describe("payload determinism + provenance", () => {
       // META audit: matched reverse curve and dates, current TTM/financial
       // bridges, exact signal metadata, retained evidence and alternative EPS
       // paths change finance/registries/prompt. Legacy fixture bytes stay pinned.
-      fingerprint: "1.16.0:86606f74",
-      promptBytes: 116_811,
-      provenanceCount: 497,
-      provenanceHash: "d106a8e1",
-      provenanceIdsHash: "1c4287d2",
-      citationCount: 63,
-      citationHash: "0d9484ac",
-      computedFigureLabelHash: "4f111dac",
+      // The merged 1.17.0 payload also carries comparable peers and scenario
+      // interpretation; refresh these goldens only after reviewing merged outputs.
+      // Main adds two scenario/comparability records and two gap citations;
+      // reviewed deterministic finance includes its peer-coverage disclosures.
+      // Economic-evidence gating adds a 325-byte methodology disclosure;
+      // figure registries and all projection-period records are unchanged.
+      fingerprint: "1.17.0:f50932c8",
+      promptBytes: 119_884,
+      provenanceCount: 499,
+      provenanceHash: "eef852c5",
+      provenanceIdsHash: "2fdc2d40",
+      citationCount: 65,
+      citationHash: "13b5b365",
+      computedFigureLabelHash: "6f26c6db",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -710,7 +732,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "c3a8bb60",
+      financeHash: "20eeec0d",
     });
   });
 
@@ -834,7 +856,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.16.0");
+    expect(first.payloadVersion).toBe("1.17.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1918,6 +1940,23 @@ describe("verify-pass tracing", () => {
  * ------------------------------------------------------------------------ */
 
 describe("final assembled report verification", () => {
+  it.each(["growth", "margin"] as const)("binds %s review thresholds and annual milestones to their exact registered computations", async (method) => {
+    const bundle = fixtureBundle();
+    const computed = runStageB(bundle);
+    if (computed.valuation.kind !== "dcf") throw new Error("fixture must use DCF");
+    computed.valuation.reverseDcf = { method, impliedRevenueGrowthPct: method === "growth" ? 12.5 : null, impliedTerminalMarginPct: method === "margin" ? 27.25 : null, notes: [], gaps: [] };
+    const validation = validateBundle(bundle, { now: new Date(GENERATED_AT) });
+    const payload = pipelinePasses.assembleContextPayload(bundle, computed, validation);
+    const result = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, judgeOutput(), { fetchedUrls: [] });
+    const triggers = result.verifiedReport.thesisTriggers ?? [];
+    const reverse = triggers.find((trigger) => trigger.id === `reverse-${method}`);
+    expect(reverse?.threshold).toMatchObject({ value: method === "growth" ? 12.5 : 27.25, verified: true, asOf: "2026-07-06" });
+    for (const metric of ["revenue", "operatingMargin"]) {
+      const milestone = triggers.find((trigger) => trigger.id === `projection-${metric}`);
+      const first = computed.projections.series.find((series) => series.metric === metric)!.base[0];
+      expect(milestone?.threshold).toMatchObject({ source: projectionProvenanceId(metric, "base", first.period), period: first.period, verified: true });
+    }
+  });
   it("declares and awaits durable launch authority before deterministic verify executes", async () => {
     const bundle = fixtureBundle();
     const computed = runStageB(bundle);
@@ -2117,7 +2156,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.11.0");
+    expect(report.meta.specVersion).toBe("1.12.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2134,8 +2173,8 @@ describe("assembleReport", () => {
   it("throws ReportValidationError (with a zod error) on an invalid judge output", () => {
     const { bundle, computed } = buildInputs();
     const broken = judgeOutput();
-    // Break the scenario-probability partition (must sum to ~1).
-    broken.valuation.scenarios[0].probability = 0.9;
+    // Scenario count is still a schema contract; model odds are discarded.
+    broken.valuation.scenarios.pop();
     expect(() =>
       assembleReport(
         {
@@ -2212,6 +2251,41 @@ function assemble(computed: ComputedMetrics, jo: JudgeOutput): Report {
 }
 
 describe("scenario price targets — deterministic injection (assembly)", () => {
+  it("describes the actual deltas of value-reordered targets, never an assumed positive bull shift", () => {
+    const { computed } = buildInputs();
+    if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions) throw new Error("fixture must use DCF");
+    computed.scenarioTargets = availableTargets();
+    computed.scenarioTargets.targets[0].growthDeltaPp = -8;
+    computed.scenarioTargets.targets[0].marginDeltaPp = 3;
+    computed.valuation.assumptions.growthPath.value = [10, 6, 2];
+    computed.valuation.assumptions.ebitMarginPath.value = [20, 22, 24];
+    const report = assemble(computed, judgeOutput());
+    const bull = report.valuation.scenarios[0];
+    expect(bull.assumptions.join(" ")).toContain("Revenue growth shift versus base: -8 percentage points");
+    expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, -2, -6");
+    expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 25, 27");
+    expect(bull.qualitativeCommentary).toEqual(["strong cycle"]);
+  });
+  it("uses the same fixed display weights as the projection fan and separates model commentary", () => {
+    const { computed } = buildInputs();
+    computed.scenarioTargets = availableTargets();
+    const report = assemble(computed, judgeOutput());
+    expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([0.25, 0.5, 0.25]);
+    const base = report.valuation.scenarios[1];
+    expect(base.assumptions).not.toContain("steady");
+    expect(base.qualitativeCommentary).toEqual(["steady"]);
+    expect(report.scenarioPresentation?.weightBasis).toMatch(/fixed.*uncalibrated/i);
+  });
+
+  it("derives sensitivity classification from available WACC-by-growth cells, ignoring null cells", () => {
+    const { computed } = buildInputs();
+    if (computed.valuation.kind !== "dcf") throw new Error("fixture must use DCF");
+    computed.valuation.sensitivity = { waccPcts: [8, 9], gTermPcts: [2, 3], perShare: [[190, 220], [null, 180]], notes: [], gaps: [] };
+    computed.fairValue = availableFairValue(100, 0);
+    const report = assemble(computed, judgeOutput());
+    expect(report.scenarioPresentation?.sensitivity).toMatchObject({ status: "sensitive", validCells: 3, totalCells: 4, minPerShare: 180, maxPerShare: 220 });
+    expect(report.scenarioPresentation?.sensitivity.conclusion).toMatch(/within the modeled grid/);
+  });
   it("overwrites the judge's scenario priceTargets with the deterministic computed targets", () => {
     const { computed } = buildInputs();
     computed.scenarioTargets = availableTargets({ bull: 305, base: 250, bear: 205 });
@@ -2316,14 +2390,20 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
 });
 
 describe("normalizeJudgeOutput — strips judge-authored scenario targets", () => {
+  it("discards invented scenario odds before validating or comparing judge outputs", () => {
+    const jo = judgeOutput();
+    jo.valuation.scenarios[0].probability = 0.99;
+    const normalized = normalizeJudgeOutput(jo) as JudgeOutput;
+    expect(normalized.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
+  });
   it("nulls every scenario priceTarget so the judge/LLM number never reaches the verify log or report", () => {
     const normalized = normalizeJudgeOutput(judgeOutput()) as JudgeOutput;
     for (const s of normalized.valuation.scenarios) {
       expect(s.priceTarget).toBeNull();
     }
-    // Everything else on the scenario is preserved (narrative + probability).
+    // Qualitative narrative remains, while model odds are discarded too.
     const base = normalized.valuation.scenarios.find((s) => s.name === "base")!;
-    expect(base.probability).toBeCloseTo(0.33, 6);
+    expect(base.probability).toBeNull();
     expect(base.assumptions).toEqual(["steady"]);
   });
 
@@ -2739,7 +2819,7 @@ describe("mock-driven bull/bear/judge passes", () => {
     }
   });
 
-  it("normalizes judge scenario probabilities emitted as whole percentages", async () => {
+  it("discards judge scenario probabilities emitted as whole percentages", async () => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
     const output = judgeOutput();
@@ -2752,7 +2832,7 @@ describe("mock-driven bull/bear/judge passes", () => {
 
     expect(run.ok).toBe(true);
     if (run.ok) {
-      expect(run.result.output.valuation.scenarios.map((s) => s.probability)).toEqual([0.34, 0.33, 0.33]);
+      expect(run.result.output.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
     }
   });
 
@@ -2875,12 +2955,8 @@ describe("mock-driven bull/bear/judge passes", () => {
         "medium",
       ]);
       expect(run.result.output.catalystsRisks.risks[1].severity).toBe("medium");
-      // scenarios' probability stays NUMERIC — banding is scoped to risk-shaped objects
-      expect(run.result.output.valuation.scenarios.map((s) => typeof s.probability)).toEqual([
-        "number",
-        "number",
-        "number",
-      ]);
+      // Scenario weights are deterministic; risk banding does not invent them.
+      expect(run.result.output.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
     }
   });
 
@@ -3143,9 +3219,9 @@ describe("mock-driven bull/bear/judge passes", () => {
   it("retries the judge on a zod-invalid output, feeding the error back, then succeeds", async () => {
     const { bundle, computed, payload } = buildInputs();
     const mock = new MockRunPass();
-    // First judge attempt: broken scenario partition. Second: valid.
+    // First judge attempt: missing required scenario. Second: valid.
     const broken = judgeOutput();
-    broken.valuation.scenarios[0].probability = 0.9; // sums != 1 -> ReportSchema fails
+    broken.valuation.scenarios.pop();
     mock.onJson("llm.judge", broken, { costUsd: 0.4 });
     mock.onJson("llm.judge", judgeOutput(), { costUsd: 0.4 });
     const deps = makeDeps(mock);

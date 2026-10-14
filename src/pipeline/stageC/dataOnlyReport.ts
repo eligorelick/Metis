@@ -33,6 +33,8 @@ import {
   type ComputedMetrics,
   type CurrencyEvidenceRow,
 } from "@/pipeline/compute";
+import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
+import { buildThesisTriggers } from "@/report/thesisTriggers";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
@@ -526,26 +528,10 @@ function valuationSection(
   computed: ComputedMetrics,
   graded: GradeBlock,
 ): Report["valuation"] {
-  const targets = computed.scenarioTargets;
-  const byName = new Map<string, { growthDeltaPp: number; marginDeltaPp: number }>();
-  if (targets?.status === "available") {
-    for (const target of targets.targets) byName.set(target.name, target);
-  }
-  const scenarios = stub.scenarios.map((scenario) => {
-    const target = byName.get(scenario.name);
-    return {
-      ...scenario,
-      assumptions: target
-        ? [
-            `Deterministic Stage B target (${targets?.method ?? "scenario-targets"} ${targets?.methodVersion ?? ""}): revenue growth ${fmtSignedPp(target.growthDeltaPp)} and operating margin ${fmtSignedPp(target.marginDeltaPp)} versus the base DCF path.`.replace("  ", " "),
-            "Probability is not assigned: scenario odds are analyst judgments and no completed analyst assessment is available.",
-          ]
-        : ["Deterministic scenario target unavailable for this route or inputs; see the missing-data manifest."],
-      whatWouldHaveToBeTrue: [
-        "Narrative scenario conditions require the analyst passes, which did not produce a completed assessment on this data-only report.",
-      ],
-    };
-  });
+  const scenarios = stub.scenarios.map((scenario) => ({
+    ...scenario,
+    whatWouldHaveToBeTrue: ["Narrative scenario conditions require the analyst passes, which did not produce a completed assessment on this data-only report."],
+  }));
   // applyScenarioTargets also sets each horizon label, as on the AI path (D-40).
   const withTargets = applyScenarioTargets({ ...stub, graded, scenarios }, computed.scenarioTargets);
   const withFairValue = applyFairValue(withTargets, computed.fairValue);
@@ -553,7 +539,7 @@ function valuationSection(
   const withMultiples = applyMultiples(withDisplay, computed.valuation);
   const withReverse = applyReverseDcf(withMultiples, computed.valuation);
   return {
-    ...withReverse,
+    ...applyScenarioPresentation(withReverse, computed, false),
     reverseDcf: { ...withReverse.reverseDcf, narrative: reverseDcfNarrative(computed) },
   };
 }
@@ -843,6 +829,8 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
 
   const candidate: Report = {
     ...stub,
+    scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
+    thesisTriggers: buildThesisTriggers(computed),
     verdict: {
       synthesis: synthesis(computed, bundle, args.reason, currency, stub.appendix.missingData.length),
       gradeStrip: {

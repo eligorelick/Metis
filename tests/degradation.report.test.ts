@@ -422,7 +422,7 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     expect(report.meta.provenanceCoverage).toBeUndefined();
   });
 
-  it("carries only pipeline-computed numbers, each traced to a computed source, and no scenario odds", () => {
+  it("carries pipeline-computed numbers and the same uncalibrated display weights as projections", () => {
     const report = dataOnly();
     const numbers: TracedNumber[] = collectTracedNumbers(report);
     // The deterministic Stage B content is present …
@@ -432,15 +432,19 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     // score drivers on the LLM path.
     for (const n of numbers) {
       expect(n.source).toMatch(/^(computed\.|fmp:|fred:)/);
-      expect(n.verified).toBe(true);
+      // New review thresholds begin unverified until the final-report verifier
+      // runs; this data-only path never claims an independent citation check.
+      expect(n.verified === true || n.verified === null).toBe(true);
       expect(Number.isFinite(n.value)).toBe(true);
     }
-    // Scenario odds are analyst judgments: still null on a data-only report.
+    // These are deterministic display weights, never model-authored odds.
     expect(report.valuation.scenarios.map((scenario) => scenario.probability)).toEqual([
-      null,
-      null,
-      null,
+      0.25,
+      0.5,
+      0.25,
     ]);
+    expect(report.scenarioPresentation?.weightBasis).toMatch(/uncalibrated/);
+    expect(report.valuation.scenarios.every((s) => s.qualitativeCommentary?.length === 0)).toBe(true);
     // Pipeline ownership is not an independently checked factual citation.
     expect(report.meta.provenanceCoverage).toBeUndefined();
     expect(report.appendix.provenanceCoverage).toBeUndefined();

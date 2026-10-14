@@ -17,6 +17,8 @@ import type { ReactNode } from "react";
 import { gradeForDisplay, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import { formatExecutionMetadata } from "@/report/execution";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
+import { ValuationReview } from "@/components/report/ValuationReview";
+import type { ValuationReviewInputs } from "@/report/researchReview";
 
 import {
   Badge,
@@ -165,7 +167,7 @@ function SubBlock({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <div className="text-[9px] uppercase tracking-[0.12em] text-faint">
         {semanticToken && <span aria-hidden="true" className="sr-only">{semanticToken}</span>}
         {label}
@@ -567,7 +569,7 @@ export function ProjectionsSection({
                     "Metric",
                     "Path",
                     PROJECTION_POINT_FIELD_BY_KEY.period.label,
-                    "Period start", "Period end", "Period basis",
+                    PROJECTION_POINT_FIELD_BY_KEY.periodStart.label, PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label, PROJECTION_POINT_FIELD_BY_KEY.periodBasis.label,
                     "Series unit",
                     ...TRACED_AUDIT_HEADERS,
                   ]}
@@ -894,7 +896,7 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
       header: "peer median",
       align: "right",
       render: (m) => (
-        <span className="mono text-muted">{formatMultiple(m.peerMedian)}</span>
+        <span className="mono text-muted">{formatMultiple(m.peerMedian)}{typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}</span>
       ),
     },
     {
@@ -1000,6 +1002,8 @@ export function ValuationSection({
   routeMetrics,
   index,
   openReasoning,
+  scenarioPresentation,
+  thesisTriggers,
 }: {
   valuation: Valuation;
   scenarioTargets?: ScenarioTargets;
@@ -1007,7 +1011,7 @@ export function ValuationSection({
   routeMetrics?: RouteMetrics;
   index: number;
   openReasoning?: boolean;
-}) {
+} & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
   return (
     <SectionFrame id="valuation" index={index} title="Valuation">
@@ -1109,10 +1113,11 @@ export function ValuationSection({
         <MultiplesTable rows={valuation.multiples} />
       </SubBlock>
 
-      <SubBlock label="scenarios · probability-weighted (bull / base / bear)">
+      <ValuationReview scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} />
+
+      <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
         <p className="mb-2 text-[11px] leading-snug text-faint">
-          Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports
-          show them as unavailable.
+          {scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable."}
         </p>
         {scenarioTargets ? (
           <p className="mb-2 text-[11px] leading-snug text-faint">
@@ -1137,6 +1142,8 @@ export function ValuationSection({
                 horizon={s.horizon}
                 assumptions={s.assumptions}
                 whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue}
+                weightLabel={scenarioPresentation ? "Display weight" : "p"}
+                qualitativeCommentary={s.qualitativeCommentary}
               />
             );
           })}

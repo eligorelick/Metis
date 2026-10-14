@@ -12,6 +12,7 @@
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { estimateCurrency } from "@/pipeline/estimateCurrency";
+import { comparePeerFundamentals } from "@/pipeline/peers";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -22,6 +23,7 @@ import type {
   FmpRawRow,
 } from "@/providers/fmp";
 
+import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
 import {
   computeRunway,
   metricPolicy,
@@ -2023,7 +2025,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig)
     financialMetrics,
     runway,
     scores,
-    projections,
+    projections: alignProjectionScenarios(projections, scenarioTargets),
     scenarioTargets,
     fairValue,
     suppressed,
@@ -2713,6 +2715,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     // WS6 (D-19): off by default; see docs/METHODOLOGY.md, "EV bridge".
     includeLeasesInEv: evIncludeLeases,
   };
+  Object.assign(multiples, comparePeerFundamentals({
+    symbol: bundle.symbol, profile: bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined, quote: bundle.quote, route: route.base,
+    subject: multiples, now: new Date(bundle.peerFundamentals?.collectedAt ?? bundle.builtAt), collection: bundle.peerFundamentals,
+    subjectIncomeQuarterly: bundle.statements.incomeQuarterly,
+    subjectBalanceQuarterly: bundle.statements.balanceQuarterly,
+  }));
 
   // --- Excess-return inputs (financials) ------------------------------------
   // Market cap and diluted shares belong to COMMON. Keep opening equity,

@@ -1037,14 +1037,20 @@ export interface DcfForecastPeriod {
 
 /** Calendar-anniversary windows, clamped for leap days; never a guessed fiscal year. */
 export function forecastYearPeriod(anchorEndDate: string, t: number, basis: DcfForecastPeriod["basis"]): DcfForecastPeriod | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorEndDate)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorEndDate) || !Number.isInteger(t)) return null;
   const anchor = new Date(`${anchorEndDate}T00:00:00Z`);
   if (!Number.isFinite(anchor.getTime()) || anchor.toISOString().slice(0, 10) !== anchorEndDate) return null;
+  // Retain the exact four-digit ISO-date contract, including the main branch's
+  // overflow guard. setUTCFullYear avoids Date.UTC's 1900 offset for years <100.
+  if (anchor.getUTCFullYear() + t > 9999 || anchor.getUTCFullYear() + t - 1 < 0) return null;
   const anniversary = (offset: number) => {
     const year = anchor.getUTCFullYear() + offset;
     const month = anchor.getUTCMonth();
-    const day = Math.min(anchor.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
-    return new Date(Date.UTC(year, month, day));
+    const lastDay = new Date(anchor);
+    lastDay.setUTCFullYear(year, month + 1, 0);
+    const shifted = new Date(anchor);
+    shifted.setUTCFullYear(year, month, Math.min(anchor.getUTCDate(), lastDay.getUTCDate()));
+    return shifted;
   };
   const endDate = anniversary(t).toISOString().slice(0, 10);
   const start = anniversary(t - 1);
@@ -1800,7 +1806,7 @@ export interface VendorMultiplesRow {
   priceToFreeCashFlowRatio?: number | null;
 }
 
-/** Peer multiples computed upstream from peers' quotes/ratios-ttm. */
+/** Peer multiples computed upstream from validated quotes and raw statements. */
 export interface PeerMultiples {
   symbol: string;
   multiples: Partial<Record<MultipleKey, number | null>>;
@@ -1823,6 +1829,7 @@ export interface MultiplesFrameworkInputs {
   subjectEconomicEvidence?: import("@/pipeline/stageB/peerComparability").PeerEconomicEvidence;
   /** Dated quote/analysis observation for point-in-time comparability evidence. */
   peerComparisonAsOf?: string;
+  peerCoverage?: import("@/pipeline/peers").PeerCoverage;
   /** REIT-only: FFO/AFFO totals provided by the caller (labeled approximate upstream). */
   ffoApprox?: number | null;
   affoApprox?: number | null;
@@ -1916,6 +1923,7 @@ export interface MultipleStat {
 
 export interface MultiplesResult {
   multiples: MultipleStat[];
+  peerCoverage?: import("@/pipeline/peers").PeerCoverage;
   /** WS6 (D-19): the enterprise-value bridge, both ways. */
   enterpriseValue: EnterpriseValueBridge;
   sectorAppropriate: MultipleKey[];
@@ -2359,16 +2367,21 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.priceToFfo", "FFO (approx.) not provided by caller — P/FFO unavailable", "warn"));
   }
 
-  // Peer comparison is fully specified downstream — PeerStats, the n/m + IQR
-  // trim, the minimum-peer house rule, and both export surfaces render it — but
-  // nothing upstream ever populates `peers`, so every peer median is null on
-  // every report. Disclose that as a typed gap rather than let a permanently
-  // empty section read as "no comparable peers found", which is a factual claim
-  // about the market that was never actually evaluated.
-  if ((inputs.peers ?? []).length === 0) {
+  // The bounded upstream collector discloses evaluated candidates and their
+  // exclusions. Legacy/direct callers without a collector still disclose the
+  // missing input; neither path implies a market-wide search found no peers.
+  if (inputs.peerCoverage) {
+    notes.push(...inputs.peerCoverage.methodology);
+    for (const exclusion of inputs.peerCoverage.exclusions) {
+      notes.push(`Peer ${exclusion.symbol}: ${exclusion.reason}`);
+    }
+    if ((inputs.peers ?? []).length < MIN_PEERS_FOR_STATS) {
+      gaps.push(gapEntry("valuation.multiples.peers", "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.", "info"));
+    }
+  } else if ((inputs.peers ?? []).length === 0) {
     notes.push(
-      "Peer multiples are not supplied by the pipeline in this version — the peer median/IQR columns are " +
-        "unavailable for every multiple. This is a missing input, NOT a finding that the company has no peers.",
+      "Peer multiples were not supplied for this report — the peer median/IQR columns are " +
+        "unavailable. This is a missing input, not a finding that the company has no peers.",
     );
     gaps.push(
       gapEntry(
@@ -2576,6 +2589,7 @@ export function multiplesFramework(
 
   return {
     multiples,
+    ...(inputs.peerCoverage ? { peerCoverage: inputs.peerCoverage } : {}),
     enterpriseValue,
     sectorAppropriate: SECTOR_APPROPRIATE_MULTIPLES[route],
     asOf: { quote: null, statements: inc?.date ?? bal?.date ?? null },
