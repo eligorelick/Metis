@@ -140,6 +140,7 @@ import {
   initialSteps,
   LLM_STEPS,
   NO_KEY_SKIP_REASON,
+  NO_ANALYZABLE_DATA_REASON,
   MAX_JUDGE_RETRIES,
   MODEL_RESOLUTION_SKIP_PREFIX,
   COMPUTE_FAILURE_DATA_ONLY_REASON,
@@ -6625,6 +6626,36 @@ describe("runJob — no-key degraded path", () => {
   });
 });
 
+describe("runJob — unresolved ticker", () => {
+  it("skips every paid pass and persists a data-only report when nothing could be fetched", async () => {
+    const { jobId } = createJob("ZZZZQ");
+    const { passes, calls } = mockPasses();
+    const empty = { ok: false as const, gap: { field: "x", reason: "not found", severity: "critical" as const } };
+    const base = fakeBundle("ZZZZQ");
+    const bundle = {
+      ...base,
+      profile: empty,
+      quote: empty,
+      eodPrices: empty,
+      statements: { ...base.statements, incomeAnnual: empty },
+    } as unknown as DataBundle;
+
+    const result = await runJob(jobId, passes, { bundle, hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(true);
+    expect(calls).toEqual([]);
+    const jobRow = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
+    const steps = JSON.parse(jobRow?.stepsJson ?? "[]") as StepProgress[];
+    for (const step of LLM_STEPS) {
+      const found = steps.find((s) => s.step === step);
+      expect(found?.status).toBe("skipped");
+      expect(found?.detail).toBe(NO_ANALYZABLE_DATA_REASON);
+    }
+    expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()).toHaveLength(0);
+  });
+});
+
 /* ------------------------------------------------------------------------ *
  * runJob — LLM pass failure degrades to a data-only report
  * ------------------------------------------------------------------------ */
@@ -7011,6 +7042,156 @@ describe("runJob — model-resolution failure", () => {
 /* ------------------------------------------------------------------------ *
  * runJob — judge/verify/assemble retry-on-validation contract
  * ------------------------------------------------------------------------ */
+
+describe("runJob — judge retry after a dropped connection", () => {
+  it("waits before retrying when the provider reports it is overloaded, instead of re-sending at once", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const startedAt: number[] = [];
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+      ];
+      startedAt.push(Date.now());
+      if (startedAt.length === 1) {
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT did not complete the pass (error: server_is_overloaded)."), {
+          retryable: true,
+          kind: "transport",
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 60 });
+
+    expect(result.status).toBe("done");
+    expect(startedAt).toHaveLength(2);
+    expect(startedAt[1]! - startedAt[0]!).toBeGreaterThanOrEqual(55);
+  });
+
+  it("lowers the effort a step only when the dropped attempt ran into the provider's time limit", async () => {
+    const run = async (attemptMinutes: number): Promise<unknown[]> => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      const validJudge = passes.runJudgePass;
+      let t = NOW().getTime();
+      const clock = (): Date => new Date(t);
+      const continuations: unknown[] = [];
+      let attempt = 0;
+      passes.runJudgePass = (async (...args: unknown[]) => {
+        const [deps, bull, bear, , , , continuation] = args as [
+          Parameters<PipelinePasses["runJudgePass"]>[0],
+          Parameters<PipelinePasses["runJudgePass"]>[1],
+          Parameters<PipelinePasses["runJudgePass"]>[2],
+          unknown, unknown, unknown, unknown,
+        ];
+        continuations.push(continuation);
+        attempt += 1;
+        if (attempt === 1) {
+          t += attemptMinutes * 60_000;
+          throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+            retryable: true,
+            kind: "transport",
+          });
+        }
+        return validJudge(deps, bull, bear);
+      }) as PipelinePasses["runJudgePass"];
+      const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: clock });
+      expect(result.status).toBe("done");
+      return continuations;
+    };
+
+    // Cut at 15 minutes with nothing completed: the retry steps effort down.
+    expect(await run(15)).toEqual([undefined, { completed: {}, effortStepDown: 1 }]);
+    // A quick drop is an ordinary transient failure: same request again.
+    expect(await run(2)).toEqual([undefined, undefined]);
+  });
+
+  it("keeps the sections a cut-off judge response completed and asks the retry only for the rest", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const seen: Array<{ feedback: string | undefined; continuation: unknown }> = [];
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, feedback, , , continuation] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        string | undefined,
+        unknown,
+        unknown,
+        unknown,
+      ];
+      seen.push({ feedback, continuation });
+      attempt += 1;
+      if (attempt === 1) {
+        // The provider closed the response mid-way through `fundamentals`.
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+          retryable: true,
+          kind: "transport",
+          partialText: '{"verdict":{"synthesis":"s"},"business":{"b":1},"fundamentals":{"gra',
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]!.continuation).toBeUndefined();
+    expect(seen[1]!.feedback).toBeUndefined();
+    expect(seen[1]!.continuation).toEqual({ completed: { verdict: { synthesis: "s" }, business: { b: 1 } } });
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("never feeds a transport failure back as repair feedback, and keeps earlier schema feedback", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const feedbacks: Array<string | undefined> = [];
+    const validJudge = passes.runJudgePass;
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, feedback] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        string | undefined,
+      ];
+      feedbacks.push(feedback);
+      attempt += 1;
+      if (attempt === 1) {
+        throw Object.assign(new Error("judge pass failed (schema): missing outlook"), {
+          retryable: true,
+          kind: "schema",
+          rawText: '{"verdict":{}}',
+        });
+      }
+      if (attempt === 2) {
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+          retryable: true,
+          kind: "transport",
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+
+    expect(feedbacks).toHaveLength(3);
+    expect(feedbacks[0]).toBeUndefined();
+    expect(feedbacks[1]).toContain("missing outlook");
+    expect(feedbacks[1]).toContain('{"verdict":{}}');
+    // The dropped connection did not replace the schema feedback.
+    expect(feedbacks[2]).toBe(feedbacks[1]);
+    expect(feedbacks[2]).not.toContain("stream ended");
+    expect(result.status).toBe("done");
+  });
+});
 
 describe("runJob — judge retry on schema-validation failure", () => {
   it("retries the judge on schema-invalid output twice then succeeds (2 retries, then done)", async () => {
@@ -8332,6 +8513,25 @@ describe("review regressions — cost rehydration, live-job guard, resumability 
     expect(prepareJobResume(jobId, "done")).toBeNull();
   });
 
+  it("a linked data-only fallback report does not lock away the analyst work that finished", async () => {
+    // A real data-only report, written by the runner's own no-AI path.
+    const fallbackJob = createJob("AAPL").jobId;
+    const fallback = await runJob(fallbackJob, mockPasses().passes, { bundle: fakeBundle(), hasAnthropicKey: false, now: NOW });
+    expect(fallback.dataOnly).toBe(true);
+
+    const { jobId } = createJob("AAPL");
+    seedResumableLegacyJob(jobId, "done", "1.3.0:data-only-linked");
+    handle.db.update(jobs).set({ reportId: fallback.reportId }).where(eq(jobs.id, jobId)).run();
+
+    expect(readJobResumeState(jobId)).toMatchObject({ resumable: true });
+    const prepared = prepareJobResume(jobId, "done");
+    expect(prepared).not.toBeNull();
+    expect(prepared?.bull).not.toBeNull();
+    expect(prepared?.bear).not.toBeNull();
+    // The claim re-checks the link with the same rule, so it agrees with the plan.
+    expect(claimPreparedJobResume(prepared!)).toBe(true);
+  });
+
   it.each([null, "", "   "])(
     "legacy analyst snapshots with fingerprint %j fail closed",
     (payloadFingerprint) => {
@@ -9063,6 +9263,169 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const report = ReportSchema.parse(JSON.parse(reportRow.reportJson ?? "{}"));
     const bearGap = report.appendix.missingData.find((gap) => gap.field === "llm.bear");
     expect(bearGap?.reason).toMatch(/^repair attempt after schema-invalid output also failed: .*\(again\)/);
+  });
+
+  it("gives a plan-connection analyst side several backed-off tries through transient provider faults", async () => {
+    vi.mocked(resolveModel).mockResolvedValueOnce({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    // Plan-connection passes cost nothing per request.
+    const plan = (side: "bull" | "bear") => ({ ...testAnalystPass(side, 0), model: "chatgpt/gpt-6.1-sol" });
+    const bull = plan("bull");
+    const bear = plan("bear");
+    const FAULT = "bear pass failed (transport): ChatGPT did not complete the pass (error: server_is_overloaded).";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(FAULT), {
+        bull,
+        bearError: FAULT,
+        bullLaunched: true,
+        bearLaunched: true,
+        bearRetryable: true,
+        bearFailureKind: "transport",
+      });
+    };
+    const paidJudge = passes.runJudgePass;
+    passes.runJudgePass = (async (...args: Parameters<PipelinePasses["runJudgePass"]>) => ({
+      ...(await paidJudge(args[0], args[1], args[2])),
+      costUsd: 0,
+      model: "chatgpt/gpt-6.1-sol",
+    })) as PipelinePasses["runJudgePass"];
+    const paidVerify = passes.runVerifyPass;
+    passes.runVerifyPass = (async (...args: Parameters<PipelinePasses["runVerifyPass"]>) => ({
+      ...(await paidVerify(...args)),
+      costUsd: 0,
+      model: "chatgpt/gpt-6.1-sol",
+    })) as PipelinePasses["runVerifyPass"];
+    let calls = 0;
+    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch) => {
+      calls += 1;
+      await beforeProviderLaunch?.();
+      if (calls === 1) {
+        throw Object.assign(new Error("bear pass failed (transport): ChatGPT did not complete the pass (error: server_error)."), {
+          retryable: true,
+          kind: "transport",
+        });
+      }
+      await settlement?.(testSuccessSettlement(bear, false));
+      return bear;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 1 });
+
+    expect(calls).toBe(2);
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("continues a cut-off analyst side from the sections it completed", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    const DROPPED = "bull pass failed (transport): ChatGPT stream ended before completion";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(DROPPED), {
+        bear,
+        bullError: DROPPED,
+        bullLaunched: true,
+        bearLaunched: true,
+        bullRetryable: true,
+        bullFailureKind: "transport",
+        bullPartialText: '{"thesis":[{"text":"t"}],"keyDrivers":[],"risksToCase":[{"te',
+      });
+    };
+    const seen: Array<{ side: string; feedback: string | undefined; continuation: unknown }> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch, feedback, continuation) => {
+      seen.push({ side, feedback, continuation });
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bull));
+      return bull;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toEqual([
+      { side: "bull", feedback: undefined, continuation: { completed: { thesis: [{ text: "t" }], keyDrivers: [] } } },
+    ]);
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("retries a dropped first analyst pass and runs the never-launched sibling fresh", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    const DROPPED = "bull pass failed (transport): ChatGPT stream ended before completion";
+    // The shape the real facade throws: the never-launched bear carries its own
+    // "not launched" message and a false launch flag (a missing message was
+    // what this test used to assume, and the live failure did not match it).
+    const NOT_LAUNCHED = "bear pass failed (transport): bear pass not launched because bull stream did not reach a first token (error)";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      throw Object.assign(new Error(`${DROPPED}; ${NOT_LAUNCHED}`), {
+        bullError: DROPPED,
+        bearError: NOT_LAUNCHED,
+        bullLaunched: true,
+        bearLaunched: false,
+        bullRetryable: true,
+        bullFailureKind: "transport",
+        bearRetryable: false,
+        bearFailureKind: "transport",
+      });
+    };
+    const seen: Array<[string, string | undefined]> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch, feedback) => {
+      seen.push([side, feedback]);
+      await beforeProviderLaunch?.();
+      const result = side === "bull" ? bull : bear;
+      await settlement?.(testSuccessSettlement(result));
+      return result;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen.map(([side]) => side)).toEqual(["bull", "bear"]);
+    // A dropped connection is re-run as-is, not "repaired": no feedback for either side.
+    expect(seen[0]?.[1]).toBeUndefined();
+    expect(seen[1]?.[1]).toBeUndefined();
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("still repairs a schema-rejected side with its error and output fed back", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error("bear pass failed (schema): bad asOf"), {
+        bull,
+        bearError: "bear pass failed (schema): bad asOf",
+        bearRetryable: true,
+        bearFailureKind: "schema",
+        bearRawText: '{"asOf":"2026-Q1"}',
+      });
+    };
+    const seen: Array<string | undefined> = [];
+    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch, feedback) => {
+      seen.push(feedback);
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bear));
+      return bear;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain("bad asOf");
+    expect(seen[0]).toContain('{"asOf":"2026-Q1"}');
+    expect(result.dataOnly).toBe(false);
   });
 
   it("does not attempt a repair for a failure that was not a schema rejection", async () => {

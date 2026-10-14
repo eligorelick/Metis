@@ -357,6 +357,21 @@ export const GradeBlockSchema = z
     oneLineWhy: ratingSafeString(),
     reasoning: z.array(SourcedClaimSchema),
     confidence: ConfidenceSchema,
+    /**
+     * D-50: set by the pipeline when the model's confidence label exceeded the
+     * deterministic data-coverage ceiling and was lowered to it
+     * (src/pipeline/stageC/confidenceCeiling.ts). Pipeline-owned, removed from
+     * the judge request schema; absent on reports written before D-50 and on
+     * sections whose label was at or below the ceiling.
+     */
+    confidenceCap: z
+      .object({
+        from: ConfidenceSchema,
+        to: ConfidenceSchema,
+        reason: z.string().trim().min(1),
+      })
+      .strict()
+      .optional(),
     keyNumbers: z.array(TracedNumberSchema),
     /**
      * Fuller "what this means" interpretation for the aspect (rating-safe).
@@ -1320,6 +1335,17 @@ export const VerificationLogEntrySchema = z
         "named-individual-web-source",
         "credibility-source-restricted",
         // end WS7
+        // D-43 (2026-10-13): gap/unestablished citations never carry a
+        // number, person-row citations are read for the person and title, and
+        // a currency on a figure of unknown currency fails. Additive.
+        "gap-source-number",
+        "named-individual-not-in-source",
+        "named-individual-title-mismatch",
+        "currency-not-established",
+        // D-45 (2026-10-13): a number cited to a filing/transcript excerpt is
+        // read against that excerpt's text. Additive.
+        "text-ambiguous",
+        "text-context-mismatch",
       ])
       .optional(),
     /**
@@ -1337,12 +1363,15 @@ export const VerificationLogEntrySchema = z
      *  - "source-cited": exact payload text source/date or observed fetched URL.
      *  - "computed-derived": exact computed registry ID plus numeric dimensions
      *    and a versioned formula identity — traceability, not independent audit.
+     *  - "excerpt-match" (D-45): the value is printed, at its precision and
+     *    unit, in the exact filing/transcript excerpt it cites, beside most of
+     *    the words of its own description. The period is not machine-checked.
      *  - "untraced": neither — flagged, never counted as traced.
      * NONE of these is factual verification; the value is not re-derived or
      * re-fetched (see runVerifyPass docstring).
      */
     traceKind: z
-      .enum(["payload-match", "source-cited", "computed-derived", "untraced"])
+      .enum(["payload-match", "source-cited", "computed-derived", "excerpt-match", "untraced"])
       .optional(),
   })
   .strict();
@@ -1359,6 +1388,8 @@ export function traceKindLabel(
       return "source cited";
     case "computed-derived":
       return "computed";
+    case "excerpt-match":
+      return "filing/transcript text match";
     case "untraced":
       return "untraced";
   }
@@ -1474,6 +1505,15 @@ export const AspectScoreSchema = z
     weightPct: z.number(),
     /** Fraction (0–1) of intended signal weight actually available. */
     dataCompleteness: z.number().min(0).max(1),
+    /**
+     * Fraction (0–1) of the signal weight this ROUTE can support that was
+     * actually available: `dataCompleteness` with route-suppressed signals
+     * left out of the denominator, so a metric meaningless for the route is not
+     * read as missing data. Null when the aspect is inapplicable to the route
+     * as a whole. Feeds the confidence ceiling (D-50). Absent on reports
+     * written before it existed.
+     */
+    applicableCompleteness: z.number().min(0).max(1).nullable().optional(),
     /** The sub-signals behind the score, as traced numbers. */
     drivers: z.array(TracedNumberSchema),
     /** Non-null when the aspect cannot be scored for this route/data. */
@@ -1788,6 +1828,8 @@ const JudgeOutputObjectSchema = z
     disagreements: z.array(DisagreementSchema),
   })
   .strict();
+/** The judge output's top-level sections, in schema order. */
+export const JUDGE_OUTPUT_KEYS: readonly string[] = Object.keys(JudgeOutputObjectSchema.shape);
 export const JUDGE_OUTPUT_SCHEMA = JudgeOutputObjectSchema.superRefine((value, ctx) => {
   enforceRecursiveRatingSafety(value, ctx);
   value.valuation.scenarios.forEach((scenario, index) => {
@@ -1907,6 +1949,8 @@ const AnalystCaseObjectSchema = z
     case_strength: z.number().int().min(1).max(5).nullable().optional(),
   })
   .strict();
+/** The analyst case's top-level sections, in schema order. */
+export const ANALYST_CASE_KEYS: readonly string[] = Object.keys(AnalystCaseObjectSchema.shape);
 export const ANALYST_CASE_SCHEMA = AnalystCaseObjectSchema.superRefine(
   enforceRecursiveRatingSafety,
 );
@@ -2331,8 +2375,12 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       if ("grade" in props && "oneLineWhy" in props && "assessmentStatus" in props) {
         // A deterministic data-only display decision, never model-authored.
         delete props.assessmentStatus;
+        // D-50: the confidence ceiling is applied at assembly, never model-authored.
+        delete props.confidenceCap;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => key !== "assessmentStatus");
+          obj.required = (obj.required as string[]).filter(
+            (key) => key !== "assessmentStatus" && key !== "confidenceCap",
+          );
         }
       }
       if (

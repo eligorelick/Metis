@@ -360,7 +360,17 @@ const TERMINAL_ROIC_DEFAULT_BASIS =
  * supplied one (recomputed from that year end's risk-free observation); years
  * without one fall back to the current WACC and the note says which happened.
  */
-export function terminalRoic(waccPct: number, history: DcfRoicYear[] | null): TerminalRoic {
+export function terminalRoic(
+  waccPct: number,
+  history: DcfRoicYear[] | null,
+  /**
+   * The return and hurdle names printed in the basis and notes. The excess-return
+   * equity model applies this same convention to ROTE (or common ROE) against
+   * the cost of equity, so its disclosures must not say ROIC and WACC.
+   */
+  labels: { ret: string; rate: string } = { ret: "ROIC", rate: "WACC" },
+): TerminalRoic {
+  const { ret: RET, rate: RATE } = labels;
   const hold = (
     note: string | null,
     waccBasis: TerminalRoic["waccBasis"],
@@ -368,7 +378,10 @@ export function terminalRoic(waccPct: number, history: DcfRoicYear[] | null): Te
   ): TerminalRoic => ({
     roicTermPct: waccPct,
     excessPp: 0,
-    basis: TERMINAL_ROIC_DEFAULT_BASIS,
+    basis:
+      RET === "ROIC"
+        ? TERMINAL_ROIC_DEFAULT_BASIS
+        : `terminal ${RET} = ${RATE} (zero excess returns in perpetuity, HOUSE CONVENTION default — see docs/METHODOLOGY.md)`,
     note,
     waccBasis,
     waccBasisNote,
@@ -394,18 +407,18 @@ export function terminalRoic(waccPct: number, history: DcfRoicYear[] | null): Te
     n === 0
       ? null
       : perYear.length === 0
-      ? `ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC ${fmtNum(waccPct)}% — no per-year risk-free observation was available to recompute a year-specific WACC`
-      : `ROIC-vs-WACC history uses each fiscal year's own WACC, recomputed from that year end's risk-free observation (${perYear
+      ? `${RET}-vs-${RATE} history compares every fiscal year to the CURRENT ${RATE} ${fmtNum(waccPct)}% — no per-year risk-free observation was available to recompute a year-specific ${RATE}`
+      : `${RET}-vs-${RATE} history uses each fiscal year's own ${RATE}, recomputed from that year end's risk-free observation (${perYear
           .map((y) => `${y.date}: ${fmtNum(waccForYear(y))}%${y.waccAsOf ? ` (rf as of ${y.waccAsOf})` : ""}`)
           .join(", ")})` +
         (currentOnly.length > 0
-          ? `; the current WACC ${fmtNum(waccPct)}% was applied to ${currentOnly
+          ? `; the current ${RATE} ${fmtNum(waccPct)}% was applied to ${currentOnly
               .map((y) => y.date)
               .join(", ")}, which had no usable risk-free observation`
           : "");
   if (n < TERMINAL_EXCESS_RETURN_MIN_YEARS) {
     return hold(
-      `terminal ROIC held at WACC: ${n} fiscal year${n === 1 ? "" : "s"} of ROIC on record, ${TERMINAL_EXCESS_RETURN_MIN_YEARS} needed to evidence durable excess returns (house convention)`,
+      `terminal ${RET} held at ${RATE}: ${n} fiscal year${n === 1 ? "" : "s"} of ${RET} on record, ${TERMINAL_EXCESS_RETURN_MIN_YEARS} needed to evidence durable excess returns (house convention)`,
       waccBasis,
       waccBasisNote,
     );
@@ -413,8 +426,8 @@ export function terminalRoic(waccPct: number, history: DcfRoicYear[] | null): Te
   const below = years.filter((y) => y.roicPct <= waccForYear(y));
   if (below.length > 0) {
     return hold(
-      `terminal ROIC held at WACC: ROIC was at or below that year's WACC in ${below.length} of the last ${n} fiscal years (${below
-        .map((y) => `${y.date}: ROIC ${fmtNum(y.roicPct)}% vs WACC ${fmtNum(waccForYear(y))}%`)
+      `terminal ${RET} held at ${RATE}: ${RET} was at or below that year's ${RATE} in ${below.length} of the last ${n} fiscal years (${below
+        .map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`)
         .join("; ")}) — excess returns not evidenced as durable (house convention)`,
       waccBasis,
       waccBasisNote,
@@ -425,7 +438,7 @@ export function terminalRoic(waccPct: number, history: DcfRoicYear[] | null): Te
   const excess = Math.min(TERMINAL_EXCESS_RETURN_CAP_PP, TERMINAL_EXCESS_RETURN_CARRY * median);
   if (excess < TERMINAL_EXCESS_RETURN_MIN_PP) {
     return hold(
-      `terminal ROIC held at WACC: ROIC exceeded WACC in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
+      `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
       waccBasis,
       waccBasisNote,
     );
@@ -436,7 +449,7 @@ export function terminalRoic(waccPct: number, history: DcfRoicYear[] | null): Te
     roicTermPct: waccPct + excess,
     excessPp: excess,
     basis:
-      `terminal ROIC = WACC ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ROIC exceeded WACC in each of the last ${n} fiscal years ` +
+      `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ${RET} exceeded ${RATE} in each of the last ${n} fiscal years ` +
       `(${oldest} to ${newest}, median spread ${fmtNum(median)}pp); half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
       "(HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md)",
     note: null,
@@ -2583,6 +2596,16 @@ export interface ExcessReturnInputs {
    * rate is ever invented.
    */
   riskFreePct?: number | null;
+  /**
+   * Fiscal-year history of the SAME return `currentRoePct` measures (ROTE for
+   * banks, common ROE otherwise), each year against that year's own cost of
+   * equity in `waccPct`. When supplied, the DCF's terminal excess-return house
+   * convention (`terminalRoic`) applies to the fade target: a return that beat
+   * the cost of equity in every one of the last 4+ years keeps half its median
+   * spread (capped at 5pp) in perpetuity. Absent, ROE fades to the cost of
+   * equity exactly as before.
+   */
+  roeHistory?: DcfRoicYear[] | null;
 }
 
 /** WS5: the multiple a financial's price is actually read on, beside the return that justifies it. */
@@ -2627,8 +2650,9 @@ export interface ExcessReturnResult {
   bookValuePath: number[];
   /**
    * Year-N economic profit in currency: (ROE_N − CoE) · BV_{N-1}. Zero when ROE
-   * fades to CoE (the default); nonzero only when a caller overrides the terminal
-   * ROE via analystImpliedRoePct. Computed, never assumed.
+   * fades to CoE (the default); nonzero when `roeHistory` evidences durable
+   * excess returns or a caller overrides the terminal ROE via
+   * analystImpliedRoePct. Computed, never assumed.
    */
   terminalExcess: number | null;
   reverseSolve: { impliedCurrentRoePct: number | null; notes: string[] };
@@ -2637,13 +2661,19 @@ export interface ExcessReturnResult {
   gaps: ManifestEntry[];
 }
 
-/** Core: BV_t = BV_{t-1}(1 + ROE_t * retention); value = BV0 + sum PV(excess). */
+/**
+ * Core: BV_t = BV_{t-1}(1 + ROE_t * retention); value = BV0 + sum PV(excess),
+ * plus — only when evidenced excess returns are carried past the horizon — the
+ * continuing value of the year-N+1 residual income growing at g:
+ * CV_N = (ROE_T − CoE) · BV_N / (CoE − g), discounted N years.
+ */
 function excessReturnValue(
   bv0: number,
   roePathPct: number[],
   coePct: number,
   payoutPct: number,
-): { equityValue: number; bookValuePath: number[] } {
+  continuing: { excessPp: number; gPct: number } | null = null,
+): { equityValue: number; bookValuePath: number[]; continuingValuePv: number } {
   const coe = coePct / 100;
   const retention = 1 - payoutPct / 100;
   const bookValuePath: number[] = [bv0];
@@ -2662,15 +2692,26 @@ function excessReturnValue(
     bv = bv * (1 + bvGrowth);
     bookValuePath.push(bv);
   }
-  return { equityValue: bv0 + pvExcess, bookValuePath };
+  let continuingValuePv = 0;
+  if (continuing !== null && continuing.excessPp > 0) {
+    const n = roePathPct.length;
+    const cv = ((continuing.excessPp / 100) * bv) / (coe - continuing.gPct / 100);
+    continuingValuePv = cv / Math.pow(1 + coe, n);
+  }
+  return { equityValue: bv0 + pvExcess + continuingValuePv, bookValuePath, continuingValuePv };
 }
 
 /**
  * Excess-return equity model for banks/insurers (NO WACC, NO FCFF anywhere):
  * EquityValue = BV0 + sum_t (ROE_t - CoE) * BV_{t-1} / (1 + CoE)^t, with ROE
- * fading from current TTM ROE to the cost of equity by the terminal year, so
- * terminal excess returns are zero (the equity-side analogue of the DCF core's
- * terminal ROIC = WACC). A caller MAY override the terminal ROE
+ * fading from the current return to its terminal target. The target is the
+ * cost of equity (zero terminal excess) unless `roeHistory` evidences durable
+ * excess returns, in which case the DCF's own house convention applies: half
+ * the median spread (capped at 5pp) persists, valued as a growing perpetuity
+ * past the horizon. Before this, the DCF carried evidenced excess and this
+ * model did not, so every high-ROTE bank was valued as if its returns
+ * collapsed by year 10 (a 2026-10-12 sweep graded JPM, BAC, WFC and C all F on
+ * valuation; JPM's price "required" a 54% starting ROTE). A caller MAY override the terminal ROE
  * (analystImpliedRoePct) to assert persistent excess; the override is reflected
  * honestly in `terminalExcess` and the basis string. Also reverse-solves the
  * constant steady-state ROE that reproduces the current market cap.
@@ -2957,10 +2998,33 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
   const roeStart = inputs.currentRoePct;
   const overrideTerminal = isNum(inputs.analystImpliedRoePct);
-  const endRoe = overrideTerminal ? (inputs.analystImpliedRoePct as number) : coe;
+  const retLabel = inputs.currentRoeBasis === "fiscal-year-rote" ? "ROTE" : "ROE";
+  // The DCF's terminal excess-return house convention, on the equity side.
+  const evidenced =
+    !overrideTerminal && inputs.roeHistory != null
+      ? terminalRoic(coe, inputs.roeHistory, { ret: retLabel, rate: "cost of equity" })
+      : null;
+  if (evidenced?.note) notes.push(evidenced.note);
+  if (evidenced?.waccBasisNote) notes.push(evidenced.waccBasisNote);
+  // The carried excess is valued as residual income growing at g past the
+  // horizon, under the same g cap as the justified-P/TBV cross-check and the
+  // same CoE − g guard as the DCF's Gordon terminal value.
+  const rfForG = isNum(inputs.riskFreePct) ? inputs.riskFreePct : null;
+  const continuingG = rfForG === null ? TERMINAL_G_CAP_PCT : Math.min(TERMINAL_G_CAP_PCT, rfForG);
+  let carriedPp = evidenced?.excessPp ?? 0;
+  if (carriedPp > 0 && coe - continuingG < TV_GUARD_PP) {
+    notes.push(
+      `evidenced excess ${retLabel} not carried: cost of equity ${fmtNum(coe)}% leaves less than ${TV_GUARD_PP}pp over the continuing growth ${fmtNum(continuingG)}% (same guard as the DCF terminal value)`,
+    );
+    carriedPp = 0;
+  }
+  const continuing = carriedPp > 0 ? { excessPp: carriedPp, gPct: continuingG } : null;
+  const endRoe = overrideTerminal ? (inputs.analystImpliedRoePct as number) : coe + carriedPp;
   const endBasis = overrideTerminal
     ? `caller-supplied terminal ROE ${fmtNum(endRoe)}% (persistent excess asserted)`
-    : `cost of equity ${fmtNum(coe)}% (competitive fade — zero terminal excess)`;
+    : continuing !== null
+      ? `${fmtNum(endRoe)}% — ${evidenced!.basis}; carried past year ${years} as residual income growing at ${fmtNum(continuingG)}%`
+      : `cost of equity ${fmtNum(coe)}% (competitive fade — zero terminal excess)`;
   const startBasis =
     inputs.currentRoeBasis === "fiscal-year-rote"
       ? `FY ${inputs.currentRoeAsOf ?? "unknown"} ROTE (common earnings / average tangible common equity)`
@@ -2972,7 +3036,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const roeBasis = `linear fade from ${startBasis} ${fmtNum(roeStart)}% to ${endBasis} by year ${years}`;
   const roePath = fadePath(roeStart, endRoe, years);
 
-  const { equityValue, bookValuePath } = excessReturnValue(bv0, roePath, coe, payout);
+  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payout, continuing);
   const shares = posOrNull(inputs.dilutedShares);
   const perShare = shares !== null ? equityValue / shares : null;
   if (shares === null) {
@@ -3002,8 +3066,10 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   //     fading one, so less ROE was needed to reach the price), which biased
   //     every bank, insurer and mortgage REIT toward "market too pessimistic".
   //
-  // A clean property follows: the model returns exactly book value when ROE
-  // equals the cost of equity, so an issuer priced at book solves to CoE.
+  // A clean property follows: with no carried excess the model returns exactly
+  // book value when ROE equals the cost of equity, so an issuer priced at book
+  // solves to CoE. The solve fades to the same target and carries the same
+  // continuing value as the forward path, so the comparison stays like for like.
   let impliedCurrentRoePct: number | null = null;
   const mcap = posOrNull(inputs.marketCap);
   if (mcap === null) {
@@ -3014,7 +3080,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payout).equityValue - mcap;
+      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payout, continuing).equityValue - mcap;
     const fLo = f(lo);
     const fHi = f(hi);
     if (fLo > 0) {
@@ -3039,7 +3105,9 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   notes.push(
     overrideTerminal
       ? `excess-return model: equity-only (CoE, never WACC); terminal ROE overridden to ${fmtNum(endRoe)}% — terminal excess ${fmtNum(terminalExcess)} (currency), NOT zero`
-      : "excess-return model: equity-only (CoE, never WACC); ROE fades to CoE so terminal excess returns = 0",
+      : continuing !== null
+        ? `excess-return model: equity-only (CoE, never WACC); ${retLabel} fades to CoE + ${fmtNum(carriedPp)}pp evidenced excess, whose continuing value past year ${years} is ${fmtNum(continuingValuePv)} (currency, present value)`
+        : "excess-return model: equity-only (CoE, never WACC); ROE fades to CoE so terminal excess returns = 0",
   );
   // WS5: the P/TBV-against-ROTE pairing, now that the payout (and hence the
   // retention rate inside g) is known.
@@ -3055,7 +3123,17 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },
     payoutRatioPct: { value: payout, basis: payoutBasis },
-    horizonYears: { value: years, basis: horizonBasis(true) },
+    horizonYears: {
+      value: years,
+      basis:
+        continuing === null
+          ? horizonBasis(true)
+          : `explicit ${years}-year horizon: the excess return (ROE − cost of equity) x prior-year book equity is ` +
+            `discounted year by year to year ${years}. ROE is faded LINEARLY to the cost of equity plus ${fmtNum(carriedPp)}pp ` +
+            `of evidenced excess return over exactly that horizon, so the year-N excess is NOT zero; that excess is carried ` +
+            `past year ${years} as residual income growing at ${fmtNum(continuingG)}% (continuing value, present value ` +
+            `${fmtNum(continuingValuePv)}).`,
+    },
     costOfEquityPct: {
       value: coe,
       basis:

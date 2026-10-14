@@ -4,12 +4,21 @@ import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt"
 import { runGemini } from "./gemini";
 import { CHATGPT_EFFORTS, parseSubscriptionModel, subscriptionModel, validModelId, type ChatGptEffort, type ChatGptModelChoice, type ChatGptRunOptions } from "./contracts";
 
-const MAX_RESPONSE_BYTES = 4_000_000;
+// Counts every streamed byte (lifecycle events echo the request), not just the answer text.
+const MAX_RESPONSE_BYTES = 16_000_000;
+/** Upper bound on the partial answer text kept from a stream that ended early. */
+const MAX_PARTIAL_TEXT_CHARS = 1_000_000;
 interface ChatGptObservation {
   model?: string;
   usage?: { input_tokens: number; output_tokens: number };
   effort?: ChatGptEffort;
   serviceTier?: string;
+  /**
+   * Answer text streamed before the response ended without completing (the
+   * plan endpoint closes a response at 15 minutes). Never treated as a
+   * successful pass: the caller may only keep the sections it can validate.
+   */
+  partialText?: string;
 }
 class ChatGptStreamError extends Error {
   constructor(message: string, readonly observed: ChatGptObservation) { super(message); }
@@ -23,12 +32,24 @@ function chatGptFailure(error: unknown): string | null {
   if (code === "model_not_found" || param === "model") return "ChatGPT did not grant access to the selected model. Refresh the account model list or choose another model. No paid fallback was attempted.";
   return null;
 }
+/** Short, sanitized provider error code for diagnostics (never the request or any payload text). */
+function providerErrorDetail(failure: unknown, event: { type?: unknown; response?: { incomplete_details?: { reason?: unknown } } }): string {
+  const code = failure && typeof failure === "object" ? (failure as Record<string, unknown>).code : undefined;
+  const reason = event.response?.incomplete_details?.reason;
+  const parts = [event.type, code, reason].filter((v): v is string => typeof v === "string" && /^[\w.-]{1,60}$/.test(v));
+  return parts.length ? ` (${parts.join(": ")})` : "";
+}
 export function subscriptionMessages(args: RunPassArgs) {
   const evidenceRule = "Use only evidence in the supplied research payload. Web search is unavailable for this connection. Do not invent URLs or claim you fetched a source. Return JSON only, without Markdown fences.";
+  // The schema rides in the developer message, not as a trailing user turn: a
+  // response produced in parts ends with "return ONLY these sections now",
+  // and a trailing "must match the full schema" turn would contradict it.
+  const schemaRule = args.outputSchema
+    ? `\n\nThe complete response object must match this JSON schema. When a later instruction asks for only some top-level sections, return only those sections, each matching its part of the schema:\n${JSON.stringify(args.outputSchema)}`
+    : "";
   return [
-    { role: "developer", content: `${args.system}\n\n${evidenceRule}` },
+    { role: "developer", content: `${args.system}\n\n${evidenceRule}${schemaRule}` },
     ...args.messages.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : m.content.map((b) => b.text).join("\n") })),
-    ...(args.outputSchema ? [{ role: "user", content: `Your response must match this JSON schema:\n${JSON.stringify(args.outputSchema)}` }] : []),
   ];
 }
 
@@ -48,6 +69,15 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
   let buffer = ""; let bytes = 0;
   const completedItems = new Map<number, unknown>();
   const observed: ChatGptObservation = {};
+  // Answer-text deltas by output index. Only ever surfaced on a FAILED stream,
+  // as `partialText`; a completed pass still reads the completed items.
+  const textDeltas = new Map<number, string[]>();
+  const excludedIndices = new Set<number>();
+  let partialChars = 0;
+  const notePartial = (): void => {
+    if (textDeltas.size === 0) return;
+    observed.partialText = [...textDeltas].sort(([a], [b]) => a - b).map(([, parts]) => parts.join("")).join("\n");
+  };
   try {
     for (;;) {
       const chunk = await reader.read();
@@ -78,8 +108,26 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
         if (event.type === "response.output_item.done" && Number.isSafeInteger(event.output_index) && event.output_index >= 0 && event.output_index < 10_000) {
           completedItems.set(event.output_index, event.item);
         }
+        // An item announced as anything but the final answer (commentary,
+        // reasoning) never contributes partial text.
+        if (event.type === "response.output_item.added" && Number.isSafeInteger(event.output_index)) {
+          const item = event.item as { type?: string; phase?: string } | undefined;
+          if (item?.type !== "message" || (item.phase !== undefined && item.phase !== "final_answer")) {
+            excludedIndices.add(event.output_index);
+            textDeltas.delete(event.output_index);
+          }
+        }
+        if (event.type === "response.output_text.delta" && typeof event.delta === "string" &&
+            Number.isSafeInteger(event.output_index) && !excludedIndices.has(event.output_index) &&
+            partialChars + event.delta.length <= MAX_PARTIAL_TEXT_CHARS) {
+          const parts = textDeltas.get(event.output_index) ?? [];
+          parts.push(event.delta);
+          textDeltas.set(event.output_index, parts);
+          partialChars += event.delta.length;
+        }
         if (["error", "response.failed", "response.incomplete"].includes(event.type)) {
-          throw new Error(chatGptFailure(event.response?.error ?? event.error ?? event) ?? "ChatGPT did not complete the pass. Check your model access and plan allowance. No paid fallback was attempted.");
+          const failure = event.response?.error ?? event.error ?? event;
+          throw new Error(chatGptFailure(failure) ?? `ChatGPT did not complete the pass${providerErrorDetail(failure, event)}. Check your model access and plan allowance. No paid fallback was attempted.`);
         }
         if (event.type === "response.completed") {
           const data = event.response;
@@ -110,6 +158,7 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
     throw new Error("ChatGPT stream ended before completion");
   } catch (error) {
     const reason = error instanceof Error && /^(ChatGPT|Invalid completed)/.test(error.message) ? error.message : "ChatGPT stream failed or was canceled. No paid fallback was attempted.";
+    notePartial();
     throw new ChatGptStreamError(reason, observed);
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
@@ -162,6 +211,11 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
           // The plan-usage preview does not accept max_output_tokens or temperature.
           body: JSON.stringify({ model: parsed.model, input: messages, store: false, stream: true,
             ...(options.effort === undefined ? {} : { reasoning: { effort: options.effort } }),
+            // Prompt-only JSON intermittently produced unescaped quotes in long judge
+            // output, so JSON mode is requested too. The endpoint accepts it but has
+            // still returned invalid JSON on large reports, so the caller's parse and
+            // schema validation (and their retries) remain the real guard.
+            ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
             service_tier: options.serviceTier ?? "default",
           }),
         }));
@@ -186,6 +240,7 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
     return { ok: false, gap: { field, reason, severity: "critical", attemptedSources: [parsed.provider] },
       error: { kind: "transport", message: reason, model: observed?.model ? subscriptionModel(parsed.provider, observed.model) : args.model, costUsd: 0, fallbackUsed: false, aborted: args.signal?.aborted === true,
         ...(observed?.usage ? { usage: observed.usage } : {}),
+        ...(observed?.partialText ? { partialText: observed.partialText } : {}),
         execution: { requestedModel: args.model, requestedEffort: parsed.provider === "chatgpt" ? options.effort ?? null : null, effectiveEffort: observed?.effort ?? null,
           modelObserved: observed?.model !== undefined, usageReported: observed?.usage !== undefined,
           ...(parsed.provider === "chatgpt" ? { requestedServiceTier: options.serviceTier ?? "default", effectiveServiceTier: observed?.serviceTier ?? null } : {}),

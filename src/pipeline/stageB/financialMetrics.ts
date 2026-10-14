@@ -25,10 +25,12 @@
  *    available is published beside it under its own name,
  *    `niiToAverageAssets` — never as NIM.
  *
- * 2. A proxy is labeled a proxy. CET1 is a risk-weighted regulatory ratio; when
- *    the filer tags none, tangible common equity over tangible assets is shown
- *    as `tangibleLeverage` with the difference stated. It is a leverage ratio,
- *    not a capital-adequacy ratio, and the report says so.
+ * 2. A proxy is labeled a proxy. CET1 is a risk-weighted regulatory ratio;
+ *    tangible common equity over tangible assets is shown as
+ *    `tangibleLeverage` with the difference stated (marked a proxy when no
+ *    CET1 is tagged). It is a leverage ratio, not a capital-adequacy ratio, and
+ *    the report says so. Since D-46 it is always computed, because it is the
+ *    capital input of the bank balance-sheet grade; CET1 is display-only.
  *
  * Every value carries the tags that produced it, its formula and its as-of
  * date; every withheld value carries the reason, which reaches the notes and
@@ -75,6 +77,8 @@ export interface RouteMetric {
 export interface FinancialMetricsResult {
   route: SectorRoute;
   metrics: RouteMetric[];
+  /** Bank warning signs that could be evaluated (D-47). Bank route only; absent elsewhere and on stored results. */
+  flags?: BankRiskFlag[];
   notes: string[];
   gaps: ManifestEntry[];
   /** Newest period end any metric was measured at. */
@@ -142,11 +146,17 @@ export const EARNING_ASSETS_TAGS = [
   "AverageEarningAssets",
   "InterestBearingAssets",
 ] as const;
+/**
+ * Total loans, gross of the allowance first: the FDIC Quarterly Banking Profile
+ * coverage and net charge-off rates divide by gross loans, and ACL / net loans
+ * would divide the allowance by loans it was already taken out of (review of
+ * D-46/D-47, 2026-10-13). Net loans are the fallback; the basis names the tag.
+ */
 export const LOANS_TAGS = [
+  "FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss",
+  "LoansAndLeasesReceivableGrossCarryingAmount",
   "LoansAndLeasesReceivableNetReportedAmount",
   "FinancingReceivableExcludingAccruedInterestAfterAllowanceForCreditLoss",
-  "LoansAndLeasesReceivableGrossCarryingAmount",
-  "FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss",
 ] as const;
 export const NONACCRUAL_LOAN_TAGS = [
   "FinancingReceivableExcludingAccruedInterestNonaccrualStatus",
@@ -160,7 +170,74 @@ export const PROVISION_TAGS = [
   "ProvisionForCreditLossExpenseReversal",
   "ProvisionForLoanAndLeaseLosses",
 ] as const;
+/**
+ * Net charge-offs (D-46): the after-recovery element where tagged, else one of
+ * the write-off / recovery pairs below, both halves from the same family. The
+ * second pair is the pre-CECL-named family some filers (Citigroup) still use.
+ */
+export const NET_CHARGE_OFF_TAGS = [
+  "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossWriteoffAfterRecovery",
+] as const;
+export const CHARGE_OFF_RECOVERY_PAIRS = [
+  [
+    "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossWriteoff",
+    "FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossRecovery",
+  ],
+  ["FinancingReceivableAllowanceForCreditLossesWriteOffs", "FinancingReceivableAllowanceForCreditLossesRecovery"],
+] as const;
 export const DEPOSITS_TAGS = ["Deposits"] as const;
+/**
+ * Held-to-maturity securities (D-47). The unrecognised holding loss and gain
+ * are the direct pair; amortised cost less fair value at the same instant is
+ * the fallback. Both pairs must be measured at one date.
+ */
+export const HTM_UNREALIZED_LOSS_TAGS = ["HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingLoss"] as const;
+export const HTM_UNREALIZED_GAIN_TAGS = ["HeldToMaturitySecuritiesAccumulatedUnrecognizedHoldingGain"] as const;
+export const HTM_AMORTIZED_COST_TAGS = [
+  "DebtSecuritiesHeldToMaturityExcludingAccruedInterestBeforeAllowanceForCreditLoss",
+  "HeldToMaturitySecurities",
+] as const;
+export const HTM_FAIR_VALUE_TAGS = ["HeldToMaturitySecuritiesFairValue"] as const;
+export const ALLOWANCE_FOR_CREDIT_LOSS_TAGS = [
+  "FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest",
+  "LoansAndLeasesReceivableAllowance",
+] as const;
+/**
+ * The tax rate the after-tax HTM loss assumes: the US federal statutory
+ * corporate rate. An assumption, stated as one — state taxes and the bank's
+ * own deferred-tax position are not modelled.
+ */
+export const HTM_LOSS_TAX_RATE_PCT = 21;
+
+/**
+ * Bank warning-sign thresholds (D-47). Heuristic thresholds, not validated:
+ * each marks a pattern for a reader to investigate, never a score.
+ */
+export const BANK_FLAG_THRESHOLDS = {
+  tangibleLeverageBelowPct: 5,
+  htmLossToTceAbovePct: 25,
+  markedTceRatioBelowPct: 4,
+  loanCagr3yAbovePct: 15,
+  loansToDepositsAbovePct: 110,
+  provisionsToNcoBelowX: 1,
+} as const;
+
+/** One evaluated bank warning sign (D-47). Disclosed, never graded. */
+export interface BankRiskFlag {
+  key: string;
+  /** Plain description of the condition, digit-free. */
+  label: string;
+  /** The route metric the value is read from, when there is one. */
+  metricKey: string | null;
+  value: number;
+  unit: RouteMetricUnit;
+  threshold: number;
+  direction: "below" | "above";
+  triggered: boolean;
+  /** How to read it; digit-free, so the analysts can repeat it without an uncited number. */
+  caveat: string;
+  asOf: string | null;
+}
 export const INTEREST_EXPENSE_DEPOSITS_TAGS = [
   "InterestExpenseDeposits",
   "InterestExpenseDomesticDeposits",
@@ -292,6 +369,8 @@ interface TagHit {
   /** The XBRL fact's unit (an ISO code for monetary facts). */
   unit: string;
   tag: string;
+  /** Period start of a duration fact; undefined for an instant. */
+  start?: string;
   end: string;
   /** Filing date of the winning fact. */
   filed: string;
@@ -309,7 +388,7 @@ function resolveTag(
   const r = getConcept(facts, chain, { period });
   if (!r.ok) return null;
   const v = r.value.data;
-  return { value: v.value, unit: v.unit, tag: v.tag, end: v.period.end, filed: v.filed, sourcePath: tagPath(v.tag) };
+  return { value: v.value, unit: v.unit, tag: v.tag, start: v.period.start, end: v.period.end, filed: v.filed, sourcePath: tagPath(v.tag) };
 }
 
 /** An ISO-4217 code, or null: the currency a money metric is stated in. */
@@ -395,7 +474,7 @@ function bankMetrics(
   facts: CompanyFacts | null,
   inputs: FinancialMetricsInputs,
   factsReason: string | null,
-): RouteMetric[] {
+): { metrics: RouteMetric[]; flags: BankRiskFlag[] } {
   const out: RouteMetric[] = [];
   const bal0 = inputs.balance[0];
   const bal1 = inputs.balance[1];
@@ -535,7 +614,7 @@ function bankMetrics(
     );
   }
 
-  // --- CET1 (reported) or the labeled tangible-leverage proxy
+  // --- CET1 (reported, display only) and tangible leverage (always; D-46)
   const cet1 = instant === null ? null : resolveTag(facts, CET1_TAGS, instant);
   if (cet1 !== null) {
     // Filers tag the ratio either as a fraction (0.15) or as a percent (15).
@@ -564,39 +643,48 @@ function bankMetrics(
         CET1_TAGS.map(tagPath),
       ),
     );
-    const t = tangible(bal0);
-    const denom = pos(t.assets);
-    out.push(
-      t.equity !== null && denom !== null
-        ? metric({
-            key: "tangibleLeverage",
-            label: "tangible common equity / tangible assets",
-            unit: "%",
-            value: (t.equity / denom) * 100,
-            basis:
-              `(equity − goodwill − other intangibles − preferred) ${t.equity} / (total assets − goodwill − other ` +
-              `intangibles) ${denom} × 100. A LEVERAGE ratio standing in for CET1: it does not risk-weight assets, ` +
-              "so it is not comparable to a regulatory capital ratio and has no guaranteed ordering relative to CET1.",
-            sources: [
-              "statements:balance.totalStockholdersEquity",
-              "statements:balance.totalAssets",
-              "statements:balance.goodwill",
-              "statements:balance.intangibleAssets",
-              "statements:balance.preferredStock",
-            ],
-            asOf: bal0?.date ?? null,
-            proxy: true,
-          })
-        : withheld(
-            "tangibleLeverage",
-            "tangible common equity / tangible assets",
-            "%",
-            "total equity and/or total assets unavailable — the CET1 stand-in could not be computed either",
-            "(equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles)",
-            ["statements:balance.totalStockholdersEquity", "statements:balance.totalAssets"],
-          ),
-    );
   }
+  // Computed whether or not CET1 is tagged (D-46): it is the capital driver of
+  // the bank balance-sheet grade, and CET1 is display-only because the largest
+  // filers do not tag it.
+  const t = tangible(bal0);
+  const tangibleDenom = pos(t.assets);
+  // `tangibleCommonEquity` treats an untagged preferred line as zero. JPM's
+  // report 26 (2026-10-13) printed "− preferred" here with nothing deducted,
+  // because its preferred was tagged under an element the chain did not yet
+  // read (D-42); say so instead, as the P/TBV basis does.
+  const preferredTerm = isNum(bal0?.preferredStock) ? "preferred" : "preferred (none tagged, assumed zero)";
+  out.push(
+    t.equity !== null && tangibleDenom !== null
+      ? metric({
+          key: "tangibleLeverage",
+          label: "tangible common equity / tangible assets",
+          unit: "%",
+          value: (t.equity / tangibleDenom) * 100,
+          basis:
+            `(equity − goodwill − other intangibles − ${preferredTerm}) ${t.equity} / (total assets − goodwill − other ` +
+            `intangibles) ${tangibleDenom} × 100. A LEVERAGE ratio${cet1 === null ? " shown where CET1 is not tagged" : ""}: ` +
+            "it does not risk-weight assets, so it is not comparable to a regulatory capital ratio and has no guaranteed " +
+            "ordering relative to CET1.",
+          sources: [
+            "statements:balance.totalStockholdersEquity",
+            "statements:balance.totalAssets",
+            "statements:balance.goodwill",
+            "statements:balance.intangibleAssets",
+            "statements:balance.preferredStock",
+          ],
+          asOf: bal0?.date ?? null,
+          proxy: cet1 === null,
+        })
+      : withheld(
+          "tangibleLeverage",
+          "tangible common equity / tangible assets",
+          "%",
+          "total equity and/or total assets unavailable — tangible leverage could not be computed",
+          "(equity − goodwill − intangibles − preferred) / (assets − goodwill − intangibles)",
+          ["statements:balance.totalStockholdersEquity", "statements:balance.totalAssets"],
+        ),
+  );
 
   // --- loans (denominator for NPL and provisions)
   const loans = instant === null ? null : resolveTag(facts, LOANS_TAGS, instant);
@@ -699,7 +787,474 @@ function bankMetrics(
     );
   }
 
+  // --- net charge-offs / average loans (D-46). The FDIC Quarterly Banking
+  // Profile rate: a year's charge-offs net of recoveries over average loans.
+  // The prior balance must be the SAME loan element, so the two ends measure
+  // one thing; a missing prior balance withholds rather than falling back to
+  // the period end.
+  const nco = flow === null ? null : netChargeOffs(facts, flow);
+  const loansPrior = loans === null || priorInstant === null ? null : resolveTag(facts, [loans.tag], priorInstant);
+  const avgLoans = loans !== null && loansPrior !== null ? pos((loans.value + loansPrior.value) / 2) : null;
+  out.push(
+    nco !== null && "value" in nco && loans !== null && loansPrior !== null && avgLoans !== null
+      ? metric({
+          key: "ncoToAverageLoans",
+          label: "net charge-offs / average loans",
+          unit: "%",
+          value: (nco.value / avgLoans) * 100,
+          basis:
+            `net charge-offs ${nco.value} (${nco.basis}) / average loans ${avgLoans} (${loans.tag} at ${loans.end} ` +
+            `and ${loansPrior.end}) × 100 — the year's loan losses after recoveries, as a share of the book`,
+          sources: [...nco.sources, loans.sourcePath],
+          asOf: end,
+        })
+      : withheld(
+          "ncoToAverageLoans",
+          "net charge-offs / average loans",
+          "%",
+          facts === null
+            ? noFacts
+            : nco === null || !("value" in nco)
+              ? (nco?.reason ?? noPeriod)
+              : loans === null
+                ? `the filer tags no undimensioned total-loans element at ${end}`
+                : loansPrior === null
+                  ? `the filer tags no ${loans.tag} fact at the prior fiscal year end — average loans need both ends`
+                  : "average loans are not positive",
+          "net charge-offs (write-offs − recoveries) / average loans",
+          [...NET_CHARGE_OFF_TAGS.map(tagPath), ...CHARGE_OFF_RECOVERY_PAIRS.flat().map(tagPath), ...LOANS_TAGS.slice(0, 1).map(tagPath)],
+        ),
+  );
+
+  // --- loans / deposits at one balance-sheet date (D-46)
+  out.push(
+    loans !== null && deposits !== null && loans.end === deposits.end && pos(deposits.value) !== null
+      ? metric({
+          key: "loansToDeposits",
+          label: "loans / deposits",
+          unit: "%",
+          value: (loans.value / deposits.value) * 100,
+          basis:
+            `total loans ${loans.value} (${loans.tag}) / deposits ${deposits.value} (${deposits.tag}) at ${loans.end} × 100 — ` +
+            "how much of the deposit base is lent out; a high ratio leans on wholesale funding",
+          sources: [loans.sourcePath, deposits.sourcePath],
+          asOf: loans.end,
+        })
+      : withheld(
+          "loansToDeposits",
+          "loans / deposits",
+          "%",
+          facts === null
+            ? noFacts
+            : loans === null
+              ? `the filer tags no undimensioned total-loans element at ${end}`
+              : deposits === null
+                ? `the filer tags no ${DEPOSITS_TAGS[0]} fact at ${end}`
+                : loans.end !== deposits.end
+                  ? `loans (${loans.end}) and deposits (${deposits.end}) are not measured at the same date`
+                  : "deposits are not positive",
+          "total loans / deposits",
+          [...LOANS_TAGS.slice(0, 1).map(tagPath), ...DEPOSITS_TAGS.map(tagPath)],
+        ),
+  );
+
+  // --- D-47: rate-risk and credit-cycle disclosures, display only ----------
+  out.push(...htmMetrics(facts, instant, bal0, t, noFacts));
+  out.push(aclToLoans(facts, instant, loans, noFacts));
+  out.push(loanCagr3y(facts, inputs.balance, loans, noFacts));
+
+  const flags = bankRiskFlags(out);
+  // Provisions below the year's net charge-offs while nonperforming loans rose:
+  // evaluated only when every input is on file (rare — the large filers tag
+  // nonaccrual loans only by class).
+  const nonaccrualPrior =
+    nonaccrual === null || priorInstant === null ? null : resolveTag(facts, [nonaccrual.tag], priorInstant);
+  if (
+    provision !== null &&
+    nco !== null &&
+    "value" in nco &&
+    nco.value > 0 &&
+    nonaccrual !== null &&
+    nonaccrualPrior !== null &&
+    loans !== null &&
+    loansPrior !== null &&
+    pos(loans.value) !== null &&
+    pos(loansPrior.value) !== null
+  ) {
+    const nplRising = nonaccrual.value / loans.value > nonaccrualPrior.value / loansPrior.value;
+    const ratio = provision.value / nco.value;
+    flags.push({
+      key: "provisionsBelowChargeOffs",
+      label: "provisions / net charge-offs below the threshold while nonperforming loans rose",
+      metricKey: null,
+      value: ratio,
+      unit: "x",
+      threshold: BANK_FLAG_THRESHOLDS.provisionsToNcoBelowX,
+      direction: "below",
+      triggered: ratio < BANK_FLAG_THRESHOLDS.provisionsToNcoBelowX && nplRising,
+      caveat:
+        "Provisions below the year's net charge-offs while nonperforming loans rise mean reserves are being drawn " +
+        "down as credit worsens; the nonperforming-loan ratio " + (nplRising ? "rose" : "did not rise") + " this year.",
+      asOf: end,
+    });
+  }
+
+  return { metrics: out, flags };
+}
+
+/**
+ * Unrealised loss on held-to-maturity securities, net of unrealised gains,
+ * and what it would do to tangible common equity if it were realised (D-47).
+ * HTM securities are carried at amortised cost, so the loss is in neither book
+ * nor regulatory capital. Every pair is read at ONE instant; a pair measured
+ * at different dates, or a loss whose date or currency differs from the
+ * balance sheet's, is withheld.
+ */
+function htmMetrics(
+  facts: CompanyFacts | null,
+  instant: { end: string } | null,
+  bal0: FinancialMetricsBalanceRow | undefined,
+  t: { equity: number | null; assets: number | null },
+  noFacts: string,
+): RouteMetric[] {
+  const lossLabel = "unrealised loss on held-to-maturity securities (net of gains)";
+  const afterTaxLabel = "held-to-maturity unrealised loss after tax";
+  const toTceLabel = "held-to-maturity loss after tax / tangible common equity";
+  const markedLabel = "tangible common equity / tangible assets with held-to-maturity losses marked";
+  const lossBasis = "unrecognised holding loss − unrecognised holding gain, else amortised cost − fair value, at one instant";
+  const lossSources = [
+    ...HTM_UNREALIZED_LOSS_TAGS,
+    ...HTM_UNREALIZED_GAIN_TAGS,
+    ...HTM_AMORTIZED_COST_TAGS,
+    ...HTM_FAIR_VALUE_TAGS,
+  ].map(tagPath);
+  const taxBasis =
+    `× (1 − ${HTM_LOSS_TAX_RATE_PCT}%), the US federal statutory corporate rate — an ASSUMPTION; state taxes and the ` +
+    "bank's own deferred-tax position are not modelled";
+
+  let loss: { value: number; unit: string; end: string; basis: string; sources: string[] } | { reason: string };
+  const pairReason = (a: TagHit, b: TagHit): string | null =>
+    a.end !== b.end
+      ? `${a.tag} (${a.end}) and ${b.tag} (${b.end}) are measured at different dates — not combined`
+      : a.unit !== b.unit
+        ? `${a.tag} and ${b.tag} are filed in different units — not combined`
+        : null;
+  if (facts === null || instant === null) {
+    loss = { reason: facts === null ? noFacts : "no annual statement period available — metric not computed" };
+  } else {
+    const grossLoss = resolveTag(facts, HTM_UNREALIZED_LOSS_TAGS, instant);
+    const grossGain = resolveTag(facts, HTM_UNREALIZED_GAIN_TAGS, instant);
+    const cost = resolveTag(facts, HTM_AMORTIZED_COST_TAGS, instant);
+    const fair = resolveTag(facts, HTM_FAIR_VALUE_TAGS, instant);
+    if (grossLoss !== null && grossGain !== null) {
+      const mismatch = pairReason(grossLoss, grossGain);
+      loss =
+        mismatch !== null
+          ? { reason: mismatch }
+          : {
+              value: grossLoss.value - grossGain.value,
+              unit: grossLoss.unit,
+              end: grossLoss.end,
+              basis: `${grossLoss.tag} ${grossLoss.value} − ${grossGain.tag} ${grossGain.value}`,
+              sources: [grossLoss.sourcePath, grossGain.sourcePath],
+            };
+    } else if (cost !== null && fair !== null) {
+      const mismatch = pairReason(cost, fair);
+      loss =
+        mismatch !== null
+          ? { reason: mismatch }
+          : {
+              value: cost.value - fair.value,
+              unit: cost.unit,
+              end: cost.end,
+              basis: `amortised cost ${cost.value} (${cost.tag}) − fair value ${fair.value} (${fair.tag})`,
+              sources: [cost.sourcePath, fair.sourcePath],
+            };
+    } else {
+      loss = {
+        reason:
+          `the filer tags neither the held-to-maturity unrealised loss and gain nor amortised cost and fair value at ${instant.end}` +
+          " (a bank with no held-to-maturity book has none to disclose)",
+      };
+    }
+  }
+
+  if ("reason" in loss) {
+    return [
+      withheld("htmUnrealizedLossNet", lossLabel, "currency", loss.reason, lossBasis, lossSources),
+      withheld("htmLossAfterTax", afterTaxLabel, "currency", `pre-tax loss withheld: ${loss.reason}`, `pre-tax loss ${taxBasis}`, lossSources),
+      withheld("htmLossToTce", toTceLabel, "%", `held-to-maturity loss withheld: ${loss.reason}`, "after-tax loss / tangible common equity", lossSources),
+      withheld("markedTceRatio", markedLabel, "%", `held-to-maturity loss withheld: ${loss.reason}`, "(TCE − after-tax loss) / (tangible assets − pre-tax loss)", lossSources),
+    ];
+  }
+
+  const currency = isoCode(loss.unit);
+  const afterTax = loss.value * (1 - HTM_LOSS_TAX_RATE_PCT / 100);
+  const out: RouteMetric[] = [
+    metric({
+      key: "htmUnrealizedLossNet",
+      label: lossLabel,
+      unit: "currency",
+      currency,
+      value: loss.value,
+      basis:
+        `${loss.basis} at ${loss.end}. Held-to-maturity securities are carried at amortised cost, so this loss is in ` +
+        "neither book nor regulatory capital; it would be realised only if the securities were sold before maturity, " +
+        "and it shrinks as they approach par. Negative = a net unrealised gain.",
+      sources: loss.sources,
+      asOf: loss.end,
+    }),
+    metric({
+      key: "htmLossAfterTax",
+      label: afterTaxLabel,
+      unit: "currency",
+      currency,
+      value: afterTax,
+      basis: `pre-tax loss ${loss.value} ${taxBasis}`,
+      sources: loss.sources,
+      asOf: loss.end,
+    }),
+  ];
+
+  // The capital ratios combine the XBRL loss with the statement balance sheet:
+  // same date and same currency, or withheld.
+  const tce = t.equity;
+  const tangibleAssets = t.assets;
+  const balanceMismatch =
+    bal0 === undefined || bal0.date !== loss.end
+      ? `the held-to-maturity loss (${loss.end}) and the balance sheet (${bal0?.date ?? "none"}) are not measured at the same date`
+      : currency === null || isoCode(bal0.reportedCurrency) !== currency
+        ? `the held-to-maturity loss (${loss.unit}) and the balance sheet (${bal0.reportedCurrency ?? "currency unknown"}) are not in one established currency`
+        : tce === null || pos(tce) === null
+          ? "tangible common equity unavailable or not positive"
+          : tangibleAssets === null || pos(tangibleAssets - loss.value) === null
+            ? "tangible assets unavailable or not positive after the loss"
+            : null;
+  const capitalSources = [...loss.sources, "statements:balance.totalStockholdersEquity", "statements:balance.totalAssets"];
+  if (balanceMismatch !== null || tce === null || tangibleAssets === null) {
+    const reason = balanceMismatch ?? "tangible common equity unavailable";
+    out.push(
+      withheld("htmLossToTce", toTceLabel, "%", reason, "after-tax loss / tangible common equity", capitalSources),
+      withheld("markedTceRatio", markedLabel, "%", reason, "(TCE − after-tax loss) / (tangible assets − pre-tax loss)", capitalSources),
+    );
+    return out;
+  }
+  out.push(
+    metric({
+      key: "htmLossToTce",
+      label: toTceLabel,
+      unit: "%",
+      value: (afterTax / tce) * 100,
+      basis:
+        `after-tax held-to-maturity loss ${afterTax} / tangible common equity ${tce} × 100 — the share of tangible ` +
+        "equity the loss would consume if deposits had to be funded by selling these securities. A sticky deposit " +
+        "base offsets the exposure (Drechsler, Savov & Schnabl 2021); it is not a realised loss.",
+      sources: capitalSources,
+      asOf: loss.end,
+    }),
+    metric({
+      key: "markedTceRatio",
+      label: markedLabel,
+      unit: "%",
+      value: ((tce - afterTax) / (tangibleAssets - loss.value)) * 100,
+      basis:
+        `(tangible common equity ${tce} − after-tax loss ${afterTax}) / (tangible assets ${tangibleAssets} − pre-tax ` +
+        `loss ${loss.value}) × 100. Available-for-sale losses are already in tangible common equity through ` +
+        "accumulated other comprehensive income (stockholders' equity includes it), so only the held-to-maturity " +
+        "loss is deducted — no double count. Hypothetical: it assumes the securities were sold.",
+      sources: capitalSources,
+      asOf: loss.end,
+    }),
+  );
   return out;
+}
+
+/**
+ * Allowance for credit losses / loans (D-47). Display only: a high ratio can
+ * mean conservative reserving or a riskier book, and the figure cannot tell
+ * which.
+ */
+function aclToLoans(
+  facts: CompanyFacts | null,
+  instant: { end: string } | null,
+  loans: TagHit | null,
+  noFacts: string,
+): RouteMetric {
+  const label = "allowance for credit losses / loans";
+  const acl = instant === null ? null : resolveTag(facts, ALLOWANCE_FOR_CREDIT_LOSS_TAGS, instant);
+  if (acl !== null && loans !== null && acl.end === loans.end && acl.unit === loans.unit && pos(loans.value) !== null) {
+    return metric({
+      key: "aclToLoans",
+      label,
+      unit: "%",
+      value: (acl.value / loans.value) * 100,
+      basis:
+        `allowance ${acl.value} (${acl.tag}) / loans ${loans.value} (${loans.tag}) at ${loans.end} × 100. Shown, not ` +
+        "graded: a high ratio can mean conservative reserving or a riskier book.",
+      sources: [acl.sourcePath, loans.sourcePath],
+      asOf: loans.end,
+    });
+  }
+  return withheld(
+    "aclToLoans",
+    label,
+    "%",
+    facts === null
+      ? noFacts
+      : acl === null
+        ? `the filer tags no undimensioned allowance-for-credit-losses element at ${instant?.end ?? "the period end"}`
+        : loans === null
+          ? "total loans unavailable"
+          : acl.end !== loans.end || acl.unit !== loans.unit
+            ? `the allowance (${acl.end}) and loans (${loans.end}) are not measured at the same date and unit`
+            : "loans are not positive",
+    "allowance for credit losses / total loans",
+    [...ALLOWANCE_FOR_CREDIT_LOSS_TAGS.map(tagPath), ...LOANS_TAGS.slice(0, 1).map(tagPath)],
+  );
+}
+
+/**
+ * Three-year loan growth (D-47) from four fiscal-year-end balances of the SAME
+ * loan element. Acquisitions inflate it; the figure cannot separate them.
+ */
+function loanCagr3y(
+  facts: CompanyFacts | null,
+  balance: readonly FinancialMetricsBalanceRow[],
+  loans: TagHit | null,
+  noFacts: string,
+): RouteMetric {
+  const label = "loan growth, 3-year annualised";
+  const basisName = "(loans at the latest fiscal year end / loans three fiscal years earlier)^(1/years) − 1";
+  const sources = LOANS_TAGS.slice(0, 1).map(tagPath);
+  const dates = balance.slice(0, 4).map((r) => r.date);
+  if (facts === null) return withheld("loanCagr3y", label, "%", noFacts, basisName, sources);
+  if (loans === null) return withheld("loanCagr3y", label, "%", "total loans unavailable at the latest fiscal year end", basisName, sources);
+  if (dates.length < 4) {
+    return withheld("loanCagr3y", label, "%", "fewer than four annual balance sheets on file — three years of growth need four year-end points", basisName, sources);
+  }
+  const points = dates.map((d) => resolveTag(facts, [loans.tag], { end: d }));
+  const missing = dates.filter((_, i) => points[i] === null);
+  if (missing.length > 0) {
+    return withheld("loanCagr3y", label, "%", `the filer tags no ${loans.tag} fact at ${missing.join(", ")} — the growth needs the same loan element at all four year ends`, basisName, [tagPath(loans.tag)]);
+  }
+  const first = points[3]!;
+  const last = points[0]!;
+  const years = (Date.parse(`${last.end}T00:00:00Z`) - Date.parse(`${first.end}T00:00:00Z`)) / (365.25 * 86_400_000);
+  if (!(years >= 2.9 && years <= 3.1) || pos(first.value) === null || pos(last.value) === null) {
+    return withheld("loanCagr3y", label, "%", `the four year-end loan balances (${first.end} to ${last.end}) do not span three years of positive balances`, basisName, [tagPath(loans.tag)]);
+  }
+  return metric({
+    key: "loanCagr3y",
+    label,
+    unit: "%",
+    value: (Math.pow(last.value / first.value, 1 / years) - 1) * 100,
+    basis:
+      `(${last.value} at ${last.end} / ${first.value} at ${first.end})^(1/${years.toFixed(2)}) − 1, ${loans.tag}. ` +
+      "Includes loans gained through acquisitions, which inflate it.",
+    sources: [tagPath(loans.tag)],
+    asOf: last.end,
+  });
+}
+
+/** Threshold flags over computed bank metrics (D-47). Only evaluable ones are returned. */
+function bankRiskFlags(metrics: readonly RouteMetric[]): BankRiskFlag[] {
+  const T = BANK_FLAG_THRESHOLDS;
+  const htmCaveat =
+    "This is the exposure if deposits had to be funded by selling these securities; a sticky deposit base offsets " +
+    "it (Drechsler, Savov and Schnabl). It is a point-in-time loss that shrinks as the securities approach maturity, " +
+    "and uninsured-deposit data, the run-risk half of the mark-to-market fragility test (Jiang, Matvos, Piskorski " +
+    "and Seru), is not available here.";
+  const specs: { key: string; metricKey: string; label: string; threshold: number; direction: "below" | "above"; caveat: string }[] = [
+    {
+      key: "lowTangibleCapital",
+      metricKey: "tangibleLeverage",
+      label: "tangible common equity / tangible assets below the threshold",
+      threshold: T.tangibleLeverageBelowPct,
+      direction: "below",
+      caveat:
+        "This is a holding-company GAAP ratio that excludes preferred stock, so it runs below the regulatory leverage " +
+        "ratio; it is a house threshold, not a regulatory minimum. Leverage is not comparable across business " +
+        "models; custody and trust banks run thin by design.",
+    },
+    {
+      key: "htmLossVsCapital",
+      metricKey: "htmLossToTce",
+      label: "held-to-maturity loss after tax / tangible common equity above the threshold",
+      threshold: T.htmLossToTceAbovePct,
+      direction: "above",
+      caveat: htmCaveat,
+    },
+    {
+      key: "lowMarkedCapital",
+      metricKey: "markedTceRatio",
+      label: "tangible common equity / tangible assets with held-to-maturity losses marked below the threshold",
+      threshold: T.markedTceRatioBelowPct,
+      direction: "below",
+      caveat: htmCaveat,
+    },
+    {
+      key: "fastLoanGrowth",
+      metricKey: "loanCagr3y",
+      label: "three-year loan growth above the threshold",
+      threshold: T.loanCagr3yAbovePct,
+      direction: "above",
+      caveat:
+        "Banks with the fastest loan growth have gone on to underperform, reserve less while growing and report higher " +
+        "provisions later (Fahlenbrach, Prilmeier and Stulz); the figure includes loans gained through acquisitions, " +
+        "which inflate it.",
+    },
+    {
+      key: "highLoansToDeposits",
+      metricKey: "loansToDeposits",
+      label: "loans / deposits above the threshold",
+      threshold: T.loansToDepositsAbovePct,
+      direction: "above",
+      caveat: "A bank lending out more than its deposits leans on wholesale funding, which can leave faster than deposits.",
+    },
+  ];
+  const flags: BankRiskFlag[] = [];
+  for (const s of specs) {
+    const m = metrics.find((x) => x.key === s.metricKey);
+    if (m === undefined || m.withheldReason !== null || !isNum(m.value)) continue;
+    flags.push({
+      ...s,
+      value: m.value,
+      unit: m.unit,
+      triggered: s.direction === "below" ? m.value < s.threshold : m.value > s.threshold,
+      asOf: m.asOf,
+    });
+  }
+  return flags;
+}
+
+/**
+ * A fiscal year's net charge-offs: the tagged after-recovery figure, else
+ * write-offs minus recoveries from ONE tag family over the same annual period.
+ * Fiscal-year duration facts only; a pair whose periods differ fails closed.
+ */
+function netChargeOffs(
+  facts: CompanyFacts | null,
+  flow: { end: string; durationHint: "FY" },
+): { value: number; basis: string; sources: string[] } | { reason: string } | null {
+  if (facts === null) return null;
+  const net = resolveTag(facts, NET_CHARGE_OFF_TAGS, flow);
+  if (net !== null) return { value: net.value, basis: net.tag, sources: [net.sourcePath] };
+  for (const [writeoffTag, recoveryTag] of CHARGE_OFF_RECOVERY_PAIRS) {
+    const writeoff = resolveTag(facts, [writeoffTag], flow);
+    const recovery = resolveTag(facts, [recoveryTag], flow);
+    if (writeoff === null || recovery === null) continue;
+    if (writeoff.start !== recovery.start || writeoff.end !== recovery.end || writeoff.unit !== recovery.unit) {
+      return { reason: `${writeoffTag} and ${recoveryTag} cover different periods or units — net charge-offs not computed` };
+    }
+    return {
+      value: writeoff.value - recovery.value,
+      basis: `${writeoffTag} ${writeoff.value} − ${recoveryTag} ${recovery.value}`,
+      sources: [writeoff.sourcePath, recovery.sourcePath],
+    };
+  }
+  return {
+    reason: `the filer tags no fiscal-year charge-off and recovery pair for ${flow.end} (some filers report them only by loan class, a dimensional fact companyfacts carries no total for)`,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1405,14 +1960,25 @@ export function computeFinancialMetrics(
         : `EDGAR companyfacts unavailable: ${factsResult.gap.reason}`;
 
   let metrics: RouteMetric[];
+  let flags: BankRiskFlag[] = [];
   if (route === "bank") {
-    metrics = bankMetrics(facts, inputs, factsReason);
+    ({ metrics, flags } = bankMetrics(facts, inputs, factsReason));
     notes.push(
       "Bank route metrics are computed from the filer's own XBRL tags. A named metric is published only when the " +
         "figures its definition calls for are on file; anything else is withheld with the reason, and a stand-in " +
         "(net interest income over average total assets, tangible leverage) is published under its own name, never " +
         "under the name of the metric it stands in for.",
+      // D-47: what these figures are, and are not.
+      "The capital, credit and funding figures are a CAMELS-style proxy built from public filings: management " +
+        "quality and interest-rate sensitivity are not observable from them, and no supervisory rating is used.",
     );
+    for (const f of flags.filter((x) => x.triggered)) {
+      const fmt = (v: number): string => (f.unit === "%" ? `${v.toFixed(1)}%` : `${v.toFixed(2)}x`);
+      notes.push(
+        `Warning sign (heuristic threshold, not validated): ${f.label} — ${fmt(f.value)}, ${f.direction} the ` +
+          `threshold of ${fmt(f.threshold)}. ${f.caveat} A count of warning signs is not a probability.`,
+      );
+    }
   } else if (route === "insurer") {
     metrics = insurerMetrics(facts, inputs, factsReason);
     notes.push(
@@ -1450,5 +2016,5 @@ export function computeFinancialMetrics(
     null,
   );
 
-  return { route, metrics, notes, gaps, asOf };
+  return { route, metrics, ...(route === "bank" ? { flags } : {}), notes, gaps, asOf };
 }

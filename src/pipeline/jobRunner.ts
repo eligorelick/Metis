@@ -99,6 +99,7 @@ import {
 } from "@/pipeline/events";
 import { mutateJobSnapshotInTransaction } from "@/pipeline/jobState";
 import { normalizeLinkedReportRecoverySteps } from "@/pipeline/jobSteps";
+import { completedTopLevelFields, type PassContinuation } from "@/pipeline/stageC/continuation";
 import {
   classifyInstrumentSupport,
   type InstrumentSupport,
@@ -116,6 +117,7 @@ import {
   type PassTelemetry,
 } from "@/pipeline/jobArtifacts";
 import {
+  linkedReportBlocksResume,
   readQueuedSourceJobResumeInTransaction,
   readStoredJobResumeInTransaction,
 } from "@/pipeline/jobStore";
@@ -211,6 +213,9 @@ export interface BullBearPassFailureDetails {
    */
   bullFailureKind?: string;
   bearFailureKind?: string;
+  /** Answer text a side streamed before the provider cut its response off. */
+  bullPartialText?: string;
+  bearPartialText?: string;
 }
 
 /**
@@ -233,6 +238,8 @@ export class BullBearPassFailure extends Error {
   readonly bearRawText?: string;
   readonly bullFailureKind?: string;
   readonly bearFailureKind?: string;
+  readonly bullPartialText?: string;
+  readonly bearPartialText?: string;
 
   constructor(message: string, details: BullBearPassFailureDetails) {
     super(message);
@@ -251,6 +258,8 @@ export class BullBearPassFailure extends Error {
     this.bearRawText = details.bearRawText;
     this.bullFailureKind = details.bullFailureKind;
     this.bearFailureKind = details.bearFailureKind;
+    this.bullPartialText = details.bullPartialText;
+    this.bearPartialText = details.bearPartialText;
   }
 }
 
@@ -344,6 +353,7 @@ export interface PipelinePasses<TPayload = unknown> {
           bull: PassResultLike<AnalystCase>;
           bear: PassResultLike<AnalystCase>;
           validationFeedback?: string;
+          continuation?: PassContinuation;
         }
       | {
           pass: "verify";
@@ -401,6 +411,8 @@ export interface PipelinePasses<TPayload = unknown> {
     settlement?: PassSettlementHook<AnalystCase>,
     beforeProviderLaunch?: () => void | Promise<void>,
     validationFeedback?: string,
+    /** Sections kept from a response the provider cut off; only the rest is requested. */
+    continuation?: PassContinuation,
   ): Promise<PassResultLike<AnalystCase>>;
 
   /** Judge/synthesis pass: bull + bear + payload → JudgeOutput (report minus meta/appendix). */
@@ -411,6 +423,8 @@ export interface PipelinePasses<TPayload = unknown> {
     validationFeedback?: string,
     settlement?: PassSettlementHook<JudgeOutput>,
     beforeProviderLaunch?: () => void | Promise<void>,
+    /** Sections kept from a response the provider cut off; only the rest is requested. */
+    continuation?: PassContinuation,
   ): Promise<PassResultLike<JudgeOutput>>;
 
   /** Verification pass: trace every numeric claim; returns the verified Report + rate. */
@@ -493,6 +507,22 @@ export const PIPELINE_VERSION = "stage-c-1.0.0" as const;
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
 
+/** Reason recorded when the ticker resolved to no usable data, so no model is called. */
+export const NO_ANALYZABLE_DATA_REASON =
+  "No profile, quote, price history or annual income statement could be retrieved for this ticker — no model was called; this is a data-only report. Check the symbol.";
+
+/** True when at least one core provider member returned rows worth analyzing. */
+function hasAnalyzableData(bundle: DataBundle): boolean {
+  const rows = (f: { ok: boolean; value?: { data: { rows: readonly unknown[] } } }): number =>
+    f.ok && f.value ? f.value.data.rows.length : 0;
+  return (
+    rows(bundle.profile) > 0 ||
+    rows(bundle.quote) > 0 ||
+    rows(bundle.eodPrices) > 0 ||
+    rows(bundle.statements.incomeAnnual) > 0
+  );
+}
+
 /** Adapter contract for the non-swallowed immediate pre-provider authority fence. */
 export const DURABLE_LAUNCH_AUTHORITY_CAPABILITY = "durable-preprovider-v1" as const;
 
@@ -537,6 +567,19 @@ export const ACTIVE_JOB_STALE_MS = 30 * 60 * 1000;
 export const DEFAULT_JOB_DEADLINE_MS = 90 * 60 * 1000;
 export const DEFAULT_FETCH_DEADLINE_MS = 10 * 60 * 1000;
 export const DEFAULT_MODEL_STAGE_DEADLINE_MS = MODEL_STAGE_DEADLINE_MS;
+/**
+ * Subscription (plan) connections produce each response in parts to stay
+ * under the provider's 15-minute response limit, and back off when the
+ * provider reports overload. A max-effort run measured ~35 minutes for the
+ * analysts alone (2026-10-13), so the general 90/45-minute bounds would
+ * truncate legitimate work that costs nothing per request. Hangs stay bounded.
+ */
+export const SUBSCRIPTION_JOB_DEADLINE_MS = 180 * 60 * 1000;
+export const SUBSCRIPTION_MODEL_STAGE_DEADLINE_MS = 90 * 60 * 1000;
+/** Wait before retrying after the provider reports it is overloaded (x attempt number). */
+export const OVERLOAD_BACKOFF_MS = 60_000;
+/** Tries for an analyst side after a transient plan-connection failure. */
+export const SUBSCRIPTION_ANALYST_ATTEMPTS = 3;
 
 /** Job lifecycle statuses (owned by this module; jobs.status is free TEXT). */
 export type JobStatus = "queued" | "running" | "done" | "error" | "unsupported";
@@ -1419,6 +1462,20 @@ function capRawOutput(raw: string): string {
 }
 
 /** Raw text of a received-but-invalid pass output, when the error carries it. */
+/**
+ * A dropped response this long ran into the ChatGPT plan endpoint's 15-minute
+ * response limit: every long judge failure on record ended at exactly 15.0
+ * minutes, and every success finished under 13 (2026-10-12).
+ */
+const SUBSCRIPTION_TIME_LIMIT_NEAR_MS = 14 * 60_000;
+
+/** Answer text a cut-off provider response had streamed, when the error carries it. */
+function partialTextOfError(err: unknown): string {
+  if (err === null || typeof err !== "object") return "";
+  const partial = (err as { partialText?: unknown }).partialText;
+  return typeof partial === "string" ? partial : "";
+}
+
 function rawTextOfError(err: unknown): string {
   if (err === null || typeof err !== "object" || !("rawText" in err)) return "";
   const raw = (err as { rawText?: unknown }).rawText;
@@ -1434,6 +1491,11 @@ function rawTextOfError(err: unknown): string {
  * formatting one.
  */
 export const MAX_ANALYST_REPAIRS = 1;
+
+/** True when a pass failed in transit (dropped stream), not on a rejected output. */
+function isTransportFailure(err: unknown): boolean {
+  return err !== null && typeof err === "object" && (err as { kind?: unknown }).kind === "transport";
+}
 
 function isRetryableJudgeError(err: unknown): boolean {
   if (err !== null && typeof err === "object" && "retryable" in err) {
@@ -1851,12 +1913,7 @@ export function queuedResumeSourceMatchesInTransaction(
   ) {
     return false;
   }
-  const sourceReportExists = prepared.sourceReportId !== null &&
-    db
-      .select({ id: reports.id })
-      .from(reports)
-      .where(eq(reports.id, prepared.sourceReportId))
-      .get() !== undefined;
+  const sourceReportExists = linkedReportBlocksResume(db, prepared.sourceReportId);
   return sourceReportExists === prepared.sourceReportExists;
 }
 
@@ -1936,12 +1993,7 @@ export function claimPreparedJobResume(prepared: PreparedJobResume): boolean {
       ) {
         return false;
       }
-      const sourceReportExists = prepared.sourceReportId !== null &&
-        tx
-          .select({ id: reports.id })
-          .from(reports)
-          .where(eq(reports.id, prepared.sourceReportId))
-          .get() !== undefined;
+      const sourceReportExists = linkedReportBlocksResume(tx, prepared.sourceReportId);
       if (sourceReportExists !== prepared.sourceReportExists) return false;
       const result = mutateJobSnapshotInTransaction(tx as ThesisDb, {
         jobId: prepared.jobId,
@@ -2222,6 +2274,8 @@ export interface RunJobOptions<TPayload = unknown> {
    * values are clamped to the audited production maximum.
    */
   maxJudgeRetries?: number;
+  /** Base wait before retrying after a provider overload (x attempt). Default OVERLOAD_BACKOFF_MS. */
+  overloadBackoffMs?: number;
   /** Optional upstream cancellation (tests/embedding); composed with local cancel/deadline. */
   signal?: AbortSignal;
   /** Overall wall-clock deadline. Default 90 minutes. */
@@ -2571,16 +2625,21 @@ export async function runJob<TPayload = unknown>(
 
   const deadlineMs = positiveDeadline(opts.deadlineMs, DEFAULT_JOB_DEADLINE_MS);
   const fetchDeadlineMs = positiveDeadline(opts.fetchDeadlineMs, DEFAULT_FETCH_DEADLINE_MS);
-  const modelStageDeadlineMs = positiveDeadline(
+  let modelStageDeadlineMs = positiveDeadline(
     opts.modelStageDeadlineMs,
     DEFAULT_MODEL_STAGE_DEADLINE_MS,
   );
-  const overallTimer = setTimeout(() => {
-    if (!jobController.signal.aborted) {
-      jobController.abort(new JobDeadlineError(`overall deadline exceeded after ${deadlineMs}ms`));
-    }
-  }, deadlineMs);
-  overallTimer.unref?.();
+  const runStartedAt = Date.now();
+  const armOverallDeadline = (ms: number): ReturnType<typeof setTimeout> => {
+    const timer = setTimeout(() => {
+      if (!jobController.signal.aborted) {
+        jobController.abort(new JobDeadlineError(`overall deadline exceeded after ${ms}ms`));
+      }
+    }, Math.max(0, ms - (Date.now() - runStartedAt)));
+    timer.unref?.();
+    return timer;
+  };
+  let overallTimer = armOverallDeadline(deadlineMs);
   try {
     persistSteps(state);
   } catch (error) {
@@ -2604,6 +2663,23 @@ export async function runJob<TPayload = unknown>(
   heartbeat.unref?.();
 
   const now = opts.now ?? ((): Date => new Date());
+  const overloadBackoffMs = Math.max(0, opts.overloadBackoffMs ?? OVERLOAD_BACKOFF_MS);
+  /** Wait out a provider overload before retrying; returns early if the job is canceled. */
+  const backOffIfOverloaded = async (err: unknown, attemptNumber: number, step: PipelineStep): Promise<void> => {
+    if (!/server_is_overloaded|server_error/.test(errMessage(err)) || overloadBackoffMs === 0) return;
+    const wait = overloadBackoffMs * attemptNumber;
+    updateRunningStepDetail(state, step, `provider reported it is overloaded or failing; waiting ${Math.round(wait / 1000)}s before retrying`);
+    await new Promise<void>((resolve) => {
+      const done = (): void => {
+        clearTimeout(timer);
+        jobSignal.removeEventListener("abort", done);
+        resolve();
+      };
+      const timer = setTimeout(done, wait);
+      jobSignal.addEventListener("abort", done, { once: true });
+    });
+    throwIfJobAborted(jobSignal);
+  };
   const maxJudgeRetries =
     opts.maxJudgeRetries !== undefined && Number.isFinite(opts.maxJudgeRetries)
       ? Math.min(MAX_JUDGE_RETRIES, Math.max(0, Math.trunc(opts.maxJudgeRetries)))
@@ -2642,6 +2718,14 @@ export async function runJob<TPayload = unknown>(
       ? captureAiSelection() : { provider: "anthropic" as const };
     const capturedSettings = getWritableSettingsAuthority();
     const hasKey = opts.hasAnthropicKey ?? selectionIsConnected(aiSelection);
+    // A plan connection gets the longer bounds, unless the caller set its own.
+    if ("connectionId" in aiSelection) {
+      if (opts.deadlineMs === undefined) {
+        clearTimeout(overallTimer);
+        overallTimer = armOverallDeadline(SUBSCRIPTION_JOB_DEADLINE_MS);
+      }
+      if (opts.modelStageDeadlineMs === undefined) modelStageDeadlineMs = SUBSCRIPTION_MODEL_STAGE_DEADLINE_MS;
+    }
 
     // -- fetch ----------------------------------------------------------------
     startStep(state, "fetch");
@@ -2729,6 +2813,19 @@ export async function runJob<TPayload = unknown>(
       bundle.profile.ok ? (bundle.profile.value.data.rows[0] ?? null) : null,
     );
     if (!stageCSupport.supported) return finishUnsupported(state, stageCSupport);
+
+    // An unresolved issuer (no profile, quote, prices or annual income rows —
+    // a mistyped or delisted ticker) gives the analysts nothing to reason
+    // about. Skip the paid passes and persist the disclosed data-only report.
+    if (!hasAnalyzableData(bundle)) {
+      for (const step of LLM_STEPS) {
+        startStep(state, step);
+        finishStep(state, step, "skipped", NO_ANALYZABLE_DATA_REASON);
+      }
+      return persistDataOnly(state, bundle, validation, computed, now, hasKey, {
+        reason: NO_ANALYZABLE_DATA_REASON,
+      });
+    }
 
     const reusableSynthesize = opts.resume === true
       ? (preparedResume?.synthesize ?? null)
@@ -2933,6 +3030,18 @@ export async function runJob<TPayload = unknown>(
         costBreakdown: { step: string; model: string; costUsd: number }[];
       } | null = null;
       let lastValidationDetail = "";
+      // What the next judge attempt is told to repair. A dropped connection is
+      // not something the model can repair, so it neither becomes feedback nor
+      // erases the feedback an earlier rejected output left behind.
+      let lastFeedbackDetail = "";
+      // Sections a cut-off judge response completed. The next attempt asks only
+      // for the rest and merges these back in before validation, instead of
+      // regenerating (and running into the provider's time limit again).
+      let carriedSections: Record<string, unknown> = {};
+      // Attempts that ran into the provider's response time limit. Each one
+      // lowers the next attempt's reasoning effort a step: re-sending the same
+      // request is the request that just hit the wall.
+      let timeLimitCutoffs = 0;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
       let judgeProviderAttempted = false;
@@ -2961,11 +3070,16 @@ export async function runJob<TPayload = unknown>(
             lastJudgeFailureRetryable = false;
             break;
           }
+          const continuation: PassContinuation | undefined =
+            Object.keys(carriedSections).length > 0 || timeLimitCutoffs > 0
+              ? { completed: carriedSections, ...(timeLimitCutoffs > 0 ? { effortStepDown: timeLimitCutoffs } : {}) }
+              : undefined;
+          const attemptStartedAt = now().getTime();
           const feedback =
-            lastValidationDetail.length > 0
+            lastFeedbackDetail.length > 0
               ? lastFailedRawOutput.length > 0
-                ? `${lastValidationDetail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${lastFailedRawOutput}`
-                : lastValidationDetail
+                ? `${lastFeedbackDetail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${lastFailedRawOutput}`
+                : lastFeedbackDetail
               : undefined;
           const judgeCheckpoint = createSettlementCheckpoint<JudgeOutput>(
             state,
@@ -2982,6 +3096,7 @@ export async function runJob<TPayload = unknown>(
               bull,
               bear,
               validationFeedback: feedback,
+              ...(continuation === undefined ? {} : { continuation }),
             });
             passAdmissions.set("synthesize", judgeCheckpoint.admission);
             await judgeCheckpoint.beforeLaunch();
@@ -2995,6 +3110,7 @@ export async function runJob<TPayload = unknown>(
                 () => {
                   judgeCheckpoint.authorizeLaunch(false);
                 },
+                continuation,
               ),
               jobSignal,
               jobController,
@@ -3012,7 +3128,24 @@ export async function runJob<TPayload = unknown>(
             const billedAttempt = billedAttemptFromError(err);
             judgeProviderAttempted ||= judgeCheckpoint.wasLaunched() || billedAttempt !== null;
             lastValidationDetail = errMessage(err);
-            lastFailedRawOutput = rawTextOfError(err);
+            let keptNote = "";
+            if (!isTransportFailure(err)) {
+              lastFeedbackDetail = lastValidationDetail;
+              lastFailedRawOutput = rawTextOfError(err);
+              // A rejected output is repaired whole; carried sections are not
+              // mixed into that path.
+              carriedSections = {};
+            } else {
+              carriedSections = { ...completedTopLevelFields(partialTextOfError(err)), ...carriedSections };
+              const kept = Object.keys(carriedSections);
+              if (kept.length > 0) {
+                keptNote = ` (kept ${kept.length} completed section${kept.length === 1 ? "" : "s"} of the cut-off response: ${kept.join(", ")}; the retry asks only for the rest)`;
+              }
+              if (now().getTime() - attemptStartedAt >= SUBSCRIPTION_TIME_LIMIT_NEAR_MS) {
+                timeLimitCutoffs += 1;
+                keptNote += ` (the response ran into the provider's time limit; the retry lowers reasoning effort by ${timeLimitCutoffs} step${timeLimitCutoffs === 1 ? "" : "s"} where an explicit effort was chosen)`;
+              }
+            }
             lastJudgeFailureRetryable = isRetryableJudgeError(err);
             if (
               !judgeCheckpoint.wasCalled() &&
@@ -3027,9 +3160,10 @@ export async function runJob<TPayload = unknown>(
               );
             }
             const retrying = lastJudgeFailureRetryable && attempt < maxJudgeRetries;
-            const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${lastValidationDetail}`;
+            const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${lastValidationDetail}${keptNote}`;
             if (retrying) {
               startStep(state, "synthesize");
+              await backOffIfOverloaded(err, attempt + 1, "synthesize");
               updateRunningStepDetail(state, "synthesize", detail);
               continue;
             }
@@ -3207,6 +3341,7 @@ export async function runJob<TPayload = unknown>(
           lastValidationDetail = reusedArtifact
             ? `durable synthesize artifact could not be assembled without rerunning upstream paid work: ${errMessage(err)}`
             : errMessage(err);
+          lastFeedbackDetail = lastValidationDetail;
           // The judge output parsed but failed report-schema validation — echo it
           // back (JSON) so the retry repairs rather than regenerates.
           try {
@@ -3472,16 +3607,37 @@ export async function runJob<TPayload = unknown>(
      * after recording the failure and skipping synthesis, so the caller can
      * persist data-only exactly as the first-attempt path does.
      */
+    /**
+     * `repair`: the output was received but rejected, so it is fed back.
+     * `retry`: the connection dropped, so the same request is simply re-run.
+     * `fresh`: the side never launched because its sibling failed first.
+     */
+    type AnalystRecovery = "repair" | "retry" | "continue" | "fresh";
+    const RECOVERY_LABEL: Record<AnalystRecovery, string> = {
+      repair: "repairing schema-invalid output",
+      retry: "retrying after a dropped connection",
+      continue: "continuing from the completed sections of the cut-off response",
+      fresh: "running now that its sibling pass is being retried",
+    };
+    const RECOVERY_GAP: Record<AnalystRecovery, string> = {
+      repair: "repair attempt after schema-invalid output also failed",
+      retry: "retry after a dropped connection also failed",
+      continue: "continuation of the cut-off response also failed",
+      fresh: "pass launched after its sibling's retry also failed",
+    };
     const runAnalystRepairAttempt = async (
       side: "bull" | "bear",
-      feedback: string,
+      mode: AnalystRecovery,
+      feedback: string | undefined,
       failureDetail: string,
-    ): Promise<PassResultLike<AnalystCase> | null> => {
+      continuation: PassContinuation | undefined,
+      attemptLabel: string,
+    ): Promise<{ ok: true; value: PassResultLike<AnalystCase> } | { ok: false; error: unknown }> => {
       startStep(state, side);
       updateRunningStepDetail(
         state,
         side,
-        `${side} attempt 2/${MAX_ANALYST_REPAIRS + 1}: repairing schema-invalid output — ${failureDetail}`,
+        `${side} attempt ${attemptLabel}: ${RECOVERY_LABEL[mode]} — ${failureDetail}`,
       );
       const checkpoint = createSettlementCheckpoint<AnalystCase>(
         state,
@@ -3505,6 +3661,7 @@ export async function runJob<TPayload = unknown>(
               checkpoint.authorizeLaunch(false);
             },
             feedback,
+            continuation,
           ),
           jobSignal,
           jobController,
@@ -3515,7 +3672,7 @@ export async function runJob<TPayload = unknown>(
         if (!checkpoint.wasCalled() && checkpoint.hasLease()) {
           await checkpoint.hook(successSettlement(fresh));
         }
-        return fresh;
+        return { ok: true, value: fresh };
       } catch (repairErr) {
         throwIfJobAborted(jobSignal);
         if (repairErr instanceof PassSettlementHookError) throw repairErr;
@@ -3528,15 +3685,7 @@ export async function runJob<TPayload = unknown>(
             failureSettlement(repairErr, telemetryFromAttempt(billedAttempt, analysisModel)),
           );
         }
-        computed.gaps.push({
-          field: `llm.${side}`,
-          reason: `repair attempt after schema-invalid output also failed: ${errMessage(repairErr)}`,
-          severity: "critical",
-          attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
-        });
-        markSkipped(state, "synthesize", "upstream bull/bear pass failed");
-        markSkipped(state, "verify", "upstream bull/bear pass failed");
-        return null;
+        return { ok: false, error: repairErr };
       } finally {
         checkpoint.releaseIfPrelaunch();
         checkpoint.stopRenewal();
@@ -3658,15 +3807,28 @@ export async function runJob<TPayload = unknown>(
       // the schema — the judge has had this loop all along; the analysts had
       // none, so a haiku bull pass writing "2026-Q1" for `asOf` (2026-09-02)
       // lost both paid passes and the whole analysis. The sibling's paid
-      // output is kept. A transport failure, a refusal, or a sibling that
-      // never launched (the non-streaming path stops at a failed bull) still
-      // degrades to data-only below.
+      // output is kept. A dropped zero-cost subscription stream is retried the
+      // same way (the facade marks it retryable), and a side that never
+      // launched because that sibling failed first runs fresh. A paid transport
+      // failure or a refusal still degrades to data-only below.
       const sideResult = (side: "bull" | "bear"): PassResultLike<AnalystCase> | undefined =>
         side === "bull" ? partial?.bull : partial?.bear;
+      const retryableSide = (side: "bull" | "bear"): boolean =>
+        (side === "bull" ? partial?.bullRetryable : partial?.bearRetryable) === true;
+      // Decided by the launch flag, not by the absence of an error: the facade
+      // records a "not launched" message for such a side.
+      const neverLaunched = (side: "bull" | "bear"): boolean =>
+        sideResult(side) === undefined && !(side === "bull" ? bullLaunched : bearLaunched);
+      const recoveryOf = (side: "bull" | "bear"): AnalystRecovery =>
+        neverLaunched(side)
+          ? "fresh"
+          : (side === "bull" ? partial?.bullFailureKind : partial?.bearFailureKind) === "transport"
+            ? "retry"
+            : "repair";
       const repairable = (side: "bull" | "bear"): boolean =>
         passes.runAnalystPass !== undefined &&
         sideResult(side) === undefined &&
-        (side === "bull" ? partial?.bullRetryable : partial?.bearRetryable) === true;
+        (retryableSide(side) || (neverLaunched(side) && retryableSide(side === "bull" ? "bear" : "bull")));
       const recoverable = (["bull", "bear"] as const).every(
         (side) => sideResult(side) !== undefined || repairable(side),
       );
@@ -3678,14 +3840,66 @@ export async function runJob<TPayload = unknown>(
           const detail =
             (side === "bull" ? partial?.bullError : partial?.bearError) ?? errMessage(err);
           const raw = capRawOutput((side === "bull" ? partial?.bullRawText : partial?.bearRawText) ?? "");
-          const feedback =
-            raw.length > 0
+          // A dropped side that had already completed some sections keeps them:
+          // the retry asks only for the rest instead of starting over.
+          const kept = recoveryOf(side) === "retry"
+            ? completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? "")
+            : {};
+          let continuation: PassContinuation | undefined =
+            Object.keys(kept).length > 0 ? { completed: kept } : undefined;
+          let mode: AnalystRecovery = continuation !== undefined ? "continue" : recoveryOf(side);
+          let feedback = mode !== "repair"
+            ? undefined
+            : raw.length > 0
               ? `${detail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${raw}`
               : detail;
-          const repaired = await runAnalystRepairAttempt(side, feedback, detail);
-          if (repaired === null) {
-            return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+          let currentDetail = detail;
+          // A rejected output gets one repair. A dropped plan-connection request
+          // costs nothing to re-send, and the provider's transient faults
+          // (overload, server_error) cluster, so it gets a few backed-off tries.
+          const attempts = mode !== "repair" && parseSubscriptionModel(analysisModel) !== null
+            ? SUBSCRIPTION_ANALYST_ATTEMPTS
+            : MAX_ANALYST_REPAIRS;
+          let repaired: PassResultLike<AnalystCase> | null = null;
+          for (let n = 1; n <= attempts; n++) {
+            if (mode !== "repair") {
+              startStep(state, side);
+              await backOffIfOverloaded(new Error(currentDetail), n, side);
+            }
+            const out = await runAnalystRepairAttempt(
+              side,
+              mode,
+              feedback,
+              continuation === undefined
+                ? currentDetail
+                : `${currentDetail} (kept: ${Object.keys(continuation.completed).join(", ")})`,
+              continuation,
+              `${n + 1}/${attempts + 1}`,
+            );
+            if (out.ok) {
+              repaired = out.value;
+              break;
+            }
+            const again = n < attempts && mode !== "repair" && isTransportFailure(out.error) && isRetryableJudgeError(out.error);
+            if (!again) {
+              computed.gaps.push({
+                field: `llm.${side}`,
+                reason: `${RECOVERY_GAP[mode]}: ${errMessage(out.error)}`,
+                severity: "critical",
+                attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
+              });
+              markSkipped(state, "synthesize", "upstream bull/bear pass failed");
+              markSkipped(state, "verify", "upstream bull/bear pass failed");
+              return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+            }
+            // Keep whatever this attempt finished, beside what was kept before.
+            const keptNow = { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) };
+            continuation = Object.keys(keptNow).length > 0 ? { completed: keptNow } : undefined;
+            mode = continuation !== undefined ? "continue" : "retry";
+            feedback = undefined;
+            currentDetail = errMessage(out.error);
           }
+          if (repaired === null) return persistDataOnly(state, bundle, validation, computed, now, hasKey);
           if (side === "bull") repairedBull = repaired;
           else repairedBear = repaired;
         }

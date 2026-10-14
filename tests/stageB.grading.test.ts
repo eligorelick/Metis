@@ -25,6 +25,7 @@ import type { CompanyRouteResult, MetricPolicy } from "@/pipeline/stageB/sectorR
 import type { GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, WaccResult } from "@/pipeline/stageB/returns";
 import type { CapitalResult } from "@/pipeline/stageB/capital";
+import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import type { ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import type { ValuationResult } from "@/pipeline/stageB/valuation";
@@ -160,6 +161,7 @@ function technicals(): TechnicalsResult {
           { months: 6, startDate: "2025-03-31", endDate: "2025-09-30", symbolReturnPct: 20, benchmarkReturnPct: 8, differentialPctPoints: 12 },
           { months: 12, startDate: "2024-09-30", endDate: "2025-09-30", symbolReturnPct: 30, benchmarkReturnPct: 15, differentialPctPoints: 15 },
         ],
+        momentum12m1m: { startDate: "2024-09-30", endDate: "2025-08-29", symbolReturnPct: 26, benchmarkReturnPct: 14, differentialPctPoints: 12 },
         notes: [],
         gaps: [],
         asOf: "2025-09-30",
@@ -283,6 +285,12 @@ describe("grading — computeScores", () => {
     expect(s.aspects.balanceSheet.note).toContain("BEFORE stock-based compensation");
     // SBC is still scored — exactly once.
     expect(sources).toContain("computed.scores.balanceSheet.sbcPctOfFcf");
+    // D-49: net share-count change is scored once, under leadership, and
+    // SBC % of revenue is not scored anywhere.
+    const leadership = s.aspects.leadership.drivers.map((d) => d.source);
+    expect(sources).not.toContain("computed.scores.balanceSheet.shareCountTrend");
+    expect(leadership).toContain("computed.scores.leadership.shareCountTrend");
+    expect(leadership).not.toContain("computed.scores.leadership.sbcPctOfRevenue");
   });
 
   it("a healthy company scores well across aspects with a composite band", () => {
@@ -454,16 +462,23 @@ describe("grading — computeScores", () => {
 });
 
 describe("grading — relative strength driver isolation", () => {
-  it("does not substitute a valid 12-month flag for a missing 6-month grade signal", () => {
+  it("does not substitute a valid 6- or 12-month window for a missing 12-1 month grade signal", () => {
     const t = technicals();
+    t.relativeStrength.benchmark.momentum12m1m = {
+      startDate: null,
+      endDate: null,
+      symbolReturnPct: null,
+      benchmarkReturnPct: null,
+      differentialPctPoints: null,
+    };
     t.relativeStrength.benchmark.points = [
       {
         months: 6,
-        startDate: null,
+        startDate: "2025-12-30",
         endDate: "2026-06-30",
-        symbolReturnPct: null,
-        benchmarkReturnPct: null,
-        differentialPctPoints: null,
+        symbolReturnPct: 20,
+        benchmarkReturnPct: 5,
+        differentialPctPoints: 15,
       },
       {
         months: 12,
@@ -480,9 +495,22 @@ describe("grading — relative strength driver isolation", () => {
     };
 
     const technical = computeScores(makeInputs({ technicals: t })).aspects.technicals;
-    expect(technical.drivers.some((driver) => driver.source.endsWith(".relStrength6m"))).toBe(false);
-    expect(technical.dataCompleteness).toBeCloseTo(0.7, 12);
-    expect(technical.drivers).toHaveLength(3);
+    // D-48: RSI and the 6-month window are displayed, never scored, and the
+    // withheld 12-1 window is missing evidence (0.45 of the aspect).
+    expect(technical.drivers.map((driver) => driver.source.split(".").pop())).toEqual(["pctFromHigh52w", "smaGap"]);
+    expect(technical.dataCompleteness).toBeCloseTo(0.55, 12);
+  });
+
+  // Review of D-48: George & Hwang rank on price / 52-week high. A stock 4%
+  // off the top of a narrow range must outrank one at half its high, which the
+  // old range-position signal reversed (20% vs 37.5% of the range).
+  it("scores proximity to the 52-week high, not position in the range", () => {
+    const score = (high: number, low: number, close: number): number => {
+      const t = technicals();
+      t.range52w = { ...t.range52w, high52w: high, low52w: low, pctFromHigh: (close / high - 1) * 100, positionPct: ((close - low) / (high - low)) * 100 };
+      return computeScores(makeInputs({ technicals: t })).aspects.technicals.score!;
+    };
+    expect(score(100, 95, 96)).toBeGreaterThan(score(100, 20, 50));
   });
 });
 
@@ -507,7 +535,7 @@ describe("grading — sector routing", () => {
       expect(before.drivers.map((d) => d.source)).not.toContain("operatingMarginSlope");
     }
   });
-  it("a bank route suppresses Altman/Beneish and marks balance sheet not-applicable", () => {
+  it("a bank route suppresses Altman/Beneish and leaves balance sheet unscored without bank metrics", () => {
     const bankPolicy = policy(["evEbitda", "netDebt", "netDebtToEbitda", "fcfDcf", "altmanZ", "beneishM"]);
     const s = computeScores(
       makeInputs({
@@ -516,22 +544,27 @@ describe("grading — sector routing", () => {
         valuation: {
           kind: "excess-return",
           route: "bank",
-          excessReturn: { roePathPct: { value: [14, 12], basis: "" }, reverseSolve: { impliedCurrentRoePct: 10, notes: [] } } as never,
+          excessReturn: { roePathPct: { value: [14, 12], basis: "" }, costOfEquityPct: { value: 10, basis: "" }, reverseSolve: { impliedCurrentRoePct: 10, notes: [] } } as never,
           multiples: { multiples: [{ key: "priceToTbv", current: 1.3, basis: "", ownHistory: { percentileRank: 35, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 10, basis: "" }, peers: null }], sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
           notes: [],
           gaps: [],
         } as unknown as ValuationResult,
       }),
     );
-    // Balance sheet not scored for financials.
+    // D-46: a bank's balance sheet is graded on its route metrics; with none
+    // supplied it is unscored for lack of data.
     expect(s.aspects.balanceSheet.score).toBeNull();
-    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/financial/i);
+    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/tangible common equity/i);
     // Quality dropped the suppressed Altman/Beneish signals -> completeness < 1.
     expect(s.aspects.quality.dataCompleteness).toBeLessThan(1);
     const qNames = s.aspects.quality.drivers.map((d) => d.source);
     expect(qNames.some((n) => n.includes("altmanZ"))).toBe(false);
     expect(qNames.some((n) => n.includes("beneishM"))).toBe(false);
-    expect(qNames.some((n) => n.includes("roicVsWaccSpread"))).toBe(true);
+    // Value creation on an excess-return valuation is the equity-side spread
+    // (ROE 14% − CoE 10% = 4pp), in the slot ROIC − WACC holds elsewhere.
+    expect(qNames.some((n) => n.includes("roicVsWaccSpread"))).toBe(false);
+    const spread = s.aspects.quality.drivers.find((d) => d.source.endsWith("equityReturnVsCoeSpread"));
+    expect(spread?.value).toBe(4);
     // Financial weights used.
     expect(s.composite.weights.quality).toBe(26);
   });
@@ -561,7 +594,7 @@ describe("grading — sector routing", () => {
     return {
       kind: "excess-return",
       route: "bank",
-      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
+      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, costOfEquityPct: { value: 10, basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
       multiples: { multiples: [{ key: "priceToTbv", current: 1.2, basis: "", ownHistory: { percentileRank: tbvPercentile, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 10, basis: "" }, peers: null }], sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
       notes: [],
       gaps: [],
@@ -578,7 +611,68 @@ describe("grading — sector routing", () => {
     expect(rich.aspects.valuation.score).not.toBeNull();
     expect(cheap.aspects.valuation.score!).toBeGreaterThan(rich.aspects.valuation.score!);
   });
+
+  it("D-46: grades a bank balance sheet on capital, credit and funding, renormalising when NPL is withheld", () => {
+    const s = computeScores(makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 8, ncoToAverageLoans: 0.5, nplRatio: null, loansToDeposits: 90 }),
+    }));
+    const bs = s.aspects.balanceSheet;
+    // Bands: TCE/TA 8% → 70, NCO 0.5% → 70, L/D 90% → 70; NPL withheld, so the
+    // other three weights (0.40/0.25/0.20) renormalise over 0.85.
+    expect(bs.score).toBe(70);
+    expect(bs.dataCompleteness).toBe(0.85);
+    expect(bs.drivers.map((d) => d.source)).toEqual([
+      "computed.scores.balanceSheet.tceToTangibleAssets",
+      "computed.scores.balanceSheet.ncoToAverageLoans",
+      "computed.scores.balanceSheet.loansToDeposits",
+    ]);
+    expect(bs.note).toContain("not fitted");
+    expect(bs.note).toContain("CET1 is shown when the filer tags it and is never graded");
+
+    // Renormalised, not averaged with a neutral stand-in for the missing NPL.
+    const mixed = computeScores(makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 5, ncoToAverageLoans: 2, nplRatio: null, loansToDeposits: 110 }),
+    }));
+    // (35·0.40 + 25·0.25 + 30·0.20) / 0.85
+    expect(mixed.aspects.balanceSheet.score).toBeCloseTo((35 * 0.4 + 25 * 0.25 + 30 * 0.2) / 0.85, 2);
+  });
+
+  it("D-46: leaves the bank balance sheet unscored when only tangible common equity / tangible assets is available", () => {
+    const s = computeScores(makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 8, ncoToAverageLoans: null, nplRatio: null, loansToDeposits: null }),
+    }));
+    expect(s.aspects.balanceSheet.score).toBeNull();
+    expect(s.aspects.balanceSheet.drivers).toEqual([]);
+    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/at least one of net charge-offs/);
+  });
 });
+
+/** Bank route metrics as financialMetrics.ts emits them; null ⇒ withheld. */
+function bankRouteMetrics(values: Record<string, number | null>): FinancialMetricsResult {
+  return {
+    route: "bank",
+    metrics: Object.entries(values).map(([key, value]) => ({
+      key,
+      label: key,
+      unit: "%" as const,
+      value,
+      basis: "",
+      sources: [],
+      asOf: "2025-12-31",
+      withheldReason: value === null ? "not tagged" : null,
+      proxy: false,
+    })),
+    notes: [],
+    gaps: [],
+    asOf: "2025-12-31",
+  };
+}
 
 /* ------------------------------------------------------------------------ *
  * Altman variant normalization (2026-07 audit Defect A)
@@ -690,7 +784,7 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     return {
       kind: "excess-return",
       route: "bank",
-      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
+      excessReturn: { roePathPct: { value: [curRoe, curRoe - 1], basis: "" }, costOfEquityPct: { value: 10, basis: "" }, reverseSolve: { impliedCurrentRoePct: impliedRoe, notes: [] } } as never,
       multiples: { multiples: [{ key: "priceToTbv", current: 1.2, basis: "", ownHistory: { percentileRank: tbvPercentile, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 10, basis: "" }, peers: null }], sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
       notes: [],
       gaps: [],
@@ -700,14 +794,21 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
   /**
    * A bank observed on every metric its route allows. Using the REAL bank
    * metric policy, three things are route-suppressed / meaningless (NOT missing):
-   *   - balanceSheet: net-debt/coverage framing not meaningful for a bank,
+   *   - balanceSheet: net-debt/coverage framing not meaningful for a bank (since
+   *     D-46 it is graded on capital, credit and funding instead),
    *   - quality: Altman Z (0.16) + Beneish M (0.12) suppressed,
    *   - moat: gross margin (0.25) suppressed (FMP emits garbage for banks).
    * Everything else (revenue/EPS/FCF growth, ROIC level+stability, excess-return
    * valuation, capital stewardship, technicals) is fully present.
    */
   function fullyObservedBank(): ScoringInputs {
-    return makeInputs({ route: route("bank"), policy: metricPolicy("bank"), valuation: bankExcessReturn() });
+    return makeInputs({
+      route: route("bank"),
+      policy: metricPolicy("bank"),
+      valuation: bankExcessReturn(),
+      // D-46: capital, credit and funding, all four inputs on file.
+      financialMetrics: bankRouteMetrics({ tangibleLeverage: 7, ncoToAverageLoans: 0.6, nplRatio: 0.8, loansToDeposits: 85 }),
+    });
   }
 
   /** Recompute the raw completeness-weighted mean + its supporting weight from the returned aspects. */
@@ -736,9 +837,9 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     expect(s.composite.score).toBe(round2(raw));
     expect(s.composite.score!).toBeGreaterThan(50);
 
-    // compWeight can never reach 100 on a bank: balanceSheet (10) is dropped and
+    // compWeight can never reach 100 on a bank: balanceSheet (10) was dropped and
     // quality/moat lose their suppressed signals. Hand-derived route-applicable
-    // weight = 15·0.55 + 22 + 26·0.22 + 15·0.75 + 7·0.75 + 5 = 57.47.
+    // weight = 15·0.55 + 22 + 26·0.57 + 15·0.75 + 7·0.69 + 5 = 66.15.
     // Fundamentals retain revenue/EPS growth; industrial FCF growth and
     // operating-margin slope are route-inapplicable, not missing evidence.
     //
@@ -756,7 +857,20 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //    "equity-only (CoE, never WACC)". Grading a spread against a WACC the
     //    valuation refuses to use is contradictory under either reading.
     //    roicLevel/roicStability deliberately REMAIN (see the moat test below).
-    expect(round2(compWeight)).toBe(57.47);
+    //  - Quality 0.22 -> 0.57 (2026-10-12): the ROIC − WACC slot (0.35) is
+    //    filled by the equity-side spread (ROE − cost of equity) the route's own
+    //    disclosure names as its value-creation measure: +26·0.35 = +9.10.
+    //  - Leadership 0.75 -> 0.69 (D-49, SCORE_BANDS_2026_10): sbcPctOfRevenue
+    //    (0.2) is no longer scored, so the applicable 0.55 (capitalDeployment
+    //    still suppressed) is now read against 0.8: 7·0.69 = 4.83.
+    //  - Balance sheet 0 -> 10 (D-46, SCORE_BANDS_2026_10): a bank's balance
+    //    sheet is graded on capital, credit and funding, all observed here.
+    expect(round2(compWeight)).toBe(76.15);
+    // Review of D-50: over what the route supports, every aspect of this bank
+    // is fully observed, which is what the confidence ceiling reads.
+    for (const a of Object.values(s.aspects)) {
+      if (a.score !== null) expect(a.applicableCompleteness).toBe(1);
+    }
 
     // The OLD denominator (a fixed 100) would have shrunk this identical bank
     // by ×0.7897 toward 50 — a structural cap the fix removes.

@@ -155,8 +155,11 @@ export function RelativeStrengthChart({ series, height = 300 }: RelativeStrength
         color: s.color,
         lineWidth: s.role === "primary" || s.color === THEME.accent ? 2 : 1,
         priceLineVisible: false,
+        // The colour-coded last value stays on the price axis; the series
+        // title is omitted because lightweight-charts draws it inside the plot,
+        // over the most recent stretch of every line. The legend below names
+        // each colour.
         lastValueVisible: true,
-        title: s.label,
       });
       line.setData(data as LineData<Time>[]);
     }

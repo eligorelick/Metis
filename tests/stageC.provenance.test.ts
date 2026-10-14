@@ -6,6 +6,7 @@ import {
   periodsAgree,
   calculateCoverage,
   matchProvenanceRecord,
+  namedUnitMatchesRecord,
   validateCitationRegistry,
   validateProvenanceRegistry,
   type NumericProvenanceRecord,
@@ -166,6 +167,16 @@ describe("canonical traced units", () => {
     expect(canonicalizeTracedUnit(unit, currency)).toEqual(expected);
   });
 
+  it("reads a recognised unit followed by a description, but not an ambiguous or unknown one", () => {
+    expect(canonicalizeTracedUnit("x P/E", null)).toEqual({ unit: "ratio", currency: null });
+    expect(canonicalizeTracedUnit("% Standardized CET1", null)).toEqual({ unit: "percent", currency: null });
+    expect(canonicalizeTracedUnit("currency stockholders equity", "USD")).toEqual({ unit: "currency", currency: "USD" });
+    expect(canonicalizeTracedUnit("currency/share SMA50", "USD")).toEqual({ unit: "currency-per-share", currency: "USD" });
+    expect(canonicalizeTracedUnit("% points", null)).toBeNull();
+    expect(canonicalizeTracedUnit("EUR stockholders equity", "USD")).toBeNull();
+    expect(canonicalizeTracedUnit("widgets per fortnight", null)).toBeNull();
+  });
+
   it("fails closed for an unknown unit", () => {
     expect(canonicalizeTracedUnit("widgets per fortnight", null)).toBeNull();
   });
@@ -189,6 +200,47 @@ describe("canonical traced units", () => {
     ["count", { unit: "count", currency: null }],
   ])("reads a qualified unit spelling %s", (unit, expected) => {
     expect(canonicalizeTracedUnit(unit, null)).toEqual(expected);
+  });
+
+  // D-44: what the judge wrote for the technicals rows in reports 25/26. "RSI"
+  // was read as the ISO currency "RSI" before the indicator spellings.
+  it.each([
+    ["RSI", null],
+    ["RSI index", null],
+    ["MACD histogram", null],
+    ["rsi", null],
+    ["RSI", "USD"],
+  ])("reads the indicator spelling %s (declared currency %s) as index", (unit, currency) => {
+    expect(canonicalizeTracedUnit(unit, currency)).toEqual({ unit: "index", currency: null });
+  });
+
+  it("fails closed on an indicator name used as a unit head or a descriptive unit (D-44)", () => {
+    expect(canonicalizeTracedUnit("RSI %", null)).toBeNull();
+    expect(canonicalizeTracedUnit("RSI P/E", null)).toBeNull();
+    // Report 26's completeness spelling: a genuine mis-citation of the score
+    // record, never read as a unit.
+    expect(canonicalizeTracedUnit("evidence-completeness fraction", null)).toBeNull();
+    // ISO codes are unchanged.
+    expect(canonicalizeTracedUnit("CNH", null)).toEqual({ unit: "currency", currency: "CNH" });
+    expect(canonicalizeTracedUnit("EUR P/E", null)).toEqual({ unit: "currency", currency: "EUR" });
+  });
+});
+
+describe("indicator units bound to their own record (D-44)", () => {
+  it.each([
+    ["RSI", "computed.technicals.rsi-14", true],
+    ["RSI index", "computed.technicals.rsi-14", true],
+    ["rsi", "computed.scores.technicals.rsi14", true],
+    ["MACD histogram", "computed.technicals.macd-histogram", true],
+    ["index", "computed.technicals.macd-histogram", true],
+    ["%", "computed.technicals.macd-histogram", true],
+    // A verified number would print under another indicator's name.
+    ["RSI", "computed.technicals.macd-histogram", false],
+    ["rsi", "computed.technicals.macd-histogram", false],
+    ["MACD histogram", "computed.technicals.rsi-14", false],
+    ["RSI index (0-100)", "computed.deterministic-aspect-scores.technicals-score", false],
+  ])("%s on %s -> %s", (unit, id, expected) => {
+    expect(namedUnitMatchesRecord(unit, id)).toBe(expected);
   });
 });
 

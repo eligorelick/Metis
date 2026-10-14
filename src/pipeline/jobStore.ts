@@ -17,8 +17,22 @@ import {
   type JobResumeState,
   type ResumeArtifacts,
 } from "@/pipeline/jobArtifacts";
+import { reportJsonIsDataOnly } from "@/pipeline/events";
 
 type JobStoreReadDb = Pick<ThesisDb, "select">;
+
+/**
+ * Whether the job's linked report closes it to a resume. A data-only report is
+ * the fallback written when the AI passes could not finish; it must not lock
+ * away the analyst work that DID finish, or a Retry has to pay for (and wait
+ * through) every pass again. A full report still blocks a resume. Every resume
+ * check reads this one rule, so a planned resume and its claim cannot disagree.
+ */
+export function linkedReportBlocksResume(db: JobStoreReadDb, reportId: number | null): boolean {
+  if (reportId === null) return false;
+  const row = db.select({ reportJson: reports.reportJson }).from(reports).where(eq(reports.id, reportId)).get();
+  return row !== undefined && !reportJsonIsDataOnly(row.reportJson);
+}
 
 export interface StoredJobResume {
   row: JobRow;
@@ -122,12 +136,7 @@ function buildStoredJobResume(
   throughGeneration: number,
   authorityStatus: string,
 ): StoredJobResume {
-  const reportExists = row.reportId !== null &&
-    db
-      .select({ id: reports.id })
-      .from(reports)
-      .where(eq(reports.id, row.reportId))
-      .get() !== undefined;
+  const reportExists = linkedReportBlocksResume(db, row.reportId);
   const current = foldLineageArtifacts(
     db,
     row.id,

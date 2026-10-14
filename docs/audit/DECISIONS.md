@@ -13,6 +13,696 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-50 (report assembly 2026-10-13) Section confidence is capped by measured data coverage; the model can lower but not raise it
+
+- **Problem**: each graded section's confidence (high / medium / low) was
+  chosen by the judge and never audited. Verbalised LLM confidence clusters
+  high and is overconfident (Xiong et al. 2024, ICLR, "Can LLMs Express Their
+  Uncertainty?"; Tian et al. 2023, EMNLP, finds it better than token
+  probabilities for RLHF models but still miscalibrated); overprecision is the
+  most robust form of overconfidence (Moore & Healy 2008, Psychological
+  Review 115). A "high" label on a section whose score covered two fifths of
+  its inputs was possible.
+- **Options**: (a) leave the label to the model; (b) compute the label
+  deterministically; (c) let the model choose, but cap it at a ceiling set
+  from Stage B data coverage, and show the cap.
+- **Risks**: the thresholds are conventions, not fitted, until a track record
+  exists; too many caps could make every report read as uncertain, so the
+  rules are few and each cap states its reason. The plan's
+  verification-rate rule (rate < 0.9 → medium) is not applied: the ceiling
+  runs before verification on the object verification measures, so the rule
+  would be circular. The plan's annual-period-count rule is not applied:
+  Stage B does not record how many annual periods each aspect's inputs span,
+  and a count derived here would be unmeasured. The plan's unverified-estimate-
+  currency rule is likewise not applied (owner-approved Stage-B-only scope).
+- **Choice**: (c), owner-approved Stage-B-only form.
+  `src/pipeline/stageC/confidenceCeiling.ts` computes, per aspect, the minimum
+  of: unscored aspect → low; `dataCompleteness` < 0.5 → low, < 0.75 → medium;
+  valuation only, fair value (DCF / excess-return) withheld or the scenario
+  fan suppressed on the general DCF route → medium. `assembleReport` applies
+  it to each section's grade block and its grade-strip twin after the judge
+  pass and before verification. A label above the ceiling is lowered to it
+  and `GradeBlock.confidenceCap = {from, to, reason}` records it; a lower
+  model label is kept; a re-assembly keeps the original `from`. The field is
+  optional (stored reports parse unchanged), pipeline-owned (removed from the
+  judge request schema; any model-emitted value is recomputed), and the
+  report renders "Confidence capped at <x>: <reason>" under the section's
+  one-line why. Reasons carry no numerals, so nothing uncitable enters the
+  report. The judge prompt says the cap exists and that it may only go lower.
+- **Why**: the decision in one line: section confidence is capped by measured
+  data coverage; the model can lower but not raise it. The thresholds are
+  conventions.
+- **Disclosure**: no payload, score or band change. The audited-fixture
+  group `d-50-confidence-ceiling` covers DEMO's leadership section (completeness
+  0.63 since D-49): high → medium on the section and its strip twin. Test:
+  `tests/stageC.confidenceCeiling.test.ts` (rule table, application,
+  idempotence, legacy parse, rendered line).
+- **Amended on review (2026-10-13)**: `dataCompleteness` counts
+  route-suppressed signals as missing, so every fully observed bank had
+  fundamentals (0.55), quality (0.57) and leadership (0.69) capped at medium
+  with the false reason "under three quarters of its intended inputs", and a
+  route-inapplicable aspect read as "unscored". `AspectScore` gains optional
+  `applicableCompleteness` (used weight / route-applicable weight; null when
+  the route cannot score the aspect). The ceiling reads it (stored reports
+  fall back to `dataCompleteness`), a route-inapplicable aspect caps at
+  medium with "no deterministic <aspect> score applies to this company's
+  route", and the completeness reasons say "the inputs its route supports".
+  The field is a registered optional surface field (audit scorecard table,
+  exports), and `confidenceCeiling.ts` joins the risk-coverage manifest.
+  Audited-fixture group `review-d46-d50` (DEMO is general: each value equals
+  its `dataCompleteness`, no ceiling moves, the leadership reason is
+  reworded). Tests: `tests/stageC.confidenceCeiling.test.ts`,
+  `tests/stageB.grading.test.ts` (the fully observed bank reads 1 on every
+  scored aspect).
+
+## D-47 (bank disclosures 2026-10-13) HTM unrealised loss, marked TCE, ACL / loans and three-year loan growth are disclosed with warning signs, not graded
+
+- **Problem**: nothing in the bundle showed unrealised losses on
+  held-to-maturity securities, which are missing from book and regulatory
+  capital and were the central post-SVB blind spot (Jiang, Matvos, Piskorski
+  & Seru 2024, JFE 159: marking to market cut bank asset values by about 10%
+  in 2022Q1-2023Q1; Fed Board review of SVB, Apr 2023). Fast loan growth
+  predicts later poor bank performance (Fahlenbrach, Prilmeier & Stulz 2018,
+  RFS), and nothing measured it. Both inputs are reliably tagged.
+- **Options**: (a) leave them out; (b) grade them; (c) disclose them, with
+  deterministic warning signs, and grade none of them.
+- **Risks**: (b) has no fitted bands, and the deposit franchise hedges asset
+  duration (Drechsler, Savov & Schnabl 2021, J. Finance 76), so an HTM loss
+  is not a solvency verdict. Under (c) the HTM sign fires on BAC (30.5% of TCE
+  at FY2025; both HTM signs at FY2024, marked TCE 3.82%), a large, sound bank: accurate as an exposure, wrong as a
+  distress reading, so the wording must carry the caveat. The 21% tax is an
+  assumption; the loss is point-in-time and pulls to par; uninsured-deposit
+  data is text-only, so the run-risk half of the Jiang et al. test is absent.
+- **Choice**: (c).
+  - `src/pipeline/stageB/financialMetrics.ts` (bank route, display only):
+    `htmUnrealizedLossNet` (loss − gain, else amortised cost − fair value;
+    a pair at different dates or units withholds), `htmLossAfterTax` (× (1 −
+    21%), stated as an assumption), `htmLossToTce`, `markedTceRatio` ((TCE −
+    after-tax loss) / (tangible assets − pre-tax loss); AFS losses are
+    already in TCE through AOCI, so no double deduction; a loss whose date or
+    currency differs from the balance sheet's withholds), `aclToLoans`
+    (direction ambiguous) and `loanCagr3y` (same loan element at four FY
+    ends). `bankRiskFlags` evaluates, each a heuristic threshold, not
+    validated: tangible leverage < 5%, HTM loss / TCE > 25%, marked TCE
+    < 4%, loan growth > 15%/yr, loans / deposits > 110%, and provisions <
+    net charge-offs while NPL rose (only when every input is tagged).
+    Triggered signs become route-metrics notes in the report, with the
+    public-filing CAMELS-style proxy note.
+  - `src/pipeline/stageC/payload.ts`: the bank section adds the six metrics,
+    the assumed tax rate as a row, and for each evaluated sign its value,
+    threshold and status as citable rows; caveats are digit-free notes.
+  - `src/pipeline/stageC/prompts.ts`: the judge discusses every triggered
+    sign, presents HTM losses as conditional on deposits having to be funded
+    by selling the securities, says loan growth includes acquisitions, never
+    presents a count of signs as a probability, and calls the figures
+    public-filing proxies with no supervisory rating. Digit-free.
+- **Why**: the decision in one line: bank rate-risk (HTM unrealised loss,
+  marked TCE) and credit-cycle (loan growth, reserves) measures are disclosed
+  and flagged, not graded; HTM losses are presented as conditional on
+  funding, not as realised.
+- **Disclosure**: payload 1.14.0 (shared with D-46); no score or band moves.
+  The one-off SVB FY2022 check (RESEARCH §6.3) fires the HTM and marked-TCE
+  signs; thresholds were not tuned to it. Test:
+  `tests/stageB.financialMetrics.test.ts` (HTM loss and marked TCE
+  arithmetic, the fallback pair, and the instant-mismatch withholding).
+- **Amended on review (2026-10-13)**: the large-bank comparison in RESEARCH
+  §6.3 came from a scratch formula that did not deduct preferred stock; it is
+  recomputed with `computeFinancialMetrics` (BAC FY2025 30.5% / 4.44%, about
+  0.4pp above the marked-TCE line; FY2024 fires both HTM signs). Thresholds
+  kept, not re-tuned after the fact. ACL / loans, the charge-off rate, NPL,
+  provisions / loans, loans / deposits and loan growth now divide by gross
+  loans first (`LOANS_TAGS` order: before-allowance, gross carrying amount,
+  then the net elements), the FDIC QBP basis; ACL over net loans divided the
+  allowance by loans it was already taken from. The tangible-leverage sign's
+  caveat says the ratio excludes preferred stock and is a house threshold,
+  not a regulatory minimum. Payload 1.15.0.
+
+## D-46 (bank grading 2026-10-13) The bank balance sheet is scored on capital, credit and funding
+
+- **Problem**: a bank's balance-sheet aspect was a placeholder
+  (`scoreAspect('balanceSheet', [], …)`, "capital adequacy not computed"),
+  so 10 of the financial route's 100 weight points dropped out and bank
+  grades rested on earnings and valuation. The evidence on bank failure and
+  bank stock losses is clearest on exactly what was missing. The simple
+  leverage ratio predicted failure about as well as risk-weighted ratios
+  (Estrella, Park & Peristiani 2000, FRBNY EPR 6(2)) and out-predicted them
+  in the crisis (Haldane & Madouros 2012). Better-capitalised, more
+  deposit-funded banks had better 2007-08 returns (Beltratti & Stulz 2012,
+  JFE 105). CAMELS-style capital, asset-quality and liquidity proxies explain
+  the 2009 failures (Cole & White 2012, JFSR 42).
+- **Options**: (a) keep the placeholder; (b) grade on CET1; (c) grade on
+  tangible leverage, the net charge-off rate, the NPL ratio and loans /
+  deposits, with CET1 displayed only.
+- **Risks**: (b) is impossible: none of JPM, BAC, WFC, C or PNC tags a CET1
+  ratio after 2013. (c)'s bands are not fitted, and a leverage ratio is not
+  comparable across business models (custody banks look thin by design).
+  Filers that tag loans only by class (WFC after 2021) lose the loan-based
+  inputs. Bank composites move, which the band version covers.
+- **Choice**: (c).
+  - `src/pipeline/stageB/financialMetrics.ts`: `tangibleLeverage` is always
+    computed on the bank route (a stand-in only when CET1 is untagged).
+    `ncoToAverageLoans` is the fiscal year's net charge-offs (the
+    after-recovery element, else write-offs − recoveries from one tag family,
+    10-K FY durations, a pair whose periods differ fails closed) over the
+    average of the SAME loan element at the two year ends; a missing prior
+    balance withholds. `loansToDeposits` is loans / `Deposits` at one date;
+    different dates withhold.
+  - `src/pipeline/stageB/grading.ts`: on the bank route the aspect is
+    `tceToTangibleAssets` 0.40 (4% → 20, 5% → 35, 6% → 50, 8% → 70, 10% → 85,
+    ≥ 12% → 90), `ncoToAverageLoans` 0.25 (≤ 0.25% → 85 … ≥ 3% → 10),
+    `nplRatio` 0.15 (≤ 0.25% → 85 … ≥ 4% → 15) and `loansToDeposits` 0.20
+    (≤ 80% → 80 … ≥ 125% → 15, no penalty for low ratios). All conventions,
+    not fitted; capital is anchored to the PCA 5% "well capitalized" Tier 1
+    leverage line and the Basel III 3% leverage minimum, the charge-off rate
+    to the FDIC Quarterly Banking Profile definition. It is graded only with
+    tangible leverage plus one other input; otherwise it is unscored with
+    the reason and counts as missing evidence (a new `noDataReason`, not a
+    route-inapplicable reason). A withheld NPL ratio drops out and the other
+    weights renormalise, with completeness 0.85. Insurers and mortgage REITs
+    keep the placeholder. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
+  - `src/pipeline/stageC/payload.ts`: a bank payload gains "Bank capital,
+    credit and funding", with the four inputs and CET1 as registered rows
+    and digit-free notes (public-filing proxies, leverage not comparable
+    across business models, CET1 never graded). The graded values are also
+    the `computed.scores.balanceSheet.*` driver records.
+- **Why**: the aspect most supported by the bank-failure evidence was the one
+  left empty. The decision in one line: the bank balance-sheet aspect is
+  scored on tangible common equity/tangible assets, net charge-offs/average
+  loans, NPL where tagged, and loans/deposits; the bands are conventions
+  anchored to the PCA/Basel leverage lines, not fitted; CET1 is displayed but
+  not graded, because the largest filers do not tag it.
+- **Disclosure**: `SCORE_BANDS_2026_10` (shared with D-48/D-49) and payload
+  1.14.0. The aspect note states the conventions, the comparability caveat,
+  that CET1 is never graded and that no supervisory rating is used. The
+  audited fixture is a general company and does not move. Tests:
+  `tests/stageB.grading.test.ts` (scored and renormalised with NPL withheld;
+  unscored with only tangible leverage; the fully observed bank's ceiling
+  66.15 → 76.15).
+- **Amended on review (2026-10-13)**: "anchored to the PCA 5% well
+  capitalized line" overstated the link. TCE / tangible assets is a
+  holding-company GAAP ratio that excludes preferred stock (in Tier 1) and
+  uses period-end assets, so it runs below Tier 1 leverage; a bank at the PCA
+  line can read near 4.5% and score in the 20s, and the GSIBs score in the low
+  50s. The cut points are unchanged (no fitted basis for a shift) but are now
+  described as house cut points that echo the regulatory lines in scale only,
+  in the band comment, the aspect note, RESEARCH §5/§6.3 and METHODOLOGY. The
+  judge prompt adds a digit-free line: never say a bank is below, near or
+  above a regulatory minimum or capital category on the strength of this
+  ratio. Payload 1.15.0.
+
+## D-48 (grading 2026-10-13) Technicals score 12-1 relative momentum, 52-week-high proximity and the SMA gap; RSI is display-only
+
+- **Problem**: RSI-14 carried 0.2 of the technicals aspect, but there is no
+  peer-reviewed evidence that it predicts returns on its own. Technical-rule
+  profits largely vanish after about 1990 (Park & Irwin 2007, J. Economic
+  Surveys). The momentum signal was a 6-month window ending at the latest
+  bar. That window includes the latest month, which tends to reverse
+  (Jegadeesh 1990, J. Finance; Lehmann 1990, QJE), and it is not the horizon
+  the effect is published at (Jegadeesh & Titman 1993, J. Finance 48: 3-12
+  months).
+- **Options**: (a) keep the weights; (b) drop RSI and keep the 6-month
+  window; (c) score 12-1 month relative strength, give 52-week-high
+  proximity more weight (George & Hwang 2004, J. Finance 59) and keep RSI
+  and the 6-month window as display-only.
+- **Risks**: momentum crashes when the market rebounds (Daniel & Moskowitz
+  2016, JFE 122), and the effect is weaker among large caps (Hou, Xue & Zhang
+  2020, RFS; Fama & French 2008, J. Finance 63, still find it in every size
+  group). The aspect's 5% composite weight limits both risks. Grades on
+  existing reports shift slightly, which the band-version stamp covers.
+- **Choice**: (c).
+  - `src/pipeline/stageB/technicals.ts`: `alignSkipMonthWindow` uses the
+    common end the 3/6/12-month windows use. The start is the latest exact
+    common date on or before `shiftMonths(end, −12)` and the end the latest
+    on or before `shiftMonths(end, −1)`, each within the same seven days.
+    `RelativeStrengthSet.momentum12m1m` carries the issuer and SPY returns
+    and their difference. A window that cannot be aligned is all null, with
+    an info gap `…<benchmark>.12m1m` giving the reason.
+  - It uses the same split-adjusted close price basis as the other windows
+    (dividends excluded). The technicals rows do not carry adjusted closes,
+    so it is a price return, not a total return.
+  - `src/pipeline/stageB/grading.ts`: technicals are graded on
+    `relStrength12m1m` 0.45 (new band −30pp → 15, 0 → 50, +20pp → 75,
+    ≥ +40pp → 90; a convention, not fitted, anchored on Jegadeesh–Titman's
+    roughly 1%-a-month spread), `position52w` 0.35 and `smaGap` 0.20. The
+    12-1 window is never substituted by the 6- or 12-month window. The
+    unused RSI and 6-month bands are deleted. The aspect weight stays at 5.
+  - The aspect note, and a digit-free line in the judge prompt, say that
+    momentum is a 3-12 month tilt that has reversed sharply after market
+    rebounds and is not an entry-timing signal, and that RSI is shown for
+    context and not scored.
+  - `src/pipeline/stageC/payload.ts`: the technicals section prints
+    "relative strength vs SPY, 12-1 month (latest month skipped)", dated at
+    its window end, and the 6-month window. Both are registered records the
+    analysts can cite; a withheld window prints n/a and registers a
+    payload-gap citation. The scored value is also the
+    `computed.scores.technicals.relStrength12m1m` driver record.
+- **Disclosure**: `SCORE_BANDS_2026_10` and payload 1.13.0, both shared with
+  D-49. The audited-fixture group `technicals-momentum-12-1` covers the DEMO
+  leaves. DEMO has no SPY history, so its 12-1 window is withheld and
+  technicals completeness falls 0.7 → 0.55. Stored reports keep their
+  `rsi14` and `relStrength6m` drivers; new reports have no such records.
+  Tests: `tests/stageB.technicals.test.ts` (window dates, and withholding
+  past the 7-day tolerance) and `tests/stageB.grading.test.ts` (no
+  substitution; RSI and the 6-month window are not drivers).
+- **Amended on review (2026-10-13)**: (1) the 0.35 signal was range
+  position, (close − low) / (high − low), not the price / 52-week high ratio
+  George & Hwang rank on, and the two order stocks differently. It is now
+  `pctFromHigh52w`, (close / high − 1) × 100, on `HIGH_PROXIMITY_BAND`
+  (−50% → 15, −30% → 30, −15% → 50, −5% → 70, 0 → 85; convention, not
+  fitted); the range position stays displayed. (2) The 12-1 band's "anchored
+  on Jegadeesh–Titman's 1%-a-month spread" confused the next-period payoff
+  with the formation-period return the signal measures; it is described as
+  an unfitted monotone mapping, JT cited for direction only. (3) The verifier
+  read "12-1 month" in the row's own label as the numbers 12 and 1, so an
+  honest absence statement on the withheld row failed as gap-source-number;
+  `consistency.ts` strips that window name (only it) as a non-quantity.
+  Audited-fixture group `review-d46-d50` (DEMO technicals 83.92 → 81.25,
+  composite 77.6 → 77.53). Payload 1.15.0. Tests:
+  `tests/stageB.grading.test.ts` (a stock near the top of a narrow range
+  outranks one at half its high), `tests/stageC.gapCitations.test.ts`.
+
+## D-49 (grading 2026-10-13) Net share-count change is scored once (leadership) and the SBC charge once (balance sheet, % of FCF); both remain displayed elsewhere
+
+- **Problem**: `shareCountTrend` was a driver of both the balance-sheet
+  (0.15) and the leadership (0.25) aspects. Leadership also scored
+  `sbcPctOfRevenue` (0.2), although the balance-sheet note said "the SBC
+  charge itself is scored exactly once" (by `sbcPctOfFcf`). Net issuance and
+  stock-based compensation were each weighted twice, and the code broke its
+  own stated rule.
+- **Options**: (a) leave both double counts; (b) halve each duplicate's
+  weight; (c) score each signal in one aspect only.
+- **Risks**: (a) quietly over-weights one family of signals. Net issuance is
+  among the best-replicated return predictors (Pontiff & Woodford 2008,
+  J. Finance 63; Daniel & Titman 2006, J. Finance 61, whose composite
+  issuance includes SBC; Fama & French 2008, J. Finance 63; Hou, Xue & Zhang
+  2020, RFS). That is a reason to show it once, clearly, not to count it
+  twice. (b) keeps two drivers for one fact. (c) moves composites a little
+  for issuers with heavy SBC.
+- **Choice**: (c), in `src/pipeline/stageB/grading.ts`.
+  - The balance sheet (general and equity-REIT routes; financial routes do
+    not score it) drops `shareCountTrend` and is scored on net debt/EBITDA
+    0.3, interest coverage 0.2, before-SBC FCF conversion 0.2 and SBC/FCF
+    0.15. The existing weighted-mean machinery renormalises them. Its note
+    no longer says "dilution".
+  - Leadership drops `sbcPctOfRevenue` and is scored on buyback discipline
+    0.3, capital deployment 0.25 and share-count trend 0.25. Dilution from
+    SBC already shows in the share count net of buybacks, and the SBC cost
+    is in SBC/FCF. The unused `SBC_REV_BAND` is deleted.
+  - Both SBC ratios still appear in the capital payload rows and the
+    data-only report. The band table is now `SCORE_BANDS_2026_10`.
+- **Disclosure**: both aspect notes say where each signal is scored. The
+  audited-fixture group `score-once-dilution-sbc` lists the DEMO leaves that
+  moved. A bank's leadership completeness drops from 0.75 to 0.69, because
+  the 0.55 of available weight is now read against 0.8
+  (`tests/stageB.grading.test.ts`). `PAYLOAD_VERSION` moves to 1.13.0, so an
+  analyst pass that anchored to the old band table is never resumed; the DEMO
+  pin loses the two driver records (372 → 370).
+
+## D-45 (verification 2026-10-13) A number cited to a filing excerpt is read against that excerpt, beside its own description
+
+- **Problem**: a TracedNumber citing `edgar:10-K item7` or a transcript could
+  never verify. The verifier knew only numeric registry records and never read
+  the excerpt text it already had. JPM report 26 logged 25 numbers as
+  `text-source`, and META report 25 logged 5, although the excerpts print most
+  of them ("$915 billion", "14.2 %", a "95,640" cell in an "(in millions"
+  table). A FACT claim citing the same excerpt already counts as verified on
+  the citation alone, so reading the number is stricter than the existing bar.
+- **Options**: (a) the finding's matcher: value, unit, scale, table and
+  specificity rules over the cited excerpt; (b) (a) plus a rule that the
+  number's own description must name the printed figure; (c) a quote anchor
+  (an optional `quote` on TracedNumber); (d) leave excerpt numbers
+  unverifiable.
+- **Risks**: (a) proves only that the value is printed somewhere in the
+  section, not what it means. keyNumbers carry no label, so a right value
+  could verify under the wrong meaning. Measured on report 26's excerpts, (a)
+  accepted every deliberate swap to another specific figure of the same unit
+  in the same excerpt (795 of 795). (c) changes a strict, shared
+  structured-output schema and adds output tokens after the 15-minute-limit
+  work. (d) leaves true, printed figures unverified.
+- **Choice**: (b), in `src/pipeline/stageC/excerptNumbers.ts`, with the
+  verify-pass hook in `passes.ts`.
+  - Only the excerpt with the cited (source, as-of) is read, and only its body
+    (`excerptBodyForVerification` drops the truncation marker). Other sections
+    of the same filing, and other excerpts, are never searched.
+  - Unit and currency: a percent needs a printed "%"/"percent". Money needs a
+    printed "$", read as the reporting currency only when the issuer's
+    statement records agree on one dollar currency; a claim in another
+    currency fails. A count needs neither. Per-share and every other unit
+    fail as `unit-mismatch`, and "people" never canonicalizes.
+  - Table scale: an "(in millions" header applies only to a comma-grouped
+    whole-number cell in a money table. A decimal cell never takes it (the
+    prototype read "$ 126.99" book value per share as $126.99m), and no "$"
+    cell takes it under an "except per share" header.
+  - Precision: within half a printed step and an exact multiple of it, so
+    915.3e9 does not match "$915 billion". Specificity: three significant
+    digits, or two with a decimal or a scale word; otherwise the reason is
+    `text-ambiguous`.
+  - Description (new, beyond the finding): the number's description is its
+    unit text beyond the bare unit plus the label of the metric row it sits
+    in. Stopwords, unit, period and label words, and the issuer's name are
+    ignored. More than half of the distinctive words must appear within 250
+    characters of the printed figure and inside its sentence or bullet, or,
+    for a table cell, in that row's own label. A number with no description
+    words fails (`text-context-mismatch`, fail-closed).
+  - The minimum asked for was one word within ±250 characters. Measured, it
+    accepted 126/795 swaps, every one a table cell or a figure near a common
+    word ("provision" for "pre-provision profit"). The majority rule, the row
+    label and the sentence clip are each stricter than that minimum.
+  - A match logs traceKind `excerpt-match` with the note `value printed in
+    the cited excerpt as "<raw>" beside "<words>"; period not machine-checked`,
+    and fills an omitted currency. A miss keeps `text-source`, with the note
+    "value not printed in the cited excerpt".
+  - The prompt's shared system block (which the judge also receives) gains an
+    EXCERPT NUMBERS rule: copy the figure exactly as printed; the unit is
+    "%", "currency", "count" or "shares" followed by the excerpt's own words
+    for the figure. It names what cannot be checked (bare table cells, whole
+    percents of one or two digits, per-share amounts).
+- **Review amendments (2026-10-13)**, each with a regression test in
+  `tests/stageC.excerptNumbers.test.ts`:
+  - A named row's name is part of its numbers' description. A segment
+    `{name, revenue}`, a peer `{name, metrics[]}` or a macro series
+    `{name, latest}` renders its number under that name, yet the description
+    read only the unit text: "currency eligible HQLA" verified $915 billion as
+    Consumer & Community Banking's revenue.
+  - A bare decimal with no scale word is never a count. Only a flattened
+    table's first row prints its "%" or "$", so "Tier 1 capital 15.1" (a
+    percent) and "Tangible book value per share 113.35" read as counts.
+  - "count …" and "shares …" units now canonicalize like "% …" and
+    "currency …". Before, the EXCERPT NUMBERS rule's own shape ("count daily
+    active people") failed as unit-mismatch, so no excerpt count could
+    verify.
+  - `src/pipeline/stageC/excerptNumbers.ts` joins the risk coverage manifest
+    (`vitest.shared.ts`): it is an acceptance path of the verifier.
+- **Not done**: the quote anchor (c), which needs a schema change and its own
+  decision; a check of the period against the printed column; spoken
+  transcript forms ("$4.6B", "twelve percent"); non-dollar filers.
+- **Evidence** (2026-10-13; a throwaway script rebuilt report 26's excerpts
+  from the cached JPM 10-K and 10-Q with `extractSection` and
+  `truncateWithDisclosure`, byte-identical to the investigator's copies, and
+  ran the real matcher):
+  - Report 26's 25 text-source numbers, as stored: 20 verify without the
+    description rule (the finding's A–D), 4 with it. The 4 are the
+    marginTrend cells, whose rows are labelled "Annual pre-provision profit"
+    and "Annual noninterest expense". 16 are printed but carry the bare unit
+    "%" or "currency" and nothing saying what they are. 3 are ambiguous
+    (20%, 29%, 7%), and 2 are not printed as percents (the bare "4" cells).
+  - With the description the new prompt asks for (hand-written from the
+    excerpt: "Standardized CET1 ratio", "eligible HQLA", "Investment Banking
+    fees wallet share", …), the same 20 verify.
+  - Deliberately wrong values, keeping each claim's own description: ±1 in
+    the last printed digit, 0/50 accepted with or without the rule. Every
+    other specific figure of the same unit in the same excerpt: 795/795 with
+    no rule, 5/795 (0.6%) with it as stored, and 26/795 (3.3%) with the
+    hand-written descriptions.
+  - The 3.3% left are the other column of the same table row (the prior
+    year: a period, not a meaning, error) and figures that share the
+    description's words in one sentence: "Standardized and Advanced CET1
+    ratios were 14.6% and 14.1%", and the HQLA sentence's $548 billion and
+    $1.5 trillion.
+- **Compatibility**: additive. The log reason enum gains `text-ambiguous` and
+  `text-context-mismatch`, and traceKind gains `excerpt-match` ("filing/
+  transcript text match"); old reports still parse. Stored reports keep their
+  entries, since no registry or payload is persisted to re-verify against.
+  The system block grows, so the cached prefix is rebuilt once. No numeric
+  record moves, and `npm run audit:deltas` records no delta.
+
+## D-44 (verification 2026-10-13) Every numeric row prints a unit, and an indicator's name is read only on its own record
+
+- **Problem**: reports 25/26 logged 10 unit-mismatch key numbers.
+  - "RSI" and "RSI index" (5): the bare-ISO-code branch of
+    `canonicalizeTracedUnit` ran before the indicator spellings and read "RSI"
+    as a currency.
+  - "MACD histogram" (3): the payload row printed no unit at all (`unit: ""`),
+    and the judge, which writes every graded key number, never received the
+    analysts' bare-unit rule.
+  - "evidence-completeness fraction" 0.4 / 0.45 (2): these cited the quality
+    and leadership SCORE records. Completeness was shown only inside the score
+    row's unit qualifier, which no record carries.
+  - Simulating the finding's first fix showed that indicator spellings
+    accepted on id, value and as-of alone would verify "-4.8154 RSI" on the
+    MACD record. Lowercase "rsi" already did. The report prints the unit
+    verbatim beside a verified number.
+- **Options**: (a) map the spellings to `index` only; (b) (a) plus binding a
+  spelling that names an indicator to that indicator's record; (c) read
+  "<description> <unit>" for completeness.
+- **Risks**: (a) renders verified numbers under the wrong indicator's name.
+  (c) would make the two genuine mis-citations verify against a record whose
+  value (79.11, 72.35) they do not state.
+- **Choice**: (b), and no (c).
+  - The indicator spellings (rank, pctile, z, m, rsi, "rsi index", "macd
+    histogram") are read as index before the ISO branch. "RSI %" and "RSI
+    P/E" fail closed rather than reading "RSI" as an ISO head.
+  - `namedUnitMatchesRecord`: "RSI"/"RSI index"/"rsi" verify only on a
+    record whose last id segment starts with "rsi" (rsi-14, the rsi14
+    driver), and "MACD histogram" only on macd-histogram.
+  - RSI-14, MACD histogram and the MSPR rows print "index", their unchanged
+    registry unit. The excess-return horizon prints "years", so its record
+    moves from index to years, its true dimension.
+  - Each aspect's completeness is its own row and record (`<aspect> evidence
+    completeness`, fraction → ratio), and leaves the score row's qualifier.
+  - The bare-unit rule is one constant, `TRACED_NUMBER_UNIT_RULE`, given to
+    the judge as well as the analysts, with a line that indicator readings
+    use "index".
+- **Evidence**: `tests/stageC.indicatorUnits.test.ts` builds the real bank
+  payload, whose quality and leadership completeness are 0.4 and 0.45 as in
+  report 26.
+  - Report 25/26's spellings verify on their own records.
+  - The cross-indicator pairs, including lowercase "rsi" on MACD, fail.
+  - Report 26's completeness-on-score citation still fails, and 0.4 on the
+    new completeness record verifies.
+  - No numeric row in any section prints without a unit.
+- **Compatibility**: tightening only, except the 8 indicator spellings now
+  accepted on their own records. The DEMO pin moves by +7 records, +829
+  prompt bytes and the fingerprint. The MACD histogram's "index" is the
+  existing bucket, not a price-point dimension. Stored reports keep their
+  entries (no re-verify path).
+
+## D-43 (verification 2026-10-13) Every printed tag is citable, and a citation supports only what its row shows
+
+- **Problem**: the prompt says "Every figure below is tagged [source · as-of].
+  Cite that tag", but the verifier registered a tag only when it became a
+  numeric record or was a text row. Three kinds of printed tag were in
+  neither registry. (1) n/a rows, such as `net debt/EBITDA: n/a
+  [computed.capital.netDebtToEbitda · 2025-12-31]` on a bank. (2) Money rows
+  of unknown currency: peer market caps, executive-compensation totals, and
+  the consensus price target and analyst estimates. (3) Missing-data manifest
+  lines, which had no tag at all, while the prompt told the model to
+  "preserve an explicit unsupported state". So in reports 25 (META) and 26
+  (JPM) every claim citing these rows failed as unknown-source. That included
+  true gap statements ("EBIT interest coverage is not meaningful for this
+  bank") and ten named-officer FACTs taken from the proxy rows. Gap
+  statements were written with the source "unsupported". Separately, a claim
+  naming a person passed on the person-row TAG alone. The rows were never
+  read, so "Tim Cook has led the company since 2011" passed with no row at
+  all. Registering the compensation tag without a content check would also
+  have let "Sheryl Sandberg is CEO" pass.
+- **Options**: (a) register the printed tags as ordinary text citations, the
+  investigator's first proposal; (b) register them by what they are, and
+  guard what each can support; (c) leave them unregistered and tell the model
+  not to cite them.
+- **Risks**: (a) loosens verification. A text citation gets no prose-number
+  check (`consistency.ts`: the numeric checks need a numeric record). In a
+  simulation, "Net debt/EBITDA is 1.2x" citing the n/a row verified, and so
+  did "consensus target $781" citing a target of unknown currency. (c) keeps
+  true claims unverified and contradicts the prompt.
+- **Choice**: (b), as one change.
+  - `CitationProvenanceRecord.kind` is now `payload-text`, `payload-gap` (an
+    n/a row, a manifest entry) or `payload-unestablished` (a row printed with
+    a number whose unit, currency or date is not established). When one tag
+    and date carry several kinds, unestablished outranks text, and text
+    outranks gap. A money row of unknown currency also carries
+    `currencyUnknown`.
+  - Each manifest line renders `[manifest.<field>]`. The tag is omitted when
+    the field cannot be written as one source id. Each tagged line is
+    registered as a gap.
+  - The general route prints the projection weights as a citable row
+    (`computed.projections.scenarioWeights`, "25/50/25"). A text row whose
+    value shows numbers supports only those numbers (`allowedNumbers`; a
+    different number fails as value-mismatch). The bank route, where nothing
+    is weighted, prints a `weighted projections: n/a [computed.projections]`
+    gap row and no weights.
+  - Guard, in `claimSourceMatch`: a claim citing a gap or unestablished
+    record with no numeric record fails as `gap-source-number` if it states a
+    number. Before the sentence is parsed, the guard sets aside tags, ISO
+    dates, filing forms, "Form/Item/Tier/Rule/Basel n", identifiers (CET1,
+    Q3, FY2025, 7A, 10b5-1), "n-year" and bare years. "The CET1 ratio is
+    withheld" therefore passes, while "1.2x", "$4.5 billion", "is 3" and
+    "25 bps" fail. A structured number citing such a row logs
+    `gap-source-number` rather than `text-source`.
+  - Guard, in the unit check: a sentence that puts a currency on a number
+    citing a `currencyUnknown` row is rejected as `currency-not-established`.
+    The check looks for a $ € £ ¥ ₩ ₹ symbol, a deliberate ISO-code list
+    (not a generic [A-Z]{3}, which would catch tickers), or "dollars"/"usd".
+  - Person rows: `fmp:executive-compensation` joins the person-row tags. A
+    claim naming a person that cites a person row passes only when that tag's
+    rows (at the claim's as-of) list the person and any title the claim
+    states. This branch runs before a numeric record could accept the claim.
+    - A name passes if the claim writes the row's first and last names, with
+      every written token present in order. So "Mark Zuckerberg" passes for
+      "Mark Elliot Zuckerberg", while "Chris Cox", "Susan J. Li" against
+      "Susan Li", and "Mary Callahan" fail. Insider names match in any order.
+    - A title passes only as one whole role of the row, keeping its modifiers
+      and scope. "CEO" fails for "Co-CEO, Commercial & Investment Bank", and
+      "Chairman" fails for "Vice Chairman". "Former" must agree. Ambiguous
+      abbreviations (CIO, CMO, CAO, CPO) do not expand.
+    - The new failure reasons are `named-individual-not-in-source` and
+      `named-individual-title-mismatch`.
+    - A credibility-path claim that names nobody and cites a person row is
+      still accepted, as before. Comp rows render as payload figures, which
+      the credibility rule admits.
+  - A rejected claim's coverage entry now carries the check's reason, not a
+    blanket unknown-source.
+  - The prompt names the manifest and n/a tags for data-gap statements,
+    forbids "unsupported" as a source and any number in a gap sentence, says
+    "not in the evidence reviewed" rather than "the company does not
+    disclose", names the compensation rows with the spell-as-the-row rule,
+    and drops the literal "25/50/25" from the style example.
+- **Review amendments (2026-10-13)**: an adversarial pass over the new
+  acceptance paths found claims that verified without support. Each is now
+  rejected, with a regression test in `tests/stageC.verifyChecks.test.ts` or
+  `tests/stageC.gapCitations.test.ts`.
+  - Unlisted names: a name no known-name list or role pattern finds was
+    invisible, so "Sheryl Sandberg is CEO" citing JPM's compensation rows
+    named nobody and passed on the tag. A claim citing a person row is now
+    also read for capitalized word runs. Runs are split at function, title
+    and document words and at the person rows' title words; organisations,
+    initials-only runs and one word opening a sentence (unless a verb such as
+    "received" follows it) are skipped. What is left must be a name the rows
+    list. A capitalized word that is no name fails closed.
+  - Titles: only "as", ", the" and "(" introduced a title, so "Jeremy Barnum
+    is the CEO" (his row says CFO) and "CFO James Dimon" passed as name-only
+    claims. "is", "was", "serves as", "remains", "became" and "has been" now
+    introduce a title, and a role written before a known name is read with its
+    modifiers ("Co-CEO Troy Rohrbaugh").
+  - Numbers on a gap or unestablished row: "two times" / "twice" (written in
+    words) and "EUR5bn" (a currency code glued to the number, which the
+    identifier strip removed) stated no number. Both now count.
+  - The weights row: membership let "the bull scenario carries a 50% weight"
+    verify against bull/base/bear 25/50/25. A row's `allowedNumbers` now
+    supports only the full sequence in the row's order.
+  - The next-earnings note (D-42) was a plain text citation, so "reports on
+    2027-02-14" verified against a note saying 2027-01-14. The note's date is
+    registered as `allowedDates`: a sentence citing it may state that date
+    (ISO, "January 14, 2027", "14 Jan", "January 2027") and no other number.
+  - `PAYLOAD_VERSION` moves 1.11.0 → 1.12.0 once for D-42..D-45. The
+    fingerprint already hashes the prompt, so no stored pass could resume
+    across the change; the version names the new evidence conventions.
+- **Not done (deferred)**: compensation currency from the proxy's Item 402
+  accession, and peer currencies from each peer's profile. Until they land,
+  peer market caps and compensation amounts stay non-verifiable as numbers.
+  A bare year-like number without a unit ("employs 2050 people") is still
+  read as a year and set aside; a single first name ("Sheryl is CEO") is not
+  read as a person.
+- **Evidence** (reports 25 and 26 replayed through the new checks, in
+  `tests/stageC.verifyChecks.test.ts` and `tests/stageC.gapCitations.test.ts`):
+  - All ten compensation-row officer FACTs pass the content check.
+  - The number-free judgments citing peers, the target and compensation, and
+    the bank gap statements ("EBIT interest coverage is not meaningful…",
+    "No quantitative balance-sheet score is available…"), verify.
+  - "Net debt/EBITDA is 1.2x." on the n/a row, "The consensus target is
+    $781.", a peer cap as a number, "Douglas Petno as CEO", and "Sheryl
+    Sandberg, the CEO" all fail.
+  - The stored peer and compensation NUMBERS stay unverified (now
+    `gap-source-number`), as do the "unsupported"-sourced claims, until a
+    report is regenerated under the new prompt.
+- **Compatibility**: the log reason enum gains four additive values
+  (`gap-source-number`, `named-individual-not-in-source`,
+  `named-individual-title-mismatch`, `currency-not-established`). The prompt
+  grows by the manifest tags and the weights row (DEMO fixture +872 bytes, 11
+  → 48 citation records), so the fingerprint moves and no stored pass
+  resumes. No numeric record or finance figure moves, and `npm run
+  audit:deltas` records no delta. Person-row citations are stricter, which is
+  fail-closed: a true claim that respells a name or shortens a title is now
+  rejected.
+
+## D-42 (EDGAR bank equity 2026-10-13) Tangible common equity deducts the carrying value of preferred and every non-goodwill intangible
+
+- **Problem**: JPM report 26 was served by EDGAR (FMP returned 429), and its
+  tangible common equity kept about 20B of preferred stock in it. The
+  `preferredStock` chain read only `PreferredStockValue`, which JPM last
+  tagged in 2009. Since then it files the carrying value as
+  `PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount` (20,045M
+  FY2025, 20,050M FY2024; FMP's figure). `tangibleCommonEquity` treats an
+  unresolved line as zero, while the tangible-leverage basis still printed
+  "− preferred". Separately, `intangibleAssets` fell back to
+  `FiniteLivedIntangibleAssetsNet` alone, which dropped JPM's indefinite-lived
+  intangibles (1.3B FY2025, 1.2B FY2024). Seventeen "verified" figures were
+  numerically wrong as a result (ROTE, P/TBV, justified P/TBV,
+  excess-return per share, fair value and the moat return drivers).
+- **Options**: (a) leave the chains; (b) add the APIC-inclusive preferred
+  elements, and sum the finite- and indefinite-lived intangible pieces when
+  the filer tags no total; (c) also deduct mortgage servicing rights, as
+  FMP's `intangibleAssets` does.
+- **Choice**: (b). `preferredStock` reads the carrying value first, then the
+  par value. `intangibleAssets` is a chain: the tagged
+  `IntangibleAssetsNetExcludingGoodwill` total, else the sum of whichever
+  pieces are tagged. The pieces are disjoint by taxonomy definition and run
+  only when the total misses, and an absent piece is named in the notes. MSRs
+  are not deducted, because the TCE convention (JPM's included) keeps them in
+  TCE. So for a mortgage servicer the EDGAR and FMP intangibles legitimately
+  differ (JPM FY2025: 2.6B vs 11.73B). When no preferred line is tagged, the
+  tangible-leverage basis now says "preferred (none tagged, assumed zero)"
+  instead of claiming a deduction.
+- **Open, not changed: common dividends beside outstanding preferred.** The
+  aggregate-dividend guard in `buildStatementsFromCompanyFacts` still reads
+  `PreferredStockValue` alone. Widening it to the chain withholds JPM's common
+  dividends for 2023-2025, and the whole excess-return valuation with them
+  (CRITICAL gap). JPM tags no cash common-dividend element
+  (`PaymentsOfDividendsCommonStock`, `PaymentsOfDividendsPreferredStockAndPreferenceStock`
+  and `DividendsCommonStockCash` are all absent from its companyfacts), so the
+  common payout cannot be established from a direct cash tag. JPM's payout
+  therefore still includes about 1.1B a year of preferred dividends
+  (`DividendsPreferredStock` 1,099M FY2025, inside `PaymentsOfDividends`
+  16,625M). Withholding the valuation, or approving a disclosed stand-in
+  (aggregate less preferred dividends declared, which the code currently
+  rejects as non-cash evidence), is an owner decision.
+- **Evidence** (2026-10-13, JPM, live bundle served by EDGAR): balance rows
+  carry preferred 20,045M / 20,050M / 27,404M (FY2025/24/23) and intangibles
+  2.6B / 2.9B / 3.2B. TCE 308,407M -> 287,062M (FY2025) and
+  290,493M -> 269,243M (FY2024). ROTE 18.59% -> 20.02%, P/TBV 2.904x ->
+  3.120x, justified P/TBV 2.222x -> 2.418x, tangible leverage 7.06% ->
+  6.57%.
+- **Compatibility**: no report shape or payload change. `npm run
+  audit:deltas` records no delta, because the DEMO/DBNK fixtures are not
+  built from companyfacts. Any filer tagging only the APIC-inclusive
+  preferred element now has preferred resolved. That lowers its TCE and adds
+  the preferred to every EV bridge, and where neither filed common earnings
+  nor a cash preferred dividend exists, ROTE is withheld (fail-closed).
+  `TAG_SYNONYMS_REVIEWED_ON` moves to 2026-10-13.
+
+## D-41 (financial grading 2026-10-12) Banks get the DCF's evidenced-excess rule and an equity value-creation signal
+
+- **Problem**: a live sweep of JPM, BAC, WFC and C graded every one F on
+  valuation and scattered quality from A to F. Two causes. (1) The excess-return
+  model always faded ROE to the cost of equity with no continuing value. The
+  DCF had already replaced that default with an evidenced-excess convention
+  (`terminalRoic`, after the 2026-09-02 sweep graded 19 of 21 large caps D/F),
+  but the equity model was never moved with it, so JPM's price "required" a
+  53.8% starting ROTE against 20.7% earned. (2) Financial routes suppress
+  ROIC − WACC and name return on equity against the cost of equity as the
+  value-creation measure, but nothing scored it: quality rested on a 3-5
+  signal Piotroski battery, about 7% of its intended evidence.
+- **Options**: (a) leave both; (b) re-band the valuation and quality aspects
+  for financials; (c) apply the existing house conventions to the equity side.
+  (b) would need an outcome backtest this tree does not have.
+- **Choice**: (c). `excessReturnModel` reads a per-year return history against
+  each year's own cost of equity through `terminalRoic` (same constants: 4+
+  years, half the median spread, 5pp cap, 0.5pp floor); a carried spread is
+  valued past the horizon as residual income growing at
+  min(2.5%, risk-free), behind the DCF's 2pp CoE − g guard, and the reverse
+  solve uses the same terminal. On excess-return valuations the quality
+  aspect's ROIC − WACC slot (weight 0.35, `SPREAD_BAND`) is filled by
+  current return minus cost of equity. No band table moves.
+- **Evidence** (data and compute only, 2026-10-12): JPM value per share
+  144.61 -> 209.07, implied starting ROTE 53.8% -> 39.5%, quality F -> B;
+  WFC quality A -> B; BAC C -> C; C quality C -> D (it earns below its cost of
+  equity and carries no excess). AAPL (general route) unchanged. Valuation
+  stays F for all four: they also trade near the top of their own P/TBV
+  history, which is half the aspect.
+- **Compatibility**: no report shape change. Without a return history the
+  model behaves exactly as before. The DEMO/DBNK fixtures lack the history, so
+  only the quality-aspect note moves (`bank-equity-value-creation` group).
+
 ## D-40 (scenario horizon 2026-10-05) The horizon beside a computed target is set in code
 
 - **Problem**: AI reports replaced each scenario's price target with the

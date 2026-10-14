@@ -1,7 +1,16 @@
 /**
  * Version stamps after the 2026-10-04 audit follow-up, and legacy reads.
  * Report 1.10.0 and payload 1.11.0 admit a 3y/5y revenue CAGR to the DCF
- * growth anchor only when its measured span is its window (D-39). Earlier stamps:
+ * growth anchor only when its measured span is its window (D-39). Payload
+ * 1.12.0 (2026-10-13, D-42..D-45) carries a bank's corrected EDGAR tangible
+ * equity, the citable gap/manifest tags and the unit rows; a pass stored under
+ * 1.11.0 is never resumed. Payload 1.13.0 (2026-10-13, D-49) carries aspect
+ * scores from band table SCORE_BANDS_2026_10; a pass stored under 1.12.0 is
+ * never resumed. Payload 1.14.0 (D-46) grades a bank's balance sheet and
+ * shows the route metrics it is graded on; a pass stored under 1.13.0 is never
+ * resumed. Payload 1.15.0 (review of D-46..D-50) scores 52-week-high proximity
+ * and divides bank loan ratios by gross loans; a 1.14.0 pass is never resumed.
+ * Earlier stamps:
  *
  *  - REPORT_SPEC_VERSION 1.4.0: every share count and per-share figure is on
  *    the share basis of the price it meets, or withheld. A 1.3.0 report's
@@ -76,19 +85,19 @@ function newReport(): Report {
 describe("new version stamps", () => {
   it("stamps the growth-anchor CAGR span convention", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.10.0");
-    expect(PAYLOAD_VERSION).toBe("1.11.0");
+    expect(PAYLOAD_VERSION).toBe("1.15.0");
   });
 
   it("stamps a newly built report and payload with them", () => {
     expect(newReport().meta.specVersion).toBe("1.10.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.11.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.11\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.11\.0\)/);
+    expect(payload.payloadVersion).toBe("1.15.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.15\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.15\.0\)/);
   });
 
-  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
+  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     const prior = payloadFingerprint({ ...payload, payloadVersion: version });

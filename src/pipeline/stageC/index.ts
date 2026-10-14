@@ -30,7 +30,7 @@
  */
 
 import type { DataBundle } from "@/pipeline/types";
-import { parseSubscriptionModel } from "@/ai/contracts";
+import { CHATGPT_EFFORTS, parseSubscriptionModel, type ChatGptRunOptions } from "@/ai/contracts";
 import { runSubscriptionPass } from "@/ai/transport";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -76,12 +76,14 @@ import {
   scenarioTargetProvenanceId,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
+import type { PassContinuation } from "@/pipeline/stageC/continuation";
 import {
   canonicalizeTracedUnit,
   matchProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
 import {
   runAnalystRepairPass,
+  runAnalystContinuationPass,
   runBullPass,
   runBearPass,
   buildAnalystRunPassArgs,
@@ -91,6 +93,7 @@ import {
   runVerifyPass as runVerifyPass_,
   assembleReport as assembleReport_,
   BullBearOverlapLaunchFailure,
+  isTransientSubscriptionFailure,
   type PassDeps,
   type PassResult,
   type PassRun,
@@ -241,13 +244,29 @@ const runPassStreaming: RunPassStreamingFn = (args) => {
  * thinking tokens are billed as output and dominate per-pass cost, so this is
  * the user's cost/quality knob; the default stays "high".
  */
+/**
+ * The selected subscription options with the reasoning effort lowered by
+ * `steps`, floored at the lowest level. Only a captured explicit effort is
+ * lowered: the provider default is not a known level to step down from.
+ */
+export function steppedDownOptions(
+  options: ChatGptRunOptions | undefined,
+  steps: number | undefined,
+): ChatGptRunOptions | undefined {
+  if (!steps || steps <= 0 || options?.effort === undefined) return options;
+  const index = CHATGPT_EFFORTS.indexOf(options.effort);
+  return { ...options, effort: CHATGPT_EFFORTS[Math.max(0, index - steps)] };
+}
+
 function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
   if (parseSubscriptionModel(deps.analysisModel)) {
     const connectionId = deps.connectionId;
     if (!connectionId) throw new Error("Subscription pass is missing its captured account connection");
     return {
       model: deps.analysisModel, signal: deps.signal, jobSeed: deps.jobSeed,
-      runPass: (args) => runSubscriptionPass(args, connectionId, deps.subscriptionOptions),
+      // The plan endpoint closes any single response at 15 minutes.
+      sectionedOutput: true,
+      runPass: (args) => runSubscriptionPass(args, connectionId, steppedDownOptions(deps.subscriptionOptions, args.effortStepDown)),
       validateRunPass: (args) => {
         if (args.model !== deps.analysisModel || JSON.stringify(args.messages).length > 2_000_000) {
           throw new Error("Subscription pass changed model or exceeded the local input size limit");
@@ -319,6 +338,10 @@ class PassRunError extends Error {
     readonly retryable = false,
     /** Raw text of a received-but-invalid output, for repair-style retries. */
     readonly rawText?: string,
+    /** The pass failure kind ("schema", "parse", "transport", ...). */
+    readonly kind?: string,
+    /** Answer text streamed before a response was cut off (see stageC/continuation.ts). */
+    readonly partialText?: string,
   ) {
     super(message);
     this.name = "PassRunError";
@@ -359,13 +382,13 @@ function repairDetailsOf<T>(
 ): Partial<
   Pick<
     BullBearPassFailureDetails,
-    "bullRetryable" | "bearRetryable" | "bullRawText" | "bearRawText" | "bullFailureKind" | "bearFailureKind"
+    "bullRetryable" | "bearRetryable" | "bullRawText" | "bearRawText" | "bullFailureKind" | "bearFailureKind" | "bullPartialText" | "bearPartialText"
   >
 > {
   if (run.ok) return {};
   return side === "bull"
-    ? { bullRetryable: run.validationError !== undefined, bullRawText: run.rawText, bullFailureKind: run.error.kind }
-    : { bearRetryable: run.validationError !== undefined, bearRawText: run.rawText, bearFailureKind: run.error.kind };
+    ? { bullRetryable: run.validationError !== undefined || isTransientSubscriptionFailure(run), bullRawText: run.rawText, bullFailureKind: run.error.kind, bullPartialText: run.error.partialText }
+    : { bearRetryable: run.validationError !== undefined || isTransientSubscriptionFailure(run), bearRawText: run.rawText, bearFailureKind: run.error.kind, bearPartialText: run.error.partialText };
 }
 
 function passRunFailureMessage<T>(run: PassRun<T>, label: string): string {
@@ -389,8 +412,10 @@ function unwrap<T>(run: PassRun<T>, label: string): PassResult<T> {
   throw new PassRunError(
     passRunFailureMessage(run, label),
     billedAttemptFromRun(run),
-    run.validationError !== undefined,
+    run.validationError !== undefined || isTransientSubscriptionFailure(run),
     run.rawText,
+    run.error.kind,
+    run.error.partialText,
   );
 }
 
@@ -505,6 +530,8 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         request.bull.data,
         request.bear.data,
         request.validationFeedback,
+        undefined,
+        request.continuation,
       );
     } else {
       args = buildAnalystRunPassArgs(passDeps, deps.payload, request.pass);
@@ -567,6 +594,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     settlement?: PassSettlementHook<AnalystCase>,
     beforeProviderLaunch?: () => void | Promise<void>,
     validationFeedback?: string,
+    continuation?: PassContinuation,
   ): Promise<PassResultLike<AnalystCase>> {
     // Partial resume, or a repair attempt: the sibling's output is being
     // reused, so a lone pass simply writes (or re-reads) its own payload cache
@@ -574,7 +602,9 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     // tokens, so this path gets the provider's transport retries too.
     const passDeps = toPassDeps(deps);
     const run =
-      validationFeedback !== undefined
+      continuation !== undefined
+        ? await runAnalystContinuationPass(passDeps, deps.payload, side, continuation, settlement, beforeProviderLaunch)
+        : validationFeedback !== undefined
         ? await runAnalystRepairPass(passDeps, deps.payload, side, validationFeedback, settlement, beforeProviderLaunch)
         : side === "bull"
           ? await runBullPass(passDeps, deps.payload, settlement, beforeProviderLaunch)
@@ -589,6 +619,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     validationFeedback?: string,
     settlement?: PassSettlementHook<JudgeOutput>,
     beforeProviderLaunch?: () => void | Promise<void>,
+    continuation?: PassContinuation,
   ): Promise<PassResultLike<JudgeOutput>> {
     const passDeps = toPassDeps(deps);
     const run = await runJudgePass_(
@@ -599,6 +630,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
       validationFeedback,
       settlement,
       beforeProviderLaunch,
+      continuation,
     );
     // WS7 (D-20): keep the protocol for assembly. Recorded before `unwrap`
     // throws on a failed pass, so a judge retry's protocol never leaks into the

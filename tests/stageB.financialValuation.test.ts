@@ -92,6 +92,65 @@ describe("excessReturnModel — the model's shape is stated, not implied", () =>
   });
 });
 
+describe("excessReturnModel — evidenced excess returns (D-41)", () => {
+  // ROE 15% against a 10% cost of equity in each of five years: median spread
+  // 5pp, half of it (2.5pp) carried in perpetuity under the DCF's convention.
+  const durable = [2021, 2022, 2023, 2024, 2025].map((y) => ({ date: `${y}-12-31`, roicPct: 15, waccPct: 10 }));
+
+  it("carries half the median spread past the horizon and says so", () => {
+    const plain = excessReturnModel(BASE);
+    const r = excessReturnModel({ ...BASE, roeHistory: durable, riskFreePct: 4 });
+
+    expect(r.roePathPct.value.at(-1)).toBeCloseTo(12.5, 10);
+    expect(r.equityValue!).toBeGreaterThan(plain.equityValue!);
+    expect(r.terminalExcess).toBeGreaterThan(0);
+    expect(r.horizonYears.basis).toContain("year-N excess is NOT zero");
+    expect(r.horizonYears.basis).toContain("growing at 2.5%");
+    expect(r.notes.join(" ")).toContain("evidenced excess");
+  });
+
+  it("values the continuing excess as a growing perpetuity (arithmetic pinned by hand)", () => {
+    // One-year horizon, ROE already at the 12.5% terminal target:
+    //   Y1 excess (0.125 − 0.10) x 1000 = 25; PV 25/1.1 = 22.7272...
+    //   BV1 = 1000 x (1 + 0.125 x 0.5) = 1062.5
+    //   CV1 = 0.025 x 1062.5 / (0.10 − 0.025) = 354.1666...; PV /1.1 = 321.9696...
+    const r = excessReturnModel({ ...BASE, years: 1, roeHistory: durable, riskFreePct: 4 });
+    expect(r.equityValue).toBeCloseTo(1_000 + 25 / 1.1 + (0.025 * 1_062.5) / 0.075 / 1.1, 6);
+  });
+
+  it("keeps the competitive fade when any year fell to the cost of equity", () => {
+    const broken = durable.map((y, i) => (i === 2 ? { ...y, roicPct: 9 } : y));
+    const r = excessReturnModel({ ...BASE, roeHistory: broken });
+    expect(r.equityValue).toBeCloseTo(excessReturnModel(BASE).equityValue!, 8);
+    expect(r.terminalExcess).toBe(0);
+    expect(r.notes.join(" ")).toContain("at or below that year's cost of equity");
+  });
+
+  it("does not carry the excess when the cost of equity leaves less than 2pp over g", () => {
+    const tight = durable.map((y) => ({ ...y, roicPct: 7, waccPct: 4 }));
+    const r = excessReturnModel({ ...BASE, costOfEquityPct: 4, currentRoePct: 7, roeHistory: tight, riskFreePct: 3 });
+    expect(r.terminalExcess).toBe(0);
+    expect(r.notes.join(" ")).toContain("not carried");
+  });
+
+  it("reverse-solves against the same terminal, so a book-priced issuer needs a lower starting ROE", () => {
+    const priced = { ...BASE, marketCap: 1_500 };
+    const plain = excessReturnModel(priced).reverseSolve.impliedCurrentRoePct!;
+    const carried = excessReturnModel({ ...priced, roeHistory: durable, riskFreePct: 4 }).reverseSolve.impliedCurrentRoePct!;
+    expect(carried).toBeLessThan(plain);
+    // The solved start reproduces the market cap under the carried terminal
+    // (within the bisection's tolerance).
+    const check = excessReturnModel({ ...priced, currentRoePct: carried, roeHistory: durable, riskFreePct: 4 });
+    expect(Math.abs(check.equityValue! - 1_500) / 1_500).toBeLessThan(0.001);
+  });
+
+  it("an explicit terminal override still wins over the evidence", () => {
+    const r = excessReturnModel({ ...BASE, roeHistory: durable, analystImpliedRoePct: 14 });
+    expect(r.roePathPct.value.at(-1)).toBe(14);
+    expect(r.horizonYears.basis).toContain("caller-supplied terminal ROE of 14%");
+  });
+});
+
 describe("excessReturnModel — P/TBV against ROTE", () => {
   it("divides market cap by TANGIBLE common equity and pairs it with ROTE", () => {
     const r = excessReturnModel({

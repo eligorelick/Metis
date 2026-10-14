@@ -156,6 +156,7 @@ const ASPECT_SCORE_ORDER = [
   "band",
   "weightPct",
   "dataCompleteness",
+  "applicableCompleteness",
   "drivers",
   "notApplicableReason",
   "note",

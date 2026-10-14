@@ -33,6 +33,7 @@ import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { estimateCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
+import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import type { TracedNumber } from "@/report/schema";
 import {
   PROJECTION_PATH_ORDER,
@@ -49,6 +50,7 @@ import {
   type CitationProvenanceRecord,
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
+import { proseNumbers } from "@/pipeline/stageC/consistency";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -247,7 +249,26 @@ export interface ContextPayload {
 // calendar-aligned FRED lags change evidence; prior partial passes cannot resume.
 // 1.11.0 (D-39, 2026-10-05): growth-anchor CAGR span rule changes the DCF
 // evidence sent to analysts; prior partial passes cannot resume.
-export const PAYLOAD_VERSION = "1.11.0" as const;
+// 1.12.0 (D-42..D-45, 2026-10-13): a bank's EDGAR tangible equity deducts its
+// carrying-value preferred and all non-goodwill intangibles; every printed tag
+// is citable (gap / unestablished kinds, manifest tags, the weights row); the
+// next earnings date is shown; completeness and indicator units have their
+// own rows. Analyst work written against the 1.11.0 evidence cannot resume.
+// 1.13.0 (D-49, D-48, 2026-10-13): the aspect scores the analysts anchor to
+// come from band table SCORE_BANDS_2026_10, which scores net share-count
+// change and the SBC charge once each and grades technicals on 12-1 month
+// relative strength; the technicals rows add that window and the displayed
+// 6-month window vs SPY. Prior partial passes cannot resume.
+// 1.14.0 (D-46, 2026-10-13): a bank's balance-sheet score is graded on capital,
+// credit and funding, and a bank payload gains the section of route metrics it
+// is computed from. Prior partial passes cannot resume. D-47 (same 1.14.0)
+// adds the display-only HTM, reserve and loan-growth rows and the warning signs.
+// 1.15.0 (review of D-46..D-50, 2026-10-13): the technicals score reads the
+// distance below the 52-week high (driver pctFromHigh52w, not position52w); a
+// bank's loan ratios divide by gross loans first; the bank capital note and
+// tangible-leverage caveat no longer call the house cut point a regulatory
+// line. Prior partial passes cannot resume.
+export const PAYLOAD_VERSION = "1.15.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -317,6 +338,18 @@ export function truncateWithDisclosure(
   const marker = maxChars >= full.length + 1 ? full : `${TRUNCATION_MARKER}]`.slice(0, Math.max(0, maxChars));
   const keep = Math.max(0, maxChars - marker.length);
   return { text: text.slice(0, keep) + marker, truncated: true, originalChars };
+}
+
+/**
+ * The part of an excerpt a cited number may be read against (D-45): the text
+ * the model was shown, minus the truncation marker this assembler appended —
+ * the marker's own counts ("12,345 of 98,765 chars omitted") are not
+ * evidence. An untruncated excerpt is returned whole.
+ */
+export function excerptBodyForVerification(excerpt: TextExcerpt): string {
+  if (!excerpt.truncated) return excerpt.text;
+  const at = excerpt.text.lastIndexOf(TRUNCATION_MARKER);
+  return at < 0 ? excerpt.text : excerpt.text.slice(0, at).replace(/\s+$/, "");
 }
 
 /** Render a figure's provenance tag: "[source · as-of]" or "[source]". */
@@ -437,6 +470,22 @@ function computedCurrencies(bundle: DataBundle, computed: ComputedMetrics): Comp
   };
 }
 
+/** Bank route metrics shown to the analysts, in display order (D-46). */
+const BANK_PAYLOAD_METRICS = [
+  "tangibleLeverage",
+  "ncoToAverageLoans",
+  "nplRatio",
+  "loansToDeposits",
+  "cet1Reported",
+  // D-47: display only, never graded.
+  "htmUnrealizedLossNet",
+  "htmLossAfterTax",
+  "htmLossToTce",
+  "markedTceRatio",
+  "aclToLoans",
+  "loanCagr3y",
+] as const;
+
 /** Stage B computed-metrics sections — the analytical spine of the payload. */
 function computedSections(
   computed: ComputedMetrics,
@@ -539,6 +588,75 @@ function computedSections(
   ];
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
 
+  // --- Bank capital, credit and funding (D-46) ------------------------------
+  // The route metrics the bank balance-sheet grade is computed from, as rows
+  // the analysts can cite. Notes stay digit-free: every number a sentence may
+  // state is a row above them.
+  const fm = computed.financialMetrics as ComputedMetrics["financialMetrics"] | undefined;
+  if (fm?.route === "bank") {
+    const bankFigures: PayloadFigureInput[] = [];
+    for (const key of BANK_PAYLOAD_METRICS) {
+      const m = fm.metrics.find((x) => x.key === key);
+      if (m === undefined) continue;
+      bankFigures.push({
+        label: m.label,
+        value: m.withheldReason === null ? m.value : null,
+        unit: m.unit,
+        currency: m.currency ?? null,
+        source: `computed.financialMetrics.${m.key}`,
+        asOf: m.asOf,
+      });
+    }
+    const htmAfterTax = fm.metrics.find((x) => x.key === "htmLossAfterTax");
+    if (htmAfterTax !== undefined && htmAfterTax.withheldReason === null) {
+      // The after-tax loss rests on an assumed rate; the rate is a row so a
+      // sentence stating it has a record to cite.
+      bankFigures.push({
+        label: "tax rate assumed on held-to-maturity losses (US federal statutory rate)",
+        value: HTM_LOSS_TAX_RATE_PCT,
+        unit: "%",
+        source: "computed.financialMetrics.htmLossAfterTax.taxRate",
+        asOf: htmAfterTax.asOf,
+      });
+    }
+    // D-47: each evaluable warning sign as its value, its threshold and its
+    // status, all citable. Caveats go to the notes, digit-free.
+    const flags = fm.flags ?? [];
+    for (const f of flags) {
+      const src = `computed.financialMetrics.flags.${f.key}`;
+      bankFigures.push(
+        { label: `warning sign, ${f.label}: value`, value: f.value, unit: f.unit, source: `${src}.value`, asOf: f.asOf },
+        { label: `warning sign, ${f.label}: threshold (heuristic, not validated)`, value: f.threshold, unit: f.unit, source: `${src}.threshold`, asOf: f.asOf },
+        { label: `warning sign, ${f.label}: status`, value: f.triggered ? "triggered" : "not triggered", unit: "", source: src, asOf: f.asOf },
+      );
+    }
+    sections.push(payloadSection({
+      title: "Bank capital, credit and funding (computed — public-filing proxies, not a supervisory rating)",
+      figures: bankFigures,
+      notes: [
+        "These are proxies built from public filings for a bank's capital, credit quality and funding. Management " +
+          "quality and interest-rate sensitivity cannot be observed from them, and no supervisory rating is used.",
+        "Tangible common equity / tangible assets is a leverage ratio, not CET1. It is not comparable across business " +
+          "models: custody and trust banks run thin leverage and low loans / deposits by design. CET1 is shown only " +
+          "when the filer tags it and is never graded.",
+        "Held-to-maturity securities are carried at amortised cost, so their unrealised loss is in neither book nor " +
+          "regulatory capital. The marked ratio deducts only that loss: available-for-sale losses are already in " +
+          "tangible common equity. The loss would be realised only if deposits had to be funded by selling the " +
+          "securities; a sticky deposit base offsets it.",
+        ...(flags.length === 0
+          ? []
+          : [
+              "Warning signs use heuristic thresholds that have not been validated. They are shown, not graded. " +
+                "Discuss every triggered one; a count of warning signs is not a probability of anything.",
+              // One note per caveat; two HTM signs share theirs.
+              ...[...new Set(flags.map((f) => f.caveat))].map(
+                (caveat) => `${flags.filter((f) => f.caveat === caveat).map((f) => f.label).join("; ")}: ${caveat}`,
+              ),
+            ]),
+      ],
+    }));
+  }
+
   // --- Forensics -----------------------------------------------------------
   const fx = computed.forensics;
   const forensicFigures: PayloadFigureInput[] = [
@@ -561,15 +679,28 @@ function computedSections(
 
   // --- Technicals ----------------------------------------------------------
   const t = computed.technicals;
+  const rs = t.relativeStrength.benchmark;
   const techFigures: PayloadFigureInput[] = [
     { label: "last close", value: t.lastClose, unit: "currency/share", currency: currencies.trading, source: "computed.technicals", asOf: t.asOf },
     { label: "SMA50", value: t.smaCross.sma50, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
     { label: "SMA200", value: t.smaCross.sma200, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
-    { label: "RSI-14", value: t.rsi14, unit: "", source: "computed.technicals.rsi14", asOf: t.asOf },
-    { label: "MACD histogram", value: t.macd.histogram, unit: "", source: "computed.technicals.macd", asOf: t.asOf },
+    // D-44: these rows printed no unit at all, so the judge wrote one of its
+    // own ("RSI", "RSI index", "MACD histogram") and 8 of reports 25/26's key
+    // numbers failed as unit-mismatch. "index" is the registry's existing
+    // dimensionless bucket for them (the record is unchanged); for the MACD
+    // histogram, a difference of price averages, it is that bucket and not
+    // the figure's true dimension.
+    { label: "RSI-14", value: t.rsi14, unit: "index", source: "computed.technicals.rsi14", asOf: t.asOf },
+    { label: "MACD histogram", value: t.macd.histogram, unit: "index", source: "computed.technicals.macd", asOf: t.asOf },
     { label: "52w high", value: t.range52w.high52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "52w low", value: t.range52w.low52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "% from 52w high", value: t.range52w.pctFromHigh, unit: "%", source: "computed.technicals.range52w", asOf: t.asOf },
+    // D-48: the scored momentum signal, as of its own window end (a month
+    // before the latest close), and the 6-month window, which is no longer
+    // scored but stays visible. n/a rows are withheld windows; the reason is
+    // in the gap list.
+    { label: "relative strength vs SPY, 12-1 month (latest month skipped)", value: rs.momentum12m1m?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.12m1m", asOf: rs.momentum12m1m?.endDate ?? null },
+    { label: "relative strength vs SPY, 6-month", value: rs.points.find((p) => p.months === 6)?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.6mo", asOf: rs.asOf },
     { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.read", asOf: t.asOf },
     { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.read", asOf: t.asOf },
   ];
@@ -592,7 +723,7 @@ function computedSections(
     // value were only inferable from prose.
     valFigures.push(
       { label: "excess-return per share", value: val.excessReturn.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: null },
-      { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
+      { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "years", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
       { label: "cost of equity (the model's only discount rate)", value: val.excessReturn.costOfEquityPct.value, unit: "%", source: "computed.valuation.excessReturn.costOfEquityPct", asOf: null },
       { label: "opening book equity (BV0)", value: val.excessReturn.openingBookValue.value, unit: "currency", currency: currencies.model, source: "computed.valuation.excessReturn.openingBookValue", asOf: val.excessReturn.asOf },
       { label: "P/TBV", value: val.excessReturn.priceToTangibleBookVsRote.pTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
@@ -637,8 +768,19 @@ function computedSections(
       scoreFigures.push({
         label: `${key} score`,
         value: a.score,
-        unit: `0-100 (grade ${a.band ?? "n/a"}, completeness ${a.dataCompleteness})`,
+        unit: `0-100 (grade ${a.band ?? "n/a"})`,
         source: `computed.scores.${key}`,
+        asOf: null,
+      });
+      // D-44: completeness was shown only inside the score's unit qualifier,
+      // which no record carries, so the true "quality evidence completeness
+      // 0.4" in report 26 could only be cited against the score record and
+      // failed. Its own row gives it its own id and unit.
+      scoreFigures.push({
+        label: `${key} evidence completeness`,
+        value: a.dataCompleteness,
+        unit: "fraction",
+        source: `computed.scores.${key}.dataCompleteness`,
         asOf: null,
       });
     }
@@ -681,15 +823,31 @@ function computedSections(
       if (b5) projFigures.push({ label: `${s.metric} bull ${b5.period}`, value: b5.value.value, unit: s.unit, currency: b5.value.currency, period: b5.period, source: `computed.projections.${s.metric}.bull`, asOf: b5.value.asOf });
       if (be5) projFigures.push({ label: `${s.metric} bear ${be5.period}`, value: be5.value.value, unit: s.unit, currency: be5.value.currency, period: be5.period, source: `computed.projections.${s.metric}.bear`, asOf: be5.value.asOf });
     }
+    // The weights as a citable row (D-43). They were printed only inside the
+    // section title, so a sentence about them had no tag to cite and the
+    // model fell back on the prompt's own style example. The row's text names
+    // the three numbers, which become the only numbers a sentence citing it
+    // may state (attachProvenanceRegistry, allowedNumbers).
+    const pct = (w: number): number => Math.round(w * 1000) / 10;
+    projFigures.push({
+      label: "scenario weights bull/base/bear in percent (fixed, unbacktested prior; not calibrated probabilities)",
+      value: `${pct(pr.scenarioWeights.bull)}/${pct(pr.scenarioWeights.base)}/${pct(pr.scenarioWeights.bear)}`,
+      unit: "",
+      source: "computed.projections.scenarioWeights",
+      asOf: null,
+    });
     sections.push(payloadSection({
       title: `Weighted projections (computed — ${pr.horizonYears}y forward, prob-weighted ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
       figures: projFigures,
       notes: projectionSeries[0]?.assumptions ?? [],
     }));
   } else if (computed.projections && computed.projections.notApplicableReason) {
+    // No weights here: nothing is weighted on this route, so none are shown.
+    // The n/a row gives "probability-weighted forecasts are unavailable" a
+    // gap tag to cite (D-43; report 26 cited "unsupported" for it).
     sections.push(payloadSection({
       title: "Weighted projections (computed)",
-      figures: [],
+      figures: [{ label: "weighted projections", value: null, unit: "", source: "computed.projections", asOf: null }],
       notes: [`not applicable: ${computed.projections.notApplicableReason}`],
     }));
   }
@@ -858,7 +1016,30 @@ function estimatesSection(bundle: DataBundle): PayloadSection {
         `(strongBuy ${numOrNull(grades.strongBuy) ?? "n/a"}, buy ${numOrNull(grades.buy) ?? "n/a"}, hold ${numOrNull(grades.hold) ?? "n/a"}, sell ${numOrNull(grades.sell) ?? "n/a"}, strongSell ${numOrNull(grades.strongSell) ?? "n/a"})`,
     );
   }
+  const nextEarnings = nextEarningsNote(bundle);
+  if (nextEarnings !== null) notes.push(nextEarnings);
   return payloadSection({ title: "Analyst estimates & targets", figures, notes });
+}
+
+/**
+ * The next scheduled earnings date, as one note ending in an assembler-owned
+ * tag that `attachProvenanceRegistry` registers. Until 2026-10-13 the bundle
+ * derived this date and nothing rendered it, so with a Finnhub key set the
+ * manifest said "dataFallback.earningsCalendarNext: Supplied by Finnhub" while
+ * no date reached the model. Only the date is rendered: the row's estimated
+ * EPS and revenue carry no currency, so they stay out. Every piece of the note
+ * is assembler-controlled — the source is allowlisted and both dates must be
+ * real ISO days — so no provider text can forge the trailing tag.
+ */
+function nextEarningsNote(bundle: DataBundle): string | null {
+  const next = bundle.earningsCalendarNext;
+  if (!next.ok) return null;
+  const source = next.value.source;
+  if (source !== "fmp" && source !== "finnhub") return null;
+  const date = typeof next.value.data.date === "string" ? next.value.data.date.slice(0, 10) : "";
+  const asOf = next.value.asOf;
+  if (!isFullIsoDate(date) || !isFullIsoDate(asOf)) return null;
+  return `next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): ${date} [${source}:earnings-calendar · ${asOf}]`;
 }
 
 function peersSection(bundle: DataBundle): PayloadSection {
@@ -901,7 +1082,8 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       figures.push({
         label: `MSPR ${m.year}-${String(m.month).padStart(2, "0")}`,
         value: m.mspr,
-        unit: "",
+        // A bare unit to copy (D-44); "" and "index" register identically.
+        unit: "index",
         source: "finnhub:insider-sentiment",
         asOf: `${m.year}-${String(m.month).padStart(2, "0")}-01`,
       });
@@ -1190,6 +1372,19 @@ export function scenarioTargetProvenanceId(name: string): string {
 export const FAIR_VALUE_PROVENANCE_ID =
   "payload.computed.fair-value.per-share" as const;
 
+/**
+ * The citable tag of one missing-data manifest entry: `manifest.<field>`
+ * (D-43). Until 2026-10-13 manifest lines carried no tag, and the prompt told
+ * the model to "preserve an explicit unsupported state" when it had none, so
+ * every data-gap statement (no insider activity, no estimate history) was
+ * written with the source "unsupported" and failed verification. Null when the
+ * field could not be written back as one source id (a bracket, the date
+ * separator or whitespace in it); that line then renders untagged.
+ */
+export function manifestCitationId(field: string): string | null {
+  return /^[^\s[\]·]+$/.test(field) ? `manifest.${field}` : null;
+}
+
 function periodFromLabel(label: string): string | null {
   return label.match(/\b(?:FY\d{4}|\d{4}-\d{2}-\d{2})\b/)?.[0] ?? null;
 }
@@ -1214,10 +1409,25 @@ function attachProvenanceRegistry(
 ): ContextPayload {
   const registry: NumericProvenanceRecord[] = [];
   const citationRegistry: CitationProvenanceRecord[] = [];
-  const citationKeys = new Set<string>();
   const idCounts = new Map<string, number>();
 
-  const registerCitation = (id: string, asOf: string | null, origin = id): void => {
+  const citationIndex = new Map<string, CitationProvenanceRecord>();
+  // D-43: when one tag+date is printed on rows of different kinds, an
+  // unestablished figure outranks text, so its number never verifies through
+  // the text row; text outranks a bare gap, because the text row's content
+  // really is shown under that tag.
+  const KIND_RANK: Record<CitationProvenanceRecord["kind"], number> = {
+    "payload-gap": 0,
+    "payload-text": 1,
+    "payload-unestablished": 2,
+  };
+  const registerCitation = (
+    id: string,
+    asOf: string | null,
+    origin = id,
+    kind: CitationProvenanceRecord["kind"] = "payload-text",
+    extra: { currencyUnknown?: boolean; allowedNumbers?: number[]; allowedDates?: string[] } = {},
+  ): void => {
     // Provider dates reach this boundary unvalidated. validateCitationRegistry
     // is deliberately fail-loud on a malformed date, and its throw is not caught
     // before the runner unexpected-failure path — so one bad provider date
@@ -1226,9 +1436,32 @@ function attachProvenanceRegistry(
     // citable, its untrustworthy date simply becomes unknown.
     const safeAsOf = asOf !== null && isIsoDate(asOf) ? asOf : null;
     const key = `${id}\u0000${safeAsOf ?? ""}`;
-    if (!id.trim() || citationKeys.has(key)) return;
-    citationKeys.add(key);
-    citationRegistry.push({ id, kind: "payload-text", asOf: safeAsOf, origin });
+    if (!id.trim()) return;
+    const existing = citationIndex.get(key);
+    if (existing !== undefined) {
+      if (KIND_RANK[kind] > KIND_RANK[existing.kind]) existing.kind = kind;
+      if (extra.currencyUnknown) existing.currencyUnknown = true;
+      // A text row that names numbers restricts the tag to the numbers its
+      // rows show; a row naming none adds nothing to the list.
+      if (extra.allowedNumbers !== undefined) {
+        existing.allowedNumbers = [...(existing.allowedNumbers ?? []), ...extra.allowedNumbers];
+      }
+      if (extra.allowedDates !== undefined) {
+        existing.allowedDates = [...(existing.allowedDates ?? []), ...extra.allowedDates];
+      }
+      return;
+    }
+    const record: CitationProvenanceRecord = {
+      id,
+      kind,
+      asOf: safeAsOf,
+      origin,
+      ...(extra.currencyUnknown ? { currencyUnknown: true as const } : {}),
+      ...(extra.allowedNumbers === undefined ? {} : { allowedNumbers: extra.allowedNumbers }),
+      ...(extra.allowedDates === undefined ? {} : { allowedDates: extra.allowedDates }),
+    };
+    citationIndex.set(key, record);
+    citationRegistry.push(record);
   };
 
   const uniqueId = (base: string): string => {
@@ -1242,30 +1475,61 @@ function attachProvenanceRegistry(
     figure: PayloadFigure,
     kind: NumericProvenanceRecord["kind"],
   ): void => {
+    // Every row prints its tag (formatFigure), and the prompt says "Cite that
+    // tag", so every row that does not become a numeric record is registered
+    // as a citation of the kind it is (D-43). Until 2026-10-13 an n/a row or
+    // a money row of unknown currency printed a tag nothing registered, and
+    // every claim citing it — "EBIT interest coverage is not meaningful for
+    // this bank" on computed.capital.interestCoverage, a compensation row's
+    // named officer — failed as unknown-source.
+    const shownAsOf = isFullIsoDate(figure.asOf) ? figure.asOf : null;
     if (typeof figure.value !== "number" || !Number.isFinite(figure.value)) {
-      if (figure.value !== null) {
+      if (figure.value === null) {
+        registerCitation(figure.source, shownAsOf, figure.source, "payload-gap");
+      } else {
+        const shown = typeof figure.value === "string" ? proseNumbers(figure.value) : [];
         registerCitation(
           figure.source,
-          isFullIsoDate(figure.asOf) ? figure.asOf : null,
+          shownAsOf,
+          figure.source,
+          "payload-text",
+          shown.length > 0 ? { allowedNumbers: shown } : {},
         );
       }
       return;
     }
     // The figure's own currency (or an ISO code in its unit) — never a
     // payload-wide default. A money figure nothing establishes stays unknown
-    // and is not registered, so no citation of it can verify in any currency.
+    // and is not registered as a number, so no citation of it can verify in
+    // any currency; its printed tag becomes an unestablished citation, which
+    // supports number-free prose only (passes.ts claimSourceMatch) and fails a
+    // sentence that puts a currency on it (consistency.ts).
+    const unestablished = (currencyUnknown: boolean): void => {
+      registerCitation(figure.source, shownAsOf, figure.source, "payload-unestablished", {
+        currencyUnknown,
+      });
+    };
     const canonical = canonicalizeTracedUnit(figure.unit, figure.currency);
-    if (canonical === null) return;
+    if (canonical === null) {
+      unestablished(false);
+      return;
+    }
     const { unit } = canonical;
     const monetary = unit === "currency" || unit === "currency-per-share";
     const resolvedCurrency = monetary ? canonical.currency : null;
-    if (monetary && resolvedCurrency === null) return;
+    if (monetary && resolvedCurrency === null) {
+      unestablished(true);
+      return;
+    }
     const asOf = isFullIsoDate(figure.asOf)
       ? figure.asOf
       : kind === "computed" && isFullIsoDate(computationAsOf)
         ? computationAsOf
         : null;
-    if (asOf === null) return;
+    if (asOf === null) {
+      unestablished(false);
+      return;
+    }
 
     const id = uniqueId(`${prefix}.${semanticSlug(figure.label)}`);
     figure.provenanceId = id;
@@ -1331,22 +1595,40 @@ function attachProvenanceRegistry(
     const blockName = semanticSlug(block.title);
     for (const line of block.lineItems) {
       for (const cell of line.byPeriod) {
-        if (
-          cell.value === null ||
-          !Number.isFinite(cell.value) ||
-          !isFullIsoDate(cell.period) ||
-          !isFullIsoDate(cell.asOf)
-        ) continue;
+        // A null cell renders "period=n/a" with no tag, so there is nothing
+        // to register. A cell that prints a number but cannot become a record
+        // prints the line's raw tag (renderStatement); register that tag as
+        // unestablished so number-free prose may cite it and no number can
+        // (D-43, e.g. a quarter's balance cell of unknown currency).
+        if (cell.value === null || !Number.isFinite(cell.value)) continue;
+        const unestablished = (currencyUnknown: boolean): void => {
+          registerCitation(line.source, cell.asOf, line.source, "payload-unestablished", {
+            currencyUnknown,
+          });
+        };
+        if (!isFullIsoDate(cell.period) || !isFullIsoDate(cell.asOf)) {
+          unestablished(false);
+          continue;
+        }
         const unitOnly = canonicalizeTracedUnit(line.unit, null);
-        if (unitOnly === null) continue;
+        if (unitOnly === null) {
+          unestablished(false);
+          continue;
+        }
         const monetary = unitOnly.unit === "currency" || unitOnly.unit === "currency-per-share";
         const canonical = canonicalizeTracedUnit(
           line.unit,
           monetary ? cell.currency : null,
         );
-        if (canonical === null) continue;
+        if (canonical === null) {
+          unestablished(false);
+          continue;
+        }
         const { unit } = canonical;
-        if (monetary && canonical.currency === null) continue;
+        if (monetary && canonical.currency === null) {
+          unestablished(true);
+          continue;
+        }
         const id = uniqueId(
           `payload.statements.${blockName}.${cell.period}.${semanticSlug(line.lineItem)}`,
         );
@@ -1386,6 +1668,13 @@ function attachProvenanceRegistry(
   for (const excerpt of [payload.transcript, ...payload.filings]) {
     if (excerpt !== null) registerCitation(excerpt.source, excerpt.asOf, excerpt.source);
   }
+  // Each manifest line renders its own `[manifest.<field>]` tag
+  // (serializePayloadForPrompt). A gap record: it supports the statement that
+  // the data is absent and never a number.
+  for (const entry of payload.missingData) {
+    const id = manifestCitationId(entry.field);
+    if (id !== null) registerCitation(id, null, entry.field, "payload-gap");
+  }
   // News/press rows are rendered as inert text with one assembler-owned source
   // tag at the end. Parse only that final, allowlisted tag; never register a tag
   // embedded inside provider-controlled title/body text.
@@ -1405,6 +1694,16 @@ function attachProvenanceRegistry(
   for (const note of payload.leadership.notes) {
     const match = /\[(fmp:key-executives)\]$/.exec(note);
     if (match) registerCitation(match[1], null, match[1]);
+  }
+  // The next-earnings note (nextEarningsNote) is wholly assembler-built; the
+  // same anchored, allowlisted parse keeps any other estimates note — the
+  // grades line carries provider strings — from registering a source. The
+  // note's one date is the only date a sentence citing it may state
+  // (allowedDates; review, 2026-10-13): registered as plain text, "reports on
+  // 2027-02-14" verified against a note that says 2027-01-14.
+  for (const note of payload.estimates.notes) {
+    const match = /: (\d{4}-\d{2}-\d{2}) \[((?:fmp|finnhub):earnings-calendar) · (\d{4}-\d{2}-\d{2})\]$/.exec(note);
+    if (match) registerCitation(match[2], match[3], match[2], "payload-text", { allowedDates: [match[1]] });
   }
 
   // The full deterministic Stage B blocks are attached to the report only after
@@ -1745,7 +2044,8 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
   const missing = ["## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4)"];
   if (payload.missingData.length === 0) missing.push("- (no recorded gaps)");
   for (const m of payload.missingData) {
-    missing.push(`- [${m.severity}] ${m.field}: ${m.reason}`);
+    const id = manifestCitationId(m.field);
+    missing.push(`- [${m.severity}] ${m.field}: ${m.reason}${id === null ? "" : ` ${provenanceTag(id, null)}`}`);
   }
   parts.push(missing.join("\n"));
 

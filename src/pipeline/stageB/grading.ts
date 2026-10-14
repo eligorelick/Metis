@@ -32,6 +32,7 @@ import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
 import type { CapitalResult } from "@/pipeline/stageB/capital";
+import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import type { ValuationResult } from "@/pipeline/stageB/valuation";
@@ -44,7 +45,7 @@ import type {
 } from "@/report/schema";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_07" as const;
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives
@@ -164,6 +165,12 @@ function scoreAspect(
   note: string,
   policy: MetricPolicy,
   notApplicableReason: string | null = null,
+  /**
+   * Reason shown when no signal had data. Unlike `notApplicableReason`, the
+   * aspect stays route-applicable, so its absence still counts as missing
+   * evidence in the composite.
+   */
+  noDataReason: string | null = null,
 ): ScoredAspect {
   const drivers: TracedNumber[] = [];
   let acc = 0;
@@ -197,9 +204,13 @@ function scoreAspect(
         band: null,
         weightPct,
         dataCompleteness: 0,
+        // D-50 review: null when the route cannot score the aspect at all, so
+        // the confidence ceiling does not read "not applicable" as "unscored".
+        applicableCompleteness: notApplicableReason !== null || applicableWeight === 0 ? null : 0,
         drivers,
         notApplicableReason:
           notApplicableReason ??
+          noDataReason ??
           "no applicable signals available for this route — aspect not scored",
         note,
       },
@@ -220,6 +231,7 @@ function scoreAspect(
       band: scoreToBand(score),
       weightPct,
       dataCompleteness: round2(usedWeight / totalWeight),
+      applicableCompleteness: round2(usedWeight / applicableWeight),
       drivers,
       notApplicableReason: null,
       note,
@@ -334,14 +346,6 @@ const SBC_FCF_BAND: readonly BandPoint[] = [
   [50, 30],
   [100, 10],
 ];
-// SBC as % of revenue: lower better.
-const SBC_REV_BAND: readonly BandPoint[] = [
-  [0, 88],
-  [3, 68],
-  [8, 46],
-  [15, 24],
-  [25, 10],
-];
 // Share-count annualised change (percent): buybacks (negative) reward.
 const SHARE_TREND_BAND: readonly BandPoint[] = [
   [-8, 90],
@@ -409,15 +413,6 @@ const ACCRUALS_ABS_BAND: readonly BandPoint[] = [
   [0.2, 38],
   [0.4, 16],
 ];
-// RSI-14 (0–100): momentum, with an overbought haircut past ~75.
-const RSI_BAND: readonly BandPoint[] = [
-  [20, 28],
-  [40, 52],
-  [55, 70],
-  [70, 80],
-  [80, 62],
-  [90, 45],
-];
 // SMA50/SMA200 gap (percent): trend strength.
 const SMA_GAP_BAND: readonly BandPoint[] = [
   [-10, 22],
@@ -426,20 +421,78 @@ const SMA_GAP_BAND: readonly BandPoint[] = [
   [3, 70],
   [10, 86],
 ];
-// 52-week position (percent 0–100).
-const POSITION_BAND: readonly BandPoint[] = [
-  [10, 30],
-  [40, 52],
-  [60, 68],
-  [85, 86],
+/**
+ * Proximity to the 52-week high: (close / 52-week high − 1) × 100, ≤ 0 (D-48,
+ * corrected on review 2026-10-13). George & Hwang (2004) rank on price / 52-week
+ * high; the range position (close − low) / (high − low) it replaced ranks
+ * differently (a stock 4% off a narrow range's high read 20%). A house
+ * convention, not fitted: the paper gives the direction, not these cut points.
+ */
+const HIGH_PROXIMITY_BAND: readonly BandPoint[] = [
+  [-50, 15],
+  [-30, 30],
+  [-15, 50],
+  [-5, 70],
+  [0, 85],
 ];
-// Relative strength vs SPY, 6-month differential (pp).
-const REL_STRENGTH_BAND: readonly BandPoint[] = [
-  [-25, 22],
-  [-5, 48],
-  [0, 55],
-  [10, 72],
-  [30, 90],
+/**
+ * 12-1 month relative strength vs SPY (pp), D-48. A house convention, not
+ * fitted: monotone, neutral (50) at zero, anchored on the 3-12 month winner-
+ * minus-loser spread of about 1%/month (Jegadeesh & Titman 1993), so +20pp —
+ * roughly a year of that spread — reads 75 and the scale flattens at ±30-40pp.
+ */
+const REL_STRENGTH_12M1M_BAND: readonly BandPoint[] = [
+  [-30, 15],
+  [0, 50],
+  [20, 75],
+  [40, 90],
+];
+/*
+ * Bank balance sheet (D-46). House conventions, not fitted. The leverage
+ * literature agrees on direction — the simple leverage ratio predicted failure
+ * about as well as risk-weighted ratios (Estrella, Park & Peristiani 2000;
+ * Haldane & Madouros 2012), and better-capitalised, more deposit-funded banks
+ * did better in 2007-08 (Beltratti & Stulz 2012) — but not on cut points.
+ */
+// Tangible common equity / tangible assets (percent). House cut points on a
+// holding-company GAAP ratio, NOT the regulatory leverage ratio: TCE excludes
+// preferred stock (which counts in Tier 1) and is read over period-end
+// tangible assets, so it runs structurally below Tier 1 leverage, and a bank at
+// a cut point is not at a regulatory minimum (review of D-46, 2026-10-13). The
+// numbers echo the PCA and Basel leverage lines in scale only.
+const TCE_TO_TANGIBLE_ASSETS_BAND: readonly BandPoint[] = [
+  [4, 20],
+  [5, 35],
+  [6, 50],
+  [8, 70],
+  [10, 85],
+  [12, 90],
+];
+// Net charge-offs / average loans (percent; the FDIC Quarterly Banking Profile
+// net charge-off rate definition): lower is better.
+const NCO_RATE_BAND: readonly BandPoint[] = [
+  [0.25, 85],
+  [0.5, 70],
+  [1.0, 50],
+  [2.0, 25],
+  [3.0, 10],
+];
+// Nonperforming (nonaccrual) loans / loans (percent): lower is better.
+const NPL_RATIO_BAND: readonly BandPoint[] = [
+  [0.25, 85],
+  [0.5, 75],
+  [1.0, 60],
+  [2.0, 40],
+  [4.0, 15],
+];
+// Loans / deposits (percent). Flat at the low end: custody and trust banks run
+// low ratios by design, so a low ratio is never penalised.
+const LOANS_TO_DEPOSITS_BAND: readonly BandPoint[] = [
+  [80, 80],
+  [90, 70],
+  [100, 50],
+  [110, 30],
+  [125, 15],
 ];
 // Valuation: DCF upside (percent) — more upside = more attractive.
 const UPSIDE_BAND: readonly BandPoint[] = [
@@ -530,8 +583,9 @@ const WEIGHTS_GENERAL: WeightVector = {
   leadership: 10,
   technicals: 5,
 };
-// Financials: balance sheet is capital-adequacy (not net-debt) and we don't
-// compute it, so it usually drops out — tilt toward quality/valuation.
+// Financials: balance sheet is capital, credit and funding (not net-debt). It
+// is scored on the bank route (D-46) and still drops out for insurers and
+// mortgage REITs — tilt toward quality/valuation.
 const WEIGHTS_FINANCIAL: WeightVector = {
   fundamentals: 15,
   valuation: 22,
@@ -564,6 +618,52 @@ function weightsForRoute(route: CompanyRouteResult): WeightVector {
   }
 }
 
+/**
+ * The bank balance-sheet aspect (D-46): capital, credit and funding. Graded
+ * only when tangible common equity / tangible assets AND at least one other
+ * input are on file; otherwise unscored for lack of data (still counted as
+ * missing evidence, never as route-inapplicable). A withheld NPL ratio — the
+ * usual case, since large filers tag nonaccrual loans only by loan class — is
+ * dropped and the other weights renormalise, with the gap in completeness.
+ */
+function bankBalanceSheet(
+  fm: FinancialMetricsResult | null,
+  weightPct: number,
+  asOf: string,
+  policy: MetricPolicy,
+): ScoredAspect {
+  const value = (key: string): number | null => {
+    const m = fm?.route === "bank" ? fm.metrics.find((x) => x.key === key) : undefined;
+    return m !== undefined && m.withheldReason === null && isNum(m.value) ? m.value : null;
+  };
+  const signals: Signal[] = [
+    { name: "tceToTangibleAssets", raw: value("tangibleLeverage"), unit: "%", weight: 0.4, band: TCE_TO_TANGIBLE_ASSETS_BAND },
+    { name: "ncoToAverageLoans", raw: value("ncoToAverageLoans"), unit: "%", weight: 0.25, band: NCO_RATE_BAND },
+    { name: "nplRatio", raw: value("nplRatio"), unit: "%", weight: 0.15, band: NPL_RATIO_BAND },
+    { name: "loansToDeposits", raw: value("loansToDeposits"), unit: "%", weight: 0.2, band: LOANS_TO_DEPOSITS_BAND },
+  ];
+  const sufficient = isNum(signals[0].raw) && signals.filter((s) => isNum(s.raw)).length >= 2;
+  return scoreAspect(
+    "balanceSheet",
+    sufficient ? signals : signals.map((s) => ({ ...s, raw: null })),
+    weightPct,
+    asOf,
+    "Bank capital, credit and funding: tangible common equity / tangible assets (weight 0.40), net charge-offs / " +
+      "average loans (0.25), nonperforming loans / loans where the filer tags them (0.15) and loans / deposits (0.20). " +
+      "The bands are house conventions, not fitted. The capital ratio is a holding-company GAAP ratio that excludes " +
+      "preferred stock, so it runs below the regulatory Tier 1 leverage ratio and is not comparable to any regulatory " +
+      "minimum or prompt-corrective-action category; the charge-off rate follows the FDIC Quarterly Banking Profile " +
+      "definition. A leverage ratio is not comparable across business " +
+      "models — custody and trust banks run thin by design — and a low loans / deposits ratio is not penalised for " +
+      "the same reason. CET1 is shown when the filer tags it and is never graded, because the largest filers do not " +
+      "tag it. No supervisory rating is used.",
+    policy,
+    null,
+    "Not graded: tangible common equity / tangible assets and at least one of net charge-offs / average loans, " +
+      "nonperforming loans / loans or loans / deposits are needed, and the filings on hand do not provide them.",
+  );
+}
+
 /* ------------------------------------------------------------------------ *
  * computeScores — the public entry point
  * ------------------------------------------------------------------------ */
@@ -581,6 +681,11 @@ export interface ScoringInputs {
   forensics: ForensicsReport;
   technicals: TechnicalsResult;
   valuation: ValuationResult;
+  /**
+   * Route metrics from financialMetrics.ts. The bank balance sheet (D-46) is
+   * graded on four of them; absent ⇒ that aspect is unscored for lack of data.
+   */
+  financialMetrics?: FinancialMetricsResult | null;
   /** Latest quote price (for DCF upside); null when unavailable. */
   currentPrice: number | null;
   /** Fallback as-of (bundle builtAt slice) for drivers lacking their own. */
@@ -669,10 +774,32 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     forensics.piotroski && isNum(forensics.piotroski.score) && forensics.piotroski.outOf > 0
       ? forensics.piotroski.score / forensics.piotroski.outOf
       : null;
+  // Financial routes suppress ROIC − WACC because invested capital is undefined
+  // when deposits fund the balance sheet; the route's own disclosure names the
+  // equity-side spread (return on common equity against the cost of equity) as
+  // the value-creation measure to use instead. It is scored here in the same
+  // slot, weight and band. Without it, a bank's quality rested on a 3-5 signal
+  // Piotroski battery alone (~7% of intended evidence), which swung JPM to F and
+  // WFC to A on the same thin basis (2026-10-12 sweep).
+  const er = valuation.kind === "excess-return" ? valuation.excessReturn : null;
+  const equityReturn = er?.roePathPct?.value?.[0];
+  const equityCoe = er?.costOfEquityPct?.value;
+  // It REPLACES the ROIC − WACC signal (never added beside it), so the aspect's
+  // weights still sum to 1 like every other aspect's.
+  const valueCreationSignal: Signal =
+    valuation.kind === "excess-return"
+      ? {
+          name: "equityReturnVsCoeSpread",
+          raw: isNum(equityReturn) && isNum(equityCoe) ? equityReturn - equityCoe : null,
+          unit: "pp",
+          weight: 0.35,
+          band: SPREAD_BAND,
+        }
+      : { name: "roicVsWaccSpread", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.35, band: SPREAD_BAND, suppressedBy: "roicVsWacc" };
   const quality = scoreAspect(
     "quality",
     [
-      { name: "roicVsWaccSpread", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.35, band: SPREAD_BAND, suppressedBy: "roicVsWacc" },
+      valueCreationSignal,
       // A reduced battery (7 signals on two years, 3-5 on a financial route)
       // is banded on the same fraction but carries only its share of the
       // evidence: two coin-flip signals must not swing the aspect the way nine
@@ -703,12 +830,14 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.quality,
     inputs.asOf,
-    "Value creation (ROIC−WACC, dropped where the route suppresses it — financial routes are costed on equity alone) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on).",
+    "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on).",
     policy,
   );
 
   // --- Balance sheet & capital --------------------------------------------
-  const balanceSheet = financial
+  const balanceSheet = route.base === "bank"
+    ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
+    : financial
     ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, "Balance-sheet strength for financials is capital-adequacy (CET1/leverage), not net-debt — not modelled in v1.", policy, "Financial route: net-debt/coverage framing not meaningful; capital adequacy not computed.")
     : scoreAspect(
         "balanceSheet",
@@ -723,14 +852,17 @@ export function computeScores(inputs: ScoringInputs): Scoring {
           // ratio it is; both ratios are reported.
           { name: "fcfConversionBeforeSbc", raw: capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
           { name: "sbcPctOfFcf", raw: capital.sbc.pctOfFcf, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
-          { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.15, band: SHARE_TREND_BAND },
+          // D-49: net share-count change is scored once, under leadership,
+          // where it reads as stewardship net of buybacks. Scoring it here as
+          // well double-weighted one signal.
         ],
         weights.balanceSheet,
         inputs.asOf,
-        "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence. " +
+        "Financial strength: leverage, coverage, FCF conversion and the cost of stock-based compensation. " +
           "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
           "this band was calibrated on; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
-          "charge itself is scored exactly once, by SBC as a percentage of free cash flow.",
+          "charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is " +
+          "scored once, under leadership.",
         policy,
       );
 
@@ -791,11 +923,14 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       { name: "buybackDiscipline", raw: capital.buybackPriceAnalysis.premiumDiscountPct, unit: "%", weight: 0.3, band: BUYBACK_DISCIPLINE_BAND },
       { name: "capitalDeployment", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.25, band: SPREAD_BAND, suppressedBy: "roicVsWacc" },
       { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.25, band: SHARE_TREND_BAND },
-      { name: "sbcPctOfRevenue", raw: capital.sbc.pctOfRevenue, unit: "%", weight: 0.2, band: SBC_REV_BAND },
+      // D-49: SBC % of revenue is no longer scored here. The SBC charge is
+      // scored once (balance sheet, % of FCF) and the dilution it causes is
+      // in shareCountTrend net of buybacks; the ratio stays in the capital
+      // figures.
     ],
     weights.leadership,
     inputs.asOf,
-    "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, dilution). Qualitative leadership assessed in the analyst grade.",
+    "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade.",
     policy,
   );
 
@@ -804,22 +939,27 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     isNum(technicals.smaCross.sma50) && isNum(technicals.smaCross.sma200) && technicals.smaCross.sma200 > 0
       ? (technicals.smaCross.sma50 / technicals.smaCross.sma200 - 1) * 100
       : null;
-  const rs6 = technicals.relativeStrength.benchmark.points.find((p) => p.months === 6)?.differentialPctPoints ?? null;
+  // D-48: the scored momentum is the 12-1 month window, which skips the
+  // latest month. RSI-14 (no standalone predictive evidence) and the 6-month
+  // window stay in the technicals section, unscored. Never substituted: a
+  // withheld 12-1 window is missing evidence, not a 6- or 12-month read.
+  const rs12m1m = technicals.relativeStrength.benchmark.momentum12m1m?.differentialPctPoints ?? null;
   const technicalsScore = scoreAspect(
     "technicals",
     [
-      { name: "smaGap", raw: smaGap, unit: "%", weight: 0.25, band: SMA_GAP_BAND, suppressedBy: "sma200" },
-      { name: "rsi14", raw: technicals.rsi14, unit: "rsi", weight: 0.2, band: RSI_BAND },
+      { name: "relStrength12m1m", raw: rs12m1m, unit: "pp", weight: 0.45, band: REL_STRENGTH_12M1M_BAND },
       // suppressedBy: the recent-ipo route already lists "fiftyTwoWeekRange" in
       // its suppress set, but no signal carried the tag, so the policy was
       // inert and a company with a few months of trading was still scored on a
       // "52-week" position it cannot have.
-      { name: "position52w", raw: technicals.range52w.positionPct, unit: "%", weight: 0.25, band: POSITION_BAND, suppressedBy: "fiftyTwoWeekRange" },
-      { name: "relStrength6m", raw: rs6, unit: "pp", weight: 0.3, band: REL_STRENGTH_BAND },
+      { name: "pctFromHigh52w", raw: technicals.range52w.pctFromHigh, unit: "%", weight: 0.35, band: HIGH_PROXIMITY_BAND, suppressedBy: "fiftyTwoWeekRange" },
+      { name: "smaGap", raw: smaGap, unit: "%", weight: 0.2, band: SMA_GAP_BAND, suppressedBy: "sma200" },
     ],
     weights.technicals,
     inputs.asOf,
-    "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
+    "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), distance below the 52-week high and the SMA50/200 gap. " +
+      "Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. " +
+      "RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence.",
     policy,
   );
 

@@ -604,8 +604,10 @@ describe("Task 28 complete report surfaces", () => {
         "TASK28:fundamentals:method-note-sentinel",
         surface === "markdown",
       );
+      // The third n/a is the optional route-applicable completeness (D-50
+      // review), which a legacy aspect score never carried.
       expect(tableCells(fundamentalsRow, surface === "markdown").filter((cell) => cell === "n/a"))
-        .toHaveLength(2);
+        .toHaveLength(3);
       const legacyLog = report.appendix.verificationLog![0]!;
       const logRow = rowWithin(output, legacyLog.claim, surface === "markdown");
       expect(logRow).toContain("uncited");

@@ -446,6 +446,24 @@ Growth-based flags are suppressed entirely when base-year revenue is below a
 floor, because a percentage change on a near-zero base is arithmetic noise
 rather than a signal.
 
+**Bank warning signs (D-47)** follow the same rule: heuristic thresholds, not
+validated, shown and never graded (`BANK_FLAG_THRESHOLDS` in
+`src/pipeline/stageB/financialMetrics.ts`; METHODOLOGY *Route metrics*). Their
+direction is published; their cut points are not:
+
+| Sign | Threshold | Evidence for the direction |
+| --- | --- | --- |
+| Tangible leverage | below 5% | leverage predicts failure (§6.3). A house cut point on TCE / tangible assets, which excludes preferred stock and runs below the regulatory Tier 1 leverage ratio; it is not the PCA "well capitalized" line and a bank below it is not below a regulatory minimum |
+| HTM loss after tax / TCE | above 25% | marking assets to market cut US bank asset values by about 10% in 2022Q1-2023Q1, and fragility came from those losses combined with low capital and uninsured funding (Jiang, Matvos, Piskorski & Seru 2024, *JFE* 159, 103899); Fed Board, *Review of the Federal Reserve's Supervision and Regulation of Silicon Valley Bank* (Apr 2023). Counterweight: the deposit franchise hedges asset duration, so the loss matters mainly if deposits run (Drechsler, Savov & Schnabl 2021, *J. Finance* 76) |
+| Marked TCE ratio | below 4% | as above |
+| Three-year loan growth | above 15% a year | banks in the top quartile of three-year loan growth underperformed the bottom quartile by more than 12pp over the next three years, reserved less while growing and later had lower ROA and higher provisions; mergers do not explain it (Fahlenbrach, Prilmeier & Stulz 2018, *RFS*, doi 10.1093/rfs/hhx109). The figure includes acquisitions |
+| Loans / deposits | above 110% | lending beyond the deposit base relies on wholesale funding (Beltratti & Stulz 2012) |
+| Provisions below net charge-offs while NPL rose | provisions / NCO below 1 | reserves drawn down as credit worsens; evaluated only when every input is tagged |
+
+Uninsured-deposit shares are disclosed only in filing text, so the run-risk
+half of the Jiang et al. test is not computed, and the HTM figures are
+point-in-time losses that pull to par as the securities mature.
+
 ### 5.1 Receivables tie-in
 
 **House rule.** Receivables growing materially faster than revenue is
@@ -564,6 +582,92 @@ What the report does:
 The alternative — computing them anyway and letting a reader assume they mean
 what they mean for an industrial — is the single most common way these scores
 are misused in practice.
+
+#### Capital, credit and funding (D-46)
+
+**Published direction, house cut points.** What replaces the forensic models
+in a bank's balance-sheet grade is the evidence on what predicts bank failure
+and bank stock losses:
+
+- **Capital.** The simple leverage ratio predicted failure about as well as
+  risk-weighted ratios (Estrella, Park & Peristiani 2000, FRBNY *Economic
+  Policy Review* 6(2)), and out-predicted them in the 2007-09 crisis (Haldane
+  & Madouros 2012, "The Dog and the Frisbee", Jackson Hole). Banks with more
+  capital and more deposit funding had better 2007-08 stock returns (Beltratti
+  & Stulz 2012, *JFE* 105).
+- **Asset quality and liquidity.** CAMELS-style proxies for capital, asset
+  quality, earnings and liquidity explain the 2009 failures (Cole & White
+  2012, *J. Financial Services Research* 42).
+
+The grade therefore reads tangible common equity / tangible assets, net
+charge-offs / average loans, the NPL ratio and loans / deposits. The studies
+agree on direction, not on cut points, so every band is a convention, none
+fitted. The capital band's cut points echo the US prompt-corrective-action 5%
+Tier 1 leverage line and the Basel III 3% minimum in scale only: TCE /
+tangible assets is a holding-company GAAP ratio that excludes preferred stock
+(which counts in Tier 1) and is read over period-end, not average, assets, so
+it runs structurally below Tier 1 leverage. A bank at the PCA line can read
+near 4.5% here, and the GSIBs (JPM 6.4%, BAC 6.2%, C 6.4% at FY2025) score in
+the low 50s on capital. Nothing in the report may call a bank below a
+regulatory minimum on this ratio; the judge prompt says so (review of D-46,
+2026-10-13). The charge-off rate follows the FDIC Quarterly Banking Profile
+definition, over gross loans where tagged. A leverage ratio is not comparable across business models (custody and
+trust banks run thin by design), which is also why a low loans / deposits ratio
+is never penalised.
+
+**What the tags allow** (cached companyfacts, 2026-10-13). `Deposits` is tagged
+for JPM, BAC, WFC, C and PNC through FY2025. JPM, BAC, C and PNC tag
+undimensioned loans under the `FinancingReceivableExcludingAccruedInterest…`
+elements; WFC's undimensioned loan, allowance and charge-off facts stop in
+2021-22, so its charge-off rate and loans / deposits are withheld and, with
+only tangible leverage on file, its balance sheet is unscored. JPM, BAC and PNC tag the
+`…AllowanceForCreditLossWriteoff` / `…Recovery` pair (and the after-recovery
+total); C uses `FinancingReceivableAllowanceForCreditLossesWriteOffs` /
+`…Recovery`. None tags a CET1 ratio after 2013, so CET1 is displayed when
+tagged and never graded. Undimensioned nonaccrual totals end in 2021-22, so the
+NPL input is usually withheld and the other weights renormalise.
+
+#### Rate risk and the credit cycle (D-47)
+
+The held-to-maturity loss, the marked TCE ratio, ACL / loans and three-year
+loan growth are disclosed and flagged, never graded (§5). HTM losses are
+presented as conditional on funding, not as realised. All five large filers
+tag the HTM loss and gain pair at FY2025; ACL is tagged by JPM, BAC, C and PNC
+(not WFC after 2021).
+
+**One-off sanity check (2026-10-13, scratch script, not a test; thresholds
+not tuned to it).** From SVB Financial's FY2022 companyfacts (CIK 719739, one
+EDGAR request), with the balance sheet read from the same XBRL: net HTM loss
+$15.16B, after the assumed 21% tax $11.97B, which is 101% of tangible common
+equity; marked TCE ratio −0.07%; tangible leverage 5.61%. Both the HTM and the
+marked-TCE warning signs fire; the tangible-leverage sign does not. SVB tags
+no undimensioned loan total, so its charge-off rate, loans / deposits, ACL and
+loan growth are withheld and its balance sheet would be unscored.
+
+For comparison, recomputed on review (2026-10-13) with the pipeline's own
+`computeFinancialMetrics` over the cached FMP balance sheets and
+companyfacts, which deducts preferred stock and all intangibles from TCE. The
+first version of this table was a scratch formula without the preferred
+deduction and understated BAC's exposure:
+
+| Bank | FY | HTM loss after tax / TCE | Marked TCE | Signs fired |
+| --- | --- | --- | --- | --- |
+| JPM | 2025 | 4.8% | 6.09% | none |
+| JPM | 2024 | 8.1% | 6.11% | none |
+| BAC | 2025 | 30.5% | 4.44% | HTM loss |
+| BAC | 2024 | 42.0% | 3.82% | HTM loss, marked TCE |
+| WFC | 2025 | 19.1% | 5.17% | none |
+| WFC | 2024 | 25.5% | 5.12% | HTM loss |
+| C | 2025 | 4.8% | 6.13% | none |
+| C | 2024 | 8.5% | 6.61% | none |
+
+BAC sits about 0.4pp above the marked-TCE line at FY2025 and fires it at
+FY2024; both HTM signs fire on a large bank that did not fail. That is
+accurate as an exposure and wrong as a distress reading, so the threshold is
+kept (it was not tuned to SVB and is not re-tuned to BAC after the fact) and
+both signs carry the deposit-franchise caveat. PNC was not recomputed (no
+FMP balance sheet cached). The SVB figures above are from the first scratch
+script and were not recomputed.
 
 ---
 
@@ -978,6 +1082,49 @@ would be a modest, well-evidenced extension; it is not a gap.
 | 7 | G-score for low book-to-market issuers (§8.8) | Mohanram | small | optional |
 | — | Cross-sectional accrual ranks (§8.3) | Green–Hand–Soliman argue against | new pipeline | no |
 
+## 9. Price signals in the technicals grade
+
+### 9.1 Momentum, 52-week-high proximity and RSI (D-48)
+
+**Published.** Jegadeesh and Titman, *Returns to Buying Winners and Selling
+Losers*, Journal of Finance 48, 1993: stocks ranked on their past 3–12 month
+return keep outperforming for a further 3–12 months, by about 1% a month
+winners over losers. Jegadeesh (Journal of Finance 45, 1990) and Lehmann
+(Quarterly Journal of Economics 105, 1990) find the opposite at one month:
+last month's return tends to reverse. That is why the standard momentum
+measure skips the latest month (the "12-1" window). George and Hwang, *The
+52-Week High and Momentum Investing*, Journal of Finance 59, 2004: how close
+a price is to its 52-week high predicts returns and explains much of
+momentum. Fama and French (Journal of Finance 63, 2008) find momentum in
+every size group, and Hou, Xue and Zhang (Review of Financial Studies 33,
+2020) find that it largely survives replication, with weaker effects among
+large caps. Daniel and Moskowitz, *Momentum Crashes*, Journal of Financial
+Economics 122, 2016: momentum loses sharply when the market rebounds after a
+decline. Park and Irwin (Journal of Economic Surveys 21, 2007) find that
+profits from technical trading rules largely vanish after about 1990. This
+review found no peer-reviewed evidence that RSI predicts returns on its own.
+
+**What the code has.** The technicals aspect (5% of the composite) used to
+score RSI-14 at 0.2 and a 6-month relative strength that ended at the latest
+bar, so it included the reversal month and missed the horizon the evidence
+covers.
+
+**Verdict — changed (D-48).** It now scores 12-1 month relative strength vs
+SPY at 0.45, the distance below the 52-week high at 0.35 and the SMA50/200 gap
+at 0.20. RSI-14, the 6-month window and the 52-week range position are still
+shown, but not scored. The 12-1 band (−30pp → 15, 0 → 50, +20pp → 75, +40pp
+→ 90) is an unfitted monotone mapping, a convention: Jegadeesh–Titman's
+roughly 1%-a-month figure is the next-period winner-minus-loser payoff, so it
+gives the direction and puts no scale on the formation-period return the
+signal measures. The 52-week signal is (close / 52-week high − 1) × 100, the
+ratio George and Hwang rank on (band −50% → 15, −30% → 30, −15% → 50, −5% →
+70, at the high → 85, convention, not fitted). The first version scored the
+range position (close − low) / (high − low), which ranks stocks differently: a
+stock 4% off the top of a narrow range read 20%, below one at half its high
+(review, 2026-10-13). The aspect note
+says that momentum is a 3–12 month tilt that has crashed after rebounds,
+and is not an entry-timing signal.
+
 ## What would improve this
 
 Honest gaps in the evidence base, listed so they are not mistaken for settled;
@@ -1004,3 +1151,84 @@ each is weighed against the published evidence, with a verdict, in §8:
   in the report rather than buried here. §8.2 describes the point-in-time
   backtest that could fit the scenario weights and the fade, and §8.7 why the
   fade should wait for it.
+
+## Literature review 2026-10-13: open owner decisions and rejected candidates
+
+The 2026-10-13 review implemented D-46 to D-50. The items below were weighed
+and either left for the owner or rejected. They are listed here so they are
+not mistaken for settled or overlooked.
+
+**Open owner decisions** (title: why it is open; key evidence):
+
+- **Size-conditioned growth base rates** (show the growth anchor's percentile,
+  then perhaps cap or shrink it): the primary tables could not be retrieved
+  and a size-band ceiling is a material methodology change. Ship the
+  percentile disclosure first, and decide the ceiling after §8.2 or D-51 data
+  exist. Evidence: Chan, Karceski & Lakonishok 2003 (*J. Finance* 58);
+  Mauboussin, Callahan & Majd 2016, *The Base Rate Book* (secondary figures
+  only); Kahneman & Lovallo 1993.
+- **Novy-Marx gross profitability in moat, asset growth in quality**: these
+  move every general-route grade on unfitted bands, and moat is meant to
+  measure durability, not to predict returns. Evidence: Novy-Marx 2013 (*JFE*
+  108); Cooper, Gulen & Schill 2008; Hou, Xue & Zhang 2020.
+- **Re-weighting accounting integrity in quality** (demote accruals, make
+  Beneish penalty-only, move Altman to solvency): what quality should mean is
+  a judgement, and the change moves composite attribution. Evidence: Green,
+  Hand & Soliman 2011; McLean & Pontiff 2016; Campbell, Hilscher & Szilagyi
+  2008.
+- **Earnings yield and EBIT/EV in valuation, with own-history rank as
+  context**: absolute yield bands depend on the rate regime without a peer
+  table, so decide this with the §8.1 peer work. Evidence: Loughran & Wellman
+  2011; Fama & French 2008; Liu, Nissim & Thomas 2002.
+- **Concave growth bands and a growth-stability driver**: the kink point is a
+  house rule, the change would mildly underrate durable compounders, and it
+  interacts with base rates. Evidence: Lakonishok, Shleifer & Vishny 1994;
+  Fama & French 2000.
+- **A value-vs-price verdict only outside a model-error dead zone, and/or
+  Monte Carlo P10/P50/P90**: either changes the headline, and simulated
+  percentiles can be misread as price probabilities. Decide after D-51 or §8.2.
+  Evidence: Bessembinder 2018; Fama & French 1997.
+- **Bounding the judge's scenario probabilities around 25/50/25**: the bands
+  would be unfitted, and over-tight bounds remove the judge's value. Pair it
+  with D-51 data. Evidence: Mellers et al. 2014; Satopaa et al. 2014.
+- **Structured falsifiable revision triggers and a pre-mortem bear framing**:
+  this adds schema fields against the optional-parameter budget, and the
+  pre-mortem evidence is a single study. Evidence: CFA Standard V(A)/V(B);
+  Mitchell, Russo & Pennington 1989; Asquith, Mikhail & Au 2005.
+- **Grading marked TCE, and the uninsured-deposit share from 10-K text**:
+  grading would penalise sticky-deposit large banks (BAC, §6.3), and the
+  run-risk half exists only as inconsistent text. D-47 discloses both risks.
+  Evidence: Jiang et al. 2024; Drechsler, Savov & Schnabl 2021.
+
+**Rejected** (title: reason):
+
+- Market-implied cost of capital: circular, because the cash flows are
+  Thesis's own forecasts (Hou, van Dijk & Zhang 2012); the reverse DCF already
+  answers what the price requires.
+- Residual-income cross-check for non-financials: it uses the same internal
+  forecasts, so its published advantage disappears, and it is unreliable on
+  buyback-depleted books.
+- CET1 as a graded bank driver: verified infeasible, since no large filer tags
+  it after 2013. It stays display-only.
+- Deposit beta from five annual points: too few observations.
+- ACL / loans as a graded signal: the direction is ambiguous, so it is
+  disclosed instead (D-47).
+- Short-interest penalty and PEAD scoring: the effects concentrate in small,
+  illiquid names, and PEAD has largely vanished for large caps. Both stay
+  narrative context only.
+- Self-consistency (3×) judge sampling: it triples cost and latency against
+  the 15-minute limit, and temperature cannot be set.
+- A symmetric "improving margin regime" target: the evidence is
+  cross-sectional, so let the §8.2 backtest vary it rather than hand-tune it.
+- Bank ROA / efficiency-ratio bands and a DuPont leverage note: small gain,
+  since ROTE vs cost of equity and D-46 already cover them.
+- Catalyst auto-dating, an "About this report" box, length caps and a
+  consensus-target bias check: presentation gains only; the bias check waits
+  on currency gating and §8.1.
+- Out-of-payload web-claim segregation: mostly in place, because the
+  verifier accepts a web claim only against a URL actually returned by search.
+
+**Deferred: D-51, the forward track record.** Saved reports already store
+`reportJson` and `createdAt`, so the realised outcome of each report's
+grades, fair value and scenario targets can be computed once its horizons
+elapse. Nothing needs to be captured now.

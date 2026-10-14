@@ -32,6 +32,17 @@ describe("provider dispatch and catalog lifecycle", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.data.execution).toMatchObject({ requestedEffort: "high", effectiveEffort: "high", requestedServiceTier: "fast", effectiveServiceTier: "default" });
   });
+  it("hands the text of a cut-off response to the pass as partialText on a zero-cost transport failure", async () => {
+    remote.mockResolvedValueOnce(new Response(
+      `data: ${JSON.stringify({ type: "response.output_text.delta", output_index: 0, delta: '{"thesis":[],' })}\n\n`,
+    ));
+    const result = await runSubscriptionPass(args, "account");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatchObject({ kind: "transport", costUsd: 0, partialText: '{"thesis":[],' });
+      expect(result.error.message).toBe("ChatGPT stream ended before completion");
+    }
+  });
   it("does not infer actual effort or speed when the provider omitted them", async () => {
     const result = await runSubscriptionPass(args, "account", { effort: "max", serviceTier: "fast" });
     expect(result.ok).toBe(true);
@@ -82,6 +93,22 @@ describe("response validation boundaries", () => {
       { ...completed, response: { ...completed.response, output: [] } },
     ));
     expect(result).toMatchObject({ text: '{"ok":true}', model: "example", input: 3, output: 2 });
+  });
+  it("keeps the answer text streamed before a cut-off on the error, never as a result", async () => {
+    // The plan endpoint closes a response at 15 minutes: deltas arrive, then the
+    // stream ends with no response.completed. That text used to be discarded.
+    const error = await consumeChatGptStream(stream(
+      { type: "response.output_item.added", output_index: 0, item: { type: "reasoning" } },
+      { type: "response.output_text.delta", output_index: 0, delta: "thinking" },
+      { type: "response.output_item.added", output_index: 1, item: { type: "message", phase: "commentary" } },
+      { type: "response.output_text.delta", output_index: 1, delta: "a note" },
+      { type: "response.output_item.added", output_index: 2, item: { type: "message", phase: "final_answer" } },
+      { type: "response.output_text.delta", output_index: 2, delta: '{"verdict":{"a":1},' },
+      { type: "response.output_text.delta", output_index: 2, delta: '"business":{"b' },
+    )).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe("ChatGPT stream ended before completion");
+    expect((error as { observed: { partialText?: string } }).observed.partialText).toBe('{"verdict":{"a":1},"business":{"b');
   });
   it("keeps output order, replaces repeated done events, and excludes commentary", async () => {
     const item = (text: string, phase = "final_answer") => ({ type: "message", role: "assistant", status: "completed", phase, content: [{ type: "output_text", text }] });
@@ -135,10 +162,13 @@ describe("response validation boundaries", () => {
   ])("rejects a malformed terminal result %j", async (response) => {
     await expect(consumeChatGptStream(event({ type: "response.completed", response }))).rejects.toThrow();
   });
+  it("names the provider error code when a pass fails without a recognised reason", async () => {
+    await expect(consumeChatGptStream(event({ type: "response.failed", response: { error: { code: "server_error" } } }))).rejects.toThrow("(response.failed: server_error)");
+  });
   it("ignores comments, DONE, and non-text blocks but enforces the size limit", async () => {
     const valid = { ...completed, response: { ...completed.response, output: [{ type: "reasoning" }, { type: "message" }, { type: "message", content: [{ type: "other" }, { type: "output_text" }, { type: "output_text", text: "{}" }] }] } };
     expect((await consumeChatGptStream(new Response(`: heartbeat\n\ndata: [DONE]\n\ndata: ${JSON.stringify(valid)}\n\n`))).text.trim()).toBe("{}");
-    await expect(consumeChatGptStream(new Response("x".repeat(4_000_001)))).rejects.toThrow("size limit");
+    await expect(consumeChatGptStream(new Response("x".repeat(16_000_001)))).rejects.toThrow("size limit");
     await expect(consumeChatGptStream(new Response(null))).rejects.toThrow("start");
   });
 });

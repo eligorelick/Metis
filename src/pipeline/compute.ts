@@ -1832,6 +1832,8 @@ export function runStageB(bundle: DataBundle): ComputedMetrics {
     forensics,
     technicals,
     valuation,
+    // D-46: the bank balance sheet is graded on these route metrics.
+    financialMetrics,
     currentPrice,
     asOf: asOfDay,
   });
@@ -2722,6 +2724,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // risk-free rate forever. Null leaves the house terminal-growth cap
           // as the only bound, which the basis string discloses.
           riskFreePct: rf.pct,
+          // The same return, year by year, against that year's own cost of
+          // equity — the evidence the terminal excess-return convention reads.
+          roeHistory: commonReturns.series.map((y) => {
+            const point = waccByYear.get(y.date);
+            return {
+              date: y.date,
+              roicPct: y.rotePct,
+              waccPct: point?.costOfEquityPct ?? null,
+              waccAsOf: point?.riskFreeAsOf ?? null,
+            };
+          }),
         }
       : null;
 

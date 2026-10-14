@@ -36,15 +36,25 @@ import type {
 import type { SourcedClaim } from "@/report/schema";
 import {
   collectPersonNames,
+  collectPersonRows,
   consistencyManifestEntries,
   emptyConsistencyChecks,
   isCredibilityPath,
   isDeltaRecord,
   isFilingOrTranscriptSource,
   isPayloadPersonRowSource,
+  namedIndividuals,
   namesIndividual,
+  personNameMatches,
+  personTitleMatches,
+  proseNumbers,
   runConsistencyChecks,
+  splitNameAndPosition,
+  statesCurrencyOnNumber,
+  statesNumberWord,
+  statesOnlyAllowedDates,
   type ConsistencyClaimRef,
+  type PersonRow,
 } from "@/pipeline/stageC/consistency";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
@@ -86,6 +96,7 @@ function run(
     fetchedUrls?: string[];
     personNames?: string[];
     organizationNames?: string[];
+    personRows?: PersonRow[];
   } = {},
 ) {
   return runConsistencyChecks({
@@ -95,6 +106,7 @@ function run(
     fetchedUrls: new Set(over.fetchedUrls ?? []),
     personNames: over.personNames ?? [],
     organizationNames: over.organizationNames ?? [],
+    personRows: over.personRows ?? [],
   });
 }
 
@@ -586,15 +598,42 @@ describe("claims that name a person", () => {
     };
     expect(isPayloadPersonRowSource(executives.id)).toBe(true);
     expect(isPayloadPersonRowSource(insiders.id)).toBe(true);
+    expect(isPayloadPersonRowSource("fmp:executive-compensation")).toBe(true);
     expect(isPayloadPersonRowSource(news.id)).toBe(false);
+    // D-43: the cited rows must list the person. Before, this claim passed
+    // with no row at all.
+    const cookRows = collectPersonRows({
+      leadershipNotes: ["Tim Cook — CEO (since 2011-08-24), pay 99000000 USD [fmp:key-executives]"],
+      insiderNotes: ["2026-06-01 Tim Cook (CEO): S-Sale 50000 @ 205 [fmp:insider-trades · 2026-06-01]"],
+    });
     for (const source of [executives, insiders]) {
+      const asOf = source.asOf ?? null;
       const result = run(
-        refs(claim("Tim Cook has led the company since 2011.", source.id)),
+        refs(claim("Tim Cook has led the company since 2011.", source.id, { asOf })),
         [],
-        { citationRegistry: [executives, insiders, news], personNames: ["Tim Cook"] },
+        { citationRegistry: [executives, insiders, news], personNames: ["Tim Cook"], personRows: cookRows },
       );
       expect(result.checks.namedIndividual).toEqual({ checked: 1, passed: 1, failed: 0, rate: 1 });
       expect(result.findings).toEqual([]);
+      // The same claim against rows listing only someone else fails closed.
+      const elsewhere = run(
+        refs(claim("Tim Cook has led the company since 2011.", source.id, { asOf })),
+        [],
+        {
+          citationRegistry: [executives, insiders, news],
+          personNames: ["Tim Cook"],
+          personRows: cookRows.map((row) => ({ ...row, name: "Jane Roe" })),
+        },
+      );
+      expect(elsewhere.findings[0]?.reason).toBe("named-individual-not-in-source");
+      expect(elsewhere.rejectedClaimPaths.has("fundamentals.commentary[0]")).toBe(true);
+      // No rows at all is no evidence, never a pass on the tag.
+      const none = run(
+        refs(claim("Tim Cook has led the company since 2011.", source.id, { asOf })),
+        [],
+        { citationRegistry: [executives, insiders, news], personNames: ["Tim Cook"] },
+      );
+      expect(none.checks.namedIndividual.failed).toBe(1);
     }
   });
 
@@ -657,7 +696,7 @@ describe("claims that name a person", () => {
     expect(result.checks.namedIndividual).toEqual({ checked: 1, passed: 0, failed: 1, rate: 0 });
     expect(result.findings[0].reason).toBe("named-individual-unsourced");
     expect(result.findings[0].note).toContain("Tim Cook");
-    expect(result.findings[0].note).toContain("neither a registry figure, a filing or transcript, nor a payload executive or insider row");
+    expect(result.findings[0].note).toContain("neither a registry figure, a filing or transcript, nor a payload executive, compensation or insider row");
     expect(result.rejectedClaimPaths.has("fundamentals.commentary[0]")).toBe(true);
   });
 
@@ -702,5 +741,350 @@ describe("claims that name a person", () => {
     expect(guidance).toContain("outlook.guidanceCredibility");
     // The old instruction pointed the model at web search for exactly this.
     expect(guidance).not.toContain("cited web-search results —");
+    // D-43: the compensation rows are named, with the row-content rule, and
+    // the example is reader prose, never a pipeline label ("comp … FY2025").
+    expect(guidance).toContain("executive-compensation");
+    expect(guidance).toContain("spelled as that row spells");
+    expect(guidance).toContain("never write a");
+    expect(guidance).not.toMatch(/comp [A-Z][^'"]* FY\d{4}/);
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * (f) Person-row content and currency (D-43, 2026-10-13)
+ * ------------------------------------------------------------------------ */
+
+// The rows reports 25 (META) and 26 (JPM) showed, from the cached FMP
+// governance-executive-compensation responses.
+const META_COMP = [
+  "Mark Zuckerberg Chief Executive Officer",
+  "Andrew Bosworth Chief Technology Officer",
+  "Susan Li Chief Financial Officer",
+  "Christopher K. Cox Chief Product Officer",
+  "Javier Olivan Chief Operating Officer",
+];
+const JPM_COMP = [
+  "James Dimon Chairman and CEO",
+  "Jeremy Barnum CFO",
+  "Mary Callahan Erdoes CEO, Asset & Wealth Management",
+  "Douglas Petno Co-CEO, Commercial & Investment Bank",
+  "Troy Rohrbaugh Co-CEO, Commercial & Investment Bank",
+];
+function compFigures(rows: readonly string[], asOf: string, year = 2025) {
+  return rows.map((row) => ({ label: `comp ${row} FY${year}`, source: "fmp:executive-compensation", asOf }));
+}
+function compCitation(asOf: string): CitationProvenanceRecord {
+  return { id: "fmp:executive-compensation", kind: "payload-unestablished", asOf, origin: "fmp:executive-compensation", currencyUnknown: true };
+}
+
+describe("person-row citations are read for the person and title (D-43)", () => {
+  it("reads key-executive, insider and compensation rows", () => {
+    const rows = collectPersonRows({
+      leadershipNotes: [
+        "Mark Elliot Zuckerberg — Founder, Chairman & Chief Executive Officer (since 2004-07-01), pay 25125904 USD [fmp:key-executives]",
+        // A null currencyPay renders a double space before the tag.
+        "Susan J. Li — Chief Financial Officer, pay 1000000  [fmp:key-executives]",
+      ],
+      insiderNotes: ["2026-06-01 Li Susan J. (officer: Chief Financial Officer): S-Sale 5000 @ 600 [fmp:insider-trades · 2026-06-01]"],
+      leadershipFigures: [
+        ...compFigures(["Christopher K. Cox Chief Product Officer"], "2026-04-16"),
+        { label: "comp Tim Cook — CEO FY2025", source: "fmp:executive-compensation", asOf: "2026-01-10" },
+        { label: "comp Sheryl K. Sandberg Former Chief Operating Officer FY2022", source: "fmp:executive-compensation", asOf: "2023-04-14" },
+        { label: "market cap", source: "fmp:stock-peers", asOf: "2026-10-13" },
+      ],
+    });
+    expect(rows).toEqual([
+      { tag: "fmp:key-executives", asOf: null, name: "Mark Elliot Zuckerberg", title: "Founder, Chairman & Chief Executive Officer", anyOrder: false },
+      { tag: "fmp:key-executives", asOf: null, name: "Susan J. Li", title: "Chief Financial Officer", anyOrder: false },
+      { tag: "fmp:insider-trades", asOf: "2026-06-01", name: "Li Susan J.", title: "Chief Financial Officer", anyOrder: true },
+      { tag: "fmp:executive-compensation", asOf: "2026-04-16", name: "Christopher K. Cox", title: "Chief Product Officer", anyOrder: false },
+      { tag: "fmp:executive-compensation", asOf: "2026-01-10", name: "Tim Cook", title: "CEO", anyOrder: false },
+      { tag: "fmp:executive-compensation", asOf: "2023-04-14", name: "Sheryl K. Sandberg", title: "Former Chief Operating Officer", anyOrder: false },
+    ]);
+    // The name ends at the FIRST position token, not the last name-like one.
+    expect(splitNameAndPosition("Mary Callahan Erdoes CEO, Asset & Wealth Management")).toEqual({
+      name: "Mary Callahan Erdoes",
+      title: "CEO, Asset & Wealth Management",
+    });
+  });
+
+  it("matches a name only as the row writes it", () => {
+    const row = (name: string, anyOrder = false): PersonRow => ({ tag: "t", asOf: null, name, title: null, anyOrder });
+    expect(personNameMatches("Mark Zuckerberg", false, row("Mark Elliot Zuckerberg"))).toBe(true);
+    expect(personNameMatches("Troy Rohrbaugh", false, row("Troy Larry Rohrbaugh"))).toBe(true);
+    expect(personNameMatches("Susan Li", false, row("Li Susan J.", true))).toBe(true);
+    expect(personNameMatches("Dimon", true, row("James Dimon"))).toBe(true);
+    // A nickname, an initial the row lacks, a dropped surname, someone else.
+    expect(personNameMatches("Chris Cox", false, row("Christopher K. Cox"))).toBe(false);
+    expect(personNameMatches("Susan J. Li", false, row("Susan Li"))).toBe(false);
+    expect(personNameMatches("Mary Callahan", false, row("Mary Callahan Erdoes"))).toBe(false);
+    expect(personNameMatches("Sheryl Sandberg", false, row("Susan Li"))).toBe(false);
+  });
+
+  it("matches a title only with the row's modifiers and scope", () => {
+    expect(personTitleMatches("CEO of Asset & Wealth Management", "CEO, Asset & Wealth Management")).toBe(true);
+    expect(personTitleMatches("Chairman and CEO", "Chairman and Chief Executive Officer")).toBe(true);
+    expect(personTitleMatches("CFO", "Chief Financial Officer")).toBe(true);
+    expect(personTitleMatches("Chief Executive Officer", "Founder, Chairman & Chief Executive Officer")).toBe(true);
+    expect(personTitleMatches("Co-President", "CEO of Consumer & Community Banking and Co-President")).toBe(true);
+    // Dropped Co-, dropped scope, Vice, and Former either way.
+    expect(personTitleMatches("CEO", "Co-CEO, Commercial & Investment Bank")).toBe(false);
+    expect(personTitleMatches("Co-CEO", "Co-CEO, Commercial & Investment Bank")).toBe(false);
+    expect(personTitleMatches("CEO", "CEO of Consumer & Community Banking and Co-President")).toBe(false);
+    expect(personTitleMatches("Chairman", "Vice Chairman")).toBe(false);
+    expect(personTitleMatches("Chief Operating Officer", "Former Chief Operating Officer")).toBe(false);
+    expect(personTitleMatches("Former Chief Operating Officer", "Chief Operating Officer")).toBe(false);
+    // CIO names two offices, so it does not expand into either.
+    expect(personTitleMatches("Chief Information Officer", "CIO")).toBe(false);
+  });
+
+  it("verifies report 25's and 26's compensation-row claims against the rows shown", () => {
+    // Every one of these failed as named-individual-unsourced (report 25:
+    // leadership.executives[0-4].reasoning[0]; report 26:
+    // leadership.executives[0-4].evidence.compensation[0]).
+    const meta = [
+      "The compensation disclosure identifies Mark Zuckerberg as Chief Executive Officer.",
+      "The compensation disclosure identifies Andrew Bosworth as Chief Technology Officer.",
+      "The compensation disclosure identifies Susan Li as Chief Financial Officer.",
+      "The compensation disclosure identifies Christopher K. Cox as Chief Product Officer.",
+      "The compensation disclosure identifies Javier Olivan as Chief Operating Officer.",
+    ];
+    const jpm = [
+      "The annual compensation records identify James Dimon as Chairman and CEO. Latest annual compensation exceeds the preceding year's amount in the same table; its currency is undisclosed.",
+      "The annual compensation records identify Jeremy Barnum as CFO. Latest annual compensation exceeds the preceding year's disclosed amount; its currency is undisclosed.",
+      "The annual compensation records identify Mary Callahan Erdoes as CEO of Asset & Wealth Management. Latest annual compensation exceeds the preceding year's amount; its currency is undisclosed.",
+      "The annual compensation record identifies Douglas Petno as Co-CEO of Commercial & Investment Bank. The compensation currency is undisclosed, and no preceding-year comparison for him appears in the available annual table.",
+      "The annual compensation records identify Troy Rohrbaugh as Co-CEO of Commercial & Investment Bank. Latest annual compensation exceeds the preceding year's disclosed amount; its currency is undisclosed.",
+    ];
+    const cases = [
+      { texts: meta, rows: META_COMP, asOf: "2026-04-16", names: ["Mark Zuckerberg", "Andrew Bosworth", "Susan Li", "Christopher K. Cox", "Javier Olivan"], path: (i: number) => `leadership.executives[${i}].reasoning[0]` },
+      { texts: jpm, rows: JPM_COMP, asOf: "2026-04-06", names: ["James Dimon", "Jeremy Barnum", "Mary Callahan Erdoes", "Douglas Petno", "Troy Rohrbaugh"], path: (i: number) => `leadership.executives[${i}].evidence.compensation[0]` },
+    ];
+    for (const { texts, rows, asOf, names, path } of cases) {
+      const result = runConsistencyChecks({
+        claims: texts.map((text, i) => ({ claim: claim(text, "fmp:executive-compensation", { asOf }), path: path(i) })),
+        registry: [],
+        citationRegistry: [compCitation(asOf)],
+        fetchedUrls: new Set<string>(),
+        personNames: names,
+        personRows: collectPersonRows({ leadershipFigures: compFigures(rows, asOf) }),
+      });
+      expect(result.findings).toEqual([]);
+      expect(result.checks.namedIndividual).toEqual({ checked: 5, passed: 5, failed: 0, rate: 1 });
+    }
+  });
+
+  it("rejects a person or title the cited rows do not give", () => {
+    const personRows = collectPersonRows({ leadershipFigures: compFigures(JPM_COMP, "2026-04-06") });
+    const check = (text: string, names: string[] = []) => run(
+      refs(claim(text, "fmp:executive-compensation", { asOf: "2026-04-06" })),
+      [],
+      { citationRegistry: [compCitation("2026-04-06")], personNames: names, personRows },
+    );
+    // Registering the tag alone would have let this pass.
+    const wrongPerson = check("Sheryl Sandberg, the CEO, received the largest award.");
+    expect(wrongPerson.findings[0].reason).toBe("named-individual-not-in-source");
+    expect(wrongPerson.rejectedClaimPaths.size).toBe(1);
+    expect(check("The records identify Douglas Petno as CEO.", ["Douglas Petno"]).findings[0].reason)
+      .toBe("named-individual-title-mismatch");
+    expect(check("The records identify Mary Callahan as CEO of Asset & Wealth Management.", ["Mary Callahan"]).findings[0].reason)
+      .toBe("named-individual-not-in-source");
+    // One person in the rows does not carry another who is not.
+    expect(check("James Dimon and Sheryl Sandberg, the COO, lead the firm.", ["James Dimon"]).findings[0].reason)
+      .toBe("named-individual-not-in-source");
+    // A row from another proxy (another as-of) is not the row the FACT cites.
+    const otherProxy = run(
+      refs(claim("The records identify Jeremy Barnum as CFO.", "fmp:executive-compensation", { asOf: "2025-04-07" })),
+      [],
+      { citationRegistry: [compCitation("2025-04-07")], personNames: ["Jeremy Barnum"], personRows },
+    );
+    expect(otherProxy.findings[0].reason).toBe("named-individual-not-in-source");
+  });
+
+  it("content-checks a compensation row that is a registered figure before the figure could accept it", () => {
+    const figure = numeric({ id: "payload.leadership.comp-james-dimon-chairman-and-ceo-fy2025", value: 39_000_000, unit: "currency", currency: "USD", asOf: "2026-04-06" });
+    const personRows = collectPersonRows({
+      leadershipFigures: [{ label: "comp James Dimon Chairman and CEO FY2025", source: "fmp:executive-compensation", asOf: "2026-04-06", provenanceId: figure.id }],
+    });
+    const result = run(
+      refs(claim("The proxy identifies Jeremy Barnum as CFO.", figure.id, { asOf: "2026-04-06" })),
+      [figure],
+      { personNames: ["Jeremy Barnum"], personRows },
+    );
+    expect(result.findings[0].reason).toBe("named-individual-not-in-source");
+  });
+
+  it("keeps namesIndividual's answer and reads the name a pattern found", () => {
+    expect(namedIndividuals("CEO Jane Roe reiterated guidance.", [])).toEqual([
+      { match: "CEO Jane Roe", name: "Jane Roe", surnameOnly: false, title: "CEO" },
+    ]);
+    expect(namedIndividuals("Dr. Rivera joined the board.", [])[0]).toMatchObject({ name: "Rivera", surnameOnly: true });
+    // The longer known name wins over the shorter one inside it.
+    expect(namedIndividuals("Mark Elliot Zuckerberg founded it.", ["Elliot Zuckerberg", "Mark Elliot Zuckerberg"]).map((p) => p.name))
+      .toEqual(["Mark Elliot Zuckerberg"]);
+  });
+});
+
+describe("a gap or unestablished citation supports no number (D-43)", () => {
+  it("reads past identifiers, forms and dates, and keeps quantities", () => {
+    for (const text of [
+      "The CET1 ratio (as reported) is withheld.",
+      "Tier 1 leverage and Basel III ratios are not in the filings and data reviewed.",
+      "No insider Form 4 filings were available for 2025.",
+      "No Item 7A rate sensitivity table is in the evidence reviewed.",
+      "Trades under a Rule 10b5-1 plan are not shown.",
+      "A 5-year history is not available for FY2025 or Q3.",
+      "The 10-K and DEF 14A excerpts carry no such table.",
+      // Report 26 leadership.graded.reasoning[2], with its inline tag.
+      "Average repurchase-price analysis is unavailable [computed.capital-cash.diluted-share-count-trend-5y · 2025-12-31].",
+    ]) {
+      expect(proseNumbers(text), text).toEqual([]);
+    }
+    expect(proseNumbers("Net debt/EBITDA is 1.2x.")).toEqual([1.2]);
+    expect(proseNumbers("Buybacks were $4.5 billion.")).toEqual([4.5]);
+    expect(proseNumbers("The spread is 25 bps.")).toEqual([25]);
+    expect(proseNumbers("The score is 3.")).toEqual([3]);
+    expect(proseNumbers("Revenue was 2025 million.")).toEqual([2025]);
+  });
+
+  it("finds a currency put on a number, and not a currency mentioned without one", () => {
+    for (const text of ["The consensus target is $781.", "Consensus target 781 USD.", "US$781 consensus", "The target is USD 781.", "Target €781.", "Pay was 25.1 million dollars."]) {
+      expect(statesCurrencyOnNumber(text), text).toBe(true);
+    }
+    for (const text of [
+      // Report 26 valuation.graded.reasoning[5] and outlook.estimateRevisionTrend[1].
+      "The analyst-consensus target has an undisclosed currency. It is not used as a comparable USD scenario value or as evidence of a probability-weighted return.",
+      "Without a comparable target history, disclosed currency and realization horizon, it cannot establish an earnings-revision trend or a comparable USD scenario return.",
+      "FY2025 USD reporting is not established for this row.",
+      "JPM 43 peers",
+    ]) {
+      expect(statesCurrencyOnNumber(text), text).toBe(false);
+    }
+  });
+
+  it("fails a sentence that puts a currency on a figure of unknown currency", () => {
+    const target: CitationProvenanceRecord = {
+      id: "fmp:price-target-consensus", kind: "payload-unestablished", asOf: "2026-07-01", origin: "fmp:price-target-consensus", currencyUnknown: true,
+    };
+    const failing = run(refs(claim("The consensus target is $781.", target.id, { asOf: "2026-07-01" })), [], { citationRegistry: [target] });
+    expect(failing.findings[0]).toMatchObject({ check: "unit", reason: "currency-not-established" });
+    expect(failing.rejectedClaimPaths.has("fundamentals.commentary[0]")).toBe(true);
+    const passing = run(
+      refs(claim("The analyst-consensus target has an undisclosed currency and is not used as a scenario value.", target.id, { asOf: "2026-07-01" })),
+      [],
+      { citationRegistry: [target] },
+    );
+    expect(passing.findings).toEqual([]);
+    expect(passing.rejectedClaimPaths.size).toBe(0);
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * (g) Review of D-43, 2026-10-13: shapes that verified on a person row, an
+ *     absence or a date row before the reviewer's fixes
+ * ------------------------------------------------------------------------ */
+
+describe("person-row claims are read however the name and title are written (review)", () => {
+  const personRows = collectPersonRows({ leadershipFigures: compFigures(JPM_COMP, "2026-04-06") });
+  const check = (text: string, names: string[] = personRows.map((row) => row.name)) => run(
+    refs(claim(text, "fmp:executive-compensation", { asOf: "2026-04-06" })),
+    [],
+    {
+      citationRegistry: [compCitation("2026-04-06")],
+      personNames: names,
+      organizationNames: ["JPMorgan Chase & Co."],
+      personRows,
+    },
+  );
+
+  it("reads a title written after 'is' or 'serves as', and one written before the name", () => {
+    for (const text of [
+      "Jeremy Barnum is the CEO.",
+      "Jeremy Barnum serves as CEO.",
+      "Jeremy Barnum is also CEO.",
+      "CFO James Dimon received the largest award.",
+      "JPMorgan's CFO, James Dimon, received the largest award.",
+      // The role before the name keeps its modifier, and still needs the row's scope.
+      "Co-CEO Troy Rohrbaugh met investors.",
+    ]) {
+      expect(check(text).findings[0]?.reason, text).toBe("named-individual-title-mismatch");
+    }
+    for (const text of [
+      "Jeremy Barnum is the CFO.",
+      "James Dimon is Chairman and CEO.",
+      "Under Jeremy Barnum, the CFO, the finance function was reorganized.",
+    ]) {
+      expect(check(text).findings, text).toEqual([]);
+    }
+  });
+
+  it("reads a name no list or pattern knows, and fails it unless the rows list it", () => {
+    for (const text of [
+      "Sheryl Sandberg is CEO.",
+      "Susan Bosworth is CFO.",
+      "James Dimon and Sheryl Sandberg lead the firm.",
+      // A lone surname opening the sentence, before a verb a person takes.
+      "Sandberg received the largest award.",
+    ]) {
+      expect(check(text).findings[0]?.reason, text).toBe("named-individual-not-in-source");
+    }
+    for (const text of [
+      "Dimon received the largest award.",
+      "Without a covered period, the pay entries are not comparable.",
+      "Tenure is not disclosed in the rows.",
+    ]) {
+      expect(check(text).findings, text).toEqual([]);
+    }
+    // Title words, the rows' own scope words, the issuer and a sentence-opening
+    // word are not names; neither is a surname the rows list.
+    for (const text of [
+      "The Summary Compensation Table lists Mary Callahan Erdoes as CEO of Asset & Wealth Management.",
+      "Latest annual compensation exceeds the preceding year; Dimon leads.",
+      "JPMorgan Chase pays Jeremy Barnum.",
+    ]) {
+      expect(check(text).findings, text).toEqual([]);
+    }
+  });
+
+  it("reads unlisted names only for a claim citing a person row", () => {
+    expect(namedIndividuals("Sheryl Sandberg is CEO.", [])).toEqual([]);
+    expect(namedIndividuals("Sheryl Sandberg is CEO.", [], [], { unlistedNames: { extraWords: [] } })).toEqual([
+      { match: "Sheryl Sandberg", name: "Sheryl Sandberg", surnameOnly: false, title: "CEO" },
+    ]);
+  });
+});
+
+describe("numbers a gap or date row cannot carry (review)", () => {
+  it("keeps a number glued to a currency code and reads numbers written in words", () => {
+    expect(proseNumbers("Net debt is EUR5bn.")).toEqual([5]);
+    expect(proseNumbers("It was 12pct.")).toEqual([12]);
+    expect(statesNumberWord("Net debt/EBITDA is two times.")).toBe(true);
+    expect(statesNumberWord("Net debt runs at twice EBITDA.")).toBe(true);
+    // How a gap is written: "one of", "the first half", a form or rule number.
+    expect(statesNumberWord("CET1 is one of the ratios not reported for the first half.")).toBe(false);
+    expect(statesNumberWord("No Form 4 or Rule 10b5-1 filings were reviewed.")).toBe(false);
+  });
+
+  it("lets a date row support that date only, at the precision written", () => {
+    const allowed = ["2027-01-14"];
+    for (const text of [
+      "The next report is scheduled for 2027-01-14.",
+      "The provider calendar lists January 14, 2027.",
+      "Results are expected on 14 Jan.",
+      "Results are expected in January 2027.",
+      "A next date is on the provider calendar, not confirmed by the company.",
+    ]) {
+      expect(statesOnlyAllowedDates(text, allowed), text).toBe(true);
+    }
+    for (const text of [
+      "The next report is scheduled for 2027-02-14.",
+      "The provider calendar lists January 15, 2027.",
+      "Results are expected in February 2027.",
+      "Results are expected on 1/15/2027.",
+      "Results on 2027-01-14 should show EPS of 4.85.",
+      "Results come in two weeks.",
+    ]) {
+      expect(statesOnlyAllowedDates(text, allowed), text).toBe(false);
+    }
   });
 });

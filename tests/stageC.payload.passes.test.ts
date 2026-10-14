@@ -62,6 +62,8 @@ import {
   runBullPass,
   runBearPass,
   runBullThenBear,
+  runAnalystContinuationPass,
+  isTransientSubscriptionFailure,
   runJudgePass,
   runVerifyPass,
   buildAnalystRunPassArgs,
@@ -74,6 +76,7 @@ import {
   totalCost,
   extractText,
   parseJsonSalvaging,
+  parseJsonMergingTrailingFields,
   judgeRetryFeedback,
   judgeModelFor,
   JUDGE_MODEL_FLOOR,
@@ -82,7 +85,11 @@ import {
   SCENARIO_TARGET_HORIZON,
   type PassDeps,
   type RunPassOutcome,
+  JUDGE_SECTION_PARTS,
+  ANALYST_SECTION_PARTS,
+  type RunPassArgs,
 } from "@/pipeline/stageC/passes";
+import { completedTopLevelFields } from "@/pipeline/stageC/continuation";
 import type { CostBreakdownEntry as _CBE } from "@/report/schema";
 
 /* ------------------------------------------------------------------------ *
@@ -642,14 +649,51 @@ describe("payload determinism + provenance", () => {
       // anchor text). The anchor becomes the median of the regression and the
       // 3y CAGR, so the DCF figures in the registry (provenanceHash) and the
       // finance block (financeHash) move; counts and ids are unchanged.
-      fingerprint: "1.11.0:8da073fa",
-      promptBytes: 94_463,
-      provenanceCount: 365,
-      provenanceHash: "b444c624",
-      provenanceIdsHash: "a3f69ec6",
-      citationCount: 11,
-      citationHash: "7ebe5276",
-      computedFigureLabelHash: "26cc3d2a",
+      // 2026-10-13 (D-43, citation registry): every printed tag is now
+      // citable. n/a rows, unestablished money rows (the peer caps, the
+      // compensation row, the estimate/target and quarter-statement cells of
+      // unknown currency) and each missing-data manifest entry register a
+      // citation record (11 → 48; kinds payload-gap / payload-unestablished).
+      // Each manifest line gains its [manifest.<field>] tag and the projections
+      // section gains its scenario-weights row (+872 prompt bytes;
+      // computedFigureLabelHash moves with the new row). No numeric record,
+      // id or finance figure moved.
+      // 2026-10-13 (D-44, units): each aspect score's completeness moves out
+      // of the score row's unit qualifier into its own row and record
+      // (`<aspect> evidence completeness`, unit fraction): +7 records
+      // (365 → 372), provenanceHash/provenanceIdsHash and
+      // computedFigureLabelHash move with them. RSI-14, MACD histogram and the
+      // MSPR rows now print the unit "index" they were already registered
+      // under (no existing record changed). Net +829 prompt bytes. No
+      // citation record or finance figure moved.
+      // 2026-10-13 (review of D-42..D-45): PAYLOAD_VERSION 1.11.0 → 1.12.0,
+      // once for the four decisions. Only the version in the fingerprint and
+      // the prompt header moved (same byte length); no hash or count did.
+      // 2026-10-13 (D-49, PAYLOAD_VERSION 1.13.0): balanceSheet no longer
+      // scores shareCountTrend and leadership no longer scores
+      // sbcPctOfRevenue, so their two driver records leave the registry
+      // (372 → 370) and the moved aspect scores change provenanceHash and
+      // financeHash. Prompt bytes are unchanged (same-length version and band
+      // stamps, same-width scores).
+      // 2026-10-13 (D-48, same 1.13.0): the technicals section gains the
+      // 12-1 month and 6-month relative-strength rows. This fixture has no SPY
+      // history, so both print n/a and register as payload-gap citations
+      // (48 → 50; +196 prompt bytes; computedFigureLabelHash moves). The
+      // technicals aspect's drivers and note change (financeHash); no numeric
+      // record moved.
+      // 2026-10-13 (D-46, PAYLOAD_VERSION 1.14.0): only the version moved for
+      // this general-company fixture (a bank gains its own section).
+      // 2026-10-13 (review of D-46..D-50, PAYLOAD_VERSION 1.15.0): the
+      // technicals aspect note names the 52-week-high distance (financeHash);
+      // no registered record, citation or prompt byte moved.
+      fingerprint: "1.15.0:ac4cea0a",
+      promptBytes: 96_360,
+      provenanceCount: 370,
+      provenanceHash: "2a115f44",
+      provenanceIdsHash: "3cfec89d",
+      citationCount: 50,
+      citationHash: "0a646a41",
+      computedFigureLabelHash: "263e663f",
       projectionPathPeriodHash: "45ce96a4",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -660,7 +704,10 @@ describe("payload determinism + provenance", () => {
       // 2026-10-03: P/TBV basis now explicitly deducts preferred equity;
       // this general-company fixture has zero preferred, so values are unchanged.
       // 2026-10-05 (D-39): the growth anchor drops the 4-year "5y" CAGR.
-      financeHash: "ef6e55f2",
+      // 2026-10-12 (D-41): the quality aspect's note names the equity-side
+      // value-creation measure financial routes use. This general-company
+      // fixture scores no new driver; fingerprint and promptBytes are unchanged.
+      financeHash: "a75f2283",
     });
   });
 
@@ -694,8 +741,9 @@ describe("payload determinism + provenance", () => {
     expect(payload.citationRegistry).toEqual(canonicalPayload.citationRegistry);
     const scoreSection = payload.computed.find((section) =>
       section.title.startsWith("Deterministic aspect scores"));
+    // D-44: each aspect score is followed by its own evidence-completeness row.
     expect(scoreSection?.figures.slice(2).map((figure) => figure.label)).toEqual(
-      aspects.map((aspect) => `${aspect} score`),
+      aspects.flatMap((aspect) => [`${aspect} score`, `${aspect} evidence completeness`]),
     );
 
     const driverIds = aspects.flatMap((aspect) =>
@@ -783,7 +831,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.11.0");
+    expect(first.payloadVersion).toBe("1.15.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1599,6 +1647,66 @@ describe("verify-pass tracing", () => {
     expect(coverage.judgments).toEqual({ cited: 1, total: 1, rate: 1 });
   });
 
+  it("renders the next scheduled earnings date as a citable, currency-free note", async () => {
+    // 2026-10-13: with a Finnhub key set, the manifest said the calendar was
+    // "Supplied by Finnhub" while no date reached the payload.
+    const bundle = fixtureBundle();
+    bundle.earningsCalendarNext = ok(
+      { symbol: "AAPL", date: "2026-07-30", epsActual: null, epsEstimated: 1.43, revenueActual: null, revenueEstimated: 89_000_000_000 },
+      "2026-07-05",
+      "/calendar/earnings?symbol=AAPL",
+      "finnhub",
+    );
+    const computed = runStageB(bundle);
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const note = payload.estimates.notes.find((n) => n.includes("earnings-calendar"));
+    expect(note).toBe(
+      "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-07-30 [finnhub:earnings-calendar · 2026-07-05]",
+    );
+    // The row's estimates carry no currency, so they are not rendered.
+    expect(note).not.toMatch(/1\.43|89000000000|89,000/);
+    expect(payload.citationRegistry).toContainEqual({
+      id: "finnhub:earnings-calendar",
+      kind: "payload-text",
+      asOf: "2026-07-05",
+      origin: "finnhub:earnings-calendar",
+      allowedDates: ["2026-07-30"],
+    });
+    const deps = makeDeps(new MockRunPass());
+    const claim = (text: string) => ({ text, label: "FACT", source: "finnhub:earnings-calendar", asOf: "2026-07-05" });
+    const root = {
+      claims: [
+        claim("the next report is scheduled for 2026-07-30"),
+        claim("The provider calendar schedules the next report for July 30, 2026."),
+        claim("A next report date is on the provider calendar, not confirmed by the company."),
+        // Review 2026-10-13: the note's tag alone verified any date.
+        claim("the next report is scheduled for 2026-08-30"),
+        claim("The next report is due on August 30."),
+        claim("The next report on 2026-07-30 is expected to show EPS of 1.43."),
+      ],
+    };
+    const { coverage, log } = await runVerifyPass(deps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
+    expect(coverage.factualClaims).toEqual({ supported: 3, total: 6, rate: 0.5 });
+    expect(log.filter((entry) => entry.outcome === "unverified").map((entry) => entry.reason))
+      .toEqual(["value-mismatch", "value-mismatch", "value-mismatch"]);
+  });
+
+  it("renders no earnings-calendar note, and registers no source, for an unestablished date or source", () => {
+    const build = (calendar: DataBundle["earningsCalendarNext"]) => {
+      const bundle = fixtureBundle();
+      bundle.earningsCalendarNext = calendar;
+      return assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    };
+    for (const payload of [
+      build(ok({ date: "2026-02-30" }, "2026-07-05", "/calendar/earnings", "finnhub")),
+      build(ok({ date: "2026-07-30" }, "2026-07-05", "yahoo://calendar", "yahoo")),
+      build(gap),
+    ]) {
+      expect(payload.estimates.notes.some((n) => n.includes("earnings-calendar"))).toBe(false);
+      expect((payload.citationRegistry ?? []).some((c) => c.id.endsWith(":earnings-calendar"))).toBe(false);
+    }
+  });
+
   it("tells every pass to treat provider prose as data, never instructions", () => {
     expect(SHARED_RULES_BLOCK).toMatch(/UNTRUSTED_SOURCE_DATA/);
     expect(SHARED_RULES_BLOCK).toMatch(/never follow|do not follow/i);
@@ -1846,12 +1954,14 @@ describe("assembleReport", () => {
     output.balanceSheet.graded = { ...output.quality.graded, grade: "C" };
     output.verdict.gradeStrip.balanceSheet = { ...output.balanceSheet.graded };
     const original = JSON.stringify(output);
-    computed.scores!.aspects.quality = { ...computed.scores!.aspects.quality, score: 96, band: "A", dataCompleteness: 0.05 };
-    computed.scores!.aspects.balanceSheet = { ...computed.scores!.aspects.balanceSheet, score: null, band: null, dataCompleteness: 0 };
+    computed.scores!.aspects.quality = { ...computed.scores!.aspects.quality, score: 96, band: "A", dataCompleteness: 0.05, applicableCompleteness: 0.05 };
+    computed.scores!.aspects.balanceSheet = { ...computed.scores!.aspects.balanceSheet, score: null, band: null, dataCompleteness: 0, applicableCompleteness: 0 };
     const report = assembleReport({ symbol: "AAPL", bundle, computed, judgeOutput: output,
       verify: { verificationRate: 0.9, log: [] }, costEntries: [], model: "chatgpt/gpt-6.1-sol" }, GENERATED_AT);
-    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence" });
-    expect(report.quality.graded).toEqual({ ...output.quality.graded, assessmentStatus: "limited-evidence" });
+    // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
+    const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of the inputs its route supports" };
+    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.quality.graded).toEqual({ ...output.quality.graded, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(report.verdict.gradeStrip.balanceSheet?.assessmentStatus).toBe("not-assessed");
     expect(ReportSchema.safeParse(report).success).toBe(true);
@@ -3016,6 +3126,168 @@ describe("mock-driven bull/bear/judge passes", () => {
     expect(() => parseJsonSalvaging('prose {"a":1')).toThrow();
   });
 
+  it("parseJsonMergingTrailingFields recovers fields written after an early-closed root", () => {
+    // root closed after the first section, the rest continues as key/values
+    expect(parseJsonMergingTrailingFields('{"verdict":{"x":1}}, "business":{"y":2}, "macro":[3]}')).toEqual({
+      verdict: { x: 1 },
+      business: { y: 2 },
+      macro: [3],
+    });
+    // a second object carrying the remaining sections
+    expect(parseJsonMergingTrailingFields('{"verdict":{"x":1}}\n{"business":{"y":"a } b"}}')).toEqual({
+      verdict: { x: 1 },
+      business: { y: "a } b" },
+    });
+    // a duplicated copy (repeated keys), trailing prose, or a whole document: nothing to merge
+    expect(parseJsonMergingTrailingFields('{"a":1}\n{"a":1}')).toBeNull();
+    expect(parseJsonMergingTrailingFields('{"a":1}\nHere is my summary.')).toBeNull();
+    expect(parseJsonMergingTrailingFields('{"a":1}')).toBeNull();
+    // an unparseable trailing fragment is not guessed at
+    expect(parseJsonMergingTrailingFields('{"a":1}, "b": oops}')).toBeNull();
+  });
+
+  it("a judge output with an early-closed root passes once its trailing sections are merged", async () => {
+    const { payload } = buildInputs();
+    const whole = judgeOutput() as Record<string, unknown>;
+    const { verdict, ...rest } = whole;
+    const tail = JSON.stringify(rest).slice(1); // `"business":…}` — the root's own closing brace
+    const mock = new MockRunPass();
+    mock.onText("llm.judge", `{"verdict":${JSON.stringify(verdict)}}, ${tail}`);
+    const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+  });
+
+  describe("responses produced in parts on a time-limited connection", () => {
+    /** A provider that answers each part with exactly the sections it asked for. */
+    function partProvider(whole: Record<string, unknown>, failOn?: number) {
+      const prompts: string[] = [];
+      const runPass = async (args: RunPassArgs): Promise<RunPassOutcome> => {
+        const last = args.messages.at(-1)!;
+        const text = typeof last.content === "string" ? last.content : last.content.map((b) => b.text).join("");
+        prompts.push(text);
+        const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(text)![1]!.split(", ");
+        const part = Object.fromEntries(asked.map((key) => [key, whole[key]]));
+        if (failOn === prompts.length) {
+          return {
+            ok: false,
+            gap: { field: args.field ?? "llm", reason: "dropped", severity: "critical" },
+            error: {
+              kind: "transport",
+              message: "ChatGPT stream ended before completion",
+              model: "chatgpt/gpt-6.1-sol",
+              costUsd: 0,
+              // The part was cut off after its first section.
+              partialText: JSON.stringify(part).slice(0, JSON.stringify({ [asked[0]!]: part[asked[0]!] }).length - 1) + ',"x":',
+            },
+          };
+        }
+        return {
+          ok: true,
+          value: { data: {
+            message: { content: [{ type: "text", text: JSON.stringify(part) }], usage: { input_tokens: 10, output_tokens: 5 }, model: "chatgpt/gpt-6.1-sol" },
+            usage: { input_tokens: 10, output_tokens: 5 },
+            costUsd: 0,
+            fallbackUsed: false,
+            model: "chatgpt/gpt-6.1-sol",
+          } },
+        };
+      };
+      return { runPass, prompts };
+    }
+    const sectioned = (runPass: PassDeps["runPass"]): PassDeps => ({ runPass, model: "chatgpt/gpt-6.1-sol", sectionedOutput: true });
+
+    it("assembles a judge report from three parts, each seeing the sections already written", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const provider = partProvider(whole);
+      const run = await runJudgePass(sectioned(provider.runPass), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(JUDGE_SECTION_PARTS);
+      expect(provider.prompts[0]).not.toContain("SECTIONS ALREADY WRITTEN");
+      expect(provider.prompts[1]).toContain("SECTIONS ALREADY WRITTEN");
+      if (run.ok) expect(run.result.usage.input_tokens).toBe(10 * JUDGE_SECTION_PARTS);
+    });
+
+    it("hands back every finished section when a later part is cut off", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const provider = partProvider(whole, 2);
+      const run = await runJudgePass(sectioned(provider.runPass), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(false);
+      if (run.ok) return;
+      const kept = completedTopLevelFields(run.error.partialText ?? "");
+      const firstGroup = Object.keys(whole).slice(0, Math.ceil(Object.keys(whole).length / JUDGE_SECTION_PARTS));
+      for (const key of firstGroup) expect(kept).toHaveProperty(key);
+      expect(Object.keys(kept).length).toBe(firstGroup.length + 1);
+    });
+
+    it("re-asks once for a section a part left out", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const provider = partProvider(whole);
+      let first = true;
+      const dropOne: PassDeps["runPass"] = async (args) => {
+        const out = await provider.runPass(args);
+        if (first && out.ok) {
+          first = false;
+          const part = JSON.parse(out.value.data.message.content[0]!.text!) as Record<string, unknown>;
+          delete part[Object.keys(part)[0]!];
+          return { ...out, value: { data: { ...out.value.data, message: { ...out.value.data.message, content: [{ type: "text", text: JSON.stringify(part) }] } } } };
+        }
+        return out;
+      };
+      const run = await runJudgePass(sectioned(dropOne), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(JUDGE_SECTION_PARTS + 1);
+    });
+
+    it("assembles an analyst case from its parts", async () => {
+      const { payload } = buildInputs();
+      const provider = partProvider(analystCase("bull") as Record<string, unknown>);
+      const run = await runBullPass(sectioned(provider.runPass), payload);
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(ANALYST_SECTION_PARTS);
+    });
+  });
+
+  it("a judge continuation asks only for the missing sections and validates the merged whole", async () => {
+    const { payload } = buildInputs();
+    const whole = judgeOutput() as Record<string, unknown>;
+    const keys = Object.keys(whole);
+    const completed = Object.fromEntries(keys.slice(0, 4).map((k) => [k, whole[k]]));
+    const rest = Object.fromEntries(keys.slice(4).map((k) => [k, whole[k]]));
+    const mock = new MockRunPass();
+    mock.onJson("llm.judge", rest);
+    const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"), undefined, undefined, undefined, { completed });
+    expect(run.ok).toBe(true);
+    const sent = mock.calls[0]!.messages.at(-1)!;
+    const text = typeof sent.content === "string" ? sent.content : sent.content.map((b) => b.text).join("");
+    expect(text).toContain(`KEPT exactly as written: ${keys.slice(0, 4).join(", ")}`);
+    expect(text).toContain(`ONLY the remaining top-level sections: ${keys.slice(4).join(", ")}`);
+  });
+
+  it("an analyst continuation merges the kept sections and validates the case", async () => {
+    const { payload } = buildInputs();
+    const whole = analystCase("bull") as Record<string, unknown>;
+    const keys = Object.keys(whole);
+    const completed = Object.fromEntries(keys.slice(0, 2).map((k) => [k, whole[k]]));
+    const rest = Object.fromEntries(keys.slice(2).map((k) => [k, whole[k]]));
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", rest);
+    const run = await runAnalystContinuationPass(makeDeps(mock), payload, "bull", { completed });
+    expect(run.ok).toBe(true);
+  });
+
+  it("an output that already validates is never altered by the trailing-field fallback", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onText("llm.judge", `${JSON.stringify(judgeOutput())}\n{"note":"extra"}`);
+    const run = await runJudgePass(makeDeps(mock), payload, analystCase("bull"), analystCase("bear"));
+    expect(run.ok).toBe(true);
+    if (!run.ok) return;
+    expect(run.result.output).not.toHaveProperty("note");
+  });
+
   it("judgeRetryFeedback echoes the failed output so retries repair instead of regenerate", () => {
     const withOutput = judgeRetryFeedback('[{"path":["verdict"]}]', '{"verdict":{}}');
     expect(withOutput).toContain("FAILED report-schema validation");
@@ -3375,6 +3647,36 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
     if (bear.ok) return;
     expect(bear.error.notLaunched).toBe(true);
     expect(mock.calls.map((call) => call.field)).toEqual(["llm.bull"]);
+  });
+
+  it("still runs bear when bull's failure is a retryable zero-cost subscription drop", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.on("llm.bull", {
+      kind: "error",
+      error: { kind: "transport", message: "ChatGPT stream ended before completion", model: "chatgpt/gpt-5.6-luna", costUsd: 0 },
+    });
+    mock.onJson("llm.bear", analystCase("bear"));
+    const deps = makeDeps(mock, { model: "chatgpt/gpt-5.6-luna" });
+    delete (deps as { runPassStreaming?: unknown }).runPassStreaming;
+
+    const { bull, bear } = await runBullThenBear(deps, payload);
+
+    expect(bull.ok).toBe(false);
+    expect(isTransientSubscriptionFailure(bull)).toBe(true);
+    expect(bear.ok).toBe(true);
+    expect(mock.calls.map((call) => call.field)).toEqual(["llm.bull", "llm.bear"]);
+  });
+
+  it("treats only unbilled, unaborted subscription transport failures as transient", () => {
+    const fail = (error: Record<string, unknown>) =>
+      ({ ok: false, gap: { field: "llm.bull", reason: "x", severity: "critical" }, error: { kind: "transport", message: "x", ...error } }) as never;
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0 }))).toBe(true);
+    expect(isTransientSubscriptionFailure(fail({ model: "claude-opus-4-8", costUsd: 0 }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0.2 }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0, aborted: true }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0, notLaunched: true }))).toBe(false);
+    expect(isTransientSubscriptionFailure(fail({ model: "chatgpt/gpt-5.6-luna", costUsd: 0, kind: "schema" }))).toBe(false);
   });
 
   it("keeps each side's own failure message when both fail on their own in the same instant", async () => {

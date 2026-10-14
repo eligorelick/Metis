@@ -216,7 +216,8 @@ export function PriceChart({
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: false,
-        title: "SMA50",
+        // No series title: lightweight-charts draws it inside the plot, over
+        // the newest candles. The legend below names the line.
       });
       sma50.setData(model.sma50 as LineData<Time>[]);
     }
@@ -227,7 +228,6 @@ export function PriceChart({
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: false,
-        title: "SMA200",
       });
       sma200.setData(model.sma200 as LineData<Time>[]);
     }

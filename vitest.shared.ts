@@ -61,10 +61,12 @@ export const RISK_SOURCE_MANIFEST = [
   "src/symbol.ts",
   "src/pipeline/companyLoad.ts",
   "src/pipeline/dataBundle.ts",
+  "src/pipeline/commonEarnings.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/stageA/manifest.ts",
   "src/pipeline/stageA/validate.ts",
   "src/pipeline/stageC/citations.ts",
+  "src/pipeline/stageC/continuation.ts",
   "src/pipeline/stageC/entityValidation.ts",
   "src/pipeline/stageC/index.ts",
   "src/pipeline/stageC/passes.ts",
@@ -134,4 +136,11 @@ export const RISK_SOURCE_MANIFEST = [
   // target's currency, read by both the Stage B valuation and the Stage C
   // payload registry (tests/currency.analystEstimates.test.ts).
   "src/pipeline/estimateCurrency.ts",
+  // Added 2026-10-13 (D-45): the filing/transcript text matcher. It is an
+  // acceptance path of the verifier — a number it matches is marked verified
+  // — so it carries the verifier's per-file coverage floor.
+  "src/pipeline/stageC/excerptNumbers.ts",
+  // Added 2026-10-13 (review of D-50): the section-confidence ceiling, which
+  // rewrites a model label at assembly; it was left out when D-50 added it.
+  "src/pipeline/stageC/confidenceCeiling.ts",
 ];
