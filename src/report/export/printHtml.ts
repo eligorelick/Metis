@@ -1092,6 +1092,8 @@ p { margin: 4pt 0; overflow-wrap: anywhere; }
 .asof { color: #8a919e; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .src { color: #8a919e; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
+.report-header table { table-layout: fixed; }
+.report-header th:first-child, .report-header td:first-child { width: 22%; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
 th, td { border: 1px solid #d5d9e0; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
