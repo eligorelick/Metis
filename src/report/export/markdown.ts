@@ -18,6 +18,7 @@
  */
 
 import { formatExecutionMetadata } from "@/report/execution";
+import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
   Appendix,
   BalanceSheet,
@@ -486,6 +487,8 @@ function renderProjections(p: Projections): string {
           PROJECTION_SERIES_FIELD_BY_KEY.metric.label,
           "Path",
           PROJECTION_POINT_FIELD_BY_KEY.period.label,
+          PROJECTION_POINT_FIELD_BY_KEY.periodStart.label,
+          PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label,
           "Series unit",
           ...TRACED_NUMBER_FIELDS.map((field) => field.label),
         ],
@@ -494,6 +497,8 @@ function renderProjections(p: Projections): string {
             metric.label,
             path.label,
             point.period,
+            point.periodStart ?? "not established",
+            point.periodEnd ?? "not established",
             s.unit,
             ...tracedAuditCells(point.value),
           ])),
@@ -616,6 +621,7 @@ function renderValuation(
   scenarioTargets?: ScenarioTargets,
   fairValue?: FairValue,
   routeMetrics?: RouteMetrics,
+  review: ValuationReviewInputs = {},
 ): string {
   const lines: string[] = [sectionHeading("valuation"), ""];
   lines.push(gradeBlock("Valuation", v.graded), "");
@@ -703,7 +709,7 @@ function renderValuation(
       v.multiples.map((m) => [
         m.name,
         m.current === null ? DASH : num(m.current, 1),
-        m.peerMedian === null ? DASH : num(m.peerMedian, 1),
+        `${m.peerMedian === null ? DASH : num(m.peerMedian, 1)}${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
         m.own5yPercentile === null
           ? DASH
           : `rank ${m.own5yPercentile.toFixed(0)}/100${
@@ -719,7 +725,7 @@ function renderValuation(
   lines.push(
     "### Scenarios",
     "",
-    "_Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable._",
+    `_${markdownProse(review.scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable.")}_`,
     "",
   );
   // Honest disclosure of how the headline targets were derived (or why suppressed):
@@ -740,14 +746,20 @@ function renderValuation(
       );
     }
   }
+  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
+    lines.push(`### ${markdownHeading(block.title)}`, "", ...block.paragraphs.flatMap((p) => [markdownProse(p), ""]));
+    for (const item of block.items) {
+      lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [markdownProse(p), ""]));
+    }
+  }
   for (const sc of v.scenarios) {
-    lines.push(renderScenario(sc), "");
+    lines.push(renderScenario(sc, review.scenarioPresentation !== undefined), "");
   }
   if (routeMetrics) lines.push(renderRouteMetrics(routeMetrics), "");
   return lines.join("\n").trimEnd();
 }
 
-function renderScenario(sc: Scenario): string {
+function renderScenario(sc: Scenario, computedWeights = false): string {
   const lines: string[] = [];
   // priceTarget is null when the deterministic computation suppressed it
   // (insufficient valuation inputs) — show "unavailable", never a fabricated value.
@@ -758,7 +770,7 @@ function renderScenario(sc: Scenario): string {
     ? "n/a"
     : `${(sc.probability * 100).toFixed(0)}%`;
   lines.push(
-    `#### ${capitalize(sc.name)} — target ${target} (p = ${probability}, ${markdownHeading(sc.horizon)})${targetAsOf}`,
+    `#### ${capitalize(sc.name)} — target ${target} (${computedWeights ? "Display weight" : "p"} = ${probability}, ${markdownHeading(sc.horizon)})${targetAsOf}`,
   );
   lines.push("");
   lines.push("Assumptions:");
@@ -777,6 +789,9 @@ function renderScenario(sc: Scenario): string {
           `- ${markdownListItem(condition)}`).join("\n")
       : `- ${DASH}`,
   );
+  if (sc.qualitativeCommentary?.length) {
+    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${markdownListItem(text)}`));
+  }
   return lines.join("\n");
 }
 
@@ -1245,7 +1260,7 @@ export function reportToMarkdown(report: Report): string {
     renderBusiness(report.business),
     renderFundamentals(report.fundamentals),
     renderBalanceSheet(report.balanceSheet),
-    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics),
+    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }),
     renderQuality(report.quality),
     renderTechnicals(report.technicals),
     renderLeadership(report.leadership),

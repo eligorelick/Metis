@@ -425,14 +425,20 @@ export type ProjectionPointFieldKey = keyof ProjectionPoint;
 export const PROJECTION_POINT_FIELD_ORDER = [
   "period",
   "value",
+  "periodStart",
+  "periodEnd",
 ] as const satisfies readonly ProjectionPointFieldKey[];
 export const PROJECTION_POINT_FIELDS = [
   { id: "projection-point-field:period", key: "period", label: "Period", optional: false },
   { id: "projection-point-field:value", key: "value", label: "Value", optional: false },
+  { id: "projection-point-field:periodStart", key: "periodStart", label: "Modeled period start", optional: true },
+  { id: "projection-point-field:periodEnd", key: "periodEnd", label: "Modeled period end", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionPointFieldKey>[];
 export const PROJECTION_POINT_FIELD_BY_KEY = {
   period: PROJECTION_POINT_FIELDS[0],
   value: PROJECTION_POINT_FIELDS[1],
+  periodStart: PROJECTION_POINT_FIELDS[2],
+  periodEnd: PROJECTION_POINT_FIELDS[3],
 } as const satisfies Record<ProjectionPointFieldKey, FieldDescriptor<ProjectionPointFieldKey>>;
 
 export type ProjectionDisclosureFieldKey = keyof ManifestEntry;

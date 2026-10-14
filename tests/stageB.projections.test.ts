@@ -28,6 +28,8 @@ import {
 } from "@/pipeline/stageB/valuation";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { SectorRoute } from "@/types/core";
+import { createEvaluationSnapshot, evaluateReportSnapshot } from "@/report/evaluation";
+import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 
 /* ------------------------------------------------------------------------ *
  * Fixtures — a REAL DCF built from the production valuation functions.
@@ -109,6 +111,55 @@ const byMetric = (p: ReturnType<typeof computeProjections>, m: string) => p.seri
 /* ------------------------------------------------------------------------ */
 
 describe("projections — structure", () => {
+  it("evaluates a newly generated modeled period only against that exact published window", () => {
+    const inputs = makeInputs({ asOf: "2024-07-06" });
+    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
+    inputs.valuation.assumptions.asOf.statements = "2024-03-31";
+    const generated = { meta: { symbol: "TEST", generatedAt: "2024-07-06T12:00:00.000Z", specVersion: "1.11.0", pipelineVersion: "test" }, projections: computeProjections(inputs) };
+    const issuer = { scheme: "cik", id: "123", symbol: "TEST" };
+    const definition = { schemaVersion: 1, issuer, identitySource: "test issuer", asOf: "2024-07-06", methodVersion: "test", market: [], operating: [{
+      id: "revenue-year1", metric: "revenue", scenario: "base", periodLabel: "FY2025", periodStart: "2024-04-01", periodEnd: "2025-03-31", unit: "USD", currency: "USD", basis: "consolidated-revenue",
+    }] };
+    const frozen = createEvaluationSnapshot(generated, definition, "2024-07-06T12:00:00.000Z");
+    const actual = { schemaVersion: 1, outcomes: [{ kind: "operating", id: "revenue-year1", issuer, metric: "revenue", periodStart: "2024-04-01", periodEnd: "2025-03-31", unit: "USD", currency: "USD", basis: "consolidated-revenue", value: 1000, availableDate: "2025-05-01", source: "test exact-window actuals" }] };
+    expect(evaluateReportSnapshot(frozen, actual, "2025-06-01").operating[0]).toMatchObject({ status: "included", forecastValue: 1120, signedError: 120 });
+  });
+
+  it("saves annual model windows after the actual TTM anchor rather than guessing fiscal-year dates", () => {
+    const inputs = makeInputs();
+    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
+    inputs.valuation.assumptions.asOf.statements = "2025-03-31";
+    const p = computeProjections(inputs);
+    for (const series of p.series) {
+      for (const scenario of ["base", "bull", "bear", "weighted"] as const) {
+        expect(series[scenario][0]).toMatchObject({ period: "FY2026", periodStart: "2025-04-01", periodEnd: "2026-03-31" });
+        expect(series[scenario][1]).toMatchObject({ period: "FY2027", periodStart: "2026-04-01", periodEnd: "2027-03-31" });
+      }
+    }
+    expect(byMetric(p, "revenue").assumptions.some(line => /12.month.*fiscal/i.test(line))).toBe(true);
+  });
+
+  it("clamps a leap-day anchor to February end without gaps between modeled years", () => {
+    const inputs = makeInputs();
+    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
+    inputs.valuation.assumptions.asOf.statements = "2024-02-29";
+    const rows = byMetric(computeProjections(inputs), "revenue").base;
+    expect(rows[0]).toMatchObject({ periodStart: "2024-03-01", periodEnd: "2025-02-28" });
+    expect(rows[1]).toMatchObject({ periodStart: "2025-03-01", periodEnd: "2026-02-28" });
+    expect(rows[3]).toMatchObject({ periodStart: "2027-03-01", periodEnd: "2028-02-29" });
+  });
+
+  it.each([null, "2025-02-30", "2027-03-31"])("withholds period metadata for an unavailable/invalid/future TTM anchor %s", (anchor) => {
+    const inputs = makeInputs();
+    if (inputs.valuation.kind !== "dcf" || !inputs.valuation.assumptions) throw new Error("Expected DCF fixture");
+    inputs.valuation.assumptions.asOf.statements = anchor;
+    const p = computeProjections(inputs);
+    const row = byMetric(p, "revenue").base[0];
+    expect(row).not.toHaveProperty("periodStart");
+    expect(row).not.toHaveProperty("periodEnd");
+    expect(byMetric(p, "revenue").disclosures.some(d => d.field === "projections.period" && /unverified/i.test(d.reason))).toBe(true);
+  });
+
   it("produces revenue, operatingMargin, fcf, epsDiluted series over the horizon", () => {
     const p = computeProjections(makeInputs());
     expect(p.notApplicableReason).toBeNull();
@@ -149,6 +200,39 @@ describe("projections — DCF consistency (the load-bearing invariant)", () => {
 });
 
 describe("projections — scenarios", () => {
+  it("keeps the fan and targets on the same zero margin shock when growth dispersion rounds to zero", () => {
+    const dates = ["2020-12-31", "2021-12-31", "2022-12-31", "2023-12-31", "2024-12-31"];
+    let revenue = 100;
+    const incomeHistory = dates.map((date, i) => {
+      if (i > 0) {
+        const years = (Date.parse(date) - Date.parse(dates[i - 1])) / 86_400_000 / 365.25;
+        revenue *= Math.pow(1 + (10 + (i - 1) * 0.001) / 100, years);
+      }
+      return { date, revenue, ebit: revenue * (0.1 + i * 0.05), netIncome: revenue * 0.08, epsDiluted: 1 };
+    });
+    const measured = scenarioDispersion(incomeHistory);
+    expect(measured.sigmaGrowth).toBeGreaterThan(0);
+    expect(measured.sigmaGrowth).toBeLessThan(0.005);
+    expect(measured.sigmaMargin).toBeGreaterThan(7);
+    expect(measured.growthMarginCorrelation).toBeGreaterThan(0.99);
+
+    const inputs = makeInputs({ incomeHistory });
+    const targets = computeScenarioTargets({ ...inputs, currentPrice: 50 });
+    expect(targets.status).toBe("available");
+    expect(targets.dispersion?.growthMarginCorrelation).toBeNull();
+    expect(targets.targets.every(target => target.marginDeltaPp === 0)).toBe(true);
+
+    const projections = computeProjections(inputs);
+    const margin = byMetric(projections, "operatingMargin");
+    const values = (points: typeof margin.base) => points.map(point => point.value.value);
+    expect(values(margin.bull)).toEqual(values(margin.base));
+    expect(values(margin.bear)).toEqual(values(margin.base));
+    expect(margin.disclosures.some(d => d.field === "projections.dispersion.degenerate")).toBe(true);
+    // Suppressing an unmeasurable covariance must not alter the DCF base path.
+    const unchangedBase = byMetric(computeProjections(makeInputs()), "operatingMargin").base;
+    expect(values(margin.base)).toEqual(values(unchangedBase));
+  });
+
   it("rejects nonconsecutive fiscal gaps from historical dispersion", () => {
     const consecutive = scenarioDispersion([
       { date: "2019-12-31", revenue: 100, ebit: 20, netIncome: null, epsDiluted: null },

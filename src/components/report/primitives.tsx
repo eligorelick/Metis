@@ -349,6 +349,8 @@ export function ScenarioCard({
   horizon,
   assumptions,
   whatWouldHaveToBeTrue,
+  weightLabel = "p",
+  qualitativeCommentary,
 }: {
   name: "bull" | "base" | "bear";
   probability: number | null;
@@ -356,6 +358,8 @@ export function ScenarioCard({
   horizon: string;
   assumptions: readonly string[];
   whatWouldHaveToBeTrue: readonly string[];
+  weightLabel?: string;
+  qualitativeCommentary?: readonly string[];
 }) {
   const meta = SCENARIO_META[name];
   const borderColor =
@@ -369,7 +373,7 @@ export function ScenarioCard({
       <div className="flex items-center justify-between gap-2 border-b border-edge px-2.5 py-1.5">
         <Badge tone={meta.tone}>{meta.label}</Badge>
         <span className="mono text-[11px] text-muted">
-          {probability === null ? "p = n/a" : `p = ${(probability * 100).toFixed(0)}%`}
+          {`${weightLabel} = ${probability === null ? "n/a" : `${(probability * 100).toFixed(0)}%`}`}
         </span>
       </div>
       <div className="flex items-baseline justify-between gap-2 border-b border-edge px-2.5 py-2">
@@ -385,7 +389,7 @@ export function ScenarioCard({
       {priceTarget && <div className="border-b border-edge px-2.5 py-1.5"><TracedNumberSourceDetails n={priceTarget} label="Target provenance" /></div>}
       {probability === null ? (
         <div className="border-b border-edge px-2.5 py-1 text-[10px] text-faint">
-          scenario probability unavailable
+          {weightLabel === "p" ? "scenario probability unavailable" : "display weight unavailable"}
         </div>
       ) : (
         <ProbabilityBar value={probability} tone={meta.tone} />
@@ -405,7 +409,7 @@ export function ScenarioCard({
         </div>
         <div>
           <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">
-            what would have to be true
+            qualitative conditions to assess
           </div>
           <ul className="flex flex-col gap-0.5">
             {whatWouldHaveToBeTrue.map((w, i) => (
@@ -415,6 +419,10 @@ export function ScenarioCard({
             ))}
           </ul>
         </div>
+        {qualitativeCommentary?.length ? <div>
+          <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">Qualitative commentary (not valuation inputs)</div>
+          <ul className="flex flex-col gap-0.5">{qualitativeCommentary.map((text, i) => <li key={i} className="text-[11px] leading-snug text-muted">{text}</li>)}</ul>
+        </div> : null}
       </div>
     </div>
   );

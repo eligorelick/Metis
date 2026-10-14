@@ -39,6 +39,7 @@ import {
   type FmpRawRow,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
+import { loadPeerFundamentals } from "@/pipeline/peers";
 import {
   createDbCachedEdgarTransport,
   createEdgarClient,
@@ -1686,6 +1687,13 @@ export async function buildDataBundle(
     fmp.institutionalHolderAnalytics(sym, q13.year, q13.quarter, 0, 50),
   );
   const pPeers = settle(`fmp.stockPeers(${sym})`, fmp.stockPeers(sym));
+  // Optional work overlaps the main bundle. Its dedicated signal bounds both
+  // the caller and production HTTP retries; the same durable FMP cache is used.
+  const pPeerFundamentals = pPeers.then(discovered => loadPeerFundamentals({
+    symbol: sym, profile: profileRow, discovered, now: nowDate,
+    enabled: !reserved && !fmp.fixtureMode, signal: opts.signal, clock: now,
+    client: signal => opts.fmp ?? createFmpClient({ cachedFetch: makeFmpCachedFetch(), signal, timeoutMs: 2_500 }),
+  }));
   const pSegProduct = settle(`fmp.revenueProductSegmentation(${sym})`, fmp.revenueProductSegmentation(sym, "annual"));
   const pSegGeo = settle(`fmp.revenueGeographicSegmentation(${sym})`, fmp.revenueGeographicSegmentation(sym, "annual"));
   const pExecs = settle(`fmp.keyExecutives(${sym})`, fmp.keyExecutives(sym));
@@ -1792,6 +1800,7 @@ export async function buildDataBundle(
     nowDate,
   );
   const peers = await pPeers;
+  const peerFundamentals = await pPeerFundamentals;
   const segProduct = markSegmentationGapExpected(sortRows(await pSegProduct));
   const segGeo = markSegmentationGapExpected(sortRows(await pSegGeo));
   const executives = await pExecs;
@@ -2028,6 +2037,9 @@ export async function buildDataBundle(
 
   // The producer registry is discovered from the exact object returned below.
   // There is no independently keyed inventory that can drift or be mistyped.
+  // The optional peer reads can finish before later core/keyless reads. Compare
+  // both at the completed observation cutoff, not the report's start timestamp.
+  peerFundamentals.collectedAt = now().toISOString();
   const bundleCore: DataBundleCore = {
     symbol: sym,
     builtAt,
@@ -2058,6 +2070,7 @@ export async function buildDataBundle(
       topHolders,
     },
     peers,
+    peerFundamentals,
     segmentation: { product: segProduct, geographic: segGeo },
     executives,
     compensation,

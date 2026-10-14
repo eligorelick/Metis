@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-13",
+  "generatedAt": "2026-10-14",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -2227,11 +2227,6 @@
           }
         },
         {
-          "path": "stageB.valuation.multiples.notes.3",
-          "beforeMissing": true,
-          "after": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
-        },
-        {
           "path": "stageB.valuation.notes.3",
           "beforeMissing": true,
           "after": "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 9.25% — no per-year risk-free observation was available to recompute a year-specific WACC"
@@ -2671,15 +2666,6 @@
           }
         },
         {
-          "path": "stageB.valuation.gaps.1",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "peer multiples not supplied to the valuation stage — peer medians unavailable (not evaluated)",
-            "severity": "info"
-          }
-        },
-        {
           "path": "stageB.valuation.multiples.gaps.0.field",
           "before": "valuation.multiples.ownHistory",
           "after": "valuation.multiples.enterpriseValue.leases"
@@ -2688,25 +2674,6 @@
           "path": "stageB.valuation.multiples.gaps.0.reason",
           "before": "insufficient history (need ≥8 quarters) to build own-history percentile bands (up to 5y)",
           "after": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix"
-        },
-        {
-          "path": "stageB.valuation.multiples.gaps.1",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "peer multiples not supplied to the valuation stage — peer medians unavailable (not evaluated)",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.1",
-          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "Peer multiples are not supplied by the pipeline in this version — the peer median/IQR columns are unavailable for every multiple. This is a missing input, NOT a finding that the company has no peers."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.2",
-          "beforeMissing": true,
-          "after": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
         },
         {
           "path": "stageB.valuation.notes.1",
@@ -3657,15 +3624,6 @@
           }
         },
         {
-          "path": "report.appendix.missingData.54",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "peer multiples not supplied to the valuation stage — peer medians unavailable (not evaluated)",
-            "severity": "info"
-          }
-        },
-        {
           "path": "stageB.gaps.24.field",
           "before": "forensics.piotroski",
           "after": "growth.revenueAcceleration.threeYearCagr"
@@ -3904,15 +3862,6 @@
           }
         },
         {
-          "path": "stageB.gaps.53",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "peer multiples not supplied to the valuation stage — peer medians unavailable (not evaluated)",
-            "severity": "info"
-          }
-        },
-        {
           "path": "stageB.growth.gaps.0",
           "beforeMissing": true,
           "after": {
@@ -3971,11 +3920,6 @@
           "path": "report.fairValue.upsidePct",
           "before": 265.575,
           "after": 280.15
-        },
-        {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.10.0"
         },
         {
           "path": "report.scores.aspects.valuation.drivers.0.value",
@@ -5180,6 +5124,299 @@
           "path": "stageB.scores.composite.score",
           "before": 77.59,
           "after": 77.53
+        }
+      ]
+    },
+    {
+      "name": "research-reliability-2026-10-13",
+      "decisions": ["D-51", "D-52"],
+      "reason": "Research reliability adds explicit peer coverage and exclusions, deterministic scenario presentation and model-derived thesis review thresholds. Unavailable computational scenarios lose model-selected weights and assumptions move to separately labeled qualitative commentary. Version stamps advance. The audited numeric scoring and intrinsic-value results are unchanged; these leaves are new report fields, eligibility disclosures and note positions. See D-51 evaluation policy in RESEARCH.md and D-52 in DECISIONS.md.",
+      "deltas": [
+        {
+          "path": "report.appendix.missingData.54",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.11.0"
+        },
+        {
+          "path": "report.scenarioPresentation",
+          "beforeMissing": true,
+          "after": {
+            "methodVersion": "SCENARIO_PRESENTATION_2026_10",
+            "weightBasis": "Fixed, uncalibrated display prior shared with the operating projections; these weights are not estimated probabilities of future prices or outcomes.",
+            "interpretation": "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",
+            "sensitivity": {
+              "status": "robust-above",
+              "conclusion": "The valuation-versus-price conclusion is robust within the modeled grid: all valid cells remain above the current price. Only available WACC-by-terminal-growth cells are assessed; this is not a statistical confidence interval or a future-price range.",
+              "validCells": 25,
+              "totalCells": 25,
+              "minPerShare": 135.5114330997847,
+              "maxPerShare": 172.9435515102158
+            }
+          }
+        },
+        {
+          "path": "report.thesisTriggers",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "reverse-growth",
+              "metric": "Supported constant annual revenue growth",
+              "comparator": "below",
+              "threshold": {
+                "value": -17.24609375,
+                "unit": "%",
+                "source": "computed.valuation.reverseDcf",
+                "asOf": null,
+                "verified": null
+              },
+              "horizon": "Across all 10 explicit forecast years, with constant growth and no fade",
+              "fixedAssumptions": [
+                "Discount rate, terminal growth and reinvestment conventions remain at the model's base case.",
+                "The current quote, net debt, other senior claims and diluted share count remain fixed.",
+                "The operating-margin path remains at the base case."
+              ],
+              "consequence": "If revised evidence supports growth below this price-implied threshold, reassess the valuation case and recompute the reverse DCF. This is a conditional model comparison, not a next-period growth target or a predicted price change."
+            }
+          ]
+        },
+        {
+          "path": "report.valuation.multiples.0.peerCount",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "report.valuation.multiples.1.peerCount",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "report.valuation.multiples.2.peerCount",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "report.valuation.multiples.3.peerCount",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "report.valuation.multiples.4.peerCount",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "report.valuation.multiples.5.peerCount",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "report.valuation.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 6 candidate profiles and three additional cached endpoints each, within 12s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        },
+        {
+          "path": "report.valuation.scenarios.0.assumptions.0",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "after": "Deterministic scenario inputs unavailable for this route or target; see the missing-data manifest."
+        },
+        {
+          "path": "report.valuation.scenarios.0.assumptions.1",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "afterMissing": true
+        },
+        {
+          "path": "report.valuation.scenarios.0.assumptions.2",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "afterMissing": true
+        },
+        {
+          "path": "report.valuation.scenarios.0.probability",
+          "before": 0.25,
+          "after": null
+        },
+        {
+          "path": "report.valuation.scenarios.0.qualitativeCommentary",
+          "beforeMissing": true,
+          "after": [
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation."
+          ]
+        },
+        {
+          "path": "report.valuation.scenarios.1.assumptions.0",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "after": "Deterministic scenario inputs unavailable for this route or target; see the missing-data manifest."
+        },
+        {
+          "path": "report.valuation.scenarios.1.assumptions.1",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "afterMissing": true
+        },
+        {
+          "path": "report.valuation.scenarios.1.assumptions.2",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "afterMissing": true
+        },
+        {
+          "path": "report.valuation.scenarios.1.probability",
+          "before": 0.5,
+          "after": null
+        },
+        {
+          "path": "report.valuation.scenarios.1.qualitativeCommentary",
+          "beforeMissing": true,
+          "after": [
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation."
+          ]
+        },
+        {
+          "path": "report.valuation.scenarios.2.assumptions.0",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "after": "Deterministic scenario inputs unavailable for this route or target; see the missing-data manifest."
+        },
+        {
+          "path": "report.valuation.scenarios.2.assumptions.1",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "afterMissing": true
+        },
+        {
+          "path": "report.valuation.scenarios.2.assumptions.2",
+          "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+          "afterMissing": true
+        },
+        {
+          "path": "report.valuation.scenarios.2.probability",
+          "before": 0.25,
+          "after": null
+        },
+        {
+          "path": "report.valuation.scenarios.2.qualitativeCommentary",
+          "beforeMissing": true,
+          "after": [
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
+            "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation."
+          ]
+        },
+        {
+          "path": "stageB.gaps.53",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.valuation.gaps.1",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.gaps.1",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.1",
+          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "FMP discovery candidates; at most 6 candidate profiles and three additional cached endpoints each, within 12s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.2",
+          "beforeMissing": true,
+          "after": "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.3",
+          "beforeMissing": true,
+          "after": "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.4",
+          "beforeMissing": true,
+          "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.5",
+          "beforeMissing": true,
+          "after": "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.6",
+          "beforeMissing": true,
+          "after": "Peer DEMO: stale, future or invalid provider cache observation"
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.7",
+          "beforeMissing": true,
+          "after": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.8",
+          "beforeMissing": true,
+          "after": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
+        },
+        {
+          "path": "stageB.valuation.multiples.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 6 candidate profiles and three additional cached endpoints each, within 12s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
         }
       ]
     }

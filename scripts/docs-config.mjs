@@ -57,6 +57,7 @@ export const COMMAND_DESCRIPTIONS = {
   "audit:security": "Audit production and dev dependencies; fail on low or higher severity.",
   "check:dependencies": "Assert the dependency tree's shape.",
   "export:corrected": "Write corrected HTML/JSON from a stored run; requires new output filenames.",
+  "reports:evaluate": "Freeze immutable report snapshots and evaluate explicitly comparable outcomes offline; see docs/REPORT-EVALUATION.md.",
 };
 
 /** Commands that exist for the suite's own plumbing and are not user-facing. */

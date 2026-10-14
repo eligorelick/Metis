@@ -73,6 +73,8 @@ const ALLOWED_MARKDOWN = new Set([
   // cited from three source files for months with no such document in the
   // repository; docs.lint now asserts every citation resolves to a heading.
   "docs/RESEARCH.md",
+  "docs/REPORT-EVALUATION.md",
+  "docs/superpowers/plans/2026-10-13-research-reliability.md",
 ]);
 const VERIFY_GATES = [
   "npm run check:dependencies",

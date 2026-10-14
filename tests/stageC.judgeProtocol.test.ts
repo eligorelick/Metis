@@ -733,7 +733,6 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     expect(reconciliation?.disagreements).toEqual(
       expect.arrayContaining([
         { field: "verdict.gradeStrip.fundamentals.grade", primary: "B", secondary: "D" },
-        { field: "valuation.scenarios.bull.probability", primary: "0.34", secondary: "0.50" },
       ]),
     );
 
@@ -753,7 +752,8 @@ describe("THESIS_JUDGE_ORDER=both", () => {
     const disclosed = report.appendix.missingData.filter((entry) =>
       entry.field.startsWith("llm.judge.order-sensitive."),
     );
-    expect(disclosed.length).toBeGreaterThanOrEqual(2);
+    expect(disclosed.length).toBeGreaterThanOrEqual(1);
+    expect(disclosed.some((entry) => entry.field.includes("probability"))).toBe(false);
     expect(disclosed.every((entry) => entry.severity === "warn")).toBe(true);
     expect(report.meta.judgeProtocol?.note).toContain("differed on");
   });

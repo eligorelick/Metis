@@ -1,7 +1,7 @@
 # Thesis
 
 Thesis is a local-first equity research app with financial calculations and optional AI.
-Saved reports expose expandable number provenance, including missing evidence. Live analysis and the synthetic sample offer optional, paginated price/relative-strength data tables. **Settings → Appearance** switches between the default Current design and optional Research workspace; the choice is saved in this browser.
+Saved reports expose number provenance and missing evidence, model-derived review conditions, scenario display weights, sensitivity conclusions, and eligible peer comparisons with exclusions. The [evaluation CLI](docs/REPORT-EVALUATION.md) freezes snapshots and compares eligible outcomes; it does not establish forecasting accuracy. **Settings → Appearance** switches between Current and Research workspace, saved in this browser. Both designs offer paginated price/relative-strength tables.
 
 > **Informational only — not investment advice.** Grades and price targets are
 > model outputs from disclosed data and assumptions, not human recommendations.
@@ -32,8 +32,7 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `npm start`.
-Keep `.env*` private; only the placeholder `.env.example` belongs in Git.
+On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `npm start`. Keep `.env*` private; only the placeholder `.env.example` belongs in Git.
 
 Open <http://127.0.0.1:3000>; development and production both bind to
 `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
@@ -235,6 +234,7 @@ repository's [private advisory form](https://github.com/eligorelick/Thesis-AI-eq
 | `npm run test:coverage` | Both coverage contracts, core and risk. |
 | `npm run test:watch` | The product suite in watch mode. |
 | `npm run export:corrected` | Write corrected HTML/JSON from a stored run; requires new output filenames. |
+| `npm run reports:evaluate` | Freeze immutable report snapshots and evaluate explicitly comparable outcomes offline; see docs/REPORT-EVALUATION.md. |
 | `npm run settings:reset` | Delete stored settings rows so .env takes precedence again. Needs --yes. |
 | `npm run db:push` | Apply the Drizzle schema to the configured database. |
 | `npm run check:dependencies` | Assert the dependency tree's shape. |

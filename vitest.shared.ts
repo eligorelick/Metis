@@ -143,4 +143,12 @@ export const RISK_SOURCE_MANIFEST = [
   // Added 2026-10-13 (review of D-50): the section-confidence ceiling, which
   // rewrites a model label at assembly; it was left out when D-50 added it.
   "src/pipeline/stageC/confidenceCeiling.ts",
+  // Research reliability: eligibility, snapshot comparisons and deterministic
+  // report claims carry the same per-file coverage floors as existing logic.
+  "src/pipeline/peers.ts",
+  "src/report/evaluation.ts",
+  "src/report/evaluationCli.ts",
+  "src/report/researchReview.ts",
+  "src/report/scenarioPresentation.ts",
+  "src/report/thesisTriggers.ts",
 ];
