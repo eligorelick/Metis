@@ -183,10 +183,10 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       generator: {
         helperSha256: "48af864a1d2a5bb165eb2832871bc2651f34a5951959450d2074512e4a7a26d7",
         basePackageLockBlob: "66f7242846b6d20cfe99e21400d2dada27bbfbfd",
-        // D-35 removes the unused direct @eslint/eslintrc declaration.
-        // All resolved packages are unchanged; ESLint retains it transitively.
-        // The audited base lock, source hashes and projection remain pinned.
-        comparisonPackageLockBlob: "83b2d7b725742ef010ef9427a6e3ed4fb7cc8c96",
+        // 2026-10-13: Next/env/ESLint 16.3.8 and source-map-js 1.2.2
+        // resolve the security audit. Regenerated comparison has no additional
+        // financial deltas; historical source/fixture hashes remain pinned.
+        comparisonPackageLockBlob: "b77b8c99c1244a47d577d2bdd8385188b3da87f5",
         generationNode: "v24.11.1",
         generationNpm: "11.6.2",
         command:
