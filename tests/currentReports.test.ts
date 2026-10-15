@@ -9,7 +9,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { parseCapitalReturn, parseGuidance, parseIssuerFreeCashFlow, parseReportedPeriod } from "@/edgar/currentReports";
-import { buildQuarterlySegments, parseInstanceRevenue, parseMemberLabels } from "@/edgar/segmentFacts";
+import { buildQuarterlySegments, fallbackMemberLabel, parseInstanceRevenue, parseMemberLabels } from "@/edgar/segmentFacts";
 import { runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
@@ -128,6 +128,39 @@ describe("XBRL segment revenue by quarter", () => {
   });
 });
 
+describe("XBRL edge cases", () => {
+  it("keeps segment-note contexts, skips typed, nil and per-share facts, and falls back to totals", () => {
+    const ctx = (id: string, members = "") =>
+      `<xbrli:context id="${id}"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier>${members === "" ? "" : `<xbrli:segment>${members}</xbrli:segment>`}</xbrli:entity>` +
+      `<xbrli:period><xbrli:startDate>2026-04-01</xbrli:startDate><xbrli:endDate>2026-06-30</xbrli:endDate></xbrli:period></xbrli:context>`;
+    const member = (dimension: string, value: string) => `<xbrldi:explicitMember dimension="${dimension}">${value}</xbrldi:explicitMember>`;
+    const units = `<xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>` +
+      `<xbrli:unit id="ps"><xbrli:divide><xbrli:unitNumerator><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unitNumerator><xbrli:unitDenominator><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unitDenominator></xbrli:divide></xbrli:unit>`;
+    const contract = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax";
+    const xml = [
+      ctx("total"),
+      ctx("widgets", member("us-gaap:StatementBusinessSegmentsAxis", "acme:WidgetsSegmentMember") + member("srt:ConsolidationItemsAxis", "us-gaap:OperatingSegmentsMember")),
+      ctx("us", member("srt:StatementGeographicalAxis", "country:US")),
+      ctx("typed", `<xbrldi:typedMember dimension="acme:Axis"><acme:x>1</acme:x></xbrldi:typedMember>`),
+      units,
+      `<us-gaap:Revenues contextRef="total" unitRef="usd" decimals="-6">100</us-gaap:Revenues>`,
+      `<${contract} contextRef="widgets" unitRef="usd">60</${contract}>`,
+      `<${contract} contextRef="us" unitRef="usd">70</${contract}>`,
+      `<${contract} contextRef="us" unitRef="ps">1.5</${contract}>`,
+      `<${contract} contextRef="typed" unitRef="usd">5</${contract}>`,
+      `<us-gaap:Revenues contextRef="widgets" unitRef="usd" xsi:nil="true"></us-gaap:Revenues>`,
+    ].join("\n");
+    const parsed = parseInstanceRevenue(xml);
+    // The segment facts are on contract revenue; the total comes from Revenues.
+    expect(parsed.concept).toBe(contract);
+    expect(parsed.facts.map((f) => [f.member, f.value])).toEqual([["acme:WidgetsSegmentMember", 60], ["country:US", 70], [null, 100]]);
+    expect(parseInstanceRevenue([ctx("total"), units, `<us-gaap:Revenues contextRef="total" unitRef="usd">100</us-gaap:Revenues>`].join("\n")))
+      .toMatchObject({ concept: "us-gaap:Revenues", facts: [{ member: null, value: 100 }] });
+    expect([fallbackMemberLabel("acme:WidgetsSegmentMember"), fallbackMemberLabel("country:US"), fallbackMemberLabel("country:ZZ")]).toEqual(["Widgets", "United States", "ZZ"]);
+    expect(buildQuarterlySegments([], {})).toBeNull();
+  });
+});
+
 describe("bounded EDGAR collection", () => {
   it("reads releases, events and segment instances through the client, and discloses what it cannot read", async () => {
     const html = (text: string) => `<html><body><p>${text}</p></body></html>`;
@@ -137,11 +170,21 @@ describe("bounded EDGAR collection", () => {
       "0001045810-26-000075/nvda-20260726_htm.xml": read("nvda-20260726_htm.xml"),
       "0001045810-26-000075/nvda-20260726_lab.xml": read("nvda-20260726_lab.xml"),
       "0001045810-26-000021/nvda-20260125_htm.xml": read("nvda-20260125_htm.xml"),
+      // An earnings 8-K whose release prints no outlook; its CFO commentary does.
+      "0001045810-26-000051/pr.htm": html("NVIDIA reports results. Revenue was $81.6 billion."),
+      "0001045810-26-000051/cfo.htm": html(Q1_RELEASE),
+      "0001045810-26-000040/pr.htm": html("NVIDIA reports results. Revenue was $1.0 billion."),
+      "0001045810-26-000065/nvda-20260801.htm": html("A cover page with no item headings."),
     };
     const indexes: Record<string, { type: string; filename: string }[]> = {
       "0001045810-26-000073": [{ type: "8-K", filename: "nvda-20260826.htm" }, { type: "EX-99.1", filename: "q2fy27pr.htm" }, { type: "EX-99.2", filename: "missing.htm" }],
       "0001045810-26-000075": [{ type: "10-Q", filename: "nvda-20260726.htm" }, { type: "EX-101.LAB", filename: "nvda-20260726_lab.xml" }, { type: "XML", filename: "nvda-20260726_htm.xml" }],
       "0001045810-26-000021": [{ type: "10-K", filename: "nvda-20260125.htm" }, { type: "XML", filename: "nvda-20260125_htm.xml" }],
+      "0001045810-26-000051": [{ type: "EX-99.1", filename: "pr.htm" }, { type: "EX-99.2", filename: "cfo.htm" }],
+      "0001045810-26-000040": [{ type: "EX-99.1", filename: "pr.htm" }],
+      "0001045810-26-000030": [{ type: "8-K", filename: "nvda-20260301.htm" }],
+      "0001045810-26-000052": [{ type: "10-Q", filename: "nvda-20260426.htm" }],
+      "0001045810-25-000230": [{ type: "XML", filename: "nvda-20251026_htm.xml" }],
     };
     const ok = <T,>(data: T, endpoint: string) => ({ ok: true as const, value: { data, asOf: "2026-10-15", source: "edgar" as const, endpoint, fetchedAt: "2026-10-15T00:00:00.000Z" } });
     const gap = (reason: string) => ({ ok: false as const, gap: { field: "edgar.test", reason, severity: "warn" as const } });
@@ -166,8 +209,13 @@ describe("bounded EDGAR collection", () => {
       row("0001045810-26-000073", "8-K", "2026-08-26", "nvda-20260826.htm", "2.02,9.01"),
       row("0001045810-26-000075", "10-Q", "2026-08-26", "nvda-20260726.htm"),
       row("0001045810-26-000060", "8-K", "2026-07-02", "nvda-20260628.htm", "5.02"),
+      row("0001045810-26-000065", "8-K", "2026-08-01", "nvda-20260801.htm", "8.01"),
       row("0001045810-26-000051", "8-K", "2026-05-20", "nvda-20260520.htm", "2.02,9.01"),
+      row("0001045810-26-000052", "10-Q", "2026-05-20", "nvda-20260426.htm"),
+      row("0001045810-26-000040", "8-K", "2026-04-01", "nvda-20260401.htm", "2.02"),
+      row("0001045810-26-000030", "8-K", "2026-03-01", "nvda-20260301.htm", "2.02"),
       row("0001045810-26-000021", "10-K", "2026-02-25", "nvda-20260125.htm"),
+      row("0001045810-25-000230", "10-Q", "2025-11-19", "nvda-20251026.htm"),
       row("0001045810-24-000001", "8-K", "2024-02-01", "old.htm", "8.01"),
     ];
 
@@ -175,12 +223,26 @@ describe("bounded EDGAR collection", () => {
     expect(reports.ok).toBe(true);
     if (!reports.ok) return;
     expect(reports.value.asOf).toBe("2026-08-26");
-    expect(reports.value.data.releases.map((r) => [r.accession, r.guidance?.period?.label, r.guidanceExhibit])).toEqual([["0001045810-26-000073", "Q3 FY2027", "EX-99.1"]]);
+    expect(reports.value.data.releases.map((r) => [r.accession, r.guidance?.period?.label ?? null, r.guidanceExhibit])).toEqual([
+      ["0001045810-26-000073", "Q3 FY2027", "EX-99.1"],
+      // Release silent on the outlook: guidance, the reported quarter and issuer FCF come from the commentary.
+      ["0001045810-26-000051", "Q2 FY2027", "EX-99.2"],
+      ["0001045810-26-000040", null, null],
+    ]);
+    const commentaryOnly = reports.value.data.releases[1]!;
+    expect(commentaryOnly.reported.fiscal?.label).toBe("Q1 FY2027");
+    expect(commentaryOnly.freeCashFlow.find((f) => f.months === 3)?.value).toBe(48_554e6);
+    expect(commentaryOnly.commentaryNarrative).toBeNull();
     expect(reports.value.data.releases[0]!.releaseNarrative).toMatch(/^NVIDIA Announces Financial Results for Second Quarter Fiscal 2027/);
-    expect(reports.value.data.events.map((e) => [e.accession, e.eventDate, e.sections.map((s) => s.item)])).toEqual([["0001045810-26-000060", "2026-06-28", ["5.02"]]]);
+    expect(reports.value.data.events.map((e) => [e.accession, e.eventDate, e.sections.map((s) => s.item)])).toEqual([
+      ["0001045810-26-000065", null, []],
+      ["0001045810-26-000060", "2026-06-28", ["5.02"]],
+    ]);
     const notes = reports.value.data.notes.join("\n");
     expect(notes).toMatch(/0001045810-26-000073 EX-99\.2 \(missing\.htm\) unreadable/);
-    expect(notes).toMatch(/0001045810-26-000051 \(2026-05-20\): exhibit index unreadable/);
+    expect(notes).toMatch(/0001045810-26-000030 \(2026-03-01\): Item 2\.02 filing furnishes no EX-99 exhibit/);
+    expect(notes).toMatch(/0001045810-26-000040 \(2026-04-01\): no outlook section was found/);
+    expect(notes).toMatch(/0001045810-26-000065 \(2026-08-01\) lists Items 8\.01 but no item heading could be read/);
     expect(notes).toMatch(/0001045810-26-000078 \(2026-09-03\) not read: unsafe primary document/);
     // Nothing is requested for the unsafe row or for 8-Ks outside the one-year window.
     expect(requested.some((r) => r.includes("26-000078") || r.includes("24-000001"))).toBe(false);
@@ -190,6 +252,10 @@ describe("bounded EDGAR collection", () => {
     if (!segments.ok) return;
     expect(segments.value.asOf).toBe("2026-07-26");
     expect(segments.value.data.axes.find((a) => a.axis === "srt:ProductOrServiceAxis")?.rows[0]?.label).toBe("Data Center");
+    expect(segments.value.data.notes).toEqual([
+      "10-Q 0001045810-26-000052: no XBRL instance in the filing index",
+      "10-Q 0001045810-25-000230: instance unreadable (document HTTP 404)",
+    ]);
     expect(await collectQuarterlySegments(client, "1045810", filings.filter((f) => f.form === "8-K"), "2026-10-15")).toMatchObject({ ok: false, gap: { field: "edgar.quarterlySegments", severity: "info" } });
   });
 });
