@@ -96,6 +96,8 @@ function forbiddenReleaseFiles(files: readonly string[]): string[] {
   return files.filter((file) => {
     const lower = file.toLowerCase();
     if (file === ".env.example") return false;
+    // Request-handler source, not a credential file or exported secret directory.
+    if (file === "src/app/api/settings/credentials/route.ts") return false;
     if (lower.endsWith(".md") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith("docs/") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith(".github/") && file !== ".github/workflows/ci.yml") {
@@ -609,6 +611,7 @@ describe("public release contract", () => {
     const settings = [
       read("src/app/settings/page.tsx"),
       read("src/app/settings/SettingsPageView.tsx"),
+      read("src/app/settings/ProviderCredentials.tsx"),
     ].join("\n");
     const company = read("src/app/company/[symbol]/page.tsx");
     const implementationNotes = [

@@ -23,6 +23,7 @@
  */
 
 import "server-only";
+import { getProviderCredential } from "@/ai/store";
 
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import { companyFactsSchema, latestEligibleFactEnd, type CompanyFacts } from "@/edgar/xbrl";
@@ -50,12 +51,12 @@ import { z } from "zod";
  * `.env` to your own contact string (format: `"Your Name your-email@example.com"`).
  * When unset, a generic placeholder is used — enough for local smoke tests, but
  * you SHOULD supply your own before any sustained use so the SEC can reach you.
- * Resolved once at module load (Next.js populates `process.env` from `.env`).
+ * Each new transport resolves the saved Settings contact before the environment.
  */
 const DEFAULT_EDGAR_CONTACT = "Metis Research contact@example.com";
 
 /** True only for an identity with a reachable-looking, non-placeholder email. */
-export function hasConfiguredEdgarIdentity(contact = process.env.EDGAR_CONTACT?.trim() ?? ""): boolean {
+export function hasConfiguredEdgarIdentity(contact = getProviderCredential("EDGAR_CONTACT") ?? ""): boolean {
   const email = contact.match(/\b[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,})\b/i);
   if (email === null) return false;
   const domain = email[1].toLowerCase();
@@ -73,7 +74,7 @@ export function hasConfiguredEdgarIdentity(contact = process.env.EDGAR_CONTACT?.
 
 /** Resolve the declared contact, else a detection-only placeholder rejected for live access. */
 export function resolveEdgarUserAgent(): string {
-  const contact = process.env.EDGAR_CONTACT?.trim();
+  const contact = getProviderCredential("EDGAR_CONTACT");
   return contact !== undefined && contact.length > 0 ? contact : DEFAULT_EDGAR_CONTACT;
 }
 
@@ -464,7 +465,7 @@ export function createDefaultEdgarTransport(opts?: {
   /** Job/request cancellation, composed with per-attempt request timeouts. */
   signal?: AbortSignal;
 }): EdgarTransport {
-  const userAgent = opts?.userAgent ?? EDGAR_USER_AGENT;
+  const userAgent = opts?.userAgent ?? resolveEdgarUserAgent();
   const identityConfigured = opts?.fetchFn !== undefined || hasConfiguredEdgarIdentity(userAgent);
   if (!identityConfigured) {
     console.warn(

@@ -7,6 +7,7 @@ import os from "node:os";
 import { z } from "zod";
 import { CHATGPT_EFFORTS, validModelId, type AiSelection } from "./contracts";
 import { withAiMutex } from "./mutex";
+import { PROVIDER_CREDENTIAL_KEYS, type ProviderCredentialKey } from "@/settings/credentialContracts";
 
 export interface ChatGptProfile {
   id: string;
@@ -21,7 +22,10 @@ export interface AiStore {
   profiles: ChatGptProfile[];
   gemini: { id: string; connected: boolean } | null;
   selection: AiSelection;
+  /** Credential/account writes must not turn the implicit provider default into a user choice. */
+  selectionIsDefault?: boolean;
   runtimeOwnerPid?: number;
+  providerCredentials?: Partial<Record<ProviderCredentialKey, string>>;
 }
 
 // Validate the v1 fields consumed by connection/runtime code before any
@@ -51,6 +55,8 @@ const aiStoreSchema = z.object({
     }).passthrough(),
   ]),
   runtimeOwnerPid: z.number().int().positive().optional(),
+  selectionIsDefault: z.boolean().optional(),
+  providerCredentials: z.partialRecord(z.enum(PROVIDER_CREDENTIAL_KEYS), z.string().min(1).max(2048)).optional(),
 }).passthrough();
 
 /** Call under withAiStore: one local server owns connection lifecycles at a time. */
@@ -98,6 +104,29 @@ function windowsProtect(input: string, decrypt: boolean): string {
 
 function filePath(): string { return path.join(aiDirectory(), "connections.v1.json"); }
 
+let providerCache: { signature: string; values: Readonly<Partial<Record<ProviderCredentialKey, string>>> } | undefined;
+
+/** Reuse the protected store; decrypt only when its atomically replaced file changes. */
+export function readProviderCredentials(): Readonly<Partial<Record<ProviderCredentialKey, string>>> {
+  const file = filePath();
+  let stat: fs.Stats;
+  try { stat = fs.statSync(file); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    providerCache = undefined;
+    return {};
+  }
+  const signature = `${file}:${stat.ino}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}`;
+  if (providerCache?.signature !== signature) {
+    providerCache = { signature, values: Object.freeze({ ...readAiStore()?.providerCredentials }) };
+  }
+  return providerCache.values;
+}
+
+export function getProviderCredential(key: ProviderCredentialKey): string | undefined {
+  return readProviderCredentials()[key] ?? (process.env[key]?.trim() || undefined);
+}
+
 export function readAiStore(): AiStore | null {
   if (!fs.existsSync(filePath())) return null;
   try {
@@ -129,7 +158,7 @@ function writeAiStore(store: AiStore): void {
 export async function withAiStore<T>(fn: (store: AiStore) => Promise<T> | T): Promise<T> {
   ensurePrivateDirectory(aiDirectory());
   return withAiMutex(path.join(aiDirectory(), "connections.lock"), async () => {
-    const store = readAiStore() ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: "none" } };
+    const store = readAiStore() ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
     const result = await fn(store);
     writeAiStore(store);
     return result;

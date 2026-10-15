@@ -446,6 +446,8 @@ export function maximumPassCostUsd(
  * ------------------------------------------------------------------------ */
 
 let clientSingleton: Anthropic | null | undefined;
+let clientApiKey: string | undefined;
+let clientOverride = false;
 
 /**
  * SDK auto-retry budget: ZERO (DECISIONS D-10). An SDK retry is a whole extra
@@ -660,8 +662,11 @@ async function transportRetrySleepWithSignal(ms: number, signal?: AbortSignal): 
  * FetchResult gap ("no Anthropic key") instead of throwing.
  */
 export function getClient(): Anthropic | null {
-  if (clientSingleton === undefined) {
-    const key = process.env.ANTHROPIC_API_KEY?.trim();
+  if (clientOverride) return clientSingleton ?? null;
+  const key = getConfig().anthropicApiKey;
+  if (clientSingleton === undefined || key !== clientApiKey) {
+    clientApiKey = key;
+    autoResolution = null;
     clientSingleton = key
       ? new Anthropic({
           apiKey: key,
@@ -680,6 +685,8 @@ export function getClient(): Anthropic | null {
  */
 export function _resetAnthropicForTests(client?: Anthropic | null): void {
   clientSingleton = client;
+  clientOverride = client !== undefined;
+  clientApiKey = undefined;
   autoResolution = null;
 }
 
@@ -725,12 +732,13 @@ export async function resolveModel(setting: string): Promise<ResolvedModel> {
     return { model: setting, resolvedFrom: "explicit" };
   }
 
+  // Refresh the client before consulting a model list cached under the previous key.
+  const client = getClient();
   const now = Date.now();
   if (autoResolution && now - autoResolution.resolvedAt < MODEL_RESOLUTION_TTL_MS) {
     return { model: autoResolution.model, resolvedFrom: "auto" };
   }
 
-  const client = getClient();
   if (!client) {
     return { model: defaultAutoModel(), resolvedFrom: "auto" };
   }

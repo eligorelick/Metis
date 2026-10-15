@@ -101,7 +101,18 @@ does not train a model or change provider account data-use/retention policies.
 
 ## Keys
 
-Keys are read from `.env` on the server and never reach the browser.
+Keys can be read from `.env` or entered in **Settings → Provider keys and SEC
+contact**. Each value has separate Save, Test, and Remove saved controls. Removal
+deletes only the selected saved override, restoring any environment value while
+preserving other credentials and account tokens. Saved values use the
+protected local credential store described below, override environment values,
+and apply to new provider clients without a restart. Entered values travel from
+the local browser to the server. Existing saved keys never reach the browser in
+response payloads; entered values are not retained in browser storage.
+Configured status alone does not prove access.
+Test makes one uncached provider request and shows a green check only for usable
+test data. It does not generate a paid Claude response or confirm every dataset,
+model entitlement, remaining credit, or ownership of the SEC contact email.
 `src/config/env.ts` is marked `server-only` and additionally throws if it is
 ever evaluated with a `window` present, so a client bundle cannot import it.
 The built-in clients send each key to its provider. FMP and Finnhub use
@@ -205,7 +216,9 @@ do not move these credentials. ChatGPT's `connections.v1.json` is encrypted
 with Windows DPAPI for the current Windows user; on macOS/Linux it stores
 plaintext JSON inside an owner-only file (0600) and directory (0700).
 It contains a stable installation ID, separate account registrations and
-tokens, and the selected report connection. Connection IDs, account labels
+tokens, the selected report connection, and provider keys and SEC contact saved
+from Settings. Credential controls are restricted to loopback access and use
+the existing browser request checks, including for status reads. Connection IDs, account labels
 (including ChatGPT email when available), connection/plan status,
 selection/model controls and pending sign-in URLs can reach the browser.
 Access/refresh/identity tokens stay in the server-side store and are not

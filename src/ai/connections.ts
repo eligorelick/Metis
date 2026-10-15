@@ -8,7 +8,8 @@ import { CHATGPT_EFFORTS, validModelId, type ChatGptEffort, type AiConnectionsVi
 export function captureAiSelection(): AiSelection {
   // Existing API installations retain their explicitly configured key route;
   // once a connection choice is saved, it is authoritative even after sign-out.
-  return readAiStore()?.selection ?? { provider: getConfig().hasAnthropicKey ? "anthropic" : "none" };
+  const store = readAiStore();
+  return store && !store.selectionIsDefault ? store.selection : { provider: getConfig().hasAnthropicKey ? "anthropic" : "none" };
 }
 
 export function selectionIsConnected(selection: AiSelection): boolean {
@@ -34,7 +35,7 @@ export async function selectConnection(input: unknown): Promise<void> {
   if (!input || typeof input !== "object") throw new Error("Invalid AI selection");
   const s = input as Record<string, unknown>;
   if (s.provider === "none" || s.provider === "anthropic") {
-    await withAiStore((store) => { store.selection = { provider: s.provider as "none" | "anthropic" }; }); return;
+    await withAiStore((store) => { store.selection = { provider: s.provider as "none" | "anthropic" }; delete store.selectionIsDefault; }); return;
   }
   if ((s.provider !== "chatgpt" && s.provider !== "gemini") || typeof s.connectionId !== "string" || !validModelId(s.model)) throw new Error("Choose a connection and a valid model");
   if (s.effort !== undefined && (s.provider !== "chatgpt" || !CHATGPT_EFFORTS.includes(s.effort as ChatGptEffort))) throw new Error("Choose a supported ChatGPT reasoning effort");
@@ -48,5 +49,6 @@ export async function selectConnection(input: unknown): Promise<void> {
       : store.profiles.some((p) => p.id === selection.connectionId && p.tokens?.scopes.includes("chatgpt.tokens.use.direct"));
     if (!connected) throw new Error("Connect this account before selecting it");
     store.selection = selection;
+    delete store.selectionIsDefault;
   });
 }

@@ -17,6 +17,7 @@ import {
 import { ResumeQueueControl } from "./ResumeQueueControl";
 import { AiConnections } from "./AiConnections";
 import { AppearanceSettings } from "./AppearanceSettings";
+import { ProviderCredentials } from "./ProviderCredentials";
 
 /**
  * Labels come from the model registry, which is also where the options come
@@ -43,15 +44,6 @@ export interface SettingsPageViewProps {
   state: SettingsPageControllerState;
   onAnalysisModel(value: AnalysisModelOption): void;
   onAnalysisEffort(value: EffortLevel): void;
-}
-
-function CapabilityRow({ name, ok }: { name: string; ok: boolean }) {
-  return (
-    <div className="flex items-center justify-between border-b border-edge py-1.5 last:border-b-0">
-      <span className="mono text-[12px]">{name}</span>
-      {ok ? <Badge tone="pos">configured</Badge> : <Badge tone="neg">missing</Badge>}
-    </div>
-  );
 }
 
 export function SettingsPageView({
@@ -82,8 +74,8 @@ export function SettingsPageView({
       <div className="pt-2">
         <SectionHeading>settings</SectionHeading>
         <p className="pt-1 text-[11px] leading-snug text-faint">
-          Model choices persist to the local database. API keys and the SEC contact are configured
-          in <span className="mono">.env</span> only.
+          Configure models, provider keys, and your SEC contact here.
+          Saved credentials stay on this computer.
         </p>
       </div>
     </div>
@@ -95,10 +87,12 @@ export function SettingsPageView({
         {state.error !== null && (
           <div className="border border-neg/40 bg-neg/10 px-3 py-2 text-[12px] text-neg">
             {state.error}
+            {settings === null && state.status === "error" && <p>Model settings unavailable. Provider credentials can still be configured below.</p>}
           </div>
         )}
 
         <AppearanceSettings />
+        <ProviderCredentials capabilities={settings?.capabilities} />
         <AiConnections />
         <Panel title="Claude API model (used only when selected above)" right={saveBadge}>
           {settings === null && state.status === "loading" ? (
@@ -199,47 +193,6 @@ export function SettingsPageView({
           </p>
         </Panel>
 
-        <Panel title="provider access (read-only)">
-          {settings !== null ? (
-            <div className="flex flex-col">
-              {settings.capabilities.fixtureMode && (
-                <div className="mb-2 border border-warn/40 bg-warn/10 px-2 py-1.5 text-[11px] text-warn">
-                  synthetic fixture mode — no FMP key, so FMP-backed fields are gaps and no current market data
-                  is shown here; real US filers are served live from SEC EDGAR and Yahoo once EDGAR_CONTACT is set.
-                  Fictional ticker <Link href="/company/DEMO" className="font-semibold underline">DEMO</Link>{" "}
-                  and DBNK are synthetic fixtures; unsupported symbols become disclosed gaps.
-                </div>
-              )}
-              <CapabilityRow name="FMP_API_KEY" ok={settings.capabilities.hasFmpKey} />
-              <CapabilityRow name="FINNHUB_API_KEY" ok={settings.capabilities.hasFinnhubKey} />
-              <CapabilityRow name="FRED_API_KEY" ok={settings.capabilities.hasFredKey} />
-              <CapabilityRow name="ANTHROPIC_API_KEY" ok={settings.capabilities.hasAnthropicKey} />
-              <CapabilityRow name="EDGAR_CONTACT" ok={settings.capabilities.hasEdgarContact} />
-              <p className="pt-2 text-[11px] leading-snug text-faint">
-                An FMP key does not confirm subscription entitlement. Free or lower-tier
-                keys can return HTTP 402 for restricted endpoints or symbols. SEC and
-                Yahoo fallbacks can fill supported data after issuer verification;
-                some FMP datasets remain unavailable on those plans.
-              </p>
-              <p className="pt-2 text-[11px] leading-snug text-faint">
-                SEC EDGAR needs no paid key. Set <span className="mono">EDGAR_CONTACT</span>{" "}
-                to your name or organization and a reachable email to enable SEC filings,
-                issuer verification, and eligible fallback data. A placeholder contact
-                leaves SEC access disabled. Configured status checks the contact format,
-                not whether SEC is currently reachable.
-              </p>
-              <p className="pt-2 text-[11px] leading-snug text-faint">
-                Keys and the SEC contact are read from <span className="mono">.env</span>{" "}
-                and never enter the browser. Server-side requests send each key only to
-                its provider and the contact only to SEC. Restart after editing.
-              </p>
-            </div>
-          ) : state.status === "loading" ? (
-            <div className="py-2 text-[11px] text-faint">loading…</div>
-          ) : (
-            <div className="py-2 text-[11px] text-faint">settings unavailable</div>
-          )}
-        </Panel>
       </div>
     </AppShell>
   );

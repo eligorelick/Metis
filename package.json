@@ -95,6 +95,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.8",
     "fast-glob": "file:scripts/next-eslint-glob",
+    "happy-dom": "^21.0.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
