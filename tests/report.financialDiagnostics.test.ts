@@ -39,7 +39,8 @@ describe("deterministic financial explanation",()=>{
   it("retains a proposed assessment only for attributable validated evidence",()=>{
     const r=report(), text="Officer Smith met 95% of guidance targets.";
     r.leadership.executives=[{name:"Officer Smith",title:"CFO",tenureYears:null,grade:"B",credibilityGrade:"B",reasoning:[],evidence:{guidanceVsActuals:[{label:"FACT",source:"edgar:10-Q",asOf:"2026-06-30",text}]}}];
-    r.appendix.verificationLog=[{path:"leadership.executives[0].evidence.guidanceVsActuals[0]",claim:text,outcome:"verified",validationStatus:"validated"}];
+    // The verify pass never marks prose "verified"; numeric validation is its strongest outcome.
+    r.appendix.verificationLog=[{path:"leadership.executives[0].evidence.guidanceVsActuals[0]",claim:text,outcome:"unverified",validationStatus:"validated"}];
     expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"B",credibilityGrade:"B"});
   });
 });

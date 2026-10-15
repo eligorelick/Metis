@@ -84,6 +84,10 @@ function periodLabels(text: string): PeriodReference[] {
   take(/\b(?:month[\s‐‑–—-]+to[\s‐‑–—-]+date|mtd)\b/gi, () => ({ kind: "window", key: "MTD", label: "MTD" }));
   take(/\b(?:trailing[\s‐‑–—-]+twelve[\s‐‑–—-]+months|last[\s‐‑–—-]+twelve[\s‐‑–—-]+months|ttm|ltm)\b/gi,
     () => ({ kind: "window", key: "TTM", label: "TTM" }));
+  // A bare "trailing" is the market's twelve-month convention ("trailing
+  // P/E"); a stated other length ("trailing six months") is not.
+  take(/\btrailing\b(?![\s‐‑–—-]+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven)\b)/gi,
+    () => ({ kind: "window", key: "TTM", label: "TTM" }));
   take(/\b(?:(?:for|during|over)\s+(?:the\s+)?(?:full\s+)?(?:fiscal\s+)?year|annual|annually|yearly|full[\s‐‑–—-]+year)\b/gi,
     () => ({ kind: "window", key: "annual", label: "annual" }));
   take(/\b(?:(?:for|during|over)\s+(?:the\s+)?quarter|quarterly)\b/gi,
@@ -138,6 +142,16 @@ const METRIC_GRAMMAR = new Set(["a", "an", "and", "as", "at", "by", "for", "from
   "company", "firm", "firmwide", "remained", "recorded", "stood", "reached", "compared", "during", "versus", "while",
   "percent", "percentage", "point", "points", "basis", "bp", "bps", "pp", "pps", "currency", "count", "dollar", "dollars",
   "thousand", "thousands", "million", "millions", "billion", "billions", "trillion", "trillions"]);
+// Words that place a figure in time without defining it ("at the latest
+// quarter end", "ROIC (latest)"). The period itself is checked separately, and
+// a named window (TTM, YTD, "for the quarter") stays a metric token. "Current"
+// is not here: current assets and current liabilities are definitions.
+const PERIOD_DESCRIPTORS = new Set(["latest", "recent", "most", "same", "end", "ended", "ending", "period", "periods", "quarter",
+  "year", "fiscal", "quarter-end", "year-end", "period-end"]);
+// Registry labels abbreviate what prose spells out.
+const ABBREVIATIONS: Readonly<Record<string, readonly string[]>> = {
+  fcf: ["free", "cash", "flow"], sbc: ["stock-based", "compensation"], capex: ["capital", "expenditure"],
+};
 function metricTokens(label: string, ignore: readonly string[]): string[] {
   let metric = label;
   for (const period of periodLabels(label)) metric = metric.replace(period.raw, period.kind === "window" ? ` window${period.key} ` : " ");
@@ -146,8 +160,32 @@ function metricTokens(label: string, ignore: readonly string[]): string[] {
   metric = metric.toLowerCase().replace(/\bnon[\s‐‑–—-]+(?=[a-z])/g, "non-").replace(/[‐‑–—]/g, "-");
   const ignored = new Set([...ignore.flatMap((word) => word.toLowerCase().match(/[a-z0-9]+/g) ?? []),
     ...findDirectionWords(metric).map((hit) => hit.word), ...CURRENCIES.toLowerCase().split("|")]);
-  const tokens = metric.match(/[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*/g) ?? [];
-  return [...new Set(tokens.filter((word) => !METRIC_GRAMMAR.has(word) && !ignored.has(word)))];
+  const tokens = (metric.match(/[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*/g) ?? []).flatMap((word) => ABBREVIATIONS[word] ?? [word]);
+  // A hyphenated ignored name ("Jen-Hsun") is ignored as a whole.
+  return [...new Set(tokens.filter((word) => !METRIC_GRAMMAR.has(word) && !PERIOD_DESCRIPTORS.has(word) && !ignored.has(word) &&
+    !(word.includes("-") && word.split("-").every((part) => ignored.has(part)))))];
+}
+/**
+ * Windows a typed record establishes from its issuer fiscal basis ("Q2 FY2027"
+ * is a quarter). Prose may name them, or leave them unstated as before; a
+ * window written into the record's period text (TTM) must still be named.
+ */
+function basisWindows(record: NumericProvenanceRecord): Set<string> {
+  const windows = new Set<string>();
+  const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? "";
+  if (/^Q[1-4]\s/i.test(fiscal)) windows.add("quarter");
+  else if (/^FY\s?\d/i.test(fiscal)) windows.add("annual");
+  const basis = record.periodContext?.basis;
+  if (basis === "fiscal-quarter") windows.add("quarter");
+  if (basis === "fiscal-year") windows.add("annual");
+  if (basis === "rolling-12-month") windows.add("TTM");
+  if (basis === "year-to-date") windows.add("YTD");
+  return windows;
+}
+/** A typed record's "<basis>: <start> to <end>" window. */
+function recordWindow(record: NumericProvenanceRecord): { key: string; start: string; end: string } | null {
+  const match = /^\s*(ttm|ltm|ytd)\s*:\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/i.exec(record.period ?? "");
+  return match ? { key: match[1].toLowerCase() === "ytd" ? "YTD" : "TTM", start: match[2], end: match[3] } : null;
 }
 function namesMetric(claim: string[], source: string[]): boolean {
   if (claim.length === 0 || source.length === 0) return false;
@@ -199,13 +237,22 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if (own.periods.some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
-    if (!record.label || !namesMetric(metricTokens(own.label, options.ignoreWords ?? []), metricTokens(`${record.label} ${record.period ?? ""}`, options.ignoreWords ?? []))) {
+    const established = basisWindows(record);
+    const claimTokens = metricTokens(own.label, options.ignoreWords ?? []).filter((word) => ![...established].some((key) => word === `window${key.toLowerCase()}`));
+    if (!record.label || !namesMetric(claimTokens, metricTokens(`${record.label} ${record.period ?? ""}`, options.ignoreWords ?? []))) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
     }
     if (own.periods.some((period) => period.kind === "month" && !periodLabels(record.period ?? "").some((source) => source.key === period.key))) {
       return support("unchecked", "period-mismatch", "a monthly prose period is not established by the typed record's period");
     }
-    if (own.periods.length > 0 && (record.period === null || !own.periods.every((period) => periodsAgree(period.label, record.period, record.fiscalPeriod ?? null)))) {
+    // A named window must be the record's own; a date against a window record
+    // names one of its endpoints ("the trailing period ended 2026-07-26").
+    const window = recordWindow(record);
+    const periodAgrees = (period: PeriodReference): boolean => period.kind === "window"
+      ? established.has(period.key) || window?.key === period.key
+      : periodsAgree(period.label, record.period, record.fiscalPeriod ?? null) ||
+        (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start));
+    if (own.periods.length > 0 && (record.period === null || !own.periods.every(periodAgrees))) {
       return support("contradicted", "period-mismatch", "prose period is not established by the cited numeric record");
     }
     const direction = own.direction;

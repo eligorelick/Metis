@@ -714,14 +714,22 @@ show a rank for a number it declines to print.
 
 Peer medians are trimmed of n/m values and 1.5×IQR outliers and suppressed
 below four surviving peers. With FMP access, optional collection inspects at
-most six provider candidates under a bounded request/time budget. Same-industry,
-sector, valuation-route, currency, issuer/share-class and date checks govern
-eligibility; contradictory statement identifiers are rejected. Quotes and
-quarterly statements must be timely and filings available by the quote date.
-The report lists the method, metric-specific counts and excluded candidates.
-Keyless, reserved fixture symbols, unavailable data and thin coverage publish
-no unsupported median. This is a screened provider list, not an exhaustive
-or independently optimized peer universe.
+most ten provider candidates within 25 seconds. A candidate FMP refuses by
+symbol (HTTP 402 on that symbol only) does not stop the collection: with an
+SEC contact configured it is read from SEC companyfacts and a Yahoo quote,
+its market capitalization is that price times the filed share count on the
+quote's split basis, and its industry is established by an SEC SIC code equal
+to the subject's. Same-industry, sector, valuation-route, currency,
+issuer/share-class and date checks govern eligibility; contradictory statement
+identifiers are rejected. Quotes and quarterly statements must be timely and
+filings available by the quote date. Business-model, accounting and
+metric-definition evidence that is supplied but invalid or different from the
+subject's excludes a peer; no source supplies it independently yet, so a
+median resting on the screens alone is published with a stated comparability
+caveat (D-59). The report lists the method, metric-specific counts and
+excluded candidates. Keyless, reserved fixture symbols, unavailable data and
+thin coverage publish no unsupported median. This is a screened provider list,
+not an exhaustive or independently optimized peer universe.
 
 Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
@@ -1772,7 +1780,7 @@ Capital metrics use complete compatible TTM flows and a matching balance sheet w
 
 Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Persistent shocks and terminal transitions are disclosed alongside an illustrative decaying-growth alternative. EPS uses flat shares when historical shrinkage lacks future funding evidence; an unfunded historical-share-trend sensitivity is labeled hypothetical.
 
-Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility without attributable supporting evidence is not assessed. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
+Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. A typed record's metric is its registry label, with time words ("latest", "quarter end") and common abbreviations (FCF, SBC, capex) normalized; a named window must be the record's own, a bare "trailing" means twelve months, and an exact date names a window record's endpoint. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content, and the headline states how many unchecked claims carry no figure to check. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility is assessed only from a FACT in that executive's evidence that names them and whose figure the verifier matched to its cited record; otherwise it is not assessed (D-59). A reported-earnings reconciliation for an FMP quarter without SEC start dates is bounded by the issuer's preceding fiscal quarter in the same statement. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
 
 ### Offline outcome evaluation
 

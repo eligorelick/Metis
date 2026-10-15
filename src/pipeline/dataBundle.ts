@@ -43,10 +43,12 @@ import { enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
 import { discoverCompanyIrEarnings, type CompanyIrOptions } from "@/providers/companyIr";
 import { loadPeerFundamentals } from "@/pipeline/peers";
+import { loadPeerFromFilings } from "@/pipeline/peerFilings";
 import {
   createDbCachedEdgarTransport,
   createEdgarClient,
   findDocumentByType,
+  hasConfiguredEdgarIdentity,
   padCik,
   type CikMapping,
   type EdgarClient,
@@ -1703,6 +1705,9 @@ export async function buildDataBundle(
     symbol: sym, profile: profileRow, discovered, now: nowDate,
     enabled: !reserved && !fmp.fixtureMode, signal: opts.signal, clock: now,
     client: signal => opts.fmp ?? createFmpClient({ cachedFetch: makeFmpCachedFetch(), signal, timeoutMs: 2_500 }),
+    // A candidate FMP refuses by symbol is read from SEC filings instead.
+    ...(profileRow && (opts.edgar || hasConfiguredEdgarIdentity())
+      ? { secFallback: (peer: string) => loadPeerFromFilings(peer, profileRow, { edgar, yahoo }, nowDate) } : {}),
   }));
   const pSegProduct = settle(`fmp.revenueProductSegmentation(${sym})`, fmp.revenueProductSegmentation(sym, "annual"));
   const pSegGeo = settle(`fmp.revenueGeographicSegmentation(${sym})`, fmp.revenueGeographicSegmentation(sym, "annual"));

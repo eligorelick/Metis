@@ -727,14 +727,19 @@ describe("payload determinism + provenance", () => {
       // numeric registries, IDs, projection periods and figure labels stay pinned.
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
-      fingerprint: "1.22.0:19176142",
-      promptBytes: 123_057,
+      // D-59: current-capital bridge rows are labelled by their metric ("total
+      // debt including leases", not "debt Bridge total Debt Including Leases"),
+      // so their labels, registry ids and figure-label hash move (-132 prompt
+      // bytes); values, units and periods do not. financeHash moves with the
+      // peer-coverage methodology (comparability caveat, 10 candidates, 25s).
+      fingerprint: "1.22.0:d679757a",
+      promptBytes: 122_925,
       provenanceCount: 499,
-      provenanceHash: "1062dc43",
-      provenanceIdsHash: "2fdc2d40",
+      provenanceHash: "09bdb871",
+      provenanceIdsHash: "d6268de6",
       citationCount: 65,
       citationHash: "13b5b365",
-      computedFigureLabelHash: "6f26c6db",
+      computedFigureLabelHash: "0a7b6733",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -748,7 +753,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "b17cac56",
+      financeHash: "a6e77df2",
     });
   });
 
@@ -2123,7 +2128,7 @@ describe("verify-pass tracing", () => {
     expect(result.coverage).toEqual({
       numeric: { supported: 0, total: 0, rate: null },
       factualClaims: { supported: 0, total: 0, rate: null },
-      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, total: 0, rate: null },
+      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, qualitative: 0, total: 0, rate: null },
       judgments: { cited: 0, total: 0, rate: null },
     });
   });

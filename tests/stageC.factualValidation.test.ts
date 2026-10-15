@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { runStageB } from "@/pipeline/compute";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
-import type { ContextPayload } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, type ContextPayload } from "@/pipeline/stageC/payload";
+import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
+import { factualValidationText } from "@/report/auditTables";
 import type { Leadership, SourcedClaim } from "@/report/schema";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 const source = "edgar:10-Q item2";
 const asOf = "2026-06-30";
@@ -23,7 +27,7 @@ describe("factual prose numeric validation", () => {
     const result = await verify("Consolidated operating margin was 31%.", "Consolidated operating margin was 99%.");
     expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "contradicted", reason: "value-mismatch" });
     expect(result.coverage.factualClaims).toEqual({ supported: 1, total: 1, rate: 1 });
-    expect(result.coverage.factualValidation).toEqual({ cited: 1, validated: 0, unchecked: 0, contradicted: 1, total: 1, rate: 0 });
+    expect(result.coverage.factualValidation).toEqual({ cited: 1, validated: 0, unchecked: 0, contradicted: 1, qualitative: 0, total: 1, rate: 0 });
     expect(result.log[0]?.sourceSpans?.[0]).toMatchObject({ source, asOf, text: "Consolidated operating margin was 31%." });
   });
 
@@ -42,6 +46,9 @@ describe("factual prose numeric validation", () => {
     const result = await verify("The company faces competition.", "The company faces competition.");
     expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "cited", traceKind: "source-cited" });
     expect(result.coverage.factualValidation?.unchecked).toBe(1);
+    // NVDA report 34: 60 of 89 "unchecked" claims stated no figure at all.
+    expect(result.coverage.factualValidation?.qualitative).toBe(1);
+    expect(factualValidationText(result.coverage)).toContain("1 qualitative with no figure to check");
     const web = await runVerifyPass({} as PassDeps, payload(""), {
       commentary: [{ label: "FACT", text: "Operating margin was 99%.", source: "https://example.com/release", asOf }],
     }, { fetchedUrls: ["https://example.com/release"] });
@@ -285,6 +292,60 @@ describe("factual prose numeric validation", () => {
     expect(differentDefinition.log[0]?.outcome).toBe("unverified");
     const differentSign = await verify("", "Non-GAAP operating margin was (31%).", { provenanceRegistry });
     expect(differentSign.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "contradicted", reason: "value-mismatch" });
+  });
+
+  // NVDA report 34 (2026-10-15) printed "0/90 validated; 1 contradicted". These
+  // are its exact sentences and registry shapes.
+  const nvda = (record: Partial<NumericProvenanceRecord>, text: string) => {
+    const typed = { id: "computed.current-capital.operating-cash-flow", kind: "computed" as const, unit: "currency" as const, currency: "USD",
+      asOf: "2026-07-26", origin: "computed.capital.current", formulaVersion: "stage-b-v1", displayPrecision: 4, value: 0, period: null, ...record };
+    return runVerifyPass({} as PassDeps, { provenanceRegistry: [typed], citationRegistry: [], filings: [] } as unknown as ContextPayload,
+      { commentary: [{ label: "FACT", text, source: typed.id, asOf: typed.asOf }] });
+  };
+  it.each([
+    ["a date at the end of its trailing window", { label: "operating cash flow", value: 134.36e9, period: "ttm: 2025-07-27 to 2026-07-26" },
+      "Operating cash flow for the trailing period ended 2026-07-26 was USD 134.360 billion."],
+    ["the issuer's fiscal quarter", { id: "payload.statements.cash-flow-quarterly.2026-07-26.operating-cash-flow", kind: "provider", label: "operating cash flow",
+      value: 24.077e9, period: "2026-07-26", fiscalPeriod: "Q2 FY2027", origin: "fmp:cash-flow(quarter)", formulaVersion: null },
+    "Operating cash flow for the quarter ended 2026-07-26 was USD 24.077 billion."],
+  ] as const)("validates NVDA report-34 prose naming %s", async (_case, record, text) => {
+    const result = await nvda(record, text);
+    expect(result.checks.period?.failed ?? 0).toBe(0);
+    expect(result.log[0]).toMatchObject({ validationStatus: "validated" });
+    expect(result.coverage.factualValidation).toMatchObject({ validated: 1, contradicted: 0 });
+  });
+
+  it("still contradicts a trailing figure stated for another window end or for one quarter", async () => {
+    const ttm = { label: "operating cash flow", value: 134.36e9, period: "ttm: 2025-07-27 to 2026-07-26" };
+    expect((await nvda(ttm, "Operating cash flow for the trailing period ended 2026-04-26 was USD 134.360 billion.")).log[0]?.validationStatus).not.toBe("validated");
+    expect((await nvda(ttm, "Operating cash flow for the quarter ended 2026-07-26 was USD 134.360 billion.")).log[0]?.validationStatus).not.toBe("validated");
+  });
+
+  it("validates current-capital bridge prose against the label the payload itself registers", async () => {
+    const bundle = completeCurrencyBundle({});
+    const context = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+    const record = context.provenanceRegistry!.find(entry => entry.origin === "computed.capital.current.debtBridge.totalDebtIncludingLeases" && entry.id.startsWith("computed.current-capital."))!;
+    expect(record).toBeDefined();
+    const text = `Total debt including leases was ${record.currency} ${(record.value / 1e6).toFixed(3)} million at the latest quarter end.`;
+    const result = await runVerifyPass({} as PassDeps, context, { commentary: [{ label: "FACT", text, source: record.id, asOf: record.asOf }] });
+    expect(result.log[0]).toMatchObject({ validationStatus: "validated" });
+  });
+
+  it("retains an executive grade the verify pass itself validated against an attributable typed figure", async () => {
+    const record = { id: "payload.statements.cash-flow-annual.2026-01-25.operating-cash-flow", label: "operating cash flow", kind: "provider" as const,
+      value: 102.718e9, unit: "currency" as const, currency: "USD", period: "2026-01-25", fiscalPeriod: "FY2026", asOf: "2026-01-25",
+      origin: "fmp:cash-flow(annual)", formulaVersion: null, displayPrecision: 4 };
+    const evidence: SourcedClaim = { label: "FACT", text: "Jen-Hsun Huang: operating cash flow for FY2026 was USD 102.718 billion.", source: record.id, asOf: record.asOf };
+    const leadership: Leadership = {
+      graded: { grade: "B", oneLineWhy: "Evidence is being checked.", reasoning: [], confidence: "low", keyNumbers: [] },
+      executives: [{ name: "Jen-Hsun Huang", title: "President and CEO", tenureYears: null, grade: "B", credibilityGrade: "B", reasoning: [],
+        evidence: { capitalAllocation: [evidence] } }],
+      insiderSummary: [], governanceNotes: [],
+    };
+    const result = await runVerifyPass({} as PassDeps, { provenanceRegistry: [record], citationRegistry: [], filings: [] } as unknown as ContextPayload, { leadership });
+    expect(result.log.find(entry => entry.path === "leadership.executives[0].evidence.capitalAllocation[0]")).toMatchObject({ validationStatus: "validated" });
+    // Execution is evidenced; guidance credibility is not, so only that grade is withdrawn.
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
   });
 
   it("leaves an unlabeled typed amount unchecked because its metric definition is unavailable", async () => {

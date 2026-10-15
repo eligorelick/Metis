@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { comparePeerFundamentals, loadPeerFundamentals, type PeerFundamentals } from "@/pipeline/peers";
+import { comparePeerFundamentals, loadPeerFundamentals, PEER_CANDIDATE_LIMIT, PEER_FETCH_BUDGET_MS, type PeerFundamentals } from "@/pipeline/peers";
 import { multiplesFramework, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
 import type { PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import { createFmpClient, type CachedFetchFn, type FmpRawRow } from "@/providers/fmp";
@@ -57,12 +57,27 @@ describe("defensible peer comparables", () => {
     expect(result.peerCoverage.comparisons[0]).toMatchObject({ peerMedian: 17.5, peerCount: 4 });
   });
 
-  it.each(["missing-subject", "missing-peer", "business-model", "accounting", "period", "currency", "definition", "future-evidence"] as const)("withholds every median for %s economic evidence", (mode) => {
+  // Production never supplies independent evidence (NVDA report 34: every peer,
+  // every issuer, "missing sourced economic/accounting comparability evidence").
+  // Absent evidence is disclosed beside the median; contrary evidence still excludes.
+  it.each(["missing-subject", "missing-peer", "missing-both"] as const)("publishes screened medians with a disclosed caveat for %s evidence", (mode) => {
+    const target = subject();
+    const candidates = Object.fromEntries(["P2", "P3", "P4", "P5"].map((symbol, i) => [symbol, candidate(symbol, 1000 + 500 * i)]));
+    if (mode !== "missing-peer") delete target.subjectEconomicEvidence;
+    if (mode !== "missing-subject") for (const peer of Object.values(candidates)) delete peer.economicEvidence;
+    const result = run(candidates, target);
+    const computed = multiplesFramework("general", { ...target, ...result });
+    expect(computed.multiples.find(m => m.key === "priceToBook")?.peers).toEqual({ median: 3.5, min: 2, max: 5, count: 4 });
+    expect(result.peerCoverage.comparisons[0]).toMatchObject({ peerMedian: 17.5, peerCount: 4 });
+    expect(result.peerCoverage.eligible).toEqual(["P2", "P3", "P4", "P5"]);
+    expect(result.peerCoverage.methodology.join(" ")).toMatch(/caveat.*not independently sourced/i);
+    expect(computed.notes.join(" ")).toMatch(/caveat.*not independently sourced/i);
+  });
+
+  it.each(["business-model", "accounting", "period", "currency", "definition", "future-evidence"] as const)("withholds every median for %s economic evidence", (mode) => {
     const target = subject();
     const candidates = Object.fromEntries(["P2", "P3", "P4", "P5"].map(symbol => [symbol, candidate(symbol)]));
-    if (mode === "missing-subject") delete target.subjectEconomicEvidence;
     for (const peer of Object.values(candidates)) {
-      if (mode === "missing-peer") { delete peer.economicEvidence; continue; }
       const evidence = peer.economicEvidence!;
       if (mode === "business-model") evidence.businessModel = "advertising marketplace";
       if (mode === "accounting") evidence.accountingStandard = "IFRS";
@@ -228,14 +243,14 @@ describe("bounded optional peer fetching", () => {
     expect(result.candidates).toEqual({});
     expect(result.notes.join(" ")).toMatch(/keyless|unavailable/i);
   });
-  it("deduplicates before fetching and caps optional reads at six candidates", async () => {
+  it("deduplicates before fetching and caps optional reads at the candidate limit", async () => {
     const seen: string[] = [];
     const result = await loadPeerFundamentals({ symbol: "ROOT", profile, now: NOW, enabled: true,
       discovered: data(["ROOT", "P2", "p2", ...Array.from({ length: 20 }, (_, i) => `P${i + 3}`)].map(symbol => ({ symbol }))),
       client: () => ({ profile: async symbol => { seen.push(symbol); return candidate(symbol).profile; }, quote: async symbol => candidate(symbol).quote,
         incomeStatement: async symbol => candidate(symbol).incomeQuarterly, balanceSheet: async symbol => candidate(symbol).balanceQuarterly }) });
-    expect(Object.keys(result.candidates)).toHaveLength(6);
-    expect(new Set(seen).size).toBe(6);
+    expect(Object.keys(result.candidates)).toHaveLength(PEER_CANDIDATE_LIMIT);
+    expect(new Set(seen).size).toBe(PEER_CANDIDATE_LIMIT);
     expect(seen).not.toContain("ROOT");
     expect(result.exclusions.some(x => /budget|limit/i.test(x.reason))).toBe(true);
   });
@@ -250,7 +265,29 @@ describe("bounded optional peer fetching", () => {
     expect(result.notes.join(" ")).toMatch(/unavailable|quota/i);
   });
 
-  it("aborts the optional work at twelve seconds and starts no later candidates", async () => {
+  // NVDA report 34: AVGO's symbol-only HTTP 402 marked INTC, CBRS and CRWV "not
+  // requested", so 2 of 10 candidates were evaluated.
+  it("skips only the candidate a symbol-scoped refusal names, and serves it from SEC filings when available", async () => {
+    const refused = { ok: false as const, gap: { field: "fmp.profile(P3)", severity: "warn" as const,
+      reason: "FMP subscription (HTTP 402): this symbol is unavailable on this endpoint with this key. Use other available sources; access is rechecked after 15 minutes." } };
+    const requested: string[] = [];
+    const client = () => ({ profile: async (symbol: string) => { requested.push(symbol); return symbol === "P3" ? refused : candidate(symbol).profile; },
+      quote: async (symbol: string) => candidate(symbol).quote, incomeStatement: async (symbol: string) => candidate(symbol).incomeQuarterly,
+      balanceSheet: async (symbol: string) => candidate(symbol).balanceQuarterly });
+    const discovered = data(["P2", "P3", "P4"].map(symbol => ({ symbol })));
+    const withoutFiling = await loadPeerFundamentals({ symbol: "ROOT", profile, now: NOW, enabled: true, discovered, client });
+    expect(requested).toEqual(["P2", "P3", "P4"]);
+    expect(Object.keys(withoutFiling.candidates)).toEqual(["P2", "P4"]);
+    expect(withoutFiling.exclusions).toEqual([expect.objectContaining({ symbol: "P3", reason: expect.stringMatching(/402/) })]);
+    const filings: string[] = [];
+    const withFiling = await loadPeerFundamentals({ symbol: "ROOT", profile, now: NOW, enabled: true, discovered, client,
+      secFallback: async symbol => { filings.push(symbol); return candidate(symbol); } });
+    expect(filings).toEqual(["P3"]);
+    expect(Object.keys(withFiling.candidates)).toEqual(["P2", "P3", "P4"]);
+    expect(withFiling.notes.join(" ")).toMatch(/P3.*SEC/);
+  });
+
+  it("aborts the optional work at its deadline and starts no later candidates", async () => {
     vi.useFakeTimers();
     try {
       let requestSignal: AbortSignal | undefined;
@@ -259,7 +296,7 @@ describe("bounded optional peer fetching", () => {
       const promise = loadPeerFundamentals({ symbol: "ROOT", profile, now: NOW, enabled: true,
         discovered: data(["P2", "P3"].map(symbol => ({ symbol }))),
         client: signal => { requestSignal = signal; return { profile: never, quote: never, incomeStatement: never, balanceSheet: never }; } });
-      await vi.advanceTimersByTimeAsync(11_999);
+      await vi.advanceTimersByTimeAsync(PEER_FETCH_BUDGET_MS - 1);
       expect(requestSignal?.aborted).toBe(false);
       await vi.advanceTimersByTimeAsync(1);
       const result = await promise;

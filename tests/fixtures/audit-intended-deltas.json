@@ -8122,30 +8122,6 @@
           "after": null
         },
         {
-          "path": "report.valuation.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 6 candidate profiles and three additional cached endpoints each, within 12s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-              "Every median also requires independently sourced subject and peer business-model, accounting, exact reporting-period and metric-definition evidence available at the comparison date. FMP industry/profile classification alone does not establish that evidence; absent or incompatible evidence suppresses the comparison.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
-        },
-        {
           "path": "report.valuation.scenarios.0.assumptions.0",
           "before": "SYNTHETIC demonstration text for valuation scenarios assumptions; it describes fictional inputs and is not a current market observation.",
           "after": "Deterministic scenario inputs unavailable for this route or target; see the missing-data manifest."
@@ -8260,11 +8236,6 @@
           }
         },
         {
-          "path": "stageB.valuation.multiples.notes.1",
-          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "FMP discovery candidates; at most 6 candidate profiles and three additional cached endpoints each, within 12s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only."
-        },
-        {
           "path": "stageB.valuation.multiples.notes.2",
           "beforeMissing": true,
           "after": "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date."
@@ -8278,11 +8249,6 @@
           "path": "stageB.valuation.multiples.notes.4",
           "beforeMissing": true,
           "after": "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.5",
-          "beforeMissing": true,
-          "after": "Every median also requires independently sourced subject and peer business-model, accounting, exact reporting-period and metric-definition evidence available at the comparison date. FMP industry/profile classification alone does not establish that evidence; absent or incompatible evidence suppresses the comparison."
         },
         {
           "path": "stageB.valuation.multiples.notes.6",
@@ -8303,30 +8269,6 @@
           "path": "stageB.valuation.multiples.notes.9",
           "beforeMissing": true,
           "after": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)"
-        },
-        {
-          "path": "stageB.valuation.multiples.peerCoverage",
-          "beforeMissing": true,
-          "after": {
-            "methodology": [
-              "FMP discovery candidates; at most 6 candidate profiles and three additional cached endpoints each, within 12s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.",
-              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
-              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
-              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-              "Every median also requires independently sourced subject and peer business-model, accounting, exact reporting-period and metric-definition evidence available at the comparison date. FMP industry/profile classification alone does not establish that evidence; absent or incompatible evidence suppresses the comparison.",
-              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
-            ],
-            "candidates": 0,
-            "evaluated": 0,
-            "eligible": [],
-            "exclusions": [
-              {
-                "symbol": "DEMO",
-                "reason": "stale, future or invalid provider cache observation"
-              }
-            ],
-            "comparisons": []
-          }
         }
       ]
     },
@@ -8618,6 +8560,73 @@
               "operandIds": [],
               "explanation": "Reported arithmetic only: income before tax minus income tax expense is compared with reported net income. The signed as-filed equity-method result is added only if needed to match that identity. This is not normalized recurring earnings, a tax allocation, or a universal treatment of equity-method results."
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "peer-gates-verifier-2026-10-15",
+      "decisions": [
+        "D-59"
+      ],
+      "reason": "D-59 replaces the never-satisfiable independent-evidence gate with a disclosed comparability caveat (supplied contrary evidence still excludes) and raises the optional peer budget to 10 candidates within 25s. Only the peer-coverage methodology text and the multiples notes that copy it move; this fixture collects no peers, so no median, grade, weight or historical baseline value changes.",
+      "deltas": [
+        {
+          "path": "report.valuation.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.1",
+          "before": "cash-flow-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.5",
+          "beforeMissing": true,
+          "after": "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability."
+        },
+        {
+          "path": "stageB.valuation.multiples.peerCoverage",
+          "beforeMissing": true,
+          "after": {
+            "methodology": [
+              "FMP discovery candidates; at most 10 candidate profiles and three additional cached endpoints each, within 25s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.",
+              "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
+              "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
+              "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
+              "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
+              "Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."
+            ],
+            "candidates": 0,
+            "evaluated": 0,
+            "eligible": [],
+            "exclusions": [
+              {
+                "symbol": "DEMO",
+                "reason": "stale, future or invalid provider cache observation"
+              }
+            ],
+            "comparisons": []
           }
         }
       ]

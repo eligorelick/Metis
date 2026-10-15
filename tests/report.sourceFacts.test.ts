@@ -377,6 +377,21 @@ describe("pipeline-owned source facts across report paths", () => {
     expect(ReportSchema.safeParse(dataOnly).success).toBe(true);
   });
 
+  // NVDA report 34: FMP serves the latest quarter without field-level SEC
+  // boundaries, so the reconciliation was "unavailable" on every FMP issuer.
+  it("reconciles an FMP-served quarter bounded by the issuer's preceding fiscal quarter", async () => {
+    const bundle = compatibleBundle();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Synthetic statements required");
+    const [latest, prior] = bundle.statements.incomeQuarterly.value.data.rows;
+    delete latest!.fieldProvenance;
+    prior!.fiscalYear = "2025"; prior!.period = "Q4";
+    const context = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+    const summary = (await runVerifyPass(verifyDeps, context, reportFixture())).verifiedReport.sourceFactSummary;
+    expect(summary?.status).toBe("available");
+    expect(summary?.earningsReconciliation.status).toBe("available");
+    expect(summary?.rows[0]?.periodContext).toMatchObject({ start: "2026-01-01", end: "2026-03-31", basis: "fiscal-quarter", fiscalLabel: "Q1 FY2026" });
+  });
+
   it("does not carry a copied source summary through a data-only report with no quarterly evidence", () => {
     const bundle = completeCurrencyBundle({});
     bundle.statements.incomeQuarterly = { ok: false, gap: { field: "quarterly", reason: "withheld", severity: "info" } };

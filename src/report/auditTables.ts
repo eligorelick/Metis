@@ -60,5 +60,8 @@ export function factualValidationText(coverage?: ProvenanceCoverage): string | n
   // This partition counts non-judgment prose claims, not TracedNumber objects.
   // Preserve the separate denominator so zero prose matches cannot be read as
   // zero numeric figures tracing to their source.
-  return `Factual prose claims (numeric support): ${v.validated}/${v.total} validated; ${v.contradicted} contradicted; ${v.unchecked} unchecked. Citation presence: ${v.cited}/${v.total}. Numeric figure provenance: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (separate from prose claims). Numeric matches do not validate whole prose claims; unchecked qualitative claims remain unvalidated.`;
+  // Claims that state no figure have nothing to check numerically; say how
+  // many of the unchecked are those (NVDA report 34: 60 of 89).
+  const unchecked = v.qualitative === undefined ? `${v.unchecked} unchecked` : `${v.unchecked} unchecked (${v.qualitative} qualitative with no figure to check)`;
+  return `Factual prose claims (numeric support): ${v.validated}/${v.total} validated; ${v.contradicted} contradicted; ${unchecked}. Citation presence: ${v.cited}/${v.total}. Numeric figure provenance: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (separate from prose claims). Numeric matches do not validate whole prose claims; unchecked qualitative claims remain unvalidated.`;
 }

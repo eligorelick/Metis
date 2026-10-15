@@ -71,6 +71,27 @@ function canonicalText(fact: Omit<SourceFactRow, "canonicalText">): string {
   return `${fact.label}, ${fact.qualifier}: ${fact.value} ${fact.currency} (unit: ${fact.unit}; definition: ${fact.definition}; duration ${period.start} to ${period.end}${period.basis ? `; basis: ${period.basis}` : ""}${period.fiscalLabel ? `; fiscal label: ${period.fiscalLabel}` : ""}; period: ${fact.period}). Source: ${fact.source}; provider origin: ${fact.origin}; as of ${fact.asOf}.`;
 }
 
+/**
+ * An FMP quarter carries no SEC start date (NVDA report 34 lost its
+ * reconciliation to that). Fiscal quarters are contiguous, so the issuer's own
+ * immediately preceding quarter in the same statement row bounds it: labels
+ * consecutive (Q1→Q2, Q4 FY2026→Q1 FY2027) and ends a 12–14-week quarter apart,
+ * which admits 52/53-week calendars.
+ */
+function precedingQuarterContext(line: StatementLineExtract, cell: StatementCell, periods: readonly string[]): DurationContext | undefined {
+  const earlier = periods.filter(p => p < cell.period).sort().at(-1);
+  const prior = earlier === undefined ? undefined : line.byPeriod.find(c => c.period === earlier);
+  const label = /^Q([1-4]) FY(\d{4})$/.exec(cell.fiscalPeriod ?? ""), before = /^Q([1-4]) FY(\d{4})$/.exec(prior?.fiscalPeriod ?? "");
+  if (!prior || !label || !before) return undefined;
+  const [q, year, pq, priorYear] = [Number(label[1]), Number(label[2]), Number(before[1]), Number(before[2])];
+  const consecutive = pq === 4 ? q === 1 && year === priorYear + 1 : q === pq + 1 && year === priorYear;
+  const days = (Date.parse(`${cell.period}T00:00:00Z`) - Date.parse(`${prior.period}T00:00:00Z`)) / 86_400_000;
+  if (!consecutive || !(days >= 84 && days <= 98)) return undefined;
+  const start = new Date(Date.parse(`${prior.period}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  const parsed = PeriodContextSchema.safeParse({ kind: "duration", start, end: cell.period, basis: "fiscal-quarter", fiscalLabel: cell.fiscalPeriod });
+  return parsed.success && parsed.data.kind === "duration" ? parsed.data : undefined;
+}
+
 /** A bound cell must agree exactly with its own registry record, without display rounding. */
 function boundRecord(
   line: StatementLineExtract,
@@ -78,6 +99,7 @@ function boundRecord(
   record: NumericProvenanceRecord,
   expectedId: string,
   period: string,
+  derived: DurationContext | undefined,
 ): string | null {
   const origin = Object.hasOwn(cell, "source") ? cell.source : line.source;
   if (cell.provenanceId !== expectedId || record.id !== expectedId) return "Exact statement registry identity is missing or conflicting.";
@@ -88,8 +110,11 @@ function boundRecord(
   if (!record.currency || !/^[A-Z]{3}$/.test(record.currency) || record.currency !== cell.currency) return "Statement currency is unknown or conflicts with the registry.";
   if (record.period !== period || cell.period !== period) return "Statement period conflicts with the current quarter.";
   if (!isIsoDate(record.asOf) || cell.asOf !== record.asOf) return "Statement observation date is unknown or conflicts with the registry.";
-  const parsed = PeriodContextSchema.safeParse(record.periodContext);
-  if (!parsed.success || parsed.data.kind !== "duration" || parsed.data.end !== period || comparePeriodContexts(record.periodContext, cell.periodContext) !== true) return "Statement duration boundaries are unknown or conflicting.";
+  // Source boundaries when the record has them; the derived quarter only when
+  // neither the record nor the cell states any.
+  const unbounded = record.periodContext === undefined && cell.periodContext === undefined;
+  const parsed = PeriodContextSchema.safeParse(unbounded ? derived : record.periodContext);
+  if (!parsed.success || parsed.data.kind !== "duration" || parsed.data.end !== period || (!unbounded && comparePeriodContexts(record.periodContext, cell.periodContext) !== true)) return "Statement duration boundaries are unknown or conflicting.";
   if (record.fiscalPeriod !== cell.fiscalPeriod) return "Statement fiscal label conflicts with the registry.";
   return null;
 }
@@ -153,9 +178,10 @@ export function buildSourceFactSummary(payload: ContextPayload): SourceFactSumma
       continue;
     }
     if (!record || !line) return unavailable(`Exact statement registry record is unavailable for ${label}.`);
-    const problem = boundRecord(line, cell, record, expectedId, period);
+    const derived = precedingQuarterContext(line, cell, block.periods);
+    const problem = boundRecord(line, cell, record, expectedId, period, derived);
     if (problem) return unavailable(`${label}: ${problem}`);
-    const context = structuredClone(record.periodContext) as DurationContext;
+    const context = structuredClone(record.periodContext ?? derived) as DurationContext;
     const fact: Omit<SourceFactRow, "canonicalText"> = {
       metric, label: record.label!, definition: "reported-statement-line-item", value: record.value, unit: "currency", currency: record.currency!,
       period, periodContext: context, source: record.id, asOf: record.asOf, provenanceId: record.id, origin: record.origin, qualifier: "as reported",

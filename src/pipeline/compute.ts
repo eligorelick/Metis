@@ -2784,6 +2784,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ffoHistoryComparable: route.base === "reit" ? nareitFfo.netIncomePlusTotalDa : undefined,
     // WS6 (D-19): off by default; see docs/METHODOLOGY.md, "EV bridge".
     includeLeasesInEv: evIncludeLeases,
+    // The observation cutoff any supplied comparability evidence must predate;
+    // without it every supplied evidence row read as "unavailable".
+    peerComparisonAsOf: bundle.peerFundamentals?.collectedAt ?? bundle.builtAt,
   };
   Object.assign(multiples, comparePeerFundamentals({
     symbol: bundle.symbol, profile: bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined, quote: bundle.quote, route: route.base,
