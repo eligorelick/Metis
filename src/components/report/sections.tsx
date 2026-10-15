@@ -648,14 +648,14 @@ function SegmentTable({
   return (
     <div className="flex flex-col gap-1.5">
       {rows.map((r, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <div className="w-40 shrink-0 truncate text-[11px] text-fg" title={r.name}>
+        <div key={i} className="report-segment-row grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-3 gap-y-1">
+          <div className="min-w-0 break-words text-[11px] text-fg" title={r.name}>
             {r.name}
           </div>
-          <div className="w-28 shrink-0 text-right">
+          <div className="min-w-0 break-words text-right">
             <TracedFigure n={r.revenue} className="text-[11px]" />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="col-span-2 min-w-0">
             <ShareBar
               pct={r.sharePct === null ? null : (r.sharePct / maxShare) * 100}
               label={r.sharePct === null ? "n/a" : `${r.sharePct.toFixed(1)}%`}

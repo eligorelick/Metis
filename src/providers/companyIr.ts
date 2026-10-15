@@ -32,7 +32,7 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 /** Pin the validated public address, preventing a second DNS lookup/rebinding. */
 function pinnedFetch(url: string, init: RequestInit | undefined, target: { address: string; family: number }): Promise<Response> {
   return new Promise((resolve, reject) => {
-    const req = request(url, { method: "GET", signal: init?.signal ?? undefined, family: target.family, lookup: (_hostname, _options, cb) => cb(null, target.address, target.family), headers: { "User-Agent": "ThesisResearch/1.0 (public investor-relations announcement discovery)", Accept: "text/html,application/xhtml+xml" } }, (res) => {
+    const req = request(url, { method: "GET", signal: init?.signal ?? undefined, family: target.family, lookup: (_hostname, _options, cb) => cb(null, target.address, target.family), headers: { "User-Agent": "MetisResearch/1.0 (public investor-relations announcement discovery)", Accept: "text/html,application/xhtml+xml" } }, (res) => {
       const headers = new Headers();
       for (const [key, value] of Object.entries(res.headers)) if (value !== undefined) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
       resolve(new Response(Readable.toWeb(res) as ReadableStream<Uint8Array>, { status: res.statusCode ?? 500, headers }));

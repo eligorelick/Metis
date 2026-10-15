@@ -65,6 +65,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-03-repository-audit.md",
   "docs/audit/2026-10-04-recommendations.md",
   "docs/PRIVACY.md",
+  "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
   "docs/DATA-RIGHTS.md",
   "docs/METHODOLOGY.md",
@@ -215,20 +216,22 @@ async function parseWorkflow(source: string): Promise<ParsedWorkflow> {
 describe("public release contract", () => {
   it("uses canonical GitHub metadata and loopback-only server scripts", () => {
     const pkg = JSON.parse(read("package.json")) as {
+      name: string;
       homepage: string;
       repository: { url: string };
       bugs: { url: string };
       scripts: Record<string, string>;
     };
 
+    expect(pkg.name).toBe("metis");
     expect(pkg.homepage).toBe(
-      "https://github.com/eligorelick/Thesis-AI-equity-research#readme",
+      "https://github.com/eligorelick/Metis#readme",
     );
     expect(pkg.repository.url).toBe(
-      "git+https://github.com/eligorelick/Thesis-AI-equity-research.git",
+      "git+https://github.com/eligorelick/Metis.git",
     );
     expect(pkg.bugs.url).toBe(
-      "https://github.com/eligorelick/Thesis-AI-equity-research/issues",
+      "https://github.com/eligorelick/Metis/issues",
     );
     expect(pkg.scripts.dev).toBe("next dev -H 127.0.0.1");
     expect(pkg.scripts.start).toBe("next start -H 127.0.0.1");
@@ -455,7 +458,7 @@ describe("public release contract", () => {
   });
 
   it("ignores unrelated untracked files but rejects the same paths if tracked", () => {
-    const tempRepo = mkdtempSync(path.join(os.tmpdir(), "thesis-release-index-"));
+    const tempRepo = mkdtempSync(path.join(os.tmpdir(), "metis-release-index-"));
     try {
       execFileSync("git", ["init", "--quiet"], { cwd: tempRepo });
       writeFileSync(path.join(tempRepo, ".gitignore"), "*.md\n", "utf8");

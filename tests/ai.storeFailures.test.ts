@@ -12,6 +12,7 @@ let directory: string;
 function system(value: string) { Object.defineProperty(process, "platform", { value, configurable: true }); }
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(root, "case-"));
+  vi.spyOn(os, "homedir").mockReturnValue(directory);
   system("linux"); vi.stubEnv("LOCALAPPDATA", directory); vi.stubEnv("XDG_CONFIG_HOME", directory);
   fake.protect.mockReset().mockImplementation((_exe, _args, options) => options.input);
 });
@@ -109,10 +110,10 @@ describe("credential protection and lock failures", () => {
 
   it("uses OS locations independently of report database overrides", () => {
     vi.stubEnv("THESIS_DATA_DIR", "report-only");
-    expect(aiDirectory()).toBe(path.join(directory, "Thesis", "ai"));
-    vi.stubEnv("XDG_CONFIG_HOME", undefined); expect(aiDirectory()).toBe(path.join(os.homedir(), ".config", "Thesis", "ai"));
-    system("darwin"); expect(aiDirectory()).toBe(path.join(os.homedir(), "Library", "Application Support", "Thesis", "ai"));
-    system("win32"); vi.stubEnv("LOCALAPPDATA", undefined); expect(aiDirectory()).toBe(path.join(os.homedir(), "AppData", "Local", "Thesis", "ai"));
+    expect(aiDirectory()).toBe(path.join(directory, "Metis", "ai"));
+    vi.stubEnv("XDG_CONFIG_HOME", undefined); expect(aiDirectory()).toBe(path.join(os.homedir(), ".config", "Metis", "ai"));
+    system("darwin"); expect(aiDirectory()).toBe(path.join(os.homedir(), "Library", "Application Support", "Metis", "ai"));
+    system("win32"); vi.stubEnv("LOCALAPPDATA", undefined); expect(aiDirectory()).toBe(path.join(os.homedir(), "AppData", "Local", "Metis", "ai"));
   });
   it("pipes Windows protection over stdin and keeps unreadable credentials intact", async () => {
     system("win32");
@@ -131,7 +132,7 @@ describe("credential protection and lock failures", () => {
     fs.writeFileSync(lock, "12345");
     vi.spyOn(process, "kill").mockImplementation(() => { throw Object.assign(new Error("dead"), { code: "ESRCH" }); });
     const mutate = vi.fn(() => {});
-    await expect(withAiStore(mutate)).rejects.toThrow("Stop all Thesis servers");
+    await expect(withAiStore(mutate)).rejects.toThrow("Stop all Metis servers");
     expect(mutate).not.toHaveBeenCalled();
     expect(fs.readFileSync(lock, "utf8")).toBe("12345");
     expect(fs.existsSync(path.join(aiDirectory(), "connections.v1.json"))).toBe(false);

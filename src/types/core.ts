@@ -1,5 +1,5 @@
 /**
- * Core shared contracts for Thesis. Every module builds against these types —
+ * Core shared contracts for Metis. Every module builds against these types —
  * change them only with a corresponding the design rationale entry.
  */
 

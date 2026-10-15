@@ -29,7 +29,7 @@ import { normalizeRouteSymbol } from "@/symbol";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Thesis — printable report",
+  title: "Printable report",
 };
 
 export default async function PrintReportPage({

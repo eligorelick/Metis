@@ -26,7 +26,7 @@ export function connectionsView(): AiConnectionsView {
     pending: google?.status === "waiting" ? google : openai?.status === "waiting" ? openai : google ?? openai,
     connections: [
       ...(store?.profiles ?? []).map((p, index) => ({ id: p.id, provider: "chatgpt" as const, label: `${p.email ?? "ChatGPT account"} · connection ${index + 1}`, connected: !!p.tokens, planEnabled: p.tokens?.scopes.includes("chatgpt.tokens.use.direct") ?? false })),
-      ...(store?.gemini ? [{ id: store.gemini.id, provider: "gemini" as const, label: "Google account in Thesis's Gemini CLI", connected: store.gemini.connected, planEnabled: store.gemini.connected }] : []),
+      ...(store?.gemini ? [{ id: store.gemini.id, provider: "gemini" as const, label: "Google account in Metis's Gemini CLI", connected: store.gemini.connected, planEnabled: store.gemini.connected }] : []),
     ] };
 }
 

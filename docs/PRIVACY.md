@@ -1,11 +1,11 @@
 # Privacy and safety
 
-Thesis runs on your machine and persists its database, cache, report history
+Metis runs on your machine and persists its database, cache, report history
 and AI connection state locally. Report generation can send evidence to remote
 AI services and request market/filing data. Local-first storage does not mean
 offline execution or provider-side deletion. This page describes the current
 application paths; provider retention, browser behavior and operating-system
-backups are outside Thesis's control.
+backups are outside Metis's control.
 
 ## What leaves the machine
 
@@ -45,7 +45,7 @@ ordinary API key and its public pricing page (`platform.claude.com`).
 `ANTHROPIC_ADMIN_KEY`, sending a date window/pagination parameters, not a
 research payload. It can make that remote read in its default dry run; no
 report path calls the Admin API. Package installation/security audits can
-contact package registries or advisory services. Thesis does not control
+contact package registries or advisory services. Metis does not control
 those developer tools' telemetry.
 
 Browser OAuth involves the provider's sign-in website and any identity
@@ -96,7 +96,7 @@ ChatGPT requests set `store: false` and stream Responses API output. That
 request option does not establish zero retention by OpenAI. Gemini is prompted
 to use only supplied evidence and is configured to deny tools, hooks, MCP,
 extensions and project context. Subscription adapters expose no additional
-web-search tool; Claude analysts retain bounded server-side search. Thesis
+web-search tool; Claude analysts retain bounded server-side search. Metis
 does not train a model or change provider account data-use/retention policies.
 
 ## Keys
@@ -112,7 +112,8 @@ does not encrypt `.env`, and the server-only boundary does not protect it from
 other processes running with your account's filesystem access. Avoid sharing
 environment files, connection directories or unreviewed diagnostic output.
 
-The `X-Thesis-Token` that non-browser clients use for mutating routes is not a
+The `X-Metis-Token` (`X-Thesis-Token` is accepted only when the primary header is absent) that non-browser
+clients use for mutating routes is not a
 credential for anything remote, and not a lock on the API either. It is a marker
 for clients that send no browser headers: `src/app/api/sameOrigin.ts` accepts a
 mutating request with an allowed Host and a matching `Origin`, or accepted
@@ -127,11 +128,11 @@ enforces file modes, never logged, and never sent to the browser or to any
 provider.
 
 The npm dev/start scripts bind to **127.0.0.1**. The request-wide proxy rejects
-direct Hosts outside loopback or the exact `THESIS_ALLOWED_HOST` allowlist,
+direct Hosts outside loopback or the exact `METIS_ALLOWED_HOST` allowlist,
 including read routes. Company landing GET/HEAD requests additionally reject
 cross-origin subresource/speculation requests using Fetch Metadata, while
 allowing normal top-level navigation and header-free local scripts. Mutating
-routes use the guard above. Thesis has no user login or caller authentication;
+routes use the guard above. Metis has no user login or caller authentication;
 allowlisting a LAN host does not add either, and an allowed client can read
 reports and invoke actions. AI connection GET/POST additionally require the
 same-origin/token guard and strict localhost/127.0.0.1/[::1] access, even with
@@ -142,27 +143,36 @@ scripts; HTTPS to remote providers does not encrypt the local database.
 
 **Settings → Appearance** stores only `current` or `workspace` in the browser's
 `thesis-ui-design` cookie for 180 days (`Path=/`, `SameSite=Lax`, and `Secure`
-on HTTPS). It is sent to the local Thesis host, never to a provider. Cookies
-are scoped by host, not port, so Thesis instances on the same host share it.
-Choosing Current restores the default; clearing this cookie also
-resets the design. If the browser refuses storage, the choice applies for the
+on HTTPS). It is sent to the local Metis host, never to a provider. Cookies
+are scoped by host, not port, so Metis instances on the same host share it.
+Choosing Metis Ink restores the default; clearing this cookie also
+resets the design. The legacy cookie name remains unchanged to preserve preferences.
+If the browser refuses storage, the choice applies for the
 current visit and Settings displays a warning. This preference does not change
 the database, AI connection, model, reasoning effort, reports or exports.
 
-The SQLite database holds reports, caches and ordinary settings. Its default location is the OS
-application-data directory (`src/db/paths.ts`):
+The SQLite database holds reports, caches and ordinary settings. Fresh installations
+use the OS application-data directory (`src/db/paths.ts`):
 
-- Windows: `%LOCALAPPDATA%\Thesis\thesis.db`
-- macOS: `$HOME/Library/Application Support/Thesis/thesis.db`
-- Linux: `$XDG_DATA_HOME/thesis/thesis.db`, else `$HOME/.local/share/thesis/thesis.db`
+- Windows: `%LOCALAPPDATA%\Metis\metis.db`
+- macOS: `$HOME/Library/Application Support/Metis/metis.db`
+- Linux: `$XDG_DATA_HOME/metis/metis.db`, else `$HOME/.local/share/metis/metis.db`
 
-`THESIS_DB_PATH` overrides the file; `THESIS_DATA_DIR` overrides the directory.
-SQLite writes `thesis.db-wal` and `thesis.db-shm` beside the database file.
+Existing legacy `Thesis` directories (`thesis` on Linux) remain discoverable and
+are preferred when present. An existing `thesis.db` or its `thesis.db-wal`/
+`thesis.db-shm` recovery files in the selected directory selects `thesis.db`,
+so SQLite recovery companions are not stranded. No database is moved, renamed
+or overwritten by the rebrand.
+`METIS_DB_PATH` overrides the file; `METIS_DATA_DIR` overrides the directory.
+SQLite writes `-wal` and `-shm` siblings beside whichever database is active.
+Legacy `THESIS_*` aliases remain supported; an explicitly present canonical
+`METIS_*` value wins, including a blank or invalid value, without falling back
+to the legacy value. See [compatibility](BRAND.md#compatibility).
 
 On Windows, `APPDATA` is the fallback if `LOCALAPPDATA` is unavailable. Blank
 path overrides are treated as unset. The resolved active path is printed by
 the database opener. A legacy workspace `data/thesis.db` is ignored by default;
-`THESIS_IMPORT_LEGACY_DB=1` intentionally copies it and any WAL/SHM siblings
+`METIS_IMPORT_LEGACY_DB=1` intentionally copies it and any WAL/SHM siblings
 only when no explicit DB path is set and the destination does not exist. The
 old copy is retained, so deleting the active database does not delete that
 legacy copy. Turn off the import flag before expecting a fresh database.
@@ -184,9 +194,13 @@ disk encryption and any backup/sync software you use. Reports, watchlist and
 ordinary settings are intentionally served to the local browser; being
 server-only does not make them inaccessible to that browser.
 
-AI connections are kept separately in the OS user's `Thesis/ai` directory:
-`%LOCALAPPDATA%` on Windows, `$HOME/Library/Application Support` on macOS,
-and `$XDG_CONFIG_HOME` or `$HOME/.config` on Linux. Database path overrides
+AI connections are kept separately in the OS user's `Metis/ai` directory for
+new installations. The OS roots are `%LOCALAPPDATA%` on Windows,
+`$HOME/Library/Application Support` on macOS, and `$XDG_CONFIG_HOME` or
+`$HOME/.config` on Linux. An existing legacy `Thesis/ai` directory continues
+to be used without moving or resetting its credentials. These AI directory
+names retain uppercase initials on every platform, including Linux; Linux
+database directories remain lowercase. Database path overrides
 do not move these credentials. ChatGPT's `connections.v1.json` is encrypted
 with Windows DPAPI for the current Windows user; on macOS/Linux it stores
 plaintext JSON inside an owner-only file (0600) and directory (0700).
@@ -208,9 +222,9 @@ releases ownership without deleting the lock. The credential envelope and its
 encryption remain unchanged. A closed, marker-only `connections.lock.*.tmp`
 publication file can remain after a crash or failed cleanup; it contains no tokens.
 
-**Upgrade or downgrade with every Thesis server stopped.** Old numeric/partial
+**Upgrade or downgrade with every Metis server stopped.** Old numeric/partial
 locks and unknown lock formats are refused before credential mutation. If the
-error requests migration, stop every Thesis server, remove only
+error requests migration, stop every Metis server, remove only
 `connections.lock` in the AI directory, then restart the intended version.
 Preserve `connections.v1.json` and every `gemini-*` directory. Never remove or
 replace a lock while a server is running, or mix old and new servers: an old
@@ -221,16 +235,16 @@ Network filesystems are not supported by this locking guarantee. See the
 [locking decision and verification limits](audit/2026-10-04-recommendations.md#1-credential-locking--implemented).
 
 Gemini stores its own OAuth state under an isolated `gemini-<id>` subdirectory
-owned by Thesis. Thesis does not read another app's Google credentials. CLI
+owned by Metis. Metis does not read another app's Google credentials. CLI
 telemetry, extensions, hooks, MCP and tools are disabled; prompts are passed
 on standard input rather than command-line arguments. The CLI may retain its
 own session files inside this directory. Disconnect stops local child
 processes, waits for exit, and removes that directory. The official CLI storage
 override preserves your normal browser profile. This CLI directory has no
-Thesis-added DPAPI encryption; the CLI manages its own credential/session
+Metis-added DPAPI encryption; the CLI manages its own credential/session
 files. An empty environment file in
 its work directory prevents loading credentials from ancestor directories.
-Connection lifecycle and inference operations claim one live Thesis server
+Connection lifecycle and inference operations claim one live Metis server
 per OS user; another server cannot connect, refresh or disconnect them until
 the owning server stops. Status reads and selection saves are not an
 authentication boundary and do not themselves claim that runtime ownership.
@@ -239,15 +253,15 @@ from Google Account connections if needed. ChatGPT disconnect clears local
 tokens and attempts to revoke the renewable session; an unconfirmed remote
 revocation is reported. Account registrations remain for later reconnection.
 
-The `csrf-token` file does not follow `THESIS_DB_PATH`. It is written to
-`THESIS_TOKEN_FILE` when that is set, and otherwise to `csrf-token` in the
-application-data directory listed above — the directory `THESIS_DATA_DIR`
+The `csrf-token` file does not follow `METIS_DB_PATH`. It is written to
+`METIS_TOKEN_FILE` when that is set, and otherwise to `csrf-token` in the
+application-data directory listed above — the directory `METIS_DATA_DIR`
 overrides (`src/app/api/sameOrigin.ts`, `requestTokenPath`). Set only
-`THESIS_DB_PATH` and the database moves while the token file stays where it
+`METIS_DB_PATH` and the database moves while the token file stays where it
 was. The server prints the resolved path at every start:
 
 ```
-[security] X-Thesis-Token for non-browser clients written to <path>
+[security] X-Metis-Token for non-browser clients written to <path>
 ```
 
 ## Retention
@@ -259,7 +273,7 @@ was. The server prints the resolved path at every start:
   warn and do not block startup. Filings and transcripts carry a 10-year TTL, so in
   practice they are kept, not purged.
 - Reports, jobs, cost records, the watchlist, and settings are never expired.
-  They persist until you delete them, and Thesis has no delete-report command:
+  They persist until you delete them, and Metis has no delete-report command:
   removing them means removing the database.
 - Pass artifacts and completed job history have no automatic time-based
   retention limit. Normal lease settlement/recovery removes relevant live
@@ -271,16 +285,16 @@ was. The server prints the resolved path at every start:
 
 ## Deleting local data
 
-- Reports, cache and database settings: quit Thesis and delete the database file together with its
-  `-wal` and `-shm` siblings. Disable `THESIS_IMPORT_LEGACY_DB` first if set,
+- Reports, cache and database settings: quit Metis and delete the database file together with its
+  `-wal` and `-shm` siblings. Disable `METIS_IMPORT_LEGACY_DB` first if set,
   or a retained workspace copy can be imported again. The next start otherwise
   creates an empty database. The
   `csrf-token` file is deleted separately, at the path the server printed at
-  startup — `THESIS_TOKEN_FILE` if you set it, otherwise `csrf-token` in the
+  startup — `METIS_TOKEN_FILE` if you set it, otherwise `csrf-token` in the
   application-data directory, which is not necessarily the directory the
   database is in.
-- Start clean while keeping the old data: point `THESIS_DATA_DIR` at a fresh
-  directory (or `THESIS_DB_PATH` at a new file). Reports and cache use the new
+- Start clean while keeping the old data: point `METIS_DATA_DIR` at a fresh
+  directory (or `METIS_DB_PATH` at a new file). Reports and cache use the new
   location. AI connections remain in their
   separate per-user store until disconnected from Settings.
 - Stored settings only: `npm run settings:reset -- --yes`. Settings resolve in
@@ -292,11 +306,11 @@ was. The server prints the resolved path at every start:
   existing database directly without app schema/cache maintenance. Two internal rows are
   always kept, because neither is a setting: the cache-maintenance stamp and
   the settings revision counter. AI connection selections are managed separately.
-- AI connections: disconnect accounts in Settings, then quit Thesis and delete
+- AI connections: disconnect accounts in Settings, then quit Metis and delete
   its `ai` directory described above to remove retained registration metadata.
   Deleting local files alone does not revoke remote grants; use the provider's
   account settings if remote revocation was not confirmed.
-- Appearance: clear the `thesis-ui-design` cookie or choose Current. Exported
+- Appearance: clear the `thesis-ui-design` cookie or choose Metis Ink. Exported
   Markdown, HTML, JSON, printed PDFs, legacy database copies, backups and
   browser downloads must be deleted separately. The app does not erase them
   when the active database is removed. Deleting files is not secure disk erasure.
@@ -330,12 +344,12 @@ also be switched off for data-only reports.
 | Claude | Optional `ANTHROPIC_API_KEY` | Separately billed Anthropic API usage |
 
 ChatGPT sign-in opens normal Chrome, with a fallback link. Gemini sign-in
-requires Chrome, and Thesis passes its executable to the CLI as the browser,
-preserving the normal browser profile for sign-in/autofill. Thesis gives
+requires Chrome, and Metis passes its executable to the CLI as the browser,
+preserving the normal browser profile for sign-in/autofill. Metis gives
 Gemini an isolated local home and disables
 tools, extensions, hooks, MCP and inherited API keys. CLI support is restricted
 to the reviewed 0.36 minor line; newer minor releases need compatibility review.
-Only one running Thesis server per OS user can own connection lifecycles/inference;
+Only one running Metis server per OS user can own connection lifecycles/inference;
 stop that server before moving these connections to another local instance.
 Its Google connection
 is separate from an existing personal CLI login. See Google's
@@ -345,7 +359,7 @@ ChatGPT models come from the connected account's catalog. A catalog entry
 does not prove remaining quota or model access. Check
 [ChatGPT usage](https://chatgpt.com/#settings/Usage) and
 [Gemini quotas](https://geminicli.com/docs/resources/quota-and-pricing/)
-before generating reports. Thesis does not know your remaining allowance.
+before generating reports. Metis does not know your remaining allowance.
 There is no automatic change to a paid API when a connection fails.
 Subscription reports use the supplied evidence without additional web search;
 the existing Claude API path retains its bounded web search.
@@ -354,12 +368,12 @@ The financial calculations and deterministic citation checks are shared by
 all providers. Account/model changes invalidate incompatible partial report
 work. The existing Claude model and effort controls apply only to that API
 connection. A subscription report's `$0` means no API charge recorded by
-Thesis, not free or unlimited usage; provider account credit settings still
-apply. Thesis's USD API caps do not cap subscription tokens or provider credits.
+Metis, not free or unlimited usage; provider account credit settings still
+apply. Metis's USD API caps do not cap subscription tokens or provider credits.
 
 ChatGPT credentials stay server-side in protected per-user storage (Windows
 DPAPI; owner-only files on macOS/Linux). Disconnect stops local requests and
-attempts ChatGPT session revocation. Google disconnect clears Thesis's CLI
+attempts ChatGPT session revocation. Google disconnect clears Metis's CLI
 state; revoke the Google grant from your Google Account if desired. See
 [Privacy](PRIVACY.md). The OAuth paths have offline regression coverage;
 live inference has not been verified for this release.
@@ -381,7 +395,7 @@ model when its CLI uses several, without guessing which wrote the final response
 
 ## Limited FMP access
 
-A configured key does not establish paid access. Thesis learns explicit FMP
+A configured key does not establish paid access. Metis learns explicit FMP
 endpoint and symbol restrictions from responses, suppresses repeat refused
 requests for 15 minutes, then rechecks. Restrictions are scoped to the key and
 endpoint; a symbol refusal never blocks other symbols. Successful cached data

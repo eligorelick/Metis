@@ -28,6 +28,7 @@
  * chart module stays decoupled from this renderer.
  */
 
+import { MetisLogo } from "@/brand/MetisLogo";
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
@@ -173,6 +174,10 @@ export function ReportView({
 
   return (
     <div className="thesis-report mx-auto flex max-w-[1400px] flex-col gap-3 p-4">
+      <div className="flex items-center gap-4 border-b border-edge pb-3">
+        <MetisLogo className="h-7 w-[111px] shrink-0" />
+        <span className="text-[10px] uppercase tracking-[0.16em] text-faint">Equity research report</span>
+      </div>
       {/* Sticky grade strip — clickable, deep-links to each graded section. */}
       <div className="sticky top-0 z-20 -mx-4 border-b border-edge bg-bg/95 px-4 py-2 backdrop-blur">
         <GradeStripBar gradeStrip={report.verdict.gradeStrip} compact />

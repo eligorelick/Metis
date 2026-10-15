@@ -1,7 +1,7 @@
 /**
  * assertSameOrigin — browser-CSRF guard for the mutating localhost API routes.
  *
- * Threat model: Thesis is a local-first, single-user app whose API listens on
+ * Threat model: Metis is a local-first, single-user app whose API listens on
  * localhost (and, when explicitly configured, on a LAN interface). A
  * drive-by web page open in the user's browser can fire cross-site fetch/form
  * POSTs at these routes and trigger PAID Anthropic report runs, burn provider
@@ -21,7 +21,7 @@
  *     loopback — or an explicitly configured LAN host.
  *
  * Rules (call from mutating handlers only — POST/PUT/DELETE; GETs are safe):
- *   1. The direct Host must be loopback or the exact `THESIS_ALLOWED_HOST`.
+ *   1. The direct Host must be loopback or the exact `METIS_ALLOWED_HOST`.
  *   2. `Sec-Fetch-Site: cross-site` → 403. A value no browser sends
  *      (`same-origin`, `same-site`, and `none` are the browser values) → 403.
  *   3. `Origin` present → its scheme and host:port must equal the request's own
@@ -32,7 +32,7 @@
  *   4. No `Origin`: a browser-sent `Sec-Fetch-Site` (rule 2) is enough — every
  *      current browser sends Fetch Metadata or Origin on a mutation, so a
  *      browser never needs the token. Otherwise the request must carry
- *      `X-Thesis-Token` equal to the token this server minted at startup into
+ *      `X-Metis-Token` equal to the token this server minted at startup into
  *      `<data dir>/csrf-token` (see `ensureRequestToken`). curl and scripts read
  *      that file; a header-free request is rejected with a message naming the
  *      header options. The token is never logged and never reaches the browser.
@@ -47,8 +47,8 @@
  * have the database file and `.env`. Anything that must actually authenticate
  * a caller needs a different mechanism.
  *
- * `THESIS_ALLOWED_HOST` (optional): set to the exact `host:port` you browse
- * Thesis under when serving it on a non-loopback interface, e.g.
+ * `METIS_ALLOWED_HOST` (optional): set to the exact `host:port` you browse
+ * Metis under when serving it on a non-loopback interface, e.g.
  * "192.168.1.50:3000". Read at call time so it takes effect without a reload.
  */
 
@@ -62,19 +62,20 @@ import { assertAllowedHost, requestOriginMatchesHost } from "@/app/requestSecuri
 import { getConfig } from "@/config/env";
 import { defaultDataDir } from "@/db/paths";
 
-/** Header a non-browser client sends with the minted token. */
-export const REQUEST_TOKEN_HEADER = "x-thesis-token";
+/** Primary script header; legacy is accepted only when the primary header is absent. */
+export const REQUEST_TOKEN_HEADER = "x-metis-token";
+export const LEGACY_REQUEST_TOKEN_HEADER = "x-thesis-token";
 
-/** File name inside the data directory (override the full path with THESIS_TOKEN_FILE). */
+/** File name inside the data directory (override the full path with METIS_TOKEN_FILE). */
 export const REQUEST_TOKEN_FILE_NAME = "csrf-token";
 
 /** `Sec-Fetch-Site` values a browser can send on a request that is not cross-site. */
 const BROWSER_SITE_VALUES: ReadonlySet<string> = new Set(["same-origin", "same-site", "none"]);
 
 const MISSING_CREDENTIALS_REASON =
-  "no Sec-Fetch-Site, Origin, or X-Thesis-Token header; browsers send Sec-Fetch-Site or " +
-  "Origin automatically, and scripts must send X-Thesis-Token with the contents of the " +
-  `${REQUEST_TOKEN_FILE_NAME} file in the Thesis data directory (THESIS_TOKEN_FILE)`;
+  "no Sec-Fetch-Site, Origin, or X-Metis-Token header; browsers send Sec-Fetch-Site or " +
+  "Origin automatically, and scripts must send X-Metis-Token with the contents of the " +
+  `${REQUEST_TOKEN_FILE_NAME} file in the Metis data directory (METIS_TOKEN_FILE)`;
 
 function forbid(reason: string): NextResponse {
   return NextResponse.json(
@@ -117,7 +118,7 @@ function tokenStash(): RequestTokenStash {
   return root[REQUEST_TOKEN_KEY];
 }
 
-/** Resolved token file: THESIS_TOKEN_FILE, else `<data dir>/csrf-token`. */
+/** Resolved token file: METIS_TOKEN_FILE, else `<data dir>/csrf-token`. */
 export function requestTokenPath(): string {
   return getConfig().tokenFile ?? path.join(defaultDataDir(), REQUEST_TOKEN_FILE_NAME);
 }
@@ -144,7 +145,7 @@ export function ensureRequestToken(): RequestTokenState {
     persisted = true;
   } catch (error) {
     console.warn(
-      `[security] could not write the X-Thesis-Token file at ${file}: ` +
+      `[security] could not write the X-Metis-Token file at ${file}: ` +
         `${error instanceof Error ? error.message : String(error)}`,
     );
   }
@@ -202,10 +203,11 @@ export function assertSameOrigin(request: Request): NextResponse | null {
   // does is accepted here without a token (see the header note above).
   if (secFetchSite !== undefined) return null;
 
-  const presented = request.headers.get(REQUEST_TOKEN_HEADER);
+  // Presence precedence prevents an invalid primary header from falling back to a valid legacy token.
+  const presented = request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
   if (presented === null) return forbid(MISSING_CREDENTIALS_REASON);
   if (!presentedTokenMatches(presented)) {
-    return forbid("x-thesis-token does not match the token this server minted at startup");
+    return forbid("request token does not match the token this server minted at startup");
   }
   return null;
 }

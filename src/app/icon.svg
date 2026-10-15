@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Thesis">
-  <rect width="64" height="64" rx="12" fill="#0f172a"/>
-  <path d="M16 18h32v8H36v22h-8V26H16z" fill="#f8fafc"/>
-  <path d="M40 40h10v8H40z" fill="#38bdf8"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" role="img" aria-label="Metis" fill="#f6f2e9"><rect width="112" height="112" rx="24" fill="#181b19"/><path d="M6 8C26 9 42 20 47 38V64C40 49 31 37 20 32L27 64H6C13 45 13 27 6 8Z M90 8C70 9 54 20 49 38V64C56 49 65 37 76 32L69 64H90C83 45 83 27 90 8Z" transform="translate(8 18)"/></svg>

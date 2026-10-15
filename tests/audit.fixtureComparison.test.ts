@@ -34,6 +34,9 @@
  * parents' ranges (^1.1.7, ^5.0.5); only those two lock entries changed, and
  * the projection was re-run against the new tree under Node 24 before the pin
  * moved. Roll the pin forward again only with the same evidence.
+ * The Metis rebrand keeps this historical pin: only three guarded package-name
+ * metadata fields are restored to their historical values before hashing. All
+ * dependency/version/integrity bytes and historical evidence remain pinned.
  */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -144,6 +147,34 @@ function fixtureTreeSha256(root: string): string {
   return hash.digest("hex");
 }
 
+/** Restore exactly the authorized brand metadata, never dependency fields. */
+function comparisonLockBlob(source: string): string {
+  const lock = JSON.parse(source) as {
+    name: string;
+    packages: Record<string, { name?: string }>;
+  };
+  if (
+    lock.name !== "metis" ||
+    lock.packages[""]?.name !== "metis" ||
+    lock.packages["scripts/next-eslint-glob"]?.name !== "@metis/next-eslint-glob"
+  ) {
+    throw new Error("unexpected canonical package-lock branding metadata");
+  }
+  const newline = source.includes("\r\n") ? "\r\n" : "\n";
+  const serialize = () => JSON.stringify(lock, null, 2).replaceAll("\n", newline) + newline;
+  // Prove parsing/stringifying loses or normalizes no bytes before editing
+  // the three explicit field paths; arbitrary formatting drift stays rejected.
+  if (serialize() !== source) throw new Error("package-lock formatting drift");
+  lock.name = "thesis";
+  lock.packages[""].name = "thesis";
+  lock.packages["scripts/next-eslint-glob"].name = "@thesis/next-eslint-glob";
+  return execFileSync("git", ["hash-object", "--stdin", "--path=package-lock.json"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    input: serialize(),
+  }).trim();
+}
+
 function loadBaseline(): BaselineDocument {
   return JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineDocument;
 }
@@ -159,6 +190,23 @@ afterEach(() => {
 });
 
 describe("Task 32 provider-free historical fixture comparison", () => {
+  it("keeps dependency versions and integrity pinned through the branding compatibility check", () => {
+    const source = readFileSync(path.join(ROOT, "package-lock.json"), "utf8");
+    const expected = loadBaseline().provenance.generator.comparisonPackageLockBlob;
+    for (const field of ["version", "integrity"] as const) {
+      const changed = JSON.parse(source);
+      expect(typeof changed.packages["node_modules/next"][field]).toBe("string");
+      changed.packages["node_modules/next"][field] += "-tampered";
+      expect(comparisonLockBlob(JSON.stringify(changed, null, 2) + "\n")).not.toBe(expected);
+    }
+    const unexpectedBrand = JSON.parse(source);
+    unexpectedBrand.packages["scripts/next-eslint-glob"].name = "@other/next-eslint-glob";
+    expect(() => comparisonLockBlob(JSON.stringify(unexpectedBrand, null, 2) + "\n")).toThrow(
+      /unexpected canonical package-lock branding/,
+    );
+    expect(() => comparisonLockBlob(source + " ")).toThrow(/formatting drift/);
+  });
+
   it("pins audited provenance, current fixture bytes, and the exact intended delta allowlist", async () => {
     const baseline = loadBaseline();
     const deltaFile = loadDeltaFile();
@@ -200,10 +248,7 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       "src/report/schema.ts": "891d66275b154aa2b4f1f1b32961382eaa0e72ad",
     });
     expect(
-      execFileSync("git", ["hash-object", "package-lock.json"], {
-        cwd: ROOT,
-        encoding: "utf8",
-      }).trim(),
+      comparisonLockBlob(readFileSync(path.join(ROOT, "package-lock.json"), "utf8")),
     ).toBe(baseline.provenance.generator.comparisonPackageLockBlob);
     expect(sha256File(GENERATOR_PATH)).toBe(
       baseline.provenance.generator.helperSha256,

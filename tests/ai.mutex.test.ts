@@ -120,13 +120,13 @@ describe("permanent native credential mutex", () => {
   }, 15_000);
   it.each(["", "12345", String(process.pid), "12", "garbage"])("refuses legacy/partial contents %j before a callback and preserves bytes", async (contents) => {
     fs.writeFileSync(lock, contents); const callback = vi.fn();
-    await expect(withAiMutex(lock, callback)).rejects.toThrow("Stop all Thesis servers");
+    await expect(withAiMutex(lock, callback)).rejects.toThrow("Stop all Metis servers");
     expect(callback).not.toHaveBeenCalled(); expect(fs.readFileSync(lock, "utf8")).toBe(contents);
   });
   it.each([0, 2])("refuses unrecognized SQLite version %i without rewriting it", async (version) => {
     const db = new Database(lock); db.exec(`PRAGMA application_id = ${version ? 0x54484149 : 0}; PRAGMA user_version = ${version};`); db.close();
     const saved = fs.readFileSync(lock); const callback = vi.fn();
-    await expect(withAiMutex(lock, callback)).rejects.toThrow("Stop all Thesis servers"); expect(callback).not.toHaveBeenCalled(); expect(fs.readFileSync(lock)).toEqual(saved);
+    await expect(withAiMutex(lock, callback)).rejects.toThrow("Stop all Metis servers"); expect(callback).not.toHaveBeenCalled(); expect(fs.readFileSync(lock)).toEqual(saved);
   });
   it("preserves a native open failure instead of presenting it as legacy migration", async () => {
     fs.mkdirSync(lock); const callback = vi.fn();

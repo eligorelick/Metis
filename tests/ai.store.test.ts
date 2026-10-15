@@ -39,7 +39,7 @@ describe.skipIf(process.platform === "darwin")("protected connection storage", (
     const store = { runtimeOwnerPid: process.pid + 1 } as AiStore;
     const probe = vi.spyOn(process, "kill").mockImplementation(() => true);
     try {
-      expect(() => claimAiRuntime(store)).toThrow("another Thesis server");
+      expect(() => claimAiRuntime(store)).toThrow("another Metis server");
       probe.mockImplementation(() => { throw Object.assign(new Error("stopped"), { code: "ESRCH" }); });
       claimAiRuntime(store); expect(store.runtimeOwnerPid).toBe(process.pid);
     } finally { probe.mockRestore(); }

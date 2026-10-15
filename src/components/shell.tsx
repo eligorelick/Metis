@@ -6,6 +6,7 @@
  * Presentational only; safe in server and client components.
  */
 
+import { MetisLogo } from "@/brand/MetisLogo";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { SidebarNavigation } from "./SidebarNavigation";
@@ -20,16 +21,17 @@ export function AppShell({
   return (
     <div className="thesis-shell flex h-screen flex-col overflow-hidden bg-bg text-fg">
       {/* Header bar */}
-      <header className="thesis-header flex h-10 shrink-0 items-center justify-between border-b border-edge bg-panel px-4">
-        <div className="flex items-baseline gap-3">
+      <header className="thesis-header flex h-16 shrink-0 items-center justify-between border-b border-edge bg-panel px-4">
+        <div className="flex items-center gap-5">
           <Link
             href="/"
-            className="mono text-[13px] font-semibold tracking-[0.3em] text-fg"
+            className="inline-flex shrink-0 text-fg"
+            aria-label="Metis home"
           >
-            THESIS
+            <MetisLogo className="h-9 w-[142px]" />
           </Link>
           <span className="hidden text-[11px] text-faint sm:inline">
-            equity research engine
+            equity research
           </span>
         </div>
         <nav className="flex items-center gap-3 text-[11px]">

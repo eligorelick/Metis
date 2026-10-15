@@ -1,5 +1,5 @@
 /**
- * The Report Zod schema — THE contract for the entire Thesis Report object.
+ * The Report Zod schema — THE contract for the entire Metis Report object.
  *
  * This module is the single source of truth for the shape of a generated
  * report (report sections 1–13). It is consumed by:

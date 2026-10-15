@@ -1,5 +1,5 @@
 /**
- * Database bootstrap for Thesis. better-sqlite3 stores its WAL-mode database
+ * Database bootstrap for Metis. better-sqlite3 stores its WAL-mode database
  * in the user's app-data directory by default, wrapped in Drizzle. Schema is
  * created idempotently with
  * CREATE TABLE IF NOT EXISTS on first connection — no migration step needed.
@@ -14,6 +14,7 @@
 
 import "server-only";
 
+import { metisEnv } from "@/config/namespace";
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -374,7 +375,7 @@ function legacyProjectDbPath(): string {
 }
 
 function importLegacyProjectDbIfExplicitlyEnabled(targetFile: string): void {
-  if (hasExplicitDbPath() || process.env.THESIS_IMPORT_LEGACY_DB?.trim() !== "1") return;
+  if (hasExplicitDbPath() || metisEnv("IMPORT_LEGACY_DB")?.trim() !== "1") return;
 
   const legacy = path.resolve(legacyProjectDbPath());
   const target = path.resolve(targetFile);
@@ -402,7 +403,7 @@ export function createDatabase(file: string = defaultDbPath()): DatabaseHandle {
     if (workspace !== active && fs.existsSync(workspace)) {
       console.warn(
         `[db] stale workspace database detected at ${workspace}; it is not used. ` +
-        "Set THESIS_IMPORT_LEGACY_DB=1 only for an intentional one-time import.",
+        "Set METIS_IMPORT_LEGACY_DB=1 only for an intentional one-time import.",
       );
     }
     importLegacyProjectDbIfExplicitlyEnabled(file);

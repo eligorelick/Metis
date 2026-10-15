@@ -60,7 +60,7 @@ describe("appearance surfaces", () => {
     expect(current).toEqual([{ time: "2025-12-31", value: 123, color: "#2ecc8f55" }]);
     expect(workspace).toEqual([{ time: "2025-12-31", value: 123, color: "#17624b55" }]);
     const series = [{ label: "DEMO", rows: [{ date: "2025-12-31", close: 40 }] }];
-    expect(resolveSeriesColors(series)[0]!.color).toBe("#3ba7f5");
-    expect(resolveSeriesColors(series, chartPalette("workspace"))[0]).toEqual({ ...series[0], color: "#0b6671" });
+    expect(resolveSeriesColors(series)[0]!.color).toBe("#cfaf7d");
+    expect(resolveSeriesColors(series, chartPalette("workspace"))[0]).toEqual({ ...series[0], color: "#785b32" });
   });
 });

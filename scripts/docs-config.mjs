@@ -166,7 +166,8 @@ export function renderConfigBlock(sections, schemaKeys) {
   }
   const lines = [CONFIG_BEGIN, ""];
   lines.push("Every key is optional. This table is generated from `.env.example`, which");
-  lines.push("carries the long form of each one, so the two cannot drift apart.");
+  lines.push("carries the long form of each one. `METIS_*` keys accept legacy `THESIS_*` aliases;");
+  lines.push("explicit canonical values win, including blank/invalid values. See [compatibility](docs/BRAND.md#compatibility).");
   lines.push("");
   lines.push("| Key | Shipped value / opt-in example | What it does |");
   lines.push("| --- | --- | --- |");

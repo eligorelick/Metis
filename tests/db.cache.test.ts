@@ -139,7 +139,7 @@ describe("default database path", () => {
     vi.stubEnv("THESIS_DB_PATH", "");
     vi.stubEnv("THESIS_DATA_DIR", dir);
 
-    expect(defaultDbPath()).toBe(path.join(dir, "thesis.db"));
+    expect(defaultDbPath()).toBe(path.join(dir, "metis.db"));
   });
 
   it("does not silently import a stale workspace DB and reports the active path", () => {
@@ -147,7 +147,7 @@ describe("default database path", () => {
     const projectDir = path.join(root, "project");
     const appDataDir = path.join(root, "appdata");
     const legacyPath = path.join(projectDir, "data", "thesis.db");
-    const targetPath = path.join(appDataDir, "thesis.db");
+    const targetPath = path.join(appDataDir, "metis.db");
     fs.mkdirSync(path.dirname(legacyPath), { recursive: true });
     const legacy = createDatabase(legacyPath);
     legacy.sqlite.prepare('INSERT INTO "settings" ("key", "value") VALUES (?, ?)').run("legacy.marker", "present");
@@ -182,7 +182,7 @@ describe("default database path", () => {
     };
 
     expect(config.dbCredentials?.url).toBe(defaultDbPath());
-    expect(path.resolve(config.dbCredentials?.url ?? "")).toBe(path.resolve(dir, "thesis.db"));
+    expect(path.resolve(config.dbCredentials?.url ?? "")).toBe(path.resolve(dir, "metis.db"));
   });
 });
 

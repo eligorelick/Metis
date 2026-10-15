@@ -92,6 +92,9 @@ describe("scoped Next ESLint directory glob migration", () => {
 
   it("installs a genuinely distinct scoped package and removes the vulnerable chain", () => {
     const lock = JSON.parse(readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
+    const adapterPackage = JSON.parse(readFileSync(path.join(ROOT, "scripts/next-eslint-glob/package.json"), "utf8"));
+    expect(adapterPackage.name).toBe("@metis/next-eslint-glob");
+    expect(lock.packages["scripts/next-eslint-glob"].name).toBe(adapterPackage.name);
     const entries = Object.entries(lock.packages) as Array<[string, { name?: string; resolved?: string }]>;
     expect(entries.some(([key, entry]) => /(?:^|\/)node_modules\/fast-glob$/.test(key) && entry.resolved === "scripts/next-eslint-glob")).toBe(true);
     expect(entries.filter(([key]) => /(?:^|\/)node_modules\/(?:braces|micromatch)$/.test(key))).toEqual([]);

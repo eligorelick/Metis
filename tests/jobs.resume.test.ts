@@ -122,7 +122,7 @@ describe("THESIS_RESUME_ON_START", () => {
       revision: 0,
       leaseOwner: null,
     });
-    expect(String(info.mock.calls.at(-1)?.[0])).toContain("THESIS_RESUME_ON_START=0");
+    expect(String(info.mock.calls.at(-1)?.[0])).toContain("METIS_RESUME_ON_START=0");
 
     // No durable wake timer was armed, so time passing changes nothing.
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000);

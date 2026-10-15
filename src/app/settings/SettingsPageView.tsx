@@ -173,7 +173,7 @@ export function SettingsPageView({
               <p className="pt-2 text-[11px] leading-snug text-faint">
                 Reasoning tokens are billed as output. Anthropic recommends starting
                 Opus 5.5 at medium; Sonnet 5.5 and Fable 5.1 default to high.
-                Thesis sends your saved effort explicitly, so changing models does
+                Metis sends your saved effort explicitly, so changing models does
                 not reset it. Start lower and raise effort when the results need it;
                 xhigh and max can consume substantially more tokens.
               </p>

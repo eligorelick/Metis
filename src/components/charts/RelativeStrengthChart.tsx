@@ -65,15 +65,10 @@ export interface RelativeStrengthChartProps {
 // Theme
 // ---------------------------------------------------------------------------
 
-const THEME = {
-  bgPanel: "#0f141c",
-  border: "#1f2937",
-  fgFaint: "#7f8fa4",
-  accent: "#3ba7f5",
-} as const;
+const THEME = chartPalette("current");
 
 /** Muted benchmark line colors, cycled by benchmark index. */
-const BENCHMARK_COLORS = ["#8494a8", "#7f8fa4", "#e8b339"] as const;
+const BENCHMARK_COLORS = [THEME.fgMuted, THEME.fgFaint, THEME.warn] as const;
 
 // ---------------------------------------------------------------------------
 // Pure helpers

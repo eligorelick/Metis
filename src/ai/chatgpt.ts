@@ -89,7 +89,7 @@ export async function beginChatGpt(profileId?: string): Promise<void> {
     const received = Buffer.from(supplied[0] ?? "");
     if (url.pathname !== "/auth/callback" || supplied.length !== 1 || received.length !== state.length ||
         !timingSafeEqual(received, Buffer.from(state)) || consumed || pending.status !== "waiting") {
-      res.writeHead(400).end("Invalid or expired sign-in. Return to Thesis."); return;
+      res.writeHead(400).end("Invalid or expired sign-in. Return to Metis."); return;
     }
     consumed = true;
     delete pending.url;
@@ -125,11 +125,11 @@ export async function beginChatGpt(profileId?: string): Promise<void> {
       pending.message = tokens.scopes.includes("chatgpt.tokens.use.direct")
         ? "ChatGPT connected. Select a model and choose this connection for reports."
         : "Signed in, but ChatGPT plan usage was not granted. Reconnect and allow plan usage.";
-      res.end("You can close this tab and return to Thesis Settings.");
+      res.end("You can close this tab and return to Metis Settings.");
     } catch (error) {
       pending.status = "error";
       pending.message = error instanceof Error && /^(ChatGPT|Sign-in|Incomplete|Missing|Invalid|Unexpected)/.test(error.message)
-        ? error.message : "ChatGPT sign-in could not be completed. Reconnect from Thesis.";
+        ? error.message : "ChatGPT sign-in could not be completed. Reconnect from Metis.";
       res.writeHead(400).end(pending.message);
     } finally { clearTimeout(timer); server.close(); }
   });
@@ -146,7 +146,7 @@ export async function beginChatGpt(profileId?: string): Promise<void> {
   const query = new URLSearchParams({ client_id: registration.profile?.clientId ?? "dynamic_agent_client",
     ext_agent_host_id: registration.hostId, response_type: "code", redirect_uri: redirect, scope: SCOPES, resource: RESOURCE,
     state, nonce, code_challenge_method: "S256", code_challenge: createHash("sha256").update(verifier).digest("base64url") });
-  if (!registration.profile) query.set("agent_name_hint", "Thesis");
+  if (!registration.profile) query.set("agent_name_hint", "Metis");
   // Optional identity hints are intentionally omitted from browser-visible URLs.
   pending.url = `${ISSUER}/api/accounts/authorize?${query}`;
   if (!await openChrome(pending.url) && pending.status === "waiting") pending.message = "Open the sign-in link in your normal Chrome browser.";
@@ -195,7 +195,7 @@ export async function disconnectChatGpt(id: string): Promise<string> {
       body: new URLSearchParams({ client_id: registration.clientId, token: registration.tokens.refresh, token_type_hint: "refresh_token" }) });
     if (!response.ok) throw new Error();
     return "Disconnected and renewable session revoked.";
-  } catch { return "Disconnected locally. Remote revocation was not confirmed; remove Thesis in ChatGPT Settings → Usage."; }
+  } catch { return "Disconnected locally. Remote revocation was not confirmed; remove Metis (or Thesis for an older registration) in ChatGPT Settings → Usage."; }
 }
 
 export function chatGptConnected(id: string): boolean {

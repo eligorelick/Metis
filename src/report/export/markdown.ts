@@ -1172,7 +1172,7 @@ function renderHeader(
   lines.push(
     `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Research Report`,
   );
-  lines.push("");
+  lines.push("", "*Metis · Equity research*", "");
   lines.push(
     table(
       ["Field", "Value"],

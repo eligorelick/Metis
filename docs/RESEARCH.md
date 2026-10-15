@@ -1203,7 +1203,7 @@ not mistaken for settled or overlooked.
 **Rejected** (title: reason):
 
 - Market-implied cost of capital: circular, because the cash flows are
-  Thesis's own forecasts (Hou, van Dijk & Zhang 2012); the reverse DCF already
+  Metis's own forecasts (Hou, van Dijk & Zhang 2012); the reverse DCF already
   answers what the price requires.
 - Residual-income cross-check for non-financials: it uses the same internal
   forecasts, so its published advantage disappears, and it is unreliable on

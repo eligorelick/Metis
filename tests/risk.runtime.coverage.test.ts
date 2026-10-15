@@ -416,7 +416,7 @@ describe("risk runtime behavior coverage", () => {
     const projectDir = path.join(tempRoot, "project");
     const dataDir = path.join(tempRoot, "app-data");
     const legacyFile = path.join(projectDir, "data", "thesis.db");
-    const importedFile = path.join(dataDir, "thesis.db");
+    const importedFile = path.join(dataDir, "metis.db");
     mkdirSync(path.dirname(legacyFile), { recursive: true });
     const cwd = vi.spyOn(process, "cwd").mockReturnValue(projectDir);
     vi.stubEnv("THESIS_DB_PATH", "");

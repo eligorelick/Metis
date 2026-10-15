@@ -21,7 +21,7 @@ export async function resumeReportScheduler(
 /**
  * Start the pump on every Node boot, unless the operator held it back.
  *
- * With `THESIS_RESUME_ON_START=0` a queued job is PAID work that nobody asked
+ * With `METIS_RESUME_ON_START=0` a queued job is PAID work that nobody asked
  * for again — a laptop that reboots mid-run would otherwise spend money before
  * its owner opened the app. Skipping the kick leaves the scheduler with no
  * resolver, so it claims nothing and arms no durable wake timer; the queue
@@ -33,7 +33,7 @@ export async function bootstrapReportScheduler(
 ): Promise<boolean> {
   if (!getConfig().resumeOnStart) {
     console.info(
-      "[scheduler] THESIS_RESUME_ON_START=0: queued work is held until an operator " +
+      "[scheduler] METIS_RESUME_ON_START=0: queued work is held until an operator " +
         "resumes it (POST /api/jobs/resume or the Settings page).",
     );
     return false;

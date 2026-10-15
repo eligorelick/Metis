@@ -1,5 +1,5 @@
 /**
- * Model registry — the single offline source for every Anthropic model Thesis
+ * Model registry — the single offline source for every Anthropic model Metis
  * may call: ids, lifecycle, context and output limits, effort and sampling
  * support, thinking behavior, refusal fallback, web-search tool variant, and
  * prices (input, output, cache write at both TTLs, cache read).

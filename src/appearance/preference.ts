@@ -1,5 +1,6 @@
 /** A nonsecret, per-browser display preference; independent of research settings. */
 export type UiDesign = "current" | "workspace";
+// Retain the historical cookie key so existing browser preferences survive rebranding.
 export const UI_DESIGN_COOKIE = "thesis-ui-design";
 export const UI_DESIGN_MAX_AGE = 180 * 24 * 60 * 60;
 

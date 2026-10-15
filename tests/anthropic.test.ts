@@ -1986,9 +1986,9 @@ describe("stream idle timeout", () => {
     // There is one parser now, and it fails loudly instead of quietly
     // substituting a default the rest of the process does not agree with.
     setIdleSeconds("not-a-number");
-    expect(() => streamIdleTimeoutMs()).toThrow(/THESIS_STREAM_IDLE_SECONDS/);
+    expect(() => streamIdleTimeoutMs()).toThrow(/METIS_STREAM_IDLE_SECONDS/);
     setIdleSeconds("3601");
-    expect(() => streamIdleTimeoutMs()).toThrow(/THESIS_STREAM_IDLE_SECONDS/);
+    expect(() => streamIdleTimeoutMs()).toThrow(/METIS_STREAM_IDLE_SECONDS/);
   });
 
   /**

@@ -52,7 +52,7 @@ import { z } from "zod";
  * you SHOULD supply your own before any sustained use so the SEC can reach you.
  * Resolved once at module load (Next.js populates `process.env` from `.env`).
  */
-const DEFAULT_EDGAR_CONTACT = "Thesis Research contact@example.com";
+const DEFAULT_EDGAR_CONTACT = "Metis Research contact@example.com";
 
 /** True only for an identity with a reachable-looking, non-placeholder email. */
 export function hasConfiguredEdgarIdentity(contact = process.env.EDGAR_CONTACT?.trim() ?? ""): boolean {

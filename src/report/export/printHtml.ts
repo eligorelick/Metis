@@ -1,3 +1,4 @@
+import { METIS_LOCKUP_SVG } from "@/brand/identity";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -1012,6 +1013,7 @@ function headerBlock(
     ].map((r) => r.map((c) => esc(String(c)))),
   );
   return `<header class="report-header">
+    <div class="metis-print-brand">${METIS_LOCKUP_SVG}</div>
     <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
     <p class="subtitle">Equity Research Report</p>
     ${meta}
@@ -1069,61 +1071,63 @@ export const PRINT_CSS = `
 * { box-sizing: border-box; }
 body {
   margin: 0; padding: 0;
-  background: #ffffff; color: #16181d;
+  background: #ffffff; color: #181b19;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 11pt; line-height: 1.45;
   font-variant-numeric: tabular-nums;
 }
+.metis-print-brand { width: 132pt; margin-bottom: 16pt; }
+.metis-print-brand svg { display: block; width: 100%; height: auto; }
 .print-doc { max-width: 8.1in; margin: 0 auto; padding: 0.6in 0.7in; }
 h1 { font-size: 20pt; margin: 0 0 2pt; font-family: Georgia, serif; }
-.ticker { color: #55606e; font-weight: normal; }
-.subtitle { margin: 0 0 12pt; color: #55606e; font-size: 11pt; letter-spacing: 0.04em; text-transform: uppercase; }
-.report-header { border-bottom: 2px solid #16181d; padding-bottom: 12pt; margin-bottom: 16pt; }
-.disclaimer { margin-top: 10pt; font-style: italic; color: #55606e; }
-.attribution { margin-top: 8pt; font-size: 9pt; color: #55606e; font-style: italic; }
-h2.sec { font-size: 14pt; margin: 18pt 0 6pt; padding-top: 6pt; border-top: 1px solid #c8ccd4; }
-.secno { display: inline-block; min-width: 1.6em; color: #8a919e; font-weight: normal; }
+.ticker { color: #665b4c; font-weight: normal; }
+.subtitle { margin: 0 0 12pt; color: #665b4c; font-size: 11pt; letter-spacing: 0.04em; text-transform: uppercase; }
+.report-header { border-bottom: 2px solid #181b19; padding-bottom: 12pt; margin-bottom: 16pt; }
+.disclaimer { margin-top: 10pt; font-style: italic; color: #665b4c; }
+.attribution { margin-top: 8pt; font-size: 9pt; color: #665b4c; font-style: italic; }
+h2.sec { font-size: 14pt; margin: 18pt 0 6pt; padding-top: 6pt; border-top: 1px solid #d5cbbb; }
+.secno { display: inline-block; min-width: 1.6em; color: #6f685c; font-weight: normal; }
 h3 { font-size: 11.5pt; margin: 12pt 0 4pt; color: #2a2e36; }
 h4 { font-size: 10.5pt; margin: 8pt 0 3pt; color: #2a2e36; }
 p { margin: 4pt 0; overflow-wrap: anywhere; }
 .synthesis { font-size: 11.5pt; margin: 0 0 10pt; }
-.faint { color: #8a919e; }
+.faint { color: #6f685c; }
 .mono { font-family: "SF Mono", "Consolas", "Menlo", monospace; font-variant-numeric: tabular-nums; }
-.asof { color: #8a919e; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
-.src { color: #8a919e; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
+.asof { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
+.src { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
 .report-header table { table-layout: fixed; }
 .report-header th:first-child, .report-header td:first-child { width: 22%; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
-th, td { border: 1px solid #d5d9e0; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-th { background: #f1f3f6; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #55606e; }
-td.empty { text-align: center; color: #8a919e; }
+th, td { border: 1px solid #d5cbbb; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #f6f2e9; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #665b4c; }
+td.empty { text-align: center; color: #6f685c; }
 ul.claims { margin: 4pt 0; padding-left: 16pt; }
 ul.claims li { margin: 3pt 0; }
 .read { margin: 4pt 0; padding-left: 16pt; }
 .label { display: inline-block; font-family: Arial, sans-serif; font-size: 7.5pt; font-weight: bold; text-transform: uppercase; padding: 0 3pt; border: 1px solid currentColor; border-radius: 2px; letter-spacing: 0.04em; }
-.label.fact { color: #55606e; }
-.label.estimate { color: #1f6feb; }
+.label.fact { color: #665b4c; }
+.label.estimate { color: #785b32; }
 .label.judgment { color: #9a6b00; }
 .chip { display: inline-block; min-width: 1.4em; text-align: center; font-family: Arial, sans-serif; font-weight: bold; padding: 0 4pt; border: 1.5px solid currentColor; border-radius: 2px; }
 .g-a { color: #1a7f4b; } .g-b { color: #3a8f3a; } .g-c { color: #9a6b00; } .g-d { color: #b5521a; } .g-f { color: #c0392b; }
-.gradeblock { border: 1px solid #d5d9e0; background: #f8f9fb; padding: 8pt 10pt; margin: 6pt 0 10pt; }
+.gradeblock { border: 1px solid #d5cbbb; background: #faf8f3; padding: 8pt 10pt; margin: 6pt 0 10pt; }
 .gradehead { font-size: 11pt; }
-.conf { color: #8a919e; font-size: 9pt; }
+.conf { color: #6f685c; font-size: 9pt; }
 .why { font-style: italic; margin: 4pt 0; }
-.interp { margin: 4pt 0; color: #2a2e36; border-left: 2px solid #c8ccd4; padding-left: 8pt; }
+.interp { margin: 4pt 0; color: #2a2e36; border-left: 2px solid #d5cbbb; padding-left: 8pt; }
 .v.ok { color: #1a7f4b; } .v.warn { color: #b5521a; font-size: 8pt; } .v.faint { color: #b5bac4; }
-.scenario { border: 1px solid #d5d9e0; margin: 6pt 0; padding: 6pt 8pt; break-inside: avoid; }
+.scenario { border: 1px solid #d5cbbb; margin: 6pt 0; padding: 6pt 8pt; break-inside: avoid; }
 .scenario.bull { border-left: 3px solid #1a7f4b; }
-.scenario.base { border-left: 3px solid #1f6feb; }
+.scenario.base { border-left: 3px solid #785b32; }
 .scenario.bear { border-left: 3px solid #c0392b; }
 .scenariohead { font-size: 10.5pt; }
-.scenariohead .prob { color: #55606e; margin-left: 6pt; }
+.scenariohead .prob { color: #665b4c; margin-left: 6pt; }
 .scenariobody { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin-top: 4pt; }
 .scenariobody ul { margin: 2pt 0; padding-left: 14pt; }
 .block { break-inside: auto; }
-.block.prominent { border: 2px solid #1f6feb; padding: 6pt 10pt; background: #f5f8ff; margin: 12pt 0; }
+.block.prominent { border: 2px solid #785b32; padding: 6pt 10pt; background: #faf8f3; margin: 12pt 0; }
 .exec { break-inside: avoid; margin: 6pt 0; }
 .disagreements ul { margin: 2pt 0; }
 @media print {
@@ -1155,7 +1159,7 @@ export function reportToPrintHtml(
   report: Report,
   options: ReportToPrintHtmlOptions = {},
 ): string {
-  const title = `${report.meta.symbol} — ${report.meta.companyName} — Thesis Report`;
+  const title = `${report.meta.symbol} — ${report.meta.companyName} — Metis Report`;
   return `<!doctype html>
 <html lang="en">
 <head>

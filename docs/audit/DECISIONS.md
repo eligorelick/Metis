@@ -991,7 +991,7 @@ behavior; historical measured costs remain the observations recorded below.
   its connection and binds the provider/account/model to durable payload
   fingerprints. Existing deterministic calculations and verification are shared.
 - **Lifecycle and CLI isolation**: pending sign-ins are cancelable before any
-  storage wait. One live Thesis process owns connections under the serialized
+  storage wait. One live Metis process owns connections under the serialized
   store lock. Gemini 0.36.x runs without its wrapper relaunch; disconnect waits
   for exit before deleting its directory. An empty work `.env` stops ancestor
   discovery. The official CLI's post-admin MCP allowlist admits only a fresh
@@ -1001,7 +1001,7 @@ behavior; historical measured costs remain the observations recorded below.
   override isolates CLI state while preserving the real browser profile.
 - **Usage**: subscription adapters cannot accept API keys. Their zero API cost
   does not claim zero subscription usage. Provider allowance/credit settings
-  apply; Thesis cannot read remaining quota or impose its API USD cap on it.
+  apply; Metis cannot read remaining quota or impose its API USD cap on it.
   Requests have deadlines and size limits. Subscription passes use only supplied
   evidence, with no extra web search. Effort controls remain Claude-specific.
 - **Why**: implement supported multi-provider sign-in without treating OAuth as

@@ -217,7 +217,7 @@ configuration were not exercised; blocked writes have unit/render tests.
   rows remain a separate frequency-inference limitation.
 - [Morningstar equity data definitions](https://morningstardirect.morningstar.com/clientcomm/DataDefinitions_EquityandExecutive.pdf):
   monthly return/window reference for A03; the 24-observation minimum and log
-  returns remain Thesis house choices, not exact vendor equivalence.
+  returns remain Metis house choices, not exact vendor equivalence.
 - [FASB ASC 842 update](https://storage.fasb.org/ASU_2016-02_Section_A.pdf),
   section 842-20-45-4, and [Damodaran on financial firms](https://pages.stern.nyu.edu/~adamodar/pdfiles/papers/finfirm09.pdf):
   support the finance-lease and FCFF explanation corrections. No new model
@@ -428,9 +428,9 @@ delivered commit are recorded on pull request #5 separately from this local run.
 ## Merge verification — 2026-10-04
 
 The owner authorized merging after verification. The production changes at
-`5b5cca4` passed [PR CI](https://github.com/eligorelick/Thesis-AI-equity-research/actions/runs/37183970733)
+`5b5cca4` passed [PR CI](https://github.com/eligorelick/Metis/actions/runs/37183970733)
 on Linux (full checks) and Windows (product/integration). The unchanged
-[push CI](https://github.com/eligorelick/Thesis-AI-equity-research/actions/runs/37183968106)
+[push CI](https://github.com/eligorelick/Metis/actions/runs/37183968106)
 also passed after one Windows retry. Its first attempt timed out at 8,376ms in
 the export-cleanup test's existing 5,000ms limit, with no assertion mismatch.
 The same case took 438ms in PR CI, 294ms in a passing local 13-test export
@@ -463,7 +463,7 @@ The merge-readiness documentation update preserves the confirmed F08 race and
 all deferred recommendations above. `Unreleased` changelog headings remain
 appropriate: merging source does not publish a packaged release or deploy it.
 Final branch checks and the merge commit are linked from
-[pull request #5](https://github.com/eligorelick/Thesis-AI-equity-research/pull/5).
+[pull request #5](https://github.com/eligorelick/Metis/pull/5).
 
 ## Documentation reconciliation — 2026-10-04
 

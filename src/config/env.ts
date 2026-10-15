@@ -1,5 +1,5 @@
 /**
- * Server-only environment config for Thesis.
+ * Server-only environment config for Metis.
  *
  * Parses .env values with zod once and caches the result. API keys NEVER
  * reach the client — importing this module from client code throws at
@@ -14,6 +14,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { withMetisAliases } from "./namespace";
 
 import {
   ANTHROPIC_REQUEST_TIMEOUT_MS,
@@ -140,11 +141,11 @@ const envSchema = z.object({
       const trimmed = v?.trim();
       return trimmed ? trimmed : "auto";
     }),
-  THESIS_MAX_ACTIVE_JOBS: positiveIntegerEnv(1),
-  THESIS_MAX_ACTIVE_LLM_CALLS: positiveIntegerEnv(2),
-  THESIS_MAX_JOB_COST_USD: optionalUsdCapEnv(),
-  THESIS_MAX_ROLLING_COST_USD: optionalUsdCapEnv(),
-  THESIS_ROLLING_COST_WINDOW_MINUTES: positiveIntegerEnv(
+  METIS_MAX_ACTIVE_JOBS: positiveIntegerEnv(1),
+  METIS_MAX_ACTIVE_LLM_CALLS: positiveIntegerEnv(2),
+  METIS_MAX_JOB_COST_USD: optionalUsdCapEnv(),
+  METIS_MAX_ROLLING_COST_USD: optionalUsdCapEnv(),
+  METIS_ROLLING_COST_WINDOW_MINUTES: positiveIntegerEnv(
     1_440,
     0,
     MAX_ROLLING_WINDOW_MINUTES,
@@ -163,7 +164,7 @@ const envSchema = z.object({
    *    withheld vendor rows rather than quietly served from them.
    * An unrecognized value is rejected at parse, like every other key here.
    */
-  THESIS_STATEMENT_SOURCE: z
+  METIS_STATEMENT_SOURCE: z
     .string()
     .optional()
     .transform((raw, ctx) => {
@@ -176,14 +177,14 @@ const envSchema = z.object({
   // --- end WS4 ---------------------------------------------------------------
   // Must outlive the provider's hard request timeout plus the margin an
   // aborted stream needs to settle (see src/pipeline/leaseTiming.ts).
-  THESIS_PAID_PASS_LEASE_SECONDS: positiveIntegerEnv(
+  METIS_PAID_PASS_LEASE_SECONDS: positiveIntegerEnv(
     900,
     MIN_PAID_PASS_LEASE_SECONDS - 1,
     MAX_NODE_TIMER_SECONDS,
   ),
   // Floored at MIN_JOB_LEASE_SECONDS (leaseTiming invariant 1), and must never
   // be shorter than the paid-pass lease it parents.
-  THESIS_JOB_LEASE_SECONDS: positiveIntegerEnv(
+  METIS_JOB_LEASE_SECONDS: positiveIntegerEnv(
     900,
     MIN_JOB_LEASE_SECONDS - 1,
     MAX_NODE_TIMER_SECONDS,
@@ -201,7 +202,7 @@ const envSchema = z.object({
    * `low` and `max`. The default sits at undici's body-timeout window so this
    * guard never pre-empts the transport's own, ping-aware detection.
    */
-  THESIS_STREAM_IDLE_SECONDS: positiveIntegerEnv(DEFAULT_STREAM_IDLE_SECONDS, -1, 3_600),
+  METIS_STREAM_IDLE_SECONDS: positiveIntegerEnv(DEFAULT_STREAM_IDLE_SECONDS, -1, 3_600),
   /**
    * How paid work is admitted against the spend caps (DECISIONS D-10).
    *  - "request" (default): every provider request reserves its own maximum
@@ -210,7 +211,7 @@ const envSchema = z.object({
    *    every retry and resumption it could make. Kept for one release so a
    *    deployment can fall back without a downgrade.
    */
-  THESIS_RESERVATION_MODE: z
+  METIS_RESERVATION_MODE: z
     .string()
     .optional()
     .transform((v, ctx) => {
@@ -223,9 +224,9 @@ const envSchema = z.object({
     }),
   // WS8
   /** "1" (default) kicks the scheduler at startup; "0" holds queued paid work for an explicit resume. */
-  THESIS_RESUME_ON_START: binaryFlagEnv(true),
-  /** Full path of the X-Thesis-Token file; blank means `<data dir>/csrf-token`. */
-  THESIS_TOKEN_FILE: optionalPath,
+  METIS_RESUME_ON_START: binaryFlagEnv(true),
+  /** Full path of the X-Metis-Token file; blank means `<data dir>/csrf-token`. */
+  METIS_TOKEN_FILE: optionalPath,
   // end WS8
   // WS7 (D-20): which order the judge reads the two analyst cases in.
   //  - "random" (default): drawn from the job id, so it varies across reports
@@ -237,7 +238,7 @@ const envSchema = z.object({
   // An unrecognized value degrades to "random" rather than failing the process:
   // this is a fairness control, not a spend or safety bound, and the report
   // names the setting that was actually in force, so a typo is visible.
-  THESIS_JUDGE_ORDER: z
+  METIS_JUDGE_ORDER: z
     .string()
     .optional()
     .transform((v): JudgeOrderSetting => {
@@ -252,7 +253,7 @@ const envSchema = z.object({
   // leases in EV/EBITDA. It never touches the FINANCE-lease liability, which is
   // debt in both frames because EBIT and EBITDA are BEFORE finance-lease cost.
   // Any value other than "1" (including unset) leaves it off.
-  THESIS_EV_INCLUDE_LEASES: z
+  METIS_EV_INCLUDE_LEASES: z
     .string()
     .optional()
     .transform((v) => blank(v) === "1"),
@@ -264,39 +265,39 @@ const envSchema = z.object({
   // violated would either lose a healthy job to reconciliation mid-run or
   // keep billing after its claim was handed to someone else, so startup
   // fails fast instead.
-  const paidMs = parsed.THESIS_PAID_PASS_LEASE_SECONDS * 1_000;
-  const jobMs = parsed.THESIS_JOB_LEASE_SECONDS * 1_000;
+  const paidMs = parsed.METIS_PAID_PASS_LEASE_SECONDS * 1_000;
+  const jobMs = parsed.METIS_JOB_LEASE_SECONDS * 1_000;
   if (jobMs < 2 * JOB_HEARTBEAT_MS) {
     ctx.addIssue({
       code: "custom",
-      path: ["THESIS_JOB_LEASE_SECONDS"],
+      path: ["METIS_JOB_LEASE_SECONDS"],
       message: `must be at least ${MIN_JOB_LEASE_SECONDS} seconds (the job-claim lease floor; the claim itself is renewed every quarter of the TTL)`,
     });
   }
   if (paidMs < 2 * (paidMs / PAID_LEASE_RENEWAL_DIVISOR)) {
     ctx.addIssue({
       code: "custom",
-      path: ["THESIS_PAID_PASS_LEASE_SECONDS"],
+      path: ["METIS_PAID_PASS_LEASE_SECONDS"],
       message: "must be at least twice the paid-pass renewal interval",
     });
   }
   if (paidMs <= ANTHROPIC_REQUEST_TIMEOUT_MS) {
     ctx.addIssue({
       code: "custom",
-      path: ["THESIS_PAID_PASS_LEASE_SECONDS"],
+      path: ["METIS_PAID_PASS_LEASE_SECONDS"],
       message: `must exceed the ${ANTHROPIC_REQUEST_TIMEOUT_MS / 1_000}s provider request timeout`,
     });
   }
   if (jobMs < paidMs) {
     ctx.addIssue({
       code: "custom",
-      path: ["THESIS_JOB_LEASE_SECONDS"],
-      message: `must be at least THESIS_PAID_PASS_LEASE_SECONDS (${parsed.THESIS_PAID_PASS_LEASE_SECONDS}s): a paid-pass lease must never outlive its parent job claim`,
+      path: ["METIS_JOB_LEASE_SECONDS"],
+      message: `must be at least METIS_PAID_PASS_LEASE_SECONDS (${parsed.METIS_PAID_PASS_LEASE_SECONDS}s): a paid-pass lease must never outlive its parent job claim`,
     });
   }
 });
 
-// WS4 (D-12): the accepted values of THESIS_STATEMENT_SOURCE.
+// WS4 (D-12): the accepted values of METIS_STATEMENT_SOURCE.
 export type StatementSource = "auto" | "fmp" | "edgar";
 
 export interface ThesisConfig {
@@ -327,16 +328,16 @@ export interface ThesisConfig {
   streamIdleTimeoutMs: number;
   reservationMode: "request" | "pass";
   // WS8
-  /** False only when THESIS_RESUME_ON_START=0: startup does not kick the scheduler. */
+  /** False only when METIS_RESUME_ON_START=0: startup does not kick the scheduler. */
   resumeOnStart: boolean;
-  /** THESIS_TOKEN_FILE override; undefined means `<data dir>/csrf-token`. */
+  /** METIS_TOKEN_FILE override; undefined means `<data dir>/csrf-token`. */
   tokenFile: string | undefined;
   // end WS8
   // WS6 (D-19)
-  /** THESIS_EV_INCLUDE_LEASES=1 — keep the OPERATING-lease liability in enterprise value. */
+  /** METIS_EV_INCLUDE_LEASES=1 — keep the OPERATING-lease liability in enterprise value. */
   evIncludeLeases: boolean;
   // WS7 (D-20)
-  /** THESIS_JUDGE_ORDER — which order the judge reads bull and bear in. */
+  /** METIS_JUDGE_ORDER — which order the judge reads bull and bear in. */
   judgeOrder: JudgeOrderSetting;
 }
 
@@ -347,7 +348,7 @@ export interface ThesisConfig {
 export function parseEnv(
   env: Record<string, string | undefined>,
 ): ThesisConfig {
-  const parsed = envSchema.parse(env);
+  const parsed = envSchema.parse(withMetisAliases(env, Object.keys(envSchema.shape)));
   const config: ThesisConfig = {
     fmpApiKey: parsed.FMP_API_KEY,
     finnhubApiKey: parsed.FINNHUB_API_KEY,
@@ -360,24 +361,24 @@ export function parseEnv(
     hasFredKey: parsed.FRED_API_KEY !== undefined,
     hasAnthropicKey: parsed.ANTHROPIC_API_KEY !== undefined,
     fixtureMode: parsed.FMP_API_KEY === undefined,
-    statementSource: parsed.THESIS_STATEMENT_SOURCE,
-    maxActiveJobs: parsed.THESIS_MAX_ACTIVE_JOBS,
-    maxActiveLlmCalls: parsed.THESIS_MAX_ACTIVE_LLM_CALLS,
-    maxJobCostUsd: parsed.THESIS_MAX_JOB_COST_USD,
-    maxRollingCostUsd: parsed.THESIS_MAX_ROLLING_COST_USD,
-    rollingCostWindowMs: parsed.THESIS_ROLLING_COST_WINDOW_MINUTES * 60_000,
-    paidPassLeaseTtlMs: parsed.THESIS_PAID_PASS_LEASE_SECONDS * 1_000,
-    jobLeaseTtlMs: parsed.THESIS_JOB_LEASE_SECONDS * 1_000,
-    streamIdleTimeoutMs: parsed.THESIS_STREAM_IDLE_SECONDS * 1_000,
-    reservationMode: parsed.THESIS_RESERVATION_MODE,
+    statementSource: parsed.METIS_STATEMENT_SOURCE,
+    maxActiveJobs: parsed.METIS_MAX_ACTIVE_JOBS,
+    maxActiveLlmCalls: parsed.METIS_MAX_ACTIVE_LLM_CALLS,
+    maxJobCostUsd: parsed.METIS_MAX_JOB_COST_USD,
+    maxRollingCostUsd: parsed.METIS_MAX_ROLLING_COST_USD,
+    rollingCostWindowMs: parsed.METIS_ROLLING_COST_WINDOW_MINUTES * 60_000,
+    paidPassLeaseTtlMs: parsed.METIS_PAID_PASS_LEASE_SECONDS * 1_000,
+    jobLeaseTtlMs: parsed.METIS_JOB_LEASE_SECONDS * 1_000,
+    streamIdleTimeoutMs: parsed.METIS_STREAM_IDLE_SECONDS * 1_000,
+    reservationMode: parsed.METIS_RESERVATION_MODE,
     // WS8
-    resumeOnStart: parsed.THESIS_RESUME_ON_START,
-    tokenFile: parsed.THESIS_TOKEN_FILE,
+    resumeOnStart: parsed.METIS_RESUME_ON_START,
+    tokenFile: parsed.METIS_TOKEN_FILE,
     // end WS8
     // WS6 (D-19)
-    evIncludeLeases: parsed.THESIS_EV_INCLUDE_LEASES,
+    evIncludeLeases: parsed.METIS_EV_INCLUDE_LEASES,
     // WS7 (D-20)
-    judgeOrder: parsed.THESIS_JUDGE_ORDER,
+    judgeOrder: parsed.METIS_JUDGE_ORDER,
   };
   return Object.freeze(config);
 }
