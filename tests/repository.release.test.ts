@@ -65,6 +65,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-03-repository-audit.md",
   "docs/audit/2026-10-04-recommendations.md",
   "docs/audit/2026-10-15-amzn-integrity.md",
+  "docs/audit/2026-10-15-nvda-report-34-audit.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
@@ -547,9 +548,12 @@ describe("public release contract", () => {
       // WS4 follow-up: the four RECORDED xom_successor_* payloads, and the
       // end-to-end scan that reads them.
       read("tests/dataBundle.successor.test.ts"),
+      // NVDA report #34 audit, WP3: the nine recorded NVDA 8-K exhibit, 8-K
+      // item and XBRL instance/label samples the current-report parsers read.
+      read("tests/currentReports.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(21);
+    expect(edgarFixtures).toHaveLength(30);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
