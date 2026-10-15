@@ -1924,6 +1924,166 @@ export const RouteMetricsSchema = z
 export type RouteMetrics = z.infer<typeof RouteMetricsSchema>;
 
 /* ------------------------------------------------------------------------ *
+ * Filing disclosures — pipeline-filled from 8-K exhibits/items, periodic
+ * XBRL segment facts and the quarterly statements (NVDA report #34 audit,
+ * work package 3 and the data-depth part of 9). Deterministic: never
+ * judge-authored. Money is in base units of `currency`.
+ * ------------------------------------------------------------------------ */
+
+const IsoDaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const IsoCurrencySchema = z.string().regex(/^[A-Z]{3}$/);
+
+export const FilingRefSchema = z
+  .object({
+    form: z.string(),
+    accession: z.string(),
+    exhibit: z.string().nullable(),
+    filingDate: IsoDaySchema,
+    url: z.string().nullable(),
+  })
+  .strict();
+export type FilingRef = z.infer<typeof FilingRefSchema>;
+
+const GuidanceMetricSchema = z.enum([
+  "revenue",
+  "gross-margin",
+  "operating-expenses",
+  "operating-margin",
+  "operating-income",
+  "other-income",
+  "tax-rate",
+  "eps",
+  "capital-expenditures",
+]);
+const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
+
+export const GuidanceRowSchema = z
+  .object({
+    period: z.string(),
+    metric: GuidanceMetricSchema,
+    basis: GuidanceBasisSchema,
+    unit: z.enum(["currency", "currency-per-share", "%"]),
+    low: z.number(),
+    mid: z.number(),
+    high: z.number(),
+    form: z.enum(["point", "range", "plus-minus", "approximate"]),
+  })
+  .strict();
+export type GuidanceRow = z.infer<typeof GuidanceRowSchema>;
+
+export const GuidanceCheckSchema = z
+  .object({
+    period: z.string(),
+    periodEnd: IsoDaySchema,
+    metric: z.enum(["revenue", "gross-margin"]),
+    basis: GuidanceBasisSchema,
+    guidedLow: z.number(),
+    guidedMid: z.number(),
+    guidedHigh: z.number(),
+    actual: z.number(),
+    /** Revenue: % above (+) / below (−) the midpoint. Gross margin: percentage points. */
+    difference: z.number(),
+    position: z.enum(["above", "within", "below"]),
+    guidance: FilingRefSchema,
+    actualSource: z.string(),
+  })
+  .strict();
+export type GuidanceCheck = z.infer<typeof GuidanceCheckSchema>;
+
+export const FilingDisclosuresSchema = z
+  .object({
+    version: z.literal("1.0.0"),
+    /** ISO currency of every money figure below; null when not established. */
+    currency: IsoCurrencySchema.nullable(),
+    currencyBasis: z.string(),
+    guidance: z
+      .object({
+        source: FilingRefSchema,
+        /** The quarter the release reported ("Q2 FY2027") and its end date. */
+        reportedPeriod: z.string().nullable(),
+        reportedPeriodEnd: IsoDaySchema.nullable(),
+        rows: z.array(GuidanceRowSchema),
+        qualifiers: z.array(z.string()),
+      })
+      .strict()
+      .nullable(),
+    guidanceChecks: z.array(GuidanceCheckSchema),
+    freeCashFlow: z.array(
+      z.object({ periodEnd: IsoDaySchema, months: z.number().int(), value: z.number(), source: FilingRefSchema }).strict(),
+    ),
+    freeCashFlowDefinition: z.string().nullable(),
+    capitalReturn: z
+      .object({
+        source: FilingRefSchema,
+        returned: z.number().nullable(),
+        returnedPeriod: z.string().nullable(),
+        authorizationRemaining: z.number().nullable(),
+        authorizationAdded: z.number().nullable(),
+        dividendPerShare: z.number().nullable(),
+        dividendPayDate: IsoDaySchema.nullable(),
+        dividendRecordDate: IsoDaySchema.nullable(),
+        dividendChangeFrom: z.number().nullable(),
+        dividendChangeTo: z.number().nullable(),
+      })
+      .strict()
+      .nullable(),
+    events: z.array(
+      z
+        .object({
+          filingDate: IsoDaySchema,
+          eventDate: IsoDaySchema.nullable(),
+          accession: z.string(),
+          form: z.string(),
+          items: z.array(z.string()),
+          summary: z.string(),
+          url: z.string(),
+        })
+        .strict(),
+    ),
+    segments: z.array(
+      z
+        .object({
+          axis: z.string(),
+          axisLabel: z.string(),
+          currency: IsoCurrencySchema,
+          /** Quarter end dates, newest first. */
+          quarters: z.array(IsoDaySchema),
+          rows: z.array(
+            z
+              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()) })
+              .strict(),
+          ),
+          total: z.array(z.number().nullable()),
+          priorPresentation: z.array(z.string()),
+          derivedCells: z.number().int().nonnegative(),
+          sources: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    quarterlyTrend: z.array(
+      z
+        .object({
+          periodEnd: IsoDaySchema,
+          fiscalLabel: z.string().nullable(),
+          revenue: z.number().nullable(),
+          revenueYoyPct: z.number().nullable(),
+          revenueQoqPct: z.number().nullable(),
+          grossMarginPct: z.number().nullable(),
+          operatingExpenses: z.number().nullable(),
+          operatingMarginPct: z.number().nullable(),
+          epsDiluted: z.number().nullable(),
+          operatingCashFlow: z.number().nullable(),
+          /** Operating cash flow less capital expenditure (standardized, not the issuer's definition). */
+          freeCashFlow: z.number().nullable(),
+        })
+        .strict(),
+    ),
+    notes: z.array(z.string()),
+  })
+  .strict();
+export type FilingDisclosures = z.infer<typeof FilingDisclosuresSchema>;
+
+/* ------------------------------------------------------------------------ *
  * The judge output — everything the judge/synthesis pass must emit.
  *
  * This is the full report MINUS `meta` and `appendix`, which the pipeline
@@ -2041,6 +2201,12 @@ const ReportObjectSchema = z
      * parses, and absent entirely on routes that have no route metrics.
      */
     routeMetrics: RouteMetricsSchema.optional(),
+    /**
+     * Guidance, issuer FCF, capital return, 8-K events, segment revenue by
+     * quarter and the eight-quarter trend (pipeline-filled from the bundle).
+     * Optional so every persisted report still parses.
+     */
+    filingDisclosures: FilingDisclosuresSchema.optional(),
   })
   .strict();
 export const ReportSchema = ReportObjectSchema.superRefine(

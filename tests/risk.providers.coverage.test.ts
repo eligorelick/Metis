@@ -1135,6 +1135,9 @@ describe("data-bundle provider boundaries", () => {
         fmp: createFmpClient({ apiKey: "" }),
         edgar: createEdgarClient({ transport }),
         keyless: false,
+        // The Archives-call counts below are the annual/interim document
+        // fetches; 8-K and XBRL segment reads are a separate feature.
+        filingDisclosures: false,
         fred: {
           fetchImpl: noNetwork,
           retryDelaysMs: [],

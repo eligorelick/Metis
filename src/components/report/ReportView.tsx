@@ -35,6 +35,7 @@ import { ReportEvidenceRail } from "./ReportEvidenceRail";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import {
   REPORT_SECTION_MANIFEST,
@@ -158,16 +159,16 @@ export function ReportView({
         <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} /></div>
       </div>
     ),
-    business: <BusinessSegments business={report.business} index={reportSection("business").index} />,
-    fundamentals: <FundamentalsSection fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} chart={fundamentalsChart} />,
+    business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
+    fundamentals: <FundamentalsSection fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
     balanceSheet: <BalanceSheetSection balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
     valuation: <ValuationSection valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} index={reportSection("quality").index} />,
     technicals: <TechnicalsSection technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
     leadership: <LeadershipSection leadership={report.leadership} index={reportSection("leadership").index} />,
     competitive: <CompetitiveSection competitive={report.competitive} index={reportSection("competitive").index} />,
-    catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} />,
-    outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} />,
+    catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
+    outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
     appendix: <AppendixSection appendix={report.appendix} disagreements={report.disagreements} asOfMap={report.meta.asOfMap} completeness={completeness} index={reportSection("appendix").index} />,

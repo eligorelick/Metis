@@ -670,9 +670,12 @@ function SegmentTable({
 export function BusinessSegments({
   business,
   index,
+  extraTables = [],
 }: {
   business: Business;
   index: number;
+  /** Deterministic filing-disclosure tables (XBRL segment revenue by quarter). */
+  extraTables?: ReportAuditTable[];
 }) {
   return (
     <SectionFrame id="business" index={index} title="Business & Segments">
@@ -693,6 +696,7 @@ export function BusinessSegments({
           />
         </SubBlock>
       </div>
+      <ExtraAuditTables tables={extraTables} />
       <SubBlock label="concentration risks">
         <ClaimList claims={business.concentrationRisks} empty="No concentration-risk assessment available." />
       </SubBlock>
@@ -763,9 +767,12 @@ export function FundamentalsSection({
   index,
   openReasoning,
   chart,
+  extraTables = [],
 }: {
   fundamentals: Fundamentals;
   sourceFactSummary?: SourceFactSummary;
+  /** Deterministic filing-disclosure tables (quarterly trend, issuer FCF, capital return). */
+  extraTables?: ReportAuditTable[];
   index: number;
   openReasoning?: boolean;
   /** Optional fundamentals chart bundle (revenue/margin/FCF/shares) mounts here. */
@@ -795,6 +802,7 @@ export function FundamentalsSection({
           <MetricRowsTable rows={fundamentals.fcf} />
         </SubBlock>
       </div>
+      <ExtraAuditTables tables={extraTables} />
       <SubBlock label="commentary">
         <ClaimList claims={fundamentals.commentary} />
       </SubBlock>
@@ -1654,10 +1662,13 @@ export function CatalystsRisksPanel({
   catalystsRisks,
   index,
   dataOnly = false,
+  extraTables = [],
 }: {
   catalystsRisks: CatalystsRisks;
   index?: number;
   dataOnly?: boolean;
+  /** Deterministic filing-disclosure tables (material 8-K events). */
+  extraTables?: ReportAuditTable[];
 }) {
   const { catalysts, risks } = catalystsRisks;
   const matrixItems: MatrixItem[] = risks.map((r) => ({
@@ -1791,6 +1802,7 @@ export function CatalystsRisksPanel({
           </div>
         </div>
       </div>
+      {extraTables.length > 0 && <div className="flex flex-col gap-3 px-3 pb-3"><ExtraAuditTables tables={extraTables} /></div>}
     </section>
   );
 }
@@ -1802,9 +1814,12 @@ export function CatalystsRisksPanel({
 export function OutlookSection({
   outlook,
   index,
+  extraTables = [],
 }: {
   outlook: Outlook;
   index: number;
+  /** Deterministic filing-disclosure tables (guidance, results vs prior guidance). */
+  extraTables?: ReportAuditTable[];
 }) {
   const horizons: Array<{ label: string; claims: readonly SourcedClaim[] }> = [
     { label: "1-year", claims: outlook.scenarioNarratives.y1 },
@@ -1844,6 +1859,7 @@ export function OutlookSection({
           <ClaimList claims={outlook.guidanceCredibility} />
         </SubBlock>
       </div>
+      <ExtraAuditTables tables={extraTables} />
     </SectionFrame>
   );
 }

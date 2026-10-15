@@ -46,6 +46,7 @@ import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { guardEarningsReferences } from "@/report/earningsReferences";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
@@ -3537,6 +3538,11 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     // unchanged.
     ...(routeMetrics ? { routeMetrics } : {}),
   };
+  // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
+  // events, XBRL segment revenue by quarter and the eight-quarter trend,
+  // pipeline-filled from the bundle like the blocks above.
+  const filingDisclosures = buildFilingDisclosures(args.bundle);
+  if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
 
   // A failed verification pass still persists final assembly. Establish the
   // rendered destination here as well; provisional assembly retains the raw

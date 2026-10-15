@@ -727,11 +727,15 @@ describe("payload determinism + provenance", () => {
       // numeric registries, IDs, projection periods and figure labels stay pinned.
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
-      fingerprint: "1.22.0:19176142",
-      promptBytes: 123_057,
-      provenanceCount: 499,
-      provenanceHash: "1062dc43",
-      provenanceIdsHash: "2fdc2d40",
+      // 1.23.0 (audit work package 3): the fixture's quarterly statements now
+      // also yield the computed quarterly-trend section (+15 records, +3,060
+      // prompt bytes); it has no 8-K or XBRL segment data, so nothing else
+      // moves — finance, citations and projection periods stay pinned.
+      fingerprint: "1.23.0:a9ea3aca",
+      promptBytes: 126_117,
+      provenanceCount: 514,
+      provenanceHash: "8af13620",
+      provenanceIdsHash: "d6dc67cb",
       citationCount: 65,
       citationHash: "13b5b365",
       computedFigureLabelHash: "6f26c6db",
@@ -872,7 +876,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.22.0");
+    expect(first.payloadVersion).toBe("1.23.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");

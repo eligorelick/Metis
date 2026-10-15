@@ -19,6 +19,8 @@
 
 import { formatExecutionMetadata } from "@/report/execution";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
@@ -536,7 +538,18 @@ function renderProjections(p: Projections): string {
   return lines.join("\n").trimEnd();
 }
 
-function renderBusiness(b: Business): string {
+/** Deterministic pipeline tables (filing disclosures), one heading each. */
+function auditTableBlocks(tables: readonly ReportAuditTable[]): string[] {
+  return tables.flatMap((block) => [
+    `### ${markdownHeading(block.heading)}`,
+    "",
+    table(block.headers, block.rows),
+    "",
+    ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : []),
+  ]);
+}
+
+function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("business"), ""];
   lines.push("### What they sell", "", claimList(b.whatTheySell), "");
   lines.push("### Product segments", "", segmentTable(b.segments.product), "");
@@ -546,17 +559,19 @@ function renderBusiness(b: Business): string {
     segmentTable(b.segments.geographic),
     "",
   );
+  lines.push(...auditTableBlocks(extra));
   lines.push("### Concentration risks", "", claimList(b.concentrationRisks));
   return lines.join("\n");
 }
 
-function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary): string {
+function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("fundamentals"), ""];
   lines.push(gradeBlock("Fundamentals", f.graded), "");
   lines.push("### Growth", "", metricRowsTable(f.growthTable), "");
   lines.push("### Margin trend", "", metricRowsTable(f.marginTrend), "");
   lines.push("### Returns", "", metricRowsTable(f.returns), "");
   lines.push("### Free cash flow", "", metricRowsTable(f.fcf), "");
+  lines.push(...auditTableBlocks(extra));
   if (f.commentary.length > 0) {
     lines.push("### Commentary", "", claimList(f.commentary));
   }
@@ -966,7 +981,7 @@ function renderCompetitive(c: Competitive): string {
   return lines.join("\n");
 }
 
-function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false): string {
+function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("catalystsRisks"), ""];
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
   lines.push(
@@ -998,7 +1013,9 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false): string {
       ]),
     ),
   );
-  return lines.join("\n");
+  if (extra.length === 0) return lines.join("\n");
+  lines.push("", ...auditTableBlocks(extra));
+  return lines.join("\n").trimEnd();
 }
 
 function renderOutlook(report: Report): string {
@@ -1015,6 +1032,7 @@ function renderOutlook(report: Report): string {
     "",
   );
   lines.push("### Guidance credibility", "", claimList(o.guidanceCredibility), "");
+  lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "outlook")));
   lines.push("### Scenario narratives", "");
   lines.push("", "**1-year**", "", claimList(o.scenarioNarratives.y1), "");
   lines.push("**3-year**", "", claimList(o.scenarioNarratives.y3), "");
@@ -1273,15 +1291,15 @@ export function reportToMarkdown(report: Report): string {
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
-    renderBusiness(report.business),
-    renderFundamentals(report.fundamentals,report.sourceFactSummary),
+    renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
+    renderFundamentals(report.fundamentals,report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals")),
     renderBalanceSheet(report.balanceSheet),
     renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, evidenceTimingRows(report)),
     renderQuality(report.quality),
     renderTechnicals(report.technicals),
     renderLeadership(report.leadership),
     renderCompetitive(report.competitive),
-    renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm")),
+    renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     renderOutlook(report),
     report.projections ? renderProjections(report.projections) : "",
     renderMacro(report.macro),

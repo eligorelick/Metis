@@ -37,6 +37,7 @@ import { applyScenarioPresentation, buildScenarioPresentation, comparableScenari
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
@@ -881,6 +882,10 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
     // has no analyst pass to describe them in prose.
     ...(routeMetrics ? { routeMetrics } : {}),
   };
+  // Guidance, 8-K events, XBRL segments and the quarterly trend are filing
+  // facts, not analyst judgment, so the data-only report carries them too.
+  const filingDisclosures = buildFilingDisclosures(bundle);
+  if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
 
   // Share exact registry-backed facts with the full verification path. Rebuild
   // them from this run's inputs, including removal of a copied historical field.

@@ -151,6 +151,9 @@ async function xomBundle(opts?: { predecessorFacts?: CompanyFacts | null; succes
     fmp: createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" }),
     edgar: createEdgarClient({ transport: xomTransport(log, opts) }),
     yahoo: fakeYahoo(),
+    // The header-read counts are predecessor resolution only; the 8-K and XBRL
+    // segment reads (which read 10-Q index headers too) are a separate feature.
+    filingDisclosures: false,
     ...noNetworkConfigs(),
   });
   const predecessor = bundle.edgar.predecessor;
