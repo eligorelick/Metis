@@ -166,6 +166,8 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   depreciationAndAmortization?: number;
   incomeBeforeTax?: number;
   incomeTaxExpense?: number;
+  /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
+  equityMethodIncomeLoss?: number;
   netIncome?: number;
   /** SEC-derived earnings attributable to common, after preferred distributions/adjustments. */
   netIncomeAvailableToCommon?: number;

@@ -220,6 +220,8 @@ export const LINE_ITEM_TAGS = {
   netInterestIncome: entry(["InterestIncomeExpenseNet"]),
   incomeBeforeTax: entry(INCOME_BEFORE_TAX_TAGS),
   incomeTaxExpense: entry(["IncomeTaxExpenseBenefit"]),
+  // As filed: this standard element does not establish a universal tax basis.
+  equityMethodIncomeLoss: entry(["IncomeLossFromEquityMethodInvestments"]),
   totalOtherIncomeExpensesNet: entry(["NonoperatingIncomeExpense"]),
   netIncome: entry(["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),

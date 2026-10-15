@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.11.0** and
-payload **1.16.0** (research reliability, 2026-10-13). The checked-in
+Current source declares application **0.1.0**, report spec **1.15.0** and
+payload **1.20.0** (financial integrity, 2026-10-15). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -17,7 +17,25 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## Unreleased — Metis identity (2026-10-14)
+## Unreleased - financial and evidence integrity (2026-10-15)
+
+- Apply the shared cash/debt/lease reconciliation boundary to current and
+  historical EV, leverage, ROIC, REIT equity bridges and WACC debt inputs.
+  Preserve explicit zero and valid missing-input fallbacks; reject supplied
+  contradictory liabilities instead of treating them as missing.
+- Recover current cash-flow quarters when a quarterly filing also includes
+  rolling annual net-income contexts; retain annual and non-calendar controls.
+  Carry signed equity-method income separately, without assuming tax treatment.
+- Retain material earnings-quality and subsequent-liquidity filing context
+  within existing excerpt budgets; distinguish filing dates from report periods.
+- Check explicitly declared monetary scales once and display the same scale;
+  ambiguous units remain unchecked. Export per-value citation status and keep
+  numeric provenance separate from whole-prose validation.
+- Advance report/payload and replay implementation identities. Stored report
+  bytes remain unchanged; see the [audit record](docs/audit/2026-10-15-amzn-integrity.md)
+  for reproductions, verification and reliance limits.
+
+## Unreleased - Metis identity (2026-10-14)
 
 - Rename product and repository presentation to Metis, inspired by wisdom and planning; add original vector assets and a [brand guide](docs/BRAND.md).
 - Document canonical `METIS_*` configuration and `X-Metis-Token`; retain legacy aliases, local data discovery, credentials and browser preferences.

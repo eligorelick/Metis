@@ -1083,7 +1083,11 @@ describe("multiplesFramework", () => {
   };
 
   it("removes each historical quarter's OWN operating-lease liability when the current EV removed one", () => {
-    const quarters = flatHistoryQuarters(12).map((quarter) => ({ ...quarter, operatingLeaseLiability: 40 }));
+    // The operating slice is contained in reported debt; equal cash preserves
+    // the original zero-net-debt EV before the valid lease removal.
+    const quarters = flatHistoryQuarters(12).map((quarter) => ({
+      ...quarter, totalDebt: 40, cashAndShortTermInvestments: 40, operatingLeaseLiability: 40,
+    }));
     const evRows = flatEvHistory(quarters.map((quarter) => quarter.date));
     const r = multiplesFramework("general", {
       ...leaseAdjustedCurrent,

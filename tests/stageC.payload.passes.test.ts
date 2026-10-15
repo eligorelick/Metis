@@ -721,8 +721,12 @@ describe("payload determinism + provenance", () => {
       // statement date; only the payload fingerprint and provenance date move.
       // D-54: payload version only; finance, provenance/citation registries,
       // projection paths and prompt byte length remain pinned below.
-      fingerprint: "1.19.0:06dd4d2c",
-      promptBytes: 119_884,
+      // D-55: optional signed equity-method rows add explicit unavailable
+      // entries where this fixture has no such data (+1,337 prompt bytes).
+      // NET_DEBT_V2 changes only finance disclosure/version text here; all
+      // numeric registries, IDs, projection periods and figure labels stay pinned.
+      fingerprint: "1.20.0:3b3bc814",
+      promptBytes: 121_221,
       provenanceCount: 499,
       provenanceHash: "32436dab",
       provenanceIdsHash: "2fdc2d40",
@@ -742,7 +746,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "d3fb5735",
+      financeHash: "b17cac56",
     });
   });
 
@@ -866,7 +870,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.19.0");
+    expect(first.payloadVersion).toBe("1.20.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1277,6 +1281,83 @@ describe("payload budget helpers", () => {
       expect(framing).toContain("exceptional");
     }
     expect(buildLeadershipGuidance()).toContain("not-assessed");
+  });
+
+  it("keeps material quarterly earnings and subsequent funding evidence tied to its filing citation and date", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires MD&A");
+    const investment = "We invested $8.7 billion in Example Robotics preferred stock for the six months ended June 30, 2026.";
+    const funding = "Subsequent to June 30, 2026, we funded the remaining commitment amount of $2.3 billion.";
+    const earnings = "Other income (expense), net was $7.1 billion in Q2 2026, primarily from upward adjustments to preferred stock investments.";
+    const original = [
+      ...Array.from({ length: 100 }, (_, i) => `Operating income and revenue in division ${i} were $18 billion and $91 billion in Q2 2026 versus $16 billion and $85 billion in Q2 2025; operating margin was 21% versus 19%.`),
+      earnings, investment, funding,
+    ].join("\n");
+    bundle.edgar.tenQMdna = { ...bundle.edgar.mdna, value: { ...bundle.edgar.mdna.value,
+      data: { ...bundle.edgar.mdna.value.data, text: original, reportDate: "2026-06-30", form: "10-Q" },
+    } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const excerpt = payload.filings.find((entry) => entry.source === "edgar:10-Q item2")!;
+    expect(excerpt.asOf).toBe("2026-06-30");
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.tenQMdnaChars);
+    for (const disclosure of [earnings, investment, funding]) expect(excerpt.text).toContain(disclosure);
+    for (const span of excerpt.spans ?? []) expect(original.slice(span.start, span.end)).toBe(span.text);
+    expect(payload.citationRegistry).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "edgar:10-Q item2", asOf: "2026-06-30" }),
+    ]));
+    expect(payload.missingData).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "evidenceCoverage.edgar:10-Q item2", reason: expect.stringContaining("subsequent-liquidity: retained") }),
+    ]));
+    const serialized = serializePayloadForPrompt(payload);
+    expect(serialized).toContain(earnings);
+    expect(serialized).toContain(funding);
+    expect(serialized).toContain("edgar:10-Q item2");
+  });
+
+  it("carries signed as-filed equity-method earnings into the compact income extract and dated numeric registry", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeAnnual.ok) throw new Error("fixture requires income");
+    bundle.statements.incomeAnnual.value.data.rows[0]!.equityMethodIncomeLoss = -11_000_000;
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const income = payload.statements.find((block) => block.title === "Income statement — annual")!;
+    const line = income.lineItems.find((item) => item.lineItem === "equity-method income (loss), as filed")!;
+    expect(line.unit).toBe("currency");
+    expect(line.byPeriod[0]).toMatchObject({ value: -11_000_000, currency: "USD", period: "2025-09-27", asOf: "2025-09-27" });
+    expect(payload.provenanceRegistry).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "payload.statements.income-statement-annual.2025-09-27.equity-method-income-loss-as-filed",
+        value: -11_000_000, unit: "currency", currency: "USD", period: "2025-09-27", asOf: "2025-09-27" }),
+    ]));
+  });
+
+  it("distinguishes the filing date, financial reporting period and guidance forecast quarter in model context", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires MD&A");
+    const guidance = "Third Quarter 2026 Guidance: Revenue is expected to be $17 billion to $19 billion for the three months ending September 30, 2026.";
+    bundle.edgar.tenQMdna = { ...bundle.edgar.mdna, value: { ...bundle.edgar.mdna.value,
+      data: { ...bundle.edgar.mdna.value.data, text: guidance, reportDate: "2026-06-30", filingDate: "2026-07-31", form: "10-Q" },
+    } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-08-01T00:00:00Z") }));
+    const excerpt = payload.filings.find((entry) => entry.source === "edgar:10-Q item2")!;
+    expect(excerpt.title).toContain("reporting period ended 2026-06-30");
+    expect(excerpt.title).toContain("filed 2026-07-31");
+    expect(excerpt.asOf).toBe("2026-06-30");
+    expect(excerpt.text).toBe(guidance);
+    expect(payload.citationRegistry).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "edgar:10-Q item2", asOf: "2026-06-30" }),
+    ]));
+    const serialized = serializePayloadForPrompt(payload);
+    expect(serialized).toContain("reporting period ended 2026-06-30; filed 2026-07-31");
+    expect(serialized).toContain("three months ending September 30, 2026");
+  });
+
+  it.each(["", "not-a-date", "2026-02-30"])("does not infer a filing date from invalid or absent metadata (%s)", (filingDate) => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires MD&A");
+    bundle.edgar.mdna.value.data.filingDate = filingDate;
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const excerpt = payload.filings.find((entry) => entry.source === "edgar:10-K item7")!;
+    expect(excerpt.title).not.toContain("; filed ");
+    expect(excerpt.asOf).toBe("2025-09-27");
   });
 
   it("registers current capital bridges and accrual diagnostics under their exact deterministic source IDs", () => {
@@ -2177,7 +2258,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.14.0");
+    expect(report.meta.specVersion).toBe("1.15.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

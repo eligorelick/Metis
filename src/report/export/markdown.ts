@@ -297,10 +297,11 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         v.period,
         tracedValue(v.value),
         v.value.asOf ?? DASH,
+        citationTraceLabel(v.value.verified),
       ]);
     }
   }
-  return table(["Metric", "Period", "Value", "As of"], body);
+  return table(["Metric", "Period", "Value", "As of", "Citation traced"], body);
 }
 
 /** Segment rows (product/geographic) as name / revenue / share table. */

@@ -587,6 +587,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   netInterestIncome: lineItemChain("netInterestIncome", "money"),
   incomeBeforeTax: { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
   incomeTaxExpense: lineItemChain("incomeTaxExpense", "money"),
+  equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),
   netIncome: lineItemChain("netIncome", "money"),
   netIncomeAvailableToCommon: lineItemChain("netIncomeAvailableToCommon", "money"),
@@ -1555,7 +1556,7 @@ interface QuarterContext {
 
 /**
  * The fiscal-year window containing `q`: the longest anchor duration point (FY
- * or year-to-date, any core form) whose [start, end] brackets `q`. When nothing
+ * first reported on an annual form, or year-to-date) whose [start, end] brackets `q`. When nothing
  * brackets it, the previous quarter end + 1 day is used as the window start so a
  * year-to-date difference can still be attempted.
  */
@@ -1567,6 +1568,11 @@ function fiscalWindowFor(index: FactIndex, q: string, previousEnd: string | null
     for (const p of up.points) {
       const d = durationDays(p);
       if (p.start === undefined || d === null || d > ANNUAL_MAX_DAYS) continue;
+      // A 10-Q can also report rolling twelve-month income on its cash-flow
+      // statement. Its start is not the fiscal-year start: using it as one
+      // suppresses valid YTD differences. Consult the original reporter so a
+      // genuine annual period refiled as a later 10-Q comparative still counts.
+      if (d >= ANNUAL_MIN_DAYS && !ANNUAL_FORMS.has(reporterFor(up, p).form.trim())) continue;
       if (daysBetween(p.start, q) < -TOLERANCE_DAYS || daysBetween(q, p.end) < -TOLERANCE_DAYS) continue;
       if (best === null || d > best.duration) best = { start: p.start, end: p.end, duration: d };
     }

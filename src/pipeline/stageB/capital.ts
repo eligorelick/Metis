@@ -76,6 +76,7 @@ export interface CapitalBalanceRow {
   acceptedDate?: string | null;
   filingDate?: string | null;
   totalDebt?: number | null;
+  capitalLeaseObligations?: number | null;
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
   /** FMP: netDebt = totalDebt − cash (short-term investments NOT netted). */
@@ -596,6 +597,9 @@ export function computeCapital(
     const resolution = resolveNetDebt({
       date: latestBal?.date,
       totalDebt: latestBal?.totalDebt,
+      capitalLeaseObligations: latestBal?.capitalLeaseObligations,
+      operatingLeaseLiability: latestBal?.operatingLeaseLiability,
+      financeLeaseLiability: latestBal?.financeLeaseLiability,
       cashAndCashEquivalents: latestBal?.cashAndCashEquivalents,
       shortTermInvestments: latestBal?.shortTermInvestments,
       cashAndShortTermInvestments: latestBal?.cashAndShortTermInvestments,

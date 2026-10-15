@@ -13,6 +13,27 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-55 (financial integrity 2026-10-15) Reject contradictory operands and preserve source meaning
+
+- **Evidence**: counterexamples reproduced unchecked EV cash components,
+  impossible lease composition in leverage/ROIC/REIT/WACC paths, invalid debt
+  substituted as missing, and a quarterly rolling annual context hiding current
+  cash-flow periods. Filing selection omitted material earnings-quality and
+  funding context, while monetary scale and export labels could mislead.
+- **Choice**: share NET_DEBT_V2 admission across dependent consumers, preserve
+  zero and genuine missing-data fallbacks, use annual reporters for fiscal
+  anchors, carry signed equity-method income as filed, retain adjacent material
+  filing context inside existing budgets and distinguish filing/report dates.
+  Monetary scale is explicit and normalized once; citation provenance remains
+  separate from whole-claim factual validation.
+- **Compatibility**: report spec 1.15.0, payload 1.20.0 and the financial-integrity
+  Stage B implementation identity prevent old calculations/partial passes from
+  claiming equivalence. Stored reports retain their bytes. The compatible DEMO
+  fixture changes five version/disclosure leaves, without numeric regrading.
+- **Limits**: bounded passages are not comprehensive coverage; source gaps,
+  ambiguous periods, unvalidated prose and uncalibrated forecasts remain visible.
+  See the [audit record](2026-10-15-amzn-integrity.md) for reproductions and checks.
+
 ## D-54 (research validation 2026-10-14) Add offline checks before changing research methods
 
 The next work after D-53 is broader validation. Benefit and residual

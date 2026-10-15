@@ -81,7 +81,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // remain readable; new deterministic outputs carry the revised conventions.
 // 1.14.0 (D-54): unknown REIT subtypes cannot publish equity-only FFO/AFFO
 // multiples. Saved reports retain their original financial convention/version.
-export const REPORT_SPEC_VERSION = "1.14.0" as const;
+// 1.15.0 (D-55): shared cash/debt/lease admission guards and current cash-flow
+// reconstruction; historical reports retain their original conventions.
+export const REPORT_SPEC_VERSION = "1.15.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

@@ -90,7 +90,7 @@ import {
   type NumericProvenanceRecord,
   type ProvenanceFailureReason,
 } from "@/pipeline/stageC/provenance";
-import { matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
+import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import { validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
   citationAsOf,
@@ -2679,7 +2679,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           reason = "unit-mismatch";
         } else {
           const match = matchExcerptNumber(
-            { value: number.value, unit: unitOnly.unit, currency: unitOnly.currency },
+            { value: number.value, unit: unitOnly.unit, currency: unitOnly.currency, displayUnit: number.unit },
             excerptBodyForVerification(excerpt),
             {
               reportingCurrency,
@@ -2724,11 +2724,16 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       }
     } else {
       const normalized = canonicalizeTracedUnit(number.unit, number.currency);
+      const amount = normalized?.unit === "currency"
+        ? currencyCandidateInBaseUnits({ value: number.value, unit: normalized.unit, currency: normalized.currency, displayUnit: number.unit })
+        : { ok: true as const, value: number.value, currency: normalized?.currency ?? null };
       // A unit that names an indicator ("RSI", "MACD histogram") is read only
       // on that indicator's record: the report prints the unit verbatim
       // beside the verified number (D-44).
       if (normalized === null || !namedUnitMatchesRecord(number.unit, record.id)) {
         reason = "unit-mismatch";
+      } else if (!amount.ok) {
+        reason = amount.reason;
       } else {
         // Tolerate an OMITTED optional dimension the payload never gave the model
         // a way to cite: `period` is derived from a figure LABEL and is never
@@ -2761,10 +2766,10 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
           number.period = record.period;
         }
         const period = resolveOmittedIdentity(number.period, record.period);
-        const currency = resolveOmittedIdentity(normalized.currency, record.currency);
+        const currency = resolveOmittedIdentity(amount.currency, record.currency);
         const match = matchProvenanceRecord(
           {
-            value: number.value,
+            value: amount.value,
             unit: normalized.unit,
             currency,
             period,

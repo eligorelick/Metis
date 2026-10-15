@@ -23,6 +23,7 @@ import { commonHolderCapital, resolveSecurityBasis, type SecurityBasisEvidence }
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { leaseDebtConflict, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
@@ -1737,6 +1738,8 @@ export interface MultiplesBalance {
    */
   basis?: "quarter" | "annual";
   totalDebt: number | null;
+  cashAndCashEquivalents?: number | null;
+  shortTermInvestments?: number | null;
   cashAndShortTermInvestments: number | null;
   totalStockholdersEquity: number | null;
   goodwill: number | null;
@@ -1754,6 +1757,7 @@ export interface MultiplesBalance {
    * EV adjustment reads `operatingLeaseLiability` below, never this.
    */
   capitalLeaseObligations?: number | null;
+  financeLeaseLiability?: number | null;
   /**
    * WS6 review (BLOCKER 1): the OPERATING slice of the lease liability, the
    * ONLY slice the EV bridge may remove. Under ASC 842 operating-lease cost
@@ -1800,6 +1804,10 @@ export interface QuarterlyFundamentalsRow {
    * two different quantities.
    */
   totalDebt?: number | null;
+  cashAndCashEquivalents?: number | null;
+  shortTermInvestments?: number | null;
+  capitalLeaseObligations?: number | null;
+  financeLeaseLiability?: number | null;
   cashAndShortTermInvestments?: number | null;
   preferredStock?: number | null;
   minorityInterest?: number | null;
@@ -2098,18 +2106,18 @@ function deriveOwnHistory(
     // supply its own operating-lease liability while the current EV removed one
     // is dropped rather than ranked against a different definition.
     const windowOperatingLease =
-      isNum(b.operatingLeaseLiability) && b.operatingLeaseLiability !== 0
-        ? Math.abs(b.operatingLeaseLiability)
+      isNum(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0
+        ? b.operatingLeaseLiability
         : null;
     const leaseBasisMatches = !removeOperatingLease || windowOperatingLease !== null;
     if (!leaseBasisMatches) leaseBasisMismatchWindows.push(b.date);
+    const historicalNetDebt = resolveNetDebt(b);
     const evVal =
-      leaseBasisMatches && isNum(mcap) && isNum(b.totalDebt) && isNum(b.cashAndShortTermInvestments)
+      leaseBasisMatches && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
-          b.totalDebt +
+          historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
           (isNum(b.minorityInterest) ? b.minorityInterest : 0) -
-          b.cashAndShortTermInvestments -
           (removeOperatingLease ? (windowOperatingLease as number) : 0)
         : null;
     // FFO/AFFO history on the net income + income-statement D&A construction
@@ -2308,13 +2316,17 @@ export function multiplesFramework(
   // Base = market cap + total debt + preferred + minority interest − cash and
   // short-term investments. FMP's totalDebt already contains the lease
   // liability, so the default (leases NOT in EV) subtracts it back out.
+  const netDebt = resolveNetDebt(bal ?? {});
+  if (!financialsRoute && bal && netDebt.value === null) {
+    gaps.push(gapEntry("valuation.multiples.netDebt", netDebt.reason, "warn"));
+    notes.push(`EV withheld: ${netDebt.reason}. Equity-only multiples are evaluated separately.`);
+  }
   const evIncludingLeases =
-    mcap !== null && bal && isNum(bal.totalDebt) && isNum(bal.cashAndShortTermInvestments)
+    mcap !== null && bal && netDebt.value !== null
       ? mcap +
-        bal.totalDebt +
+        netDebt.value +
         (isNum(bal.preferredStock) ? bal.preferredStock : 0) +
-        (isNum(bal.minorityInterest) ? bal.minorityInterest : 0) -
-        bal.cashAndShortTermInvestments
+        (isNum(bal.minorityInterest) ? bal.minorityInterest : 0)
       : null;
   // WS6 review (BLOCKER 1): ONLY the operating-lease liability may leave EV.
   // Under ASC 842 operating-lease cost sits in operating expenses, so EBIT and
@@ -2324,17 +2336,19 @@ export function multiplesFramework(
   // debt in both. Removing the combined figure understated net debt (Apple
   // FY2025: ~1.2bn of finance leases) and overstated equity value.
   const totalLeaseLiability =
-    isNum(bal?.capitalLeaseObligations) && bal.capitalLeaseObligations !== 0
-      ? Math.abs(bal.capitalLeaseObligations)
+    isNum(bal?.capitalLeaseObligations) && bal.capitalLeaseObligations >= 0
+      ? bal.capitalLeaseObligations
       : null;
   const leaseLiability =
-    isNum(bal?.operatingLeaseLiability) && bal.operatingLeaseLiability !== 0
-      ? Math.abs(bal.operatingLeaseLiability)
+    isNum(bal?.operatingLeaseLiability) && bal.operatingLeaseLiability >= 0
+      ? bal.operatingLeaseLiability
       : null;
   const financeLeaseLiability =
-    totalLeaseLiability !== null && leaseLiability !== null
-      ? Math.max(0, totalLeaseLiability - leaseLiability)
-      : null;
+    leaseDebtConflict(bal ?? {}) !== null ? null
+      : isNum(bal?.financeLeaseLiability) && bal.financeLeaseLiability >= 0 ? bal.financeLeaseLiability
+        : totalLeaseLiability !== null && leaseLiability !== null
+          ? Math.max(0, totalLeaseLiability - leaseLiability)
+          : null;
   const includeLeases = inputs.includeLeasesInEv === true;
   const evExcludingLeases =
     evIncludingLeases === null
@@ -3850,17 +3864,24 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       // finance-lease liability stays as financing debt: its interest is
       // below EBIT; its amortisation is inside EBIT and added back in EBITDA.
       const totalLeaseLiability =
-        isNum(inputs.leaseLiability) && inputs.leaseLiability !== 0 ? Math.abs(inputs.leaseLiability) : null;
+        isNum(inputs.leaseLiability) && inputs.leaseLiability >= 0 ? inputs.leaseLiability : null;
       const leaseLiability =
-        isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability !== 0
-          ? Math.abs(inputs.operatingLeaseLiability)
+        isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability >= 0
+          ? inputs.operatingLeaseLiability
           : null;
       const financeLeaseLiability =
         totalLeaseLiability !== null && leaseLiability !== null
           ? Math.max(0, totalLeaseLiability - leaseLiability)
           : null;
       const includeLeases = inputs.includeLeasesInEv === true;
-      const netDebtIncludingLeases = inputs.netDebt;
+      const leaseConflict = leaseDebtConflict({
+        totalDebt: inputs.multiples.balance?.totalDebt,
+        capitalLeaseObligations: inputs.leaseLiability,
+        operatingLeaseLiability: inputs.operatingLeaseLiability,
+        financeLeaseLiability: inputs.multiples.balance?.financeLeaseLiability,
+      });
+      if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
+      const netDebtIncludingLeases = leaseConflict === null ? inputs.netDebt : null;
       const netDebtExcludingLeases =
         isNum(netDebtIncludingLeases) && leaseLiability !== null
           ? netDebtIncludingLeases - leaseLiability

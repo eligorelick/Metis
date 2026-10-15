@@ -311,10 +311,11 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         esc(v.period),
         `<span class="mono">${esc(tracedValue(v.value))}</span>`,
         esc(v.value.asOf ?? DASH),
+        esc(citationTraceLabel(v.value.verified)),
       ]);
     }
   }
-  return table(["Metric", "Period", "Value", "As of"], body);
+  return table(["Metric", "Period", "Value", "As of", "Citation traced"], body);
 }
 
 function segmentTable(rows: readonly SegmentRow[]): string {

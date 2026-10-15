@@ -187,6 +187,16 @@ export function formatFinancialValue(
   unit: string,
   currency?: string | null,
 ): string {
+  // Explicit excerpt units store the printed mantissa, not base currency units.
+  // Keep that scale visible; compacting or multiplying here would change it.
+  const scaledMoney = /^(currency|[A-Z]{3})\s+(thousands?|millions?|billions?|trillions?)\s*:(.*)$/s.exec(unit.trim());
+  if (scaledMoney) {
+    // A fixed decimal limit can erase a nonzero amount at this printed scale.
+    const magnitude = value.toLocaleString("en-US", { maximumSignificantDigits: 21 });
+    const [whole, fraction = ""] = magnitude.split(".");
+    const preciseMagnitude = Number.isFinite(value) ? `${whole}.${fraction.padEnd(2, "0")}` : "n/a";
+    return `${withCurrency(preciseMagnitude, establishedCurrency(scaledMoney[1], currency))} ${scaledMoney[2]}:${scaledMoney[3]}`;
+  }
   const canonical = normalizeFinancialUnit(unit);
   switch (canonical) {
     case "percent": return formatPct(value);

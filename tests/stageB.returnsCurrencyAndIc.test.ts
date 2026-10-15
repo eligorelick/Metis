@@ -132,4 +132,34 @@ describe("ROIC invested capital uses the house cash convention", () => {
 
     expect(r.latestRoicPct).toBeNull();
   });
+
+  it("keeps a disclosed zero lease distinct from an unknown split in the ROIC basis", () => {
+    const r = computeRoic(income, [
+      balanceRow({ operatingLeaseLiability: 0 }),
+      balanceRow({ date: "2024-12-31", operatingLeaseLiability: 0 }),
+    ]);
+    expect(r.latestRoicPct).toBeCloseTo(8.421052631578947, 9);
+    expect(r.notes.join(" ")).not.toMatch(/no balance sheet discloses an operating-lease liability/);
+    expect(r.notes.join(" ")).toContain("NET_DEBT_V2");
+  });
+
+  it.each([
+    { name: "operating leases exceed debt", operatingLeaseLiability: 600, capitalLeaseObligations: 600 },
+    { name: "total leases exceed debt", operatingLeaseLiability: 100, capitalLeaseObligations: 600 },
+    { name: "operating leases exceed their total", operatingLeaseLiability: 200, capitalLeaseObligations: 100 },
+    { name: "negative operating leases", operatingLeaseLiability: -100 },
+    { name: "negative total leases", capitalLeaseObligations: -100 },
+    { name: "negative finance leases", financeLeaseLiability: -100 },
+    { name: "lease slices exceed debt without a total", operatingLeaseLiability: 300, financeLeaseLiability: 300 },
+  ])("withholds invested capital on $name even when a cash-only fallback is available", fields => {
+    for (const includeOperatingLeases of [false, true]) {
+      const r = computeRoic(income, [
+        balanceRow(fields),
+        balanceRow({ ...fields, date: "2024-12-31" }),
+      ], { includeOperatingLeases });
+      expect(r.latestRoicPct).toBeNull();
+      expect(r.series.every(row => row.investedCapitalAvg === null)).toBe(true);
+      expect(r.series.at(-1)?.notes.join(" ")).toMatch(/lease|debt/i);
+    }
+  });
 });

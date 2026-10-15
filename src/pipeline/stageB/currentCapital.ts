@@ -1,6 +1,6 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
-import { resolveNetDebt } from "./netDebt";
+import { leaseDebtConflict, resolveNetDebt } from "./netDebt";
 import type { SectorRoute } from "@/types/core";
 
 export interface CashFlowBridge {
@@ -40,7 +40,7 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const liquidity = combined ?? (cash !== null && sti !== null ? cash + sti : null);
   const net = resolveNetDebt(row ?? {}).value;
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
-    netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: sub(net, operating) };
+    netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null };
 }
 function periodEndTime(value: string | null | undefined): number | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
