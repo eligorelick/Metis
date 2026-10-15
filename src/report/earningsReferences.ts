@@ -6,12 +6,13 @@ export type EarningsReferenceAuditEntry = Omit<VerificationLogEntry, "reason"> &
 
 const DESTINATION = String.raw`(?:earnings|net[\s-]income)\s+(?:bridge|reconciliation)`;
 const POINTER = String.raw`(?:below|above|following)`;
-const FORWARD_REFERENCE = new RegExp(String.raw`\b${DESTINATION}\b[^.!?]{0,45}\b${POINTER}\b|\b${POINTER}\b[^.!?]{0,45}\b${DESTINATION}\b`, "i");
+const FORWARD_REFERENCE = new RegExp(String.raw`\b(${DESTINATION})\b([^.!?]{0,45}?)\b${POINTER}\b|\b${POINTER}\b([^.!?]{0,45}?)\b${DESTINATION}\b`, "i");
 const EXPLICIT_ABSENCE = new RegExp(String.raw`\b(?:no|without)\s+(?:reported\s+)?${DESTINATION}\b|\b${DESTINATION}\b[^.!?]{0,35}\b(?:not|unavailable|absent|missing)\b`, "i");
+const SENTENCE_BREAK = /(?<=[.!?])(\s+)(?=[A-Z])/u;
 
 /** A deliberately narrow structural check, not a factual-prose classifier. */
 export function promisesEarningsDestination(text: string): boolean {
-  return text.split(/(?<=[.!?])\s+(?=[A-Z])/u)
+  return text.split(SENTENCE_BREAK)
     .some(sentence => FORWARD_REFERENCE.test(sentence) && !EXPLICIT_ABSENCE.test(sentence));
 }
 
@@ -41,7 +42,14 @@ export function guardEarningsReferences<T extends object>(input: T, available: b
         note: available ? "The positional pointer was replaced with the fixed Fundamentals section destination where every required earnings operand and reconciliation renders. This is a structural reference check, not validation of surrounding prose."
           : "The model promised an earnings bridge, but no complete compatible reported-earnings reconciliation is rendered. The reference was withheld; this does not adjudicate the surrounding financial interpretation." });
       if (available) {
-        claim.text = claim.text.replace(new RegExp(FORWARD_REFERENCE.source, "gi"), "reported earnings reconciliation in the Fundamentals section");
+        claim.text = claim.text.split(SENTENCE_BREAK).map(sentence => {
+          if (EXPLICIT_ABSENCE.test(sentence)) return sentence;
+          return sentence.replace(new RegExp(FORWARD_REFERENCE.source, "gi"),
+            (_match: string, destinationFirst: string | undefined, afterDestination: string | undefined, beforeDestination: string | undefined) =>
+              destinationFirst
+                ? `reported earnings reconciliation${afterDestination}in the Fundamentals section`
+                : `${beforeDestination?.trimStart()}reported earnings reconciliation in the Fundamentals section`);
+        }).join("");
         return;
       }
       claim.text = "Report reference withheld: a complete, source-bound reported earnings reconciliation is unavailable in this report.";

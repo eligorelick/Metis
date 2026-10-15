@@ -34,11 +34,20 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   calculation-basis disclosures. Reject future live quote observations before
   caching and after retrieval against original and injected client cutoffs.
 - **Risks and compatibility**: strictness can leave evidence unavailable. Missing
-  source boundaries are never inferred from an end date. Optional report1.16.0
-  and payload1.21.0 fields preserve historical reports. Model grammar limits,
+  source boundaries are never inferred from an end date. Optional report1.17.0
+  and payload1.22.0 fields preserve historical reports. Model grammar limits,
   numerical finance, factor weights, grades and scenario priors stay unchanged.
   Synthetic regressions and a controlled frozen-input check are not prospective
   predictive validation; broad qualitative prose remains unchecked.
+- **Review corrections**: regressions reproduced provider-origin misattribution
+  on EDGAR fallback/backfill, qualifier loss in positional rewriting, an
+  unavailable-destination claim on standalone judge verification despite a
+  valid reconciliation, and provisional versus final generation timestamps.
+  Preserve established envelope/row/field origins, retain the intervening text,
+  derive destination availability from the trusted payload on both paths, and
+  reconcile final generation/cutoff timestamps without changing input dates.
+  Bump both current stamps so the prior evidence conventions cannot resume or
+  compare as equivalent. These corrections add no new financial assumptions.
 
 ## D-55 (financial integrity 2026-10-15) Reject contradictory operands and preserve source meaning
 

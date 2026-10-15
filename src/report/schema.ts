@@ -86,7 +86,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // multiples. Saved reports retain their original financial convention/version.
 // 1.15.0 (D-55): shared cash/debt/lease admission guards and current cash-flow
 // reconstruction; historical reports retain their original conventions.
-export const REPORT_SPEC_VERSION = "1.16.0" as const;
+// 1.17.0 (D-56 review): actual statement-provider attribution, qualifier-safe
+// references, standalone parity and runner-owned final timing reconciliation.
+export const REPORT_SPEC_VERSION = "1.17.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

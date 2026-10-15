@@ -2583,12 +2583,18 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const verifiedReport = structuredClone(reportOutput) as T;
   // This optional report-owned field never accepts judge-authored facts.
   const reportRoot = verifiedReport as Partial<Report>;
+  // Standalone judge verification has no report wrapper yet. Its eventual
+  // rendered destination is established by the same trusted payload, rather
+  // than by the presence of meta/appendix on this intermediate object.
+  // Isolated legacy text/numeric verification callers can omit statement
+  // blocks. They retain their existing verification contract and establish
+  // no optional reported-earnings destination.
+  const sourceFactSummary = Array.isArray(payload.statements) ? buildSourceFactSummary(payload) : undefined;
   if (reportRoot.meta && reportRoot.appendix) {
-    const sourceFactSummary = buildSourceFactSummary(payload);
     if (sourceFactSummary) reportRoot.sourceFactSummary = sourceFactSummary;
     else delete reportRoot.sourceFactSummary;
   }
-  const guardedReferences = guardEarningsReferences(verifiedReport, Boolean(reportRoot.meta && reportRoot.appendix && reportRoot.sourceFactSummary?.earningsReconciliation.status === "available"));
+  const guardedReferences = guardEarningsReferences(verifiedReport, sourceFactSummary?.earningsReconciliation.status === "available");
   Object.assign(verifiedReport, guardedReferences.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];

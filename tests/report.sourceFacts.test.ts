@@ -53,6 +53,48 @@ function record(input: ContextPayload, metric: string): NumericProvenanceRecord 
 }
 
 describe("evidence-bound source facts and reported earnings", () => {
+  it("binds an EDGAR quarter to its actual provider origin", () => {
+    const input = payload();
+    for (const line of input.statements[0]!.lineItems) line.source = "edgar:income-statement(quarter)";
+    for (const row of input.provenanceRegistry!) row.origin = "edgar:income-statement(quarter)";
+
+    const summary = buildSourceFactSummary(input)!;
+
+    expect(summary.status).toBe("available");
+    expect(summary.rows).toHaveLength(4);
+    expect(summary.rows.every(row => row.origin === "edgar:income-statement(quarter)")).toBe(true);
+    expect(summary.rows[0]!.canonicalText).toContain("provider origin: edgar:income-statement(quarter)");
+    expect(summary.rows[0]!.canonicalText).not.toContain("fmp:");
+    expect(SourceFactSummarySchema.safeParse(summary).success).toBe(true);
+  });
+
+  it("binds mixed statement fields to each cell's exact provider origin", () => {
+    const input = payload();
+    const tax = cell(input, "income-tax-expense") as StatementCell & { source: string };
+    tax.source = "edgar:income-statement(quarter)";
+    record(input, "income-tax-expense").origin = tax.source;
+
+    const summary = buildSourceFactSummary(input)!;
+
+    expect(summary.status).toBe("available");
+    expect(summary.rows.find(row => row.metric === "income-tax-expense")?.origin).toBe(tax.source);
+    expect(summary.rows.find(row => row.metric === "net-income")?.origin).toBe("fmp:income-statement(quarter)");
+    expect(summary.earningsReconciliation.status).toBe("available");
+  });
+
+  it.each(["unknown:income-statement(quarter)", "computed:income-statement(quarter)", "edgar:income-statement(annual)"])("withholds %s origins even when cell and registry agree", origin => {
+    const input = payload();
+    for (const line of input.statements[0]!.lineItems) line.source = origin;
+    for (const row of input.provenanceRegistry!) row.origin = origin;
+    expect(buildSourceFactSummary(input)).toMatchObject({ status: "unavailable", rows: [], reason: expect.stringMatching(/origin/i) });
+  });
+
+  it.each([null, undefined])("does not replace an explicit unknown cell origin (%s) with the line's provider", source => {
+    const input = payload();
+    Object.assign(cell(input, "income-tax-expense"), { source });
+    expect(buildSourceFactSummary(input)).toMatchObject({ status: "unavailable", rows: [], reason: expect.stringMatching(/origin/i) });
+  });
+
   it("preserves exact operands and applies signed equity only to the identity that requires it", () => {
     const input = payload(), before = structuredClone(input);
     const summary = buildSourceFactSummary(input)!;
@@ -261,6 +303,28 @@ function compatibleBundle(): DataBundle {
 }
 
 describe("pipeline-owned source facts across report paths", () => {
+  it.each(["envelope", "row", "field"] as const)("preserves EDGAR %s attribution from statement acquisition through AI and data-only reports", async level => {
+    const bundle = compatibleBundle();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Synthetic statements required");
+    const statement = bundle.statements.incomeQuarterly.value;
+    if (level === "envelope") {
+      statement.source = "edgar";
+      statement.endpoint = "companyfacts→income-statement(quarter)";
+    }
+    if (level === "row") statement.data.rows[0]!.source = "edgar";
+    const computed = runStageB(bundle);
+    const context = assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] });
+    const ai = (await runVerifyPass(verifyDeps, context, reportFixture())).verifiedReport;
+    const dataOnly = enrichDataOnlyReport(reportFixture(), { bundle, computed, reason: "controlled replay" });
+
+    expect(ai.sourceFactSummary?.status).toBe("available");
+    expect(ai.sourceFactSummary?.rows).toHaveLength(4);
+    expect(ai.sourceFactSummary?.rows.every(row => row.origin === "edgar:income-statement(quarter)")).toBe(true);
+    expect(ai.sourceFactSummary?.rows.every(row => row.canonicalText.includes("provider origin: edgar:income-statement(quarter)"))).toBe(true);
+    expect(dataOnly.sourceFactSummary).toEqual(ai.sourceFactSummary);
+    expect(ReportSchema.safeParse(dataOnly).success).toBe(true);
+  });
+
   it("accepts a complete optional summary without changing historical stamps", () => {
     const report = reportFixture(), summary = buildSourceFactSummary(payload())!;
     const parsed = ReportSchema.parse({ ...report, sourceFactSummary: summary });

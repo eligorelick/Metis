@@ -141,6 +141,8 @@ export interface StatementLineExtract {
 export interface StatementCell {
   period: string;
   periodContext?: PeriodContext;
+  /** Field/row evidence overrides the statement envelope for mixed sources. */
+  source?: string;
   /**
    * The issuer's own label for the column ("FY2025", "Q1 FY2026"), from the
    * row's `fiscalYear`/`period`. Not rendered; the verifier reads a fiscal
@@ -287,7 +289,9 @@ export interface ContextPayload {
 // subtype is unknown; prior context cannot resume as the same convention.
 // 1.20.0 (D-55): reconciled financial bridges, signed equity-method income,
 // material filing context and distinct filing dates; prior passes cannot resume.
-export const PAYLOAD_VERSION = "1.21.0" as const;
+// 1.22.0 (D-56 review): actual envelope/row/field statement origins; passes
+// built under normalized FMP-only origin labels cannot resume as equivalent.
+export const PAYLOAD_VERSION = "1.22.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1092,6 +1096,22 @@ function statementPeriodContext(row: FmpRawRow, key: string, kind: "instant" | "
   return end === isoDay(row.date) ? parsed.data : undefined;
 }
 
+/** Statement adapters currently establish FMP or EDGAR; never invent a provider. */
+function statementSourceTag(provider: unknown, statement: string): string {
+  return `${provider === "fmp" || provider === "edgar" ? provider : "unknown"}:${statement}`;
+}
+
+function statementCellSource(row: FmpRawRow, key: string, envelopeSource: string): string {
+  const statement = envelopeSource.slice(envelopeSource.indexOf(":") + 1);
+  const fields = (row as FmpStatementRow).fieldProvenance;
+  // SEC enrichment supplements one field; backfill tags a whole row while
+  // retaining the FMP envelope. An explicit but unknown source cannot inherit
+  // a known provider from a broader level of evidence.
+  if (fields && Object.hasOwn(fields, key)) return statementSourceTag(fields[key]?.source, statement);
+  if (Object.hasOwn(row, "source")) return statementSourceTag(row.source, statement);
+  return envelopeSource;
+}
+
 function extractStatement<TRow extends FmpRawRow>(
   title: string,
   rows: TRow[],
@@ -1111,9 +1131,11 @@ function extractStatement<TRow extends FmpRawRow>(
     source,
     byPeriod: kept.map((r, i) => {
       const periodContext = statementPeriodContext(r, String(li.key), periodKind);
+      const cellSource = statementCellSource(r, String(li.key), source);
       return {
         period: periodLabels[i],
         ...(periodContext === undefined ? {} : { periodContext }),
+        ...(cellSource === source ? {} : { source: cellSource }),
         ...(fiscalLabels[i] === null ? {} : { fiscalPeriod: fiscalLabels[i] }),
         value: numOrNull(r[li.key]),
         currency: isoCurrency(r.reportedCurrency),
@@ -1133,12 +1155,14 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   };
   const statementAsOf = (statement: DataBundle["statements"]["incomeAnnual"]): string =>
     statement.ok ? statement.value.asOf : "";
-  push(extractStatement("Income statement — annual", rowsOf(bundle.statements.incomeAnnual), A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, "fmp:income-statement(annual)"));
-  push(extractStatement("Income statement — quarterly", rowsOf(bundle.statements.incomeQuarterly), Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, "fmp:income-statement(quarter)"));
-  push(extractStatement("Balance sheet — annual", rowsOf(bundle.statements.balanceAnnual), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, "fmp:balance-sheet(annual)", "instant"));
-  push(extractStatement("Balance sheet — quarterly", rowsOf(bundle.statements.balanceQuarterly), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, "fmp:balance-sheet(quarter)", "instant"));
-  push(extractStatement("Cash flow — annual", rowsOf(bundle.statements.cashflowAnnual), A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, "fmp:cash-flow(annual)"));
-  push(extractStatement("Cash flow — quarterly", rowsOf(bundle.statements.cashflowQuarterly), Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, "fmp:cash-flow(quarter)"));
+  const source = (statement: DataBundle["statements"]["incomeAnnual"], name: string): string =>
+    statementSourceTag(statement.ok ? statement.value.source : undefined, name);
+  push(extractStatement("Income statement — annual", rowsOf(bundle.statements.incomeAnnual), A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")));
+  push(extractStatement("Income statement — quarterly", rowsOf(bundle.statements.incomeQuarterly), Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")));
+  push(extractStatement("Balance sheet — annual", rowsOf(bundle.statements.balanceAnnual), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"));
+  push(extractStatement("Balance sheet — quarterly", rowsOf(bundle.statements.balanceQuarterly), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"));
+  push(extractStatement("Cash flow — annual", rowsOf(bundle.statements.cashflowAnnual), A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")));
+  push(extractStatement("Cash flow — quarterly", rowsOf(bundle.statements.cashflowQuarterly), Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")));
   return blocks;
 }
 
@@ -1807,6 +1831,7 @@ function attachProvenanceRegistry(
     const blockName = semanticSlug(block.title);
     for (const line of block.lineItems) {
       for (const cell of line.byPeriod) {
+        const source = cell.source ?? line.source;
         // A null cell renders "period=n/a" with no tag, so there is nothing
         // to register. A cell that prints a number but cannot become a record
         // prints the line's raw tag (renderStatement); register that tag as
@@ -1814,7 +1839,7 @@ function attachProvenanceRegistry(
         // (D-43, e.g. a quarter's balance cell of unknown currency).
         if (cell.value === null || !Number.isFinite(cell.value)) continue;
         const unestablished = (currencyUnknown: boolean): void => {
-          registerCitation(line.source, cell.asOf, line.source, "payload-unestablished", {
+          registerCitation(source, cell.asOf, source, "payload-unestablished", {
             currencyUnknown,
           });
         };
@@ -1856,7 +1881,7 @@ function attachProvenanceRegistry(
           ...(cell.periodContext === undefined ? {} : { periodContext: cell.periodContext }),
           ...(cell.fiscalPeriod === undefined ? {} : { fiscalPeriod: cell.fiscalPeriod }),
           asOf: cell.asOf,
-          origin: line.source,
+          origin: source,
           formulaVersion: null,
           displayPrecision: 4,
         });
@@ -2162,7 +2187,7 @@ function renderStatement(block: StatementExtractBlock): string {
       .map((c) => {
         if (c.value === null) return `${c.period}=n/a`;
         const context = c.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(c.periodContext)}`;
-        return `${c.period}=${round(c.value)} ${provenanceTag(c.provenanceId ?? li.source, c.asOf)}${context}`;
+        return `${c.period}=${round(c.value)} ${provenanceTag(c.provenanceId ?? c.source ?? li.source, c.asOf)}${context}`;
       })
       .join(" | ");
     lines.push(`- ${li.lineItem} (${li.unit}): ${cells}`);

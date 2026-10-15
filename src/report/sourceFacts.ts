@@ -46,7 +46,7 @@ export interface SourceFactSummary {
 }
 
 const QUARTERLY_TITLES = new Set(["Income statement — quarterly", "Income statement - quarterly"]);
-const QUARTERLY_ORIGIN = "fmp:income-statement(quarter)";
+const QUARTERLY_ORIGINS = new Set(["fmp:income-statement(quarter)", "edgar:income-statement(quarter)"]);
 const FACT_LINES = [
   ["income-before-tax", "income before tax"],
   ["income-tax-expense", "income tax expense"],
@@ -79,8 +79,9 @@ function boundRecord(
   expectedId: string,
   period: string,
 ): string | null {
+  const origin = Object.hasOwn(cell, "source") ? cell.source : line.source;
   if (cell.provenanceId !== expectedId || record.id !== expectedId) return "Exact statement registry identity is missing or conflicting.";
-  if (record.kind !== "provider" || record.formulaVersion !== null || record.origin !== QUARTERLY_ORIGIN || line.source !== record.origin) return "Provider origin or reported statement definition conflicts with the registry.";
+  if (record.kind !== "provider" || record.formulaVersion !== null || !QUARTERLY_ORIGINS.has(record.origin) || origin !== record.origin) return "Provider origin or reported statement definition is unknown or conflicts with the registry.";
   if (record.label !== line.lineItem) return "Statement metric label conflicts with the registry.";
   if (record.value !== cell.value || !Number.isFinite(record.value)) return "Statement value conflicts with the registry.";
   if (record.unit !== "currency" || line.unit !== "currency") return "Statement unit conflicts with the registry.";

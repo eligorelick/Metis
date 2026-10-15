@@ -64,3 +64,14 @@ TypeScript, lint, dependency/coverage gates, production build, security audit,
 independent review and an isolated data-only browser/API/export check. Frozen
 AMZN input recomputation is a controlled replay, never a new live AI result.
 No new PR or publication until local verification and end-to-end checks pass.
+
+## Review correction acceptance
+
+The subsequent PR review exposed four additional cases. Reproduce each before
+fixing: actual EDGAR provider origins through fallback/backfill; preservation
+of qualifiers and explicit absence sentences in reference normalization;
+standalone judge/full-report reconciliation parity; and final runner-owned
+generation/cutoff timestamps including recovery and legacy omissions. Keep the
+report/payload stamps distinct from the prior evidence conventions, rerun the
+full gates and isolated production check, and obtain fresh independent review
+before resolving discussions and merging a newly tested exact head.

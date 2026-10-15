@@ -8596,7 +8596,7 @@
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.16.0"
+          "after": "1.17.0"
         },
         {
           "path": "report.sourceFactSummary",

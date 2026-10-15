@@ -4,7 +4,7 @@ What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The implemented behavior below was checked against the source and synthetic
-tests through 2026-10-15 and reflects report 1.16.0 / payload 1.21.0, including
+tests through 2026-10-15 and reflects report 1.17.0 / payload 1.22.0, including
 the growth-anchor span, scenario-horizon, research-reliability and META audit
 rules. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -20,6 +20,14 @@ reported operands establish the identity; no residual is forced to zero and
 no universal tax or recurring-earnings adjustment is assumed. Source-fact tables
 retain exact base-unit amounts and all required operands.
 
+Statement provenance retains the actual envelope source and any established
+row/field override, including EDGAR fallback or backfill into a vendor response.
+Unknown or conflicting provider metadata cannot establish a source-bound fact.
+A normalized statement interface name does not establish its upstream provider.
+Reference normalization preserves intervening qualifiers and explicit absence
+statements; standalone judge verification uses the same payload-backed
+reconciliation availability as full-report verification.
+
 Quote observation, source acquisition, established filing, publication,
 financial period, calculation basis and report generation describe different
 events. Unknown timing remains unknown. An analysis cutoff is not a measured
@@ -27,6 +35,10 @@ calculation timestamp. Live FMP quote/batch-quote observations demonstrably afte
 the original acquisition or injected client cutoff fail admission and cache
 retrieval; this adds no arbitrary stale-price expiry rule. Synthetic fixtures
 and historical report bytes retain their original conventions.
+Final runner metadata reconciles the disclosure cutoff and report-generation
+timestamp together while retaining every input timestamp and calculation basis.
+Recovery preserves the original persisted generation time rather than dating
+old evidence as a fresh generation. Legacy timing omissions remain omissions.
 
 Two rules govern everything below. Reported numeric claims use provenance
 records with source and as-of information where established; missing dates,
