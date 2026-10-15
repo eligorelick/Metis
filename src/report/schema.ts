@@ -1445,6 +1445,7 @@ export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): stri
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
   if (entry.claimSupportStatus === "cited") return "Cited; prose unchecked";
+  if (entry.outcome === "unverified" && entry.evidenceKind === "number" && entry.source?.trim()) return "untraced";
   return citationOutcomeLabel(entry.outcome);
 }
 

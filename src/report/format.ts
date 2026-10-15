@@ -250,6 +250,16 @@ export function formatTracedValue(number: TracedNumber): string {
   return formatFinancialValue(number.value, number.unit, number.currency);
 }
 
+/** A failed match does not mean a citation was never supplied. */
+export function numericCitationTraceLabel(value: TracedNumber["verified"]): string {
+  return value === true ? "citation-traced" : value === false ? "untraced" : "not checked";
+}
+
+/** Measurement windows are stored evidence; an as-of date cannot supply one. */
+export function tracedPeriodLabel(period: TracedNumber["period"]): string {
+  return period?.trim() ? period : "not supplied";
+}
+
 /** Format machine-oriented verification-log claims for human display. */
 export function formatVerificationClaim(value: string): string {
   const normalized = collapseDuplicateLegacyCitationDates(value);

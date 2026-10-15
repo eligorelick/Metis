@@ -67,10 +67,10 @@ describe("report trust presentation", () => {
       .filter((line) => line.includes(`AUDIT-${group}`) || line.startsWith("| Metric | Period |"))
       .join("\n");
 
-    expect(output).toContain("| Metric | Period | Value | As of | Citation traced |");
-    expect(output).toContain(`| AUDIT-${group} | FY2023 | 10.0% | 2025-12-31 | citation-traced |`);
-    expect(output).toContain(`| AUDIT-${group} | FY2024 | 20.0% | 2025-12-31 | uncited |`);
-    expect(output).toContain(`| AUDIT-${group} | FY2025 | 30.0% | 2025-12-31 | not checked |`);
+    expect(output).toContain("| Metric | Period | Value | Measurement period | As of | Citation traced |");
+    expect(output).toContain(`| AUDIT-${group} | FY2023 | 10.0% | FY2023 | 2025-12-31 | citation-traced |`);
+    expect(output).toContain(`| AUDIT-${group} | FY2024 | 20.0% | FY2024 | 2025-12-31 | untraced |`);
+    expect(output).toContain(`| AUDIT-${group} | FY2025 | 30.0% | FY2025 | 2025-12-31 | not checked |`);
   });
 
   it.each(metricGroups)("retains each %s value's citation status in print", (group) => {
@@ -81,7 +81,7 @@ describe("report trust presentation", () => {
     expect(rows).toHaveLength(3);
     expect(output.includes("<th>Citation traced</th>")).toBe(true);
     expect(rows[0]).toContain("<td>citation-traced</td>");
-    expect(rows[1]).toContain("<td>uncited</td>");
+    expect(rows[1]).toContain("<td>untraced</td>");
     expect(rows[2]).toContain("<td>not checked</td>");
   });
 
@@ -93,7 +93,7 @@ describe("report trust presentation", () => {
     }));
 
     expect(output.match(/aria-label="citation-traced"/g)).toHaveLength(4);
-    expect(output.match(/aria-label="not citation-traced"/g)).toHaveLength(4);
+    expect(output.match(/aria-label="untraced"/g)).toHaveLength(4);
     expect(output.match(/aria-label="citation check not run"/g)).toHaveLength(4);
   });
 });

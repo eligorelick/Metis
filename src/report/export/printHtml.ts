@@ -85,6 +85,8 @@ import { verificationEntryOutcomeLabel } from "@/report/schema";
 import {
   formatCostUsd,
   formatFinancialValue,
+  numericCitationTraceLabel,
+  tracedPeriodLabel,
   formatMoneyAmount,
   establishedCurrency,
   peerColumnKeys,
@@ -198,13 +200,13 @@ function asOfTag(asOf: string | null): string {
 
 // Citation-coverage marker (PROVENANCE, not correctness — audit 2026-07-11
 // finding #2): a check when the number traced to a citation or a payload value,
-// an "uncited" flag when it did not, a hollow dot when the pass has not run.
+// an "untraced" flag when it did not, a hollow dot when the pass has not run.
 // Never claims a number is "verified".
 function verifiedTag(n: TracedNumber): string {
   if (n.verified === true)
     return `<span class="v ok" title="citation-traced (provenance, not correctness)">✓</span>`;
   if (n.verified === false)
-    return `<span class="v warn" title="not traced to a citation or payload figure">uncited</span>`;
+    return `<span class="v warn" title="not traced to a citation or payload figure">${numericCitationTraceLabel(n.verified)}</span>`;
   return `<span class="v faint" title="citation coverage not computed">○</span>`;
 }
 
@@ -218,13 +220,9 @@ function auditValue(value: unknown): string {
   return String(value);
 }
 
-function citationTraceLabel(value: TracedNumber["verified"]): string {
-  return value === true ? "citation-traced" : value === false ? "uncited" : "not checked";
-}
-
 function tracedAuditCells(trace: TracedNumber): string[] {
   return TRACED_NUMBER_FIELDS.map((field) => {
-    if (field.key === "verified") return esc(citationTraceLabel(trace.verified));
+    if (field.key === "verified") return esc(numericCitationTraceLabel(trace.verified));
     return esc(auditValue(trace[field.key]));
   });
 }
@@ -289,10 +287,11 @@ function gradeBlock(title: string, block: GradeBlock): string {
   if (block.keyNumbers.length > 0) {
     parts.push(
       table(
-        ["Metric", "Value", "As of", "Cited"],
+        ["Metric", "Value", "Measurement period", "As of", "Cited"],
         block.keyNumbers.map((n) => [
           esc(n.source),
           `<span class="mono">${esc(tracedValue(n))}</span>`,
+          esc(tracedPeriodLabel(n.period)),
           esc(n.asOf ?? DASH),
           verifiedTag(n),
         ]),
@@ -310,12 +309,13 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         esc(row.label),
         esc(v.period),
         `<span class="mono">${esc(tracedValue(v.value))}</span>`,
+        esc(tracedPeriodLabel(v.value.period)),
         esc(v.value.asOf ?? DASH),
-        esc(citationTraceLabel(v.value.verified)),
+        esc(numericCitationTraceLabel(v.value.verified)),
       ]);
     }
   }
-  return table(["Metric", "Period", "Value", "As of", "Citation traced"], body);
+  return table(["Metric", "Period", "Value", "Measurement period", "As of", "Citation traced"], body);
 }
 
 function segmentTable(rows: readonly SegmentRow[]): string {
@@ -332,10 +332,11 @@ function segmentTable(rows: readonly SegmentRow[]): string {
 
 function numbersTable(numbers: readonly TracedNumber[]): string {
   return table(
-    ["Metric", "Value", "As of", "Cited"],
+    ["Metric", "Value", "Measurement period", "As of", "Cited"],
     numbers.map((n) => [
       esc(n.source),
       `<span class="mono">${esc(tracedValue(n))}</span>`,
+      esc(tracedPeriodLabel(n.period)),
       esc(n.asOf ?? DASH),
       verifiedTag(n),
     ]),

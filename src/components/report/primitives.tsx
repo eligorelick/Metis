@@ -32,6 +32,8 @@ import type {
 import {
   formatNumber,
   formatTracedValue,
+  numericCitationTraceLabel,
+  tracedPeriodLabel,
 } from "@/report/format";
 import { ClaimText } from "./ClaimText";
 
@@ -126,8 +128,8 @@ export function VerificationDot({ n }: { n: TracedNumber }) {
     return (
       <span
         className="mono text-[10px] text-warn"
-        title={`not citation-traced${n.verificationNote ? ` · ${n.verificationNote}` : ""}`}
-        aria-label="not citation-traced"
+        title={`${numericCitationTraceLabel(n.verified)}${n.verificationNote ? ` · ${n.verificationNote}` : ""}`}
+        aria-label={numericCitationTraceLabel(n.verified)}
       >
         ●
       </span>
@@ -176,7 +178,7 @@ export function TracedFigure({
       <span className={`mono ${toneClass[tone]}`}>{formatTracedValue(n)}</span>
       <VerificationDot n={n} />
       {showProvenance && (
-        <span className="mono text-[9px] text-faint">{n.asOf ?? ""}</span>
+        <span className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period)}; as of {n.asOf ?? "not supplied"}</span>
       )}
     </span>
   );
@@ -203,6 +205,7 @@ export function TracedStat({
         {label}
       </div>
       <TracedFigure n={n} tone={tone} className="text-[13px]" />
+      <div className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period)}</div>
       {n.asOf && (
         <div className="mono text-[9px] text-faint">as of {n.asOf}</div>
       )}
@@ -322,7 +325,7 @@ export function TracedNumberSourceDetails({ n, label = "Number provenance" }: { 
     ["source", n.source],
     ["as of", n.asOf],
     ["period", n.period],
-    ["citation status", n.verified === true ? "citation-traced" : n.verified === false ? "not citation-traced" : "not checked"],
+    ["citation status", numericCitationTraceLabel(n.verified)],
     ...(n.verificationNote ? [["citation note", n.verificationNote] as const] : []),
   ] as const;
   return (

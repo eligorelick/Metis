@@ -56,6 +56,8 @@ import {
 import {
   formatCostUsd,
   formatFinancialValue,
+  numericCitationTraceLabel,
+  tracedPeriodLabel,
   formatMoneyAmount,
   establishedCurrency,
   peerColumnKeys,
@@ -205,11 +207,11 @@ function asOfSuffix(asOf: string | null): string {
 /**
  * The citation-coverage marker for a traced number (PROVENANCE, not correctness
  * — audit 2026-07-11 finding #2): ✓ when traced to a citation/payload value,
- * "uncited" when not, — when the pass has not run. Never claims "verified".
+ * "untraced" when not, - when the pass has not run. Never claims "verified".
  */
 function verifiedMark(n: TracedNumber): string {
   if (n.verified === true) return "✓";
-  if (n.verified === false) return "uncited";
+  if (n.verified === false) return numericCitationTraceLabel(n.verified);
   return DASH;
 }
 
@@ -219,13 +221,9 @@ function auditValue(value: unknown): string {
   return String(value);
 }
 
-function citationTraceLabel(value: TracedNumber["verified"]): string {
-  return value === true ? "citation-traced" : value === false ? "uncited" : "not checked";
-}
-
 function tracedAuditCells(trace: TracedNumber): string[] {
   return TRACED_NUMBER_FIELDS.map((field) => {
-    if (field.key === "verified") return citationTraceLabel(trace.verified);
+    if (field.key === "verified") return numericCitationTraceLabel(trace.verified);
     return auditValue(trace[field.key]);
   });
 }
@@ -274,10 +272,11 @@ function gradeBlock(title: string, block: GradeBlock): string {
     lines.push("");
     lines.push(
       table(
-        ["Metric", "Value", "As of", "Cited"],
+        ["Metric", "Value", "Measurement period", "As of", "Cited"],
         block.keyNumbers.map((n) => [
           n.source,
           tracedValue(n),
+          tracedPeriodLabel(n.period),
           n.asOf ?? DASH,
           verifiedMark(n),
         ]),
@@ -296,12 +295,13 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         row.label,
         v.period,
         tracedValue(v.value),
+        tracedPeriodLabel(v.value.period),
         v.value.asOf ?? DASH,
-        citationTraceLabel(v.value.verified),
+        numericCitationTraceLabel(v.value.verified),
       ]);
     }
   }
-  return table(["Metric", "Period", "Value", "As of", "Citation traced"], body);
+  return table(["Metric", "Period", "Value", "Measurement period", "As of", "Citation traced"], body);
 }
 
 /** Segment rows (product/geographic) as name / revenue / share table. */
@@ -573,10 +573,11 @@ function renderBalanceSheet(bs: BalanceSheet): string {
     if (g.numbers.length > 0) {
       lines.push(
         table(
-          ["Metric", "Value", "As of", "Cited"],
+          ["Metric", "Value", "Measurement period", "As of", "Cited"],
           g.numbers.map((n) => [
             n.source,
             tracedValue(n),
+            tracedPeriodLabel(n.period),
             n.asOf ?? DASH,
             verifiedMark(n),
           ]),
@@ -857,10 +858,11 @@ function renderTechnicals(t: Technicals): string {
       "### Indicators",
       "",
       table(
-        ["Indicator", "Value", "As of", "Cited"],
+        ["Indicator", "Value", "Measurement period", "As of", "Cited"],
         t.indicators.map((n) => [
           n.source,
           tracedValue(n),
+          tracedPeriodLabel(n.period),
           n.asOf ?? DASH,
           verifiedMark(n),
         ]),

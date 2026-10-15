@@ -79,6 +79,9 @@ describe("corrected export --out without an .html suffix", () => {
     expect(readFileSync(dbFile)).toEqual(originalDb);
   });
 
+  // A Windows hosted-runner observation took 5.5s for this native filesystem/
+  // SQLite case. Keep every integrity assertion; bound only this I/O case at
+  // 15s instead of the framework's generic 5s CPU-test deadline.
   it.each(["html", "json", "database", "hardlink"])("preserves an existing %s destination and leaves no partial export", (kind) => {
     const dbFile = path.join(tempDir, "source.db");
     seed(dbFile);
@@ -94,7 +97,7 @@ describe("corrected export --out without an .html suffix", () => {
     expect(readFileSync(dbFile)).toEqual(originalDb);
     expect(readFileSync(occupied)).toEqual(originalOutput);
     expect(existsSync(kind === "json" ? out : sidecar)).toBe(false);
-  });
+  }, 15_000);
 
   it("writes the JSON beside the HTML instead of over it", () => {
     const dbFile = path.join(tempDir, "source.db");

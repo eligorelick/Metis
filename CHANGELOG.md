@@ -31,6 +31,9 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Check explicitly declared monetary scales once and display the same scale;
   ambiguous units remain unchecked. Export per-value citation status and keep
   numeric provenance separate from whole-prose validation.
+- Display supplied numeric periods separately from as-of dates, mark missing
+  periods explicitly, and distinguish an untraced figure from a missing citation.
+  Keep the remaining generated bridge/citation defects documented in the audit.
 - Advance report/payload and replay implementation identities. Stored report
   bytes remain unchanged; see the [audit record](docs/audit/2026-10-15-amzn-integrity.md)
   for reproductions, verification and reliance limits.
