@@ -21,9 +21,12 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
  */
 
 import { formatExecutionMetadata } from "@/report/execution";
+import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import type { SourceFactSummary } from "@/report/sourceFacts";
 import { gradeDisplayLabel, gradeForDisplay } from "@/report/assessment";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
+import { evidenceTimingRows, EVIDENCE_TIMING_NOTE, type EvidenceTimingRow } from "@/report/evidenceTiming";
 import type {
   Appendix,
   BalanceSheet,
@@ -291,7 +294,7 @@ function gradeBlock(title: string, block: GradeBlock): string {
         block.keyNumbers.map((n) => [
           esc(n.source),
           `<span class="mono">${esc(tracedValue(n))}</span>`,
-          esc(tracedPeriodLabel(n.period)),
+          esc(tracedPeriodLabel(n.period, n.periodContext)),
           esc(n.asOf ?? DASH),
           verifiedTag(n),
         ]),
@@ -309,7 +312,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         esc(row.label),
         esc(v.period),
         `<span class="mono">${esc(tracedValue(v.value))}</span>`,
-        esc(tracedPeriodLabel(v.value.period)),
+        esc(tracedPeriodLabel(v.value.period, v.value.periodContext)),
         esc(v.value.asOf ?? DASH),
         esc(numericCitationTraceLabel(v.value.verified)),
       ]);
@@ -336,7 +339,7 @@ function numbersTable(numbers: readonly TracedNumber[]): string {
     numbers.map((n) => [
       esc(n.source),
       `<span class="mono">${esc(tracedValue(n))}</span>`,
-      esc(tracedPeriodLabel(n.period)),
+      esc(tracedPeriodLabel(n.period, n.periodContext)),
       esc(n.asOf ?? DASH),
       verifiedTag(n),
     ]),
@@ -523,7 +526,7 @@ function sectionBusiness(b: Business): string {
     <h3>Concentration risks</h3>${claimList(b.concentrationRisks)}</section>`;
 }
 
-function sectionFundamentals(f: Fundamentals): string {
+function sectionFundamentals(f: Fundamentals, summary?: SourceFactSummary): string {
   return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock(
     "Fundamentals",
     f.graded,
@@ -532,7 +535,7 @@ function sectionFundamentals(f: Fundamentals): string {
     <h3>Margin trend</h3>${metricRowsTable(f.marginTrend)}
     <h3>Returns</h3>${metricRowsTable(f.returns)}
     <h3>Free cash flow</h3>${metricRowsTable(f.fcf)}
-    ${f.commentary.length > 0 ? `<h3>Commentary</h3>${claimList(f.commentary)}` : ""}</section>`;
+    ${f.commentary.length > 0 ? `<h3>Commentary</h3>${claimList(f.commentary)}` : ""}${auditTablesHtml(sourceFactAuditTables(summary))}</section>`;
 }
 
 function sectionBalanceSheet(bs: BalanceSheet): string {
@@ -573,8 +576,10 @@ function sectionValuation(
   fairValue?: FairValue,
   routeMetrics?: RouteMetrics,
   review: ValuationReviewInputs = {},
+  timing: readonly EvidenceTimingRow[] = [],
 ): string {
   const parts: string[] = [];
+  if (timing.length) parts.push("<h3>Evidence timing</h3>", table(["Event", "Established timing"], timing.map((row) => [esc(row.label), esc(row.value)])), `<p>${esc(EVIDENCE_TIMING_NOTE)}</p>`);
   parts.push(gradeBlock("Valuation", v.graded));
 
   // perShare is null when the deterministic fair value was suppressed — show
@@ -1035,9 +1040,9 @@ export function reportToPrintBody(report: Report): string {
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
     business: sectionBusiness(report.business),
-    fundamentals: sectionFundamentals(report.fundamentals),
+    fundamentals: sectionFundamentals(report.fundamentals,report.sourceFactSummary),
     balanceSheet: sectionBalanceSheet(report.balanceSheet),
-    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }),
+    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, evidenceTimingRows(report)),
     quality: sectionQuality(report.quality),
     technicals: sectionTechnicals(report.technicals),
     leadership: sectionLeadership(report.leadership),

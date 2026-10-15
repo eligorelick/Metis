@@ -79,6 +79,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/VALIDATION-STATUS.md",
   "docs/superpowers/plans/2026-10-13-research-reliability.md",
   "docs/superpowers/plans/2026-10-15-amzn-integrity-audit.md",
+  "docs/superpowers/plans/2026-10-15-evidence-methodology-followup.md",
 ]);
 const VERIFY_GATES = [
   "npm run check:dependencies",

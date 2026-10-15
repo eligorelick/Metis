@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.15.0** and
-payload **1.20.0** (financial integrity, 2026-10-15). The checked-in
+Current source declares application **0.1.0**, report spec **1.17.0** and
+payload **1.22.0** (source periods and reporting evidence, 2026-10-15). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,24 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - source periods and reporting evidence (2026-10-15)
+
+- Carry optional exact source period contexts, reject supplied contradictions,
+  and preserve legacy matching and model-request complexity budgets.
+- Assemble exact reported earnings facts and a compatible arithmetic identity
+  across live/Markdown/print. Keep these separate from AI opinion and prose
+  validation; withhold or normalize unsupported positional bridge references
+  with the original text retained in the audit trail.
+- Review corrections preserve the actual statement envelope/row/field provider
+  origin, retain intervening factual qualifiers when normalizing references,
+  use the same payload-backed destination on standalone judge verification,
+  and reconcile report-generation timing with the runner's final metadata.
+- Distinguish quote observation, financial periods, established filing,
+  publication, acquisition, calculation basis and report generation. Reject
+  demonstrably future live FMP quote observations before and after cache access.
+- Scoring weights, grade rules and scenario priors are unchanged. No new
+  predictive-calibration or professional-readiness claim is established.
 
 ## Unreleased - financial and evidence integrity (2026-10-15)
 

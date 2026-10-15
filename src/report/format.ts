@@ -256,8 +256,11 @@ export function numericCitationTraceLabel(value: TracedNumber["verified"]): stri
 }
 
 /** Measurement windows are stored evidence; an as-of date cannot supply one. */
-export function tracedPeriodLabel(period: TracedNumber["period"]): string {
-  return period?.trim() ? period : "not supplied";
+export function tracedPeriodLabel(period: TracedNumber["period"], context?: TracedNumber["periodContext"]): string {
+  const legacy = period?.trim() ? period : "not supplied";
+  if (!context) return legacy;
+  const boundaries = context.kind === "instant" ? `instant at ${context.at}` : `duration ${context.start} to ${context.end}`;
+  return `${legacy}; ${boundaries}${context.basis ? `; ${context.basis}` : ""}${context.fiscalLabel ? `; ${context.fiscalLabel}` : ""}`;
 }
 
 /** Format machine-oriented verification-log claims for human display. */

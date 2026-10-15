@@ -251,6 +251,7 @@ export const TRACED_NUMBER_FIELD_ORDER = [
   "asOf",
   "verified",
   "verificationNote",
+  "periodContext",
 ] as const satisfies readonly TracedNumberFieldKey[];
 
 export const TRACED_NUMBER_FIELDS = [
@@ -263,6 +264,7 @@ export const TRACED_NUMBER_FIELDS = [
   { id: "traced-number-field:asOf", key: "asOf", label: "As of", optional: false },
   { id: "traced-number-field:verified", key: "verified", label: "Citation traced", optional: false },
   { id: "traced-number-field:verificationNote", key: "verificationNote", label: "Citation note", optional: true },
+  { id: "traced-number-field:periodContext", key: "periodContext", label: "Structured period", optional: true },
 ] as const satisfies readonly FieldDescriptor<TracedNumberFieldKey>[];
 
 export const TRACED_NUMBER_FIELD_BY_KEY = {
@@ -275,6 +277,7 @@ export const TRACED_NUMBER_FIELD_BY_KEY = {
   asOf: TRACED_NUMBER_FIELDS[6],
   verified: TRACED_NUMBER_FIELDS[7],
   verificationNote: TRACED_NUMBER_FIELDS[8],
+  periodContext: TRACED_NUMBER_FIELDS[9],
 } as const satisfies Record<TracedNumberFieldKey, FieldDescriptor<TracedNumberFieldKey>>;
 
 export type ScoringFieldKey = keyof Scoring;

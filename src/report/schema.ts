@@ -36,6 +36,9 @@
  */
 
 import { z } from "zod";
+import { EvidenceTimingSchema } from "@/report/evidenceTiming";
+import { PeriodContextSchema } from "@/types/periodContext";
+import { SourceFactSummarySchema } from "@/report/sourceFactSchema";
 
 import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 
@@ -83,7 +86,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // multiples. Saved reports retain their original financial convention/version.
 // 1.15.0 (D-55): shared cash/debt/lease admission guards and current cash-flow
 // reconstruction; historical reports retain their original conventions.
-export const REPORT_SPEC_VERSION = "1.15.0" as const;
+// 1.17.0 (D-56 review): actual statement-provider attribution, qualifier-safe
+// references, standalone parity and runner-owned final timing reconciliation.
+export const REPORT_SPEC_VERSION = "1.17.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -342,6 +347,8 @@ export const TracedNumberSchema = z
     currency: z.string().regex(/^[A-Z]{3}$/).nullable().optional(),
     /** Fiscal/forecast period; optional only for legacy reports. */
     period: z.string().trim().min(1).nullable().optional(),
+    /** Exact source period boundaries when established; absent on legacy reports. */
+    periodContext: PeriodContextSchema.optional(),
     /** Canonical structured citation identity (1.2.0+). */
     sourceId: z.string().trim().min(1).optional(),
     /** Legacy display/source field retained for persisted-report compatibility. */
@@ -778,6 +785,8 @@ export const MetaSchema = z
     disclaimer: z.string().min(1),
     /** field dot-path -> ISO as-of date (rule #5). */
     asOfMap: z.record(z.string(), z.string()),
+    /** Optional pipeline-owned timing evidence; historical reports retain their metadata. */
+    evidenceTiming: EvidenceTimingSchema.optional(),
   })
   .strict();
 export type ReportMeta = z.infer<typeof MetaSchema>;
@@ -1382,6 +1391,8 @@ export const VerificationLogEntrySchema = z
     reason: z
       .enum([
         "supported",
+        "unsupported-report-reference",
+        "report-reference-normalized",
         "unknown-source",
         "text-source",
         "value-mismatch",
@@ -1978,6 +1989,8 @@ export type ScenarioPresentation = z.infer<typeof ScenarioPresentationSchema>;
 
 const ReportObjectSchema = z
   .object({
+    /** Exact pipeline-owned provider facts; absent on historical reports. */
+    sourceFactSummary: SourceFactSummarySchema.optional(),
     meta: MetaSchema,
     verdict: VerdictSchema,
     business: BusinessSchema,
@@ -2505,7 +2518,9 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       const props = obj.properties as Record<string, unknown>;
       // These fields are pipeline-owned on freshly assembled reports, and are
       // optional only for older saved reports. Keep them off provider schemas.
-      for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers"]) {
+      // Exact period contexts come from source evidence; the model uses the
+      // registry ID and existing period field instead of guessing boundaries.
+        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
       }

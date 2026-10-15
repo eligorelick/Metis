@@ -725,10 +725,12 @@ describe("payload determinism + provenance", () => {
       // entries where this fixture has no such data (+1,337 prompt bytes).
       // NET_DEBT_V2 changes only finance disclosure/version text here; all
       // numeric registries, IDs, projection periods and figure labels stay pinned.
-      fingerprint: "1.20.0:3b3bc814",
-      promptBytes: 121_221,
+      // 1.22.0 preserves statement provider origins; this all-FMP fixture
+      // changes only its version-bearing fingerprint, not finance or IDs.
+      fingerprint: "1.22.0:19176142",
+      promptBytes: 123_057,
       provenanceCount: 499,
-      provenanceHash: "32436dab",
+      provenanceHash: "1062dc43",
       provenanceIdsHash: "2fdc2d40",
       citationCount: 65,
       citationHash: "13b5b365",
@@ -870,7 +872,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.20.0");
+    expect(first.payloadVersion).toBe("1.22.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -913,6 +915,96 @@ describe("payload determinism + provenance", () => {
     expect(repeated).toBeDefined();
     const sameValue = provenanceRegistry.filter((entry) => entry.value === repeated?.value);
     expect(new Set(sameValue.map((entry) => entry.id)).size).toBe(sameValue.length);
+  });
+
+  it.each([
+    ["incomeAnnual", "Income statement — annual", "edgar:income-statement(annual)"],
+    ["incomeQuarterly", "Income statement — quarterly", "edgar:income-statement(quarter)"],
+    ["balanceAnnual", "Balance sheet — annual", "edgar:balance-sheet(annual)"],
+    ["balanceQuarterly", "Balance sheet — quarterly", "edgar:balance-sheet(quarter)"],
+    ["cashflowAnnual", "Cash flow — annual", "edgar:cash-flow(annual)"],
+    ["cashflowQuarterly", "Cash flow — quarterly", "edgar:cash-flow(quarter)"],
+  ] as const)("preserves the actual EDGAR envelope for %s", (member, title, origin) => {
+    const { bundle, computed } = buildInputs();
+    const statement = bundle.statements[member];
+    if (!statement.ok) throw new Error("Fixture requires statement rows");
+    statement.value.source = "edgar";
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const block = payload.statements.find(entry => entry.title === title)!;
+    const records = payload.provenanceRegistry!.filter(entry => block.lineItems.some(line => line.byPeriod.some(cell => cell.provenanceId === entry.id)));
+
+    expect(block.lineItems.every(line => line.source === origin)).toBe(true);
+    expect(records.length).toBeGreaterThan(0);
+    expect(records.every(entry => entry.origin === origin)).toBe(true);
+  });
+
+  it("keeps EDGAR backfilled rows distinct inside an FMP statement envelope", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Fixture requires statement rows");
+    bundle.statements.incomeQuarterly.value.data.rows[1]!.source = "edgar";
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const records = payload.provenanceRegistry!;
+
+    expect(records.find(entry => entry.id === "payload.statements.income-statement-quarterly.2026-03-28.revenue")?.origin).toBe("fmp:income-statement(quarter)");
+    expect(records.find(entry => entry.id === "payload.statements.income-statement-quarterly.2025-12-28.revenue")?.origin).toBe("edgar:income-statement(quarter)");
+  });
+
+  it("uses EDGAR field evidence without relabeling neighboring FMP values", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Fixture requires statement rows");
+    bundle.statements.incomeQuarterly.value.data.rows[0]!.fieldProvenance = { incomeTaxExpense: {
+      source: "edgar", unit: "USD", periodStart: "2025-12-29", periodEnd: "2026-03-28", observedAt: "2026-05-05", tags: ["us-gaap/IncomeTaxExpenseBenefit"], filings: [],
+    } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const records = payload.provenanceRegistry!;
+
+    expect(records.find(entry => entry.id === "payload.statements.income-statement-quarterly.2026-03-28.income-tax-expense")?.origin).toBe("edgar:income-statement(quarter)");
+    expect(records.find(entry => entry.id === "payload.statements.income-statement-quarterly.2026-03-28.net-income")?.origin).toBe("fmp:income-statement(quarter)");
+  });
+
+  it("prints and registers the actual source when a mixed-source cell has no numeric identity", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Fixture requires statement rows");
+    const row = bundle.statements.incomeQuarterly.value.data.rows[0]!;
+    row.source = "edgar";
+    row.reportedCurrency = null;
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+
+    expect(serializePayloadForPrompt(payload)).toContain("[edgar:income-statement(quarter) · 2026-03-28]");
+    expect(payload.citationRegistry).toContainEqual(expect.objectContaining({ id: "edgar:income-statement(quarter)", kind: "payload-unestablished", origin: "edgar:income-statement(quarter)", asOf: "2026-03-28" }));
+  });
+
+  it("does not assume FMP when explicit field provenance has an unknown source", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Fixture requires statement rows");
+    bundle.statements.incomeQuarterly.value.data.rows[0]!.fieldProvenance = { incomeTaxExpense: {
+      source: "edgar", unit: "USD", periodStart: "2025-12-29", periodEnd: "2026-03-28", observedAt: "2026-05-05", tags: [], filings: [],
+    } };
+    Object.assign(bundle.statements.incomeQuarterly.value.data.rows[0]!.fieldProvenance.incomeTaxExpense!, { source: null });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+
+    expect(payload.provenanceRegistry!.find(entry => entry.id === "payload.statements.income-statement-quarterly.2026-03-28.income-tax-expense")?.origin).toBe("unknown:income-statement(quarter)");
+  });
+
+  it.each([undefined, null, "computed", "unrecognized"])("does not invent a statement provider for an unknown envelope source %s", source => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Fixture requires statement rows");
+    Object.assign(bundle.statements.incomeQuarterly.value, { source });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const record = payload.provenanceRegistry!.find(entry => entry.id === "payload.statements.income-statement-quarterly.2026-03-28.revenue")!;
+
+    expect(record.origin).toBe("unknown:income-statement(quarter)");
+    expect(serializePayloadForPrompt(payload)).not.toContain("fmp:income-statement(quarter)");
+  });
+
+  it.each([null, "unrecognized"])("does not fall back to FMP when an explicit row source is unknown (%s)", source => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Fixture requires statement rows");
+    bundle.statements.incomeQuarterly.value.data.rows[0]!.source = source;
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    const record = payload.provenanceRegistry!.find(entry => entry.id === "payload.statements.income-statement-quarterly.2026-03-28.revenue")!;
+
+    expect(record.origin).toBe("unknown:income-statement(quarter)");
   });
 
   it("preserves an ADR statement row's reported currency and verifies only the matching identity", async () => {
@@ -2258,7 +2350,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.15.0");
+    expect(report.meta.specVersion).toBe("1.17.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

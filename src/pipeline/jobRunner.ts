@@ -4711,6 +4711,14 @@ function reconcileMeta(
       symbol: meta.symbol,
       companyName: meta.companyName || report.meta.companyName,
       generatedAt: meta.generatedAt,
+      // Verification assembles a provisional report before the runner stamps
+      // final generation. Keep its disclosure cutoff on that same clock while
+      // retaining the recorded input dates and Stage B calculation basis.
+      ...(report.meta.evidenceTiming === undefined ? {} : { evidenceTiming: {
+        ...report.meta.evidenceTiming,
+        cutoffAt: meta.generatedAt,
+        reportGeneratedAt: meta.generatedAt,
+      } }),
       specVersion: REPORT_SPEC_VERSION,
       model: meta.model,
       pipelineVersion: PIPELINE_VERSION,

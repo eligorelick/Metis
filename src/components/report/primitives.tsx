@@ -178,7 +178,7 @@ export function TracedFigure({
       <span className={`mono ${toneClass[tone]}`}>{formatTracedValue(n)}</span>
       <VerificationDot n={n} />
       {showProvenance && (
-        <span className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period)}; as of {n.asOf ?? "not supplied"}</span>
+        <span className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period, n.periodContext)}; as of {n.asOf ?? "not supplied"}</span>
       )}
     </span>
   );
@@ -205,7 +205,7 @@ export function TracedStat({
         {label}
       </div>
       <TracedFigure n={n} tone={tone} className="text-[13px]" />
-      <div className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period)}</div>
+      <div className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period, n.periodContext)}</div>
       {n.asOf && (
         <div className="mono text-[9px] text-faint">as of {n.asOf}</div>
       )}
@@ -325,6 +325,7 @@ export function TracedNumberSourceDetails({ n, label = "Number provenance" }: { 
     ["source", n.source],
     ["as of", n.asOf],
     ["period", n.period],
+    ...(n.periodContext ? [["structured period", JSON.stringify(n.periodContext)] as const] : []),
     ["citation status", numericCitationTraceLabel(n.verified)],
     ...(n.verificationNote ? [["citation note", n.verificationNote] as const] : []),
   ] as const;

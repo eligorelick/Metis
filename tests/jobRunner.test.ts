@@ -6135,7 +6135,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.15.0");
+    expect(repRow?.specVersion).toBe("1.17.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
@@ -9500,5 +9500,175 @@ describe("immutable normalized run input persistence", () => {
     const current = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!;
     expect(stored.meta.runSnapshot).toEqual(readJobRunSnapshotRef(jobId, current.runGeneration));
     expect(stored.meta.runSnapshot.hash).toMatch(/^[a-f0-9]{64}$/);
+  });
+});
+
+describe("runJob - final evidence timing", () => {
+  const assembledAt = "2026-07-06T00:01:00.000Z";
+  const generatedAt = "2026-07-06T00:02:00.000Z";
+  const finalClock = (): Date => new Date(generatedAt);
+
+  function timingBundle(): DataBundle {
+    const bundle = fakeBundle();
+    bundle.quote = {
+      ok: true,
+      value: {
+        data: { rows: [{ symbol: "AAPL", price: 200, timestamp: Date.parse("2026-07-05T19:00:00.000Z") / 1000 }], raw: {} },
+        asOf: "2026-07-05",
+        source: "fmp",
+        endpoint: "quote",
+        fetchedAt: "2026-07-05T20:00:00.000Z",
+        stale: false,
+      },
+    };
+    bundle.sourceManifest.quote = {
+      provider: "fmp", endpoint: "quote", asOf: "2026-07-05",
+      fetchedAt: "2026-07-05T20:00:00.000Z", stale: false,
+    };
+    bundle.asOf.quote = "2026-07-05";
+    return bundle;
+  }
+
+  function readReport(reportId: number | null): Report {
+    expect(reportId).not.toBeNull();
+    const row = handle.db.select().from(reports).where(eq(reports.id, reportId!)).get()!;
+    return ReportSchema.parse(JSON.parse(row.reportJson!));
+  }
+
+  it.each(["fresh", "synthesize resume"] as const)(
+    "uses the runner's final generation cutoff after real verification on a %s run",
+    async (route) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(assembledAt);
+      const { jobId } = createJob("AAPL");
+      const bundle = timingBundle();
+      if (route === "synthesize resume") {
+        persistPassSettlement({
+          jobId, runGeneration: 0, attemptId: "timing-synthesize", pass: "synthesize",
+          settlement: testSuccessSettlement({ data: fakeJudgeOutput(), model: "claude-opus-4-8", costUsd: 0.4, fallbackUsed: false }),
+          payloadFingerprint: "timing-payload", settledAt: assembledAt,
+        });
+        handle.db.update(jobs).set({ status: "error", error: "interrupted before verify" }).where(eq(jobs.id, jobId)).run();
+      }
+      let provisional: Report | undefined;
+      const base = mockPasses();
+      const passes: PipelinePasses<ReturnType<typeof pipelinePasses.assembleContextPayload>> = {
+        ...base.passes,
+        verifyCapability: pipelinePasses.verifyCapability,
+        assembleContextPayload: pipelinePasses.assembleContextPayload,
+        fingerprintPayload: () => "timing-payload",
+        runVerifyPass: async (...args) => {
+          const verified = await pipelinePasses.runVerifyPass(...args);
+          provisional = structuredClone(verified.verifiedReport);
+          return verified;
+        },
+        assembleReport: pipelinePasses.assembleReport,
+      };
+      const result = await runJob(jobId, passes, {
+        bundle, hasAnthropicKey: true, now: finalClock, resume: route === "synthesize resume",
+      });
+
+      expect(result).toMatchObject({ status: "done", dataOnly: false });
+      expect(provisional?.meta.generatedAt).toBe(assembledAt);
+      expect(provisional?.meta.evidenceTiming?.reportGeneratedAt).toBe(assembledAt);
+      const persisted = readReport(result.reportId);
+      expect(persisted.meta.generatedAt).toBe(generatedAt);
+      expect(persisted.meta.evidenceTiming).toEqual({
+        ...provisional!.meta.evidenceTiming,
+        cutoffAt: generatedAt,
+        reportGeneratedAt: generatedAt,
+      });
+      expect(persisted.meta.evidenceTiming?.quote).toEqual({
+        observedAt: "2026-07-05T19:00:00.000Z", acquiredAt: "2026-07-05T20:00:00.000Z", stale: false,
+      });
+      expect(persisted.meta.evidenceTiming?.calculationAsOf).toBe(bundle.builtAt);
+      expect(persisted.meta.evidenceTiming?.calculatedAt).toBeNull();
+      if (route === "synthesize resume") {
+        expect(base.calls).not.toContain("runBullThenBear");
+        expect(base.calls).not.toContain("runJudgePass");
+      }
+      expect(providerBoundaryMocks.runPass).not.toHaveBeenCalled();
+      expect(providerBoundaryMocks.runPassStreaming).not.toHaveBeenCalled();
+      expect(providerBoundaryMocks.webSearchTool).not.toHaveBeenCalled();
+    },
+  );
+
+  it("retains the runner's generation cutoff on the real unverified assembly fallback", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(assembledAt);
+    const { jobId } = createJob("AAPL");
+    const bundle = timingBundle();
+    const base = mockPasses();
+    const result = await runJob(jobId, {
+      ...base.passes,
+      runVerifyPass: async () => { throw new Error("deterministic verify interrupted"); },
+      assembleReport: pipelinePasses.assembleReport,
+    }, { bundle, hasAnthropicKey: true, now: finalClock });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false, verificationRate: null });
+    const persisted = readReport(result.reportId);
+    expect(persisted.meta.generatedAt).toBe(generatedAt);
+    expect(persisted.meta.evidenceTiming).toMatchObject({
+      cutoffAt: generatedAt, reportGeneratedAt: generatedAt, calculationAsOf: bundle.builtAt,
+      quote: { observedAt: "2026-07-05T19:00:00.000Z", acquiredAt: "2026-07-05T20:00:00.000Z" },
+    });
+  });
+
+  it.each([false, true])("keeps final evidence timing consistent on data-only fallback (has key: %s)", async (hasKey) => {
+    const { jobId } = createJob("AAPL");
+    const bundle = timingBundle();
+    const base = mockPasses();
+    const result = await runJob(jobId, {
+      ...base.passes,
+      runBullThenBear: async () => { throw new Error("analyst unavailable"); },
+    }, { bundle, hasAnthropicKey: hasKey, now: finalClock });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: true });
+    const persisted = readReport(result.reportId);
+    expect(persisted.meta.generatedAt).toBe(generatedAt);
+    expect(persisted.meta.evidenceTiming).toMatchObject({
+      cutoffAt: generatedAt, reportGeneratedAt: generatedAt, calculationAsOf: bundle.builtAt,
+      quote: { observedAt: "2026-07-05T19:00:00.000Z", acquiredAt: "2026-07-05T20:00:00.000Z" },
+    });
+  });
+
+  it("leaves timing absent when an injected verifier supplies no timing evidence", async () => {
+    const { jobId } = createJob("AAPL");
+    const result = await runJob(jobId, mockPasses().passes, {
+      bundle: timingBundle(), hasAnthropicKey: true, now: finalClock,
+    });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    const persisted = readReport(result.reportId);
+    expect(persisted.meta.generatedAt).toBe(generatedAt);
+    expect(persisted.meta.evidenceTiming).toBeUndefined();
+  });
+
+  it("preserves the original generation cutoff when durable verify recovery links an existing report", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(assembledAt);
+    const { jobId } = createJob("AAPL");
+    const bundle = timingBundle();
+    const payload = pipelinePasses.assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: NOW() }));
+    const verified = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload, jobSeed: jobId }, fakeJudgeOutput());
+    persistPassSettlement({
+      jobId, runGeneration: 0, attemptId: "timing-verify", pass: "verify",
+      settlement: testSuccessSettlement({ data: verified.verifiedReport, model: "deterministic", costUsd: 0, fallbackUsed: false }, false),
+      payloadFingerprint: "timing-payload", settledAt: assembledAt,
+    });
+    handle.db.update(jobs).set({ status: "error", error: "interrupted before report link" }).where(eq(jobs.id, jobId)).run();
+    const options: RunJobOptions = { resume: true, now: finalClock };
+    Object.defineProperty(options, "bundle", { get: () => { throw new Error("durable verify recovery must not acquire inputs"); } });
+    const result = await runJob(jobId, pipelinePasses, options);
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    const persisted = readReport(result.reportId);
+    expect(persisted.meta.generatedAt).toBe(assembledAt);
+    expect(persisted.meta.evidenceTiming).toEqual(verified.verifiedReport.meta.evidenceTiming);
+    expect(persisted.meta.evidenceTiming?.cutoffAt).toBe(assembledAt);
+    expect(persisted.meta.evidenceTiming?.calculationAsOf).toBe(bundle.builtAt);
+    expect(providerBoundaryMocks.runPass).not.toHaveBeenCalled();
+    expect(providerBoundaryMocks.runPassStreaming).not.toHaveBeenCalled();
+    expect(providerBoundaryMocks.webSearchTool).not.toHaveBeenCalled();
   });
 });
