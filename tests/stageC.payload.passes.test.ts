@@ -743,14 +743,18 @@ describe("payload determinism + provenance", () => {
       // registry (65 -> 60). Prompt bytes grow by the "(USD, inherited)"
       // markers, the section notes, the new prompt line and the year-one
       // anchor text; financeHash moves with the anchored, convergent DCF.
-      fingerprint: "1.23.0:9286b6ab",
-      promptBytes: 124_473,
-      provenanceCount: 509,
-      provenanceHash: "fdce37db",
-      provenanceIdsHash: "49e12832",
+      // NVDA audit integration (D-57, D-58, D-59, WP3 combined): +15 records from
+      // the computed quarterly-trend section (509 -> 524); the D-59 current-capital
+      // labels set the figure-label hash; prompt bytes add the WP3 issuer-filing
+      // bullets; financeHash moves with the combined DCF and peer coverage.
+      fingerprint: "1.23.0:1ae68d76",
+      promptBytes: 127_409,
+      provenanceCount: 524,
+      provenanceHash: "fe8c84e7",
+      provenanceIdsHash: "145e22a3",
       citationCount: 60,
       citationHash: "0fa208f0",
-      computedFigureLabelHash: "6f26c6db",
+      computedFigureLabelHash: "0a7b6733",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -764,7 +768,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "0628a0b7",
+      financeHash: "a442e5d3",
     });
   });
 
