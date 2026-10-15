@@ -2618,19 +2618,20 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     insiderNotes: payload.insiders?.notes,
     leadershipFigures: payload.leadership?.figures,
   });
+  const personNames = collectPersonNames({
+    leadershipNotes: payload.leadership?.notes,
+    insiderNotes: payload.insiders?.notes,
+    executiveNames: [
+      ...reportExecutiveNames(verifiedReport),
+      ...personRows.filter((row) => row.tag !== "fmp:key-executives" && !row.anyOrder).map((row) => row.name),
+    ],
+  });
   const consistency = runConsistencyChecks({
     claims,
     registry,
     citationRegistry,
     fetchedUrls,
-    personNames: collectPersonNames({
-      leadershipNotes: payload.leadership?.notes,
-      insiderNotes: payload.insiders?.notes,
-      executiveNames: [
-        ...reportExecutiveNames(verifiedReport),
-        ...personRows.filter((row) => row.tag !== "fmp:key-executives" && !row.anyOrder).map((row) => row.name),
-      ],
-    }),
+    personNames,
     organizationNames: payloadOrganizationNames(payload),
     personRows,
   });
@@ -2865,6 +2866,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   let factualValidated = 0;
   let factualUnchecked = 0;
   let factualContradicted = 0;
+  let factualQualitative = 0;
   let judgmentsCited = 0;
   let judgmentsTotal = 0;
   for (const { claim, path } of claims) {
@@ -2881,8 +2883,16 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const registryRecord = sourceId === null
       ? undefined
       : registry.find((record) => record.id === sourceId);
+    // A person the claim names in full is attribution, not part of the metric
+    // ("Jen-Hsun Huang: operating cash flow for FY2026 was ..."). A partial
+    // name stays, so a lone surname that is also a metric word cannot vanish.
+    const claimWords = new Set(claim.text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+    const namedPeople = personNames.filter((name) => {
+      const parts = name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+      return parts.length > 1 && parts.every((part) => claimWords.has(part));
+    });
     const validation = supported && sourceId !== null
-      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: issuerWords, index: claimEvidenceIndex })
+      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
       validation.reason = "supported";
@@ -2901,6 +2911,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       if (validated) factualValidated += 1;
       else if (validationStatus === "contradicted") factualContradicted += 1;
       else factualUnchecked += 1;
+      if (supported && validationStatus === "cited") factualQualitative += 1;
     }
     // The check's own reason, not a blanket "unknown-source": a claim that
     // cited a registered row and was rejected for its content (a person the
@@ -2970,6 +2981,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       validated: factualValidated,
       unchecked: factualUnchecked,
       contradicted: factualContradicted,
+      qualitative: factualQualitative,
       total: factualTotal,
       rate: factualTotal === 0 ? null : factualValidated / factualTotal,
     },

@@ -3021,6 +3021,11 @@ export function multiplesFramework(
       notes.push(disclosure);
       gaps.push(gapEntry(`valuation.multiples.peers.${key}.comparability`, disclosure, "info"));
     }
+    // A median that rests on the screen alone says so beside itself.
+    for (const caveat of comparison.caveats) {
+      notes.push(caveat);
+      gaps.push(gapEntry(`valuation.multiples.peers.${key}.comparabilityCaveat`, caveat, "info"));
+    }
     return {
       key,
       current: cur,

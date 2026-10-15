@@ -727,6 +727,11 @@ describe("payload determinism + provenance", () => {
       // numeric registries, IDs, projection periods and figure labels stay pinned.
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
+      // D-59: current-capital bridge rows are labelled by their metric ("total
+      // debt including leases", not "debt Bridge total Debt Including Leases"),
+      // so their labels, registry ids and figure-label hash move (-132 prompt
+      // bytes); values, units and periods do not. financeHash moves with the
+      // peer-coverage methodology (comparability caveat, 10 candidates, 25s).
       // 1.23.0 (D-57, D-58): the fixture's USD listing matches its USD
       // statements, so its uncurrencied rows inherit USD: 4 estimate rows, 3
       // price targets, 2 peer caps and 1 compensation total become numeric
@@ -2130,7 +2135,7 @@ describe("verify-pass tracing", () => {
     expect(result.coverage).toEqual({
       numeric: { supported: 0, total: 0, rate: null },
       factualClaims: { supported: 0, total: 0, rate: null },
-      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, total: 0, rate: null },
+      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, qualitative: 0, total: 0, rate: null },
       judgments: { cited: 0, total: 0, rate: null },
     });
   });

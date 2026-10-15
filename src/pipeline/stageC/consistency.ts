@@ -689,6 +689,8 @@ export function isDeltaRecord(record: NumericProvenanceRecord): boolean {
 // so they failed every record. "Q3 FY25" keeps its check through the FY pattern
 // on the next line.
 const PERIOD_PATTERNS: readonly RegExp[] = [
+  // An ISO date is one phrase, so its year is not read again on its own.
+  /\b(?:19|20)\d{2}-\d{2}-\d{2}\b/g,
   /\bQ[1-4]\s*(?:of\s+)?(?:FY\s?)?['’]?(?:19|20)\d{2}\b/gi,
   /\bFY\s?['’]?(?:19|20)?\d{2}\b/gi,
   /\b(?:first|second|third|fourth)\s+quarter\s+(?:of\s+)?(?:FY\s?)?(?:19|20)\d{2}\b/gi,
@@ -699,12 +701,20 @@ const PERIOD_PATTERNS: readonly RegExp[] = [
  * Whether a prose period phrase names the year(s) of a record's period. Year
  * sets only: "FY2025", "Q3 2025" and "2025" all agree with 2025-12-31, and
  * "FY2024" does not. A two-digit year counts only behind an FY prefix.
+ *
+ * An exact date against a registered window ("ttm: 2025-07-27 to 2026-07-26")
+ * agrees when it falls inside the window or on an endpoint: "the trailing
+ * period ended 2026-07-26" names that window's end, not a different year set
+ * (NVDA report 34 flagged it "contradicted").
  */
 export function phraseNamesRecordYear(phrase: string, registered: string | null): boolean {
   if (registered === null) return true;
   const a = phrase.trim().toLowerCase();
   const b = registered.trim().toLowerCase();
   if (a === b || a.includes(b)) return true;
+  const date = /^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(a) ? a : null;
+  const window = /((?:19|20)\d{2}-\d{2}-\d{2})\s+to\s+((?:19|20)\d{2}-\d{2}-\d{2})/.exec(b);
+  if (date !== null && window !== null) return window[1] <= date && date <= window[2];
   const yearsOf = (text: string): Set<string> => {
     const years = new Set<string>();
     // Digit boundaries, not word boundaries: "fy2025" has no word boundary
@@ -739,13 +749,15 @@ export function findPeriodPhrases(
     ...numbers.filter((n) => n.hadCurrencyPrefix || n.scaleWord !== null || n.unitToken !== null),
     ...located,
   ].map((n) => [n.start, n.end] as const);
+  const dateSpans: (readonly [number, number])[] = [];
   for (const pattern of PERIOD_PATTERNS) {
     pattern.lastIndex = 0;
     for (const match of sentence.matchAll(pattern)) {
       const index = match.index ?? 0;
       const insideValue = valueSpans.some(([start, end]) => index >= start && index < end);
-      if (insideValue) continue;
+      if (insideValue || dateSpans.some(([start, end]) => index >= start && index < end)) continue;
       const phrase = match[0].trim();
+      if (pattern === PERIOD_PATTERNS[0]) dateSpans.push([index, index + match[0].length]);
       const key = phrase.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);

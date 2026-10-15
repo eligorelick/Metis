@@ -429,10 +429,12 @@ export const ProvenanceCoverageSchema = z
       validated: z.number().int().nonnegative(),
       unchecked: z.number().int().nonnegative(),
       contradicted: z.number().int().nonnegative(),
+      /** Cited claims that state no figure: part of `unchecked`, with nothing to check. Absent on older reports. */
+      qualitative: z.number().int().nonnegative().optional(),
       total: z.number().int().nonnegative(),
       rate: z.number().min(0).max(1).nullable(),
     }).strict().superRefine((v, ctx) => {
-      if (v.validated + v.unchecked + v.contradicted !== v.total || v.cited > v.total || v.validated > v.cited) {
+      if (v.validated + v.unchecked + v.contradicted !== v.total || v.cited > v.total || v.validated > v.cited || (v.qualitative ?? 0) > v.unchecked) {
         ctx.addIssue({ code: "custom", message: "Factual validation counts must partition total and validated must be cited" });
       }
       const expected = v.total === 0 ? null : v.validated / v.total;

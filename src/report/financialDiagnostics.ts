@@ -2,7 +2,14 @@ import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
 import type { Leadership, Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "@/report/schema";
 
-/** Individual grades require an attributable validated factual track record. */
+/**
+ * Individual grades require an attributable validated factual track record: a
+ * FACT naming the executive, in that executive's own evidence, whose figures
+ * the verify pass matched to the cited typed record or filing span with no
+ * failing check. The verify pass never marks prose `verified` (a numeric match
+ * does not adjudicate the whole sentence), so requiring that outcome made the
+ * gate unreachable (NVDA report 34: every executive "not-assessed").
+ */
 export function assessExecutiveEvidence(leadership: Leadership, log: readonly VerificationLogEntry[], pendingVerification = false): Leadership {
   return {...leadership, executives:leadership.executives.map((executive, index)=>{
     const admissible = (claim:SourcedClaim, field:string, claimIndex:number):boolean => {
@@ -13,7 +20,7 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
       if (/\b(?:no|lacks?|absent|unavailable)\b.{0,40}\b(?:evidence|record)\b|\b(?:evidence|record)\b.{0,40}\b(?:absent|unavailable|not available|not disclosed)\b/i.test(claim.text)) return false;
       if (pendingVerification) return true;
       const path = `leadership.executives[${index}].evidence.${field}[${claimIndex}]`;
-      return log.some(entry=>entry.path===path && entry.claim===claim.text && entry.outcome==="verified" && entry.validationStatus==="validated" && !entry.check) &&
+      return log.some(entry=>entry.path===path && entry.claim===claim.text && entry.validationStatus==="validated" && !entry.check) &&
         !log.some(entry=>entry.path===path && entry.check && entry.outcome==="unverified");
     };
     const credibility = (executive.evidence.guidanceVsActuals ?? []).some((claim,i)=>admissible(claim,"guidanceVsActuals",i));

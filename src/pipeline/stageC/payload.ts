@@ -745,7 +745,11 @@ function computedSections(
     const add = (key: string, value: number | null, unit: string): void => {
       const period = key.startsWith("debtBridge.") ? currentCapital.asOf
         : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
-      figures.push({ label: key.replace(/\./g, " ").replace(/([a-z])([A-Z])/g, "$1 $2"), value, unit, currency: unit === "currency" ? currentCapital.currency : null,
+      // The bridge group is structure, not the metric: "total debt including
+      // leases", never "debt Bridge total Debt Including Leases", which no
+      // prose naming the metric could match (NVDA report 34).
+      const label = key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period });
     };
     for (const key of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc"] as const) add(key, currentCapital[key], "x");
