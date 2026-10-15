@@ -6,7 +6,7 @@ describe("one numeric model for plot and accessible data", () => {
   it("normalizes date/time aliases, excludes nonfinite OHLC, and never mutates the supplied bars", () => {
     const rows = [
       { time: "2026-01-03T14:30:00Z", open: 2, high: 4, low: 1, close: 3, volume: Number.NaN },
-      { date: "2026-01-02", open: 1, high: 3, low: 0, close: 2, volume: 10 },
+      { date: "2026-01-02", open: 1, high: 3, low: 0.5, close: 2, volume: 10 },
       { date: "2026-01-04", open: Number.NaN, high: 4, low: 1, close: 3, volume: 20 },
       { open: 1, high: 3, low: 0, close: 2, volume: 10 },
     ];
@@ -20,7 +20,7 @@ describe("one numeric model for plot and accessible data", () => {
   it("retains exact OHLC and valid zero volume; omits invalid volume without losing candles", () => {
     const model = preparePricePlotData([
       { date: "2026-01-03", open: 12.123456789, high: 14, low: 10, close: 13, volume: null },
-      { date: "2026-01-02", open: 10, high: 12, low: 9, close: 11, volume: 0 },
+      { date: "2026-01-02", open: 10, high: 13, low: 9, close: 12, volume: 0 },
       { date: "2026-01-02", open: 10, high: 13, low: 9, close: 12, volume: 0 },
       { date: "bad-date", open: 999, high: 999, low: 999, close: 999, volume: 999 },
       { date: "2026-01-04", open: 13, high: 15, low: 12, close: 14, volume: -1 },
@@ -40,7 +40,7 @@ describe("one numeric model for plot and accessible data", () => {
   });
   it("shows enabled SMA values from the exact submitted series and unavailable warm-up cells", () => {
     const rows = Array.from({ length: 205 }, (_, i) => ({ date: new Date(Date.UTC(2025, 0, i + 1)).toISOString().slice(0, 10),
-      open: i + 1, high: i + 2, low: i, close: i + 1, volume: i }));
+      open: i + 1, high: i + 2, low: Math.max(0.5, i), close: i + 1, volume: i }));
     const model = preparePricePlotData(rows, { showSma50: true, showSma200: true });
     expect(model.rows[48]!.sma50).toBeNull();
     expect(model.rows[49]!.sma50).toBe(25.5);
@@ -87,7 +87,7 @@ describe("one numeric model for plot and accessible data", () => {
   });
   it("retains chart sorting/deduplication and actual index arithmetic without mutating source rows", () => {
     const rows = [{ date: "2026-01-03", close: 12 }, { date: "bad", close: 999 },
-      { date: "2026-01-01T00:00:00Z", close: 8 }, { date: "2026-01-01", close: 9 }];
+      { date: "2026-01-01T00:00:00Z", close: 9 }, { date: "2026-01-01", close: 9 }];
     const before = structuredClone(rows);
     const model = prepareRelativeStrengthPlotData([{ label: "duplicate", rows }]);
     expect(model.series[0]!.data).toEqual([{ time: "2026-01-01", value: 100 }, { time: "2026-01-03", value: 12 / 9 * 100 }]);

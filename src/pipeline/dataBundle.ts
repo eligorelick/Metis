@@ -1142,7 +1142,8 @@ async function buildEdgarBundle(
   const pFacts = settle(`edgar.companyFacts(${symbol})`, edgar.companyFacts(cik));
   const sub = await pSub;
   const pCompanyEvents = sub.ok
-    ? discoverFiledEarningsAnnouncement(edgar, String(cik), sub.value.data.recentFilings, symbol, nowIso.slice(0, 10), nowIso)
+    ? discoverFiledEarningsAnnouncement(edgar, String(cik), sub.value.data.recentFilings, symbol, nowIso.slice(0, 10), nowIso,
+      {cik:String(cik),canonicalName:sub.value.data.name,verifiedWebsite:""})
     : Promise.resolve([]);
 
   let latestTenK: FetchResult<EdgarFiling>;
@@ -2027,6 +2028,8 @@ export async function buildDataBundle(
       statements.incomeAnnual,
       statements.balanceAnnual,
       edgarConfirmedIssuer && edgarBundle.companyFacts.ok ? edgarBundle.companyFacts.value.data : null,
+      today,
+      edgarBundle.companyFacts.ok ? edgarBundle.companyFacts.value.fetchedAt : undefined,
     );
     statements = { ...statements, incomeAnnual: commonEarnings.income };
     keylessGaps.push(...commonEarnings.gaps);
@@ -2044,12 +2047,14 @@ export async function buildDataBundle(
     keylessGaps.push(...annual.gaps, ...quarterly.gaps);
   }
   const website = profile.ok && typeof profile.value.data.rows[0]?.website === "string" ? profile.value.data.rows[0].website : null;
+  const announcementIssuer = edgarConfirmedIssuer && edgarBundle.registrant?.name
+    ? {cik:edgarBundle.registrant.cik10,canonicalName:edgarBundle.registrant.name,verifiedWebsite:website??""} : undefined;
   earningsCalendarNext = preferCompanyEarnings(earningsCalendarNext, [
     ...(edgarBundle.earningsAnnouncements ?? []).map((value) => ({ ok: true as const, value })),
-    ...pressReleaseEarningsAnnouncements(pressReleases, website, sym, today),
+    ...pressReleaseEarningsAnnouncements(pressReleases, website, sym, today, announcementIssuer),
   ], today);
   if (!reserved && edgarConfirmedIssuer && website && opts.companyIr !== false && (opts.fmp === undefined || opts.companyIr !== undefined) && (!earningsCalendarNext.ok || earningsCalendarNext.value.data.confirmation !== "company_confirmed")) {
-    const ir = await discoverCompanyIrEarnings(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal });
+    const ir = await discoverCompanyIrEarnings(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal, issuer: announcementIssuer });
     earningsCalendarNext = preferCompanyEarnings(earningsCalendarNext, ir.announcements, today);
     keylessGaps.push(...ir.gaps);
   }

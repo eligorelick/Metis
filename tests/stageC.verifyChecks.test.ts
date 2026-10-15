@@ -985,6 +985,22 @@ describe("a gap or unestablished citation supports no number (D-43)", () => {
  * ------------------------------------------------------------------------ */
 
 describe("person-row claims are read however the name and title are written (review)", () => {
+  it("does not invent a person from a cited executive title's contiguous role and business scope", () => {
+    const source = "fmp:executive-compensation";
+    const asOf = "2025-10-21";
+    const personRows = [{ tag: source, asOf, name: "Judson B. Althoff", title: "Executive Vice President and CEO Microsoft Commercial", anyOrder: false }];
+    const check = (text: string, date = asOf) => run(refs(claim(text, source, { asOf: date })), [], {
+      citationRegistry: [compCitation(asOf)], personNames: ["Judson B. Althoff"], organizationNames: ["Microsoft Corporation"], personRows,
+    });
+    expect(check("Judson B. Althoff is Executive Vice President and CEO Microsoft Commercial.").findings).toEqual([]);
+    for (const text of [
+      "CEO Jane Roe leads the business.",
+      "Judson B. Althoff is CFO.",
+      "CEO Microsoft Commercials leads the business.",
+      "CFO Microsoft Commercial leads the business.",
+    ]) expect(check(text).findings.length, text).toBeGreaterThan(0);
+    expect(check("Judson B. Althoff is Executive Vice President and CEO Microsoft Commercial.", "2026-10-21").findings.length).toBeGreaterThan(0);
+  });
   const personRows = collectPersonRows({ leadershipFigures: compFigures(JPM_COMP, "2026-04-06") });
   const check = (text: string, names: string[] = personRows.map((row) => row.name)) => run(
     refs(claim(text, "fmp:executive-compensation", { asOf: "2026-04-06" })),

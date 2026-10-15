@@ -44,7 +44,7 @@
  * no environment. The companyfacts JSON comes from src/providers/edgar.ts.
  */
 
-import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
@@ -97,6 +97,8 @@ export interface StatementBuildOptions {
   quarterlyPeriods: number;
   /** ISO analysis date. */
   asOf: string;
+  /** Actual acquisition timestamp when supplied by the provider adapter. */
+  factsObservedAt?: string;
   /**
    * The price vendor's split events (src/providers/splitEvents.ts). Required:
    * a caller that has none passes an `unavailable` answer, and then no share
@@ -286,6 +288,19 @@ export interface BuiltStatements {
   basisDay: string;
   /** Share and per-share facts left out because their basis on `basisDay` could not be established. */
   shareBasisWithheld: ShareBasisWithheld[];
+  /** Raw observations excluded before period deduplication; no currency conversion is inferred. */
+  factExclusions: StatementFactExclusion[];
+}
+
+export interface StatementFactExclusion {
+  concept: string;
+  unit: string;
+  start?: string;
+  end: string;
+  filed: string;
+  accn: string;
+  value: number;
+  reason: "future_filing" | "future_period" | "invalid_date";
 }
 
 // ---------------------------------------------------------------------------
@@ -1031,7 +1046,7 @@ function toShareBasis(points: FactPoint[], concept: string, unit: string, ctx: S
  * per (tag, unit). Unit entries are ordered USD-first then alphabetically so a
  * filer reporting in two currencies resolves deterministically.
  */
-function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext): FactIndex {
+function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext, asOf: string, exclusions: StatementFactExclusion[]): FactIndex {
   const index: FactIndex = new Map();
   const namespaces: [string, string, ReadonlySet<string>][] = [
     ["us-gaap", "", NEEDED_US_GAAP_TAGS],
@@ -1047,7 +1062,18 @@ function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext): FactIndex 
       const entries: UnitPoints[] = [];
       for (const [unit, rawPoints] of Object.entries(parsed.data.units)) {
         if (!Array.isArray(rawPoints)) continue;
-        const core = filterToCoreForms(toShareBasis(parseFactPoints(rawPoints), prefix + tag, unit, ctx));
+        const cutoff = asOf.slice(0, 10);
+        const validDay = (day: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(dateMs(day)) && new Date(dateMs(day)).toISOString().slice(0, 10) === day;
+        // Availability precedes split adjustment and dedup: a future comparative
+        // must not replace the observation that was actually public at analysis.
+        const available = filterToCoreForms(parseFactPoints(rawPoints)).filter((p) => {
+          const reason = !validDay(cutoff) || !validDay(p.filed) || !validDay(p.end) || (p.start !== undefined && !validDay(p.start))
+            ? "invalid_date" : p.filed > cutoff ? "future_filing" : p.end > cutoff ? "future_period" : null;
+          if (reason === null) return true;
+          exclusions.push({ concept: `${namespace}:${tag}`, unit, ...(p.start === undefined ? {} : { start: p.start }), end: p.end, filed: p.filed, accn: p.accn, value: p.val, reason });
+          return false;
+        });
+        const core = toShareBasis(available, prefix + tag, unit, ctx);
         const points = dedupByPeriod(core);
         if (points.length > 0) entries.push({ unit, points, reporters: buildReporters(core), all: core });
       }
@@ -1059,10 +1085,10 @@ function buildFactIndex(facts: CompanyFacts, ctx: ShareBasisContext): FactIndex 
   return index;
 }
 
-function pickUnitPoints(index: FactIndex, tag: string, kind: UnitKind): UnitPoints | null {
+function pickUnitPoints(index: FactIndex, tag: string, kind: UnitKind, currency?: string): UnitPoints | null {
   const entries = index.get(tag);
   if (entries === undefined) return null;
-  return entries.find((e) => unitMatches(e.unit, kind)) ?? null;
+  return entries.find((e) => unitMatches(e.unit, kind) && (currency === undefined || kind === "shares" || e.unit === (kind === "perShare" ? `${currency}/shares` : currency))) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1160,6 +1186,9 @@ interface Resolved {
    * would be an invention.
    */
   original?: OriginalValue;
+  evidencePoints?: FactPoint[];
+  /** Actual resolved flow start, rather than a YTD/FY minuend's start. */
+  periodStart?: string;
 }
 
 function filingRef(p: FactPoint): FilingRef {
@@ -1173,14 +1202,14 @@ function filingRef(p: FactPoint): FilingRef {
  */
 function resolvedPoint(tag: string, up: UnitPoints, point: FactPoint, value: number): Resolved {
   const reporter = reporterFor(up, point);
-  const out: Resolved = { value, point, reporter, unit: up.unit, tags: [tag] };
+  const out: Resolved = { value, point, reporter, unit: up.unit, tags: [tag], evidencePoints: [point] };
   if (reporter.accn !== point.accn && reporter.val !== point.val && value === point.val) {
     out.original = { value: reporter.val, ...filingRef(reporter) };
   }
   return out;
 }
 
-type TagResolver = (tag: string, kind: UnitKind) => Resolved | null;
+type TagResolver = (tag: string, kind: UnitKind, currency?: string) => Resolved | null;
 
 interface NoteSink {
   readonly notes: string[];
@@ -1242,7 +1271,8 @@ function combine(value: number, parts: Resolved[]): Resolved {
   const derivedFrom = [...new Set(parts.flatMap((p) => p.derivedFrom ?? []))];
   const reporter = parts.reduce((a, b) => (b.reporter.filed < a.reporter.filed ? b : a), head).reporter;
   const tags = [...new Set(parts.flatMap((p) => p.tags))];
-  const out: Resolved = { value, point: head.point, reporter, unit: head.unit, tags };
+  const out: Resolved = { value, point: head.point, reporter, unit: head.unit, tags,
+    evidencePoints: parts.flatMap((p) => p.evidencePoints ?? [p.point]), ...(head.periodStart === undefined ? {} : { periodStart: head.periodStart }) };
   if (derived !== undefined) out.derivation = derived.derivation;
   if (derivedFrom.length > 0) out.derivedFrom = derivedFrom;
   return out;
@@ -1578,8 +1608,8 @@ function buildQuarterContexts(index: FactIndex, quarterEnds: string[], fiscalYea
 // ---------------------------------------------------------------------------
 
 function annualResolver(index: FactIndex, fy: FiscalYear): TagResolver {
-  return (tag, kind) => {
-    const up = pickUnitPoints(index, tag, kind);
+  return (tag, kind, currency) => {
+    const up = pickUnitPoints(index, tag, kind, currency);
     if (up === null) return null;
     const p = findDurationForAnnual(up.points, fy.start, fy.end);
     return p === null ? null : resolvedPoint(tag, up, p, p.val);
@@ -1587,8 +1617,8 @@ function annualResolver(index: FactIndex, fy: FiscalYear): TagResolver {
 }
 
 function instantResolver(index: FactIndex, end: string): TagResolver {
-  return (tag, kind) => {
-    const up = pickUnitPoints(index, tag, kind);
+  return (tag, kind, currency) => {
+    const up = pickUnitPoints(index, tag, kind, currency);
     if (up === null) return null;
     const p = findInstant(up.points, end);
     return p === null ? null : resolvedPoint(tag, up, p, p.val);
@@ -1643,8 +1673,8 @@ function quarterResolver(
   ytdOnly: boolean,
   notes: NoteSink,
 ): TagResolver {
-  return (tag, kind) => {
-    const up = pickUnitPoints(index, tag, kind);
+  return (tag, kind, currency) => {
+    const up = pickUnitPoints(index, tag, kind, currency);
     if (up === null) return null;
     const pts = up.points;
     const decimals = decimalsFor(kind);
@@ -1678,6 +1708,8 @@ function quarterResolver(
             ...resolvedPoint(tag, up, fy, tidy(fy.val - ytdPrev.val, decimals)),
             derivation: "fy-minus-ytd",
             derivedFrom: [describePoint(tag, fy), describePoint(tag, ytdPrev)],
+            evidencePoints: [fy, ytdPrev],
+            periodStart: new Date(dateMs(ytdPrev.end) + DAY_MS).toISOString().slice(0, 10),
           };
         }
         // A year-to-date fact exists but only in a filing made AFTER the annual
@@ -1697,6 +1729,8 @@ function quarterResolver(
         ...resolvedPoint(tag, up, fy, tidy(fy.val - sum, decimals)),
         derivation: "fy-minus-quarters",
         derivedFrom: [describePoint(tag, fy), ...quarters.map((p) => describePoint(tag, p))],
+        evidencePoints: [fy, ...quarters],
+        periodStart: new Date(dateMs(quarters[0]!.end) + DAY_MS).toISOString().slice(0, 10),
       };
     }
 
@@ -1714,6 +1748,8 @@ function quarterResolver(
       ...resolvedPoint(tag, up, ytd, tidy(ytd.val - prior.val, decimals)),
       derivation: "ytd-difference",
       derivedFrom: [describePoint(tag, ytd), describePoint(tag, prior)],
+      evidencePoints: [ytd, prior],
+      periodStart: new Date(dateMs(prior.end) + DAY_MS).toISOString().slice(0, 10),
     };
   };
 }
@@ -2057,8 +2093,37 @@ function buildStatementRows<TRow>(
     const ctxLabel = slot.date;
     const values: FieldValues = {};
     const resolutions = new Map<string, Resolved>();
+    const rowAnchor = def.anchors.flatMap((field) => {
+      const spec = def.chains[field];
+      const r = spec === undefined ? null : resolveSpec(spec, slot.resolve, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
+      return r === null ? [] : [r];
+    })[0];
+    let resolvingField = "";
+    const sameRowEvidence: TagResolver = (tag, kind) => {
+      if (rowAnchor === undefined) return slot.resolve(tag, kind);
+      const r = slot.resolve(tag, kind, kind === "shares" ? undefined : rowAnchor.unit);
+      if (r === null) {
+        const raw = slot.resolve(tag, kind);
+        if (raw !== null) {
+          const text = `mixed_unit: ${tag} uses ${raw.unit}, conflicting with row reporting currency ${rowAnchor.unit}; field/component withheld without a currency conversion`;
+          notes.add(`${resolvingField} ${ctxLabel}: ${text}`);
+          notes.withhold(resolvingField, slot.date, text);
+        }
+        return null;
+      }
+      const start = r.periodStart ?? r.point.start;
+      const anchorStart = rowAnchor.periodStart ?? rowAnchor.point.start;
+      if (r.point.end !== rowAnchor.point.end || start !== anchorStart) {
+        const text = `period_mismatch: ${tag} covers ${start ?? "instant"}..${r.point.end}, conflicting with row anchor ${anchorStart ?? "instant"}..${rowAnchor.point.end}; field/component withheld`;
+        notes.add(`${resolvingField} ${ctxLabel}: ${text}`);
+        notes.withhold(resolvingField, slot.date, text);
+        return null;
+      }
+      return r;
+    };
     for (const [field, spec] of Object.entries(def.chains)) {
-      const r = resolveSpec(spec, slot.resolve, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
+      resolvingField = field;
+      const r = resolveSpec(spec, sameRowEvidence, notes, `${field} ${ctxLabel}`, { field, period: slot.date });
       values[field] = r === null ? null : tidy(r.value, decimalsFor(spec.unit));
       if (r !== null) resolutions.set(field, r);
     }
@@ -2105,7 +2170,7 @@ function buildStatementRows<TRow>(
     def.compute(values, notes, ctxLabel, {
       resolved: resolutions,
       money: (tag) => {
-        const r = slot.resolve(tag, "money");
+        const r = sameRowEvidence(tag, "money");
         return r === null ? null : tidy(r.value, MONEY_DECIMALS);
       },
     });
@@ -2130,6 +2195,18 @@ function buildStatementRows<TRow>(
       acceptedDate: anchor.reporter.filed,
     };
     for (const field of fieldNames) row[field] = values[field] ?? null;
+    const fieldProvenance: Record<string, StatementFieldProvenance> = {};
+    if (opts.factsObservedAt === undefined) notes.add(`${def.statement} ${ctxLabel}: SEC field acquisition timestamp unavailable; filing dates establish the analytical cutoff, while observedAt remains unknown`);
+    for (const [field, resolved] of resolutions) {
+      const filings = [...new Map((resolved.evidencePoints ?? [resolved.point]).map((p) => [`${p.accn}|${p.filed}`, filingRef(p)])).values()];
+      fieldProvenance[field] = { source: "edgar", unit: resolved.unit, periodStart: resolved.periodStart ?? resolved.point.start ?? null,
+        periodEnd: resolved.point.end, observedAt: opts.factsObservedAt ?? "", tags: resolved.tags.map((tag) => `us-gaap/${tag}`), filings,
+        ...(resolved.derivation === "ytd-difference" ? { derivation: resolved.derivation } : {}) };
+    }
+    for (const [alias, source] of Object.entries(def.aliases)) {
+      if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
+    }
+    row.fieldProvenance = fieldProvenance;
 
     // The superseded figure of every field a later filing changed, kept beside
     // the value the row carries; a MATERIAL line that moved by more than
@@ -2430,7 +2507,8 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
   const shareBasisWithheld: ShareBasisWithheld[] = [];
-  const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld });
+  const factExclusions: StatementFactExclusion[] = [];
+  const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
   const state: BuildState = { filesTwentyF: false };
 
   const allFiscalYears = discoverFiscalYears(index);
@@ -2454,7 +2532,8 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const balanceQuarterSlots = (): PeriodSlot[] =>
     quarterSlotContexts.map((ctx) => ({ date: ctx.end, resolve: instantResolver(index, ctx.end), quarter: ctx }));
 
-  const bankTagging = looksLikeBankTagging(facts);
+  const bankTagging = looksLikeBankTagging({ ...facts, facts: { ...facts.facts,
+    "us-gaap": Object.fromEntries(Object.entries(facts.facts["us-gaap"] ?? {}).filter(([tag]) => index.has(tag))) } });
   const bankRevenue = opts.bankRevenue ?? bankTagging;
   const incomeDef = INCOME_DEF(bankRevenue);
   const bankNote = bankTagging
@@ -2596,6 +2675,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     splits,
     basisDay,
     shareBasisWithheld,
+    factExclusions,
   };
 }
 

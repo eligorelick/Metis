@@ -61,7 +61,7 @@ import type {
   Valuation,
   Verdict,
 } from "@/report/schema";
-import { citationOutcomeLabel } from "@/report/schema";
+import { verificationEntryOutcomeLabel } from "@/report/schema";
 import {
   formatCostUsd,
   establishedCurrency,
@@ -2144,7 +2144,7 @@ export function AppendixSection({
               rows={log.map((entry, logIndex) => ({
                 key: `verification-log:${logIndex}`,
                 cells: VERIFICATION_LOG_FIELDS.map((field) => field.key === "outcome"
-                  ? citationOutcomeLabel(entry.outcome)
+                  ? verificationEntryOutcomeLabel(entry)
                   : auditValue(entry[field.key])),
               }))}
             />

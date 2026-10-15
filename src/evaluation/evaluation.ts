@@ -1,4 +1,6 @@
 import { evaluationDatasetSchema, evaluationSampleSchema, type EvaluationDataset, type EvaluationSample } from "./evaluationContract";
+import { artifactIsBound, matchObservation } from "./targetDefinition";
+import { diagnosticBreadth } from "./pairedDiagnostics";
 
 const DAY = 86_400_000;
 const ms = (value: string) => Date.parse(value);
@@ -19,23 +21,49 @@ function issues(s: EvaluationSample, d: EvaluationDataset): string[] {
   if (ms(s.period.start) >= ms(s.period.end)) reasons.push("invalid forecast period");
   if (s.prediction.baseline && ms(s.prediction.baseline.availableAt) > at) reasons.push("baseline unavailable at analysis date");
   if (Object.values(s.ablations).some((a) => ms(a.availableAt) > at)) reasons.push("ablation forecast unavailable at analysis date");
+  if (s.normalization && ms(s.normalization.availableAt) > at) reasons.push("normalization_unavailable_at_analysis");
   if (s.prediction.interval && s.prediction.interval.low > s.prediction.interval.high) reasons.push("inverted prediction interval");
   if (s.writing && ms(s.writing.adjudicatedAt) > evaluated) reasons.push("factual adjudication unavailable at evaluation cutoff");
   if (s.event) {
     if (s.event.outcome !== null && (!s.event.resolvedAt || ms(s.event.resolvedAt) <= at || ms(s.event.resolvedAt) > evaluated)) reasons.push("event label lacks a prospective observed resolution at evaluation cutoff");
     if (s.event.outcome === null && s.event.resolvedAt !== null) reasons.push("event has a resolution timestamp but no observed binary label");
   }
+  if (d.version === "research-evaluation-v2" && !s.target) reasons.push("target_dimensions_required");
+  if (s.target) {
+    const target = s.target;
+    if (target.issuerId !== s.issuerId || target.metric !== s.metric || target.periodStart.slice(0, 10) !== s.period.start.slice(0, 10) || target.periodEnd.slice(0, 10) !== s.period.end.slice(0, 10) || ms(target.createdAt) !== at || target.currency !== s.basis.currency || target.unit !== s.basis.unit || target.shareBasis !== s.basis.shareBasis) reasons.push("target_sample_mismatch");
+    if (s.basis.accountingBasis && target.accountingBasis !== s.basis.accountingBasis) reasons.push("accounting_basis_mismatch");
+    if (s.basis.corporateActionBasis && target.corporateActionBasis !== s.basis.corporateActionBasis) reasons.push("corporate_action_basis_mismatch");
+    if (!artifactIsBound(target.methodArtifactHash, "method", d.retainedArtifacts)) reasons.push("method_unbound");
+    if (!artifactIsBound(s.snapshotHash, "input", d.retainedArtifacts)) reasons.push("input_unbound");
+  }
   const o = s.outcome;
   if (!o) return reasons;
+  if (s.target) {
+    if (!o.observation) reasons.push("observation_dimensions_required");
+    else {
+      reasons.push(...matchObservation(s.target, o.observation, { evaluatedAt: d.evaluatedAt, retainedArtifacts: d.retainedArtifacts }).reasons);
+      const actual = o.source === "sec_filing" ? o.value : tidy(o.security.totalReturn - o.benchmark.totalReturn);
+      if (Math.abs(o.observation.value - actual) > 1e-12 * Math.max(1, Math.abs(actual))) reasons.push("observation_value_mismatch");
+      if (ms(o.observation.availableAt) !== ms(o.publishedAt)) reasons.push("observation_availability_mismatch");
+      if (o.source === "sec_filing" && o.observation.accession !== o.accession) reasons.push("accession_mismatch");
+    }
+  }
   if (ms(o.publishedAt) <= at) reasons.push("outcome already published at analysis; not a prospective forecast");
   if (ms(o.observedAt) < ms(o.publishedAt) || ms(o.observedAt) > evaluated || ms(o.publishedAt) > evaluated) reasons.push("outcome observation unavailable or predates publication");
   if (s.kind === "filing" && o.source === "sec_filing") {
+    if (o.issuerId && o.issuerId !== s.issuerId) reasons.push("issuer_mismatch");
+    if (o.metric && o.metric !== s.metric) reasons.push("metric_mismatch");
     if (o.version !== "initial") reasons.push("future restatement/amended outcome not admitted: first reported SEC outcome required");
     if (!samePeriod(s.period, o.period)) reasons.push("fiscal-period conflict between forecast and SEC outcome");
     if (ms(o.period.end) > ms(o.publishedAt)) reasons.push("SEC outcome filed before fiscal period ended");
     if (s.basis.currency !== o.basis.currency || s.basis.unit !== o.basis.unit || s.basis.shareBasis !== o.basis.shareBasis) reasons.push("currency/unit/share-basis conflict");
+    if (s.basis.accountingBasis !== o.basis.accountingBasis) reasons.push("accounting_basis_mismatch");
+    if (s.basis.corporateActionBasis !== o.basis.corporateActionBasis) reasons.push("corporate_action_basis_mismatch");
     if (o.basis.adjustmentsKnownAt.some((date) => ms(date) > at)) reasons.push("future outcome basis adjustment incompatible with frozen forecast basis");
   } else if (s.kind === "total_return" && o.source === "frozen_total_returns") {
+    if (o.security.id && o.security.id === o.benchmark.id) reasons.push("same_security_benchmark");
+    if (s.target && (!s.target.benchmarkId || o.security.id !== s.target.securityId || o.benchmark.id !== s.target.benchmarkId)) reasons.push("security_benchmark_mismatch");
     if (s.basis.unit !== "fraction_total_return") reasons.push("stock forecasts require fractional excess total return units");
     if (s.period.start.slice(0, 10) !== s.analysisAt.slice(0, 10)) reasons.push("stock horizon must start at forecast session");
     if (!samePeriod(s.period, o.security.period) || !samePeriod(s.period, o.benchmark.period)) reasons.push("security/benchmark horizon mismatch");
@@ -55,26 +83,19 @@ function observed(s: EvaluationSample): Observed | null {
 function errorStats(errors: number[]) {
   return { n: errors.length, mae: mean(errors.map(Math.abs)), rmse: errors.length ? Math.sqrt(mean(errors.map((e) => e * e))!) : null, bias: mean(errors) };
 }
-/** Fixed-seed issuer-cluster bootstrap preserves dependence across repeated issuer windows. */
+/** No default bootstrap can establish skill without independent dates and a locked design. */
 function uncertainty(rows: Observed[]) {
-  const issuers = [...new Set(rows.map((r) => r.sample.issuerId))].sort();
-  if (issuers.length < 5) return { available: false as const, issuerClusters: issuers.length, reason: "At least five independent issuer clusters required for bootstrap diagnostics" };
-  let seed = 0x71a51;
-  const random = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
-  const clusters = issuers.map((id) => rows.filter((r) => r.sample.issuerId === id));
-  const draws: { mae: number; bias: number; improvement: number | null }[] = [];
-  for (let rep = 0; rep < 1000; rep++) {
-    const draw = issuers.flatMap(() => clusters[Math.floor(random() * clusters.length)]!);
-    const paired = draw.filter((r) => r.baseline);
-    draws.push({ mae: mean(draw.map((r) => Math.abs(r.error)))!, bias: mean(draw.map((r) => r.error))!, improvement: mean(paired.map((r) => Math.abs(r.baseline!.value - r.actual) - Math.abs(r.error))) });
-  }
-  const interval = (xs: number[]) => { const sorted = xs.sort((a, b) => a - b); return { low: sorted[Math.floor((sorted.length - 1) * 0.025)]!, high: sorted[Math.ceil((sorted.length - 1) * 0.975)]! }; };
-  return { available: true as const, method: "issuer_cluster_percentile_bootstrap" as const, confidenceLevel: 0.95, replicates: 1000, seed: 0x71a51, issuerClusters: issuers.length, mae: interval(draws.map((d) => d.mae)), bias: interval(draws.map((d) => d.bias)), pairedMaeImprovement: draws.every((d) => d.improvement !== null) ? interval(draws.map((d) => d.improvement!)) : null };
+  return diagnosticBreadth(rows.map(r => ({ issuerId: r.sample.issuerId, analysisAt: r.sample.analysisAt, periodEnd: r.sample.period.end })));
 }
 function groupKey(row: Observed): string {
   const s = row.sample, days = (ms(s.period.end) - ms(s.period.start)) / DAY;
   const window = s.kind === "filing" && days >= 350 && days <= 380 ? "annual" : s.kind === "filing" && days >= 70 && days <= 105 ? "quarter" : `${days}days`;
-  return [s.kind, s.metric, s.basis.currency, s.basis.unit, s.basis.shareBasis, window, row.baseline?.name ?? "no_baseline"].join("|");
+  const leadDays = (ms(s.period.end) - ms(s.analysisAt.slice(0, 10))) / DAY;
+  const target = s.target;
+  return JSON.stringify([s.kind, s.metric, s.basis.currency, s.basis.unit, s.basis.shareBasis, window, s.period.start.slice(0, 10), s.period.end.slice(0, 10), target?.concept ?? "legacy_concept_unverified", row.baseline?.name ?? "no_baseline", leadDays,
+    target?.forecastKind ?? (ms(s.period.start) < ms(s.analysisAt) ? "legacy_nowcast_or_partial_year" : "legacy_forecast"), target?.horizonMonths ?? "legacy_horizon_unverified",
+    target?.accountingBasis ?? s.basis.accountingBasis ?? "legacy_accounting_unverified", target?.corporateActionBasis ?? s.basis.corporateActionBasis ?? "legacy_action_unverified",
+    target?.methodArtifactHash ?? s.methodVersion ?? "legacy_method_unverified", target?.securityId ?? "legacy_security_unverified", target?.benchmarkId ?? "no_verified_benchmark"]);
 }
 function groupedMetrics(rows: Observed[]) {
   const groups = new Map<string, Observed[]>();
@@ -87,16 +108,26 @@ function groupedMetrics(rows: Observed[]) {
       const errors = selected.map((r) => r.sample.ablations[name]!.value - r.actual);
       return [name, { ...errorStats(errors), pairedMaeImprovement: mean(selected.map((r, i) => Math.abs(r.error) - Math.abs(errors[i]!))) }];
     }));
+    const issuers = [...new Set(rs.map(r => r.sample.issuerId))];
+    const normalized = rs.filter(r => r.sample.normalization), normalizedPaired = normalized.filter(r => r.baseline);
     return { key, kind: rs[0]!.sample.kind, metric: rs[0]!.sample.metric, currency: rs[0]!.sample.basis.currency, unit: rs[0]!.sample.basis.unit, n: rs.length, model: errorStats(rs.map((r) => r.error)), baseline: paired.length ? { name: paired[0]!.baseline!.name, ...errorStats(paired.map((r) => tidy(r.baseline!.value - r.actual))), pairedMaeImprovement: mean(paired.map((r) => Math.abs(r.baseline!.value - r.actual) - Math.abs(r.error))) } : null,
+      equalIssuer: { issuerN: issuers.length, mae: mean(issuers.map(id => mean(rs.filter(r => r.sample.issuerId === id).map(r => Math.abs(r.error)))!)), bias: mean(issuers.map(id => mean(rs.filter(r => r.sample.issuerId === id).map(r => r.error))!)) },
+      normalized: { n: normalized.length, missingScaleN: rs.length - normalized.length, model: errorStats(normalized.map(r => r.error / r.sample.normalization!.value)), pairedN: normalizedPaired.length, pairedMaeImprovement: mean(normalizedPaired.map(r => (Math.abs(r.baseline!.value - r.actual) - Math.abs(r.error)) / r.sample.normalization!.value)) },
       intervals: levels.map((level) => { const selected = rs.filter((r) => r.sample.prediction.interval?.nominalCoverage === level); return { n: selected.length, nominalCoverage: level, coverage: mean(selected.map((r) => +(r.actual >= r.sample.prediction.interval!.low && r.actual <= r.sample.prediction.interval!.high))), meanWidth: mean(selected.map((r) => r.sample.prediction.interval!.high - r.sample.prediction.interval!.low)) }; }),
       ablations, missingness: { complete: errorStats(rs.filter((r) => r.sample.missingFields.length === 0).map((r) => r.error)), missing: errorStats(rs.filter((r) => r.sample.missingFields.length > 0).map((r) => r.error)), byField: Object.fromEntries([...new Set(rs.flatMap((r) => r.sample.missingFields))].sort().map((field) => [field, errorStats(rs.filter((r) => r.sample.missingFields.includes(field)).map((r) => r.error))])) }, uncertainty: uncertainty(rs) };
   });
 }
 function events(samples: EvaluationSample[]) {
-  const definitions = [...new Set(samples.flatMap((s) => s.event && s.event.outcome !== null ? [s.event.definition] : []))].sort();
-  return definitions.map((definition) => {
-    const rows = samples.flatMap((s) => s.event?.definition === definition && s.event.outcome !== null ? [s.event] : []);
-    return { definition, n: rows.length, brier: tidy(mean(rows.map((r) => (r.probability - r.outcome!) ** 2))!), reliability: Array.from({ length: 5 }, (_, index) => { const bin = rows.filter((r) => Math.min(4, Math.floor(r.probability * 5)) === index); return { low: index / 5, high: (index + 1) / 5, n: bin.length, meanProbability: mean(bin.map((r) => r.probability)), observedRate: mean(bin.map((r) => r.outcome!)) }; }) };
+  const groups = new Map<string, EvaluationSample[]>();
+  for (const s of samples) {
+    if (!s.event || s.event.outcome === null) continue;
+    const dimensions = groupKey({ sample: s, actual: 0, error: 0, baseline: s.prediction.baseline ?? (s.kind === "total_return" ? { name: "zero_excess_return", value: 0 } : null) });
+    const key = JSON.stringify([s.event.definition, dimensions]);
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([key, samples]) => {
+    const rows = samples.map(s => s.event!);
+    return { key, definition: rows[0]!.definition, labelEvidence: "operator-supplied-unadjudicated" as const, readiness: "diagnostic" as const, n: rows.length, brier: tidy(mean(rows.map((r) => (r.probability - r.outcome!) ** 2))!), reliability: Array.from({ length: 5 }, (_, index) => { const bin = rows.filter((r) => Math.min(4, Math.floor(r.probability * 5)) === index); return { low: index / 5, high: (index + 1) / 5, n: bin.length, meanProbability: mean(bin.map((r) => r.probability)), observedRate: mean(bin.map((r) => r.outcome!)) }; }) };
   });
 }
 function stability(samples: EvaluationSample[]) {
@@ -143,5 +174,6 @@ export function evaluateResearch(input: unknown) {
   const checked = claims.filter((c) => c !== "unchecked").length, errors = claims.filter((c) => c === "contradicted").length;
   const changes = accepted.flatMap((s) => s.orderProbe?.permutations.map((v) => Math.abs(v - s.orderProbe!.original)) ?? []);
   const pendingSamples = accepted.filter((s) => !s.outcome).map((s) => ({ id: s.id, period: s.period, metric: s.metric, snapshotHash: s.snapshotHash, reason: "No observed outcome supplied" }));
-  return { version: "research-evaluation-v1", evidenceKind: d.evidenceKind, evaluatedAt: d.evaluatedAt, limitations: d.limitations, pendingSamples, productionThresholds: "unchanged_uncalibrated", interpretation: d.evidenceKind === "synthetic_fixture" ? "Synthetic fixtures validate evaluation machinery only; no historical or predictive calibration claim" : "Frozen-sample diagnostic only; no production thresholds or weights changed", accepted: accepted.length, pending: accepted.length - rows.length, rejected, snapshotHashes: [...new Set(accepted.map((s) => s.snapshotHash))].sort(), groups: groupedMetrics(rows), folds: rolling(accepted, d), events: events(accepted), gradeStability: stability(accepted), writing: { reports: accepted.filter((s) => s.writing).length, materialClaims: claims.length, checkedClaims: checked, contradictedClaims: errors, uncheckedClaims: claims.length - checked, coverage: claims.length ? checked / claims.length : null, factualErrorRateAmongChecked: checked ? errors / checked : null }, orderSensitivity: { reports: accepted.filter((s) => s.orderProbe).length, n: changes.length, meanAbsoluteChange: mean(changes), maxAbsoluteChange: changes.length ? Math.max(...changes) : null } };
+  const incomparable = accepted.flatMap(s => !s.target ? [{ id: s.id, reasons: ["legacy_dimensions_unverified", "source_and_input_custody_unverified"] }] : []);
+  return { version: d.version, evidenceKind: d.evidenceKind, evaluatedAt: d.evaluatedAt, limitations: d.limitations, readiness: rows.length ? "diagnostic" as const : "insufficient" as const, predictiveValidation: false as const, incomparable, pendingSamples, productionThresholds: "unchanged_uncalibrated", interpretation: d.evidenceKind === "synthetic_fixture" ? "Synthetic fixtures validate evaluation machinery only; no historical or predictive calibration claim" : "Frozen-sample diagnostic only; no production thresholds or weights changed", accepted: accepted.length, pending: accepted.length - rows.length, rejected, snapshotHashes: [...new Set(accepted.map((s) => s.snapshotHash))].sort(), groups: groupedMetrics(rows), folds: rolling(accepted, d), events: events(accepted), gradeStability: stability(accepted), writing: { reports: accepted.filter((s) => s.writing).length, materialClaims: claims.length, checkedClaims: checked, contradictedClaims: errors, uncheckedClaims: claims.length - checked, coverage: claims.length ? checked / claims.length : null, factualErrorRateAmongChecked: checked ? errors / checked : null }, orderSensitivity: { reports: accepted.filter((s) => s.orderProbe).length, n: changes.length, meanAbsoluteChange: mean(changes), maxAbsoluteChange: changes.length ? Math.max(...changes) : null } };
 }

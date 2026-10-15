@@ -13,6 +13,54 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-53 (evidence reliability 2026-10-14) Admit compatible observations and disclose the scope of verification
+
+The audit proposals were assessed against reproduced counterexamples and positive
+controls. Benefit and residual implementation risk use a 1–5 scale (5 highest).
+The accepted scope below improves evidence integrity without changing weights,
+grade bands, scenario priors or the forward valuation assumptions.
+
+| Improvement implemented | Benefit | Risk | Evidence and boundary |
+| --- | ---: | ---: | --- |
+| SEC filing cutoff, monetary units and exact flow windows | 5 | 2 | Future facts, mixed currencies and mismatched weighted-share windows are excluded; field evidence retains actual acquisition time, including predecessor facts. |
+| Financial-route operand compatibility and liquidity contradictions | 5 | 2 | Exact current/prior averaging operands and credit warning operands are checked; compatible statement fallbacks and unused AFFO observations retain their prior behavior. |
+| Shared market observation admission and cache freshness | 5 | 1 | Invalid/future/conflicting bars cannot enter technicals, price or relative-strength charts; identical duplicates remain usable. Future cache timestamps force reacquisition. |
+| Failed revenue validation propagates to dependent growth inputs | 5 | 2 | A material annual revenue cross-check failure excludes the dependent growth signal; unrelated stale warnings do not blanket-disable scoring. Other semantic eligibility needs its own evidence. |
+| Actual financial valuation assumptions in the payload and explanation | 5 | 1 | Continuing value and terminal excess returns are described from the computed model; its forward arithmetic is unchanged. |
+| Common-holder earnings/equity and dated security basis | 5 | 3 | Known preferred/NCI allocations are reconciled and filed common earnings carry field evidence; unknown ADS scope withholds affected comparisons rather than guessing a conversion. |
+| Issuer-bound earnings announcements | 4 | 2 | Confirmed issuer, website/SEC CIK binding and reporting subject are required; nearby competitor/parent names cannot confirm an event. Ambiguous prose remains unavailable. |
+| Tied and degenerate history ranks | 3 | 1 | Ties use midranks and flat histories carry no rank evidence; untied interpolation remains unchanged. |
+| Numeric support separate from prose support | 5 | 2 | Numeric matches remain measured, while unchecked surrounding prose is labeled consistently in app, Markdown and print. This does not adjudicate whole-claim truth. |
+| Report-review date and executive-scope corrections | 4 | 1 | Current mixed-input WACC uses calculation day; individual input observation dates remain. Only a full contiguous role/scope phrase in a cited, date-matched executive title suppresses a false person match; known people and incorrect titles still fail their existing checks. Cited prose displays its unchecked status. |
+| Evaluation target identity, retained outcome evidence and replay custody | 5 | 2 | V2 definitions bind exact windows/concepts/units/security/accounting and retained bytes; replay checks actual method, lock, commit and dirty-diff identity when supplied. Legacy inputs remain diagnostic only. |
+| Paired diagnostic grouping and readiness | 4 | 2 | Exact fiscal windows/concepts and method dimensions cannot pool; calendar blocks/readiness are disclosed without unsupported inferential intervals or predictive-accuracy claims. |
+| Adversarial regressions, preservation and release verification | 5 | 1 | Negative cases and compatible controls accompany each boundary; historical report bytes and existing user edits are preserved. |
+
+The local evaluation registry is append-only with locks, fsync and hash chaining;
+it establishes local content custody, not an externally trusted timestamp or
+tamper-proof publication. Method/lock byte identity is opt-in at acquisition and
+replay; ordinary jobs retain the existing normalized-input snapshot until actual
+deployed artifacts can be acquired reliably. Forecast semantics and partial-year
+labels remain operator-declared diagnostic metadata. Calibration, persistence,
+grade-weight and scenario-prior redesigns stay deferred pending prospective,
+point-in-time outcome validation. These boundaries are not completion claims for
+those research proposals.
+
+New outputs use report spec 1.13.0, payload 1.18.0 and pipeline stage-c-1.1.0.
+Stored reports retain their original bytes and versions. The audited fixture
+comparison changes only the version stamp and three common-holder basis labels;
+numeric finance outputs, provenance registries and citation registries remain pinned.
+
+One full live MSFT job used GPT-6.1 Sol at high effort for bull, bear and synthesis,
+with the requested model and effort observed and no fallback. Report review found
+the three bounded presentation/verification issues above. A separate deterministic
+offline recheck uses the retained judge output and immutable input snapshot;
+all financial values and original execution/protocol metadata are unchanged.
+It traces 313/313 numeric values and passes 18/18 named-person checks. All 62 cited
+factual prose claims remain machine-unchecked; these counts establish provenance
+and consistency, not predictive accuracy or whole-report factual correctness.
+Original report bytes and production report history are preserved.
+
 ## D-50 (report assembly 2026-10-13) Section confidence is capped by measured data coverage; the model can lower but not raise it
 
 - **Problem**: each graded section's confidence (high / medium / low) was

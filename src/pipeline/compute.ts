@@ -11,7 +11,9 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { validateBundle, type ValidationReport, type ValidatableBundle } from "@/pipeline/stageA/validate";
 import { estimateCurrency } from "@/pipeline/estimateCurrency";
+import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
@@ -582,6 +584,8 @@ export interface TtmIncome {
   operatingIncome: number | null;
   depreciationAndAmortization: number | null;
   netIncome: number | null;
+  /** Complete four-quarter common-holder flow; never the latest quarter alone. */
+  netIncomeAvailableToCommon?: number | null;
   epsDiluted: number | null;
   ebit: number | null;
   interestExpense: number | null;
@@ -1057,6 +1061,7 @@ function ttmIncomeFromNormalized(
     operatingIncome: gateComplete("operatingIncome"),
     depreciationAndAmortization: gateComplete("depreciationAndAmortization"),
     netIncome: gateComplete("netIncome"),
+    netIncomeAvailableToCommon: gateComplete("netIncomeAvailableToCommon"),
     epsDiluted: gateComplete("epsDiluted"),
     ebit: gateComplete("ebit"),
     interestExpense: gateComplete("interestExpense"),
@@ -1442,9 +1447,14 @@ function totalDebtSnapshot(
 
 export interface StageBReplayConfig { evIncludeLeases: boolean }
 
-export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig): ComputedMetrics {
+export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
+  const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))
+    ? validateBundle(bundle as unknown as ValidatableBundle, { now: new Date(bundle.builtAt) }) : null);
+  const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id));
+  const revenueEligibilityReason = revenueConflict
+    ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and growth-dependent valuation are withheld; raw source observations are retained.` : null;
 
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
@@ -1587,7 +1597,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig)
   // margin is a ratio within one row — one presentation currency, whatever it
   // is — so the margin series keeps every reported year.
   const growthCompatible = computeGrowth(
-    incomeAnnual.map(toGrowthIncome),
+    incomeAnnual.map(row=>toGrowthIncome(revenueConflict ? { ...row, revenue: undefined } : row)),
     cashflowAnnual.map(toGrowthCashFlow),
     { period: "annual" },
   );
@@ -1595,6 +1605,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig)
     ...growthCompatible,
     margins: computeGrowth(incomeAnnualReported.map(toGrowthIncome), [], { period: "annual" }).margins,
   };
+  if(revenueEligibilityReason){
+    growth.notes.push(revenueEligibilityReason);
+    growth.gaps.push({field:"eligibility.annual.revenue",reason:revenueEligibilityReason,severity:"warn"});
+  }
   // Withhold structurally inapplicable values before both report builders and
   // AI payloads consume them; a scoring-only suppression still leaked them.
   if (isSuppressed("fcfGrowth")) {
@@ -1743,12 +1757,13 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig)
     spy,
     sectorEtf,
     bundle.benchmarkPrices.sectorEtfSymbol,
+    { analysisAt: bundle.builtAt },
   );
 
   // --- Valuation -------------------------------------------------------------
   const valuation = computeValuation(bundle, {
     route,
-    incomeAnnual,
+    incomeAnnual: revenueConflict ? incomeAnnual.map(row=>({...row,revenue:undefined})) : incomeAnnual,
     balanceAnnual,
     cashflowAnnual,
     incomeQuarterly,
@@ -1796,6 +1811,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig)
     })),
     income: incomeAnnual.map((r) => ({
       date: String(r.date ?? ""),
+      reportedCurrency: str(r.reportedCurrency),
       revenue: num(r.revenue),
       netIncome: num(r.netIncome),
       interestIncome: num(r.interestIncome),
@@ -2060,6 +2076,7 @@ export function routeMetricsBlock(computed: ComputedMetrics): RouteMetrics | nul
 
   if (val !== undefined && val.kind === "excess-return") {
     const er = val.excessReturn;
+    notes.push(describeFinancialValuation(er.financialAssumptions));
     const p = er.priceToTangibleBookVsRote;
     const src = ["computed.valuation.excessReturn.priceToTangibleBookVsRote"];
     const unavailable = p.withheldReason ?? "not computed";
@@ -2598,7 +2615,22 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     price: currentPrice,
     marketCap,
     currency: str(profile?.currency),
+    isAdr: route.overlays.includes("adr") || profile?.isAdr === true,
   };
+  // Preferred distributions are period flows. They may accompany a TTM only
+  // when all four EXACT income-quarter ends resolve on the cash-flow feed.
+  const preferredDividendsTtm = (() => {
+    if (ttmInc === null || ctx.modelCurrency === null) return null;
+    const dates = incomeQuarterly.filter((row) => String(row.date ?? "") <= ttmInc.date).slice(0, 4).map((row) => String(row.date ?? ""));
+    if (dates.length !== 4 || dates[0] !== ttmInc.date) return null;
+    const values = dates.map((date) => {
+      const row = ctx.cashflowQuarterly.find((cash) => cash.date === date);
+      return row && establishedCurrencyOn([row], date, ctx.currencyEvidence) === ctx.modelCurrency ? num(row.preferredDividendsPaid) : null;
+    });
+    return values.every((value): value is number => value !== null) ? values.reduce((sum, value) => sum + value, 0) : null;
+  })();
+  const annualPreferredDividends = inc0 === undefined ? null :
+    num(ctx.cashflowAnnual.find((row) => row.date === inc0.date)?.preferredDividendsPaid);
   const multiplesIncomeTtm: MultiplesIncomeTtm | null = ttmInc
     ? {
         date: ttmInc.date,
@@ -2607,6 +2639,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingIncome: ttmInc.operatingIncome,
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
+        netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
+        preferredDividendsPaid: preferredDividendsTtm,
         epsDiluted: ttmInc.epsDiluted,
       }
     : inc0
@@ -2617,6 +2651,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           operatingIncome: num(inc0.operatingIncome),
           depreciationAndAmortization: num(inc0.depreciationAndAmortization),
           netIncome: num(inc0.netIncome),
+          netIncomeAvailableToCommon: num(inc0.netIncomeAvailableToCommon),
+          preferredDividendsPaid: annualPreferredDividends,
           epsDiluted: num(inc0.epsDiluted),
         }
       : null;
@@ -2648,6 +2684,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         intangibleAssets: num(balPoint.intangibleAssets),
         minorityInterest: num(balPoint.minorityInterest),
         preferredStock: num(balPoint.preferredStock),
+        equityOwnershipBasis: "parent",
         // WS6 (D-19): lease liabilities for the EV bridge. The TOTAL is
         // disclosure context; only the OPERATING slice is netted out of EV
         // (WS6 review, BLOCKER 1), and the EDGAR route is the only one that
@@ -2692,6 +2729,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const nareitFfo = computeNareitFfo({
     companyFacts: bundle.edgar?.companyFacts ?? null,
     periodEnd: isoDay(ctx.incomeAnnual[0]?.date),
+    reportedCurrency: str(ctx.incomeAnnual[0]?.reportedCurrency),
     netIncome: num(ctx.incomeAnnual[0]?.netIncome),
     depreciationAndAmortization: num(ctx.incomeAnnual[0]?.depreciationAndAmortization),
     capitalExpenditure: num(ctx.cashflowAnnual[0]?.capitalExpenditure),
@@ -3103,9 +3141,14 @@ function mergeQuarterly(
       // current ffoApprox, which reads the income statement only.
       incomeDepreciationAndAmortization: num(i.depreciationAndAmortization),
       netIncome: num(i.netIncome),
+      netIncomeAvailableToCommon: num(i.netIncomeAvailableToCommon),
+      // Allocation flows require the exact fiscal quarter, unlike a balance
+      // anchor: a nearby cash-flow period is not the same earnings window.
+      preferredDividendsPaid: num(cfByDate.get(d)?.preferredDividendsPaid),
       operatingCashFlow: cf ? num(cf.operatingCashFlow) : null,
       capitalExpenditure: cf ? num(cf.capitalExpenditure) : null,
       totalStockholdersEquity: bal ? num(bal.totalStockholdersEquity) : null,
+      equityOwnershipBasis: "parent",
       // House-EV components, so own-history EV matches the current definition.
       totalDebt: bal ? num(bal.totalDebt) : null,
       cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,

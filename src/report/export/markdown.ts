@@ -93,7 +93,7 @@ import {
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
-import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT, citationOutcomeLabel } from "@/report/schema";
+import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT, verificationEntryOutcomeLabel } from "@/report/schema";
 import { gradeDisplayLabel } from "@/report/assessment";
 
 /* ======================================================================== *
@@ -1127,7 +1127,7 @@ function renderAppendix(
         VERIFICATION_LOG_FIELDS.map((field) => field.label),
         a.verificationLog.map((entry) =>
           VERIFICATION_LOG_FIELDS.map((field) => {
-            if (field.key === "outcome") return citationOutcomeLabel(entry.outcome);
+            if (field.key === "outcome") return verificationEntryOutcomeLabel(entry);
             return auditValue(entry[field.key]);
           })),
       ),

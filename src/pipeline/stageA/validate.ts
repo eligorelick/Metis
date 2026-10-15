@@ -810,20 +810,25 @@ function checkStaleness(bundle: ValidatableBundle, now: Date, c: Collector): voi
     const asOfMs = parseDateMs(q.asOf);
     const invalidDate = !Number.isFinite(asOfMs);
     const tooOld = Number.isFinite(asOfMs) && now.getTime() - asOfMs > QUOTE_STALE_DAYS * DAY_MS;
+    const fetchedMs = parseDateMs(q.fetchedAt);
+    const futureDate = Number.isFinite(asOfMs) && asOfMs > now.getTime()
+      || Number.isFinite(fetchedMs) && fetchedMs > now.getTime();
     const servedStale = q.stale === true;
     c.checks.push({
       id: "staleness.quote",
       name: "Quote freshness",
-      status: invalidDate || servedStale || tooOld ? "fail" : "pass",
+      status: invalidDate || futureDate || servedStale || tooOld ? "fail" : "pass",
       detail:
         `quote asOf ${q.asOf}, fetchedAt ${q.fetchedAt}` +
         (invalidDate ? " (invalid asOf date or timestamp — freshness cannot be established)" : "") +
+        (futureDate ? " (future observation/acquisition timestamp — freshness cannot be established)" : "") +
         (servedStale ? " (served past TTL — stale-while-revalidate)" : "") +
         (tooOld ? ` (asOf older than ${QUOTE_STALE_DAYS} days)` : ""),
       asOf: q.asOf,
     });
-    if (invalidDate) {
-      const reason = `quote asOf ${JSON.stringify(q.asOf)} is invalid — quote freshness cannot be established`;
+    if (invalidDate || futureDate) {
+      const reason = futureDate ? "quote observation/acquisition timestamp is future-dated — freshness cannot be established"
+        : `quote asOf ${JSON.stringify(q.asOf)} is invalid — quote freshness cannot be established`;
       c.flags.push(reason);
       c.gaps.push(gapEntry("validation.staleness.quoteDate", reason, "warn"));
     }

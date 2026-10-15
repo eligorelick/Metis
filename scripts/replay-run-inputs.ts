@@ -1,10 +1,10 @@
 /** node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --snapshot FILE [--output FILE] */
 import fs from "node:fs";
 import { replayRunInputSnapshot } from "../src/pipeline/replayRunInput";
-import { canonicalSnapshotJson } from "../src/pipeline/runInputSnapshot";
+import { canonicalSnapshotJson, createSnapshotArtifactIdentity } from "../src/pipeline/runInputSnapshot";
 
 async function main(args: string[]): Promise<void> {
-  const allowed = new Set(["--snapshot", "--hash", "--job", "--generation", "--output", "--export-snapshot"]);
+  const allowed = new Set(["--snapshot", "--hash", "--job", "--generation", "--output", "--export-snapshot", "--method-artifact", "--dependency-lock", "--dirty-diff", "--code-commit"]);
   const options = new Map<string, string>();
   for (let i = 0; i < args.length; i += 2) {
     if (!allowed.has(args[i]!) || !args[i + 1] || options.has(args[i]!)) throw new Error("Expected unique --snapshot FILE, --hash HASH, or --job ID --generation N; optional --output FILE and --export-snapshot FILE");
@@ -25,7 +25,17 @@ async function main(args: string[]): Promise<void> {
     snapshot = store.readRunInputSnapshot(hash);
     if (!snapshot) throw new Error("Immutable snapshot not found");
   }
-  const result = replayRunInputSnapshot(snapshot);
+  if (options.has("--method-artifact") !== options.has("--dependency-lock")) throw new Error("Replay identity requires both --method-artifact FILE and --dependency-lock FILE");
+  if ((options.has("--dirty-diff") || options.has("--code-commit")) && !options.has("--method-artifact")) throw new Error("Recorded code/diff identity requires --method-artifact and --dependency-lock");
+  // These bytes establish supplied artifact identity, not an attestation that
+  // the artifact includes the entire executing dependency graph.
+  const identity = options.has("--method-artifact") ? createSnapshotArtifactIdentity({
+    methodArtifactBytes: fs.readFileSync(options.get("--method-artifact")!, "utf8"),
+    dependencyLockBytes: fs.readFileSync(options.get("--dependency-lock")!, "utf8"),
+    ...(options.has("--dirty-diff") ? { dirtyDiffBytes: fs.readFileSync(options.get("--dirty-diff")!, "utf8") } : {}),
+    ...(options.has("--code-commit") ? { codeCommit: options.get("--code-commit")! } : {}),
+  }) : undefined;
+  const result = replayRunInputSnapshot(snapshot, identity);
   const json = canonicalSnapshotJson(result);
   if (options.has("--output")) fs.writeFileSync(options.get("--output")!, `${json}\n`, { flag: "wx" });
   else process.stdout.write(`${json}\n`);

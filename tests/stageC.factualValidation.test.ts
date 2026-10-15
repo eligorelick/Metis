@@ -30,7 +30,7 @@ describe("factual prose numeric validation", () => {
   it("validates an unambiguous material figure and preserves its original source span", async () => {
     const text = "Revenue grew.\nConsolidated operating margin was 31%.\nOutlook remains uncertain.";
     const result = await verify(text, "Consolidated operating margin was 31%.");
-    expect(result.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
     expect(result.coverage.factualValidation?.validated).toBe(1);
     const span = result.log[0]?.sourceSpans?.[0];
     expect(span).toBeDefined();
@@ -67,7 +67,7 @@ describe("factual prose numeric validation", () => {
       "Operating margin was 31% in 2026; operating margin was 43% in 2025.",
       "Operating margin was 31% in 2026; operating margin was 43% in 2025.",
     );
-    expect(result.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
     expect(result.log[0]?.sourceSpans).toHaveLength(2);
   });
 
@@ -77,7 +77,7 @@ describe("factual prose numeric validation", () => {
     const bad = await verify("", "Operating margin was 99%.", { provenanceRegistry });
     expect(bad.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "contradicted", reason: "value-mismatch" });
     const good = await verify("", "Operating margin was 31%.", { provenanceRegistry });
-    expect(good.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(good.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
     const extra = await verify("", "Operating margin was 31% and net margin was 99%.", { provenanceRegistry });
     expect(extra.log[0]?.outcome).toBe("unverified");
   });
@@ -89,7 +89,7 @@ describe("factual prose numeric validation", () => {
 
   it("retains signed amounts and explicit currencies without inferring dollars", async () => {
     const correct = await verify("Operating income was EUR -31 billion.", "Operating income was EUR -31 billion.");
-    expect(correct.log[0]?.outcome).toBe("verified");
+    expect(correct.log[0]).toMatchObject({ outcome: "unverified", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
     const wrong = await verify("Operating income was EUR -31 billion.", "Operating income was EUR 31 billion.");
     expect(wrong.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "contradicted" });
   });
@@ -129,7 +129,7 @@ describe("factual prose numeric validation", () => {
     const result = await runVerifyPass({} as PassDeps, payload("Operating margin was 31%."), {
       commentary: [{ label: "FACT", text: "Operating margin was 31%.", source: `${source} · ${asOf}`, asOf: null }],
     });
-    expect(result.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
   });
 
   it.each([
@@ -173,7 +173,7 @@ describe("factual prose numeric validation", () => {
     const provenanceRegistry = [{ id: source, label: "Operating margin", kind: "provider" as const, value: 31, unit: "percent" as const,
       currency: null, period: "2026-06-30", fiscalPeriod: "Q2 FY2026", asOf, origin: source, formulaVersion: null, displayPrecision: 2 }];
     const result = await verify("", "Operating margin was 31% in Q2 FY2026.", { provenanceRegistry });
-    expect(result.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
   });
 
   it.each([
@@ -218,7 +218,7 @@ describe("factual prose numeric validation", () => {
     ["Operating margin rose to 31%.", "Operating margin increased to 31%."],
   ])("retains supported metric, direction and equivalent period identities: %s", async (text, claim) => {
     const result = await verify(text, claim);
-    expect(result.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
   });
 
   it("removes executive A grades after nonempty evidence arrays fail final verification", async () => {
@@ -275,7 +275,7 @@ describe("factual prose numeric validation", () => {
     ["Operating margin was (31%).", "Operating margin was -31%."],
   ])("retains established definition, window and accounting-sign equivalents: %s", async (text, claim) => {
     const result = await verify(text, claim);
-    expect(result.log[0]).toMatchObject({ outcome: "verified", validationStatus: "validated" });
+    expect(result.log[0]).toMatchObject({ outcome: "unverified", validationStatus: "validated", numericSupportStatus: "validated", claimSupportStatus: "numeric-only" });
   });
 
   it("preserves source-side definitions and accounting signs when using typed records", async () => {

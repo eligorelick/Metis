@@ -79,6 +79,23 @@ All registration IDs must be unique across operating and market definitions. Eit
 
 ## Outcomes
 
+Strict V2 operating target definitions are available through
+`src/evaluation/targetDefinition.ts`. They bind exact fiscal dates, concept, unit,
+issuer/security/share/action and accounting definitions, lead and method identity
+to retained source/method bytes. Supply actual-observation source bytes separately
+in `outcomes.retainedArtifacts`; a frozen forecast's method artifacts cannot bind
+evidence acquired after the forecast. V1 registrations remain readable and their
+hand calculations remain available, labeled `legacy_dimensions_unverified` and
+diagnostic only. Operator-declared forecast kind or partial-year semantics are not
+independently certified by the evaluator.
+
+Paired diagnostics separate those exact dimensions and fiscal windows. Calendar
+blocks and issuer-balanced descriptive errors do not establish independent
+regimes, statistical power or predictive validity; unsupported inferential
+intervals are withheld. The optional local `FileEvaluationRegistryStore` retains
+hash-chained registrations with lock/fsync/idempotent retry semantics. Its receipt
+time is local append time, without externally witnessed or deletion-proof custody.
+
 Each outcome ID refers to a registered definition. The following values deliberately produce a revenue error of 20 USD and a security return of 10%, benchmark return of 5%, and excess return of 5 percentage points.
 
 ```json

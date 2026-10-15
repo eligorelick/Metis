@@ -31,7 +31,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
-import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
+import { parseSubscriptionModel, subscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
@@ -504,7 +504,7 @@ export interface ReportMetaInput {
  * ------------------------------------------------------------------------ */
 
 /** pipelineVersion stamped into meta (bump when the orchestration changes). */
-export const PIPELINE_VERSION = "stage-c-1.0.0" as const;
+export const PIPELINE_VERSION = "stage-c-1.1.0" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -2254,6 +2254,8 @@ export function sweepAbandonedJobs(
  * ------------------------------------------------------------------------ */
 
 export interface RunJobOptions<TPayload = unknown> {
+  /** Trusted embedding selection for this execution; does not write account/model preferences. */
+  aiSelection?: AiSelection;
   /** Durable scheduler claim. Production always supplies this preclaimed path. */
   claim?: JobClaim;
   /** Snapshot used for every job/pass lease decision in this run. */
@@ -2718,8 +2720,9 @@ export async function runJob<TPayload = unknown>(
       );
       return finishRun(state, { reportId, verificationRate, dataOnly: false });
     }
-    const aiSelection = opts.hasAnthropicKey === undefined
-      ? captureAiSelection() : { provider: "anthropic" as const };
+    const aiSelection = opts.aiSelection === undefined
+      ? opts.hasAnthropicKey === undefined ? captureAiSelection() : { provider: "anthropic" as const }
+      : structuredClone(opts.aiSelection);
     const capturedSettings = getWritableSettingsAuthority();
     const hasKey = opts.hasAnthropicKey ?? selectionIsConnected(aiSelection);
     // A plan connection gets the longer bounds, unless the caller set its own.
@@ -2796,7 +2799,7 @@ export async function runJob<TPayload = unknown>(
     startStep(state, "compute");
     let computed: ComputedMetrics;
     try {
-      computed = runStageB(bundle, stageBConfig);
+      computed = runStageB(bundle, stageBConfig, validation);
     } catch (err) {
       // Compute is pure; a throw here is a programming error, but degrade
       // rather than crash the app: finish compute with error and continue to

@@ -2,8 +2,75 @@ import { findDocumentByType, type EdgarClient, type EdgarFiling } from "@/provid
 import { parseDocument } from "@/edgar/extract";
 import type { FmpEarningsRow, FmpNewsArticleRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
+import { createHash } from "node:crypto";
 
-export interface CompanyAnnouncementEvidence { text: string; publishedAt: string; observedAt: string; url: string; authority: "company_ir" | "sec_filing"; authorityChain?: string[] }
+export interface ConfirmedIssuerIdentity {
+  cik: string | null;
+  canonicalName: string;
+  validAliases?: readonly string[];
+  verifiedWebsite: string;
+}
+export interface CompanyAnnouncementEvidence {
+  text: string; publishedAt: string; observedAt: string; url: string; authority: "company_ir" | "sec_filing"; authorityChain?: string[];
+  issuer?: ConfirmedIssuerIdentity;
+  /** Hash of retained source bytes when the acquiring adapter has them. */
+  sourceHash?: string;
+  /** A named issuer in the article title establishes a subjectless release only with a bound source. */
+  documentTitle?: string;
+}
+const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function issuerAliases(issuer: ConfirmedIssuerIdentity): string[] {
+  return [...new Set([issuer.canonicalName, ...(issuer.validAliases ?? [])].map((s) => s.trim()).filter((s) => s.length >= 3))];
+}
+function mentionsIssuer(text: string, issuer: ConfirmedIssuerIdentity): boolean {
+  return issuerAliases(issuer).some((alias) => new RegExp(`(?:^|[^a-z0-9])${escapeRegex(alias)}(?:$|[^a-z0-9])`, "i").test(text));
+}
+/** A website relationship permits hosted IR; it does not establish an event subject. */
+function sourceBoundToIssuer(evidence: CompanyAnnouncementEvidence, url: URL, issuer: ConfirmedIssuerIdentity): boolean {
+  if (evidence.authority === "sec_filing") {
+    const cik = issuer.cik?.replace(/^0+/, "");
+    const documentCik = url.pathname.match(/^\/Archives\/edgar\/data\/(\d+)\//i)?.[1]?.replace(/^0+/, "");
+    return Boolean(cik && documentCik === cik && (url.hostname === "sec.gov" || url.hostname.endsWith(".sec.gov")));
+  }
+  let website: URL;
+  try { website = new URL(issuer.verifiedWebsite); } catch { return false; }
+  if (website.protocol !== "https:" || website.username || website.password || website.port) return false;
+  const officialHost = website.hostname.toLowerCase().replace(/^www\./, "");
+  if (url.hostname === officialHost || url.hostname.endsWith(`.${officialHost}`)) return true;
+  const chain = evidence.authorityChain;
+  if (!chain || chain.length < 2 || chain[chain.length - 1] !== url.toString()) return false;
+  try { return new URL(chain[0]!).toString() === website.toString() && chain.every((raw) => new URL(raw).protocol === "https:"); } catch { return false; }
+}
+function eventSubject(sentence: string, evidence: CompanyAnnouncementEvidence, issuer: ConfirmedIssuerIdentity): { alias: string | null; method: "named-subject" | "issuer-document" } | null {
+  if (/\b(?:subsidiary|subsidiaries|parent company|on behalf of)\b/i.test(sentence)) return null;
+  const dateAt = new RegExp(DATE_RE.source, "i").exec(sentence)?.index ?? sentence.length;
+  const action = [...sentence.matchAll(/\b(?:will|to)\s+(?:report|release|announce|publish)\b|\bwill\s+be\s+(?:reported|released|announced|published)\b/gi)].filter((m) => m.index < dateAt).at(-1);
+  if (!action) return null;
+  const prefix = sentence.slice(0, action.index);
+  for (const alias of issuerAliases(issuer)) {
+    // The name must introduce the reporting action, not just occur elsewhere
+    // in a parent/subsidiary description or another issuer's announcement.
+    const pattern = new RegExp(`^${escapeRegex(alias)}[,.]?\\s*(?:\\([^)]*\\)\\s*)?(?:(?:today\\s+)?announced(?:\\s+today)?(?:\\s+that)?(?:\\s+it)?\\s+)?$`, "i");
+    if (pattern.test(prefix.trimStart())) return { alias, method: "named-subject" };
+  }
+  if (evidence.documentTitle && mentionsIssuer(evidence.documentTitle, issuer) &&
+      /^(?:(?:we|the company|it)\s+)?(?:will\s+(?:report|release|announce|publish)|(?:financial results|earnings)\s+will\s+be\s+(?:reported|released|announced|published))\b/i.test(sentence.trim())) {
+    return { alias: null, method: "issuer-document" };
+  }
+  return null;
+}
+function announcementSentences(text: string): { text: string; start: number; end: number }[] {
+  const out: { text: string; start: number; end: number }[] = [];
+  let start = 0;
+  for (const boundary of text.matchAll(/[.!?]\s+/g)) {
+    const end = boundary.index + 1;
+    if (text[boundary.index] === "." && /\b(?:inc|corp|ltd|co)\.$/i.test(text.slice(start, end))) continue;
+    out.push({ text: text.slice(start, end), start, end });
+    start = boundary.index + boundary[0].length;
+  }
+  if (start < text.length) out.push({ text: text.slice(start), start, end: text.length });
+  return out;
+}
 function validDay(day: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
 }
@@ -17,13 +84,15 @@ export function companyEarningsAnnouncement(evidence: CompanyAnnouncementEvidenc
   if (!validDay(published) || !validDay(observed) || !validDay(today) || published > today || observed > today || published > observed) return null;
   let url: URL;
   try { url = new URL(evidence.url); } catch { return null; }
-  if (url.protocol !== "https:") return null;
-  if (evidence.authority === "sec_filing" && url.hostname !== "sec.gov" && !url.hostname.endsWith(".sec.gov")) return null;
-  const candidates: { date: string; text: string }[] = [];
-  for (const sentence of evidence.text.slice(0, 100_000).replace(/\s+/g, " ").split(/(?<=[.!?])\s+/)) {
+  if (url.protocol !== "https:" || url.username || url.password || url.port || !evidence.issuer || !sourceBoundToIssuer(evidence, url, evidence.issuer)) return null;
+  const candidates: { date: string; text: string; start: number; end: number; subject: NonNullable<ReturnType<typeof eventSubject>> }[] = [];
+  for (const span of announcementSentences(evidence.text.slice(0, 100_000))) {
+    const sentence = span.text;
     if (!/\b(?:financial results|earnings|(?:quarter|year)(?:ly)?\b.{0,80}\bresults)\b/i.test(sentence)) continue;
     if (!/\b(?:will|to)\s+(?:report|release|announce|publish)\b|\bwill\s+be\s+(?:reported|released|announced|published)\b/i.test(sentence)) continue;
     if (/\b(?:expect(?:s|ed)?|estimat(?:e[sd]?|ed)|may|might|tentative|subject to)\b/i.test(sentence)) continue;
+    const subject = eventSubject(sentence, evidence, evidence.issuer);
+    if (subject === null) continue;
     const dates = [...sentence.matchAll(DATE_RE)].map((m) => `${m[3]}-${String(MONTHS.indexOf(m[1]!.toLowerCase()) + 1).padStart(2, "0")}-${m[2]!.padStart(2, "0")}`);
     // Every date in the sentence remains a possible event date. Equality with
     // the publication date does not prove that a date is merely a dateline.
@@ -31,11 +100,15 @@ export function companyEarningsAnnouncement(evidence: CompanyAnnouncementEvidenc
     if (unique.length !== 1) continue;
     const date = unique[0]!;
     if (!validDay(date) || date < today || (Date.parse(date) - Date.parse(today)) / 86_400_000 > 180 || date < published) continue;
-    candidates.push({ date, text: sentence.slice(0, 1500) });
+    candidates.push({ date, text: sentence.slice(0, 1500), start: span.start, end: Math.min(span.end, span.start + 1500), subject });
   }
   if (new Set(candidates.map((c) => c.date)).size !== 1) return null;
   const event = candidates[0]!;
-  return { ok: true, value: { data: { symbol, date: event.date, epsActual: null, revenueActual: null, confirmation: "company_confirmed", announcedAt: evidence.publishedAt, observedAt: evidence.observedAt, announcementUrl: evidence.url, evidenceText: event.text, ...(evidence.authorityChain ? { authorityChain: evidence.authorityChain } : {}) }, asOf: observed, source: evidence.authority === "sec_filing" ? "edgar" : "computed", endpoint: evidence.url, fetchedAt: evidence.observedAt } };
+  const issuerId = evidence.issuer.cik ? `cik:${evidence.issuer.cik.replace(/^0+/, "")}` : `name:${evidence.issuer.canonicalName}`;
+  const issuerBinding = { issuerId, canonicalName: evidence.issuer.canonicalName, matchedAlias: event.subject.alias, method: event.subject.method,
+    sourceHash: evidence.sourceHash ?? createHash("sha256").update(evidence.text).digest("hex"), hashBasis: evidence.sourceHash ? "source-bytes" : "extracted-text",
+    sourceUrl: evidence.url, publishedAt: evidence.publishedAt, observedAt: evidence.observedAt, eventDate: event.date, span: { start: event.start, end: event.end, text: event.text, coordinateBasis: "extracted-text" } };
+  return { ok: true, value: { data: { symbol, date: event.date, epsActual: null, revenueActual: null, confirmation: "company_confirmed", announcedAt: evidence.publishedAt, observedAt: evidence.observedAt, announcementUrl: evidence.url, evidenceText: event.text, issuerBinding, ...(evidence.authorityChain ? { authorityChain: evidence.authorityChain } : {}) }, asOf: observed, source: evidence.authority === "sec_filing" ? "edgar" : "computed", endpoint: evidence.url, fetchedAt: evidence.observedAt } };
 }
 
 export function preferCompanyEarnings(vendor: FetchResult<FmpEarningsRow>, announcements: (FetchResult<FmpEarningsRow> | null)[], today: string): FetchResult<FmpEarningsRow> {
@@ -48,8 +121,8 @@ export function preferCompanyEarnings(vendor: FetchResult<FmpEarningsRow>, annou
 }
 
 /** Only company-owned press-release URLs prove company authority; wire-service snippets do not. */
-export function pressReleaseEarningsAnnouncements(press: FetchResult<FmpPayload<FmpNewsArticleRow>>, companyWebsite: string | null, symbol: string, today: string): FetchResult<FmpEarningsRow>[] {
-  if (!press.ok || !companyWebsite) return [];
+export function pressReleaseEarningsAnnouncements(press: FetchResult<FmpPayload<FmpNewsArticleRow>>, companyWebsite: string | null, symbol: string, today: string, issuer?: ConfirmedIssuerIdentity): FetchResult<FmpEarningsRow>[] {
+  if (!press.ok || !companyWebsite || !issuer) return [];
   let companyHost: string;
   try { companyHost = new URL(companyWebsite).hostname.toLowerCase().replace(/^www\./, ""); } catch { return []; }
   return press.value.data.rows.slice(0, 50).flatMap((row) => {
@@ -57,20 +130,21 @@ export function pressReleaseEarningsAnnouncements(press: FetchResult<FmpPayload<
     let host: string;
     try { host = new URL(row.url).hostname.toLowerCase(); } catch { return []; }
     if (host !== companyHost && !host.endsWith(`.${companyHost}`)) return [];
-    const event = companyEarningsAnnouncement({ text: `${row.title ?? ""}. ${row.text ?? ""}`, publishedAt: row.publishedDate, observedAt: press.value.fetchedAt, url: row.url, authority: "company_ir" }, symbol, today);
+    const event = companyEarningsAnnouncement({ text: `${row.title ?? ""}. ${row.text ?? ""}`, publishedAt: row.publishedDate, observedAt: press.value.fetchedAt, url: row.url, authority: "company_ir", issuer, documentTitle: row.title }, symbol, today);
     return event ? [event] : [];
   });
 }
 
 /** At most three recent 8-Ks, each primary and one EX-99 exhibit, via the rate-limited cached SEC client. */
-export async function discoverFiledEarningsAnnouncement(edgar: EdgarClient, cik: string, filings: EdgarFiling[], symbol: string, today: string, observedAt: string): Promise<FetchResult<FmpEarningsRow>[]> {
+export async function discoverFiledEarningsAnnouncement(edgar: EdgarClient, cik: string, filings: EdgarFiling[], symbol: string, today: string, observedAt: string, issuer?: ConfirmedIssuerIdentity): Promise<FetchResult<FmpEarningsRow>[]> {
+  if (!issuer || issuer.cik?.replace(/^0+/, "") !== cik.replace(/^0+/, "")) return [];
   const selected = filings.filter((f) => f.form === "8-K" && validDay(f.filingDate) && f.filingDate <= today && (Date.parse(today) - Date.parse(f.filingDate)) / 86_400_000 <= 90 && (!f.items || /(?:2\.02|8\.01)/.test(f.items))).sort((a, b) => b.filingDate.localeCompare(a.filingDate)).slice(0, 3);
   const out: FetchResult<FmpEarningsRow>[] = [];
   for (const filing of selected) {
     try {
       const primary = await edgar.fetchFilingDocument(cik, filing, { asOf: filing.filingDate });
       if (!primary.ok) continue;
-      const extract = (document: FetchResult<string>) => document.ok ? companyEarningsAnnouncement({ text: parseDocument(document.value.data.slice(0, 500_000)).fullText, publishedAt: filing.acceptanceDateTime ?? filing.filingDate, observedAt: document.value.fetchedAt || observedAt, url: document.value.endpoint, authority: "sec_filing" }, symbol, today) : null;
+      const extract = (document: FetchResult<string>) => document.ok ? companyEarningsAnnouncement({ text: parseDocument(document.value.data.slice(0, 500_000)).fullText, publishedAt: filing.acceptanceDateTime ?? filing.filingDate, observedAt: document.value.fetchedAt || observedAt, url: document.value.endpoint, authority: "sec_filing", issuer, sourceHash: createHash("sha256").update(document.value.data).digest("hex") }, symbol, today) : null;
       const event = extract(primary);
       if (event) { out.push(event); continue; }
       const index = await edgar.filingIndexHeaders(cik, filing.accessionNumber);

@@ -782,7 +782,7 @@ describe("staleness", () => {
     { asOf: "2024-02-29", now: "2024-03-02T00:00:00Z", status: "pass" },
     { asOf: "2025-02-29", now: "2025-03-02T00:00:00Z", status: "fail" },
   ])("validates February leap-day freshness for $asOf", ({ asOf, now, status }) => {
-    const report = validateBundle(makeBundle({ quote: ok({ rows: [] }, asOf) }), { now: new Date(now) });
+    const report = validateBundle(makeBundle({ quote: ok({ rows: [] }, asOf, { fetchedAt: asOf }) }), { now: new Date(now) });
     const result = report.checks.find((entry) => entry.id === "staleness.quote");
     expect(result?.status).toBe(status);
     if (status === "fail") expect(result?.detail).toMatch(/invalid.*asOf|asOf.*invalid/i);

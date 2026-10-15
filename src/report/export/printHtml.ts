@@ -80,7 +80,7 @@ import {
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
-import { citationOutcomeLabel } from "@/report/schema";
+import { verificationEntryOutcomeLabel } from "@/report/schema";
 import {
   formatCostUsd,
   formatFinancialValue,
@@ -936,7 +936,7 @@ function sectionAppendix(
           VERIFICATION_LOG_FIELDS.map((field) => field.label),
           a.verificationLog.map((entry) =>
             VERIFICATION_LOG_FIELDS.map((field) => {
-              if (field.key === "outcome") return esc(citationOutcomeLabel(entry.outcome));
+              if (field.key === "outcome") return esc(verificationEntryOutcomeLabel(entry));
               return esc(auditValue(entry[field.key]));
             })),
         )

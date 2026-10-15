@@ -833,7 +833,11 @@ export function namedIndividuals(
    * ({@link unlistedNames}); `extraWords` are words that are no name here
    * (the person rows' titles). Only for a claim citing a person row.
    */
-  options: { unlistedNames?: { extraWords: readonly string[] } } = {},
+  options: {
+    unlistedNames?: { extraWords: readonly string[] };
+    /** Full titles from the cited source and applicable observation date only. */
+    sourceTitles?: readonly string[];
+  } = {},
 ): NamedIndividual[] {
   const found: NamedIndividual[] = [];
   const spans: [number, number][] = [];
@@ -879,6 +883,15 @@ export function namedIndividuals(
       const start = (match.index ?? 0) + Math.max(0, match[0].indexOf(name));
       const end = start + name.length;
       if (overlaps(start, end)) continue;
+      // A source title can contain a role followed by a business scope, e.g.
+      // "CEO Microsoft Commercial". Do not invent a second person from that
+      // exact contiguous phrase. Known names were already collected above.
+      const words = (value: string): string => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+      if (groups.role !== undefined && options.sourceTitles?.some((title) =>
+        ` ${words(title)} `.includes(` ${words(`${groups.role} ${name}`)} `))) {
+        spans.push([start, end]);
+        continue;
+      }
       spans.push([start, end]);
       found.push({
         match: candidate,
@@ -1384,6 +1397,10 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       sourceId !== null &&
       (citation !== undefined || record !== undefined) &&
       (isPayloadPersonRowSource(sourceId) || rowsForTag.length > 0);
+    const claimAsOf = claim.label === "JUDGMENT" ? null : citationAsOf(claim);
+    const matchingPersonRows = claimAsOf === null
+      ? rowsForTag
+      : rowsForTag.filter((row) => row.asOf === null || row.asOf === claimAsOf);
     // A claim citing a person row is also read for names the payload never
     // listed: the rows are its only support, so every name in it must be
     // theirs (review, 2026-10-13).
@@ -1394,17 +1411,16 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       // Every person row's title words ("Commercial & Investment Bank") are
       // scope, not names, whichever row the claim cites.
       personRowCited
-        ? { unlistedNames: { extraWords: (input.personRows ?? []).flatMap((row) => (row.title === null ? [] : [row.title])) } }
+        ? {
+            unlistedNames: { extraWords: (input.personRows ?? []).flatMap((row) => (row.title === null ? [] : [row.title])) },
+            sourceTitles: matchingPersonRows.flatMap((row) => row.title === null ? [] : [row.title]),
+          }
         : {},
     );
     const person = people[0]?.match ?? null;
     const credibility = isCredibilityPath(path);
     if (people.length > 0 && personRowCited) {
-      const claimAsOf = claim.label === "JUDGMENT" ? null : citationAsOf(claim);
-      const rows = claimAsOf === null
-        ? rowsForTag
-        : rowsForTag.filter((row) => row.asOf === null || row.asOf === claimAsOf);
-      const problem = personRowProblem(people, rows);
+      const problem = personRowProblem(people, matchingPersonRows);
       if (problem === null) {
         namedIndividual.pass();
       } else {

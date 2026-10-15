@@ -8,6 +8,7 @@
  */
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { artifactIsBound, evidenceObservationV2Schema, matchObservation, retainedArtifactSchema, targetDefinitionV2Schema, type ObservationExclusionReason } from "@/evaluation/targetDefinition";
 
 export const EVALUATION_POLICY_VERSION = "REPORT_EVALUATION_2026_10_V1" as const;
 const nonempty = z.string().trim().min(1);
@@ -34,6 +35,7 @@ const operatingDefinitionSchema = z.object({
   currency: currency.nullable(),
   /** Exact accounting/ownership basis, including split basis for EPS. */
   basis: nonempty,
+  target: targetDefinitionV2Schema.optional(),
 }).strict();
 
 const marketDefinitionSchema = z.object({
@@ -55,6 +57,7 @@ export const EvaluationDefinitionSchema = z.object({
   methodVersion: nonempty,
   operating: z.array(operatingDefinitionSchema),
   market: z.array(marketDefinitionSchema),
+  retainedArtifacts: z.array(retainedArtifactSchema).optional(),
 }).strict();
 export type EvaluationDefinition = z.infer<typeof EvaluationDefinitionSchema>;
 type OperatingDefinition = z.infer<typeof operatingDefinitionSchema>;
@@ -73,6 +76,7 @@ const operatingOutcomeSchema = z.object({
   value: z.number().finite(),
   availableDate: date,
   source: nonempty,
+  observation: evidenceObservationV2Schema.optional(),
 }).strict();
 
 const marketLegSchema = z.object({
@@ -100,6 +104,8 @@ export const EvaluationOutcomeSchema = z.discriminatedUnion("kind", [operatingOu
 export const EvaluationOutcomesSchema = z.object({
   schemaVersion: z.literal(1),
   outcomes: z.array(z.unknown()),
+  /** Evaluation-time evidence stays separate from the frozen forecast inputs. */
+  retainedArtifacts: z.array(retainedArtifactSchema).optional(),
 }).strict();
 
 export type FrozenOperatingForecast = OperatingDefinition & {
@@ -248,6 +254,12 @@ export function createEvaluationSnapshot(
     if (item.securityId === item.benchmarkId) throw new Error(`Security and benchmark must differ: ${item.id}`);
   }
   const operatingForecasts = definition.operating.map((item) => selectOperatingForecast(report, item, definition.asOf));
+  for (const item of definition.operating) {
+    const target = item.target;
+    if (target && (target.targetId !== item.id || target.issuerId !== definition.issuer.id || target.metric !== item.metric || target.accountingBasis !== item.basis || target.periodStart !== item.periodStart || target.periodEnd !== item.periodEnd || target.currency !== item.currency || target.unit !== item.unit || Date.parse(target.createdAt) !== Date.parse(reportGeneratedAt))) {
+      throw new Error(`Target dimensions do not match the registered report selection: ${item.id}`);
+    }
+  }
   const payload = {
     snapshotVersion: 1 as const, policyVersion: EVALUATION_POLICY_VERSION,
     frozenAt, reportGeneratedAt, reportSpecVersion, pipelineVersion,
@@ -268,6 +280,7 @@ export function verifyEvaluationSnapshot(input: unknown): EvaluationSnapshot {
 }
 
 export type EvaluationExclusionReason =
+  | ObservationExclusionReason | "observation-dimensions-required" | "observation-value-mismatch" | "observation-availability-mismatch" | "method-unbound"
   | "missing-outcome" | "duplicate-outcome" | "invalid-outcome"
   | "issuer-mismatch" | "metric-mismatch" | "period-mismatch"
   | "unit-mismatch" | "currency-mismatch" | "basis-mismatch"
@@ -296,6 +309,9 @@ export interface ReportEvaluation {
   outcomesHash: string;
   asOf: string;
   registration: "same-day-snapshot" | "retrospective-snapshot";
+  custodyStatus: "local-unwitnessed";
+  predictiveValidation: false;
+  readiness: "diagnostic" | "insufficient";
   operating: Array<OperatingIncluded | Excluded>;
   market: Array<MarketIncluded | Excluded>;
   unmatchedOutcomes: Array<{ index: number; id: string | null; reason: string }>;
@@ -358,6 +374,15 @@ export function evaluateReportSnapshot(snapshotInput: unknown, outcomesInput: un
     if (actual.unit !== forecast.unit) reasons.push("unit-mismatch");
     if (actual.currency !== forecast.currency) reasons.push("currency-mismatch");
     if (actual.basis !== forecast.basis) reasons.push("basis-mismatch");
+    if (forecast.target) {
+      if (!artifactIsBound(forecast.target.methodArtifactHash, "method", snapshot.definition.retainedArtifacts ?? [])) reasons.push("method-unbound");
+      if (!actual.observation) reasons.push("observation-dimensions-required");
+      else {
+        reasons.push(...matchObservation(forecast.target, actual.observation, { evaluatedAt: asOf, retainedArtifacts: outcomes.retainedArtifacts }).reasons);
+        if (actual.observation.value !== actual.value) reasons.push("observation-value-mismatch");
+        if (actual.observation.availableAt.slice(0, 10) !== actual.availableDate) reasons.push("observation-availability-mismatch");
+      }
+    }
     if (reasons.length) return exclusion(forecast.id, reasons);
     const signedError = forecast.forecastValue - actual.value;
     const absoluteError = Math.abs(signedError);
@@ -403,6 +428,8 @@ export function evaluateReportSnapshot(snapshotInput: unknown, outcomesInput: un
     evaluationVersion: 1, policyVersion: EVALUATION_POLICY_VERSION,
     snapshotHash: snapshot.snapshotHash, outcomesHash: hash(outcomes), asOf,
     registration: snapshot.frozenAt.slice(0, 10) <= snapshot.definition.asOf ? "same-day-snapshot" : "retrospective-snapshot",
+    custodyStatus: "local-unwitnessed", predictiveValidation: false,
+    readiness: operatingIncluded + marketIncluded > 0 ? "diagnostic" : "insufficient",
     operating, market, unmatchedOutcomes,
     counts: { operatingIncluded, operatingExcluded: operating.length - operatingIncluded, marketIncluded, marketExcluded: market.length - marketIncluded },
     limitations: [

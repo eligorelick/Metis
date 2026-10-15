@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 
 import {
   createEvaluationSnapshot,
@@ -180,6 +181,23 @@ describe("immutable evaluation snapshots", () => {
 });
 
 describe("operating forecast evaluation", () => {
+  it("adds shared v2 dimension/source gates while retaining report fiscal and numeric gates", () => {
+    const source = { kind: "source", content: "initial revenue 100", hash: createHash("sha256").update("initial revenue 100").digest("hex") };
+    const method = { kind: "method", content: "report method", hash: createHash("sha256").update("report method").digest("hex") };
+    const target = { schemaVersion: 2, targetId: operatingOutcome.id, issuerId: issuer.id, securityId: "issuer-level", metric: "revenue", accountingBasis: operatingOutcome.basis, currency: "USD", unit: "USD", shareBasis: "not_per_share", corporateActionBasis: "unadjusted", periodStart: operatingOutcome.periodStart, periodEnd: operatingOutcome.periodEnd, horizonMonths: 12, forecastKind: "partial_year", createdAt: report.meta.generatedAt, methodArtifactHash: method.hash };
+    const actual = { ...operatingOutcome, observation: { targetId: target.targetId, issuerId: target.issuerId, securityId: target.securityId, metric: target.metric, accountingBasis: target.accountingBasis, currency: target.currency, unit: target.unit, shareBasis: target.shareBasis, corporateActionBasis: target.corporateActionBasis, periodStart: target.periodStart, periodEnd: target.periodEnd, availableAt: operatingOutcome.availableDate, sourceHash: source.hash, value: 100 } };
+    const frozen = createEvaluationSnapshot(report, { ...definition, operating: [{ ...definition.operating[0], target }], retainedArtifacts: [method] }, report.meta.generatedAt);
+    const frozenBytes = JSON.stringify(frozen);
+    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [actual], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "included", absoluteError: 20 });
+    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [{ ...actual, observation: { ...actual.observation, issuerId: "OTHER" } }], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["issuer_mismatch"]) });
+    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [{ ...actual, observation: { ...actual.observation, sourceHash: "a".repeat(64) } }], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["source_unbound"]) });
+    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [{ ...actual, metric: "fcf" }], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["metric-mismatch"]) });
+    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [actual], retainedArtifacts: [{ ...source, content: "changed future source bytes" }] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["source_unbound"]) });
+    const sourceInFrozenInputs = createEvaluationSnapshot(report, { ...definition, operating: [{ ...definition.operating[0], target }], retainedArtifacts: [method, source] }, report.meta.generatedAt);
+    expect(evaluateReportSnapshot(sourceInFrozenInputs, { schemaVersion: 1, outcomes: [actual] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["source_unbound"]) });
+    expect(JSON.stringify(frozen)).toBe(frozenBytes);
+    expect(evaluateReportSnapshot(snapshot(), { schemaVersion: 1, outcomes: [operatingOutcome] }, "2026-03-01")).toMatchObject({ predictiveValidation: false, custodyStatus: "local-unwitnessed", readiness: "diagnostic" });
+  });
   it("accepts exact AI-bound projection provenance and rejects another metric, scenario or period", () => {
     const ai = structuredClone(report);
     ai.projections.series[0].base[0].value.source = "payload.computed.projections.revenue.base.fy2025";

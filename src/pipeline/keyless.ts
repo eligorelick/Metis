@@ -815,6 +815,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     annualPeriods: inputs.annualPeriods,
     quarterlyPeriods: inputs.quarterlyPeriods,
     asOf: inputs.today,
+    factsObservedAt: inputs.edgar.companyFacts.ok ? inputs.edgar.companyFacts.value.fetchedAt : undefined,
     vendorSplits: splitEvidence,
     basisDay,
     ...(bankStatementRouting(registrant) ? { bankRevenue: true } : {}),
@@ -827,6 +828,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // on mixed share bases; both belong in the manifest, not only in the
   // transient progress log the statement notes reach.
   if (built !== null) {
+    if(built.factExclusions.length)gaps.push({field:"keyless.statements.availability",reason:`${built.factExclusions.length} raw fact observation(s) excluded because their filing/period dates were invalid or unavailable by ${inputs.today}; raw companyfacts remain retained.`,severity:"info",attemptedSources:["edgar:companyfacts"]});
     // One field per split date: the manifest dedups by field.
     for (const note of built.splits.notes) {
       gaps.push({
@@ -1169,7 +1171,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     });
   }
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource !== "fmp") {
-    const predecessorBuilt = buildStatementsFromCompanyFacts(predecessor.facts, buildOptions(predecessor.cik10));
+    const predecessorBuilt = buildStatementsFromCompanyFacts(predecessor.facts, { ...buildOptions(predecessor.cik10), factsObservedAt: predecessor.fetchedAt });
     let filledPeriods = 0;
     let oldest: string | null = null;
     let newest: string | null = null;

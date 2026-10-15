@@ -2881,7 +2881,9 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       : undefined;
     log.push({
       claim: claim.text,
-      outcome: validated ? "verified" : "unverified",
+      // Matching quantities does not adjudicate the entire prose proposition.
+      // Keep numeric validation/counts while exposing the narrower claim scope.
+      outcome: "unverified",
       note: supported
         ? semanticFailure?.note ?? validation.note
         : rejected
@@ -2901,6 +2903,8 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       source: sourceId ?? claim.source,
       reason: rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : semanticFailure?.reason ?? validation.reason,
       validationStatus,
+      numericSupportStatus: validationStatus,
+      claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",
       ...(validation.spans.length === 0 ? {} : { sourceSpans: validation.spans }),
     });
   }

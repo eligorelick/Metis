@@ -24,6 +24,7 @@ import type {
 } from "@/providers/fmp";
 
 import type { PriceBar, CrossMarker } from "./PriceChart";
+import { admitMarketBars } from "@/pipeline/stageB/marketAdmission";
 import type { RsSeries } from "./RelativeStrengthChart";
 import type {
   RevenueRow,
@@ -105,7 +106,7 @@ export function priceChartPropsFromBundle(
   computed: ComputedMetrics,
 ): { rows: PriceBar[]; crosses: CrossMarker[] } {
   return {
-    rows: toPriceBars(rowsOf(bundle.eodPrices)),
+    rows: admitMarketBars(toPriceBars(rowsOf(bundle.eodPrices)).map(r=>({...r,date:r.date ?? r.time ?? ""})), "symbol", bundle.builtAt).rows,
     crosses: toCrossMarkers(computed),
   };
 }
@@ -114,14 +115,9 @@ export function priceChartPropsFromBundle(
 // Relative-strength series
 // ---------------------------------------------------------------------------
 
-function toRsRows(rows: readonly FmpEodBarRow[]): { date: string; close: number }[] {
-  const out: { date: string; close: number }[] = [];
-  for (const r of rows) {
-    const date = isoDay(r.date);
-    const close = num(r.close);
-    if (date && close !== null) out.push({ date, close });
-  }
-  return out;
+function toRsRows(rows: readonly FmpEodBarRow[], analysisAt: string): { date: string; close: number }[] {
+  return admitMarketBars(toPriceBars(rows).map(r => ({...r, date: r.date ?? r.time ?? ""})), "relative strength", analysisAt)
+    .rows.map(({date, close}) => ({date, close}));
 }
 
 /**
@@ -131,18 +127,18 @@ function toRsRows(rows: readonly FmpEodBarRow[]): { date: string; close: number 
 export function relativeStrengthSeriesFromBundle(bundle: DataBundle): RsSeries[] {
   const series: RsSeries[] = [];
 
-  const symbolRows = toRsRows(rowsOf(bundle.eodPrices));
+  const symbolRows = toRsRows(rowsOf(bundle.eodPrices), bundle.builtAt);
   if (symbolRows.length > 0) {
     series.push({ label: bundle.symbol, rows: symbolRows, role: "primary" });
   }
 
-  const spyRows = toRsRows(rowsOf(bundle.benchmarkPrices.spy));
+  const spyRows = toRsRows(rowsOf(bundle.benchmarkPrices.spy), bundle.builtAt);
   if (spyRows.length > 0) {
     series.push({ label: "SPY", rows: spyRows, role: "benchmark" });
   }
 
   const sectorSymbol = bundle.benchmarkPrices.sectorEtfSymbol;
-  const sectorRows = toRsRows(rowsOf(bundle.benchmarkPrices.sectorEtf));
+  const sectorRows = toRsRows(rowsOf(bundle.benchmarkPrices.sectorEtf), bundle.builtAt);
   if (sectorSymbol && sectorRows.length > 0) {
     series.push({ label: sectorSymbol, rows: sectorRows, role: "benchmark" });
   }

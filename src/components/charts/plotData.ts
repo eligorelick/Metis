@@ -4,6 +4,7 @@
 import { rebaseTo100, smaSeries, type DatedClose } from "./format";
 import type { PriceBar } from "./PriceChart";
 import type { RsRow, RsSeries } from "./RelativeStrengthChart";
+import { admitMarketBars } from "@/pipeline/stageB/marketAdmission";
 
 export interface PlotPoint { time: string; value: number }
 export function barDate(bar: PriceBar): string {
@@ -11,18 +12,9 @@ export function barDate(bar: PriceBar): string {
   return raw.length > 10 ? raw.slice(0, 10) : raw;
 }
 
-/** Existing chart policy: finite OHLC, ISO-shaped dates, last duplicate wins. */
+/** Same observed-price admission as technical calculations. */
 export function toSortedBars(rows: readonly PriceBar[]): PriceBar[] {
-  const clean = rows.filter((bar) => /^\d{4}-\d{2}-\d{2}$/.test(barDate(bar))
-    && [bar.open, bar.high, bar.low, bar.close].every(Number.isFinite))
-    .map((bar) => ({ ...bar, date: barDate(bar) }))
-    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  const out: PriceBar[] = [];
-  for (const bar of clean) {
-    if (out.length && barDate(out[out.length - 1]!) === bar.date) out[out.length - 1] = bar;
-    else out.push(bar);
-  }
-  return out;
+  return admitMarketBars(rows.map(bar=>({...bar,date:barDate(bar)})),"chart").rows;
 }
 
 export function preparePricePlotData(rows: readonly PriceBar[], options: { showSma50?: boolean; showSma200?: boolean } = {}) {
@@ -46,15 +38,16 @@ export function preparePricePlotData(rows: readonly PriceBar[], options: { showS
 
 function normDate(date: string): string { return date.length > 10 ? date.slice(0, 10) : date; }
 function sortedUnique(rows: readonly RsRow[]): DatedClose[] {
-  const clean = rows.map((row) => ({ date: normDate(row.date), close: row.close }))
-    .filter((row) => /^\d{4}-\d{2}-\d{2}$/.test(row.date))
-    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-  const out: DatedClose[] = [];
-  for (const row of clean) {
-    if (out.length && out[out.length - 1]!.date === row.date) out[out.length - 1] = row;
-    else out.push(row);
+  const byDate = new Map<string, DatedClose>();
+  const conflicts = new Set<string>();
+  for (const raw of rows) {
+    const row = {date: normDate(raw.date), close: raw.close};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || !Number.isFinite(Date.parse(row.date)) || new Date(row.date).toISOString().slice(0,10) !== row.date) continue;
+    const prior = byDate.get(row.date);
+    if (prior && !Object.is(prior.close, row.close)) conflicts.add(row.date);
+    else byDate.set(row.date, row);
   }
-  return out;
+  return [...byDate.values()].filter(row => !conflicts.has(row.date)).sort((a,b) => a.date.localeCompare(b.date));
 }
 
 /** Comparison cutoff; an individual series can start later if this date is absent. */

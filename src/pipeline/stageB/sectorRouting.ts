@@ -33,6 +33,7 @@ import type {
 } from "@/types/core";
 import { sectorIndustryForSic } from "@/edgar/sic";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { isFinancialForensicsSuppressed } from "@/pipeline/stageB/forensics";
 import {
   describeSignals,
@@ -1614,13 +1615,17 @@ export function computeRunway(
   let liquidAssets: number | null = null;
   let liquidAssetsBasis: RunwayResult["liquidAssetsBasis"] = null;
   let componentLiquiditySumWasNonFinite = false;
+  const liquidityConflict = isFiniteNumber(balance.cashAndShortTermInvestments) && balance.cashAndShortTermInvestments >= 0
+    && resolveNetDebt({ ...balance, totalDebt: 0 }).conflict === true;
   if (
+    !liquidityConflict &&
     isFiniteNumber(balance.cashAndShortTermInvestments) &&
     balance.cashAndShortTermInvestments >= 0
   ) {
     liquidAssets = balance.cashAndShortTermInvestments;
     liquidAssetsBasis = "cashAndShortTermInvestments";
   } else if (
+    !liquidityConflict &&
     isFiniteNumber(balance.cashAndCashEquivalents) &&
     balance.cashAndCashEquivalents >= 0 &&
     isFiniteNumber(balance.shortTermInvestments) &&
@@ -1637,7 +1642,9 @@ export function computeRunway(
   if (liquidAssets === null) {
     gaps.push({
       field: "runway.liquidAssets",
-      reason: componentLiquiditySumWasNonFinite
+      reason: liquidityConflict
+        ? "combined cash-and-short-term-investments conflicts with reported cash components — runway withheld"
+        : componentLiquiditySumWasNonFinite
         ? "cashAndShortTermInvestments unavailable/invalid; cashAndCashEquivalents and shortTermInvestments " +
           "were finite non-negative values, but their sum was non-finite — combined liquidity suppressed"
         : "cashAndShortTermInvestments unavailable/invalid and cashAndCashEquivalents plus " +

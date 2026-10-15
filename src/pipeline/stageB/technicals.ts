@@ -23,6 +23,7 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
+import { admitMarketBars } from "./marketAdmission";
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -119,55 +120,7 @@ export function sanitizeRows(
   rows: readonly OhlcvRow[] | null | undefined,
   label: string,
 ): { rows: OhlcvRow[]; notes: string[] } {
-  const notes: string[] = [];
-  if (!rows || rows.length === 0) return { rows: [], notes };
-  const clean: OhlcvRow[] = [];
-  let droppedPriceRows = 0;
-  let unavailableVolumeRows = 0;
-  for (const r of rows) {
-    const day = typeof r.date === "string" ? isoDay(r.date) : null;
-    const validPrice =
-      day !== null &&
-      Number.isFinite(r.open) &&
-      Number.isFinite(r.high) &&
-      Number.isFinite(r.low) &&
-      Number.isFinite(r.close) &&
-      r.close > 0 &&
-      r.high > 0 &&
-      r.low > 0;
-    if (!validPrice) {
-      droppedPriceRows += 1;
-      continue;
-    }
-    const volume =
-      typeof r.volume === "number" && Number.isFinite(r.volume) && r.volume >= 0
-        ? r.volume
-        : null;
-    if (volume === null) unavailableVolumeRows += 1;
-    clean.push({ ...r, date: day, volume });
-  }
-  if (droppedPriceRows > 0) {
-    notes.push(
-      `${label}: dropped ${droppedPriceRows} row(s) with invalid dates or non-finite/non-positive prices.`,
-    );
-  }
-  if (unavailableVolumeRows > 0) {
-    notes.push(
-      `${label}: kept ${unavailableVolumeRows} valid price row(s) with unavailable volume normalized to null.`,
-    );
-  }
-  let sorted = true;
-  for (let i = 1; i < clean.length; i++) {
-    if (clean[i].date < clean[i - 1].date) {
-      sorted = false;
-      break;
-    }
-  }
-  if (!sorted) {
-    clean.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    notes.push(`${label}: input rows were not sorted ASC by date — re-sorted defensively.`);
-  }
-  return { rows: clean, notes };
+  return admitMarketBars(rows, label);
 }
 
 // ---------------------------------------------------------------------------
@@ -1301,13 +1254,14 @@ export function computeTechnicals(
   spy: readonly BenchmarkRow[],
   sectorEtf: readonly BenchmarkRow[],
   sectorEtfSymbol: string | null,
+  options: { analysisAt?: string } = {},
 ): TechnicalsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
 
-  const symbolClean = sanitizeRows(rows, "symbol");
-  const spyClean = sanitizeRows(spy, "SPY");
-  const sectorClean = sanitizeRows(sectorEtf, sectorEtfSymbol ?? "sector ETF");
+  const symbolClean = admitMarketBars(rows, "symbol", options.analysisAt);
+  const spyClean = admitMarketBars(spy, "SPY", options.analysisAt);
+  const sectorClean = admitMarketBars(sectorEtf, sectorEtfSymbol ?? "sector ETF", options.analysisAt);
   notes.push(...symbolClean.notes, ...spyClean.notes, ...sectorClean.notes);
   const px = symbolClean.rows;
 

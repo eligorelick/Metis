@@ -37,6 +37,7 @@ import { applyScenarioPresentation, buildScenarioPresentation, comparableScenari
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
+import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
@@ -773,6 +774,7 @@ function synthesis(
     );
   }
   const v = computed.valuation;
+  if (v.kind === "excess-return") parts.push(describeFinancialValuation(v.excessReturn.financialAssumptions));
   if (v.kind === "dcf" && v.reverseDcf?.method === "growth" && isNum(v.reverseDcf.impliedRevenueGrowthPct)) {
     parts.push(
       `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} starting revenue growth${v.reverseDcf.growthPathFamily === "linear-fade-to-terminal" ? ", fading to the terminal rate over the explicit DCF horizon" : " (growth-path family unavailable)"}.`,
@@ -805,7 +807,10 @@ export interface EnrichDataOnlyReportArgs {
  */
 export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArgs): Report {
   const { bundle, computed } = args;
-  const routeMetrics = routeMetricsBlock(computed);
+  const baseRouteMetrics = routeMetricsBlock(computed);
+  const routeMetrics = baseRouteMetrics && computed.valuation.kind === "excess-return"
+    ? { ...baseRouteMetrics, notes: [...new Set([...baseRouteMetrics.notes, describeFinancialValuation(computed.valuation.excessReturn.financialAssumptions)])] }
+    : baseRouteMetrics;
   // Stage B's combined figures (net debt, EBITDA, EBIT) are in the model
   // currency; per-year cash-flow figures carry their own rows' currency.
   const currency = modelCurrency(bundle);

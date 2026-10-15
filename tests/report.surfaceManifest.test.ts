@@ -209,6 +209,8 @@ const VERIFICATION_LOG_ORDER = [
   "check",
   "validationStatus",
   "sourceSpans",
+  "numericSupportStatus",
+  "claimSupportStatus",
 ] as const;
 const AS_OF_MAP_ORDER = ["field", "asOf"] as const;
 const DATA_COMPLETENESS_ORDER = [
@@ -506,6 +508,8 @@ describe("shared report surface manifest", () => {
       { id: "verification-log-field:check", key: "check", label: "Check", optional: true },
       { id: "verification-log-field:validationStatus", key: "validationStatus", label: "Factual validation", optional: true },
       { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
+      { id: "verification-log-field:numericSupportStatus", key: "numericSupportStatus", label: "Numeric support", optional: true },
+      { id: "verification-log-field:claimSupportStatus", key: "claimSupportStatus", label: "Prose support", optional: true },
     ]);
     expect(AS_OF_MAP_FIELDS).toEqual([
       { id: "as-of-map-field:field", key: "field", label: "Field", optional: false },

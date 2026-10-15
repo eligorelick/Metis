@@ -320,4 +320,17 @@ The first two forms read the local application database (`THESIS_DB_PATH` may se
 
 Replay uses the snapshot's build date and explicit calculation options, independent of the present clock, cache or lease configuration. It checks digest integrity and requires the installed calculation/report/score-band versions to match. An unavailable historical implementation fails explicitly; running today's changed rules on yesterday's input is not labeled an exact replay. These version stamps must be bumped when their calculation meanings change.
 
+An acquisition adapter can supply actual method/dependency bytes through
+`createSnapshotArtifactIdentity` and the fourth `captureRunInputSnapshot` argument.
+Identity-bearing replay also requires matching `--method-artifact FILE` and
+`--dependency-lock FILE`, plus the recorded `--code-commit SHA` and
+`--dirty-diff FILE` when present. These checks include recorded null values.
+Ordinary jobs retain the legacy normalized-input format because deployed artifact
+collection is not established; no method hashes are inferred from version labels.
+
+Trusted server embeddings may set `RunJobOptions.aiSelection` for a single run.
+The runner copies that selection once and uses the existing connection, admission,
+fingerprint and execution telemetry paths. It does not change stored preferences;
+the public report endpoint continues to use the user's selected connection.
+
 This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.

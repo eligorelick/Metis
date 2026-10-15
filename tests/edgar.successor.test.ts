@@ -422,7 +422,8 @@ function inputs(over: Partial<KeylessInputs> = {}): KeylessInputs {
   const successorFacts = annualFacts(2115436, "EXAMPLE SUCCESSOR HOLDINGS CORP", [2026]);
   return {
     symbol: "XMPL",
-    today: "2026-09-01",
+    // Positive history controls run after the synthetic FY2026 filing exists.
+    today: "2027-03-01",
     eodFrom: "2021-09-01",
     sectorEtfSymbol: null,
     fmp: allGaps(),
@@ -485,6 +486,18 @@ function inputs(over: Partial<KeylessInputs> = {}): KeylessInputs {
 }
 
 describe("applyKeylessFallbacks — a successor registrant's pre-reorganization history", () => {
+  it("excludes the synthetic successor annual filing before it is available", async () => {
+    const out = await applyKeylessFallbacks(inputs({today: "2026-09-01"}));
+    const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];
+    expect(rows.some(row => row.date === "2026-12-31")).toBe(false);
+  });
+  it("retains the predecessor's own acquisition time on its field evidence", async () => {
+    const base = inputs();
+    const observedAt = "2026-08-29T13:14:15.000Z";
+    const out = await applyKeylessFallbacks(inputs({edgar: {...base.edgar, predecessor: {...base.edgar.predecessor!, fetchedAt: observedAt}}}));
+    const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];
+    expect(rows.find(row => row.date === "2025-12-31")?.fieldProvenance?.revenue?.observedAt).toBe(observedAt);
+  });
   it("appends the predecessor's older years, tags every row, and leaves the successor's own untouched", async () => {
     const out = await applyKeylessFallbacks(inputs());
     const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];

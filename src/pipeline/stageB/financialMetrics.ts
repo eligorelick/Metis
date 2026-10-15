@@ -101,6 +101,7 @@ export interface FinancialMetricsBalanceRow {
 /** Income slice (FMP field names). */
 export interface FinancialMetricsIncomeRow {
   date: string;
+  reportedCurrency?: string | null;
   revenue?: number | null;
   netIncome?: number | null;
   interestIncome?: number | null;
@@ -397,6 +398,47 @@ function isoCode(value: unknown): string | null {
   return /^[A-Z]{3}$/.test(code) ? code : null;
 }
 
+/** Compatibility of monetary operands, not a currency conversion or semantic certification. */
+function operandConflict(hits: readonly TagHit[], currencies: readonly (string | null | undefined)[] = []): string | null {
+  const money = hits.filter(h => ![...CET1_TAGS, ...SHARES_OUTSTANDING_TAGS].some(tag => tag === h.tag));
+  if (money.some(h => isoCode(h.unit) === null)) return "nonmonetary unit on a monetary operand — derived value withheld";
+  const units = new Set([...money.map(h=>isoCode(h.unit)), ...currencies.map(isoCode)].filter((v):v is string=>v!==null));
+  if (units.has("XXX") || units.has("UNK") || units.size > 1) return "monetary units/currencies are incompatible — derived value withheld";
+  const durations = hits.filter(h=>h.start!==undefined);
+  if (durations.some(h=>h.start!==durations[0]?.start || h.end!==durations[0]?.end)) return "flow periods have different starts or ends — derived value withheld";
+  return null;
+}
+
+function adjacentBalance(current: FinancialMetricsBalanceRow | undefined, prior: FinancialMetricsBalanceRow | undefined): FinancialMetricsBalanceRow | undefined {
+  if (!current || !prior) return undefined;
+  const days=(Date.parse(current.date)-Date.parse(prior.date))/86400000;
+  return Number.isFinite(days) && days>=364 && days<=371 ? prior : undefined;
+}
+
+/** Recheck the cited operands before a route value or warning becomes consumable. */
+function metricConflict(m:RouteMetric,facts:CompanyFacts|null,inputs:FinancialMetricsInputs):string|null {
+  if(m.value===null || m.asOf===null)return null;
+  if (m.sources.some(s => s.startsWith("statements:income")) && inputs.income[0]?.date !== m.asOf) return "income and metric balance periods differ — derived value withheld";
+  const actual = metricOperands.get(m);
+  if (actual) return operandConflict(actual.hits, actual.currencies);
+  const hits=m.sources.flatMap(source=>{
+    const tag=/us-gaap\/([A-Za-z0-9_]+)/.exec(source)?.[1];
+    const hit=tag?resolveTag(facts,[tag],{end:m.asOf!,durationHint:"FY"})??resolveTag(facts,[tag],{end:m.asOf!}):null;
+    return hit ? [hit] : [];
+  });
+  const currencies:string[]=[];
+  if(m.sources.some(s=>s.startsWith("statements:balance"))){
+    const currency=inputs.balance.find(r=>r.date===m.asOf)?.reportedCurrency;
+    if(currency)currencies.push(currency);
+  }
+  if(m.sources.some(s=>s.startsWith("statements:income"))){
+    if(inputs.income[0]?.date!==m.asOf)return "income and metric balance periods differ — derived value withheld";
+    const currency=inputs.income.find(r=>r.date===m.asOf)?.reportedCurrency;
+    if(currency && m.sources.some(s=>s.startsWith("statements:income") && !s.includes("weightedAverageShs")))currencies.push(currency);
+  }
+  return operandConflict(hits,currencies);
+}
+
 /** Sum every tag in `tags` that resolves; null when none does. */
 function resolveSum(
   facts: CompanyFacts | null,
@@ -413,8 +455,15 @@ function resolveSum(
   return { value: hits.reduce((s, h) => s + h.value, 0), hits };
 }
 
-function metric(init: Partial<RouteMetric> & Pick<RouteMetric, "key" | "label" | "unit">): RouteMetric {
-  return {
+interface MetricOperands { hits: readonly TagHit[]; currencies?: readonly (string | null | undefined)[] }
+interface StatementHit { value: number; tag: string; end: string; sourcePath: string }
+function actualTagHits(hits: readonly (TagHit | StatementHit | null)[]): TagHit[] {
+  return hits.filter((h): h is TagHit => h !== null && "unit" in h);
+}
+// Retain exact calculation operands internally; rendered formulas are not an evidence index.
+const metricOperands = new WeakMap<RouteMetric, MetricOperands>();
+function metric(init: Partial<RouteMetric> & Pick<RouteMetric, "key" | "label" | "unit">, operands?: MetricOperands): RouteMetric {
+  const result: RouteMetric = {
     value: null,
     basis: "",
     sources: [],
@@ -423,6 +472,8 @@ function metric(init: Partial<RouteMetric> & Pick<RouteMetric, "key" | "label" |
     proxy: false,
     ...init,
   };
+  if (operands) metricOperands.set(result, operands);
+  return result;
 }
 
 /** A withheld metric: value null, reason stated. */
@@ -477,7 +528,7 @@ function bankMetrics(
 ): { metrics: RouteMetric[]; flags: BankRiskFlag[] } {
   const out: RouteMetric[] = [];
   const bal0 = inputs.balance[0];
-  const bal1 = inputs.balance[1];
+  const bal1 = adjacentBalance(bal0, inputs.balance[1]);
   const inc0 = inputs.income[0];
   const end = bal0?.date ?? inc0?.date ?? null;
   const flow = end === null ? null : { end, durationHint: "FY" as const };
@@ -519,7 +570,7 @@ function bankMetrics(
             basis: `net interest income ${nii.value} / average earning assets ${denom} (${avg.basis}) × 100`,
             sources: [nii.sourcePath, earning.sourcePath, ...(earningPrior ? [earningPrior.sourcePath] : [])],
             asOf: end,
-          }),
+          }, { hits: actualTagHits([nii, earning, earningPrior]), currencies: ["unit" in nii ? undefined : inc0?.reportedCurrency] }),
     );
   } else {
     out.push(
@@ -553,7 +604,7 @@ function bankMetrics(
             sources: [nii.sourcePath, "statements:balance.totalAssets"],
             asOf: end,
             proxy: true,
-          })
+          }, { hits: actualTagHits([nii]), currencies: ["unit" in nii ? undefined : inc0?.reportedCurrency, bal0?.reportedCurrency, ...(isNum(bal1?.totalAssets) ? [bal1?.reportedCurrency] : [])] })
         : withheld(
             "niiToAverageAssets",
             "net interest income / average total assets",
@@ -768,7 +819,7 @@ function bankMetrics(
             basis: `interest expense on deposits ${depInterest.value} (${depInterest.tag}) / average deposits ${denom} (${avg.basis}) × 100`,
             sources: [depInterest.sourcePath, deposits.sourcePath, ...(depositsPrior ? [depositsPrior.sourcePath] : [])],
             asOf: end,
-          }),
+          }, { hits: [depInterest, deposits, ...(depositsPrior ? [depositsPrior] : [])] }),
     );
   } else {
     out.push(
@@ -807,7 +858,7 @@ function bankMetrics(
             `and ${loansPrior.end}) × 100 — the year's loan losses after recoveries, as a share of the book`,
           sources: [...nco.sources, loans.sourcePath],
           asOf: end,
-        })
+        }, { hits: [...nco.hits, loans, loansPrior] })
       : withheld(
           "ncoToAverageLoans",
           "net charge-offs / average loans",
@@ -879,7 +930,8 @@ function bankMetrics(
     loans !== null &&
     loansPrior !== null &&
     pos(loans.value) !== null &&
-    pos(loansPrior.value) !== null
+    pos(loansPrior.value) !== null &&
+    operandConflict([provision, ...nco.hits, nonaccrual, nonaccrualPrior, loans, loansPrior]) === null
   ) {
     const nplRising = nonaccrual.value / loans.value > nonaccrualPrior.value / loansPrior.value;
     const ratio = provision.value / nco.value;
@@ -1235,10 +1287,10 @@ function bankRiskFlags(metrics: readonly RouteMetric[]): BankRiskFlag[] {
 function netChargeOffs(
   facts: CompanyFacts | null,
   flow: { end: string; durationHint: "FY" },
-): { value: number; basis: string; sources: string[] } | { reason: string } | null {
+): { value: number; basis: string; sources: string[]; hits: TagHit[] } | { reason: string } | null {
   if (facts === null) return null;
   const net = resolveTag(facts, NET_CHARGE_OFF_TAGS, flow);
-  if (net !== null) return { value: net.value, basis: net.tag, sources: [net.sourcePath] };
+  if (net !== null) return { value: net.value, basis: net.tag, sources: [net.sourcePath], hits: [net] };
   for (const [writeoffTag, recoveryTag] of CHARGE_OFF_RECOVERY_PAIRS) {
     const writeoff = resolveTag(facts, [writeoffTag], flow);
     const recovery = resolveTag(facts, [recoveryTag], flow);
@@ -1250,6 +1302,7 @@ function netChargeOffs(
       value: writeoff.value - recovery.value,
       basis: `${writeoffTag} ${writeoff.value} − ${recoveryTag} ${recovery.value}`,
       sources: [writeoff.sourcePath, recovery.sourcePath],
+      hits: [writeoff, recovery],
     };
   }
   return {
@@ -1419,7 +1472,7 @@ function mortgageReitMetrics(
 ): RouteMetric[] {
   const out: RouteMetric[] = [];
   const bal0 = inputs.balance[0];
-  const bal1 = inputs.balance[1];
+  const bal1 = adjacentBalance(bal0, inputs.balance[1]);
   const inc0 = inputs.income[0];
   const end = bal0?.date ?? inc0?.date ?? null;
   const flow = end === null ? null : { end, durationHint: "FY" as const };
@@ -1600,7 +1653,10 @@ function mortgageReitMetrics(
         ],
         asOf: end,
         proxy: true,
-      }),
+      }, { hits: actualTagHits([intIncome, intExpense, repo, repoPrior]), currencies: [
+        "unit" in intIncome && "unit" in intExpense ? undefined : inc0?.reportedCurrency,
+        bal0?.reportedCurrency, ...(isNum(bal1?.totalAssets) ? [bal1?.reportedCurrency] : []),
+      ] }),
     );
   } else {
     const missing: string[] = [];
@@ -1671,6 +1727,7 @@ export interface NareitFfoInputs {
    * a hybrid of two periods, not a figure.
    */
   periodEnd: string | null;
+  reportedCurrency?: string | null;
   /** Net income fallback when the tag does not resolve — same period as `periodEnd`. */
   netIncome: number | null;
   /** Total D&A fallback — same period as `periodEnd`. */
@@ -1782,6 +1839,12 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
 
   const gainsValue = gains?.value ?? 0;
   const impairmentsValue = impairments?.value ?? 0;
+  const compatibility = operandConflict([netIncomeHit,reDep ?? totalDa,gains,impairments].filter((h):h is TagHit=>h!==null),[inputs.reportedCurrency]);
+  if (compatibility !== null) return {
+    ffo:null,affo:null,ffoApproximate:false,affoApproximate:false,netIncomePlusTotalDa:false,
+    ffoBasis:`FFO withheld: ${compatibility}`,affoBasis:"AFFO withheld because FFO is incompatible",
+    sources,asOf:end,notes:[compatibility],gaps:[{field:"valuation.reit.ffo.compatibility",reason:compatibility,severity:"warn",attemptedSources:sources}],
+  };
   const ffo = netIncome + daValue - gainsValue + impairmentsValue;
   const netIncomePlusTotalDa = !daIsRealEstate && gains === null && impairments === null;
 
@@ -1918,6 +1981,12 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
     });
   }
 
+  const affoCompatibility=operandConflict([netIncomeHit,reDep ?? totalDa,gains,impairments,...(recurringCapex?.hits??[]),...(recurringCapex && straightLineRent ? [straightLineRent] : [])].filter((h):h is TagHit=>h!==null),[inputs.reportedCurrency]);
+  if(affoCompatibility!==null){
+    affo=null;affoBasis=`AFFO withheld: ${affoCompatibility}`;
+    gaps.push({field:"valuation.reit.affo.compatibility",reason:affoCompatibility,severity:"warn",attemptedSources:sources});
+  }
+
   return {
     ffo,
     affo,
@@ -2001,6 +2070,9 @@ export function computeFinancialMetrics(
   }
 
   for (const m of metrics) {
+    const dependency = m.value===null ? undefined : m.sources.find(source=>source.startsWith("computed.financialMetrics.") && metrics.find(d=>d.key===source.split(".").at(-1))?.value===null);
+    const conflict = dependency ? `required ${dependency} was withheld — dependent metric withheld` : metricConflict(m, facts, inputs);
+    if (conflict !== null) { m.value = null; m.withheldReason = conflict; m.basis += ` WITHHELD: ${conflict}.`; }
     if (m.withheldReason !== null) {
       gaps.push({
         field: `financialMetrics.${m.key}`,
@@ -2015,6 +2087,10 @@ export function computeFinancialMetrics(
     (acc, m) => (m.asOf !== null && (acc === null || m.asOf > acc) ? m.asOf : acc),
     null,
   );
+
+  const unsupportedFlags=flags.filter(f=>f.metricKey!==null && !metrics.some(m=>m.key===f.metricKey && m.value!==null));
+  for(let i=notes.length-1;i>=0;i--)if(unsupportedFlags.some(f=>notes[i]!.startsWith(`Warning sign (heuristic threshold, not validated): ${f.label}`)))notes.splice(i,1);
+  flags = flags.filter(f=>!unsupportedFlags.includes(f));
 
   return { route, metrics, ...(route === "bank" ? { flags } : {}), notes, gaps, asOf };
 }

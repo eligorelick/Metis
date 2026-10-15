@@ -634,7 +634,7 @@ describe("buildStatementsFromCompanyFacts — comparative copies carried in a la
       ],
       Assets: [{ end: "2025-12-31", val: 4_424_900, form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13" }],
     });
-    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       date: "2025-12-31",
       revenue: 182_500, // restated value wins
@@ -653,7 +653,7 @@ describe("buildStatementsFromCompanyFacts — comparative copies carried in a la
       NetIncomeLoss: [{ start: "2025-01-01", end: "2025-12-31", val: 57_100, form: "10-K", fp: "FY", fy: 2026, filed: "2027-02-12" }],
       Assets: [{ end: "2025-12-31", val: 4_424_900, form: "10-K", fp: "FY", fy: 2026, filed: "2027-02-12" }],
     });
-    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       date: "2025-12-31",
       fiscalYear: "2025", // from the period end, not from fy:2026
@@ -1531,7 +1531,7 @@ describe("buildStatementsFromCompanyFacts — audit 2026-09-06", () => {
       ],
       Assets: [{ end: "2025-12-27", val: 340, ...q }],
     });
-    expect(buildStatementsFromCompanyFacts(restated, OPTS).incomeQuarterly.rows[0]).toMatchObject({ revenue: 121, fiscalYear: "2026" });
+    expect(buildStatementsFromCompanyFacts(restated, { ...OPTS, asOf: "2027-01-30" }).incomeQuarterly.rows[0]).toMatchObject({ revenue: 121, fiscalYear: "2026" });
   });
 
   it("accepts a 16-week fourth quarter on a 12-12-12-16 calendar as a tagged quarter", () => {
@@ -1856,7 +1856,7 @@ describe("buildStatementsFromCompanyFacts — Caterpillar-style balance sheets",
     expect(fy.shortTermDebt).toBe(5_514);
     expect(
       built.balanceAnnual.notes.some((n) =>
-        /did NOT enter the sum.*could not be combined with the tags that did resolve \(ShortTermBorrowings\)/.test(n),
+        /mixed_unit.*LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths.*EUR.*USD/.test(n),
       ),
     ).toBe(true);
   });
@@ -2175,7 +2175,7 @@ describe("buildStatementsFromCompanyFacts — duplicate periods and restatements
     });
 
   it("keeps the last-filed value, retains the superseded one as original, and flags a material move", () => {
-    const built = buildStatementsFromCompanyFacts(restated(182_447, 190_000), { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(restated(182_447, 190_000), { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     const row = built.incomeAnnual.rows[0] as Record<string, unknown>;
     expect(row.revenue).toBe(190_000);
     expect(row.original).toMatchObject({
@@ -2197,7 +2197,7 @@ describe("buildStatementsFromCompanyFacts — duplicate periods and restatements
   });
 
   it("keeps the original value but raises no flag for a move within one percent", () => {
-    const built = buildStatementsFromCompanyFacts(restated(182_447, 183_000), { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(restated(182_447, 183_000), { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     const row = built.incomeAnnual.rows[0] as Record<string, unknown>;
     expect(row.revenue).toBe(183_000);
     expect((row.original as Record<string, { value: number }>).revenue.value).toBe(182_447);

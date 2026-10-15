@@ -5,7 +5,8 @@ import type { FmpEarningsRow } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 
 const observedAt = "2026-10-13T12:00:00.000Z";
-const evidence = { text: "Example Corporation today announced it will release its third quarter 2026 financial results on October 28, 2026 after market close.", publishedAt: "2026-09-24", observedAt, url: "https://investor.example.com/news/quarter-results", authority: "company_ir" as const };
+const issuer = { cik: "1", canonicalName: "Example Corporation", validAliases: ["Example"], verifiedWebsite: "https://example.com/" };
+const evidence = { issuer, text: "Example Corporation today announced it will release its third quarter 2026 financial results on October 28, 2026 after market close.", publishedAt: "2026-09-24", observedAt, url: "https://investor.example.com/news/quarter-results", authority: "company_ir" as const };
 const vendor: FetchResult<FmpEarningsRow> = { ok: true, value: { data: { date: "2026-10-29" }, asOf: "2026-10-13", source: "fmp", endpoint: "fmp:earnings", fetchedAt: observedAt } };
 
 describe("authoritative company earnings events", () => {
@@ -31,7 +32,7 @@ describe("authoritative company earnings events", () => {
   it("discovers an announcement from a recent issuer 8-K exhibit through the normal SEC client", async () => {
     const ok = <T,>(data: T, endpoint: string): FetchResult<T> => ({ ok: true, value: { data, source: "edgar", endpoint, asOf: "2026-09-24", fetchedAt: observedAt } });
     const client = { fetchFilingDocument: async (_cik: string, filing: { primaryDocument: string }) => ok(filing.primaryDocument === "release.htm" ? `<html><body>${evidence.text}</body></html>` : "<html><body>Item 8.01. See Exhibit 99.1.</body></html>", `https://www.sec.gov/Archives/edgar/data/1/000000000126000003/${filing.primaryDocument}`), filingIndexHeaders: async () => ok({ documents: [{ filename: "release.htm", type: "EX-99.1", sequence: "2", description: "Press release" }] }, "https://www.sec.gov/index") } as unknown as EdgarClient;
-    const out = await discoverFiledEarningsAnnouncement(client, "1", [{ accessionNumber: "0000000001-26-000003", form: "8-K", filingDate: "2026-09-24", reportDate: "2026-09-24", primaryDocument: "current.htm", items: "8.01" }], "EXM", "2026-10-13", observedAt);
+    const out = await discoverFiledEarningsAnnouncement(client, "1", [{ accessionNumber: "0000000001-26-000003", form: "8-K", filingDate: "2026-09-24", reportDate: "2026-09-24", primaryDocument: "current.htm", items: "8.01" }], "EXM", "2026-10-13", observedAt, issuer);
     expect(out[0]).toMatchObject({ ok: true, value: { source: "edgar", data: { date: "2026-10-28", confirmation: "company_confirmed" } } });
   });
   it("admits company-owned issuer press releases and excludes wire services, wrong symbols and malformed source URLs", () => {
@@ -45,10 +46,10 @@ describe("authoritative company earnings events", () => {
       { symbol: "EXM", url: evidence.url, text: evidence.text },
     ];
     const press = { ok: true as const, value: { data: { rows, raw: rows }, source: "fmp" as const, asOf: "2026-10-13", fetchedAt: observedAt, endpoint: "fmp:press" } };
-    expect(pressReleaseEarningsAnnouncements(press, "https://www.example.com", "EXM", "2026-10-13")).toMatchObject([{ ok: true, value: { data: { date: "2026-10-28", announcementUrl: evidence.url } } }]);
-    expect(pressReleaseEarningsAnnouncements(press, "invalid", "EXM", "2026-10-13")).toEqual([]);
-    expect(pressReleaseEarningsAnnouncements(press, null, "EXM", "2026-10-13")).toEqual([]);
-    expect(pressReleaseEarningsAnnouncements({ ok: false, gap: { field: "press", reason: "402", severity: "info" } }, "https://example.com", "EXM", "2026-10-13")).toEqual([]);
+    expect(pressReleaseEarningsAnnouncements(press, "https://www.example.com", "EXM", "2026-10-13", issuer)).toMatchObject([{ ok: true, value: { data: { date: "2026-10-28", announcementUrl: evidence.url } } }]);
+    expect(pressReleaseEarningsAnnouncements(press, "invalid", "EXM", "2026-10-13", issuer)).toEqual([]);
+    expect(pressReleaseEarningsAnnouncements(press, null, "EXM", "2026-10-13", issuer)).toEqual([]);
+    expect(pressReleaseEarningsAnnouncements({ ok: false, gap: { field: "press", reason: "402", severity: "info" } }, "https://example.com", "EXM", "2026-10-13", issuer)).toEqual([]);
   });
   it("uses a later company correction but leaves same-publication contradictions unconfirmed", () => {
     const first = companyEarningsAnnouncement(evidence, "EXM", "2026-10-13");
@@ -86,7 +87,7 @@ describe("authoritative company earnings events", () => {
         if (mode === "throw") throw new Error("offline");
         return mode === "primary" || document.primaryDocument === "release.htm" ? gap : ok("<html><body>No company event was announced in this current report.</body></html>");
       }, filingIndexHeaders: async () => mode === "index" ? gap : ok({ documents: mode === "no_exhibit" ? [] : [{ filename: "release.htm", type: "EX-99.1", sequence: "2" }] }) } as unknown as EdgarClient;
-      expect(await discoverFiledEarningsAnnouncement(client, "1", [filing], "EXM", "2026-10-13", observedAt)).toEqual([]);
+      expect(await discoverFiledEarningsAnnouncement(client, "1", [filing], "EXM", "2026-10-13", observedAt, issuer)).toEqual([]);
     }
   });
 });

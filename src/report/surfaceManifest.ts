@@ -529,6 +529,8 @@ export const VERIFICATION_LOG_FIELD_ORDER = [
   "check", // WS7 (D-20)
   "validationStatus",
   "sourceSpans",
+  "numericSupportStatus",
+  "claimSupportStatus",
 ] as const satisfies readonly VerificationLogFieldKey[];
 export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:claim", key: "claim", label: "Claim", optional: false },
@@ -543,6 +545,8 @@ export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:check", key: "check", label: "Check", optional: true },
   { id: "verification-log-field:validationStatus", key: "validationStatus", label: "Factual validation", optional: true },
   { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
+  { id: "verification-log-field:numericSupportStatus", key: "numericSupportStatus", label: "Numeric support", optional: true },
+  { id: "verification-log-field:claimSupportStatus", key: "claimSupportStatus", label: "Prose support", optional: true },
 ] as const satisfies readonly FieldDescriptor<VerificationLogFieldKey>[];
 export const VERIFICATION_LOG_FIELD_BY_KEY = {
   claim: VERIFICATION_LOG_FIELDS[0],
@@ -556,6 +560,8 @@ export const VERIFICATION_LOG_FIELD_BY_KEY = {
   check: VERIFICATION_LOG_FIELDS[8], // WS7 (D-20)
   validationStatus: VERIFICATION_LOG_FIELDS[9],
   sourceSpans: VERIFICATION_LOG_FIELDS[10],
+  numericSupportStatus: VERIFICATION_LOG_FIELDS[11],
+  claimSupportStatus: VERIFICATION_LOG_FIELDS[12],
 } as const satisfies Record<VerificationLogFieldKey, FieldDescriptor<VerificationLogFieldKey>>;
 
 export type AsOfMapFieldKey = "field" | "asOf";
