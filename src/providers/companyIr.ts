@@ -1,7 +1,7 @@
 import type { FmpEarningsRow } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 
-export interface CompanyIrOptions { now?: () => Date; lookup?: (hostname: string) => Promise<{ address: string; family: number }[]>; fetchImpl?: typeof fetch; signal?: AbortSignal }
+export interface CompanyIrOptions { issuer?: ConfirmedIssuerIdentity; now?: () => Date; lookup?: (hostname: string) => Promise<{ address: string; family: number }[]>; fetchImpl?: typeof fetch; signal?: AbortSignal }
 
 function publicAddress(address: string): boolean {
   if (isIP(address) === 4) {
@@ -75,6 +75,11 @@ export async function discoverCompanyIrEarnings(website: string, symbol: string,
   const seed = safeUrl(website);
   const attempted: string[] = [];
   if (!seed) return { announcements, gaps: [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable: company website is not a public HTTPS URL", severity: "info", expected: true }] };
+  const verified = opts.issuer ? safeUrl(opts.issuer.verifiedWebsite) : null;
+  const officialHost = verified?.hostname.replace(/^www\./, "");
+  if (!opts.issuer || !verified || !officialHost || (seed.toString() !== verified.toString() && seed.hostname !== officialHost && !seed.hostname.endsWith(`.${officialHost}`))) {
+    return { announcements, gaps: [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable: confirmed issuer name and website binding are required", severity: "info", expected: true }] };
+  }
   const signal = opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(12_000)]) : AbortSignal.timeout(12_000);
   const now = opts.now ?? (() => new Date());
   const lookup = opts.lookup ?? ((hostname: string) => dnsLookup(hostname, { all: true, verbatim: true }));
@@ -108,7 +113,17 @@ export async function discoverCompanyIrEarnings(website: string, symbol: string,
         // Dates embedded in earnings/conference clauses remain untouched.
         const datelineMs = dateline ? Date.parse(dateline) : NaN;
         if (dateline && Number.isFinite(datelineMs) && new Date(datelineMs).toISOString().slice(0, 10) === publishedAt.slice(0, 10) && text.trimStart().startsWith(`${dateline} `)) text = text.trimStart().slice(dateline.length).trimStart();
-        const event = companyEarningsAnnouncement({ text, publishedAt, observedAt: now().toISOString(), url: page.url, authority: "company_ir", authorityChain: page.chain }, symbol, today);
+        const timeElement = res.bodyText.match(/<time\b([^>]*)>([^<]+)<\/time>/i);
+        const timeDate = timeElement ? attribute(timeElement[1]!, "datetime") : null;
+        const timeLabel = timeElement?.[2]?.replace(/\s+/g, " ").trim();
+        if (timeDate && Number.isFinite(Date.parse(timeDate)) && timeDate.slice(0,10) === publishedAt.slice(0,10) && timeLabel && text.trimStart().startsWith(`${timeLabel} `)) text = text.trimStart().slice(timeLabel.length).trimStart();
+        const title = (res.bodyText.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? res.bodyText.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1])?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        // Keep the document issuer title separate from its dated action. A
+        // flattened heading must neither supply another sentence's subject nor
+        // obscure an explicitly issuer-bound "we will report" release.
+        if (title && text.trimStart().startsWith(`${title} `)) text = text.trimStart().slice(title.length).trimStart();
+        const event = companyEarningsAnnouncement({ text, publishedAt, observedAt: now().toISOString(), url: page.url, authority: "company_ir", authorityChain: page.chain, issuer: opts.issuer,
+          sourceHash: createHash("sha256").update(res.bodyText).digest("hex"), documentTitle: title }, symbol, today);
         if (event) { announcements.push(event); break; }
       }
       const all = links(res.bodyText, page.url);
@@ -132,5 +147,6 @@ import { isIP } from "node:net";
 import { request } from "node:https";
 import { Readable } from "node:stream";
 import { parseDocument } from "@/edgar/extract";
-import { companyEarningsAnnouncement } from "@/providers/companyEvents";
+import { companyEarningsAnnouncement, type ConfirmedIssuerIdentity } from "@/providers/companyEvents";
 import { fetchWithPolicy } from "@/providers/http";
+import { createHash } from "node:crypto";

@@ -155,6 +155,10 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/financialDiagnostics.ts",
   "src/evaluation/evaluationContract.ts",
   "src/evaluation/evaluation.ts",
+  "src/evaluation/targetDefinition.ts",
+  "src/evaluation/artifactManifest.ts",
+  "src/evaluation/pairedDiagnostics.ts",
+  "src/evaluation/registry.ts",
   // Research reliability: eligibility, snapshot comparisons and deterministic
   // report claims carry the same per-file coverage floors as existing logic.
   "src/pipeline/peers.ts",

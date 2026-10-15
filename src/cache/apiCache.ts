@@ -380,7 +380,9 @@ export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourc
       return fetchStoreReturnOnce();
     }
     const ageSeconds = (Date.now() - Date.parse(row.fetchedAt)) / 1000;
-    const fresh = Number.isFinite(ageSeconds) && ageSeconds <= ttlSeconds;
+    // A future/invalid acquisition time cannot establish either fresh or stale evidence.
+    if (!Number.isFinite(ageSeconds) || ageSeconds < 0) return fetchStoreReturnOnce();
+    const fresh = ageSeconds <= ttlSeconds;
     const tooStale =
       opts.maxStaleSeconds !== undefined &&
       (!Number.isFinite(ageSeconds) || ageSeconds > ttlSeconds + Math.max(0, opts.maxStaleSeconds));

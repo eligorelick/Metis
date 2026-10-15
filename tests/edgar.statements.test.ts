@@ -292,6 +292,90 @@ describe("buildStatementsFromCompanyFacts — a derived quarter is never publish
 });
 
 describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
+  it.each([
+    {
+      label: "direct Q4",
+      extra: { start: "2025-10-01", end: "2025-12-31", val: 290, form: "10-K", filed: "2026-02-20", accn: "revenue-q4-direct" },
+      derivation: undefined,
+      filings: [{ accn: "revenue-q4-direct", filed: "2026-02-20", form: "10-K" }],
+      operands: undefined,
+    },
+    {
+      label: "FY minus YTD Q4",
+      extra: { start: "2025-01-01", end: "2025-09-30", val: 710, form: "10-Q", filed: "2025-11-01", accn: "revenue-q3-ytd" },
+      derivation: "fy-minus-ytd",
+      filings: [
+        { accn: "revenue-fy", filed: "2026-02-20", form: "10-K" },
+        { accn: "revenue-q3-ytd", filed: "2025-11-01", form: "10-Q" },
+      ],
+      operands: ["Revenues 2025-01-01..2025-12-31", "Revenues 2025-01-01..2025-09-30"],
+    },
+    {
+      label: "FY minus three quarters Q4",
+      extra: undefined,
+      derivation: "fy-minus-quarters",
+      filings: [
+        { accn: "revenue-fy", filed: "2026-02-20", form: "10-K" },
+        { accn: "revenue-q3", filed: "2025-11-01", form: "10-Q" },
+        { accn: "revenue-q2", filed: "2025-08-01", form: "10-Q" },
+        { accn: "revenue-q1", filed: "2025-05-01", form: "10-Q" },
+      ],
+      operands: [
+        "Revenues 2025-01-01..2025-12-31",
+        "Revenues 2025-07-01..2025-09-30",
+        "Revenues 2025-04-01..2025-06-30",
+        "Revenues 2025-01-01..2025-03-31",
+      ],
+    },
+  ])("preserves $label field provenance and its original operands", ({ extra, derivation, filings, operands }) => {
+    const observedAt = "2026-09-29T12:34:56.000Z";
+    const f = facts({
+      Revenues: [
+        { start: "2025-01-01", end: "2025-12-31", val: 1000, form: "10-K", fp: "FY", filed: "2026-02-20", accn: "revenue-fy" },
+        { start: "2025-01-01", end: "2025-03-31", val: 200, form: "10-Q", fp: "Q1", filed: "2025-05-01", accn: "revenue-q1" },
+        { start: "2025-04-01", end: "2025-06-30", val: 250, form: "10-Q", fp: "Q2", filed: "2025-08-01", accn: "revenue-q2" },
+        { start: "2025-07-01", end: "2025-09-30", val: 260, form: "10-Q", fp: "Q3", filed: "2025-11-01", accn: "revenue-q3" },
+        ...(extra === undefined ? [] : [extra]),
+      ],
+      NetIncomeLoss: [
+        { start: "2025-01-01", end: "2025-12-31", val: 100, form: "10-K", fp: "FY", filed: "2026-02-20", accn: "income-fy" },
+        { start: "2025-10-01", end: "2025-12-31", val: 22, form: "10-K", fp: "FY", filed: "2026-02-20", accn: "income-q4-direct" },
+      ],
+      Assets: [
+        { end: "2025-03-31", val: 800, form: "10-Q", fp: "Q1", filed: "2025-05-01" },
+        { end: "2025-06-30", val: 850, form: "10-Q", fp: "Q2", filed: "2025-08-01" },
+        { end: "2025-09-30", val: 900, form: "10-Q", fp: "Q3", filed: "2025-11-01" },
+      ],
+    });
+    const q4 = buildStatementsFromCompanyFacts(f, { ...OPTS, factsObservedAt: observedAt }).incomeQuarterly.rows[0]!;
+
+    expect(q4).toMatchObject({ date: "2025-12-31", period: "Q4", revenue: 290, netIncome: 22 });
+    expect(q4.derivedFrom).toEqual(operands);
+    expect(q4.fieldProvenance?.revenue).toEqual({
+      source: "edgar", unit: "USD", periodStart: "2025-10-01", periodEnd: "2025-12-31", observedAt,
+      tags: ["us-gaap/Revenues"], filings,
+      ...(derivation === undefined ? {} : { derivation }),
+    });
+    // A directly reported field must not inherit the row's reconstructed revenue label.
+    expect(q4.fieldProvenance?.netIncome).toEqual({
+      source: "edgar", unit: "USD", periodStart: "2025-10-01", periodEnd: "2025-12-31", observedAt,
+      tags: ["us-gaap/NetIncomeLoss"], filings: [{ accn: "income-q4-direct", filed: "2026-02-20", form: "10-K" }],
+    });
+  });
+
+  it("keeps YTD-difference field evidence without inventing an acquisition timestamp", () => {
+    const q3 = buildStatementsFromCompanyFacts(appleLike(), OPTS).cashflowQuarterly.rows.find((row) => row.date === "2025-06-28")!;
+    expect(q3.operatingCashFlow).toBe(15);
+    expect(q3.fieldProvenance?.operatingCashFlow).toEqual({
+      source: "edgar", unit: "USD", periodStart: "2025-03-30", periodEnd: "2025-06-28", observedAt: "",
+      tags: ["us-gaap/NetCashProvidedByUsedInOperatingActivities"], derivation: "ytd-difference",
+      filings: [
+        { accn: "0000000000-26-000003", filed: "2025-08-01", form: "10-Q" },
+        { accn: "0000000000-26-000002", filed: "2025-05-02", form: "10-Q" },
+      ],
+    });
+  });
+
   it("uses tagged 3-month income facts, derives the missing quarter from YTD and the fourth from FY − YTD", () => {
     const built = buildStatementsFromCompanyFacts(appleLike(), OPTS);
     const rows = built.incomeQuarterly.rows;
@@ -634,7 +718,7 @@ describe("buildStatementsFromCompanyFacts — comparative copies carried in a la
       ],
       Assets: [{ end: "2025-12-31", val: 4_424_900, form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13" }],
     });
-    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       date: "2025-12-31",
       revenue: 182_500, // restated value wins
@@ -653,7 +737,7 @@ describe("buildStatementsFromCompanyFacts — comparative copies carried in a la
       NetIncomeLoss: [{ start: "2025-01-01", end: "2025-12-31", val: 57_100, form: "10-K", fp: "FY", fy: 2026, filed: "2027-02-12" }],
       Assets: [{ end: "2025-12-31", val: 4_424_900, form: "10-K", fp: "FY", fy: 2026, filed: "2027-02-12" }],
     });
-    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       date: "2025-12-31",
       fiscalYear: "2025", // from the period end, not from fy:2026
@@ -1531,7 +1615,7 @@ describe("buildStatementsFromCompanyFacts — audit 2026-09-06", () => {
       ],
       Assets: [{ end: "2025-12-27", val: 340, ...q }],
     });
-    expect(buildStatementsFromCompanyFacts(restated, OPTS).incomeQuarterly.rows[0]).toMatchObject({ revenue: 121, fiscalYear: "2026" });
+    expect(buildStatementsFromCompanyFacts(restated, { ...OPTS, asOf: "2027-01-30" }).incomeQuarterly.rows[0]).toMatchObject({ revenue: 121, fiscalYear: "2026" });
   });
 
   it("accepts a 16-week fourth quarter on a 12-12-12-16 calendar as a tagged quarter", () => {
@@ -1856,7 +1940,7 @@ describe("buildStatementsFromCompanyFacts — Caterpillar-style balance sheets",
     expect(fy.shortTermDebt).toBe(5_514);
     expect(
       built.balanceAnnual.notes.some((n) =>
-        /did NOT enter the sum.*could not be combined with the tags that did resolve \(ShortTermBorrowings\)/.test(n),
+        /mixed_unit.*LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths.*EUR.*USD/.test(n),
       ),
     ).toBe(true);
   });
@@ -2175,7 +2259,7 @@ describe("buildStatementsFromCompanyFacts — duplicate periods and restatements
     });
 
   it("keeps the last-filed value, retains the superseded one as original, and flags a material move", () => {
-    const built = buildStatementsFromCompanyFacts(restated(182_447, 190_000), { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(restated(182_447, 190_000), { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     const row = built.incomeAnnual.rows[0] as Record<string, unknown>;
     expect(row.revenue).toBe(190_000);
     expect(row.original).toMatchObject({
@@ -2197,7 +2281,7 @@ describe("buildStatementsFromCompanyFacts — duplicate periods and restatements
   });
 
   it("keeps the original value but raises no flag for a move within one percent", () => {
-    const built = buildStatementsFromCompanyFacts(restated(182_447, 183_000), { ...OPTS, symbol: "JPM" });
+    const built = buildStatementsFromCompanyFacts(restated(182_447, 183_000), { ...OPTS, symbol: "JPM", asOf: "2027-02-13" });
     const row = built.incomeAnnual.rows[0] as Record<string, unknown>;
     expect(row.revenue).toBe(183_000);
     expect((row.original as Record<string, { value: number }>).revenue.value).toBe(182_447);

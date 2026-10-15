@@ -61,7 +61,7 @@ import type {
   Valuation,
   Verdict,
 } from "@/report/schema";
-import { citationOutcomeLabel } from "@/report/schema";
+import { verificationEntryOutcomeLabel } from "@/report/schema";
 import {
   formatCostUsd,
   establishedCurrency,
@@ -1985,7 +1985,6 @@ export function AppendixSection({
   );
   const reportAsOfMap = asOfMap ?? {};
   const log = appendix.verificationLog ?? [];
-  const verifiedCount = log.filter((l) => l.outcome === "verified").length;
   const coverageValue = (
     supported: number,
     total: number,
@@ -2136,7 +2135,7 @@ export function AppendixSection({
 
       {log.length > 0 && (
         <SubBlock
-          label={`citation-coverage log (${verifiedCount}/${log.length} cited)`}
+          label={`citation-coverage log (${log.length} entries)`}
         >
           <div className="max-h-64 overflow-auto">
             <AuditTable
@@ -2144,7 +2143,7 @@ export function AppendixSection({
               rows={log.map((entry, logIndex) => ({
                 key: `verification-log:${logIndex}`,
                 cells: VERIFICATION_LOG_FIELDS.map((field) => field.key === "outcome"
-                  ? citationOutcomeLabel(entry.outcome)
+                  ? verificationEntryOutcomeLabel(entry)
                   : auditValue(entry[field.key])),
               }))}
             />

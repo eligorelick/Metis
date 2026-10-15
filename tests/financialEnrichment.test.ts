@@ -56,4 +56,8 @@ describe("SEC field enrichment of existing vendor statements", () => {
     const out = enrichFinancialFields(sourced<FmpBalanceSheetRow>([]), sourced([{ date: "2026-06-30", reportedCurrency: "USD" }]), facts({ FinanceLeasePrincipalPayments: [point(3, { start: "2026-04-01" })] }), "annual", observedAt);
     expect(out.cashflow.ok && out.cashflow.value.data.rows[0]).not.toHaveProperty("financeLeasePrincipalPayments");
   });
+  it("does not enrich a future period even when its filing is stamped before analysis", () => {
+    const out = enrichFinancialFields(sourced([{ date: "2026-12-31", reportedCurrency: "USD" }]), sourced<FmpCashFlowRow>([]), facts({ OperatingLeaseLiability: [point(30, { end: "2026-12-31" })] }), "quarter", observedAt);
+    expect(out.balance.ok && out.balance.value.data.rows[0]).not.toHaveProperty("operatingLeaseLiability");
+  });
 });

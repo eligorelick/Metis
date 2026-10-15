@@ -4,7 +4,7 @@ import { jobs, jobRunInputs, runInputSnapshots } from "@/db/schema";
 import * as declaredSchema from "@/db/schema";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
-import { captureRunInputSnapshot, verifyRunInputSnapshot, canonicalSnapshotJson } from "@/pipeline/runInputSnapshot";
+import { captureRunInputSnapshot, verifyRunInputSnapshot, canonicalSnapshotJson, createSnapshotArtifactIdentity } from "@/pipeline/runInputSnapshot";
 import { persistRunInputSnapshot, readRunInputSnapshot, readJobRunSnapshotRef } from "@/pipeline/runInputSnapshotStore";
 import { replayRunInputSnapshot } from "@/pipeline/replayRunInput";
 import { runStageB } from "@/pipeline/compute";
@@ -12,6 +12,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 let handle: DatabaseHandle;
 const capturedAt = "2026-10-13T20:00:00.000Z";
@@ -148,6 +149,23 @@ describe("immutable normalized run inputs", () => {
     const snapshot = captureRunInputSnapshot(completeCurrencyBundle({}), { evIncludeLeases: false }, { stageB: "old-calculation", reportSpec: "1.11.0", scoreBands: "old" });
     expect(() => replayRunInputSnapshot(snapshot)).toThrow(/version|implementation/i);
   });
+  it("binds optional actual method and lock byte identities and requires them for custody-aware replay", () => {
+    const sha = (value: string) => createHash("sha256").update(value).digest("hex");
+    const identity = { methodArtifactHash: sha("actual method bytes"), dependencyLockHash: sha("actual lock bytes"), codeCommit: "a".repeat(40), dirtyDiffHash: sha("recorded dirty diff bytes") };
+    const bundle = completeCurrencyBundle({});
+    const snapshot = captureRunInputSnapshot(bundle, { evIncludeLeases: false }, undefined, identity);
+    expect(snapshot.content.custody).toMatchObject({ status: "local-content-identity", ...identity, normalizedSourceContentHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(() => replayRunInputSnapshot(snapshot)).toThrow(/artifact|custody/i);
+    expect(replayRunInputSnapshot(snapshot, identity)).toMatchObject({ offline: true, custody: "local-content-identity" });
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, methodArtifactHash: sha("changed source") })).toThrow(/artifact|implementation/i);
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, dependencyLockHash: sha("changed dependencies") })).toThrow(/artifact|implementation/i);
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, codeCommit: "b".repeat(40) })).toThrow(/artifact|implementation/i);
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, dirtyDiffHash: sha("changed dirty diff bytes") })).toThrow(/artifact|implementation/i);
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, codeCommit: null })).toThrow(/artifact|implementation/i);
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, dirtyDiffHash: null })).toThrow(/artifact|implementation/i);
+    expect(() => replayRunInputSnapshot(snapshot, { ...identity, codeCommit: null, dirtyDiffHash: null })).toThrow(/artifact|implementation/i);
+    expect(replayRunInputSnapshot(captureRunInputSnapshot(bundle, { evIncludeLeases: false }))).toMatchObject({ custody: "legacy-unverified" });
+  });
   it("executes the offline replay CLI from an exported snapshot without provider access", () => {
     const dir = mkdtempSync(join(tmpdir(), "thesis-input-replay-"));
     try {
@@ -160,6 +178,24 @@ describe("immutable normalized run inputs", () => {
       expect(replay.offline).toBe(true);
       expect(replay.snapshotHash).toBe(snapshot.hash);
       expect(replay.computed.symbol).toBe(snapshot.content.bundle.symbol);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it("resolves supplied replay artifact files from actual bytes and refuses a changed method", () => {
+    const dir = mkdtempSync(join(tmpdir(), "thesis-custody-replay-"));
+    try {
+      const input = join(dir, "snapshot.json"), output = join(dir, "replay.json"), method = join(dir, "method.txt"), lock = join(dir, "lock.txt"), diff = join(dir, "diff.txt");
+      const codeCommit = "a".repeat(40);
+      const identity = createSnapshotArtifactIdentity({ methodArtifactBytes: "actual method bytes", dependencyLockBytes: "actual lock bytes", dirtyDiffBytes: "actual dirty diff bytes", codeCommit });
+      const snapshot = captureRunInputSnapshot(completeCurrencyBundle({}), { evIncludeLeases: false }, undefined, identity);
+      writeFileSync(input, canonicalSnapshotJson(snapshot)); writeFileSync(method, "actual method bytes"); writeFileSync(lock, "actual lock bytes"); writeFileSync(diff, "actual dirty diff bytes");
+      const args = ["--conditions=react-server", "--import", "tsx", "scripts/replay-run-inputs.ts", "--snapshot", input, "--output", output, "--method-artifact", method, "--dependency-lock", lock, "--dirty-diff", diff, "--code-commit", codeCommit];
+      const run = spawnSync(process.execPath, args, { cwd: process.cwd(), encoding: "utf8", timeout: 20_000 });
+      expect(run.status, run.stderr).toBe(0);
+      expect(JSON.parse(readFileSync(output, "utf8"))).toMatchObject({ offline: true, custody: "local-content-identity" });
+      writeFileSync(method, "changed method");
+      const changed = spawnSync(process.execPath, args, { cwd: process.cwd(), encoding: "utf8", timeout: 20_000 });
+      expect(changed.status).toBe(1);
+      expect(changed.stderr).toMatch(/artifact|custody/i);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

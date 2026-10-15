@@ -65,6 +65,17 @@ function readRow(cacheKey: string) {
   return handle.db.select().from(apiCache).where(eq(apiCache.cacheKey, cacheKey)).get();
 }
 
+it("never serves a future fetchedAt as fresh or stale evidence", async () => {
+  let calls = 0;
+  const options = { provider: "fmp" as const, endpoint: "audit.future", params: {}, ttlSeconds: 900,
+    fetcher: async () => ({ body: { value: ++calls }, asOf: "2026-01-01" }) };
+  await cachedFetch(options);
+  backdate(buildCacheKey("fmp", "audit.future", {}), -86400);
+  const result = await cachedFetch(options);
+  expect(calls).toBe(2);
+  expect(result.data.value).toBe(2);
+});
+
 describe("buildCacheKey determinism", () => {
   it("is insensitive to param insertion order (including nested objects)", () => {
     const a = buildCacheKey("fmp", "quote", {

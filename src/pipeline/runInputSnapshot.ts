@@ -5,12 +5,14 @@ import { REPORT_SPEC_VERSION } from "@/report/schema";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 
 export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_AUDIT_INTEGRATED" as const;
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_EVIDENCE_GATES_1" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
+export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
+export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }
 export interface RunInputSnapshot {
   hash: string;
   content: { formatVersion: typeof RUN_INPUT_SNAPSHOT_FORMAT; versions: SnapshotVersions;
-    stageBConfig: { evIncludeLeases: boolean }; bundle: DataBundle; redactedFields: string[] };
+    stageBConfig: { evIncludeLeases: boolean }; bundle: DataBundle; redactedFields: string[]; custody?: SnapshotCustody };
 }
 export interface RunSnapshotRef { hash: string; formatVersion: typeof RUN_INPUT_SNAPSHOT_FORMAT; capturedAt: string }
 
@@ -82,10 +84,22 @@ const SnapshotSchema = z.object({
       typeof (v as DataBundle).symbol === "string" && (v as DataBundle).symbol.length > 0 &&
       Number.isFinite(Date.parse((v as DataBundle).builtAt)) && typeof (v as DataBundle).statements === "object"),
     redactedFields: z.array(z.string()),
+    custody: z.object({
+      status: z.literal("local-content-identity"),
+      methodArtifactHash: z.string().regex(/^[a-f0-9]{64}$/), dependencyLockHash: z.string().regex(/^[a-f0-9]{64}$/),
+      codeCommit: z.string().regex(/^[a-f0-9]{40,64}$/).nullable(), dirtyDiffHash: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+      normalizedSourceContentHash: z.string().regex(/^[a-f0-9]{64}$/),
+    }).strict().optional(),
   }).strict(),
 }).strict();
 
-export function captureRunInputSnapshot(bundle: DataBundle, config: { evIncludeLeases: boolean }, versions: SnapshotVersions = CURRENT_SNAPSHOT_VERSIONS): RunInputSnapshot {
+/** Hash actual artifact bytes. Commit identity is supplied metadata, not independently attested. */
+export function createSnapshotArtifactIdentity(input: { methodArtifactBytes: string; dependencyLockBytes: string; dirtyDiffBytes?: string; codeCommit?: string | null }): SnapshotArtifactIdentity {
+  const hash = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
+  return { methodArtifactHash: hash(input.methodArtifactBytes), dependencyLockHash: hash(input.dependencyLockBytes), dirtyDiffHash: input.dirtyDiffBytes === undefined ? null : hash(input.dirtyDiffBytes), codeCommit: input.codeCommit ?? null };
+}
+
+export function captureRunInputSnapshot(bundle: DataBundle, config: { evIncludeLeases: boolean }, versions: SnapshotVersions = CURRENT_SNAPSHOT_VERSIONS, identity?: SnapshotArtifactIdentity): RunInputSnapshot {
   // Check cycles, prototypes and non-finite values before recursive redaction.
   const detached = JSON.parse(canonicalSnapshotJson(bundle));
   const redactedFields: string[] = [];
@@ -95,8 +109,10 @@ export function captureRunInputSnapshot(bundle: DataBundle, config: { evIncludeL
     bundle: redact(detached, "bundle", redactedFields) as DataBundle,
     redactedFields: redactedFields.sort(),
   };
-  const hash = createHash("sha256").update(canonicalSnapshotJson(content)).digest("hex");
-  return verifyRunInputSnapshot({ hash, content });
+  const contentWithCustody = identity ? { ...content, custody: { ...identity, status: "local-content-identity" as const,
+    normalizedSourceContentHash: createHash("sha256").update(canonicalSnapshotJson(content.bundle)).digest("hex") } } : content;
+  const hash = createHash("sha256").update(canonicalSnapshotJson(contentWithCustody)).digest("hex");
+  return verifyRunInputSnapshot({ hash, content: contentWithCustody });
 }
 
 export function verifyRunInputSnapshot(value: unknown): RunInputSnapshot {
@@ -105,6 +121,7 @@ export function verifyRunInputSnapshot(value: unknown): RunInputSnapshot {
   const snapshot = parsed.data;
   const hash = createHash("sha256").update(canonicalSnapshotJson(snapshot.content)).digest("hex");
   if (hash !== snapshot.hash) throw new Error("Snapshot hash integrity mismatch");
+  if (snapshot.content.custody && snapshot.content.custody.normalizedSourceContentHash !== createHash("sha256").update(canonicalSnapshotJson(snapshot.content.bundle)).digest("hex")) throw new Error("Snapshot source content identity mismatch");
   if (canonicalSnapshotJson(redact(snapshot.content.bundle, "bundle", [])) !== canonicalSnapshotJson(snapshot.content.bundle)) {
     throw new Error("Snapshot contains unredacted credentials");
   }

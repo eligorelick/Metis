@@ -6065,6 +6065,19 @@ describe("createJob", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — full pipeline with mock passes", () => {
+  it("captures an explicit server-side connection selection for all passes without writing preferences", async () => {
+    const {jobId}=createJob("MSFT");
+    const {passes}=mockPasses({bullCostUsd:0,bearCostUsd:0,judgeCostUsd:0,verifyCostUsd:0});
+    const runAnalysts=passes.runBullThenBear;
+    const captured: unknown[]=[];
+    passes.runBullThenBear=async (deps,...args)=>{
+      captured.push({model:deps.analysisModel,connectionId:deps.connectionId,options:deps.subscriptionOptions});
+      return runAnalysts(deps,...args);
+    };
+    await runJob(jobId,passes,{bundle:fakeBundle("MSFT"),hasAnthropicKey:true,now:NOW,
+      aiSelection:{provider:"chatgpt",connectionId:"test-connection",model:"gpt-6.1-sol",effort:"high"}});
+    expect(captured).toEqual([{model:"chatgpt/gpt-6.1-sol",connectionId:"test-connection",options:{effort:"high"}}]);
+  });
   it("runs all steps in order, logs cost, persists the report, links jobs.reportId", async () => {
     const { jobId } = createJob("AAPL");
     const { passes, calls } = mockPasses();
@@ -6122,14 +6135,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.12.0");
+    expect(repRow?.specVersion).toBe("1.13.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.0.0");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.1.0");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);

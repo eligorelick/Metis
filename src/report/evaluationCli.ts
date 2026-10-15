@@ -8,6 +8,7 @@ import {
   evaluateReportSnapshot,
   EvaluationDefinitionSchema,
   EvaluationOutcomeSchema,
+  EvaluationOutcomesSchema,
 } from "./evaluation";
 
 const HELP = `Offline report evaluation (no provider calls or database writes)
@@ -96,7 +97,7 @@ export function runEvaluationCli(
     if (args.length) throw new Error("Schema accepts no options");
     io.writeStdout(`${JSON.stringify({
       definition: z.toJSONSchema(EvaluationDefinitionSchema),
-      outcomes: z.toJSONSchema(z.object({ schemaVersion: z.literal(1), outcomes: z.array(EvaluationOutcomeSchema) }).strict()),
+      outcomes: z.toJSONSchema(EvaluationOutcomesSchema.extend({ outcomes: z.array(EvaluationOutcomeSchema) })),
     }, null, 2)}\n`);
     return { command: "schema" };
   }

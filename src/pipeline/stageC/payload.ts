@@ -34,6 +34,7 @@ import { estimateCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
+import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { TracedNumber } from "@/report/schema";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
@@ -278,7 +279,7 @@ export interface ContextPayload {
 // metric-labelled numeric prose evidence, current financial bridges, explicit
 // accrual operands, flat-share/alternative EPS evidence, deterministic scenario
 // interpretation, and comparable-peer evidence. Older passes cannot resume.
-export const PAYLOAD_VERSION = "1.17.0" as const;
+export const PAYLOAD_VERSION = "1.18.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -561,7 +562,9 @@ function computedSections(
   // --- Returns (WACC / ROIC / DuPont) --------------------------------------
   const r = computed.returns;
   const returnsFigures: PayloadFigureInput[] = [
-    { label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: r.wacc.asOf?.statements ?? null },
+    // Current WACC mixes market observations and statement inputs. Its date is
+    // the calculation day; each individual input retains its observation date.
+    { label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) },
     { label: "cost of equity", value: r.wacc.costOfEquityPct, unit: "%", source: "computed.returns.wacc.costOfEquity", asOf: r.wacc.asOf?.riskFreeRate ?? null },
     { label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null },
     { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: "computed.returns.wacc.riskFree(fred:DGS10)", asOf: r.wacc.asOf?.riskFreeRate ?? null },
@@ -790,6 +793,17 @@ function computedSections(
       { label: "ROTE (the return P/TBV is read against)", value: val.excessReturn.priceToTangibleBookVsRote.rotePct, unit: "%", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
       { label: "justified P/TBV (stable-growth cross-check)", value: val.excessReturn.priceToTangibleBookVsRote.justifiedPTbv, unit: "x", source: "computed.valuation.excessReturn.priceToTangibleBookVsRote", asOf: val.excessReturn.asOf },
     );
+    const a = val.excessReturn.financialAssumptions;
+    for (const [label, key, unit] of [
+      ["terminal ROE", "terminalRoePct", "%"],
+      ["continuing residual-income growth", "terminalGrowthPct", "%"],
+      ["terminal excess return over cost of equity", "terminalExcessReturnPp", "pp"],
+      ["continuing value (present value)", "continuingValuePv", "currency"],
+      ["continuing value share of equity value", "continuingValueSharePct", "%"],
+    ] as const) {
+      valFigures.push({ label, value: a?.[key] ?? null, unit, currency: unit === "currency" ? currencies.model : null,
+        source: `computed.valuation.excessReturn.financialAssumptions.${key}`, asOf: val.excessReturn.asOf });
+    }
   } else if (val.kind === "reit") {
     valFigures.push(
       { label: "REIT P/FFO", value: val.reit.pToFfo ?? null, unit: "x", source: "computed.valuation.reit", asOf: val.reit.asOf },
@@ -814,7 +828,10 @@ function computedSections(
       });
     }
   }
-  sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: val.notes }));
+  sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
+    ...val.notes,
+    ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
+  ] }));
 
   const peerCoverage = val.kind === "pre-revenue" ? undefined : val.multiples.peerCoverage;
   if (peerCoverage) {

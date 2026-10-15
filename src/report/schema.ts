@@ -79,7 +79,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.12.0: audit remediation adds numeric factual validation, explicit periods,
 // financial/valuation bridges and unassessed executive evidence. Legacy fields
 // remain readable; new deterministic outputs carry the revised conventions.
-export const REPORT_SPEC_VERSION = "1.12.0" as const;
+export const REPORT_SPEC_VERSION = "1.13.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1364,6 +1364,8 @@ export const VerificationLogEntrySchema = z
     claim: z.string(),
     outcome: z.enum(["verified", "unverified", "removed"]),
     validationStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
+    numericSupportStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
+    claimSupportStatus: z.enum(["numeric-only", "cited", "unreviewed", "contradicted"]).optional(),
     sourceSpans: z.array(z.object({
       source: z.string(), asOf: IsoDateSchema.nullable(),
       start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string(),
@@ -1433,6 +1435,14 @@ export const VerificationLogEntrySchema = z
   })
   .strict();
 export type VerificationLogEntry = z.infer<typeof VerificationLogEntrySchema>;
+
+/** Numeric matching is a separate result from support for the whole prose claim. */
+export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): string {
+  if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
+  if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
+  if (entry.claimSupportStatus === "cited") return "Cited; prose unchecked";
+  return citationOutcomeLabel(entry.outcome);
+}
 
 /** Short human label for a {@link VerificationLogEntry.traceKind}. */
 export function traceKindLabel(

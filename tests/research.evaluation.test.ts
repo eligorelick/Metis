@@ -64,14 +64,14 @@ describe("frozen point-in-time research evaluator", () => {
     const wrong = { ...stock, outcome: { ...stock.outcome, benchmark: { ...stock.outcome.benchmark, period: { ...a.period, end: "2024-12-30" } } } };
     expect(evaluateResearch(dataset([wrong])).rejected).toHaveLength(1);
   });
-  it("keeps future outcomes pending and produces reproducible clustered uncertainty only with enough issuers", () => {
+  it("keeps future outcomes pending and withholds inference when issuer breadth has only one date", () => {
     const pending = { ...filing("PENDING"), outcome: null };
     const samples = Array.from({ length: 6 }, (_, i) => filing(`ISSUER${i}`, 10 + i, 10));
     const a = evaluateResearch(dataset([...samples, pending]));
     const b = evaluateResearch(dataset([...samples, pending]));
     expect(a).toEqual(b);
     expect(a.pending).toBe(1);
-    expect(a.groups[0]?.uncertainty).toMatchObject({ available: true, method: "issuer_cluster_percentile_bootstrap", confidenceLevel: 0.95 });
+    expect(a.groups[0]?.uncertainty).toMatchObject({ available: false, readiness: "insufficient", issuerClusters: 6, nonoverlappingDateBlocks: 1 });
     const limited = evaluateResearch({ ...dataset([pending]), limitations: ["Single issuer reconstructed inputs; no historical holdout claim"] });
     expect(limited.limitations).toEqual(["Single issuer reconstructed inputs; no historical holdout claim"]);
     expect(limited.pendingSamples).toMatchObject([{ id: "PENDING", reason: "No observed outcome supplied" }]);

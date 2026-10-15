@@ -26,6 +26,10 @@ it.each(["success", "schema", "transport"] as const)("forwards presumed billing 
 });
 
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
+import { excessReturnModel, multiplesFramework } from "@/pipeline/stageB/valuation";
+import { computeScores } from "@/pipeline/stageB/grading";
+import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
+import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import type { DataBundle } from "@/pipeline/types";
@@ -711,10 +715,14 @@ describe("payload determinism + provenance", () => {
       // reviewed deterministic finance includes its peer-coverage disclosures.
       // Economic-evidence gating adds a 325-byte methodology disclosure;
       // figure registries and all projection-period records are unchanged.
-      fingerprint: "1.17.0:f50932c8",
+      // Evidence gates release: version stamp and truthful common-holder basis labels.
+      // Numeric finance outputs, provenance and citation registries remain unchanged.
+      // Current mixed-input WACC is dated to calculation day, not the fiscal
+      // statement date; only the payload fingerprint and provenance date move.
+      fingerprint: "1.18.0:02cc10b7",
       promptBytes: 119_884,
       provenanceCount: 499,
-      provenanceHash: "eef852c5",
+      provenanceHash: "32436dab",
       provenanceIdsHash: "2fdc2d40",
       citationCount: 65,
       citationHash: "13b5b365",
@@ -732,7 +740,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "20eeec0d",
+      financeHash: "d3fb5735",
     });
   });
 
@@ -856,7 +864,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.17.0");
+    expect(first.payloadVersion).toBe("1.18.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1803,6 +1811,17 @@ describe("verify-pass tracing", () => {
     expect(SHARED_RULES_BLOCK).toMatch(/transcript|filing|news/i);
   });
 
+  it("dates the mixed-input current WACC to calculation day and retains individual observation dates", () => {
+    const { bundle, computed } = buildInputs();
+    computed.returns.wacc.asOf = { statements: "2025-09-27", riskFreeRate: "2026-07-02" };
+    const validation = validateBundle(bundle, { now: new Date(bundle.builtAt) });
+    const payload = assembleContextPayload(bundle, computed, validation);
+    const returns = payload.computed.find((section) => section.title === "Returns (computed)")!;
+    expect(returns.figures.find((figure) => figure.label === "WACC")?.asOf).toBe(computed.builtAt.slice(0, 10));
+    expect(returns.figures.find((figure) => figure.label === "risk-free rate")?.asOf).toBe("2026-07-02");
+    expect(returns.figures.find((figure) => figure.label === "cost of debt (pre-tax)")?.asOf).toBe("2025-09-27");
+  });
+
   it("surfaces WACC clampsApplied into the Returns section for the LLM (audit #5)", () => {
     const { bundle, computed } = buildInputs();
     const validation = validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") });
@@ -2156,7 +2175,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.12.0");
+    expect(report.meta.specVersion).toBe("1.13.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2442,6 +2461,100 @@ function availableFairValue(perShare = 250, upsidePct: number | null = 4): FairV
     reasons: [],
   };
 }
+
+describe("financial forward assumption propagation", () => {
+  function financialInputs() {
+    const result = buildInputs();
+    if (result.computed.valuation.kind === "pre-revenue") throw new Error("fixture requires multiples");
+    const excessReturn = excessReturnModel({
+      bookValue: 1_000, currentRoePct: 15, costOfEquityPct: 10, payoutRatioPct: 50,
+      dilutedShares: 100, years: 1, marketCap: 1_800, tangibleCommonEquity: 900, rotePct: 16,
+      roeHistory: [2021, 2022, 2023, 2024, 2025].map((y) => ({ date: `${y}-12-31`, roicPct: 15, waccPct: 10 })),
+      riskFreePct: 4,
+    });
+    result.computed.valuation = { kind: "excess-return", route: "bank", excessReturn, multiples: result.computed.valuation.multiples, notes: excessReturn.notes, gaps: excessReturn.gaps };
+    return result;
+  }
+
+  it("includes terminal return, growth and continuing value in the prompt", () => {
+    const { bundle, computed } = financialInputs();
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date(GENERATED_AT) }));
+    const figures = payload.computed.find((section) => section.title === "Valuation (computed)")!.figures;
+    expect(figures.find((figure) => figure.label === "terminal ROE")?.value).toBe(12.5);
+    expect(figures.find((figure) => figure.label === "continuing residual-income growth")?.value).toBe(2.5);
+    expect(figures.find((figure) => figure.label === "continuing value (present value)")?.value).toBeCloseTo(321.969696969697, 8);
+    expect(serializePayloadForPrompt(payload)).toMatch(/continuing value 321\.97/i);
+  });
+
+  it("states continuation in the data-only synthesis and existing route metrics", () => {
+    const { bundle, computed } = financialInputs();
+    const report = enrichDataOnlyReport(assemble(computed, judgeOutput()), { bundle, computed, reason: "offline fixture" });
+    expect(report.verdict.synthesis).toMatch(/continuing value 321\.97/i);
+    expect(report.routeMetrics?.notes.join(" ")).toMatch(/terminal ROE 12\.5%/i);
+    expect(report.routeMetrics?.metrics.find((row) => row.key === "justifiedPTbv")?.basis).not.toMatch(/adds no continuing value/);
+  });
+});
+
+describe("common-holder compute adapters", () => {
+  function commonBundle() {
+    const bundle = fixtureBundle();
+    if (!bundle.quote.ok || !bundle.profile.ok || !bundle.statements.incomeQuarterly.ok || !bundle.statements.balanceQuarterly.ok) throw new Error("fixture requires rows");
+    Object.assign(bundle.profile.value.data.rows[0]!, { sector: "Financial Services", industry: "Banks - Diversified" });
+    Object.assign(bundle.quote.value.data.rows[0]!, { marketCap: 1_000 });
+    Object.assign(bundle.statements.balanceQuarterly.value.data.rows[0]!, { totalStockholdersEquity: 200, preferredStock: 100, minorityInterest: 0 });
+    bundle.statements.incomeQuarterly.value.data.rows.slice(0, 4).forEach((row, i) => {
+      Object.assign(row, { epsDiluted: undefined, netIncome: 5, netIncomeAvailableToCommon: i + 1 });
+    });
+    return bundle;
+  }
+
+  it("sums common earnings over the exact four TTM quarters", () => {
+    const computed = runStageB(commonBundle());
+    if (computed.valuation.kind === "pre-revenue") throw new Error("fixture requires multiples");
+    expect(computed.valuation.multiples.multiples.find((m) => m.key === "peTtm")?.current).toBe(100);
+    expect(computed.valuation.multiples.multiples.find((m) => m.key === "priceToBook")?.current).toBe(10);
+  });
+
+  it("does not use a partial common-income TTM sum beside known preferred", () => {
+    const bundle = commonBundle();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture requires income");
+    bundle.statements.incomeQuarterly.value.data.rows[2]!.netIncomeAvailableToCommon = undefined;
+    const computed = runStageB(bundle);
+    if (computed.valuation.kind === "pre-revenue") throw new Error("fixture requires multiples");
+    expect(computed.valuation.multiples.multiples.find((m) => m.key === "peTtm")?.current).toBeNull();
+    expect(computed.gaps.some((gap) => /netIncomeAvailableToCommon.*3\/4|3\/4.*netIncomeAvailableToCommon/.test(gap.reason))).toBe(true);
+  });
+
+  it("withholds same-currency ADR per-share valuation without quoted-share evidence", () => {
+    const bundle = fixtureBundle();
+    if (!bundle.profile.ok) throw new Error("fixture requires profile");
+    bundle.profile.value.data.rows[0]!.isAdr = true;
+    const computed = runStageB(bundle);
+    expect(computed.valuation.kind).toBe("dcf");
+    if (computed.valuation.kind !== "dcf") throw new Error("fixture requires DCF");
+    expect(computed.valuation.dcf?.perShare).toBeNull();
+    expect(computed.valuation.gaps.some((gap) => /quoted.*share|share.*ADS/i.test(gap.reason))).toBe(true);
+  });
+
+  it("does not score a flat history as cheap in the actual valuation grade", () => {
+    const { computed } = buildInputs();
+    const multiples = multiplesFramework("bank", {
+      quote: { price: 50, marketCap: 1_000, currency: "USD" }, reportedCurrency: "USD",
+      incomeTtm: { date: "2025-12-31", revenue: 100, operatingIncome: 20, netIncome: 10, epsDiluted: 2 }, cashFlowTtm: null,
+      balance: { date: "2025-12-31", totalDebt: 0, cashAndShortTermInvestments: 0, totalStockholdersEquity: 200, preferredStock: 0, minorityInterest: 0, goodwill: 0, intangibleAssets: 0 },
+      keyMetricsHistory: Array.from({ length: 8 }, (_, i) => ({ date: `2025-${i + 1}`, priceToBookRatio: 5 })),
+    });
+    const route = { ...computed.route, base: "bank" as const };
+    const scores = computeScores({ route, policy: metricPolicy(route), growth: computed.growth,
+      roic: computed.returns.roic, rote: computed.returns.rote, roicVsWacc: computed.returns.roicVsWacc, wacc: computed.returns.wacc,
+      capital: computed.capital, forensics: computed.forensics, technicals: computed.technicals, currentPrice: 50, asOf: BUILT_AT.slice(0, 10),
+      valuation: { kind: "excess-return", route: "bank", multiples, excessReturn: excessReturnModel({ bookValue: null, currentRoePct: null, costOfEquityPct: null }), notes: [], gaps: [] },
+    });
+    expect(scores.aspects.valuation.signals?.some((s) => s.id === "priceToTbvOwnHistoryRank") ?? false).toBe(false);
+    expect(scores.aspects.valuation.score).toBeNull();
+    expect(scores.aspects.valuation.dataCompleteness).toBe(0);
+  });
+});
 
 function suppressedFairValue(): FairValue {
   return {
