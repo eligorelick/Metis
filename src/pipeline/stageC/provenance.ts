@@ -6,6 +6,8 @@
  * only by its exact registry record and declared display precision.
  */
 
+import { comparePeriodContexts, PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
+
 export type CanonicalUnit =
   | "currency"
   | "currency-per-share"
@@ -59,6 +61,7 @@ export interface NumericProvenanceRecord {
   unit: CanonicalUnit;
   currency: string | null;
   period: string | null;
+  periodContext?: PeriodContext;
   /**
    * The issuer's own fiscal label for `period` ("FY2025", "Q1 FY2026"), taken
    * from the source statement row's `fiscalYear`/`period`. Absent when the row
@@ -118,6 +121,7 @@ export interface ProvenanceCandidate {
   unit: CanonicalUnit;
   currency: string | null;
   period: string | null;
+  periodContext?: PeriodContext;
   asOf: string;
   source: string;
 }
@@ -314,6 +318,9 @@ export function validateProvenanceRegistry(
     if (!isIsoDate(record.asOf)) {
       throw new Error(`Invalid provenance date: ${record.id}`);
     }
+    if (record.periodContext !== undefined && !PeriodContextSchema.safeParse(record.periodContext).success) {
+      throw new Error(`Invalid provenance period context: ${record.id}`);
+    }
     if (record.currency !== null && !ISO_CURRENCY.test(record.currency)) {
       throw new Error(`Invalid provenance currency: ${record.id}`);
     }
@@ -493,7 +500,10 @@ export function matchProvenanceRecord(
   if (record.currency !== candidate.currency) {
     return { ok: false, reason: "currency-mismatch", record };
   }
-  if (record.period !== candidate.period) {
+  const contextMatch = comparePeriodContexts(candidate.periodContext, record.periodContext);
+  if (contextMatch === false || (record.period !== candidate.period &&
+    (contextMatch !== true || !periodsAgree(candidate.period, record.period,
+      record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? null)))) {
     return { ok: false, reason: "period-mismatch", record };
   }
   if (record.asOf !== candidate.asOf) {

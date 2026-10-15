@@ -34,6 +34,7 @@ import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
 
 import type { Report } from "@/report/schema";
+import { evidenceTimingRows } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import {
   REPORT_SECTION_MANIFEST,
@@ -158,9 +159,9 @@ export function ReportView({
       </div>
     ),
     business: <BusinessSegments business={report.business} index={reportSection("business").index} />,
-    fundamentals: <FundamentalsSection fundamentals={report.fundamentals} index={reportSection("fundamentals").index} chart={fundamentalsChart} />,
+    fundamentals: <FundamentalsSection fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} chart={fundamentalsChart} />,
     balanceSheet: <BalanceSheetSection balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
-    valuation: <ValuationSection valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} index={reportSection("valuation").index} />,
+    valuation: <ValuationSection valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} index={reportSection("quality").index} />,
     technicals: <TechnicalsSection technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
     leadership: <LeadershipSection leadership={report.leadership} index={reportSection("leadership").index} />,

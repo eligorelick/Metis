@@ -18,8 +18,11 @@
  */
 
 import { formatExecutionMetadata } from "@/report/execution";
+import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import type { SourceFactSummary } from "@/report/sourceFacts";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
+import { evidenceTimingRows, EVIDENCE_TIMING_NOTE, type EvidenceTimingRow } from "@/report/evidenceTiming";
 import type {
   Appendix,
   BalanceSheet,
@@ -276,7 +279,7 @@ function gradeBlock(title: string, block: GradeBlock): string {
         block.keyNumbers.map((n) => [
           n.source,
           tracedValue(n),
-          tracedPeriodLabel(n.period),
+          tracedPeriodLabel(n.period, n.periodContext),
           n.asOf ?? DASH,
           verifiedMark(n),
         ]),
@@ -295,7 +298,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         row.label,
         v.period,
         tracedValue(v.value),
-        tracedPeriodLabel(v.value.period),
+        tracedPeriodLabel(v.value.period, v.value.periodContext),
         v.value.asOf ?? DASH,
         numericCitationTraceLabel(v.value.verified),
       ]);
@@ -547,7 +550,7 @@ function renderBusiness(b: Business): string {
   return lines.join("\n");
 }
 
-function renderFundamentals(f: Fundamentals): string {
+function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary): string {
   const lines: string[] = [sectionHeading("fundamentals"), ""];
   lines.push(gradeBlock("Fundamentals", f.graded), "");
   lines.push("### Growth", "", metricRowsTable(f.growthTable), "");
@@ -557,6 +560,7 @@ function renderFundamentals(f: Fundamentals): string {
   if (f.commentary.length > 0) {
     lines.push("### Commentary", "", claimList(f.commentary));
   }
+  for (const block of sourceFactAuditTables(summary)) lines.push("", `### ${block.heading}`, "", table(block.headers,block.rows), "", block.note ?? "");
   return lines.join("\n");
 }
 
@@ -577,7 +581,7 @@ function renderBalanceSheet(bs: BalanceSheet): string {
           g.numbers.map((n) => [
             n.source,
             tracedValue(n),
-            tracedPeriodLabel(n.period),
+            tracedPeriodLabel(n.period, n.periodContext),
             n.asOf ?? DASH,
             verifiedMark(n),
           ]),
@@ -626,8 +630,10 @@ function renderValuation(
   fairValue?: FairValue,
   routeMetrics?: RouteMetrics,
   review: ValuationReviewInputs = {},
+  timing: readonly EvidenceTimingRow[] = [],
 ): string {
   const lines: string[] = [sectionHeading("valuation"), ""];
+  if (timing.length) lines.push("### Evidence timing", "", table(["Event", "Established timing"], timing.map((row) => [row.label, row.value])), "", markdownProse(EVIDENCE_TIMING_NOTE), "");
   lines.push(gradeBlock("Valuation", v.graded), "");
 
   // DCF — perShare is null when the deterministic fair value was suppressed
@@ -862,7 +868,7 @@ function renderTechnicals(t: Technicals): string {
         t.indicators.map((n) => [
           n.source,
           tracedValue(n),
-          tracedPeriodLabel(n.period),
+          tracedPeriodLabel(n.period, n.periodContext),
           n.asOf ?? DASH,
           verifiedMark(n),
         ]),
@@ -1268,9 +1274,9 @@ export function reportToMarkdown(report: Report): string {
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
     renderBusiness(report.business),
-    renderFundamentals(report.fundamentals),
+    renderFundamentals(report.fundamentals,report.sourceFactSummary),
     renderBalanceSheet(report.balanceSheet),
-    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }),
+    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, evidenceTimingRows(report)),
     renderQuality(report.quality),
     renderTechnicals(report.technicals),
     renderLeadership(report.leadership),

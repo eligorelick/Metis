@@ -8356,14 +8356,11 @@
     },
     {
       "name": "amzn-integrity-2026-10-15",
-      "decisions": ["D-55"],
+      "decisions": [
+        "D-55"
+      ],
       "reason": "D-55 advances report spec to 1.15.0 and the shared net-debt boundary to NET_DEBT_V2. This compatible general-company fixture changes only these version stamps and three explanatory notes; its financial values, grades, registries and projection periods remain pinned. Counterexamples and valid controls separately test rejected cash/debt/lease contradictions.",
       "deltas": [
-        {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.15.0"
-        },
         {
           "path": "stageB.capital.netDebtToEbitda.note",
           "before": "NET_DEBT_V1: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
@@ -8383,6 +8380,245 @@
           "path": "stageB.valuation.notes.6",
           "beforeMissing": true,
           "after": "NET_DEBT_V2: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
+        }
+      ]
+    },
+    {
+      "name": "source-period-facts-timing-2026-10-15",
+      "decisions": [
+        "D-56"
+      ],
+      "reason": "D-56 advances the report spec, adds separately labeled source timing metadata and discloses an unavailable source-fact summary where this fixture has no established duration boundaries. Reviewed leaves are report evidence fields only; no Stage B financial values, grades, weights or historical baseline bytes change.",
+      "deltas": [
+        {
+          "path": "report.meta.evidenceTiming",
+          "beforeMissing": true,
+          "after": {
+            "version": "1",
+            "cutoffAt": "2026-07-06T12:00:00.000Z",
+            "quote": {
+              "observedAt": "2025-12-31T00:00:00.000Z",
+              "acquiredAt": "2026-07-06T00:00:00.000Z",
+              "stale": true
+            },
+            "financialPeriods": [
+              {
+                "source": "statements.incomeAnnual",
+                "periodEnd": "2025-12-31"
+              },
+              {
+                "source": "statements.incomeQuarterly",
+                "periodEnd": "2025-12-31"
+              },
+              {
+                "source": "statements.balanceAnnual",
+                "periodEnd": "2025-12-31"
+              },
+              {
+                "source": "statements.balanceQuarterly",
+                "periodEnd": "2025-12-31"
+              },
+              {
+                "source": "statements.cashflowAnnual",
+                "periodEnd": "2025-12-31"
+              },
+              {
+                "source": "statements.cashflowQuarterly",
+                "periodEnd": "2025-12-31"
+              }
+            ],
+            "filings": [
+              {
+                "source": "statements.incomeAnnual",
+                "form": null,
+                "reportDate": "2025-12-31",
+                "filedAt": "2026-02-15"
+              },
+              {
+                "source": "statements.incomeQuarterly",
+                "form": null,
+                "reportDate": "2025-12-31",
+                "filedAt": "2026-02-15"
+              },
+              {
+                "source": "statements.balanceAnnual",
+                "form": null,
+                "reportDate": "2025-12-31",
+                "filedAt": "2026-02-15"
+              },
+              {
+                "source": "statements.balanceQuarterly",
+                "form": null,
+                "reportDate": "2025-12-31",
+                "filedAt": "2026-02-15"
+              },
+              {
+                "source": "statements.cashflowAnnual",
+                "form": null,
+                "reportDate": "2025-12-31",
+                "filedAt": "2026-02-15"
+              },
+              {
+                "source": "statements.cashflowQuarterly",
+                "form": null,
+                "reportDate": "2025-12-31",
+                "filedAt": "2026-02-15"
+              }
+            ],
+            "publications": [],
+            "acquisitions": [
+              {
+                "source": "analystEstimates",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "compensation",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "earningsHistory",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "enterpriseValues",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "eodPrices",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "executives",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "financialGrowth",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "financialScores",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "gradesConsensus",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "insiderStats",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "insiderTrades",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "keyMetrics",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "marketRiskPremium",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "peers",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "priceTargetConsensus",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "priceTargetSummary",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "profile",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "quote",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "ratios",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "segmentation.geographic",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "segmentation.product",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "sharesFloat",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "statements.balanceAnnual",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "statements.balanceQuarterly",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "statements.cashflowAnnual",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "statements.cashflowQuarterly",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "statements.incomeAnnual",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "statements.incomeQuarterly",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "transcript.meta",
+                "at": "2026-07-06T00:00:00.000Z"
+              },
+              {
+                "source": "treasury",
+                "at": "2026-07-06T00:00:00.000Z"
+              }
+            ],
+            "calculationAsOf": "2026-07-06T00:00:00.000Z",
+            "calculatedAt": null,
+            "reportGeneratedAt": "2026-07-06T12:00:00.000Z"
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.16.0"
+        },
+        {
+          "path": "report.sourceFactSummary",
+          "beforeMissing": true,
+          "after": {
+            "version": "1.0.0",
+            "status": "unavailable",
+            "reason": "income before tax: Statement duration boundaries are unknown or conflicting.",
+            "qualifier": "as reported",
+            "rows": [],
+            "earningsReconciliation": {
+              "status": "unavailable",
+              "reason": "income before tax: Statement duration boundaries are unknown or conflicting.",
+              "method": null,
+              "pretaxMinusTax": null,
+              "reconciledNetIncome": null,
+              "reportedNetIncome": null,
+              "residual": null,
+              "operandIds": [],
+              "explanation": "Reported arithmetic only: income before tax minus income tax expense is compared with reported net income. The signed as-filed equity-method result is added only if needed to match that identity. This is not normalized recurring earnings, a tax allocation, or a universal treatment of equity-method results."
+            }
+          }
         }
       ]
     }

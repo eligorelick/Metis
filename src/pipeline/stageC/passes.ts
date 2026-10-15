@@ -43,6 +43,9 @@ import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import type { MultipleKey } from "@/pipeline/stageB/valuation";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
+import { guardEarningsReferences } from "@/report/earningsReferences";
+import { buildEvidenceTiming } from "@/report/evidenceTiming";
+import { buildSourceFactSummary } from "@/report/sourceFacts";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
@@ -2578,6 +2581,15 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   void deps;
   // Deep-clone so we mutate a copy, never the caller's object.
   const verifiedReport = structuredClone(reportOutput) as T;
+  // This optional report-owned field never accepts judge-authored facts.
+  const reportRoot = verifiedReport as Partial<Report>;
+  if (reportRoot.meta && reportRoot.appendix) {
+    const sourceFactSummary = buildSourceFactSummary(payload);
+    if (sourceFactSummary) reportRoot.sourceFactSummary = sourceFactSummary;
+    else delete reportRoot.sourceFactSummary;
+  }
+  const guardedReferences = guardEarningsReferences(verifiedReport, Boolean(reportRoot.meta && reportRoot.appendix && reportRoot.sourceFactSummary?.earningsReconciliation.status === "available"));
+  Object.assign(verifiedReport, guardedReferences.report);
   const registry = payload.provenanceRegistry ?? [];
   const citationRegistry = payload.citationRegistry ?? [];
   const fetchedUrls = new Set(
@@ -2617,7 +2629,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     personRows,
   });
 
-  const log: VerificationLogEntry[] = [];
+  const log: VerificationLogEntry[] = [...guardedReferences.log];
   let traced = 0;
 
   // D-45: the excerpts a number may be read against, and the one currency a
@@ -2773,6 +2785,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
             unit: normalized.unit,
             currency,
             period,
+            ...(number.periodContext === undefined ? {} : { periodContext: number.periodContext }),
             asOf: sourceAsOf ?? "",
             source: sourceId ?? "",
           },
@@ -2780,6 +2793,12 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         );
         ok = match.ok;
         reason = match.ok ? "unknown-source" : match.reason;
+        // Exact matching validates any registry context before it can pass.
+        // Fresh AI output omits this source-owned metadata; retain the trusted
+        // window on the verified number without sharing the payload object.
+        if (match.ok && number.periodContext === undefined && match.record.periodContext !== undefined) {
+          number.periodContext = structuredClone(match.record.periodContext);
+        }
         // The match above read an omitted currency as the record's; the
         // STORED number has to say so too, or a TWD figure renders as
         // dollars. A monetary number nothing resolved is recorded as unknown
@@ -3432,6 +3451,10 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     disclaimer: DISCLAIMER_TEXT,
     asOfMap: buildAsOfMap(args.bundle),
   };
+  meta.evidenceTiming = buildEvidenceTiming(args.bundle, {
+    calculationAsOf: args.computed.builtAt ?? null,
+    reportGeneratedAt: meta.generatedAt,
+  });
 
   // Missing-data manifest = computed gaps + Stage A validation gaps + Stage B
   // degradation disclosures. dedupManifest flattens+dedups by field|reason and
@@ -3509,7 +3532,27 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(routeMetrics ? { routeMetrics } : {}),
   };
 
-  const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(candidate, args.computed, args.bundle, {pendingVerification:args.provisionalVerification===true}));
+  // A failed verification pass still persists final assembly. Establish the
+  // rendered destination here as well; provisional assembly retains the raw
+  // reference until verification attaches its trusted payload-backed summary.
+  let assembled = candidate;
+  if (!args.provisionalVerification) {
+    const quarterly = args.bundle.statements?.incomeQuarterly;
+    // Legacy adapters can supply statement rows with only { gaps: [] } for
+    // Stage B. They retain report compatibility and no asserted destination.
+    const payloadContextReady = typeof args.computed.builtAt === "string" &&
+      Array.isArray(args.computed.suppressed) && Array.isArray(args.computed.gaps) &&
+      (["route", "growth", "returns", "capital", "forensics", "technicals", "valuation"] as const)
+        .every(key => args.computed[key] !== null && typeof args.computed[key] === "object");
+    if (quarterly?.ok && quarterly.value.data.rows.length > 0 && payloadContextReady) {
+      const payload = assembleContextPayload(args.bundle, args.computed, { checks: [], flags: [], gaps: args.validationGaps ?? [] });
+      candidate.sourceFactSummary = buildSourceFactSummary(payload);
+    }
+    const guarded = guardEarningsReferences(candidate, candidate.sourceFactSummary?.earningsReconciliation.status === "available");
+    guarded.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log];
+    assembled = guarded.report;
+  }
+  const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {pendingVerification:args.provisionalVerification===true}));
   if (!parsed.success) {
     throw new ReportValidationError(
       `assembled report failed ReportSchema validation`,

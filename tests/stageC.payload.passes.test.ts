@@ -725,10 +725,10 @@ describe("payload determinism + provenance", () => {
       // entries where this fixture has no such data (+1,337 prompt bytes).
       // NET_DEBT_V2 changes only finance disclosure/version text here; all
       // numeric registries, IDs, projection periods and figure labels stay pinned.
-      fingerprint: "1.20.0:3b3bc814",
-      promptBytes: 121_221,
+      fingerprint: "1.21.0:7702a99d",
+      promptBytes: 123_057,
       provenanceCount: 499,
-      provenanceHash: "32436dab",
+      provenanceHash: "1062dc43",
       provenanceIdsHash: "2fdc2d40",
       citationCount: 65,
       citationHash: "13b5b365",
@@ -870,7 +870,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.20.0");
+    expect(first.payloadVersion).toBe("1.21.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2258,7 +2258,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.15.0");
+    expect(report.meta.specVersion).toBe("1.16.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

@@ -35,6 +35,9 @@ import {
 } from "@/pipeline/compute";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
+import { buildSourceFactSummary } from "@/report/sourceFacts";
+import { buildEvidenceTiming } from "@/report/evidenceTiming";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
@@ -879,6 +882,12 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
     ...(routeMetrics ? { routeMetrics } : {}),
   };
 
+  // Share exact registry-backed facts with the full verification path. Rebuild
+  // them from this run's inputs, including removal of a copied historical field.
+  const sourceFactSummary = buildSourceFactSummary(assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] }));
+  if (sourceFactSummary) candidate.sourceFactSummary = sourceFactSummary;
+  else delete candidate.sourceFactSummary;
+
   // Templates and copied pipeline values have known origins, but no citation
   // check ran. A provider/path prefix alone cannot justify 100% support.
   const enriched = applyFinancialDiagnostics(candidate, computed, bundle);
@@ -886,5 +895,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const { provenanceCoverage: _appendixCoverage, ...appendix } = enriched.appendix;
   void _metaCoverage;
   void _appendixCoverage;
-  return { ...enriched, meta, appendix };
+  return { ...enriched, meta: { ...meta, evidenceTiming: buildEvidenceTiming(bundle, {
+    calculationAsOf: computed.builtAt ?? null, reportGeneratedAt: enriched.meta.generatedAt,
+  }) }, appendix };
 }

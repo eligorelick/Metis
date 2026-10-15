@@ -27,6 +27,7 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
+import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
@@ -59,6 +60,7 @@ import type {
   FmpCashFlowRow,
   FmpIncomeStatementRow,
   FmpRawRow,
+  FmpStatementRow,
 } from "@/providers/fmp";
 
 /* ------------------------------------------------------------------------ *
@@ -113,6 +115,7 @@ export interface PayloadFigure {
   unit: string;
   currency: string | null;
   period: string | null;
+  periodContext?: PeriodContext;
   source: string;
   asOf: string | null;
 }
@@ -137,6 +140,7 @@ export interface StatementLineExtract {
 
 export interface StatementCell {
   period: string;
+  periodContext?: PeriodContext;
   /**
    * The issuer's own label for the column ("FY2025", "Q1 FY2026"), from the
    * row's `fiscalYear`/`period`. Not rendered; the verifier reads a fiscal
@@ -283,7 +287,7 @@ export interface ContextPayload {
 // subtype is unknown; prior context cannot resume as the same convention.
 // 1.20.0 (D-55): reconciled financial bridges, signed equity-method income,
 // material filing context and distinct filing dates; prior passes cannot resume.
-export const PAYLOAD_VERSION = "1.20.0" as const;
+export const PAYLOAD_VERSION = "1.21.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -390,7 +394,8 @@ export function formatFigure(f: PayloadFigure): string {
   const canonical = f.value === null ? null : canonicalizeTracedUnit(f.unit, null);
   const monetary = canonical?.unit === "currency" || canonical?.unit === "currency-per-share";
   const currency = monetary && canonical?.currency === null ? ` (${f.currency ?? "currency unknown"})` : "";
-  return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.asOf)}`;
+  const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
+  return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.asOf)}${periodContext}`;
 }
 
 /* ------------------------------------------------------------------------ *
@@ -1057,6 +1062,36 @@ function issuerFiscalLabel(row: FmpRawRow): string | null {
   return null;
 }
 
+/** Source boundaries only: issuer calendars and 52/53-week years vary (SEC API guidance). */
+function statementPeriodContext(row: FmpRawRow, key: string, kind: "instant" | "duration"): PeriodContext | undefined {
+  const field = (row as FmpStatementRow).fieldProvenance?.[key];
+  const fiscalLabel = issuerFiscalLabel(row);
+  const annotation = fiscalLabel === null ? {} : { fiscalLabel };
+  let context: unknown;
+  if (kind === "instant") {
+    // A balance-sheet column establishes an instant even when no field-level
+    // evidence exists. A contradictory duration is not relabeled as a balance.
+    if (field && field.periodStart !== null) return undefined;
+    context = { kind, at: field?.periodEnd ?? isoDay(row.date), ...annotation };
+  } else {
+    // A flow's end alone never establishes Q/H1/TTM or a start boundary.
+    if (!field || field.periodStart === null) return undefined;
+    const period = typeof row.period === "string" ? row.period.trim().toUpperCase() : "";
+    const basis: PeriodContext["basis"] = period === "FY" ? "fiscal-year"
+      : /^Q[1-4]$/.test(period) ? "fiscal-quarter"
+        : /^H[12]$/.test(period) ? "fiscal-half-year"
+          : period === "YTD" ? "year-to-date"
+            : period === "TTM" || period === "LTM" ? "rolling-12-month" : undefined;
+    context = { kind, start: field.periodStart, end: field.periodEnd,
+      ...(basis === undefined ? {} : { basis }), ...annotation };
+  }
+  const parsed = PeriodContextSchema.safeParse(context);
+  if (!parsed.success) return undefined;
+  // Contradictory row/field dates establish no context for this column.
+  const end = parsed.data.kind === "instant" ? parsed.data.at : parsed.data.end;
+  return end === isoDay(row.date) ? parsed.data : undefined;
+}
+
 function extractStatement<TRow extends FmpRawRow>(
   title: string,
   rows: TRow[],
@@ -1064,6 +1099,7 @@ function extractStatement<TRow extends FmpRawRow>(
   asOf: string,
   lineItems: { key: keyof TRow; label: string; unit: string }[],
   source: string,
+  periodKind: "instant" | "duration" = "duration",
 ): StatementExtractBlock | null {
   const kept = rows.slice(0, periods);
   if (kept.length === 0) return null;
@@ -1073,13 +1109,17 @@ function extractStatement<TRow extends FmpRawRow>(
     lineItem: li.label,
     unit: li.unit,
     source,
-    byPeriod: kept.map((r, i) => ({
-      period: periodLabels[i],
-      ...(fiscalLabels[i] === null ? {} : { fiscalPeriod: fiscalLabels[i] }),
-      value: numOrNull(r[li.key]),
-      currency: isoCurrency(r.reportedCurrency),
-      asOf,
-    })),
+    byPeriod: kept.map((r, i) => {
+      const periodContext = statementPeriodContext(r, String(li.key), periodKind);
+      return {
+        period: periodLabels[i],
+        ...(periodContext === undefined ? {} : { periodContext }),
+        ...(fiscalLabels[i] === null ? {} : { fiscalPeriod: fiscalLabels[i] }),
+        value: numOrNull(r[li.key]),
+        currency: isoCurrency(r.reportedCurrency),
+        asOf,
+      };
+    }),
   }));
   return { title, periods: periodLabels, lineItems: lines, notes: [] };
 }
@@ -1095,8 +1135,8 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
     statement.ok ? statement.value.asOf : "";
   push(extractStatement("Income statement — annual", rowsOf(bundle.statements.incomeAnnual), A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, "fmp:income-statement(annual)"));
   push(extractStatement("Income statement — quarterly", rowsOf(bundle.statements.incomeQuarterly), Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, "fmp:income-statement(quarter)"));
-  push(extractStatement("Balance sheet — annual", rowsOf(bundle.statements.balanceAnnual), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, "fmp:balance-sheet(annual)"));
-  push(extractStatement("Balance sheet — quarterly", rowsOf(bundle.statements.balanceQuarterly), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, "fmp:balance-sheet(quarter)"));
+  push(extractStatement("Balance sheet — annual", rowsOf(bundle.statements.balanceAnnual), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, "fmp:balance-sheet(annual)", "instant"));
+  push(extractStatement("Balance sheet — quarterly", rowsOf(bundle.statements.balanceQuarterly), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, "fmp:balance-sheet(quarter)", "instant"));
   push(extractStatement("Cash flow — annual", rowsOf(bundle.statements.cashflowAnnual), A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, "fmp:cash-flow(annual)"));
   push(extractStatement("Cash flow — quarterly", rowsOf(bundle.statements.cashflowQuarterly), Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, "fmp:cash-flow(quarter)"));
   return blocks;
@@ -1702,6 +1742,7 @@ function attachProvenanceRegistry(
       unit,
       currency: resolvedCurrency,
       period: figure.period,
+      ...(figure.periodContext === undefined ? {} : { periodContext: figure.periodContext }),
       asOf,
       origin: figure.source,
       formulaVersion: kind === "computed" ? "stage-b-v1" : null,
@@ -1738,6 +1779,7 @@ function attachProvenanceRegistry(
       unit: canonical.unit,
       currency: canonical.currency,
       period,
+      ...(number.periodContext === undefined ? {} : { periodContext: number.periodContext }),
       asOf: number.asOf,
       origin: number.source,
       formulaVersion,
@@ -1811,6 +1853,7 @@ function attachProvenanceRegistry(
           unit,
           currency: monetary ? canonical.currency : null,
           period: cell.period,
+          ...(cell.periodContext === undefined ? {} : { periodContext: cell.periodContext }),
           ...(cell.fiscalPeriod === undefined ? {} : { fiscalPeriod: cell.fiscalPeriod }),
           asOf: cell.asOf,
           origin: line.source,
@@ -2118,7 +2161,8 @@ function renderStatement(block: StatementExtractBlock): string {
     const cells = li.byPeriod
       .map((c) => {
         if (c.value === null) return `${c.period}=n/a`;
-        return `${c.period}=${round(c.value)} ${provenanceTag(c.provenanceId ?? li.source, c.asOf)}`;
+        const context = c.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(c.periodContext)}`;
+        return `${c.period}=${round(c.value)} ${provenanceTag(c.provenanceId ?? li.source, c.asOf)}${context}`;
       })
       .join(" | ");
     lines.push(`- ${li.lineItem} (${li.unit}): ${cells}`);

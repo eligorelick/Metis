@@ -19,6 +19,9 @@ import { formatExecutionMetadata } from "@/report/execution";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
 import { ValuationReview } from "@/components/report/ValuationReview";
 import type { ValuationReviewInputs } from "@/report/researchReview";
+import { EVIDENCE_TIMING_NOTE, type EvidenceTimingRow } from "@/report/evidenceTiming";
+import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import type { SourceFactSummary } from "@/report/sourceFacts";
 
 import {
   Badge,
@@ -756,11 +759,13 @@ function MetricRowsTable({ rows }: { rows: readonly MetricRow[] }) {
 
 export function FundamentalsSection({
   fundamentals,
+  sourceFactSummary,
   index,
   openReasoning,
   chart,
 }: {
   fundamentals: Fundamentals;
+  sourceFactSummary?: SourceFactSummary;
   index: number;
   openReasoning?: boolean;
   /** Optional fundamentals chart bundle (revenue/margin/FCF/shares) mounts here. */
@@ -793,6 +798,7 @@ export function FundamentalsSection({
       <SubBlock label="commentary">
         <ClaimList claims={fundamentals.commentary} />
       </SubBlock>
+      <ExtraAuditTables tables={sourceFactAuditTables(sourceFactSummary)} />
     </SectionFrame>
   );
 }
@@ -1001,6 +1007,7 @@ export function ValuationSection({
   openReasoning,
   scenarioPresentation,
   thesisTriggers,
+  evidenceTiming,
 }: {
   valuation: Valuation;
   scenarioTargets?: ScenarioTargets;
@@ -1008,10 +1015,17 @@ export function ValuationSection({
   routeMetrics?: RouteMetrics;
   index: number;
   openReasoning?: boolean;
+  evidenceTiming?: readonly EvidenceTimingRow[];
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
   return (
     <SectionFrame id="valuation" index={index} title="Valuation">
+      {evidenceTiming && (
+        <SubBlock label="Evidence timing">
+          <AuditTable headers={["Event", "Established timing"]} rows={evidenceTiming.map((row) => ({ key: row.label, cells: [row.label, row.value] }))} />
+          <p className="mt-1 text-[10px] text-muted">{EVIDENCE_TIMING_NOTE}</p>
+        </SubBlock>
+      )}
       <GradeReasoning
         title="valuation"
         block={valuation.graded}

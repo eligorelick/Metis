@@ -4,11 +4,29 @@ What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The implemented behavior below was checked against the source and synthetic
-tests through 2026-10-14 and reflects report 1.12.0 / payload 1.17.0, including
+tests through 2026-10-15 and reflects report 1.16.0 / payload 1.21.0, including
 the growth-anchor span, scenario-horizon, research-reliability and META audit
 rules. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
+
+The evidence follow-up (D-56) carries source-established instant/duration
+boundaries independently from as-of dates. Missing context keeps the legacy
+matching contract; contradictory supplied contexts fail closed. Explicit
+source metadata stays outside model-authored request fields. Assembled reported
+earnings facts and arithmetic reconciliations are separate from AI opinion and
+prose-validation coverage. A reconciliation is unavailable unless its compatible
+reported operands establish the identity; no residual is forced to zero and
+no universal tax or recurring-earnings adjustment is assumed. Source-fact tables
+retain exact base-unit amounts and all required operands.
+
+Quote observation, source acquisition, established filing, publication,
+financial period, calculation basis and report generation describe different
+events. Unknown timing remains unknown. An analysis cutoff is not a measured
+calculation timestamp. Live FMP quote/batch-quote observations demonstrably after
+the original acquisition or injected client cutoff fail admission and cache
+retrieval; this adds no arbitrary stale-price expiry rule. Synthetic fixtures
+and historical report bytes retain their original conventions.
 
 Two rules govern everything below. Reported numeric claims use provenance
 records with source and as-of information where established; missing dates,

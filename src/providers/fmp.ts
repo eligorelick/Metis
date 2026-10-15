@@ -902,6 +902,41 @@ function validateCriticalRows<TRow extends FmpRawRow>(
   return { ok: true, rows: parsed };
 }
 
+/**
+ * Quote observations cannot postdate their acquisition or the client clock.
+ * Compare instants before deriveAsOf's calendar-date fallback can hide a
+ * future observation. Quote timestamps are Unix SECONDS; the millisecond
+ * convention of other endpoints must not rehabilitate an invalid quote.
+ * Missing/non-positive timestamps establish no observation time.
+ */
+function quoteTimestampProblem(
+  method: FmpMethodName,
+  rows: readonly FmpRawRow[],
+  acquisitionTimes: readonly (string | undefined)[],
+  clientCutoff?: string,
+): string | null {
+  if (method !== "quote" && method !== "batchQuote") return null;
+  const cutoffs = acquisitionTimes.flatMap((iso) => {
+    const ms = iso === undefined ? NaN : Date.parse(iso);
+    return Number.isFinite(ms) ? [{ iso, ms, kind: "acquisition" }] : [];
+  });
+  const clientMs = clientCutoff === undefined ? NaN : Date.parse(clientCutoff);
+  if (Number.isFinite(clientMs)) cutoffs.push({ iso: clientCutoff, ms: clientMs, kind: "client" });
+  // Both the provider envelope and durable cache retain acquisition evidence.
+  // A later cache write must never override an earlier original acquisition.
+  // The current client clock is an independent bound, never acquisition data.
+  const cutoff = cutoffs.sort((a, b) => a.ms - b.ms)[0];
+  if (cutoff === undefined) return null;
+  for (const [index, row] of rows.entries()) {
+    const timestamp = coerceVendorNumber(row.timestamp);
+    if (typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp <= 0) continue;
+    if (timestamp > cutoff.ms / 1000) {
+      return `FMP ${method} row ${index} timestamp ${String(row.timestamp)} (Unix seconds) is after ${cutoff.kind} cutoff ${cutoff.iso}`;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Pure helpers (exported for tests)
 // ---------------------------------------------------------------------------
@@ -1407,6 +1442,7 @@ export class FmpClient {
           { headers: { apikey: apiKey, accept: "application/json" } },
           policy,
         );
+        const fetchedAt = this.now().toISOString();
         // A plan-cap rejection is a retryable request-shape problem, not data:
         // learn the cap and let the catch below re-issue the call within it.
         // Only when the limit actually sent exceeds the cap — a rejection of an
@@ -1472,11 +1508,13 @@ export class FmpClient {
         if (admitted.length > 0) {
           const admittedValidation = validateCriticalRows<TRow>(spec.method, admitted);
           if (!admittedValidation.ok) throw new FmpSchemaError(admittedValidation.reason);
+          const timestampProblem = quoteTimestampProblem(spec.method, admitted, [fetchedAt]);
+          if (timestampProblem !== null) throw new FmpSchemaError(timestampProblem);
         }
         return {
           body,
           status: res.status,
-          fetchedAt: this.now().toISOString(),
+          fetchedAt,
           ...(expectedEntityScope === undefined ? {} : { entityScope: expectedEntityScope }),
         };
       }));
@@ -1541,6 +1579,11 @@ export class FmpClient {
     }
     const validation = validateCriticalRows<TRow>(spec.method, normalizedRows);
     if (!validation.ok) return gap(spec.gapField, validation.reason, "warn", [endpointPath]);
+    const timestampProblem = quoteTimestampProblem(spec.method, normalizedRows, [
+      exchange.fetchedAt,
+      exchange.value.fetchedAt,
+    ], this.now().toISOString());
+    if (timestampProblem !== null) return gap(spec.gapField, timestampProblem, "warn", [endpointPath]);
     const rows = validation.rows;
     const sourced: Sourced<FmpPayload<TRow>> = {
       data: { rows, raw: body, ...(planLimit === undefined ? {} : { planLimit }) },

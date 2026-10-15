@@ -13,6 +13,33 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-56 (source evidence 2026-10-15) Preserve source periods and separate facts from opinion
+
+- **Research**: [XBRL](https://www.xbrl.org/dates-in-xbrl/) distinguishes instant
+  and duration facts; [SEC API guidance](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
+  warns that issuer calendars and reporting windows vary. [CFA V(B)](https://www.cfainstitute.org/standards/professionals/code-ethics-standards/standards-of-practice-v-b)
+  separates facts, opinions and limitations, while [V(A)](https://www.cfainstitute.org/standards/professionals/code-ethics-standards/standards-of-practice-v-a)
+  supports adequate evidence and testing. These inform implementation boundaries,
+  not certification or investment-performance claims.
+- **Choice**: optional strict source period metadata precedes legacy aliases
+  when supplied; absence preserves compatibility. Structured periods remain
+  source-owned, outside provider request schemas. Exact statement registry
+  bindings support deterministic reported facts; a reported earnings arithmetic
+  identity needs compatible operands and retains its residual. It does not
+  establish recurring earnings, tax allocation or a universal equity-method rule.
+- **References and timing**: an earnings pointer requires its actual rendered
+  reconciliation, not a cash/debt bridge. Unsupported references are withheld
+  with original text logged; valid positional pointers use a fixed section.
+  Separate observation, filing, publication, acquisition, financial-period and
+  calculation-basis disclosures. Reject future live quote observations before
+  caching and after retrieval against original and injected client cutoffs.
+- **Risks and compatibility**: strictness can leave evidence unavailable. Missing
+  source boundaries are never inferred from an end date. Optional report1.16.0
+  and payload1.21.0 fields preserve historical reports. Model grammar limits,
+  numerical finance, factor weights, grades and scenario priors stay unchanged.
+  Synthetic regressions and a controlled frozen-input check are not prospective
+  predictive validation; broad qualitative prose remains unchecked.
+
 ## D-55 (financial integrity 2026-10-15) Reject contradictory operands and preserve source meaning
 
 - **Evidence**: counterexamples reproduced unchecked EV cash components,
