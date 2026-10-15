@@ -56,5 +56,9 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
 
 export function factualValidationText(coverage?: ProvenanceCoverage): string | null {
   const v = coverage?.factualValidation;
-  return v ? `Factual numeric validation: ${v.validated}/${v.total} validated; ${v.contradicted} contradicted; ${v.unchecked} unchecked. Citation presence: ${v.cited}/${v.total}. Source matches do not establish the truth of unchecked qualitative claims.` : null;
+  if (!v || !coverage) return null;
+  // This partition counts non-judgment prose claims, not TracedNumber objects.
+  // Preserve the separate denominator so zero prose matches cannot be read as
+  // zero numeric figures tracing to their source.
+  return `Factual prose claims (numeric support): ${v.validated}/${v.total} validated; ${v.contradicted} contradicted; ${v.unchecked} unchecked. Citation presence: ${v.cited}/${v.total}. Numeric figure provenance: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (separate from prose claims). Numeric matches do not validate whole prose claims; unchecked qualitative claims remain unvalidated.`;
 }

@@ -66,6 +66,7 @@ import {
   formatCostUsd,
   establishedCurrency,
   formatFinancialValue,
+  numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
@@ -225,14 +226,10 @@ function auditValue(value: unknown): string {
   return String(value);
 }
 
-function citationTraceLabel(value: TracedNumber["verified"]): string {
-  return value === true ? "citation-traced" : value === false ? "uncited" : "not checked";
-}
-
 function tracedAuditCells(trace: TracedNumber): readonly ReactNode[] {
   return TRACED_NUMBER_FIELDS.map((descriptor) => {
     if (descriptor.key === "value") return String(trace.value);
-    if (descriptor.key === "verified") return citationTraceLabel(trace.verified);
+    if (descriptor.key === "verified") return numericCitationTraceLabel(trace.verified);
     return auditValue(trace[descriptor.key]);
   });
 }
@@ -742,7 +739,7 @@ function MetricRowsTable({ rows }: { rows: readonly MetricRow[] }) {
                 return (
                   <td key={p} className="px-2 py-1 text-right">
                     {cell ? (
-                      <TracedFigure n={cell.value} className="text-[11px]" />
+                      <TracedFigure n={cell.value} className="text-[11px]" showProvenance />
                     ) : (
                       <span className="mono text-faint">—</span>
                     )}

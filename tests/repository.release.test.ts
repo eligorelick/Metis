@@ -64,6 +64,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/REMEDIATION-REPORT.md",
   "docs/audit/2026-10-03-repository-audit.md",
   "docs/audit/2026-10-04-recommendations.md",
+  "docs/audit/2026-10-15-amzn-integrity.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
@@ -77,6 +78,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/REPORT-EVALUATION.md",
   "docs/VALIDATION-STATUS.md",
   "docs/superpowers/plans/2026-10-13-research-reliability.md",
+  "docs/superpowers/plans/2026-10-15-amzn-integrity-audit.md",
 ]);
 const VERIFY_GATES = [
   "npm run check:dependencies",

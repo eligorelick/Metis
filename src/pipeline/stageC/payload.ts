@@ -281,7 +281,9 @@ export interface ContextPayload {
 // interpretation, and comparable-peer evidence. Older passes cannot resume.
 // 1.19.0 (D-54): equity-only FFO/AFFO comparisons are withheld when the REIT
 // subtype is unknown; prior context cannot resume as the same convention.
-export const PAYLOAD_VERSION = "1.19.0" as const;
+// 1.20.0 (D-55): reconciled financial bridges, signed equity-method income,
+// material filing context and distinct filing dates; prior passes cannot resume.
+export const PAYLOAD_VERSION = "1.20.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1022,6 +1024,7 @@ const INCOME_LINE_ITEMS: { key: keyof FmpIncomeStatementRow; label: string; unit
   { key: "interestExpense", label: "interest expense", unit: "currency" },
   { key: "incomeBeforeTax", label: "income before tax", unit: "currency" },
   { key: "incomeTaxExpense", label: "income tax expense", unit: "currency" },
+  { key: "equityMethodIncomeLoss", label: "equity-method income (loss), as filed", unit: "currency" },
 ];
 
 const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: string }[] = [
@@ -1435,7 +1438,7 @@ function transcriptExcerpt(bundle: DataBundle): TextExcerpt | null {
 function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
   const add = (
-    res: { ok: boolean; value?: { data: { text: string; reportDate: string; form: string; accession: string; marker?: string } } },
+    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } },
     title: (form: string) => string,
     budget: number,
     source: (form: string) => string,
@@ -1444,8 +1447,12 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     const sec = res.value.data;
     const cut = selectMaterialEvidence(sec.text, budget);
     const markerNote = sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "";
+    const reportingPeriod = isoDay(sec.reportDate);
+    const filingDate = isoDay(sec.filingDate);
+    const dateNote = (reportingPeriod !== null && isIsoDate(reportingPeriod) ? `; reporting period ended ${reportingPeriod}` : "") +
+      (filingDate !== null && isIsoDate(filingDate) ? `; filed ${filingDate}` : "");
     out.push({
-      title: `${title(sec.form)}${markerNote} (${sec.form} ${sec.accession})`,
+      title: `${title(sec.form)}${markerNote} (${sec.form} ${sec.accession}${dateNote})`,
       text: cut.text,
       source: source(sec.form),
       asOf: isoDay(sec.reportDate),

@@ -17,6 +17,9 @@
  *    Per-share, ratio, score and every other unit fail.
  *  - The value must be what the text prints, at the printed precision: within
  *    half a step of the printed figure and an exact multiple of that step.
+ *    A currency candidate may declare its own printed scale in `displayUnit`
+ *    ("USD billions: Net sales"). It is converted to base units once before
+ *    comparison; neither the source value nor a convenient match sets it.
  *  - The printed figure must be specific: three or more significant digits,
  *    or two with a decimal or a scale word. "7%" or a bare "4" cell matches
  *    too many unrelated figures by chance (50% of whole percents 1..30 hit
@@ -282,6 +285,33 @@ export interface ExcerptCandidate {
   value: number;
   unit: CanonicalUnit;
   currency: string | null;
+  /**
+   * Explicit printed-scale contract for money: "USD millions: Free cash flow",
+   * or "currency millions: Free cash flow" with a separate declared currency.
+   * Legacy units without a colon keep their existing base-unit interpretation.
+   */
+  displayUnit?: string;
+}
+
+/** Shared by excerpt and numeric-registry matching; never reads a source value. */
+export function currencyCandidateInBaseUnits(candidate: ExcerptCandidate):
+  | { ok: true; value: number; currency: string | null }
+  | { ok: false; reason: "unit-mismatch" | "currency-mismatch" } {
+  const separator = candidate.displayUnit?.indexOf(":") ?? -1;
+  if (separator < 0) return { ok: true, value: candidate.value, currency: candidate.currency };
+  // The delimiter separates a machine-readable scale from an unconstrained
+  // metric label. Unknown and compound scales must not silently mean "ones".
+  const prefix = candidate.displayUnit!.slice(0, separator).trim();
+  const declared = /^(currency|[A-Z]{3})\s+(thousands?|millions?|billions?|trillions?)$/.exec(prefix);
+  if (declared === null) return { ok: false, reason: "unit-mismatch" };
+  const currency = declared[1] === "currency" ? candidate.currency : declared[1];
+  if (currency === null || (candidate.currency !== null && candidate.currency !== currency)) {
+    return { ok: false, reason: "currency-mismatch" };
+  }
+  const scale = SCALE_WORDS[declared[2].replace(/s$/, "")];
+  const value = candidate.value * scale;
+  if (!Number.isFinite(value)) return { ok: false, reason: "unit-mismatch" };
+  return { ok: true, value, currency };
 }
 
 /** The printed figures equal to `candidate` at their printed precision. */
@@ -299,6 +329,10 @@ export function valueMentions(
           ? "count"
           : null;
   if (want === null) return { ok: false, reason: "unit-mismatch" };
+  const normalized = want === "currency"
+    ? currencyCandidateInBaseUnits(candidate)
+    : { ok: true as const, value: candidate.value, currency: candidate.currency };
+  if (!normalized.ok) return normalized;
   let currency: string | null = null;
   if (want === "currency") {
     // "$" in the issuer's filing is its reporting currency only when that is
@@ -306,7 +340,7 @@ export function valueMentions(
     if (reportingCurrency === null || !DOLLAR_CURRENCIES.has(reportingCurrency)) {
       return { ok: false, reason: "currency-mismatch" };
     }
-    if (candidate.currency !== null && candidate.currency !== reportingCurrency) {
+    if (normalized.currency !== null && normalized.currency !== reportingCurrency) {
       return { ok: false, reason: "currency-mismatch" };
     }
     currency = reportingCurrency;
@@ -320,9 +354,9 @@ export function valueMentions(
     // number or a scaled figure ("3.60 billion").
     if (want === "count" && mention.decimals && !mention.scaled) return false;
     const slack = 1e-9 * Math.max(1, Math.abs(mention.value));
-    if (Math.abs(candidate.value - mention.value) > mention.step / 2 + slack) return false;
+    if (Math.abs(normalized.value - mention.value) > mention.step / 2 + slack) return false;
     // No more precise than the text: 915.3 billion is not "$915 billion".
-    const steps = candidate.value / mention.step;
+    const steps = normalized.value / mention.step;
     return Math.abs(steps - Math.round(steps)) < 1e-6;
   });
   return { ok: true, mentions, currency };

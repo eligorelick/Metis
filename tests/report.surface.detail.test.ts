@@ -144,7 +144,7 @@ function expectTableCell(row: string, expected: string, markdown: boolean): void
 }
 
 function citationLabel(value: TracedNumber["verified"]): string {
-  return value === true ? "citation-traced" : value === false ? "uncited" : "not checked";
+  return value === true ? "citation-traced" : value === false ? "untraced" : "not checked";
 }
 
 function assertTracedRow(

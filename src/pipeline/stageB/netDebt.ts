@@ -3,9 +3,43 @@
  * equity bridge. Pure and deterministic: no provider, clock, or persistence.
  */
 
-export const NET_DEBT_RESOLVER_VERSION = "NET_DEBT_V1" as const;
+export const NET_DEBT_RESOLVER_VERSION = "NET_DEBT_V2" as const;
 
-export interface NetDebtInputs {
+export interface LeaseDebtInputs {
+  totalDebt?: number | null;
+  capitalLeaseObligations?: number | null;
+  operatingLeaseLiability?: number | null;
+  financeLeaseLiability?: number | null;
+}
+
+/** Missing splits retain the reported basis; contradictory supplied totals do not. */
+export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
+  const debt = finite(inputs.totalDebt);
+  const total = finite(inputs.capitalLeaseObligations);
+  const operating = finite(inputs.operatingLeaseLiability);
+  const finance = finite(inputs.financeLeaseLiability);
+  if ([debt, total, operating, finance].some(value => value !== null && value < 0)) {
+    return "negative debt or lease liability - invalid debt/lease composition";
+  }
+  const exceeds = (part: number | null, whole: number | null): boolean =>
+    part !== null && whole !== null && part > whole + Math.max(1, Math.abs(whole) * 1e-6);
+  if (exceeds(total, debt) || exceeds(operating, debt) || exceeds(finance, debt)) {
+    return "lease liability exceeds total debt - incompatible debt/lease composition";
+  }
+  if (operating !== null && finance !== null && exceeds(operating + finance, debt)) {
+    return "operating and finance lease liabilities together exceed total debt";
+  }
+  if (exceeds(operating, total) || exceeds(finance, total)) {
+    return "lease component exceeds total lease liabilities - incompatible debt/lease composition";
+  }
+  if (total !== null && operating !== null && finance !== null &&
+      Math.abs(operating + finance - total) > Math.max(1, Math.abs(total) * 1e-6)) {
+    return "operating and finance leases do not reconcile to total lease liabilities";
+  }
+  return null;
+}
+
+export interface NetDebtInputs extends LeaseDebtInputs {
   date?: string | null;
   totalDebt?: number | null;
   cashAndCashEquivalents?: number | null;
@@ -17,10 +51,9 @@ export interface NetDebtInputs {
 
 export interface NetDebtResolution {
   /**
-   * Set only when the resolver refused because the vendor's COMBINED cash field
-   * contradicts its own components. That is a fail-closed data-integrity
-   * refusal, not "short-term investments are unreported", and callers must not
-   * fall back to a narrower basis on it.
+   * Set when supplied cash or lease components contradict their totals. This
+   * is a data-integrity refusal, not a missing cash basis; callers must not
+   * fall back to narrower cash figures or an unadjusted debt balance.
    */
   conflict?: true;
   version: typeof NET_DEBT_RESOLVER_VERSION;
@@ -81,6 +114,11 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
       cashBasis: null,
       reason: "total debt is negative — invalid data; house net debt unavailable",
     };
+  }
+
+  const leaseConflict = leaseDebtConflict(inputs);
+  if (leaseConflict !== null) {
+    return { ...base, value: null, cashBasis: null, conflict: true, reason: leaseConflict };
   }
 
   if (combinedCash !== null) {

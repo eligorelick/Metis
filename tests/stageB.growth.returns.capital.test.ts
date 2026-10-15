@@ -1433,7 +1433,7 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
     const notes = r.notes.join(" ");
     expect(notes).toMatch(/no balance sheet discloses an operating-lease liability/);
     expect(notes).toMatch(/cash \+ short-term investments/);
-    expect(notes).toMatch(/NET_DEBT_V1/);
+    expect(notes).toMatch(/NET_DEBT_V2/);
     expect(notes).not.toMatch(/§2\.2/);
   });
 });

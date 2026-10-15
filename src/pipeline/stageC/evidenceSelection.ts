@@ -1,6 +1,6 @@
 /** Pure, bounded source selection. Offsets always refer to the original source. */
-export const EVIDENCE_SELECTION_VERSION = "section-evidence-1";
-export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf"] as const;
+export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
+export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity"] as const;
 export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number];
 export interface EvidenceSpan { start: number; end: number; text: string }
 export interface EvidenceCoverage {
@@ -23,6 +23,8 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   tax: /\b(?:income tax|tax (?:charge|expense|rate|benefit)|valuation allowance|effective tax|deferred tax)\b/i,
   exceptional: /\b(?:exceptional|one[- ](?:off|time)|non[- ]recurring|restructur|severance|legal (?:charge|expense|accrual)|litigation|settlement|impairment)\b/i,
   fcf: /\b(?:free cash flow|reconcil(?:e|iation)|principal payments|purchases of property)\b/i,
+  "earnings-quality": /\b(?:other income(?:\s*\(expense\))?|other expense(?:\s*\(income\))?|non[- ]operating|(?:unrealized|non[- ]cash|investment) (?:gains?|losses?)|equity (?:securities|warrant) valuations?|(?:upward|downward|reclassification|fair[- ]value) adjustments?)\b/i,
+  "subsequent-liquidity": /^(?=[\s\S]*\b(?:subsequent(?:ly)?|(?:after|following|since) (?:the )?(?:quarter|period|year)[ -]end)\b)(?=[\s\S]*\b(?:funded|funding|paid|repaid|repayment|borrowed|issued|issuance|acquired|acquisition|invested|investment|commitment)\b)(?=[\s\S]*\d)/i,
 };
 interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: number }
 
@@ -62,9 +64,18 @@ export function selectMaterialEvidence(text: string, maxChars: number): Selected
   let remaining = budget - reserve;
   const add = (passage: Passage): boolean => {
     if (selected.includes(passage)) return true;
-    const cost = passage.text.length + (selected.length > 0 ? separator.length : 0);
+    // A remaining commitment often refers to the investment in the preceding
+    // sentence. Keep that adjacent, bounded context atomically with its funding
+    // disclosure, rather than presenting an unbound amount or dropping its date.
+    const previous = all[all.indexOf(passage) - 1];
+    const needsContext = passage.categories.includes("subsequent-liquidity") &&
+      /\b(?:remaining|commitment|this|these|such|additional)\b/i.test(passage.text) && previous &&
+      /\b(?:invested|investment|acquired|acquisition|purchase|agreement|commitment|loan|notes?)\b/i.test(previous.text);
+    const additions = (needsContext ? [previous, passage] : [passage]).filter((candidate) => !selected.includes(candidate));
+    const cost = additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +
+      separator.length * (selected.length > 0 ? additions.length : additions.length - 1);
     if (cost > remaining) return false;
-    selected.push(passage);
+    selected.push(...additions);
     remaining -= cost;
     return true;
   };
@@ -81,7 +92,10 @@ export function selectMaterialEvidence(text: string, maxChars: number): Selected
       }
     }
     if (all[0]) add(all[0]);
-    for (const passage of [...all].sort((a, b) => b.score - a.score || a.start - b.start)) add(passage);
+    // Generic risk/business narrative can be useful even without a keyword or
+    // amount. Only skip unscored forward-looking-statement boilerplate here.
+    for (const passage of all.filter((candidate) => candidate.score > 0 || !/\bforward[- ]looking statements\b/i.test(candidate.text))
+      .sort((a, b) => b.score - a.score || a.start - b.start)) add(passage);
   }
   const spans = selected.sort((a, b) => a.start - b.start).map(({ start, end, text: body }) => ({ start, end, text: body }));
   const retainedChars = spans.reduce((sum, span) => sum + span.end - span.start, 0);

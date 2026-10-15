@@ -117,7 +117,7 @@ import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
-import { resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import {
   normalizeQuarterRows,
@@ -436,7 +436,9 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     totalDebt: num(r.totalDebt),
     // The operating-lease slice of totalDebt (EDGAR route only) — invested
     // capital removes it on the EV bridge's lease rule.
+    capitalLeaseObligations: num(r.capitalLeaseObligations),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
+    financeLeaseLiability: num(r.financeLeaseLiability),
     totalStockholdersEquity: num(r.totalStockholdersEquity),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     // Invested capital nets the same cash the house net-debt resolver does.
@@ -489,6 +491,7 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
   return {
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),
+    capitalLeaseObligations: num(r.capitalLeaseObligations),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
     netDebt: num(r.netDebt),
@@ -1321,6 +1324,7 @@ function bookDebtOnLeaseBasis(
 ): { value: number | null; leaseRemoved: boolean } {
   const total = row ? num(row.totalDebt) : null;
   if (total === null) return { value: null, leaseRemoved: false };
+  if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
   const operatingLease = row ? num(row.operatingLeaseLiability) : null;
   if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total) {
     return { value: total - operatingLease, leaseRemoved: true };
@@ -1364,6 +1368,9 @@ export function priorYearCostOfDebt(
     const balanceIndex = balanceAnnual.findIndex((row) => isoDay(row.date) === fiscalYearEnd);
     if (balanceIndex < 0) continue;
     // Same lease basis as the current-year debt leg (bookDebtOnLeaseBasis).
+    // A rejected opening balance cannot become the missing-balance fallback.
+    if ([balanceAnnual[balanceIndex], balanceAnnual[balanceIndex + 1]]
+      .some(row => leaseDebtConflict(row ?? {}) !== null)) continue;
     const debtThisYear = bookDebtOnLeaseBasis(balanceAnnual[balanceIndex], includeOperatingLeases).value;
     const debtPriorYear = bookDebtOnLeaseBasis(balanceAnnual[balanceIndex + 1], includeOperatingLeases).value;
     if (debtThisYear === null || debtThisYear <= 0) continue;
@@ -1436,8 +1443,15 @@ function totalDebtSnapshot(
     (row): row is FmpBalanceSheetRow => row !== undefined,
   );
   const currency = establishedRowsCurrency(used, currencyEvidence);
-  const negativeObservation = [a.value, b.value].find((value) => value !== null && value < 0) ?? null;
+  // Invalid supplied balances are not missing observations that the other
+  // year may replace. Preserve the raw negative sentinel before lease guards
+  // null the adjusted values, and reject contradictory lease compositions.
+  const negativeObservation = pair.map(row => num(row?.totalDebt)).find(value => value !== null && value < 0) ?? null;
   if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency };
+  const leaseConflict = pair.map(row => leaseDebtConflict(row ?? {})).find(reason => reason !== null) ?? null;
+  if (leaseConflict !== null) {
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency };
+  }
   if (a.value === null && b.value === null) return { average: null, negativeObservation: null, basis, currency };
   if (a.value !== null && b.value !== null) {
     return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency };
@@ -2678,6 +2692,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         date: String(balPoint.date ?? ""),
         basis: balPointBasis,
         totalDebt: num(balPoint.totalDebt),
+        cashAndCashEquivalents: num(balPoint.cashAndCashEquivalents),
+        shortTermInvestments: num(balPoint.shortTermInvestments),
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
         totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
         goodwill: num(balPoint.goodwill),
@@ -2692,6 +2708,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         // reported as-is with the leases gap raised.
         capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability),
+        financeLeaseLiability: num(balPoint.financeLeaseLiability),
       }
     : null;
 
@@ -2940,8 +2957,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 /**
  * Point-in-time net debt (2026-07-09 audit H2). House convention — matching the
  * multiples-EV and invested-capital definitions — is
- * totalDebt − (cashAndShortTermInvestments ?? cashAndCashEquivalents), derived
- * from statement fields. FMP's vendor `netDebt` field nets cash ONLY
+ * totalDebt minus cash and short-term investments, resolved from the combined
+ * field or both explicitly disclosed components. FMP's vendor `netDebt` nets cash ONLY
  * (the statement-field contract: netDebt = totalDebt − cashAndCashEquivalents),
  * so it is retained only as a diagnostic component and never used as a
  * fallback for the house convention.
@@ -2952,6 +2969,9 @@ function netDebtFromBalance(
   return resolveNetDebt({
     date: bal ? str(bal.date) : null,
     totalDebt: bal ? num(bal.totalDebt) : null,
+    capitalLeaseObligations: bal ? num(bal.capitalLeaseObligations) : null,
+    operatingLeaseLiability: bal ? num(bal.operatingLeaseLiability) : null,
+    financeLeaseLiability: bal ? num(bal.financeLeaseLiability) : null,
     cashAndCashEquivalents: bal ? num(bal.cashAndCashEquivalents) : null,
     shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,
     cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
@@ -3152,6 +3172,10 @@ function mergeQuarterly(
       equityOwnershipBasis: "parent",
       // House-EV components, so own-history EV matches the current definition.
       totalDebt: bal ? num(bal.totalDebt) : null,
+      cashAndCashEquivalents: bal ? num(bal.cashAndCashEquivalents) : null,
+      shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,
+      capitalLeaseObligations: bal ? num(bal.capitalLeaseObligations) : null,
+      financeLeaseLiability: bal ? num(bal.financeLeaseLiability) : null,
       cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
       preferredStock: bal ? num(bal.preferredStock) : null,
       minorityInterest: bal ? num(bal.minorityInterest) : null,

@@ -26,7 +26,7 @@ import type { ManifestEntry } from "@/types/core";
 import { BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 
@@ -1136,6 +1136,8 @@ export interface ReturnsBalanceRow {
   acceptedDate?: string | null;
   filingDate?: string | null;
   totalDebt?: number | null;
+  capitalLeaseObligations?: number | null;
+  financeLeaseLiability?: number | null;
   /**
    * The operating-lease slice of `totalDebt`, where the balance sheet discloses
    * it (the EDGAR route resolves it; FMP publishes no split). Invested capital
@@ -1276,6 +1278,11 @@ function investedCapital(
   }
   if (b.totalDebt < 0) {
     notes.push(`totalDebt is negative on ${b.date} — invested capital uncomputable`);
+    return null;
+  }
+  const leaseConflict = leaseDebtConflict(b);
+  if (leaseConflict !== null) {
+    notes.push(`${b.date}: ${leaseConflict} - invested capital uncomputable`);
     return null;
   }
 
@@ -1561,9 +1568,9 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (NET_DEBT_V1; cash-only where short-term investments are unreported, disclosed per year) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")",
+    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are unreported, disclosed per year) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
-  const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability > 0);
+  const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
     notes.push(
       "operating-lease liability kept inside invested capital (THESIS_EV_INCLUDE_LEASES=1), matching the enterprise-value bridge",

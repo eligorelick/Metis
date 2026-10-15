@@ -35,7 +35,7 @@ describe.each(["current", "workspace"] as const)("recorded grade/DCF evidence in
     const n = { ...input, value: 0, sourceId: undefined, period: null, asOf: null, verified: null };
     const visible = text(render(design, createElement(GradeReasoning, { title: "legacy", block: block([n]), defaultOpen: true })));
     expect(visible).toMatch(/source id not recorded/);
-    expect(visible).toMatch(/period not recorded/);
+    expect(visible).toMatch(/period not supplied/);
     expect(visible).toMatch(/as of not recorded/);
     expect(visible).toContain("0.0%");
     expect(visible).not.toContain("2026-09-30");
@@ -47,7 +47,7 @@ describe.each(["current", "workspace"] as const)("recorded grade/DCF evidence in
   it("describes an unresolved provided citation without claiming the value was uncited", () => {
     const visible = text(render(design, createElement(GradeReasoning, { title: "unresolved", block: block([{ ...input, verified: false }]), defaultOpen: true })));
     expect(visible).toContain(input.sourceId!);
-    expect(visible).toContain("citation status not citation-traced");
+    expect(visible).toContain("citation status untraced");
     expect(visible).not.toContain("citation status uncited");
   });
   it("exposes DCF recorded identity and period, then suppresses its provenance when value is absent", () => {

@@ -1893,11 +1893,6 @@
           "path": "stageB.valuation.notes.5",
           "beforeMissing": true,
           "after": "DCF equity bridge: EV − net debt − minority interest − preferred equity. A total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made; net debt is used as reported."
-        },
-        {
-          "path": "stageB.valuation.notes.6",
-          "beforeMissing": true,
-          "after": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
         }
       ]
     },
@@ -2591,11 +2586,6 @@
           "path": "stageB.returns.notes.0",
           "beforeMissing": true,
           "after": "WACC 9.2545%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium), as of 2026-07-06); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.4865% / D 13.5135% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances as the market-value proxy)"
-        },
-        {
-          "path": "stageB.returns.roic.notes.0",
-          "before": "invested capital = totalDebt + totalStockholdersEquity − cashAndCashEquivalents (house definition per the valuation methodology §2.2)",
-          "after": "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (NET_DEBT_V1; cash-only where short-term investments are unreported, disclosed per year) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")"
         },
         {
           "path": "stageB.returns.roic.notes.1",
@@ -8342,7 +8332,9 @@
     },
     {
       "name": "evidence-common-ownership-labels",
-      "decisions": ["D-53"],
+      "decisions": [
+        "D-53"
+      ],
       "reason": "P/E, common P/B and P/TBV basis text names the actual common-holder earnings and equity deductions under D-53; the fixture's numeric outputs and grading weights do not change. The later report version stamp is separately tracked under D-54.",
       "deltas": [
         {
@@ -8363,14 +8355,34 @@
       ]
     },
     {
-      "name": "d-54-reit-admission-version",
-      "decisions": ["D-54"],
-      "reason": "New reports use spec 1.14.0 because unknown REIT subtypes withhold unsupported equity-only FFO/AFFO comparisons. This general-company fixture changes only its report spec stamp from the prior release; all finance values, grades, provenance and citation registries retain their existing exact pins.",
+      "name": "amzn-integrity-2026-10-15",
+      "decisions": ["D-55"],
+      "reason": "D-55 advances report spec to 1.15.0 and the shared net-debt boundary to NET_DEBT_V2. This compatible general-company fixture changes only these version stamps and three explanatory notes; its financial values, grades, registries and projection periods remain pinned. Counterexamples and valid controls separately test rejected cash/debt/lease contradictions.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.14.0"
+          "after": "1.15.0"
+        },
+        {
+          "path": "stageB.capital.netDebtToEbitda.note",
+          "before": "NET_DEBT_V1: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)",
+          "after": "NET_DEBT_V2: total debt minus cash and short-term investments (combined field); EBITDA computed as operatingIncome + cash-flow D&A (latest FY, not TTM)"
+        },
+        {
+          "path": "stageB.capital.netDebtToEbitda.resolution.version",
+          "before": "NET_DEBT_V1",
+          "after": "NET_DEBT_V2"
+        },
+        {
+          "path": "stageB.returns.roic.notes.0",
+          "before": "invested capital = totalDebt + totalStockholdersEquity − cashAndCashEquivalents (house definition per the valuation methodology §2.2)",
+          "after": "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (NET_DEBT_V2; cash-only where short-term investments are unreported, disclosed per year) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")"
+        },
+        {
+          "path": "stageB.valuation.notes.6",
+          "beforeMissing": true,
+          "after": "NET_DEBT_V2: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
         }
       ]
     }

@@ -86,9 +86,14 @@ export const SHARED_RULES_BLOCK = [
   // cited excerpt's own text. In system so the judge, which writes the final
   // key numbers, sees it (the analysts' WRITING NUMBERS block never reaches it).
   "EXCERPT NUMBERS: a TracedNumber citing a filing or transcript excerpt is checked against that excerpt's text.",
-  "Copy the figure exactly as printed there, at the printed precision. Its `unit` is \"%\", \"currency\" (with the ISO",
-  "currency), \"count\" or \"shares\", followed by the excerpt's own words for the figure (\"% Standardized CET1 ratio\",",
-  "\"currency total loss-absorbing capacity\"); never \"people\" or another noun in place of the unit. Those words must",
+  "For money, copy the value at its printed precision; declare its ISO currency and explicit scale in `unit`,",
+  "then a colon and",
+  "the excerpt's own description (\"USD billions: Net sales\", \"USD millions: Free cash flow\"). Set `currency` to",
+  "that ISO code and `period` to the passage's explicit period; distinguish quarter, half-year and trailing periods.",
+  "Use only thousands, millions, billions or trillions established by the source's scale word or table header;",
+  "never guess a scale. Money already expressed in base units keeps its base-unit value and ISO currency unit.",
+  "Other units are \"%\", \"count\" or \"shares\", followed by the excerpt's own words (\"% Standardized CET1 ratio\");",
+  "never \"people\" or another noun in place of the unit. The figure's description words must",
   "appear near the figure in the excerpt. A bare table cell with no \"$\" or \"%\" (a Change column), a whole percent",
   "of one or two digits and a per-share amount cannot be checked: cite a payload figure instead, or state it in",
   "prose without a TracedNumber.",

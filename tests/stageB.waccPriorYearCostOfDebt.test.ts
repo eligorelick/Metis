@@ -184,6 +184,22 @@ describe("priorYearCostOfDebt from annual statements", () => {
     ).toBeNull();
   });
 
+  it.each([
+    { totalDebt: -100 },
+    { totalDebt: 100, operatingLeaseLiability: 120 },
+    { totalDebt: 100, capitalLeaseObligations: 120 },
+    { totalDebt: 100, operatingLeaseLiability: 60, financeLeaseLiability: 60 },
+  ])("does not replace an invalid opening debt balance with only the closing balance", invalidOpening => {
+    const recentIncome = [{ date: "2025-12-31", interestExpense: 0 },
+      { date: "2024-12-31", interestExpense: 10 }];
+    expect(priorYearCostOfDebt(recentIncome, [
+      { date: "2024-12-31", totalDebt: 100 },
+      { date: "2023-12-31", ...invalidOpening },
+    ])).toBeNull();
+    // A genuinely missing opening balance retains the disclosed single-balance fallback.
+    expect(priorYearCostOfDebt(recentIncome, [{ date: "2024-12-31", totalDebt: 100 }])?.pct).toBe(10);
+  });
+
   it("looks no further back than the recency limit", () => {
     const deep = [
       { date: "2025-09-27", interestExpense: 0 },
