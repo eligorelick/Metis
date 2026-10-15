@@ -130,6 +130,20 @@ describe("yahooSymbol", () => {
 });
 
 describe("YahooClient.dailyHistory", () => {
+  it("uses a browser User-Agent accepted by the chart endpoint", async () => {
+    // Live SPCX/XLI reproduction: Yahoo returns an HTML 404 to the old
+    // application-suffixed header, and JSON 200 to the browser header.
+    const { impl } = fakeFetch((_url, init) => {
+      const ua = new Headers(init?.headers).get("user-agent");
+      return ua === "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        ? { status: 200, body: chart({ symbol: "SPCX" }) }
+        : { status: 404, body: "<!DOCTYPE html><title>Yahoo</title>" };
+    });
+    const result = await client(impl).dailyHistory("SPCX", "2026-08-20", "2026-09-01");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.data.rows).toHaveLength(5);
+  });
+
   it("returns FMP-shaped bars newest first, dated in the exchange's calendar, split-adjusted close", async () => {
     const { impl, calls } = fakeFetch(() => ({ status: 200, body: chart({ bars: 5 }) }));
     const res = await client(impl).dailyHistory("AAPL", "2026-08-20", "2026-09-01");

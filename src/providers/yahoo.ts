@@ -54,12 +54,13 @@ const DAY_SECONDS = 86_400;
 export const YAHOO_TTLS = { history: 24 * HOUR, quote: 15 * MINUTE } as const;
 
 /**
- * Yahoo refuses the chart endpoint (HTTP 429) to clients that send no
- * User-Agent, so one is mandatory. It identifies Metis honestly while keeping
- * the browser-shaped prefix the edge expects.
+ * Yahoo requires a browser User-Agent. The former application-suffixed
+ * header received HTML 404s even for supported symbols (SPCX and XLI,
+ * verified 2026-10-15); this browser header received chart JSON on the same
+ * requests. Provider identity is recorded separately in every sourced result.
  */
 export const YAHOO_DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Metis/1.0 equity-analyzer (local-first equity research; keyless price fallback)";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 
 export interface YahooMeta {
   symbol: string;

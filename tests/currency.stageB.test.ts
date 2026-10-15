@@ -12,11 +12,54 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { runStageB } from "@/pipeline/compute";
+import { runStageB, statementCurrencies } from "@/pipeline/compute";
 
 import { M, currencyBundle } from "./helpers/currencyBundle";
 
 const UNLABELLED = [null, null, null, null] as const;
+
+function recentIpo(options: Parameters<typeof currencyBundle>[0] = {}) {
+  const bundle = currencyBundle(options);
+  for (const key of ["incomeAnnual", "balanceAnnual", "cashflowAnnual"] as const) {
+    const member = bundle.statements[key];
+    if (member.ok) member.value.data.rows = [];
+  }
+  for (const key of ["incomeQuarterly", "balanceQuarterly", "cashflowQuarterly"] as const) {
+    const member = bundle.statements[key];
+    if (member.ok) member.value.data.rows = member.value.data.rows.slice(0, 1);
+  }
+  return bundle;
+}
+
+describe("recent IPO statement currency", () => {
+  it("uses the first reported quarter's currency without requiring annual or TTM history", () => {
+    const bundle = recentIpo({ profileCurrency: "JPY", siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    expect(statementCurrencies(bundle)).toMatchObject({ trading: "JPY", annual: null, model: "USD", ttmIncomeUsable: false });
+    const computed = runStageB(bundle);
+    expect(computed.capital.current?.currency).toBe("USD");
+    expect(computed.gaps.some((g) => g.field === "compute.balanceQuarterly.currency")).toBe(false);
+    expect(computed.gaps.some((g) => g.field === "compute.incomeQuarterly.currency")).toBe(false);
+    expect(computed.capital.current?.basis).toBe("annual");
+    expect(computed.fairValue.perShare).toBeNull();
+  });
+
+  it("can establish the first quarter from a statement of the same filing", () => {
+    const bundle = recentIpo({ quarterCurrencies: UNLABELLED, siblingQuarterCurrencies: ["EUR", "EUR", "EUR", "EUR"], filingLinks: "shared" });
+    expect(statementCurrencies(bundle).model).toBe("EUR");
+  });
+
+  it("keeps the model currency unknown when the quarter has no filing evidence", () => {
+    const bundle = recentIpo({ quarterCurrencies: UNLABELLED, siblingQuarterCurrencies: UNLABELLED });
+    expect(statementCurrencies(bundle).model).toBeNull();
+    expect(runStageB(bundle).capital.current?.currency).toBeNull();
+  });
+
+  it("rejects conflicting currencies in the same filing", () => {
+    const bundle = recentIpo({ siblingQuarterCurrencies: ["EUR", "EUR", "EUR", "EUR"], filingLinks: "shared" });
+    expect(statementCurrencies(bundle).model).toBeNull();
+    expect(runStageB(bundle).capital.current?.currency).toBeNull();
+  });
+});
 
 function dcfOf(computed: ReturnType<typeof runStageB>) {
   if (computed.valuation.kind !== "dcf") throw new Error(`expected the DCF route, got ${computed.valuation.kind}`);

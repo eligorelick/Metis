@@ -1187,7 +1187,10 @@ function ttmCashFlowFromNormalized(
  *    in — the DCF, the excess-return model, the price multiples, and every
  *    per-share value derived from them. That is the TTM window's currency
  *    when the window anchors them, else the annual statement's; null when
- *    neither is established. It is never borrowed from the listing.
+ *    neither is established, except that an issuer with no annual income
+ *    statement can establish it from its latest reported income quarter.
+ *    This labels existing data; it does not create an annual or TTM window.
+ *    It is never borrowed from the listing.
  *
  * The TTM windows feed currency-dependent calculations only when their own
  * currency is established and agrees with the annual statement's; otherwise
@@ -1207,6 +1210,8 @@ function resolveStatementCurrencies(
   latestAnnualIncome: FmpIncomeStatementRow | undefined,
   ttmInc: TtmIncome | null,
   ttmCf: TtmCashFlow | null,
+  latestQuarterlyIncome: FmpIncomeStatementRow | undefined,
+  quarterlyEvidence: readonly CurrencyEvidenceRow[],
   gaps?: ManifestEntry[],
 ): StatementCurrencies {
   const trading = normalizeReportedCurrency(profileCurrency);
@@ -1214,7 +1219,11 @@ function resolveStatementCurrencies(
   const annualText = annual ?? "unlabelled";
   const usable = (code: string | null): boolean => code !== null && (annual === null || code === annual);
   const ttmIncomeUsable = ttmInc !== null && usable(ttmInc.reportedCurrency);
-  const model = ttmIncomeUsable ? ttmInc!.reportedCurrency : annual;
+  const quarterEvidence = latestAnnualIncome === undefined && latestQuarterlyIncome !== undefined
+    ? quarterCurrency(latestQuarterlyIncome, quarterlyEvidence)
+    : null;
+  const quarterCurrencyCode = quarterEvidence?.state === "known" ? quarterEvidence.code : null;
+  const model = ttmIncomeUsable ? ttmInc!.reportedCurrency : annual ?? quarterCurrencyCode;
   const ttmCashFlowUsable = ttmCf !== null && ttmCf.reportedCurrency !== null && ttmCf.reportedCurrency === model;
 
   // A window reaching here is established in one currency (ttmIncome and
@@ -1261,6 +1270,8 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
     rows(statements.incomeAnnual)[0],
     ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]),
     ttmCashFlowFromNormalized(cashflow, undefined, [...income.rows, ...balance.rows]),
+    income.rows[0],
+    [...income.rows, ...balance.rows, ...cashflow.rows],
   );
 }
 
@@ -1535,7 +1546,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...incomeQuarterSet.rows,
     ...balanceQuarterSet.rows,
   ]);
-  const currencies = resolveStatementCurrencies(profile?.currency, inc0, ttmInc, ttmCf, ttmGaps);
+  const currencies = resolveStatementCurrencies(
+    profile?.currency, inc0, ttmInc, ttmCf, incomeQuarterSet.rows[0],
+    [...incomeQuarterSet.rows, ...balanceQuarterSet.rows, ...cashflowQuarterSet.rows], ttmGaps,
+  );
 
   // Rows that may be combined with one another: those established in the
   // model currency, back to the first that is not. Filing-linked statements
