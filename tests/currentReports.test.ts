@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseCapitalReturn, parseGuidance, parseIssuerFreeCashFlow, parseReportedPeriod } from "@/edgar/currentReports";
 import { buildQuarterlySegments, fallbackMemberLabel, parseInstanceRevenue, parseMemberLabels } from "@/edgar/segmentFacts";
-import { runStageB } from "@/pipeline/compute";
+import { dcfGuidance, runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
@@ -331,6 +331,13 @@ describe("filing disclosures through the payload and the report tables", () => {
       // NVIDIA's Q3 FY2027 ends 2026-10-25 (13 weeks); 74.0% GM less 9.2B opex over 108.0B revenue.
       periodEnd: "2026-10-25", periodEndBasis: "13-week-quarter", impliedOperatingMarginPct: 65.48,
     });
+
+    // The DCF receives the same outlook as its D-58 guidance anchor, only in the model currency.
+    expect(dcfGuidance(bundle, "USD")).toEqual({
+      revenue: 108e9, periodEnd: "2026-10-25", asOf: "2026-08-26",
+      source: "sec:8-K EX-99.1 0001045810-26-000073", operatingMarginPct: 65.48,
+    });
+    expect(dcfGuidance(bundle, "EUR")).toBeNull();
 
     const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
     const record = (id: string) => payload.provenanceRegistry!.find((r) => r.id === id);

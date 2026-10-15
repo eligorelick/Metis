@@ -15,6 +15,7 @@ import { validateBundle, type ValidationReport, type ValidatableBundle } from "@
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
+import { nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -102,6 +103,7 @@ import {
   type DcfAssumptionInputs,
   type DcfIncomeRow,
   type DcfQuarterRevenue,
+  type DcfGuidance,
   type DcfBalanceRow,
   type AnalystEstimateRow,
   type MultiplesFrameworkInputs,
@@ -2469,6 +2471,24 @@ interface ValuationCtx {
 }
 
 
+/**
+ * D-58 / WP3: the 8-K earnings release's next-quarter revenue outlook as the
+ * DCF's guidance anchor. Withheld unless the outlook is in the model currency
+ * and its quarter end could be established; the valuation then falls back to
+ * consensus or the run-rate.
+ */
+export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): DcfGuidance | null {
+  const outlook = nextPeriodRevenueGuidance(bundle);
+  if (outlook === null || outlook.periodEnd === null || modelCurrency === null || outlook.currency !== modelCurrency) return null;
+  return {
+    revenue: outlook.mid,
+    periodEnd: outlook.periodEnd,
+    asOf: outlook.filingDate,
+    source: `sec:8-K EX-99.1 ${outlook.accession}`,
+    operatingMarginPct: outlook.impliedOperatingMarginPct,
+  };
+}
+
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
   // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
@@ -2669,10 +2689,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // already flags — valueCompany suppresses the DCF on mismatch.
           reportedCurrency: ctx.modelCurrency,
           quoteCurrency: str(profile?.currency),
-          // D-58: year-one anchor and terminal tax floor evidence. No 8-K
-          // outlook is ingested yet, so the guidance anchor is empty.
+          // D-58: year-one anchor and terminal tax floor evidence. The guidance
+          // anchor is the 8-K earnings release's next-quarter revenue outlook,
+          // used only in the model currency and when its quarter end is known.
           quarterRevenue: dcfQuarterRevenue,
-          guidance: null,
+          guidance: dcfGuidance(bundle, ctx.modelCurrency),
           domicileCountry: str(profile?.country),
         }
       : null;
