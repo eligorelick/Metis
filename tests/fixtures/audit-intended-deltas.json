@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-14",
+  "generatedAt": "2026-10-15",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -8343,13 +8343,8 @@
     {
       "name": "evidence-common-ownership-labels",
       "decisions": ["D-53"],
-      "reason": "Evidence reliability release stamps newly assembled reports 1.13.0. P/E, common P/B and P/TBV basis text now names the actual common-holder earnings and equity deductions; the fixture's numeric outputs and grading weights do not change.",
+      "reason": "P/E, common P/B and P/TBV basis text names the actual common-holder earnings and equity deductions under D-53; the fixture's numeric outputs and grading weights do not change. The later report version stamp is separately tracked under D-54.",
       "deltas": [
-        {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.13.0"
-        },
         {
           "path": "stageB.valuation.multiples.multiples.0.basis",
           "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
@@ -8364,6 +8359,18 @@
           "path": "stageB.valuation.multiples.multiples.5.basis",
           "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
           "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
+        }
+      ]
+    },
+    {
+      "name": "d-54-reit-admission-version",
+      "decisions": ["D-54"],
+      "reason": "New reports use spec 1.14.0 because unknown REIT subtypes withhold unsupported equity-only FFO/AFFO comparisons. This general-company fixture changes only its report spec stamp from the prior release; all finance values, grades, provenance and citation registries retain their existing exact pins.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.14.0"
         }
       ]
     }

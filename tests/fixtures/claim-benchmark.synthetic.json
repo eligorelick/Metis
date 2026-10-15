@@ -1,0 +1,407 @@
+{
+  "schemaVersion": "claim-corpus/v1",
+  "kind": "synthetic",
+  "description": "Ten plainly synthetic adversarial examples. Fictional Alpha and Beta issuers; reference labels are seed design expectations, never human adjudication or evidence of real-report/investment accuracy.",
+  "cases": [
+    {
+      "id": "synthetic-supported-number",
+      "claim": {
+        "text": "Alpha revenue increased 10% in 2025.",
+        "sha256": "24eceff4200fb532b65fd3b554bfc45199965d0a2ceb43bda1aa234a2d87b0c0",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha revenue increased 10% in 2025.",
+          "sha256": "9977a93b005628976a243d2d769e1d147aa227e85f8ecdb808bf2db2f3d8f895",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 81,
+          "text": "Alpha revenue increased 10% in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "supported",
+        "caseHash": "0cf93fac37a1c7d2e59e1c8972834aa40ef9d75d1aa6407bf80fc0b91002229b",
+        "rationale": "The exact whole claim is explicitly stated in this synthetic source."
+      }
+    },
+    {
+      "id": "synthetic-wrong-value",
+      "claim": {
+        "text": "Alpha revenue increased 20% in 2025.",
+        "sha256": "866c5acb07dd2a6d9b93b8d11fbf37020db288f3de54fd302200396be22af372",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha revenue increased 10% in 2025.",
+          "sha256": "9977a93b005628976a243d2d769e1d147aa227e85f8ecdb808bf2db2f3d8f895",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 81,
+          "text": "Alpha revenue increased 10% in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "contradicted",
+        "caseHash": "d35cd1905cf0c256722142f12ccf36ae55dea0ce7e007c099868d8b53c6374fd",
+        "rationale": "The same metric and period have an explicitly different value."
+      }
+    },
+    {
+      "id": "synthetic-wrong-direction",
+      "claim": {
+        "text": "Alpha revenue decreased 10% in 2025.",
+        "sha256": "75ed45b97e6d661d208568a49d2ffdc7da6ca381045506285a39cc443dad03b1",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha revenue increased 10% in 2025.",
+          "sha256": "9977a93b005628976a243d2d769e1d147aa227e85f8ecdb808bf2db2f3d8f895",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 81,
+          "text": "Alpha revenue increased 10% in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "contradicted",
+        "caseHash": "a060df7a3a096a9ed2f793ce106872961a3b903fd80bc42eb03f9c8a0a91d7ce",
+        "rationale": "The stated increase contradicts the claimed decrease."
+      }
+    },
+    {
+      "id": "synthetic-competitor-source",
+      "claim": {
+        "text": "Alpha revenue increased 10% in 2025.",
+        "sha256": "24eceff4200fb532b65fd3b554bfc45199965d0a2ceb43bda1aa234a2d87b0c0",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nBeta revenue increased 10% in 2025.",
+          "sha256": "8ec62ba27e948e325bf811470491d08d286d0d4958d63a1632a2c84bc5d3241d",
+          "issuer": "SYNTHETIC-BETA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 80,
+          "text": "Beta revenue increased 10% in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "insufficient",
+        "caseHash": "b19d0cb53c49530c4d2bb87c685657f990d123d10366d16f446ddee98925aea3",
+        "rationale": "A competitor's matching number supplies no evidence for Alpha."
+      }
+    },
+    {
+      "id": "synthetic-future-source",
+      "claim": {
+        "text": "Alpha revenue increased 10% in 2025.",
+        "sha256": "24eceff4200fb532b65fd3b554bfc45199965d0a2ceb43bda1aa234a2d87b0c0",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha revenue increased 10% in 2025.",
+          "sha256": "9977a93b005628976a243d2d769e1d147aa227e85f8ecdb808bf2db2f3d8f895",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2026-03-01",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 81,
+          "text": "Alpha revenue increased 10% in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "insufficient",
+        "caseHash": "25d538842886cc43821efc49504639f647670fac45d57d6892a6694a67f24d76",
+        "rationale": "The source was not available at the retained claim cutoff."
+      }
+    },
+    {
+      "id": "synthetic-wrong-period",
+      "claim": {
+        "text": "Alpha revenue increased 10% in 2025.",
+        "sha256": "24eceff4200fb532b65fd3b554bfc45199965d0a2ceb43bda1aa234a2d87b0c0",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha revenue increased 10% in 2024.",
+          "sha256": "b59fe90ac8fee64737033c50edd189e985c7cdd2ec5d34a70ec2731e5a9cfc2f",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2024-01-01",
+            "end": "2024-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 81,
+          "text": "Alpha revenue increased 10% in 2024."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "insufficient",
+        "caseHash": "edb239315b2990531b685154fa44c94d605433eae3e2b3587c89b5aee1b21d2c",
+        "rationale": "A prior period's matching number does not support the stated period."
+      }
+    },
+    {
+      "id": "synthetic-compound-allegation",
+      "claim": {
+        "text": "Alpha revenue increased 10% in 2025 and management fabricated customer contracts.",
+        "sha256": "2b1030d3106239834f04509d221621f16042c02ab8fe5be1a6e6e356585a7a03",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha revenue increased 10% in 2025.",
+          "sha256": "9977a93b005628976a243d2d769e1d147aa227e85f8ecdb808bf2db2f3d8f895",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 81,
+          "text": "Alpha revenue increased 10% in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "mixed",
+        "caseHash": "dc6b4e530945189a8d1bfb34d427bc41c3d03487e5d758ebe5f52698c7a4669a",
+        "rationale": "The numeric clause is supported; the allegation has no retained evidence. Numeric verification cannot support the whole claim."
+      }
+    },
+    {
+      "id": "synthetic-share-eps-mismatch",
+      "claim": {
+        "text": "Alpha diluted EPS was $2.00 in 2025.",
+        "sha256": "9baa9f0ce1264404e8630f7a675e960e8bc71a9bd7ad62ef172d00bb75428ba3",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha basic EPS was $2.00 and diluted EPS was $1.80 in 2025.",
+          "sha256": "96c5865a1e20ecfe7e1866ce5fcd4d2de43b8e2d7900fc1f1439a6a71837d0d8",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 105,
+          "text": "Alpha basic EPS was $2.00 and diluted EPS was $1.80 in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "contradicted",
+        "caseHash": "a9eeec7737c93ba98f5f9897ccf51c8e955ccdd4d3e812984909f5e80b119edd",
+        "rationale": "The matching basic EPS number belongs to a different share basis; explicit diluted EPS contradicts the claim."
+      }
+    },
+    {
+      "id": "synthetic-explicit-qualitative",
+      "claim": {
+        "text": "Alpha discontinued its legacy product in 2025.",
+        "sha256": "3a5d42c9fd739e28ffec1b010cb595e91e3d965927479432132fda100de30e99",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha discontinued its legacy product in 2025.",
+          "sha256": "ad67a5f842de8b4dc8c5b34ee59c9c0d696246d3315479c656be138ead8f64f2",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 91,
+          "text": "Alpha discontinued its legacy product in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "supported",
+        "caseHash": "755afdf2c07f6320c76ed96a53ebd2feb7ef54b17654cd7beb9cee6bcd08071e",
+        "rationale": "The nonnumeric whole claim is explicitly stated in the retained synthetic source."
+      }
+    },
+    {
+      "id": "synthetic-unsupported-superlative",
+      "claim": {
+        "text": "Alpha had the best customer satisfaction in the industry in 2025.",
+        "sha256": "9a7fbcb916bc68e9565424e1d10ed509e5f893995b739e8ff1582863ef858511",
+        "issuer": "SYNTHETIC-ALPHA",
+        "asOf": "2026-01-01",
+        "period": {
+          "start": "2025-01-01",
+          "end": "2025-12-31"
+        }
+      },
+      "sources": [
+        {
+          "id": "synthetic-source",
+          "text": "SYNTHETIC SOURCE - NOT A REAL COMPANY FILING\nAlpha surveyed its customers in 2025.",
+          "sha256": "6165588688aad7510536469cded4851049be4af7c0509a62591c9e519d82e316",
+          "issuer": "SYNTHETIC-ALPHA",
+          "publishedAt": "2025-12-31",
+          "period": {
+            "start": "2025-01-01",
+            "end": "2025-12-31"
+          }
+        }
+      ],
+      "spans": [
+        {
+          "sourceId": "synthetic-source",
+          "start": 45,
+          "end": 82,
+          "text": "Alpha surveyed its customers in 2025."
+        }
+      ],
+      "reference": {
+        "kind": "synthetic",
+        "label": "insufficient",
+        "caseHash": "cba34d221f8fb0926bd135a49a9bcb020c4de053adcc8677d2ddf8c90eed8bb3",
+        "rationale": "Conducting a survey supplies no result or industry comparison."
+      }
+    }
+  ]
+}

@@ -237,6 +237,7 @@ repository's [private advisory form](https://github.com/eligorelick/Thesis-AI-eq
 | `npm run research:evaluate` | Evaluate frozen point-in-time forecasts offline; never changes production grades. |
 | `npm run research:replay` | Reproduce Stage B from an immutable input snapshot without provider or model calls. |
 | `npm run reports:evaluate` | Freeze immutable report snapshots and evaluate explicitly comparable outcomes offline; see docs/REPORT-EVALUATION.md. |
+| `npm run claims:evaluate` | Evaluate claim-checker outputs against explicit synthetic or human-reviewed references offline; see docs/REPORT-EVALUATION.md. |
 | `npm run settings:reset` | Delete stored settings rows so .env takes precedence again. Needs --yes. |
 | `npm run db:push` | Apply the Drizzle schema to the configured database. |
 | `npm run check:dependencies` | Assert the dependency tree's shape. |
@@ -266,5 +267,4 @@ Contributions should preserve source tracing, add regressions and pass `npm run 
 
 ## License and data rights
 
-The code is [MIT](LICENSE); retrieved data and model output have separate
-[data rights](docs/DATA-RIGHTS.md), including when shared in reports.
+The code is [MIT](LICENSE); separate [data rights](docs/DATA-RIGHTS.md) apply to retrieved data and model output, including shared reports.

@@ -719,7 +719,9 @@ describe("payload determinism + provenance", () => {
       // Numeric finance outputs, provenance and citation registries remain unchanged.
       // Current mixed-input WACC is dated to calculation day, not the fiscal
       // statement date; only the payload fingerprint and provenance date move.
-      fingerprint: "1.18.0:02cc10b7",
+      // D-54: payload version only; finance, provenance/citation registries,
+      // projection paths and prompt byte length remain pinned below.
+      fingerprint: "1.19.0:06dd4d2c",
       promptBytes: 119_884,
       provenanceCount: 499,
       provenanceHash: "32436dab",
@@ -864,7 +866,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.18.0");
+    expect(first.payloadVersion).toBe("1.19.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2175,7 +2177,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.13.0");
+    expect(report.meta.specVersion).toBe("1.14.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

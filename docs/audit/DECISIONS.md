@@ -13,6 +13,43 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-54 (research validation 2026-10-14) Add offline checks before changing research methods
+
+The next work after D-53 is broader validation. Benefit and residual
+implementation risk below use a 1–5 engineering judgment scale (5 highest).
+
+| Addition | Benefit | Risk | Evidence and boundary |
+| --- | ---: | ---: | --- |
+| Seven-route synthetic report integration panel | 5 | 1 | Real validation, computation, data-only assembly, strict parsing and all three renderers exercise hand-derived general/bank/insurer/REIT/ADR/burn/runway controls. Controlled inputs are not live-provider, model-prose or forecast validation. |
+| Unknown REIT subtype multiple admission | 5 | 1 | A reproduced SIC-only unknown subtype withheld its REIT valuation but still emitted equity-only P/FFO and P/AFFO. The shared multiples boundary now withholds current, own-history and peer comparisons; equity positive controls retain their values and mortgage REITs retain common-book treatment. |
+| Versioned selected-forecast adapter boundary | 3 | 1 | Exact selected values/windows/sources bind internally compatible retained structured basis/method records. Output remains an upstream-declared candidate with production admission disabled. Existing strict report registration stays withheld until upstream acquisition establishes the missing dimensions. |
+| Offline claim-review benchmark and CLI | 4 | 2 | Source/claim/span/case identity, independent declared review and complete denominators constrain descriptive checker evaluation. The seed is synthetic; human identities are not authenticated and no whole-prose checker is enabled in reports. |
+| Failed evaluation-output preservation | 4 | 1 | Reproduced replacement-after-write-failure cases could delete another operation's file during cleanup. Both claim and report evaluation writers retain failed destinations, close their descriptors and surface the failure; successful writes remain exclusive. |
+
+The current projection path lacks complete typed security, accounting, share and
+corporate-action metadata. Copying those fields from an operator sidecar would
+repeat the defect closed in D-53. The standalone adapter therefore defines and
+tests a candidate boundary while current reports remain excluded from strict V2
+registration. Validated metadata acquisition is a separate remaining prerequisite.
+
+Human-reviewed claim references require actual independent review; machine or
+agent-created synthetic labels are not presented as human judgments. The offline
+benchmark makes incomplete, corrupt, ambiguous and unassessed cases visible. It
+does not promote numeric matching or citations to whole-claim factual support.
+
+The panel reproduced an existing eligibility defect: an unknown REIT subtype
+could publish P/FFO and P/AFFO through a separate multiples path even though the
+REIT valuation correctly withheld them. That boundary is corrected and disclosed
+in missing-data output. Applicable formulas, grade weights and scenario priors
+are unchanged; unsupported observations no longer enter the affected outputs.
+New reports use spec 1.14.0, payload 1.19.0, pipeline stage-c-1.1.1 and the revised
+Stage B implementation identity. Stored report bytes retain their original
+versions. New offline admission/evaluation modules carry the existing per-file
+risk coverage floors.
+Prospective outcome collection, calibration and any production claim checker
+remain deferred until their evidence requirements are met. Usage and limitations
+are documented in [report evaluation](../REPORT-EVALUATION.md).
+
 ## D-53 (evidence reliability 2026-10-14) Admit compatible observations and disclose the scope of verification
 
 The audit proposals were assessed against reproduced counterexamples and positive

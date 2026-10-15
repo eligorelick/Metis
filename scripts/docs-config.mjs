@@ -60,6 +60,7 @@ export const COMMAND_DESCRIPTIONS = {
   "research:evaluate": "Evaluate frozen point-in-time forecasts offline; never changes production grades.",
   "research:replay": "Reproduce Stage B from an immutable input snapshot without provider or model calls.",
   "reports:evaluate": "Freeze immutable report snapshots and evaluate explicitly comparable outcomes offline; see docs/REPORT-EVALUATION.md.",
+  "claims:evaluate": "Evaluate claim-checker outputs against explicit synthetic or human-reviewed references offline; see docs/REPORT-EVALUATION.md.",
 };
 
 /** Commands that exist for the suite's own plumbing and are not user-facing. */

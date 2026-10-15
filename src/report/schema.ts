@@ -79,7 +79,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.12.0: audit remediation adds numeric factual validation, explicit periods,
 // financial/valuation bridges and unassessed executive evidence. Legacy fields
 // remain readable; new deterministic outputs carry the revised conventions.
-export const REPORT_SPEC_VERSION = "1.13.0" as const;
+// 1.14.0 (D-54): unknown REIT subtypes cannot publish equity-only FFO/AFFO
+// multiples. Saved reports retain their original financial convention/version.
+export const REPORT_SPEC_VERSION = "1.14.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

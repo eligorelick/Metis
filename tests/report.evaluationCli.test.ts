@@ -59,12 +59,28 @@ describe("offline evaluation CLI", () => {
     expect(existsSync(path.join(directory, "data"))).toBe(false);
   });
 
-  it("removes only its newly created partial snapshot when writing fails", () => {
+  it("preserves the partial destination for inspection when writing fails", () => {
     const before = readFileSync(path.join(directory, "report.json"));
     vi.spyOn(fs, "writeFileSync").mockImplementationOnce(() => { throw new Error("disk full"); });
     expect(() => freeze()).toThrow("disk full");
-    expect(readdirSync(path.join(directory, "data/evaluations/snapshots"))).toEqual([]);
+    expect(readdirSync(path.join(directory, "data/evaluations/snapshots"))).toHaveLength(1);
     expect(readFileSync(path.join(directory, "report.json"))).toEqual(before);
+  });
+
+  it("never deletes a concurrent replacement after a write failure", () => {
+    const originalWrite = fs.writeFileSync;
+    let outputPath = "";
+    const replacement = "replacement owned by another operation";
+    vi.spyOn(fs, "writeFileSync").mockImplementationOnce(() => {
+      const folder = path.join(directory, "data/evaluations/snapshots");
+      outputPath = path.join(folder, readdirSync(folder)[0]!);
+      fs.renameSync(outputPath, path.join(directory, "owned-partial.json"));
+      originalWrite(outputPath, replacement);
+      throw new Error("disk full after concurrent replacement");
+    });
+    expect(() => freeze()).toThrow(/disk full/);
+    expect(existsSync(outputPath)).toBe(true);
+    expect(readFileSync(outputPath, "utf8")).toBe(replacement);
   });
 
   it("writes new content-addressed snapshots and evaluation results without touching inputs", () => {

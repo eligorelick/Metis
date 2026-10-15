@@ -279,7 +279,9 @@ export interface ContextPayload {
 // metric-labelled numeric prose evidence, current financial bridges, explicit
 // accrual operands, flat-share/alternative EPS evidence, deterministic scenario
 // interpretation, and comparable-peer evidence. Older passes cannot resume.
-export const PAYLOAD_VERSION = "1.18.0" as const;
+// 1.19.0 (D-54): equity-only FFO/AFFO comparisons are withheld when the REIT
+// subtype is unknown; prior context cannot resume as the same convention.
+export const PAYLOAD_VERSION = "1.19.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
