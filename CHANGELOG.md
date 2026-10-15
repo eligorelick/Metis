@@ -17,6 +17,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased — Metis identity (2026-10-14)
+
+- Rename product and repository presentation to Metis, inspired by wisdom and planning; add original vector assets and a [brand guide](docs/BRAND.md).
+- Document canonical `METIS_*` configuration and `X-Metis-Token`; retain legacy aliases, local data discovery, credentials and browser preferences.
+- Preserve research methods, report schemas, stored report bytes and historical audit identifiers. Earlier entries retain the names used at the time.
+
 ## Unreleased — research reliability (2026-10-13)
 
 - Add immutable evaluation snapshots and explicit comparable-outcome checks;
@@ -442,7 +448,7 @@ were ever generated. The job produced no report. Three defects, one chain:
   Anthropic SDK discards them before any listener runs
   (`core/streaming.js`: `if (sse.event === 'ping') continue;`) — while undici's
   ~300-second idle body timeout counts them as socket traffic and does not. The
-  guard also cannot see that the model is working: Thesis never asks for
+  guard also cannot see that the model is working: Metis never asks for
   thinking summaries, so reasoning produces no stream events on any model. At a
   flat 120 seconds it therefore pre-empted a working detector with a blind one
   and killed healthy paid passes mid-reasoning.

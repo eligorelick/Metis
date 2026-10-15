@@ -109,6 +109,8 @@ const EXPECTED_RISK_SOURCES = [
   "src/app/api/watchlist/route.ts",
   "src/proxy.ts",
   "src/config/env.ts",
+  "src/config/namespace.ts",
+  "src/brand/identity.ts",
   "src/db/index.ts",
   "src/db/paths.ts",
   "src/db/schema.ts",

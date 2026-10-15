@@ -60,7 +60,7 @@ export function claimAiRuntime(store: AiStore): void {
     let alive = true;
     try { process.kill(owner, 0); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === "ESRCH") alive = false; }
-    if (alive) throw new Error("AI connections are active in another Thesis server. Use that server or stop it before connecting here.");
+    if (alive) throw new Error("AI connections are active in another Metis server. Use that server or stop it before connecting here.");
   }
   store.runtimeOwnerPid = process.pid;
 }
@@ -71,7 +71,8 @@ export function aiDirectory(): string {
     ? process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local")
     : process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support")
       : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return path.join(base, "Thesis", "ai");
+  const legacy = path.join(base, "Thesis", "ai");
+  return fs.existsSync(legacy) ? legacy : path.join(base, "Metis", "ai");
 }
 
 export function ensurePrivateDirectory(dir: string): void {

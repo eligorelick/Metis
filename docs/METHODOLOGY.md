@@ -1,6 +1,6 @@
 # Valuation methodology
 
-What Thesis computes, from which inputs, under which conventions, and where a
+What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
 The implemented behavior below was checked against the source and synthetic
@@ -579,7 +579,7 @@ different fiscal periods.
 
 **The OPERATING-lease liability is excluded by default; the finance-lease
 liability is not.** The option to keep the operating slice in is
-`THESIS_EV_INCLUDE_LEASES=1`. The split is the whole point. Under US GAAP
+`METIS_EV_INCLUDE_LEASES=1`. The split is the whole point. Under US GAAP
 (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA
 are already *after* it and adding that liability to EV as well double-counts the
 leases in EV/EBITDA. Finance-lease cost is split between right-of-use

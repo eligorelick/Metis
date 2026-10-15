@@ -218,7 +218,7 @@ describe("assertSameOrigin", () => {
     const error = await expect403(res as Response);
     expect(error).toContain("Sec-Fetch-Site");
     expect(error).toContain("Origin");
-    expect(error).toContain("X-Thesis-Token");
+    expect(error).toContain("X-Metis-Token");
   });
 
   it("allows a header-less request that presents the minted token (curl/scripts)", () => {
@@ -229,7 +229,7 @@ describe("assertSameOrigin", () => {
     const wrong = { [REQUEST_TOKEN_HEADER]: "f".repeat(64) };
     const res = assertSameOrigin(guardReq(wrong));
     expect(res).not.toBeNull();
-    expect(await expect403(res as Response)).toContain("x-thesis-token");
+    expect(await expect403(res as Response)).toContain("request token");
   });
 
   it.each(["", "   ", "0".repeat(63), `${"0".repeat(64)}extra`])(

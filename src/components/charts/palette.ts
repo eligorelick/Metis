@@ -1,12 +1,12 @@
 import type { UiDesign } from "@/appearance/preference";
 
 const PALETTES = {
-  current: { bgPanel: "#0f141c", bgRaised: "#151c26", border: "#1f2937", borderStrong: "#2b3648",
-    fg: "#d5dce6", fgMuted: "#8494a8", fgFaint: "#7f8fa4", accent: "#3ba7f5",
-    pos: "#2ecc8f", neg: "#f0525f", warn: "#e8b339", sma50: "#3ba7f5", sma200: "#e8b339", volume: "#2b3648" },
-  workspace: { bgPanel: "#ffffff", bgRaised: "#f2f7f8", border: "#bacbd3", borderStrong: "#819ca7",
-    fg: "#17333d", fgMuted: "#526770", fgFaint: "#526770", accent: "#0b6671",
-    pos: "#17624b", neg: "#a23642", warn: "#896000", sma50: "#0b6671", sma200: "#896000", volume: "#819ca7" },
+  current: { bgPanel: "#181b19", bgRaised: "#222722", border: "#333a33", borderStrong: "#51594d",
+    fg: "#f6f2e9", fgMuted: "#b8bcaf", fgFaint: "#a4aa9b", accent: "#cfaf7d",
+    pos: "#2ecc8f", neg: "#f0525f", warn: "#e8b339", sma50: "#cfaf7d", sma200: "#e8b339", volume: "#51594d" },
+  workspace: { bgPanel: "#ffffff", bgRaised: "#f0ebe1", border: "#d5cbbb", borderStrong: "#918571",
+    fg: "#181b19", fgMuted: "#665b4c", fgFaint: "#665b4c", accent: "#785b32",
+    pos: "#17624b", neg: "#a23642", warn: "#896000", sma50: "#785b32", sma200: "#896000", volume: "#918571" },
 } as const;
 
 export type ChartPalette = { [Key in keyof typeof PALETTES.current]: string };

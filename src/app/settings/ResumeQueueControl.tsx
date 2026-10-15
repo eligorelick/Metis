@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Badge, Panel } from "@/components/ui";
 
 /**
- * Operator control for a held startup (`THESIS_RESUME_ON_START=0`).
+ * Operator control for a held startup (`METIS_RESUME_ON_START=0`).
  *
  * Rendered only when the server reports `capabilities.resumeOnStart === false`
  * (see `SettingsPageView`). On the default `1` the scheduler already claimed
@@ -14,7 +14,7 @@ import { Badge, Panel } from "@/components/ui";
  * Self-contained on purpose: it owns its own request state so the settings
  * write queue, which has a compare-and-swap contract of its own, is not
  * entangled with a button that has no persistent state at all. The browser
- * attaches Sec-Fetch-Site to this POST, so it needs no X-Thesis-Token.
+ * attaches Sec-Fetch-Site to this POST, so it needs no X-Metis-Token.
  */
 
 export type ResumeQueueStatus = "idle" | "resuming" | "resumed" | "error";
@@ -87,7 +87,7 @@ export function ResumeQueueControl() {
         resume queued work
       </button>
       <p className="pt-2 text-[11px] leading-snug text-faint">
-        With <span className="mono">THESIS_RESUME_ON_START=0</span> the server
+        With <span className="mono">METIS_RESUME_ON_START=0</span> the server
         starts without claiming queued jobs, so paid work left behind by a
         restart waits for you. This starts the scheduler now. Starting, retrying,
         or canceling a report does the same thing.

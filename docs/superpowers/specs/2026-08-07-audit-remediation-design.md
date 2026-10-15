@@ -55,7 +55,7 @@ does not imply a new report will have complete data or a verified AI assessment.
 ## Goal
 
 Correct every high, medium, and low finding in the independent audit without
-weakening Thesis's deterministic financial analysis, missing-data policy,
+weakening Metis's deterministic financial analysis, missing-data policy,
 source traceability, local-first security model, or saved-report compatibility.
 
 ## Scope and success criteria

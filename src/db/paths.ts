@@ -1,39 +1,41 @@
 import "server-only";
 
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { metisEnv } from "@/config/namespace";
 
-/** Default directory for local persistent data; override with THESIS_DATA_DIR. */
+/** Discover legacy data in place. Even an empty existing directory may belong to an older install. */
 export function defaultDataDir(): string {
-  const fromEnv = process.env.THESIS_DATA_DIR?.trim();
+  const fromEnv = metisEnv("DATA_DIR")?.trim();
   if (fromEnv) return fromEnv;
 
-  if (process.platform === "win32") {
-    const localAppData = process.env.LOCALAPPDATA?.trim();
-    if (localAppData) return path.join(localAppData, "Thesis");
-    const appData = process.env.APPDATA?.trim();
-    if (appData) return path.join(appData, "Thesis");
+  let base: string;
+  let legacyName = "Thesis";
+  let canonicalName = "Metis";
+  if (process.platform === "win32" && (process.env.LOCALAPPDATA?.trim() || process.env.APPDATA?.trim())) {
+    base = (process.env.LOCALAPPDATA?.trim() || process.env.APPDATA?.trim())!;
+  } else if (process.platform === "darwin") {
+    base = path.join(os.homedir(), "Library", "Application Support");
+  } else {
+    base = process.env.XDG_DATA_HOME?.trim() || path.join(os.homedir(), ".local", "share");
+    legacyName = "thesis";
+    canonicalName = "metis";
   }
-
-  if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "Thesis");
-  }
-
-  const xdgDataHome = process.env.XDG_DATA_HOME?.trim();
-  if (xdgDataHome) return path.join(xdgDataHome, "thesis");
-  return path.join(os.homedir(), ".local", "share", "thesis");
+  const legacy = path.join(base, legacyName);
+  return fs.existsSync(legacy) ? legacy : path.join(base, canonicalName);
 }
 
 export function hasExplicitDbPath(): boolean {
-  const fromEnv = process.env.THESIS_DB_PATH;
-  return fromEnv !== undefined && fromEnv.trim() !== "";
+  return Boolean(metisEnv("DB_PATH")?.trim());
 }
 
-/** Default on-disk location; override with THESIS_DB_PATH. */
+/** Never migrate or overwrite an existing database. Explicit file overrides remain authoritative. */
 export function defaultDbPath(): string {
-  // Same trimmed-truthy idiom as defaultDataDir/hasExplicitDbPath: a
-  // whitespace-only THESIS_DB_PATH is "not set", never a literal path.
-  const fromEnv = process.env.THESIS_DB_PATH?.trim();
+  const fromEnv = metisEnv("DB_PATH")?.trim();
   if (fromEnv) return fromEnv;
-  return path.join(defaultDataDir(), "thesis.db");
+  const directory = defaultDataDir();
+  const legacy = path.join(directory, "thesis.db");
+  return ["", "-wal", "-shm"].some((suffix) => fs.existsSync(`${legacy}${suffix}`))
+    ? legacy : path.join(directory, "metis.db");
 }

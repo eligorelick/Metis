@@ -1,11 +1,11 @@
-# Thesis
+# Metis
 
-Thesis is a local-first equity research app with financial calculations and optional AI.
-Saved reports expose number provenance and missing evidence, model-derived review conditions, scenario display weights, sensitivity conclusions, and eligible peer comparisons with exclusions. The [evaluation CLI](docs/REPORT-EVALUATION.md) freezes snapshots and compares eligible outcomes; it does not establish forecasting accuracy. **Settings → Appearance** switches between Current and Research workspace, saved in this browser. Both designs offer paginated price/relative-strength tables.
+![Metis equity research](public/brand/metis-lockup.svg)
 
-> **Informational only — not investment advice.** Grades and price targets are
-> model outputs from disclosed data and assumptions, not human recommendations.
-> Market data and AI output can be delayed, incomplete, or wrong.
+Metis is a local-first equity research app with financial calculations and optional AI. Its name comes from the ancient Greek Titan goddess associated with wisdom and planning; see the [brand guide](docs/BRAND.md).
+Saved reports expose number provenance and missing evidence, model-derived review conditions, scenario display weights, sensitivity conclusions, and eligible peer comparisons with exclusions. The [evaluation CLI](docs/REPORT-EVALUATION.md) freezes snapshots and compares eligible outcomes; it does not establish forecasting accuracy. **Settings → Appearance** switches between Metis Ink and Metis Ivory, saved in this browser. Both designs offer paginated price/relative-strength tables.
+
+> **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
 
 ## What it does
 
@@ -25,8 +25,8 @@ Saved reports expose number provenance and missing evidence, model-derived revie
 Node.js 22.18.0 or newer and npm (`package.json`); CI tests Node 24. The test suite is only known to pass on Node 24: on Node 22.22.0, 6 tests fail.
 
 ```powershell
-git clone https://github.com/eligorelick/Thesis-AI-equity-research.git
-cd Thesis-AI-equity-research
+git clone https://github.com/eligorelick/Metis.git
+cd Metis
 npm ci
 Copy-Item .env.example .env
 npm run dev
@@ -34,8 +34,7 @@ npm run dev
 
 On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `npm start`. Keep `.env*` private; only the placeholder `.env.example` belongs in Git.
 
-Open <http://127.0.0.1:3000>; development and production both bind to
-`127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
+Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
 `EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers
 come from SEC EDGAR and Yahoo. With no key at all, `/report/sample` renders a
 fictional report, and `/company/DEMO` and `/company/DBNK` are reserved strings
@@ -52,14 +51,15 @@ reasoning choices and opt-in Fast speed. Reports retain actual execution details
 Sign-in runs no inference; failures never switch to paid API usage. Claude API
 remains separately billed. Plan allowances and credit settings apply; API dollar
 caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
-Connections have offline test coverage only; inference through a live ChatGPT or Gemini account has not been verified. Stop all Thesis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
+Connections have offline test coverage only; inference through a live ChatGPT or Gemini account has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
 ## Configuration
 
 <!-- BEGIN GENERATED: config -->
 
 Every key is optional. This table is generated from `.env.example`, which
-carries the long form of each one, so the two cannot drift apart.
+carries the long form of each one. `METIS_*` keys accept legacy `THESIS_*` aliases;
+explicit canonical values win, including blank/invalid values. See [compatibility](docs/BRAND.md#compatibility).
 
 | Key | Shipped value / opt-in example | What it does |
 | --- | --- | --- |
@@ -68,27 +68,27 @@ carries the long form of each one, so the two cannot drift apart.
 | `FRED_API_KEY` | unset | FRED key enables authenticated macro-series requests. |
 | `FINNHUB_API_KEY` | unset | Finnhub — free-tier key. |
 | `EDGAR_CONTACT` | unset | SEC EDGAR is keyless but REQUIRES a declared contact in the User-Agent of every request. |
-| `THESIS_STATEMENT_SOURCE` | `auto` | Where the income statement, balance sheet and cash flow history comes from. |
+| `METIS_STATEMENT_SOURCE` | `auto` | Where the income statement, balance sheet and cash flow history comes from. |
 | `ANALYSIS_MODEL` | `auto` | Claude model used when the Claude API connection is selected. |
 | `ANALYSIS_EFFORT` | `high` | Claude reasoning effort: low \| medium \| high \| xhigh \| max. |
-| `THESIS_JUDGE_ORDER` | `random` | Which order the judge/synthesis pass reads the two analyst cases in. |
+| `METIS_JUDGE_ORDER` | `random` | Which order the judge/synthesis pass reads the two analyst cases in. |
 | `ANTHROPIC_ADMIN_KEY` | unset | Optional Admin API key (distinct from ANTHROPIC_API_KEY). |
-| `THESIS_MAX_ACTIVE_JOBS` | `1` | Maximum concurrent report jobs across processes sharing the SQLite database. |
-| `THESIS_MAX_ACTIVE_LLM_CALLS` | `2` | Maximum concurrent paid Claude permits across processes sharing the SQLite database. |
-| `THESIS_MAX_JOB_COST_USD` | unset | Optional exact USD caps. |
-| `THESIS_MAX_ROLLING_COST_USD` | unset | Optional exact USD caps. |
-| `THESIS_RESERVATION_MODE` | `request` | How paid work is admitted against these caps: one reservation per provider request, or one per pass. |
-| `THESIS_STREAM_IDLE_SECONDS` | `300` | Base gap with no stream event after which a paid request is abandoned, scaled by analysis effort. |
-| `THESIS_ROLLING_COST_WINDOW_MINUTES` | `1440` | Rolling paid-cost window in minutes (1440 means 24 hours). |
-| `THESIS_PAID_PASS_LEASE_SECONDS` | `900` | Paid-pass lease lifetime in seconds, renewed every quarter of its TTL. |
-| `THESIS_JOB_LEASE_SECONDS` | `900` | Job-claim lease lifetime in seconds, never shorter than the paid-pass lease. |
-| `THESIS_RESUME_ON_START` | `1` | Automatically resume queued work at startup with 1, or hold it with 0. |
-| `THESIS_EV_INCLUDE_LEASES` | `1` (opt in) | Include a separable operating-lease liability only when explicitly set to 1. |
-| `THESIS_ALLOWED_HOST` | unset | `npm run dev` and `npm start` bind to 127.0.0.1 by default. |
-| `THESIS_TOKEN_FILE` | unset (opt in) | Override the startup token file path (default `<data dir>/csrf-token`). |
-| `THESIS_DB_PATH` | unset (opt in) | Override the SQLite file (default `<data dir>/thesis.db`). |
-| `THESIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
-| `THESIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
+| `METIS_MAX_ACTIVE_JOBS` | `1` | Maximum concurrent report jobs across processes sharing the SQLite database. |
+| `METIS_MAX_ACTIVE_LLM_CALLS` | `2` | Maximum concurrent paid Claude permits across processes sharing the SQLite database. |
+| `METIS_MAX_JOB_COST_USD` | unset | Optional exact USD caps. |
+| `METIS_MAX_ROLLING_COST_USD` | unset | Optional exact USD caps. |
+| `METIS_RESERVATION_MODE` | `request` | How paid work is admitted against these caps: one reservation per provider request, or one per pass. |
+| `METIS_STREAM_IDLE_SECONDS` | `300` | Base gap with no stream event after which a paid request is abandoned, scaled by analysis effort. |
+| `METIS_ROLLING_COST_WINDOW_MINUTES` | `1440` | Rolling paid-cost window in minutes (1440 means 24 hours). |
+| `METIS_PAID_PASS_LEASE_SECONDS` | `900` | Paid-pass lease lifetime in seconds, renewed every quarter of its TTL. |
+| `METIS_JOB_LEASE_SECONDS` | `900` | Job-claim lease lifetime in seconds, never shorter than the paid-pass lease. |
+| `METIS_RESUME_ON_START` | `1` | Automatically resume queued work at startup with 1, or hold it with 0. |
+| `METIS_EV_INCLUDE_LEASES` | `1` (opt in) | Include a separable operating-lease liability only when explicitly set to 1. |
+| `METIS_ALLOWED_HOST` | unset | `npm run dev` and `npm start` bind to 127.0.0.1 by default. |
+| `METIS_TOKEN_FILE` | unset (opt in) | Override the startup token file path (default `<data dir>/csrf-token`). |
+| `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
+| `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
+| `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
 | `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
 
 <!-- END GENERATED: config -->
@@ -98,19 +98,19 @@ Claude model/effort settings beat environment/defaults; reset with `npm run sett
 ## Where the numbers come from
 
 With an FMP key, FMP is primary unless the statement policy selects EDGAR.
-Thesis reads history limits from FMP's rejection and retries within them;
+Metis reads history limits from FMP's rejection and retries within them;
 restricted endpoints and symbols use available fallbacks or disclosed gaps.
 Some plans return five periods; that depth can support annual calculations,
 subject to each module's input gates. The own-history multiple rank needs eight
 compatible quarterly observations and waits for them.
 
-Configure `EDGAR_CONTACT` even with a free FMP key. Thesis learns explicit access
+Configure `EDGAR_CONTACT` even with a free FMP key. Metis learns explicit access
 restrictions and skips repeat refusals for 15 minutes; see [fallback limits](docs/PRIVACY.md#limited-fmp-access).
 
 With no FMP key, set `EDGAR_CONTACT` for real US filers' research:
 supported statements, share counts and public float from SEC EDGAR XBRL company
 facts, prices from Yahoo's unofficial chart endpoint, and the profile and
-enterprise values derived from the two. `THESIS_STATEMENT_SOURCE` chooses
+enterprise values derived from the two. `METIS_STATEMENT_SOURCE` chooses
 between the vendor and EDGAR; no statement row mixes source fields, and the
 manifest names how many each served.
 
@@ -145,7 +145,7 @@ advantage, and the order is printed in the report header. Both cases share one
 character target; actual lengths and protected-content excess are disclosed.
 Each analyst scores its own side 1-5 against a stated rubric, and
 the judge may discount a side that scored itself low.
-`THESIS_JUDGE_ORDER=both` runs the judge twice with the cases swapped and
+`METIS_JUDGE_ORDER=both` runs the judge twice with the cases swapped and
 reconciles every grade and probability, for two judge passes.
 
 The verification pass makes no model call. It measures citation coverage — can
@@ -183,7 +183,7 @@ Analyst requests also reserve eight $0.01 searches; the judge never searches.
 The worst case is every request one pass could make (36: six transport attempts,
 each able to pause and resume five times); in the default request mode it is
 reported, not reserved; a job cap covers settled spend plus in-flight reservations, while
-`THESIS_RESERVATION_MODE=pass` reserves it whole. Neither reservation column varies
+`METIS_RESERVATION_MODE=pass` reserves it whole. Neither reservation column varies
 with effort — both bound a request at the model's full context and output ceiling.
 
 The primary-model output ceiling varies with effort; thinking bills as output.
@@ -196,13 +196,13 @@ The estimated run is a calculation, not a measurement: the fixture shape at effo
 because that pass is raised to it. It does NOT scale with effort — usage at
 other levels has not been measured. Higher effort can consume more tokens;
 these examples are neither minimum nor maximum prices. New model quality and
-end-to-end costs have not been measured in live Thesis runs for this update.
+end-to-end costs have not been measured in live Metis runs for this update.
 
 <!-- END GENERATED: pricing -->
 
 ## Running it safely
 
-Thesis sends nothing to Thesis: no telemetry, no analytics, no update check;
+Metis has no telemetry, analytics or update check;
 its own outbound traffic goes only to the providers you configure. The Next.js
 CLI has separate anonymous telemetry, off when the shipped
 `NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`).
@@ -212,11 +212,11 @@ database lives, and how to delete it.
 The application is single-user and has no authentication; keep it on loopback
 unless you add a security layer of your own. Mutating routes reject a request
 carrying neither browser Fetch Metadata nor a matching `Origin`; browsers send
-those automatically, and scripts must send `X-Thesis-Token` with the contents of
+those automatically; scripts send `X-Metis-Token` (legacy `X-Thesis-Token` accepted) with the contents of
 the `csrf-token` file the server writes at every start and names on stdout. That
 is a browser-CSRF boundary, not local access control: any process on the machine
 can present the same headers. Report security problems through the
-repository's [private advisory form](https://github.com/eligorelick/Thesis-AI-equity-research/security/advisories/new), not a public issue.
+repository's [private advisory form](https://github.com/eligorelick/Metis/security/advisories/new), not a public issue.
 
 ## Commands
 
@@ -258,7 +258,7 @@ Contributions should preserve source tracing, add regressions and pass `npm run 
 
 ## Limitations
 
-- Thesis is a research tool for one local user, not a broker or a trading
+- Metis is a research tool for one local user, not a broker or a trading
   system. A traced number can still come from incorrect source data, and AI
   narrative can be wrong even when its citations resolve.
 - Verification checks numeric content against dated registry records and retained

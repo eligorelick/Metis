@@ -1,6 +1,6 @@
 # Application operations and API
 
-This guide describes the checked-in implementation as reviewed on 2026-10-04.
+This guide describes the checked-in implementation including the Metis compatibility update of 2026-10-14.
 It covers application behavior; provider access, prices and account allowances
 can change independently. See [methodology](METHODOLOGY.md),
 [privacy](PRIVACY.md) and [Claude usage](CLAUDE-USAGE.md) for their respective
@@ -18,10 +18,13 @@ normal startup: `src/db/index.ts` creates tables and applies guarded compatibili
 updates when it opens the database. `npm run db:push` is an explicit Drizzle
 schema-management tool, not a quick-start prerequisite.
 
-On Windows, `./Start-Thesis.ps1` starts an already-built production installation
+Some existing Windows installations have local-only `./Start-Thesis.ps1` and
+`./Stop-Thesis.ps1` launchers; these legacy filenames are retained compatibility
+references, not shipped scripts. Where installed, the start launcher runs an already-built production installation
 in a hidden process on port 3000 and opens Chrome at its standard installation
 path, or the default browser. `-SkipBrowser` suppresses browser launch. The
-launcher sets `THESIS_RESUME_ON_START=0`, `NEXT_TELEMETRY_DISABLED=1` and
+legacy launcher sets `THESIS_RESUME_ON_START=0` (accepted as an alias of
+`METIS_RESUME_ON_START`), `NEXT_TELEMETRY_DISABLED=1` and
 `NODE_ENV=production` in the child process, records its PID and start time in
 `.local/server.json`, and writes `.local/server.log` and
 `.local/server-error.log`. It reuses the matching recorded process and rejects
@@ -46,8 +49,8 @@ the record. The launcher does not install dependencies or build the app.
 The comparison lab in `public/audit-ui/` makes no provider requests or account
 connections and saves no browser/application settings. Its simulated runs and
 exports use fixed fictional data; reload resets the lab. Decision brief remains
-a prototype there, while the production Settings page offers Current and
-Research workspace.
+a prototype there, while the production Settings page offers Metis Ink and
+Metis Ivory.
 
 Both production designs expose recorded grade-input and DCF provenance through
 keyboard-accessible expandable details. Price and relative-strength charts have
@@ -137,7 +140,7 @@ expiry by scheduling/write surfaces; status polling and SSE do not reconcile
 expired claims or start model work. Reading a company page can fetch provider
 data and update caches even though status reads do not mutate job state.
 
-`THESIS_RESUME_ON_START=1` starts the scheduler at server initialization;
+`METIS_RESUME_ON_START=1` starts the scheduler at server initialization;
 `0` holds queued work until an explicit resume or a report/retry/cancel request
 wakes it. Holding startup does not disable report generation. Canceling makes
 the job terminal and aborts local execution where possible; remote usage and
@@ -160,7 +163,7 @@ reconciliation lowers it. See [usage controls](CLAUDE-USAGE.md) before sizing ca
 
 All paths below pass the request-wide direct-Host allowlist. Mutations also
 require accepted browser metadata/matching Origin or the startup
-`X-Thesis-Token`; cross-site or mismatched Origin requests remain rejected even
+`X-Metis-Token` (`X-Thesis-Token` is accepted only when the primary header is absent); cross-site or mismatched Origin requests remain rejected even
 with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
@@ -193,30 +196,36 @@ receive a fresh current snapshot; the endpoint does not implement replay from
 `Last-Event-ID`. Polling is the fallback for clients without a persistent stream.
 
 For a script, read the server's printed token-file path and send its trimmed
-contents in the header; do not print the token. Example for the default Windows
-data directory (adjust for overrides):
+contents in the header; do not print the token. Use the printed path to account
+for overrides and legacy data discovery:
 
 ```powershell
-$thesisToken = (Get-Content -LiteralPath "$env:LOCALAPPDATA\Thesis\csrf-token" -Raw).Trim()
+$metisToken = (Get-Content -LiteralPath '<printed token-file path>' -Raw).Trim()
 Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/report' -Method Post `
-  -Headers @{ 'X-Thesis-Token' = $thesisToken } -ContentType 'application/json' `
+  -Headers @{ 'X-Metis-Token' = $metisToken } -ContentType 'application/json' `
   -Body '{"symbol":"AAPL"}'
 ```
 
 ## Persistence, exports and maintenance
 
-The default database is `<data directory>/thesis.db`. Windows uses
-`%LOCALAPPDATA%/Thesis`, falling back to `%APPDATA%/Thesis`; macOS uses
-`$HOME/Library/Application Support/Thesis`; Linux uses `$XDG_DATA_HOME/thesis` or
-`$HOME/.local/share/thesis`. `THESIS_DB_PATH` overrides the database file;
-`THESIS_DATA_DIR` changes the default directory and token location. Neither
-redirects AI credentials, which have their own OS-profile store. SQLite data,
+Fresh installations use `<data directory>/metis.db`. Windows uses
+`%LOCALAPPDATA%/Metis`, falling back to `%APPDATA%/Metis`; macOS uses
+`$HOME/Library/Application Support/Metis`; Linux uses `$XDG_DATA_HOME/metis` or
+`$HOME/.local/share/metis`. Existing legacy `Thesis` directories (`thesis` on
+Linux) and `thesis.db` (including SQLite recovery companions when the base file
+is missing) remain discoverable and preferred when present; the rebrand never
+moves or overwrites them. `METIS_DB_PATH` overrides the database file;
+`METIS_DATA_DIR` changes the default directory and token location. Neither
+redirects AI credentials, which have their own OS-profile store and legacy
+directory discovery. Canonical `METIS_*` keys take precedence whenever present,
+including blank/invalid values; `THESIS_*` aliases remain supported. See
+[compatibility](BRAND.md#compatibility) for the complete naming contract. SQLite data,
 API cache, saved reports and `.env` have no application-level encryption.
 
 Credential mutations use the separate permanent `connections.lock` SQLite
 mutex in the AI directory, holding native ownership across the read, async
 mutation and save. Process exit releases ownership without deleting the file.
-Stop every Thesis server before upgrading or downgrading this protocol; migrate
+Stop every Metis server before upgrading or downgrading this protocol; migrate
 only an incompatible lock when instructed, preserving credentials and Gemini
 directories. Never delete a live lock. See [migration and filesystem limits](PRIVACY.md)
 and the [native process verification record](audit/2026-10-04-recommendations.md).
@@ -224,8 +233,8 @@ and the [native process verification record](audit/2026-10-04-recommendations.md
 Back up a stopped database with any remaining `-wal`/`-shm` sidecars, or use a
 SQLite-aware backup while running. A copied DB without its uncheckpointed WAL
 may omit committed data. Legacy import is opt-in with
-`THESIS_IMPORT_LEGACY_DB=1`, copies `data/thesis.db` and sidecars, and never
-overwrites an existing target or applies with an explicit `THESIS_DB_PATH`.
+`METIS_IMPORT_LEGACY_DB=1`, copies `data/thesis.db` and sidecars, and never
+overwrites an existing target or applies with an explicit `METIS_DB_PATH`.
 
 Cache freshness uses each caller's TTL and optional stale limit. Eligible stale
 rows can return immediately while revalidation runs; bounded stale policies
@@ -238,7 +247,7 @@ after actual work. It does not purge reports, watchlists, jobs or cost history.
 Correct an older saved report into new files without rewriting its DB row:
 
 ```powershell
-npm run export:corrected -- --db 'C:\path\thesis.db' --report 1 --out 'C:\exports\report-1.html'
+npm run export:corrected -- --db 'C:\path\metis.db' --report 1 --out 'C:\exports\report-1.html'
 ```
 
 The CLI reads SQLite read-only, validates issuer identity/schema, applies legacy
@@ -316,7 +325,7 @@ node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --hash 
 node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --snapshot frozen-inputs.json --output replayed-stageb.json
 ```
 
-The first two forms read the local application database (`THESIS_DB_PATH` may select an explicit database). The third reads only the exported file. The CLI never fetches a provider or calls a model. Output files use exclusive creation and fail if the destination already exists. Omit `--output` to write the replay JSON to standard output. The output includes `offline: true`, `snapshotHash`, and deterministic `computed` Stage B results.
+The first two forms read the local application database (`METIS_DB_PATH` may select an explicit database). The third reads only the exported file. The CLI never fetches a provider or calls a model. Output files use exclusive creation and fail if the destination already exists. Omit `--output` to write the replay JSON to standard output. The output includes `offline: true`, `snapshotHash`, and deterministic `computed` Stage B results.
 
 Replay uses the snapshot's build date and explicit calculation options, independent of the present clock, cache or lease configuration. It checks digest integrity and requires the installed calculation/report/score-band versions to match. An unavailable historical implementation fails explicitly; running today's changed rules on yesterday's input is not labeled an exact replay. These version stamps must be bumped when their calculation meanings change.
 

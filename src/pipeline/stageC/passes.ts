@@ -34,6 +34,7 @@
  * unit-testable in a plain node environment.
  */
 
+import { metisEnv } from "@/config/namespace";
 import type { ManifestEntry } from "@/types/core";
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
@@ -2027,7 +2028,7 @@ export function judgeOrderSettingFor(deps: PassDeps): JudgeOrderSetting {
   return (
     deps.judgeOrder ??
     resolveJudgeOrderSetting(
-      typeof process === "undefined" ? undefined : process.env[JUDGE_ORDER_ENV_KEY],
+      typeof process === "undefined" ? undefined : metisEnv("JUDGE_ORDER"),
     )
   );
 }

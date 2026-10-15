@@ -144,7 +144,13 @@ describe("ChatGPT OAuth account boundaries", () => {
     await expect(chatGptAccess(profile.id)).rejects.toThrow("not granted");
     const request = trackChatGptRequest(profile.id, new AbortController().signal);
     remote.mockRejectedValueOnce(new Error("offline"));
-    expect(await disconnectChatGpt(profile.id)).toContain("not confirmed");
+    const recovery = await disconnectChatGpt(profile.id);
+    expect(recovery).toContain("not confirmed");
+    expect(recovery).toContain("Metis");
+    expect(recovery).toContain("Thesis for an older registration");
+    expect(profile.tokens).toBeUndefined();
+    expect(profile.clientId).toBe("oaiapp_testregistration");
+    expect(fake.store!.profiles).toHaveLength(1);
     expect(request.signal.aborted).toBe(true); request.release();
     expect(await disconnectChatGpt(profile.id)).toBe("Disconnected.");
     await expect(disconnectChatGpt("missing")).rejects.toThrow("Unknown");

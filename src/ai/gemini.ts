@@ -45,7 +45,7 @@ export function geminiEnvironment(home: string, signingIn: boolean): NodeJS.Proc
   for (const name of ["PATH", "Path", "SYSTEMROOT", "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "LANG", "LC_ALL", "DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA"]) {
     if (process.env[name]) env[name] = process.env[name];
   }
-  // All state and settings belong to Thesis. Inherited API/Vertex/gateway keys,
+  // All state and settings belong to Metis. Inherited API/Vertex/gateway keys,
   // NODE_OPTIONS, hooks, proxies and project .env files are not carried across.
   // GEMINI_CLI_HOME is the official storage override. Preserve browser profile
   // locations so the OS browser uses the user's existing login/autofill.
@@ -98,7 +98,7 @@ export function stopGeminiChild(child: ChildProcessWithoutNullStreams): Promise<
     const closed = () => { clearTimeout(timer); resolve(); };
     const timer = setTimeout(() => {
       child.removeListener("close", closed);
-      reject(new Error("Gemini process did not stop; connection files were retained. Stop Thesis before retrying."));
+      reject(new Error("Gemini process did not stop; connection files were retained. Stop Metis before retrying."));
     }, 10_000);
     child.once("close", closed);
     // No shell, no CLI relaunch and no enabled subprocess capabilities.
@@ -108,7 +108,7 @@ export function stopGeminiChild(child: ChildProcessWithoutNullStreams): Promise<
 
 function launch(id: string, args: string[], signingIn: boolean): ChildProcessWithoutNullStreams {
   const executable = geminiExecutable();
-  if (!executable) throw new Error("Install the official Gemini CLI version 0.36.x, then restart Thesis.");
+  if (!executable) throw new Error("Install the official Gemini CLI version 0.36.x, then restart Metis.");
   const home = prepareGeminiHome(id);
   const child = spawn(process.execPath, [executable, ...geminiIsolationArgs(), ...args], { cwd: path.join(home, "work"), env: geminiEnvironment(home, signingIn), windowsHide: true, shell: false, stdio: "pipe" });
   runtime().children.add(child);
@@ -121,7 +121,7 @@ function launch(id: string, args: string[], signingIn: boolean): ChildProcessWit
 export async function beginGemini(): Promise<void> {
   if (runtime().disconnecting) throw new Error("Gemini is disconnecting; retry shortly");
   if (runtime().pending?.status === "waiting") throw new Error("Gemini sign-in is already waiting in Chrome");
-  if (!chromeExecutable()) throw new Error("Install Chrome to connect Gemini from Thesis.");
+  if (!chromeExecutable()) throw new Error("Install Chrome to connect Gemini from Metis.");
   const pending = { status: "waiting" as "waiting" | "connected" | "error", message: "Complete Google sign-in in Chrome." };
   runtime().pending = pending;
   const fail = () => { if (pending.status === "waiting") { pending.status = "error"; pending.message = "Gemini sign-in did not complete. Check the CLI installation and try again."; } };
@@ -162,7 +162,7 @@ export async function beginGemini(): Promise<void> {
       }
     }
   });
-  send(1, "initialize", { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: "thesis", version: "0.1.0" } });
+  send(1, "initialize", { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: "metis", version: "0.1.0" } });
 }
 
 export async function runGemini(id: string, model: string, prompt: string, signal?: AbortSignal): Promise<{ text: string; model: string; input: number; output: number; observedModels: string[] }> {

@@ -1,5 +1,5 @@
 {
-  "name": "thesis",
+  "name": "metis",
   "version": "0.1.0",
   "private": true,
   "description": "Local-first equity research engine. Informational only, not investment advice.",
@@ -12,13 +12,13 @@
     "local-first",
     "sec-edgar"
   ],
-  "homepage": "https://github.com/eligorelick/Thesis-AI-equity-research#readme",
+  "homepage": "https://github.com/eligorelick/Metis#readme",
   "bugs": {
-    "url": "https://github.com/eligorelick/Thesis-AI-equity-research/issues"
+    "url": "https://github.com/eligorelick/Metis/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eligorelick/Thesis-AI-equity-research.git"
+    "url": "git+https://github.com/eligorelick/Metis.git"
   },
   "license": "MIT",
   "author": "eligorelick",

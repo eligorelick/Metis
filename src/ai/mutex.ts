@@ -8,7 +8,7 @@ import Database from "better-sqlite3";
 // installation: deleting/replacing it would split cooperating lock owners.
 const APPLICATION_ID = 0x54484149;
 const VERSION = 1;
-const MIGRATION = "AI credential locking uses an incompatible or damaged lock file. Stop all Thesis servers, then remove only the old connections.lock file and restart. Keep connections.v1.json and Gemini directories. Do not remove a lock file while any Thesis server is running.";
+const MIGRATION = "AI credential locking uses an incompatible or damaged lock file. Stop all Metis servers, then remove only the old connections.lock file and restart. Keep connections.v1.json and Gemini directories. Do not remove a lock file while any Metis server is running.";
 
 function initialize(lock: string): void {
   if (fs.existsSync(lock)) return;

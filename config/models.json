@@ -47,7 +47,7 @@
       "notes": [
         "Dateless id is the pinned snapshot; dated variants do not exist for this family.",
         "Cache read is $0.25/MTok (0.025x input), not the 0.1x ratio of older models.",
-        "Thinking is always on; omission and thinking: adaptive are valid. Disabled/manual thinking is rejected; Thesis omits the parameter.",
+        "Thinking is always on; omission and thinking: adaptive are valid. Disabled/manual thinking is rejected; Metis omits the parameter.",
         "Retains the existing bounded server-side refusal fallback to Opus 4.8."
       ]
     },
@@ -74,7 +74,7 @@
         "cacheReadPerMTok": 1
       },
       "notes": [
-        "Thinking is always on; Thesis omits the thinking parameter.",
+        "Thinking is always on; Metis omits the thinking parameter.",
         "Safety classifiers can decline finance-adjacent tickers; the server-side fallback beta routes those to Opus 4.8."
       ]
     },
@@ -102,8 +102,8 @@
       },
       "notes": [
         "Adaptive thinking is always on: omit thinking or send adaptive; disabled and manual thinking are rejected.",
-        "Provider effort defaults to medium; Thesis sends the configured effort explicitly. Recalibrate effort when migrating.",
-        "Non-default sampling and forced tool choice are rejected; Thesis uses structured output without either.",
+        "Provider effort defaults to medium; Metis sends the configured effort explicitly. Recalibrate effort when migrating.",
+        "Non-default sampling and forced tool choice are rejected; Metis uses structured output without either.",
         "Prices are standard Claude API rates; Fast mode is not enabled by this adapter."
       ]
     },
@@ -130,7 +130,7 @@
         "cacheReadPerMTok": 0.5
       },
       "notes": [
-        "thinking: disabled with effort xhigh or max is a 400; Thesis never disables thinking.",
+        "thinking: disabled with effort xhigh or max is a 400; Metis never disables thinking.",
         "temperature, top_p and top_k are rejected (400) from 4.7 onward."
       ]
     },
@@ -183,9 +183,9 @@
         "cacheReadPerMTok": 0.2
       },
       "notes": [
-        "Adaptive thinking is the default when thinking is omitted; Thesis does not send disabled/manual thinking.",
+        "Adaptive thinking is the default when thinking is omitted; Metis does not send disabled/manual thinking.",
         "Provider effort defaults to high; effort levels are recalibrated from Sonnet 5, so re-evaluate them when migrating.",
-        "Non-default sampling and forced tool choice are rejected; Thesis uses structured output without either."
+        "Non-default sampling and forced tool choice are rejected; Metis uses structured output without either."
       ]
     },
     {

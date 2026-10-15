@@ -42,10 +42,10 @@ describe("the generated configuration block", () => {
     const keys = sections.flatMap((section) => section.entries.map((entry) => entry.key));
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys).toContain("FMP_API_KEY");
-    expect(keys).toContain("THESIS_STATEMENT_SOURCE");
+    expect(keys).toContain("METIS_STATEMENT_SOURCE");
     const statementSource = sections
       .flatMap((section) => section.entries)
-      .find((entry) => entry.key === "THESIS_STATEMENT_SOURCE")!;
+      .find((entry) => entry.key === "METIS_STATEMENT_SOURCE")!;
     expect(statementSource.value).toBe("auto");
     expect(statementSource.optIn).toBe(false);
     expect(statementSource.comment.join(" ")).toContain("EDGAR");
@@ -55,12 +55,12 @@ describe("the generated configuration block", () => {
     const { parseEnvExample } = await load();
     const sections = parseEnvExample(
       "# --- Section ---------------------------------------------------------------\n" +
-        "# Turn the thing on.\n# THESIS_SOMETHING=1\n",
+        "# Turn the thing on.\n# METIS_SOMETHING=1\n",
     );
     expect(sections).toEqual([
       {
         title: "Section",
-        entries: [{ key: "THESIS_SOMETHING", value: "1", optIn: true, comment: ["Turn the thing on."] }],
+        entries: [{ key: "METIS_SOMETHING", value: "1", optIn: true, comment: ["Turn the thing on."] }],
       },
     ]);
   });
@@ -70,13 +70,13 @@ describe("the generated configuration block", () => {
     const [section] = parseEnvExample(
       "# --- Section ---------------------------------------------------------------\n" +
         "# Both caps are enforced in SQLite.\n" +
-        "THESIS_FIRST=1\n" +
-        "THESIS_SECOND=2\n" +
+        "METIS_FIRST=1\n" +
+        "METIS_SECOND=2\n" +
         "\n" +
         "# A note about the section, not about the key below it.\n" +
         "\n" +
         "# What the third key does.\n" +
-        "THESIS_THIRD=3\n",
+        "METIS_THIRD=3\n",
     );
     expect(section.entries.map((entry) => summarize(entry.comment))).toEqual([
       "Both caps are enforced in SQLite.",
@@ -98,7 +98,7 @@ describe("the generated configuration block", () => {
     const { envSchemaKeys, renderConfigBlock, parseEnvExample, CONFIG_BEGIN } = await load();
     const keys = envSchemaKeys(envSource());
     expect(keys).toContain("ANTHROPIC_API_KEY");
-    expect(keys).toContain("THESIS_MAX_ACTIVE_LLM_CALLS");
+    expect(keys).toContain("METIS_MAX_ACTIVE_LLM_CALLS");
     // Read where it is used rather than validated at startup, so it must not
     // appear in the schema list.
     expect(keys).not.toContain("EDGAR_CONTACT");
@@ -109,9 +109,9 @@ describe("the generated configuration block", () => {
 
   it("refuses to render when a validated key is undocumented", async () => {
     const { renderConfigBlock, parseEnvExample } = await load();
-    const sections = parseEnvExample("# --- Section ---\n# A key.\nTHESIS_KNOWN=1\n");
-    expect(() => renderConfigBlock(sections, ["THESIS_KNOWN", "THESIS_MISSING"])).toThrow(
-      /documents no THESIS_MISSING/,
+    const sections = parseEnvExample("# --- Section ---\n# A key.\nMETIS_KNOWN=1\n");
+    expect(() => renderConfigBlock(sections, ["METIS_KNOWN", "METIS_MISSING"])).toThrow(
+      /documents no METIS_MISSING/,
     );
   });
 
@@ -153,11 +153,11 @@ describe("the generated commands block", () => {
 describe("block replacement", () => {
   it("replaces only the marked block and refuses a README without markers", async () => {
     const { replaceBlock, CONFIG_BEGIN, CONFIG_END } = await load();
-    const readme = `# Thesis\n\nbefore\n\n${CONFIG_BEGIN}\nstale\n${CONFIG_END}\n\nafter\n`;
+    const readme = `# Metis\n\nbefore\n\n${CONFIG_BEGIN}\nstale\n${CONFIG_END}\n\nafter\n`;
     const rewritten = replaceBlock(readme, `${CONFIG_BEGIN}\nfresh\n${CONFIG_END}`, CONFIG_BEGIN, CONFIG_END);
     expect(rewritten).toContain("fresh");
     expect(rewritten).not.toContain("stale");
     expect(rewritten.endsWith("\n\nafter\n")).toBe(true);
-    expect(() => replaceBlock("# Thesis\n", "x", CONFIG_BEGIN, CONFIG_END)).toThrow(/missing the/);
+    expect(() => replaceBlock("# Metis\n", "x", CONFIG_BEGIN, CONFIG_END)).toThrow(/missing the/);
   });
 });

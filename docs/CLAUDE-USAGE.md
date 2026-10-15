@@ -14,15 +14,15 @@ when reviewing that snapshot.
 Connecting an account does not generate a report. Save the desired report
 connection after selecting its model and, for ChatGPT, effort and speed.
 
-| Connection | Implementation | Cost recorded by Thesis |
+| Connection | Implementation | Cost recorded by Metis |
 | --- | --- | --- |
 | AI off | Fetch, validate and calculate locally; save a data-only report | No inference charge |
 | Claude API | `ANTHROPIC_API_KEY`; Anthropic Messages API | USD estimated from provider usage and the registry, or conservative presumed spend |
 | ChatGPT | Browser OAuth; OpenAI Responses API through the connected account | `$0` API cost; reported input/output tokens and execution evidence |
 | Gemini | Separately installed official Gemini CLI **0.36.x**, Google OAuth | `$0` API cost; observed models and CLI-reported token totals |
 
-A subscription report's `$0` means Thesis records no API dollar charge. It does
-not mean free or unlimited provider usage, and Thesis cannot read remaining
+A subscription report's `$0` means Metis records no API dollar charge. It does
+not mean free or unlimited provider usage, and Metis cannot read remaining
 account allowance. Provider credit settings still apply. The app's USD caps
 do not cap subscription tokens or provider credits. There is no automatic
 switch to paid Claude API usage after a subscription connection fails.
@@ -92,7 +92,7 @@ Claude analyst requests expose server-side web search, capped at **eight uses
 per request**. The judge has no web search. Retries and paused-turn resumptions
 are separate requests, so eight is not a whole-report cap. The supplied payload
 and model-returned successful search-result URLs define the citation evidence;
-Thesis does not browse arbitrary URLs written in model prose. See
+Metis does not browse arbitrary URLs written in model prose. See
 [Privacy](PRIVACY.md#what-the-ai-provider-receives) for payload contents.
 
 Analyst JSON uses Anthropic structured output. The judge's larger schema is
@@ -101,7 +101,7 @@ structured-output grammar. Invalid judge/report output can receive up to two
 additional repair attempts; completed rejected requests still incur usage.
 Entity-validation repairs can also add analyst work.
 
-`THESIS_JUDGE_ORDER` defaults to `random`, deterministically seeded by job ID.
+`METIS_JUDGE_ORDER` defaults to `random`, deterministically seeded by job ID.
 `bull-first` and `bear-first` fix the presentation order. `both` requests a
 second judge assessment with the cases swapped, then reconciles the pair;
 this can roughly double judge work before any repairs. Order and reconciliation
@@ -138,7 +138,7 @@ each model's own registry rates; there is no universal cache-price ratio.
 The adapter does not request one-hour caching, Batch, Claude Fast mode or a
 region-specific pricing tier.
 
-The Anthropic SDK's own retries are disabled. Thesis owns a bounded transport
+The Anthropic SDK's own retries are disabled. Metis owns a bounded transport
 loop of up to **six attempts**, including retryable rate/transport failures,
 and up to **five `pause_turn` resumptions** within an execution. Retryable
 rate-limit responses honor provider retry delays; enforced spend-limit errors
@@ -154,8 +154,8 @@ subscription adapters, which do not invoke Claude fallbacks.
 
 ## Spend controls and reconciliation
 
-`THESIS_MAX_JOB_COST_USD` and `THESIS_MAX_ROLLING_COST_USD` are optional;
-both are **uncapped by default**. `THESIS_ROLLING_COST_WINDOW_MINUTES` defaults
+`METIS_MAX_JOB_COST_USD` and `METIS_MAX_ROLLING_COST_USD` are optional;
+both are **uncapped by default**. `METIS_ROLLING_COST_WINDOW_MINUTES` defaults
 to **1,440**. Default concurrency is one active job and two positive-USD Claude
 permits (requests in request mode, whole passes in pass mode). Subscription
 calls reserve no USD and do not occupy this paid-capacity limit; active-job
@@ -164,7 +164,7 @@ Limits use persisted costs plus live reservations across workers sharing the
 database; they do not cover usage in other apps, other databases, market-data
 subscriptions, provider credits, taxes or an independently changed price sheet.
 
-`THESIS_RESERVATION_MODE=request` is the default. Every transport retry,
+`METIS_RESERVATION_MODE=request` is the default. Every transport retry,
 resumption and mirrored judge request must acquire its own reservation before
 launch. `pass` retains the larger whole-pass bound covering retry/resumption
 exposure. Bounds use conservative input/output ceilings, up to ten server-tool
@@ -199,7 +199,7 @@ costs but leave saved report cost figures as persisted. The corrected export
 CLI can reconstruct an export's cost from the current job ledger.
 
 Queued paid work normally resumes on server start. Set
-`THESIS_RESUME_ON_START=0` before startup to hold it for explicit queue resume
+`METIS_RESUME_ON_START=0` before startup to hold it for explicit queue resume
 in Settings. Updating registry or pricing files does not itself launch work;
 starting the application with its normal resume setting can.
 

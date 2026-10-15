@@ -5,7 +5,10 @@ import { UiDesignProvider } from "@/appearance/UiDesignProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Thesis",
+  title: { default: "Metis · Equity research", template: "%s | Metis" },
+  applicationName: "Metis",
+  openGraph: { title: "Metis · Equity research", description: "Evidence. Judgment. Perspective. Local-first equity research.", siteName: "Metis", type: "website" },
+  twitter: { card: "summary_large_image", title: "Metis · Equity research" },
   description:
     "Local-first equity research engine. Informational only, not investment advice.",
 };

@@ -1,3 +1,4 @@
+import { metisEnv } from "@/config/namespace";
 import { NextResponse } from "next/server";
 
 interface Authority {
@@ -106,7 +107,7 @@ function isLoopback(authority: Authority): boolean {
 }
 
 function configuredAuthority(): Authority | null {
-  const configured = process.env.THESIS_ALLOWED_HOST;
+  const configured = metisEnv("ALLOWED_HOST");
   if (configured === undefined || configured.trim().length === 0) return null;
   return parseAuthority(configured.trim());
 }
@@ -163,7 +164,7 @@ export function assertAllowedHost(request: Request): NextResponse | null {
     // Browsers never serialize a default port in Host (RFC 9110 §7.2), so
     // `host:80` over http and `host:443` over https ARE the bare host — the
     // rule the Origin comparison above already applies. Compared literally,
-    // an operator who wrote the default port into THESIS_ALLOWED_HOST (as the
+    // an operator who wrote the default port into METIS_ALLOWED_HOST (as the
     // "exact port" wording invited) locked every request out with a 403 that
     // called it cross-origin.
     const protocol = requestProtocol(request);

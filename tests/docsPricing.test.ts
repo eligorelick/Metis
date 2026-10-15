@@ -108,14 +108,14 @@ describe("generated pricing block", () => {
   it("replaces only the marked block and refuses a README without markers", async () => {
     const { renderPricingBlock, replaceBlock, BEGIN_MARKER, END_MARKER } = await load();
     const block = renderPricingBlock(MODEL_REGISTRY, sizing);
-    const readme = `# Thesis\n\nbefore\n\n${BEGIN_MARKER}\nstale table\n${END_MARKER}\n\nafter\n`;
+    const readme = `# Metis\n\nbefore\n\n${BEGIN_MARKER}\nstale table\n${END_MARKER}\n\nafter\n`;
 
     const rewritten = replaceBlock(readme, block);
-    expect(rewritten.startsWith("# Thesis\n\nbefore\n\n")).toBe(true);
+    expect(rewritten.startsWith("# Metis\n\nbefore\n\n")).toBe(true);
     expect(rewritten.endsWith("\n\nafter\n")).toBe(true);
     expect(rewritten).not.toContain("stale table");
     expect(replaceBlock(rewritten, block)).toBe(rewritten);
 
-    expect(() => replaceBlock("# Thesis\n", block)).toThrow(/missing the/);
+    expect(() => replaceBlock("# Metis\n", block)).toThrow(/missing the/);
   });
 });

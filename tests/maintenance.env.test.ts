@@ -76,6 +76,20 @@ describe("maintenance CLI environment", () => {
     } finally { rmSync(directory, { recursive: true, force: true }); }
   });
 
+  it("uses the canonical database for standalone maintenance without touching the legacy selection", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "metis-cli-env-"));
+    const canonical = path.join(directory, "canonical.db");
+    const legacy = path.join(directory, "legacy.db");
+    try {
+      [canonical, legacy].forEach(seed);
+      writeFileSync(path.join(directory, ".env"), `METIS_DB_PATH=${canonical.replaceAll("\\", "/")}\nTHESIS_DB_PATH=${legacy.replaceAll("\\", "/")}\n`);
+      const result = run("settings:reset", directory, ["--yes"]);
+      expect(result.status, result.stderr).toBe(0);
+      expect(count(canonical)).toBe(0);
+      expect(count(legacy)).toBe(1);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
+
   it("loads the model-list key from .env before the guarded provider read", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "thesis-model-env-"));
     try {

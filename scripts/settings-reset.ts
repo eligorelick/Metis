@@ -18,7 +18,7 @@
  * (which makes the `server-only` marker inert outside Next) are both applied:
  *   npm run settings:reset            # preview
  *   npm run settings:reset -- --yes   # delete
- *   npm run settings:reset -- --yes --db /path/to/thesis.db
+ *   npm run settings:reset -- --yes --db /path/to/metis.db
  */
 
 import { existsSync } from "node:fs";

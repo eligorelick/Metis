@@ -89,7 +89,7 @@ describe("ResumeQueueControl rendering", () => {
     const html = renderToStaticMarkup(createElement(ResumeQueueControl));
 
     expect(html).toContain(BUTTON_LABEL);
-    expect(html).toContain("THESIS_RESUME_ON_START=0");
+    expect(html).toContain("METIS_RESUME_ON_START=0");
     expect(html).toContain("queued work");
     // Idle: no badge, and the button is clickable. React emits a set boolean
     // attribute as `disabled=""`; the bare word also appears inside the

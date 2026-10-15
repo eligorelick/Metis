@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
-/* Thesis — dark, dense, terminal-grade theme */
+/* Metis: ink, ivory and bronze; semantic research colors stay distinct. */
 :root {
-  --bg: #0a0e14;
-  --bg-panel: #0f141c;
-  --bg-raised: #151c26;
-  --border: #1f2937;
-  --border-strong: #2b3648;
-  --fg: #d5dce6;
-  --fg-muted: #8494a8;
-  --fg-faint: #7f8fa4;
-  --accent: #3ba7f5;
+  --bg: #121512;
+  --bg-panel: #181b19;
+  --bg-raised: #222722;
+  --border: #333a33;
+  --border-strong: #51594d;
+  --fg: #f6f2e9;
+  --fg-muted: #b8bcaf;
+  --fg-faint: #a4aa9b;
+  --accent: #cfaf7d;
   --pos: #2ecc8f;
   --neg: #f0525f;
   --warn: #e8b339;
@@ -70,19 +70,18 @@ pre {
   background: var(--bg-panel);
 }
 
-/* Optional Research workspace. The original palette/layout remains the
-   default, and paper/exports do not render AppShell so stay independent. */
+/* Historical preference values remain stable: current = Ink, workspace = Ivory. */
 .thesis-nav-toggle { display: none; }
-body[data-ui-design="workspace"] .thesis-shell {
-  --bg: #ecf1f4;
+body[data-ui-design="workspace"] {
+  --bg: #f6f2e9;
   --bg-panel: #ffffff;
-  --bg-raised: #f2f7f8;
-  --border: #bacbd3;
-  --border-strong: #819ca7;
-  --fg: #17333d;
-  --fg-muted: #526770;
-  --fg-faint: #526770;
-  --accent: #0b6671;
+  --bg-raised: #f0ebe1;
+  --border: #d5cbbb;
+  --border-strong: #918571;
+  --fg: #181b19;
+  --fg-muted: #665b4c;
+  --fg-faint: #665b4c;
+  --accent: #785b32;
   --pos: #17624b;
   --neg: #a23642;
   --warn: #896000;
@@ -94,17 +93,17 @@ body[data-ui-design="workspace"] .thesis-shell {
   font-size: 14px;
   line-height: 1.6;
 }
-body[data-ui-design="workspace"] .thesis-header { height: 56px; padding-inline: 24px; }
+body[data-ui-design="workspace"] .thesis-header { height: 64px; padding-inline: 24px; }
 body[data-ui-design="workspace"] .thesis-sidebar {
-  --bg: #183a43;
-  --bg-panel: #183a43;
-  --bg-raised: #29505a;
-  --border: #517078;
-  --border-strong: #6f8b92;
-  --fg: #edf8fa;
-  --fg-muted: #bdcdd4;
-  --fg-faint: #bdcdd4;
-  --accent: #7ce5da;
+  --bg: #20271f;
+  --bg-panel: #20271f;
+  --bg-raised: #303b2e;
+  --border: #56634f;
+  --border-strong: #78866f;
+  --fg: #f6f2e9;
+  --fg-muted: #c6cbbb;
+  --fg-faint: #c6cbbb;
+  --accent: #d7bc92;
   --pos: #74dfb0;
   --neg: #ff98a0;
   --warn: #f3c45c;
@@ -116,11 +115,11 @@ body[data-ui-design="workspace"] .thesis-sidebar {
   width: 235px;
   color: var(--fg);
 }
-body[data-ui-design="workspace"] .thesis-main { scrollbar-color: #819ca7 #ecf1f4; }
+body[data-ui-design="workspace"] .thesis-main { scrollbar-color: #918571 #f6f2e9; }
 body[data-ui-design="workspace"] .thesis-main > div { padding: 24px; }
 body[data-ui-design="workspace"] .thesis-panel {
   border-radius: 10px;
-  box-shadow: 0 3px 10px #183a4305;
+  box-shadow: 0 3px 10px #20271f05;
 }
 body[data-ui-design="workspace"] .thesis-panel-heading { padding: 12px 16px; flex-wrap: wrap; }
 body[data-ui-design="workspace"] .thesis-panel-heading h2 { font-size: 12px; }
@@ -170,3 +169,6 @@ body[data-ui-design="workspace"] .report-anchor-nav { display: none; }
   body[data-ui-design="workspace"] .thesis-header { padding-inline: 16px; }
   body[data-ui-design="workspace"] .thesis-panel-body { padding: 12px; overflow-x: auto; }
 }
+
+.metis-heading { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -0.025em; }
+.thesis-shell :is(button, input, select, a, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

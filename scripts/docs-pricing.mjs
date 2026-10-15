@@ -103,7 +103,7 @@ export function renderPricingBlock(registry, sizing) {
   lines.push(`The worst case is every request one pass could make (${maxRequestsPerPass}: six transport attempts,`);
   lines.push("each able to pause and resume five times); in the default request mode it is");
   lines.push("reported, not reserved; a job cap covers settled spend plus in-flight reservations, while");
-  lines.push("`THESIS_RESERVATION_MODE=pass` reserves it whole. Neither reservation column varies");
+  lines.push("`METIS_RESERVATION_MODE=pass` reserves it whole. Neither reservation column varies");
   lines.push("with effort — both bound a request at the model's full context and output ceiling.");
   lines.push("");
   lines.push("The primary-model output ceiling varies with effort; thinking bills as output.");
@@ -116,7 +116,7 @@ export function renderPricingBlock(registry, sizing) {
   lines.push("because that pass is raised to it. It does NOT scale with effort — usage at");
   lines.push("other levels has not been measured. Higher effort can consume more tokens;");
   lines.push("these examples are neither minimum nor maximum prices. New model quality and");
-  lines.push("end-to-end costs have not been measured in live Thesis runs for this update.");
+  lines.push("end-to-end costs have not been measured in live Metis runs for this update.");
   lines.push("");
   lines.push(END_MARKER);
   return lines.join("\n");

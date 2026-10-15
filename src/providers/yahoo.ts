@@ -55,11 +55,11 @@ export const YAHOO_TTLS = { history: 24 * HOUR, quote: 15 * MINUTE } as const;
 
 /**
  * Yahoo refuses the chart endpoint (HTTP 429) to clients that send no
- * User-Agent, so one is mandatory. It identifies Thesis honestly while keeping
+ * User-Agent, so one is mandatory. It identifies Metis honestly while keeping
  * the browser-shaped prefix the edge expects.
  */
 export const YAHOO_DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Thesis/1.0 equity-analyzer (local-first equity research; keyless price fallback)";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Metis/1.0 equity-analyzer (local-first equity research; keyless price fallback)";
 
 export interface YahooMeta {
   symbol: string;

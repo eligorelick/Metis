@@ -1328,7 +1328,7 @@ export function degradationPlan(
         replacement: "ffo-affo",
         disclosure:
           "GAAP EPS / P/E de-emphasized for REITs (real-estate depreciation is non-economic) — FFO/AFFO lead; " +
-          "the Thesis computation is labeled 'FFO (Thesis approx.)' and shown against company-reported FFO when available.",
+          "the house FFO approximation is shown against company-reported FFO when available.",
       },
       {
         target: "valuation.dcf",

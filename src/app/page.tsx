@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MetisLogo } from "@/brand/MetisLogo";
 import { getConfig } from "@/config/env";
 import { hasConfiguredEdgarIdentity } from "@/providers/edgar";
 import { AppShell } from "@/components/shell";
@@ -172,6 +173,13 @@ export default async function Home() {
   return (
     <AppShell sidebar={<WatchlistSidebar />}>
       <div className="mx-auto flex max-w-3xl flex-col gap-3 p-4">
+        <section className="metis-intro border-b border-edge pb-6 pt-3">
+          <MetisLogo className="mb-5 h-14 w-[221px]" />
+          <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-accent">Evidence. Judgment. Perspective.</p>
+          <h1 className="metis-heading text-3xl leading-tight sm:text-4xl">A considered view of the business.</h1>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">Build your investment thesis from financial statements, source evidence and explicit assumptions. Keep the reasoning, risks and unanswered questions in view.</p>
+        </section>
+
         {config.fixtureMode && (
           <div className="border border-warn/40 bg-warn/10 px-3 py-2 text-[12px] text-warn">
             <span className="mono font-semibold uppercase tracking-[0.08em]">
@@ -194,7 +202,7 @@ export default async function Home() {
         <HomeWatchlistPanel fixtureMode={config.fixtureMode} />
 
         <Panel
-          title="build status"
+          title="research connections"
           right={
             <Link href="/settings" className="text-accent hover:underline">
               settings →

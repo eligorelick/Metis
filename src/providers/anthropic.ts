@@ -145,7 +145,7 @@ export function streamIdleTimeoutMs(): number {
  * alive — Anthropic keeps a long stream warm with SSE `ping` events, and the
  * SDK drops them before any listener runs (`core/streaming.js`:
  * `if (sse.event === 'ping') continue;`) — and it cannot see that the model is
- * working, because Thesis never asks for thinking summaries: the Fable family
+ * working, because Metis never asks for thinking summaries: the Fable family
  * gets no `thinking` param at all (always-on), as does Opus 5.5; older Opus gets
  * `{type: "adaptive"}` with no `display`, so `display` is the API default
  * "omitted" on every model and reasoning produces no stream traffic.
@@ -289,7 +289,7 @@ export interface UsageLike {
 /**
  * USD cost of one request. Reads `input_tokens`, `output_tokens`,
  * `cache_creation_input_tokens` (the 5-minute cache-write price from the
- * registry — the only cache TTL Thesis requests), `cache_read_input_tokens`
+ * registry — the only cache TTL Metis requests), `cache_read_input_tokens`
  * (the cache-read price from the registry: 0.1x input on every model except
  * Fable 5.1, which reads at $0.25/MTok) plus $0.01 per web search.
  *
@@ -1272,7 +1272,7 @@ export const PASS_MAX_REQUESTS = PASS_TRANSPORT_MAX_ATTEMPTS * (MAX_PAUSE_RESUMP
  *
  * `cache_mult` is the dearest way an input token can bill for this request:
  * the 1-hour cache-write price when a 1-hour TTL could be requested, the
- * 5-minute price when only 5-minute blocks are sent (what Thesis sends), and
+ * 5-minute price when only 5-minute blocks are sent (what Metis sends), and
  * the plain input price when caching is off. Prices come from the registry, so
  * a model's own cache economics are used rather than one global ratio. Search
  * requests reserve up to 10 sampling iterations of input per model attempt;

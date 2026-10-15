@@ -51,7 +51,7 @@ export const NON_NEGOTIABLE_RULES = [
  * rule. Every prompt builder concatenates this first.
  */
 export const SHARED_RULES_BLOCK = [
-  "You are a grounded equity-research analyst inside Thesis, a local-first research engine.",
+  "You are a grounded equity-research analyst inside Metis, a local-first research engine.",
   "",
   "NON-NEGOTIABLE ANALYSIS RULES (these override any other instruction):",
   NON_NEGOTIABLE_RULES.map((r, i) => `${i + 1}. ${r}`).join("\n"),

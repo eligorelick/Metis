@@ -2,7 +2,7 @@
 
 ## The code license and the data are separate
 
-Thesis is MIT licensed ([`LICENSE`](../LICENSE)). That license covers this
+Metis is MIT licensed ([`LICENSE`](../LICENSE)). That license covers this
 source code. It does not grant rights to provider data, issuer-authored text,
 transcripts, news articles, trademarks or other third-party material retrieved
 by the application. A working endpoint, keyless access or an accepted API key
@@ -10,10 +10,10 @@ establishes technical access, not permission for every use.
 
 This page describes data use in the implementation and points to provider
 terms reviewed on **2026-10-04**. Your applicable agreement, dataset notices
-and intended use still govern; Thesis does not check them or certify that an
+and intended use still govern; Metis does not check them or certify that an
 account's rights cover this workflow. Provider terms and plans can change.
 
-## What Thesis does with retrieved material
+## What Metis does with retrieved material
 
 | Operation | Actual implementation behavior |
 | --- | --- |
@@ -32,7 +32,7 @@ attribution and citation coverage document provenance without granting rights.
 
 ## Provider considerations
 
-**Yahoo Finance.** Thesis uses the keyless chart endpoint as a quote/price
+**Yahoo Finance.** Metis uses the keyless chart endpoint as a quote/price
 history fallback. It is an unofficial integration with no application API
 contract guaranteeing availability. Yahoo's terms restrict automated data
 collection without prior permission; local/personal use does not itself grant
@@ -47,7 +47,7 @@ sending evidence to an AI service, internal multi-user access and publication,
 not just resale. An API key or paid plan alone does not resolve those rights.
 Check your agreement against the
 [FMP terms](https://site.financialmodelingprep.com/developer/docs/terms-of-service).
-Thesis does not delete FMP cache/report data automatically when a subscription
+Metis does not delete FMP cache/report data automatically when a subscription
 ends or an API key is removed.
 
 **SEC EDGAR.** The SEC's website policy permits copying/distributing public
@@ -58,7 +58,7 @@ EDGAR hosts them; this page does not establish unrestricted rights in every
 excerpt. See the [SEC dissemination policy](https://www.sec.gov/about/privacy-information)
 and the [government-work copyright provision](https://www.copyright.gov/title17/92chap1.html#105).
 Access has a separate fair-access policy: SEC rate controls limit excessive
-requests above 10 per second. Thesis's client limit is five per second, sends
+requests above 10 per second. Metis's client limit is five per second, sends
 `EDGAR_CONTACT` as its User-Agent and blocks live retrieval when the contact
 fails its non-placeholder identity validator. That validator checks format;
 it does not prove the mailbox is reachable. See the
@@ -68,7 +68,7 @@ it does not prove the mailbox is reachable. See the
 notices, attribution requirements and use restrictions. Its posted terms also
 restrict content use connected with software/AI development or training; do
 not assume that using a pre-trained model settles whether the intended
-workflow is allowed. Thesis currently places available FRED values in the
+workflow is allowed. Metis currently places available FRED values in the
 research payload and computed context. This is an implementation disclosure,
 not a determination that every inference use is permitted. Review the
 [FRED terms and series notices](https://fred.stlouisfed.org/legal/) for your use.
@@ -83,7 +83,7 @@ results. Access through a free key does not establish commercial or third-party
 display rights. Review your plan and
 [Finnhub terms](https://finnhub.io/terms-of-service).
 
-**FINRA.** Thesis queries short-interest partitions and settlement-cycle data
+**FINRA.** Metis queries short-interest partitions and settlement-cycle data
 without a production credential. FINRA's API terms incorporate program and
 dataset-specific terms and restrict transfers/disclosure outside authorized
 use. Keyless retrieval is not a general public-domain license. Review the
@@ -115,7 +115,7 @@ analysis. Structured JSON may contain more than the visible printout. A
 corrected export updates certain rendering/safety/accounting disclosures; it
 does not cleanse data rights or replace historical evidence with newly licensed
 data. Markdown, HTML, PDF, JSON, screenshots and shared database copies all
-require consideration of the underlying rights. Thesis does not filter exports
+require consideration of the underlying rights. Metis does not filter exports
 by license, obtain display permission or remove restricted sources for you.
 
 Reports are informational only. They are not investment advice.

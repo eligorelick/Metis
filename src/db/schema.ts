@@ -1,5 +1,5 @@
 /**
- * Drizzle SQLite schema for Thesis (watchlist, reports, api_cache,
+ * Drizzle SQLite schema for Metis (watchlist, reports, api_cache,
  * jobs, cost_log — plus settings).
  *
  * Conventions:
