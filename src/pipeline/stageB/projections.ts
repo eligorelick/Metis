@@ -435,8 +435,11 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
     (assumptions.growthAnchor.unavailable.length > 0
       ? `; unavailable: ${assumptions.growthAnchor.unavailable.join(", ")}`
       : "");
+  const revenueAnchor = assumptions.revenueAnchor;
   const assumptionLines: string[] = [
-    `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
+    revenueAnchor === undefined
+      ? `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`
+      : `Base path is the DCF forward trajectory (year-one revenue from ${revenueAnchor.source}, ${round2(revenueAnchor.yearOneGrowthPct)}% growth; near-term growth ${anchorText}; converging to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
     `Bull/bear shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}).`,
     "Forward periods are modeled 12-month anniversary windows of the DCF revenue anchor, not company-issued fiscal guidance; a TTM anchor remains rolling for every forecast year. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,

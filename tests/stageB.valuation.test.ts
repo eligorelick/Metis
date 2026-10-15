@@ -795,7 +795,8 @@ describe("buildDcfAssumptions", () => {
     expect(regression.detail).toContain("R2 0.97");
     expect(regression.detail).toContain("2021-12-31 to 2025-12-31");
     // The fade horizon is stated in years in the assumption block.
-    expect(a.growthPath.basis).toContain("linear fade over the explicit 10-year horizon");
+    expect(a.growthPath.basis).toContain("convergent fade");
+    expect(a.growthPath.basis).toContain("halving every 3 years");
     expect(a.growthPath.basis).toContain("in year 10");
   });
 
@@ -2392,17 +2393,30 @@ describe("buildDcfAssumptions — the margin cap and the tax basis (audit 2026-0
     expect(built.notes.some((n) => /EBIT margin \(pct\) clamped/.test(n))).toBe(false);
   });
 
-  it("still caps a TTM margin above both the house ceiling and the issuer's own history, in one note", () => {
-    // A mis-scaled TTM figure (90%) is not evidence for its own cap; the
-    // ceiling is the history's 67%.
+  it("lets the TTM margin set year one and caps only the target, writing the basis after the cap (D-58)", () => {
+    // NVDA report #34: TTM 65.21% against a 62.42% best fiscal year printed
+    // "held flat at current 65.21%" beside a 62.42% path. Now the TTM sets
+    // year one, the path fades to the 67% history ceiling by year 5, and the
+    // basis names the value the path holds and the cap that bound.
     const built = buildDcfAssumptions(
       highMargin({ incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 900, incomeBeforeTax: 880, incomeTaxExpense: 176 } }),
     );
     const a = built.assumptions!;
-    expect(Math.max(...a.ebitMarginPath.value)).toBeCloseTo(67, 6);
-    const clampNotes = built.notes.filter((n) => /EBIT margin \(pct\) clamped/.test(n));
+    const m = a.ebitMarginPath.value;
+    expect(m[0]).toBeCloseTo(90, 6);
+    expect(m[4]).toBeCloseTo(67, 6);
+    expect(m[9]).toBeCloseTo(67, 6);
+    expect(a.ebitMarginPath.basis).toMatch(/^fade current 90% \(TTM\) -> 67% by year 5 .*the target 90% is capped at the issuer's highest annual margin in the last five years, 67% \(FY 2025-12-31\)/);
+    expect(a.ebitMarginPath.basis).not.toMatch(/held flat/);
+    const clampNotes = built.notes.filter((n) => /EBIT margin target \(pct\) clamped/.test(n));
     expect(clampNotes).toHaveLength(1);
     expect(clampNotes[0]).toMatch(/ceiling raised from 45 to the issuer's own observed maximum margin/);
+    expect(clampNotes[0]).toMatch(/year one keeps the current 90%/);
+    // An impossible current margin (above 100%) stays capped in year one as well.
+    const broken = buildDcfAssumptions(
+      highMargin({ incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 1500, incomeBeforeTax: 1480, incomeTaxExpense: 296 } }),
+    ).assumptions!;
+    expect(Math.max(...broken.ebitMarginPath.value)).toBeCloseTo(67, 6);
   });
 
   it("says when no current tax rate was observed instead of printing the historical median as a TTM rate", () => {

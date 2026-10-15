@@ -84,17 +84,17 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.17.0");
-    expect(PAYLOAD_VERSION).toBe("1.22.0");
+    expect(REPORT_SPEC_VERSION).toBe("1.18.0");
+    expect(PAYLOAD_VERSION).toBe("1.23.0");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.17.0");
+    expect(newReport().meta.specVersion).toBe("1.18.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.22.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.22\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.22\.0\)/);
+    expect(payload.payloadVersion).toBe("1.23.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.23\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.23\.0\)/);
   });
 
   it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {

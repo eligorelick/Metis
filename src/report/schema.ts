@@ -88,7 +88,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // reconstruction; historical reports retain their original conventions.
 // 1.17.0 (D-56 review): actual statement-provider attribution, qualifier-safe
 // references, standalone parity and runner-owned final timing reconciliation.
-export const REPORT_SPEC_VERSION = "1.17.0" as const;
+// 1.18.0 (D-57, D-58): issuer-currency inheritance for single-currency provider
+// rows; the DCF year-one revenue anchor, convergent fade, year-one margin and
+// terminal tax floor. Saved reports keep their original conventions.
+export const REPORT_SPEC_VERSION = "1.18.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

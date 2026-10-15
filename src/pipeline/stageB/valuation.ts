@@ -178,6 +178,140 @@ export function fadePath(startPct: number, endPct: number, years: number): numbe
   );
 }
 
+/**
+ * D-58: the growth path's excess over the terminal rate halves every this many
+ * years. Chan, Karceski and Lakonishok (2003) find growth beyond one or two
+ * years is not persistent, so the gap closes fastest at the start instead of
+ * evenly over the horizon. A house convention pending the point-in-time
+ * backtest (docs/RESEARCH.md §8.2, §8.7).
+ */
+export const GROWTH_FADE_HALF_LIFE_YEARS = 3;
+
+/**
+ * Weight of the starting gap left in each explicit year: 1 in year 1, 0 in the
+ * final year, decaying geometrically with GROWTH_FADE_HALF_LIFE_YEARS and
+ * rescaled so the path reaches the terminal rate exactly in year `years`.
+ */
+export function convergentFadeWeights(years: number): number[] {
+  if (years <= 0) return [];
+  if (years === 1) return [0];
+  const phi = Math.pow(0.5, 1 / GROWTH_FADE_HALF_LIFE_YEARS);
+  const tail = Math.pow(phi, years - 1);
+  return Array.from({ length: years }, (_, i) => (Math.pow(phi, i) - tail) / (1 - tail));
+}
+
+/** D-58: convergent (convex) fade from startPct in year 1 to endPct in year `years`. */
+export function convergentFadePath(startPct: number, endPct: number, years: number): number[] {
+  return convergentFadeWeights(years).map((w) => endPct + (startPct - endPct) * w);
+}
+
+/** D-58: 15% global minimum tax (OECD Pillar Two GloBE rules) floors the terminal tax rate. */
+export const GLOBAL_MINIMUM_TAX_PCT = 15;
+
+/**
+ * D-58: national statutory corporate rates by issuer domicile (ISO 3166
+ * alpha-2). Only rates with a primary source are listed; sub-national taxes
+ * are excluded, so each is a floor rather than the full marginal rate.
+ */
+export const STATUTORY_MARGINAL_TAX_PCT: Readonly<Record<string, { pct: number; source: string }>> = {
+  US: { pct: 21, source: "US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded" },
+};
+
+/** Years from the TTM window's midpoint to the latest quarter's midpoint (4.5 months). */
+const TTM_TO_LATEST_QUARTER_YEARS = 4.5 / 12;
+/** Years from the latest quarter's midpoint to the year-one window's midpoint (7.5 months). */
+const LATEST_QUARTER_TO_YEAR_ONE_YEARS = 7.5 / 12;
+/** Years from the guided next quarter's midpoint to the year-one window's midpoint (4.5 months). */
+const GUIDED_QUARTER_TO_YEAR_ONE_YEARS = 4.5 / 12;
+/** Day span that makes two quarter ends the same fiscal quarter a year apart (52/53-week calendars). */
+const YEAR_AGO_QUARTER_DAYS: readonly [number, number] = [350, 380];
+/** Day span that makes a guided quarter the one after the latest reported quarter. */
+const NEXT_QUARTER_DAYS: readonly [number, number] = [80, 100];
+/** A calendarized consensus window must be this fully covered by fiscal-year estimates. */
+const CONSENSUS_COVERAGE_MIN = 0.97;
+
+const DAY_MS = 24 * 3600 * 1000;
+function daysBetween(from: string, to: string): number | null {
+  const a = Date.parse(from);
+  const b = Date.parse(to);
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.round((b - a) / DAY_MS) : null;
+}
+
+const fmtMoney = (v: number): string => {
+  const a = Math.abs(v);
+  if (a >= 1e12) return `${fmtNum(v / 1e12)}T`;
+  if (a >= 1e9) return `${fmtNum(v / 1e9)}B`;
+  if (a >= 1e6) return `${fmtNum(v / 1e6)}M`;
+  return fmtNum(v);
+};
+
+/**
+ * D-58: the annualized revenue run-rate at the latest quarter, seasonally
+ * neutral. Latest quarter × 4 overstates a seasonal peak quarter and
+ * understates a trough, so the run-rate is the TTM carried 4.5 months forward
+ * (TTM midpoint to latest-quarter midpoint) at the latest quarter's
+ * year-over-year growth, which has no seasonal component — bounded by the TTM
+ * and latest quarter × 4, the two levels actually observed. Null without the
+ * same fiscal quarter a year earlier.
+ */
+export function revenueRunRate(
+  ttmRevenue: number,
+  ttmEnd: string,
+  quarters: DcfQuarterRevenue | null | undefined,
+): RevenueRunRate | null {
+  if (!quarters || quarters.yearAgo === null || quarters.latest.date !== ttmEnd) return null;
+  const latest = posOrNull(quarters.latest.revenue);
+  const yearAgo = posOrNull(quarters.yearAgo.revenue);
+  const days = daysBetween(quarters.yearAgo.date, quarters.latest.date);
+  if (latest === null || yearAgo === null || days === null || days < YEAR_AGO_QUARTER_DAYS[0] || days > YEAR_AGO_QUARTER_DAYS[1]) {
+    return null;
+  }
+  const annualized = 4 * latest;
+  const seasonallyNeutral = ttmRevenue * Math.pow(latest / yearAgo, TTM_TO_LATEST_QUARTER_YEARS);
+  const value = Math.min(Math.max(seasonallyNeutral, Math.min(annualized, ttmRevenue)), Math.max(annualized, ttmRevenue));
+  return { value, latestQuarterEnd: ttmEnd, latestQuarterAnnualized: annualized, seasonallyNeutral, yoyPct: (latest / yearAgo - 1) * 100 };
+}
+
+/**
+ * D-58: consensus revenue for one forecast window, calendarized from
+ * fiscal-year estimates by day overlap (each fiscal year's revenue spread
+ * evenly over its days). Null unless the estimates cover the window.
+ */
+export function calendarizedConsensus(
+  rows: AnalystEstimateRow[] | null,
+  window: { startDate: string; endDate: string },
+): number | null {
+  if (!rows) return null;
+  const windowStart = Date.parse(window.startDate);
+  const windowEnd = Date.parse(window.endDate) + DAY_MS;
+  if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart) return null;
+  const byDate = new Map<string, number>();
+  for (const row of rows) {
+    const revenue = posOrNull(row.revenueAvg);
+    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) byDate.set(row.date.slice(0, 10), revenue);
+  }
+  let total = 0;
+  let covered = 0;
+  let previousEnd: string | null = null;
+  for (const [date, revenue] of [...byDate].sort(([a], [b]) => a.localeCompare(b))) {
+    const fy = forecastYearPeriod(date, 0, "fiscal-year");
+    if (fy === null) continue;
+    // A 52/53-week year starts the day after the previous estimate's year
+    // end, not on a calendar anniversary, so adjacent years never share a day.
+    const span = previousEnd === null ? null : daysBetween(previousEnd, date);
+    const chained = previousEnd !== null && span !== null && span >= YEAR_AGO_QUARTER_DAYS[0] && span <= YEAR_AGO_QUARTER_DAYS[1];
+    const fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
+    previousEnd = date;
+    const fyEnd = Date.parse(fy.endDate) + DAY_MS;
+    const overlap = Math.min(windowEnd, fyEnd) - Math.max(windowStart, fyStart);
+    if (overlap <= 0) continue;
+    total += (revenue * overlap) / (fyEnd - fyStart);
+    covered += overlap;
+  }
+  const span = windowEnd - windowStart;
+  return covered >= CONSENSUS_COVERAGE_MIN * span && covered <= (2 - CONSENSUS_COVERAGE_MIN) * span ? total : null;
+}
+
 /** Linear-interpolated quantile (p in [0,1]) over finite values. */
 export function quantile(values: number[], p: number): number | null {
   const s = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
@@ -324,6 +458,63 @@ export interface DcfAssumptionInputs {
    * terminal ROIC stays at WACC without comment.
    */
   roicHistory?: DcfRoicYear[] | null;
+  /**
+   * D-58: the TTM window's newest quarter and the same fiscal quarter a year
+   * earlier, both in the model currency. They set the seasonally neutral
+   * run-rate the year-one revenue anchor is measured against. Omitted or
+   * null: the anchor is measured against the TTM, as before D-58.
+   */
+  quarterRevenue?: DcfQuarterRevenue | null;
+  /** D-58: next-quarter management guidance in the model currency; null when none was ingested. */
+  guidance?: DcfGuidance | null;
+  /** D-58: issuer domicile (ISO 3166 alpha-2), for the statutory marginal tax floor. */
+  domicileCountry?: string | null;
+}
+
+/** D-58: the run-rate quarters (revenue in the model currency). */
+export interface DcfQuarterRevenue {
+  latest: { date: string; revenue: number | null };
+  yearAgo: { date: string; revenue: number | null } | null;
+}
+
+/** D-58: management's outlook for the next fiscal quarter (an 8-K earnings release). */
+export interface DcfGuidance {
+  /** Guided revenue for the next fiscal quarter (midpoint), model currency. */
+  revenue: number;
+  /** Guided quarter's period end (ISO date). */
+  periodEnd: string;
+  /** Date the guidance was published (ISO date). */
+  asOf: string;
+  /** Provenance tag of the release. */
+  source: string;
+  /** Guided operating (EBIT) margin, percent, when the outlook implies one. */
+  operatingMarginPct?: number | null;
+}
+
+/** D-58: the seasonally neutral annualized revenue run-rate at the latest quarter. */
+export interface RevenueRunRate {
+  value: number;
+  latestQuarterEnd: string;
+  /** Latest quarter × 4. */
+  latestQuarterAnnualized: number;
+  /** TTM carried 4.5 months forward at the latest quarter's year-over-year growth. */
+  seasonallyNeutral: number;
+  /** Latest quarter's year-over-year revenue growth, percent. */
+  yoyPct: number;
+}
+
+/** D-58: what set the year-one (and year-two) revenue level. */
+export interface RevenueAnchor {
+  source: "guidance" | "consensus" | "run-rate" | "ttm";
+  yearOneRevenue: number;
+  /** Year-one growth over the start revenue, percent (growthPath[0]). */
+  yearOneGrowthPct: number;
+  /** Year-two growth from consensus, percent, when consensus anchored year two. */
+  yearTwoGrowthPct: number | null;
+  runRate: RevenueRunRate | null;
+  /** The unclamped year-one revenue when the house clamp moved it; null otherwise. */
+  clampedFrom: number | null;
+  basis: string;
 }
 
 export interface DcfRoicYear {
@@ -509,6 +700,8 @@ export interface DcfAssumptions {
   sbc: Assumption<DcfSbcTreatment>;
   /** WS6 (D-18): the growth anchor's methods, point estimate and range. */
   growthAnchor: GrowthAnchor;
+  /** D-58: what set the year-one/two revenue level; absent on assumptions built before D-58. */
+  revenueAnchor?: RevenueAnchor;
   /** Revenue growth per explicit year, percent, length === years. */
   growthPath: Assumption<number[]>;
   /** EBIT margin per explicit year, percent, length === years. */
@@ -594,6 +787,104 @@ function analystTwoYearGrowthPct(
     asOf: future[future.length - 1].date,
     notes,
   };
+}
+
+/** D-58: guidance usable as the next-quarter level, or null. */
+function nextQuarterGuidance(guidance: DcfGuidance | null | undefined, ttmEnd: string | null): DcfGuidance | null {
+  if (!guidance || ttmEnd === null || posOrNull(guidance.revenue) === null) return null;
+  const days = daysBetween(ttmEnd, guidance.periodEnd);
+  const published = daysBetween(ttmEnd, guidance.asOf);
+  if (days === null || days < NEXT_QUARTER_DAYS[0] || days > NEXT_QUARTER_DAYS[1]) return null;
+  return published !== null && published >= 0 ? guidance : null;
+}
+
+/**
+ * D-58: the year-one revenue level, and year two's growth when consensus
+ * covers it. In order of evidence: management guidance for the next quarter
+ * (annualized, carried to the year-one midpoint at the near-term growth rate), the
+ * calendarized consensus for the year-one window, else the run-rate (or the
+ * TTM when no year-ago quarter is on record) carried forward at the
+ * near-term growth rate. The near-term growth clamp bounds the year-one level
+ * relative to the run-rate — the latest evidenced level — not the TTM, which
+ * for a fast grower is already a quarter or more behind.
+ */
+function buildRevenueAnchor(args: {
+  inputs: DcfAssumptionInputs;
+  startRev: number;
+  periodBasis: string;
+  gMid: number;
+  notes: string[];
+}): RevenueAnchor {
+  const { inputs, startRev, periodBasis, gMid, notes } = args;
+  const [lo, hi] = NEAR_TERM_GROWTH_CLAMP_PP;
+  const ttm = inputs.incomeTtm;
+  const ttmEnd = ttm?.date ?? null;
+  const windowBasis = ttm?.basis === "annual" ? "fiscal-year" : "rolling-12-month";
+  const runRate = ttm?.basis !== "annual" && ttmEnd !== null ? revenueRunRate(startRev, ttmEnd, inputs.quarterRevenue) : null;
+  const level = runRate?.value ?? startRev;
+  const levelText = runRate === null
+    ? `${periodBasis} revenue ${fmtMoney(startRev)}`
+    : `the seasonally neutral run-rate ${fmtMoney(runRate.value)} (latest quarter ending ${runRate.latestQuarterEnd} × 4 = ${fmtMoney(runRate.latestQuarterAnnualized)}; ` +
+      `${periodBasis} ${fmtMoney(startRev)} carried 4.5 months at the quarter's ${fmtNum(runRate.yoyPct)}% year-over-year growth = ${fmtMoney(runRate.seasonallyNeutral)}; bounded by the two)`;
+  const window1 = ttmEnd === null ? null : forecastYearPeriod(ttmEnd, 1, windowBasis);
+  const window2 = ttmEnd === null ? null : forecastYearPeriod(ttmEnd, 2, windowBasis);
+  const ntm1 = window1 === null ? null : calendarizedConsensus(inputs.analystEstimates, window1);
+  const ntm2 = window2 === null ? null : calendarizedConsensus(inputs.analystEstimates, window2);
+  const guide = nextQuarterGuidance(inputs.guidance, ttmEnd);
+  const carry = (from: number, years: number): number => from * Math.pow(1 + gMid / 100, years);
+
+  let source: RevenueAnchor["source"];
+  let raw: number;
+  let rawText: string;
+  if (guide !== null) {
+    source = "guidance";
+    raw = carry(4 * guide.revenue, GUIDED_QUARTER_TO_YEAR_ONE_YEARS);
+    rawText =
+      `management guidance ${fmtMoney(guide.revenue)} for the quarter ending ${guide.periodEnd} (${guide.source}, ${guide.asOf}) × 4 = ${fmtMoney(4 * guide.revenue)}, ` +
+      `carried 4.5 months to the year-one midpoint at the near-term growth rate ${fmtNum(gMid)}%`;
+  } else if (ntm1 !== null && window1 !== null) {
+    source = "consensus";
+    raw = ntm1;
+    rawText = `analyst consensus calendarized to ${window1.label} (fiscal-year estimates weighted by day overlap)`;
+  } else {
+    source = runRate === null ? "ttm" : "run-rate";
+    const years = runRate === null ? 1 : LATEST_QUARTER_TO_YEAR_ONE_YEARS;
+    raw = carry(level, years);
+    rawText = runRate === null
+      ? `${periodBasis} revenue grown one year at the near-term growth rate ${fmtNum(gMid)}%`
+      : `the run-rate carried 7.5 months to the year-one midpoint at the near-term growth rate ${fmtNum(gMid)}%`;
+  }
+  const floor = level * (1 + lo / 100);
+  const ceiling = level * (1 + hi / 100);
+  const yearOneRevenue = Math.min(ceiling, Math.max(floor, raw));
+  const clampedFrom = yearOneRevenue === raw ? null : raw;
+  const clampText = clampedFrom === null
+    ? ""
+    : `; CLAMPED from ${fmtMoney(raw)} to ${fmtMoney(yearOneRevenue)}: the near-term growth house rule bounds year-one revenue to [${lo}%, +${hi}%] of ${runRate === null ? `${periodBasis} revenue` : "the run-rate"}`;
+  if (clampedFrom !== null) {
+    notes.push(`year-one revenue (${source}) clamped ${fmtMoney(raw)} -> ${fmtMoney(yearOneRevenue)} (house rule range [${lo}%, +${hi}%] of ${fmtMoney(level)})`);
+  }
+  // Without a run-rate, guidance or consensus this is the pre-D-58 rule
+  // exactly: TTM grown one year at the clamped rate.
+  const yearOneGrowthPct = source === "ttm" && clampedFrom === null ? gMid : (yearOneRevenue / startRev - 1) * 100;
+  // Year two takes consensus growth (applied to the year-one level actually
+  // used) when the estimates cover it. It may not fall below the house floor
+  // or re-accelerate past both the house ceiling and year one's growth.
+  let yearTwoGrowthPct: number | null = null;
+  let yearTwoText = "";
+  if (ntm1 !== null && ntm2 !== null && window2 !== null) {
+    const rawG2 = (ntm2 / ntm1 - 1) * 100;
+    const g2Hi = Math.max(hi, yearOneGrowthPct);
+    yearTwoGrowthPct = clampWithNote(rawG2, lo, g2Hi, "consensus year-two growth (pct)", notes);
+    yearTwoText =
+      `; year two grows ${fmtNum(yearTwoGrowthPct)}% on consensus (${window2.label} ${fmtMoney(ntm2)} over ${fmtMoney(ntm1)}` +
+      `${yearTwoGrowthPct === rawG2 ? "" : `, ${fmtNum(rawG2)}% clamped to [${lo}%, ${fmtNum(g2Hi)}%] = [house floor, max(house ceiling ${hi}%, year-one growth)]`})`;
+  }
+  const basis =
+    `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
+    `${clampText}; measured against ${levelText}${yearTwoText} (house rule D-58: guidance, then consensus, then the run-rate)`;
+  notes.push(`Year-one revenue anchor: ${basis}`);
+  return { source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis };
 }
 
 /**
@@ -710,16 +1001,19 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // WS6 review (SHOULD-FIX 1): clamp FIRST, then describe. The basis used to be
   // built from the pre-clamp median and then attached to the clamped value, so
   // a 65% median printed a basis sentence that said 25% and then said 65%.
-  const g1 = clampWithNote(
+  // D-58: this clamped median is the near-term rate the revenue anchor
+  // carries the latest evidenced level forward at (the run-rate or guided
+  // quarter to the year-one midpoint; the TTM by a full year without them).
+  const gMid = clampWithNote(
     point,
     NEAR_TERM_GROWTH_CLAMP_PP[0],
     NEAR_TERM_GROWTH_CLAMP_PP[1],
     "near-term growth (pct)",
     notes,
   );
-  const clampFired = g1 !== point;
+  const clampFired = gMid !== point;
   const clampSentence = clampFired
-    ? ` CLAMPED to ${fmtNum(g1)}%: the near-term growth house rule bounds year-one growth to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%], and the DCF fades from the clamped value, not the median.`
+    ? ` CLAMPED to ${fmtNum(gMid)}%: the near-term growth house rule bounds the rate to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%], and year-one revenue is built from the clamped value, not the median.`
     : "";
   const anchorBasis =
     `median of ${available.length} available growth method${available.length === 1 ? "" : "s"} = ${fmtNum(point)}%` +
@@ -743,13 +1037,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
   }
 
-  const g1Basis =
+  const gMidBasis =
     `median of the available growth methods (${available.map((m) => `${m.name} ${fmtNum(m.valuePct)}%`).join(", ")})` +
     (clampFired
-      ? ` = ${fmtNum(point)}%, clamped to ${fmtNum(g1)}% by the near-term growth house rule range [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%]`
+      ? ` = ${fmtNum(point)}%, clamped to ${fmtNum(gMid)}% by the near-term growth house rule range [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%]`
       : "");
   const growthAnchor: GrowthAnchor = {
-    pointPct: g1,
+    pointPct: gMid,
     ...(clampFired ? { preClampMedianPct: point } : {}),
     rangePct,
     methods,
@@ -757,7 +1051,23 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     basis: anchorBasis,
   };
 
-  const growthPath = fadePath(g1, gTerm, years);
+  // --- D-58: year one (and two) from evidence, then a convergent fade ------
+  // TTM x (1 + clamped g) put NVDA's year-one revenue below its own latest
+  // quarter x 4, and a linear fade from a consensus year one of +78% would
+  // have kept growth above 50% for four years. The anchored years now come
+  // from guidance, consensus or the run-rate; every later year closes the
+  // gap to the terminal rate geometrically from the last anchored year.
+  const revenueAnchor = buildRevenueAnchor({ inputs, startRev, periodBasis, gMid, notes });
+  const anchoredGrowth = [
+    revenueAnchor.yearOneGrowthPct,
+    ...(revenueAnchor.yearTwoGrowthPct !== null && years > 2 ? [revenueAnchor.yearTwoGrowthPct] : []),
+  ];
+  const lastAnchored = anchoredGrowth[anchoredGrowth.length - 1];
+  const growthPath = [
+    ...anchoredGrowth,
+    ...convergentFadePath(lastAnchored, gTerm, years - anchoredGrowth.length + 1).slice(1),
+  ];
+  const guide = nextQuarterGuidance(inputs.guidance, ttm?.date ?? null);
 
   // --- EBIT margin path -----------------------------------------------------
   const ttmMarginRaw = safeDiv(ttm?.operatingIncome ?? null, startRev);
@@ -780,9 +1090,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     })),
   );
 
-  let m0 = ttmMarginRaw !== null ? ttmMarginRaw * 100 : null;
+  // D-58: guidance, when it implies an operating margin, sets year one.
+  const guidedMargin = guide !== null && isNum(guide.operatingMarginPct) ? guide.operatingMarginPct : null;
+  let m0 = guidedMargin ?? (ttmMarginRaw !== null ? ttmMarginRaw * 100 : null);
+  let m0Source = guidedMargin !== null ? `guided (${guide!.source})` : periodBasis;
   if (m0 === null && median5y !== null) {
     m0 = median5y;
+    m0Source = "5y median";
     notes.push("TTM EBIT margin unavailable — base margin set to 5y median (fallback)");
     gaps.push(gapEntry("valuation.dcf.ttmEbitMargin", "TTM operatingIncome or revenue missing", "warn"));
   }
@@ -793,62 +1107,78 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     return { assumptions: null, notes, gaps };
   }
 
-  let marginPath: number[];
-  let marginBasis: string;
+  // The margin cap is a broken-input guard, not a view on what a company can
+  // earn, so it never binds below a margin the issuer has demonstrably earned:
+  // a flat 45% cap removed a third of the DCF of a 65%-margin payments network
+  // under a rule no document described. The ceiling is the house figure or
+  // the issuer's own highest annual margin in the five-year history,
+  // whichever is higher (METHODOLOGY "Fade and horizon", RESEARCH §7.5).
+  // D-58: it binds the margin the path fades TO — year five onward and the
+  // terminal year — not year one. Capping year one forced NVDA from its 65.2%
+  // TTM margin to 62.4% with nothing in the evidence behind the step-down;
+  // the current margin may set year one unless it is impossible (above 100%).
+  const observedPoints = histMarginPoints.filter((p) => isNum(p.marginPct));
+  const observedTop = observedPoints.reduce<{ date: string; marginPct: number } | null>(
+    (best, p) => (best === null || p.marginPct > best.marginPct ? p : best),
+    null,
+  );
+  const marginCeiling = Math.max(MARGIN_CLAMP_PP[1], observedTop?.marginPct ?? MARGIN_CLAMP_PP[1]);
+  const ceilingText = observedTop !== null && observedTop.marginPct > MARGIN_CLAMP_PP[1]
+    ? `the issuer's highest annual margin in the last five years, ${fmtNum(marginCeiling)}% (FY ${observedTop.date})`
+    : `the house ceiling ${MARGIN_CLAMP_PP[1]}%`;
+  const yearOneCeiling = m0 <= 100 ? Math.max(marginCeiling, m0) : marginCeiling;
+  const m0Raw = m0;
+  m0 = Math.min(yearOneCeiling, Math.max(MARGIN_CLAMP_PP[0], m0));
+  if (m0 !== m0Raw) {
+    notes.push(`EBIT margin (pct) clamped: current ${fmtNum(m0Raw)} -> ${fmtNum(m0)} (house rule range [${MARGIN_CLAMP_PP[0]}, ${fmtNum(yearOneCeiling)}])`);
+  }
+
+  const fadeYears = Math.min(MARGIN_FADE_YEARS, years);
+  let regime: string | null = null;
+  let slopeBasis = "unavailable";
+  let targetMargin = m0;
   if (median5y === null) {
-    marginPath = Array.from({ length: years }, () => m0 as number);
-    marginBasis = `held flat at current ${fmtNum(m0)}% (no 5y margin history for a fade target)`;
     gaps.push(gapEntry("valuation.dcf.marginTarget", "no annual margin history — margin held flat", "info"));
   } else {
-    const regime = marginSlope === null
+    regime = marginSlope === null
       ? "stable/insufficient-history"
       : marginSlope > MARGIN_TREND_THRESHOLD_PP_PER_YEAR
         ? "improving"
         : marginSlope < -MARGIN_TREND_THRESHOLD_PP_PER_YEAR
           ? "declining"
           : "stable";
-    const targetMargin = regime === "improving"
+    targetMargin = regime === "improving"
       ? Math.max(m0, median5y)
       : regime === "declining"
         ? Math.min(m0, median5y)
         : median5y;
-    const slopeBasis = marginSlope === null ? "unavailable" : `${fmtNum(marginSlope)}pp/year`;
-    const fade = fadePath(m0, targetMargin, Math.min(MARGIN_FADE_YEARS, years));
-    marginPath = Array.from({ length: years }, (_, i) =>
-      i < fade.length ? fade[i] : targetMargin,
-    );
-    marginBasis = targetMargin === m0
-      ? `held flat at current ${fmtNum(m0)}% under ${regime} dated-margin regime (5y median ${fmtNum(median5y)}%, slope ${slopeBasis})`
-      : `fade current ${fmtNum(m0)}% -> ${fmtNum(targetMargin)}% by year ${Math.min(MARGIN_FADE_YEARS, years)} under ${regime} dated-margin regime (5y median ${fmtNum(median5y)}%, slope ${slopeBasis}), flat thereafter`;
+    slopeBasis = marginSlope === null ? "unavailable" : `${fmtNum(marginSlope)}pp/year`;
     notes.push(
       `EBIT margin regime ${regime}: dated 5y slope ${slopeBasis}; target ${fmtNum(targetMargin)}% versus current ${fmtNum(m0)}% and median ${fmtNum(median5y)}%`,
     );
   }
-  // The margin cap is a broken-input guard, not a view on what a company can
-  // earn, so it never binds below a margin the issuer has demonstrably earned:
-  // a flat 45% cap removed a third of the DCF of a 65%-margin payments network
-  // under a rule no document described, one note per year. The ceiling is the
-  // house figure or the issuer's own observed maximum in the five-year
-  // history (the TTM figure is not evidence for its own cap), whichever is
-  // higher; the floor is unchanged; one note when it binds (METHODOLOGY "Fade and horizon", RESEARCH §7.5).
-  const observedMargins = histMargins.filter((v): v is number => isNum(v));
-  const observedMax = observedMargins.length > 0 ? Math.max(...observedMargins) : MARGIN_CLAMP_PP[1];
-  const marginCeiling = Math.max(MARGIN_CLAMP_PP[1], observedMax);
-  const marginClampedYears: string[] = [];
-  marginPath = marginPath.map((m, i) => {
-    const clamped = Math.min(marginCeiling, Math.max(MARGIN_CLAMP_PP[0], m));
-    if (clamped !== m) marginClampedYears.push(`year ${i + 1}: ${fmtNum(m)} -> ${fmtNum(clamped)}`);
-    return clamped;
-  });
-  if (marginClampedYears.length > 0) {
+  const cappedTarget = Math.min(marginCeiling, Math.max(MARGIN_CLAMP_PP[0], targetMargin));
+  const capText = cappedTarget < targetMargin
+    ? `; the target ${fmtNum(targetMargin)}% is capped at ${ceilingText} (house broken-input guard; it binds year ${fadeYears} onward, not year one)`
+    : cappedTarget > targetMargin
+      ? `; the target ${fmtNum(targetMargin)}% is floored at ${MARGIN_CLAMP_PP[0]}% (house rule)`
+      : "";
+  if (cappedTarget !== targetMargin) {
     notes.push(
-      `EBIT margin (pct) clamped to the house rule range [${MARGIN_CLAMP_PP[0]}, ${fmtNum(marginCeiling)}]` +
-        (marginCeiling > MARGIN_CLAMP_PP[1]
-          ? ` (ceiling raised from ${MARGIN_CLAMP_PP[1]} to the issuer's own observed maximum margin)`
-          : "") +
-        ` in ${marginClampedYears.length} of ${marginPath.length} years: ${marginClampedYears.join("; ")}`,
+      `EBIT margin target (pct) clamped ${fmtNum(targetMargin)} -> ${fmtNum(cappedTarget)} to the house rule range [${MARGIN_CLAMP_PP[0]}, ${fmtNum(marginCeiling)}]` +
+        (marginCeiling > MARGIN_CLAMP_PP[1] ? ` (ceiling raised from ${MARGIN_CLAMP_PP[1]} to the issuer's own observed maximum margin)` : "") +
+        `; year one keeps the current ${fmtNum(m0)}%`,
     );
   }
+  const fade = fadePath(m0, cappedTarget, fadeYears);
+  const marginPath = Array.from({ length: years }, (_, i) => (i < fade.length ? fade[i] : cappedTarget));
+  // Written after every clamp, so the text names the values the path holds.
+  const regimeText = regime === null
+    ? "no 5y margin history for a fade target"
+    : `${regime} dated-margin regime (5y median ${fmtNum(median5y as number)}%, slope ${slopeBasis})`;
+  const marginBasis = cappedTarget === m0
+    ? `held flat at current ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
+    : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}${capText}, flat thereafter`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
     notes.push(
       `EBIT margin path leaves [${MARGIN_WARN_BAND_PP[0]}%, ${MARGIN_WARN_BAND_PP[1]}%] — unusual outside software; review (house-rule warning)`,
@@ -868,8 +1198,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     if (rowPretax === null || rowPretax <= 0 || !isNum(rowTax) || rowTax < 0) return [];
     return [Math.min(35, Math.max(0, (rowTax / rowPretax) * 100))];
   });
-  const terminalTaxRate = medianOf(historicalTaxRates) ?? currentTaxRate;
-  if (currentTaxRate === null && terminalTaxRate === null) {
+  const historicalMedianTax = medianOf(historicalTaxRates);
+  const companyTerminalTax = historicalMedianTax ?? currentTaxRate;
+  if (currentTaxRate === null && companyTerminalTax === null) {
     gaps.push(
       gapEntry(
         "valuation.dcf.effectiveTaxRate",
@@ -879,29 +1210,46 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
     return { assumptions: null, notes, gaps };
   }
-  const tEff = currentTaxRate ?? (terminalTaxRate as number);
-  const taxTerminal = terminalTaxRate as number;
+  // D-58: a below-statutory effective rate (credits, deferrals, preferential
+  // regimes) is not carried in perpetuity: the terminal rate converges toward
+  // the marginal rate (Damodaran), never below the 15% global minimum (OECD
+  // Pillar Two). NVDA's terminal NOPAT was taxed at its 8.9% historical median
+  // while it guides 16-18%. A company whose own history is higher keeps it.
+  const domicile = (inputs.domicileCountry ?? "").trim().toUpperCase();
+  const statutory = STATUTORY_MARGINAL_TAX_PCT[domicile] ?? null;
+  const taxFloor = Math.max(GLOBAL_MINIMUM_TAX_PCT, statutory?.pct ?? 0);
+  const taxFloorText = statutory === null
+    ? `the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax (OECD Pillar Two; no sourced statutory rate for domicile ${domicile || "unknown"})`
+    : `max(statutory ${statutory.pct}% — ${statutory.source} — and the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax, OECD Pillar Two)`;
+  const companyTax = companyTerminalTax as number;
+  const taxTerminal = Math.max(companyTax, taxFloor);
+  const companyTaxText = historicalMedianTax !== null ? "company historical median" : `${periodBasis} effective rate`;
+  const terminalTaxText = taxTerminal > companyTax
+    ? `the ${companyTaxText} ${fmtNum(companyTax)}% floored at ${fmtNum(taxTerminal)}% = ${taxFloorText} (house rule D-58: the terminal rate converges toward the marginal rate)`
+    : `the ${companyTaxText} ${fmtNum(taxTerminal)}%, at or above the ${fmtNum(taxFloor)}% floor = ${taxFloorText}`;
+  if (taxTerminal > companyTax) notes.push(`terminal tax rate floored: ${terminalTaxText}`);
+  const tEff = currentTaxRate ?? taxTerminal;
   if (currentTaxRate === null) {
     // The substitution is a note and a gap, as the margin fallback's is, and
     // the basis says no current rate was observed: it used to print "TTM
     // effective rate 22%" for an issuer with a pre-tax loss.
     notes.push(
-      `${periodBasis} effective tax rate not computable (pre-tax income ≤ 0, or tax expense missing/negative) — tax path held at the company historical median ${fmtNum(taxTerminal)}%`,
+      `${periodBasis} effective tax rate not computable (pre-tax income ≤ 0, or tax expense missing/negative) — tax path held at ${terminalTaxText}`,
     );
     gaps.push(
       gapEntry(
         "valuation.dcf.ttmTaxRate",
-        `${periodBasis} effective tax rate not computable (non-positive pre-tax income or missing tax expense) — the company historical median ${fmtNum(taxTerminal)}% is used for the whole path`,
+        `${periodBasis} effective tax rate not computable (non-positive pre-tax income or missing tax expense) — ${fmtNum(taxTerminal)}% (${companyTaxText} ${fmtNum(companyTax)}%, floor ${fmtNum(taxFloor)}%) is used for the whole path`,
         "info",
       ),
     );
   }
   const taxBasis =
     currentTaxRate === null
-      ? `${periodBasis} effective rate not computable (pre-tax income ≤ 0 or tax expense missing) — held at the company historical median ${fmtNum(taxTerminal)}% for all ${years} years`
-      : historicalTaxRates.length > 0
-        ? `${periodBasis} effective rate ${fmtNum(tEff)}% fading to company historical median ${fmtNum(taxTerminal)}% by year ${years}`
-        : `${periodBasis} effective rate ${fmtNum(tEff)}% held flat; no historical/domicile marginal tax dataset available`;
+      ? `${periodBasis} effective rate not computable (pre-tax income ≤ 0 or tax expense missing) — held at ${terminalTaxText} for all ${years} years`
+      : tEff === taxTerminal
+        ? `${periodBasis} effective rate ${fmtNum(tEff)}% held flat: terminal rate is ${terminalTaxText}`
+        : `${periodBasis} effective rate ${fmtNum(tEff)}% fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`;
   const taxRatePath = fadePath(tEff, taxTerminal, years);
 
   // --- Sales-to-capital ------------------------------------------------------
@@ -975,11 +1323,15 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       basis: sbcBasis,
     },
     growthAnchor,
+    revenueAnchor,
     growthPath: {
       value: growthPath,
       basis:
-        `linear fade over the explicit ${years}-year horizon from ${fmtNum(g1)}% (${g1Basis}) to the terminal rate ${fmtNum(gTerm)}% in year ${years}; ` +
-        anchorBasis,
+        `year one ${fmtNum(growthPath[0])}% from the revenue anchor (${revenueAnchor.source})` +
+        `${anchoredGrowth.length === 2 ? `, year two ${fmtNum(growthPath[1])}% on consensus` : ""}; ` +
+        `later years follow a convergent fade from year ${anchoredGrowth.length}'s ${fmtNum(lastAnchored)}% to the terminal rate ${fmtNum(gTerm)}% in year ${years}, ` +
+        `the gap halving every ${GROWTH_FADE_HALF_LIFE_YEARS} years (house rule D-58; the linear fade is retired); ` +
+        `near-term growth rate ${fmtNum(gMid)}% = ${gMidBasis}; ${revenueAnchor.basis}; ${anchorBasis}`,
     },
     ebitMarginPath: { value: marginPath, basis: marginBasis },
     taxRatePath: { value: taxRatePath, basis: taxBasis },
@@ -1432,11 +1784,27 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
 // Reverse DCF (market-implied growth / terminal margin)
 // ---------------------------------------------------------------------------
 
+/**
+ * The one-parameter growth-path family a reverse solve searched. D-58 replaced
+ * "linear-fade-to-terminal" (a linear fade from the solved year-one rate) with
+ * "convergent-shift-to-terminal": the base path with its year-one growth moved
+ * to the solved rate and every later year moved by the same amount times the
+ * convergent fade weight, so the shift is gone by the final year. The base
+ * path is the family member at the base year-one growth, so implied minus base
+ * year-one growth compares like with like.
+ */
+export type GrowthPathFamily = "linear-fade-to-terminal" | "convergent-shift-to-terminal";
+
+/** Both families start from a year-one rate and reach the base path's final rate. */
+export function isStartingGrowthFamily(family: GrowthPathFamily | undefined): boolean {
+  return family === "linear-fade-to-terminal" || family === "convergent-shift-to-terminal";
+}
+
 export interface ReverseDcfResult {
   method: "growth" | "margin" | "none";
-  /** First-year growth (pct), linearly fading to the forward model's final rate. */
+  /** First-year growth (pct) on `growthPathFamily`, reaching the forward model's final rate. */
   impliedRevenueGrowthPct: number | null;
-  growthPathFamily?: "linear-fade-to-terminal";
+  growthPathFamily?: GrowthPathFamily;
   baseRevenueGrowthPct?: number | null;
   impliedGrowthPathPct?: number[] | null;
   /** Market-implied terminal EBIT margin (pct) — margin-fallback mode. */
@@ -1517,10 +1885,11 @@ function bisect(
 }
 
 /**
- * Reverse DCF: what first-year revenue-growth anchor, fading linearly to the
- * forward path's final growth rate, justifies the
- * current price, everything else frozen at base case? Pre-scans f(g) on a
- * 17-point grid over [-20, +60] (value is non-monotone in growth when
+ * Reverse DCF: what first-year revenue growth, on the base path shifted by the
+ * same amount fading out by the final year (D-58, "convergent-shift-to-terminal"),
+ * justifies the current price, everything else frozen at base case? Pre-scans
+ * f(g) on a 17-point grid over [-20, +60], widened to base year-one growth
+ * + 30pp when that is higher (value is non-monotone in growth when
  * ROIC < WACC — picks the sign-change bracket whose midpoint is nearest the
  * base-case year-1 growth), then bisects to 1bp. If no bracket exists or the
  * base-year FCFF is negative, falls back to solving the market-implied
@@ -1536,7 +1905,7 @@ export function reverseDcf(
   const none = (why: string): ReverseDcfResult => {
     notes.push(why);
     return { method: "none", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: null,
-      growthPathFamily: "linear-fade-to-terminal", baseRevenueGrowthPct: assumptions.growthPath.value[0] ?? null,
+      growthPathFamily: "convergent-shift-to-terminal", baseRevenueGrowthPct: assumptions.growthPath.value[0] ?? null,
       impliedGrowthPathPct: null, notes, gaps };
   };
 
@@ -1571,12 +1940,17 @@ export function reverseDcf(
   const baseFcff1 = baseRows?.yearRows[0]?.fcff ?? null;
   const baseG1 = assumptions.growthPath.value[0];
   const finalGrowth = assumptions.growthPath.value[n - 1];
+  // D-58: the base path itself is the family member at g = baseG1.
+  const shiftWeights = convergentFadeWeights(n);
+  const shiftedPath = (g: number): number[] =>
+    assumptions.growthPath.value.map((base, i) => base + (g - baseG1) * shiftWeights[i]);
 
   const solveGrowth = (): ReverseDcfResult | null => {
-    const [lo, hi] = REVERSE_GROWTH_RANGE_PCT;
+    const lo = REVERSE_GROWTH_RANGE_PCT[0];
+    const hi = Math.max(REVERSE_GROWTH_RANGE_PCT[1], baseG1 + 30);
     const xs = [...new Set([...prescanGrid(lo, hi), ...(baseG1 >= lo && baseG1 <= hi ? [baseG1] : [])])].sort((a, b) => a - b);
     const fG = (g: number): number | null => {
-      const v = perShareAt({ growthPathPct: fadePath(g, finalGrowth, n) });
+      const v = perShareAt({ growthPathPct: shiftedPath(g) });
       return v === null ? null : v - price;
     };
     const fs = xs.map(fG);
@@ -1597,11 +1971,11 @@ export function reverseDcf(
     const root = bisect(fG, bracket, price);
     if (root === null) return null;
     notes.push(
-      `implied first-year revenue growth, linearly fading to the forward path's final ${fmtNum(finalGrowth)}% growth over ${n} explicit years; compare with the base year-one anchor ${fmtNum(baseG1)}%, not a historical CAGR; all other assumptions frozen at base case`,
+      `implied first-year revenue growth, with every later year of the base path shifted by the same amount times its convergent fade weight so the shift is gone by year ${n} (final growth ${fmtNum(finalGrowth)}%); compare with the base year-one growth ${fmtNum(baseG1)}% on the same path, not a historical CAGR; all other assumptions frozen at base case`,
     );
     return { method: "growth", impliedRevenueGrowthPct: root, impliedTerminalMarginPct: null,
-      growthPathFamily: "linear-fade-to-terminal", baseRevenueGrowthPct: baseG1,
-      impliedGrowthPathPct: fadePath(root, finalGrowth, n), notes, gaps };
+      growthPathFamily: "convergent-shift-to-terminal", baseRevenueGrowthPct: baseG1,
+      impliedGrowthPathPct: shiftedPath(root), notes, gaps };
   };
 
   const solveMargin = (): ReverseDcfResult | null => {
@@ -1639,7 +2013,7 @@ export function reverseDcf(
       `market-implied steady-state (terminal) EBIT margin, fading from current ${fmtNum(m0)}% over ${n} years; growth path frozen at base case`,
     );
     return { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: root,
-      growthPathFamily: "linear-fade-to-terminal", baseRevenueGrowthPct: baseG1,
+      growthPathFamily: "convergent-shift-to-terminal", baseRevenueGrowthPct: baseG1,
       impliedGrowthPathPct: null, notes, gaps };
   };
 

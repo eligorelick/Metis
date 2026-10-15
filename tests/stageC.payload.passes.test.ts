@@ -727,13 +727,20 @@ describe("payload determinism + provenance", () => {
       // numeric registries, IDs, projection periods and figure labels stay pinned.
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
-      fingerprint: "1.22.0:19176142",
-      promptBytes: 123_057,
-      provenanceCount: 499,
-      provenanceHash: "1062dc43",
-      provenanceIdsHash: "2fdc2d40",
-      citationCount: 65,
-      citationHash: "13b5b365",
+      // 1.23.0 (D-57, D-58): the fixture's USD listing matches its USD
+      // statements, so its uncurrencied rows inherit USD: 4 estimate rows, 3
+      // price targets, 2 peer caps and 1 compensation total become numeric
+      // records (499 -> 509) and their 5 unestablished tags leave the citation
+      // registry (65 -> 60). Prompt bytes grow by the "(USD, inherited)"
+      // markers, the section notes, the new prompt line and the year-one
+      // anchor text; financeHash moves with the anchored, convergent DCF.
+      fingerprint: "1.23.0:9286b6ab",
+      promptBytes: 124_473,
+      provenanceCount: 509,
+      provenanceHash: "fdce37db",
+      provenanceIdsHash: "49e12832",
+      citationCount: 60,
+      citationHash: "0fa208f0",
       computedFigureLabelHash: "6f26c6db",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
@@ -748,7 +755,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "b17cac56",
+      financeHash: "0628a0b7",
     });
   });
 
@@ -872,7 +879,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.22.0");
+    expect(first.payloadVersion).toBe("1.23.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2350,7 +2357,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.17.0");
+    expect(report.meta.specVersion).toBe("1.18.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

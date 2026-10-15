@@ -60,6 +60,11 @@ export interface NumericProvenanceRecord {
   value: number;
   unit: CanonicalUnit;
   currency: string | null;
+  /**
+   * D-57: the source row carried no currency; `currency` is the issuer's,
+   * inherited because the statements and the listing agree (not an ADR).
+   */
+  currencyBasis?: "inherited";
   period: string | null;
   periodContext?: PeriodContext;
   /**

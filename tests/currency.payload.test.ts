@@ -6,9 +6,9 @@
  *  - the quote and price technicals: the listing's trading currency;
  *  - Stage B values computed from the statements (FCF, DCF / excess-return per
  *    share, projections): the statements' / model's currency;
- *  - analyst estimates and price targets carry no currency of their own. The
- *    provider states them either in the listing or in the reporting currency,
- *    so a code is established only when the two agree;
+ *  - analyst estimates and price targets carry no currency of their own. They
+ *    inherit the issuer's currency only when the reporting and the listing
+ *    currencies agree and the issuer is not an ADR (D-57), and say so;
  *  - anything else stays unknown.
  *
  * An unknown currency stays unknown through assembly, registration (a monetary
@@ -84,21 +84,21 @@ describe("payload registration: each figure's own currency evidence", () => {
     });
     // FY2025: OCF 220 + capex -40 - SBC 10.
     expect(computed.capital.fcf.latestFcf).toBe(170 * M);
-    // Estimates and targets carry no currency of their own: a listing that
-    // matches the statements is not evidence (product decision 2026-09-30;
-    // until then they were registered in the shared currency). See
-    // tests/currency.analystEstimates.test.ts for rows that state their own.
-    expect(figure(payload, "est revenue 2026-12-31")).toMatchObject({ value: 1300 * M, currency: null });
-    expect(record(payload, "est revenue 2026-12-31")).toBeUndefined();
-    expect(record(payload, "est EPS 2026-12-31")).toBeUndefined();
-    expect(record(payload, "price target consensus")).toBeUndefined();
+    // Estimates and targets carry no currency of their own: with the listing
+    // and the statements agreeing they inherit USD, marked as inherited (D-57,
+    // which replaced D-28's own-row-only rule).
+    expect(figure(payload, "est revenue 2026-12-31")).toMatchObject({ value: 1300 * M, currency: "USD", currencyInherited: true });
+    expect(record(payload, "est revenue 2026-12-31")).toMatchObject({ currency: "USD", currencyBasis: "inherited" });
+    expect(record(payload, "est EPS 2026-12-31")).toMatchObject({ currency: "USD", currencyBasis: "inherited" });
+    expect(record(payload, "price target consensus")).toMatchObject({ value: 120, currency: "USD", currencyBasis: "inherited" });
+    expect(record(payload, "DCF per share")?.currencyBasis).toBeUndefined();
   });
 
   it("control: a JPY listing reporting in JPY registers JPY and nothing in USD", () => {
     const { computed, payload } = assemble(JPY);
     expect(record(payload, "price")?.currency).toBe("JPY");
     expect(record(payload, "DCF per share")).toMatchObject({ value: dcfPerShare(computed), currency: "JPY" });
-    expect(record(payload, "est revenue 2026-12-31")).toBeUndefined();
+    expect(record(payload, "est revenue 2026-12-31")).toMatchObject({ currency: "JPY", currencyBasis: "inherited" });
     expect(payload.provenanceRegistry!.filter((r) => r.currency === "USD")).toEqual([]);
   });
 
@@ -194,7 +194,7 @@ describe("verification and rendering of an unknown-currency figure", () => {
   it("the prompt states each money figure's currency, and says unknown rather than implying one", () => {
     const usdPrompt = serializePayloadForPrompt(assemble(USD).payload);
     expect(usdPrompt).toMatch(/- DCF per share: [\d.]+ currency\/share \(USD\) \[/);
-    expect(usdPrompt).toMatch(/- est revenue 2026-12-31: \d+ currency \(currency unknown\) \[/);
+    expect(usdPrompt).toMatch(/- est revenue 2026-12-31: \d+ currency \(USD, inherited\) \[/);
 
     const prompt = serializePayloadForPrompt(assemble(UNKNOWN_STATEMENTS).payload);
     expect(prompt).toMatch(/- price: 100 currency\/share \(USD\) \[/);

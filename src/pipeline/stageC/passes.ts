@@ -40,7 +40,7 @@ import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
-import type { MultipleKey } from "@/pipeline/stageB/valuation";
+import { isStartingGrowthFamily, type MultipleKey } from "@/pipeline/stageB/valuation";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { guardEarningsReferences } from "@/report/earningsReferences";
@@ -3259,7 +3259,7 @@ export function applyReverseDcf(
   ) {
     const r = computedValuation.reverseDcf;
     if (r.method === "growth") {
-      impliedMetric = r.growthPathFamily === "linear-fade-to-terminal"
+      impliedMetric = isStartingGrowthFamily(r.growthPathFamily)
         ? "starting revenue growth (fades to terminal rate)"
         : "revenue growth (path family unavailable)";
       impliedValue = r.impliedRevenueGrowthPct;

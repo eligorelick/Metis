@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDcfAssumptions, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
+import { buildDcfAssumptions, convergentFadeWeights, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
 import { computeProjections, perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -88,9 +88,13 @@ describe("report audit valuation regressions", () => {
     expect(result.impliedRevenueGrowthPct).toBeNull();
     expect(result.gaps.some(g => g.field === "valuation.reverseDcf.growthBracket")).toBe(true);
   });
-  it("recovers a different market-implied anchor using the same fading terminal growth", () => {
+  it("recovers a different market-implied anchor on the same convergent-shift path family (D-58)", () => {
     const { a, opts } = fixture();
-    const price = runDcf({ ...a, growthPath: { value: fadePath(18.25, 2.5, 10), basis: "sensitivity" } }, opts).perShare!;
+    // The family is the base path with year one moved to g and every later
+    // year moved by (g − base) × its convergent fade weight.
+    const w = convergentFadeWeights(10);
+    const shifted = a.growthPath.value.map((g, i) => g + (18.25 - 12) * w[i]);
+    const price = runDcf({ ...a, growthPath: { value: shifted, basis: "sensitivity" } }, opts).perShare!;
     const result = reverseDcf(price, a, opts);
     expect(result.impliedRevenueGrowthPct).toBeCloseTo(18.25, 2);
     expect(result.baseRevenueGrowthPct).toBe(12);

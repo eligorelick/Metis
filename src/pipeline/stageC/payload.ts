@@ -31,7 +31,7 @@ import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
-import { estimateCurrency } from "@/pipeline/estimateCurrency";
+import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -114,6 +114,11 @@ export interface PayloadFigure {
   value: number | string | null;
   unit: string;
   currency: string | null;
+  /**
+   * D-57: the row carries no currency of its own and `currency` is the
+   * issuer's, inherited. Rendered "(USD, inherited)" and kept on the record.
+   */
+  currencyInherited?: true;
   period: string | null;
   periodContext?: PeriodContext;
   source: string;
@@ -291,7 +296,10 @@ export interface ContextPayload {
 // material filing context and distinct filing dates; prior passes cannot resume.
 // 1.22.0 (D-56 review): actual envelope/row/field statement origins; passes
 // built under normalized FMP-only origin labels cannot resume as equivalent.
-export const PAYLOAD_VERSION = "1.22.0" as const;
+// 1.23.0 (D-57, D-58): estimates, targets, peer caps and pay inherit the
+// issuer currency when reporting and listing agree; the DCF evidence sent to
+// analysts changes with the year-one anchor. Prior passes cannot resume.
+export const PAYLOAD_VERSION = "1.23.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -397,7 +405,9 @@ export function formatFigure(f: PayloadFigure): string {
   // never left to assume one (the listing's, or dollars).
   const canonical = f.value === null ? null : canonicalizeTracedUnit(f.unit, null);
   const monetary = canonical?.unit === "currency" || canonical?.unit === "currency-per-share";
-  const currency = monetary && canonical?.currency === null ? ` (${f.currency ?? "currency unknown"})` : "";
+  const currency = monetary && canonical?.currency === null
+    ? ` (${f.currency === null ? "currency unknown" : f.currencyInherited ? `${f.currency}, inherited` : f.currency})`
+    : "";
   const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
   return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.asOf)}${periodContext}`;
 }
@@ -1171,37 +1181,57 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
  * ------------------------------------------------------------------------ */
 
 /**
- * Analyst estimates and price targets are money in the currency their OWN row
- * states (estimateCurrency), or a documented provider convention — FMP
- * documents none. A listing currency that matches the statements' is not
- * evidence. Anything else stays unknown: rendered as such to the model and
- * never registered, so no citation of it verifies in any currency.
+ * The currency fields of a provider row: its own, else the issuer currency it
+ * inherits (D-57), marked so the prompt and the registry disclose it.
  */
-function estimatesSection(bundle: DataBundle): PayloadSection {
+function rowCurrency(
+  row: object | null | undefined,
+  issuer: InheritedIssuerCurrency,
+): Pick<PayloadFigureInput, "currency" | "currencyInherited"> {
+  const { code, inherited } = providerRowCurrency(row, issuer);
+  return inherited ? { currency: code, currencyInherited: true } : { currency: code };
+}
+
+/** One note per section whose money rows rely on the inheritance rule. */
+function inheritanceNote(figures: readonly PayloadFigureInput[], issuer: InheritedIssuerCurrency): string[] {
+  if (figures.some((f) => f.currencyInherited)) return [`Money rows marked "inherited": currency ${issuer.basis}.`];
+  const unknownMoney = figures.some((f) => f.value !== null && f.currency === null && /^currency/.test(f.unit));
+  return unknownMoney ? [`Money rows shown "(currency unknown)": the issuer currency was ${issuer.basis}.`] : [];
+}
+
+/**
+ * Analyst estimates and price targets are money in the currency their OWN row
+ * states (estimateCurrency), else in the issuer currency they inherit when the
+ * statements and the listing agree and the issuer is not an ADR (D-57).
+ * Anything else stays unknown: rendered as such to the model and never
+ * registered, so no citation of it verifies in any currency.
+ */
+function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
   for (const e of est) {
-    const currency = estimateCurrency(e);
+    const currency = rowCurrency(e, issuer);
     const candidatePeriod = isoDay(e.date);
     const period = isFullIsoDate(candidatePeriod) ? candidatePeriod : null;
     const periodLabel = period ?? "unknown";
     figures.push(
-      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
-      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
+      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
+      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
     );
   }
   const ptc = firstRow(bundle.priceTargetConsensus);
   const ptcAsOf = bundle.priceTargetConsensus.ok ? bundle.priceTargetConsensus.value.asOf : null;
   if (ptc) {
-    const currency = estimateCurrency(ptc);
+    const currency = rowCurrency(ptc, issuer);
     figures.push(
-      { label: "price target consensus", value: numOrNull(ptc.targetConsensus), unit: "currency/share", currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
-      { label: "price target high", value: numOrNull(ptc.targetHigh), unit: "currency/share", currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
-      { label: "price target low", value: numOrNull(ptc.targetLow), unit: "currency/share", currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
+      { label: "price target consensus", value: numOrNull(ptc.targetConsensus), unit: "currency/share", ...currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
+      { label: "price target high", value: numOrNull(ptc.targetHigh), unit: "currency/share", ...currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
+      { label: "price target low", value: numOrNull(ptc.targetLow), unit: "currency/share", ...currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
     );
   }
+  notes.push(...inheritanceNote(figures, issuer));
   const grades = firstRow(bundle.gradesConsensus);
   if (grades) {
     notes.push(
@@ -1235,17 +1265,23 @@ function nextEarningsNote(bundle: DataBundle): string | null {
   return `next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): ${date} [${source}:earnings-calendar · ${asOf}]`;
 }
 
-function peersSection(bundle: DataBundle): PayloadSection {
+/**
+ * FMP's stock-peers list draws peers from the subject's own exchange, so a
+ * peer market cap without a currency inherits the subject's listing currency
+ * under the same D-57 rule (which requires it to equal the reporting one).
+ */
+function peersSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
   const peers = rowsOf(bundle.peers).slice(0, PAYLOAD_BUDGETS.listRows);
   const asOf = bundle.peers.ok ? bundle.peers.value.asOf : null;
   const figures: PayloadFigureInput[] = peers.map((p) => ({
     label: `${strOrNull(p.symbol) ?? "?"} — ${strOrNull(p.companyName) ?? "?"}`,
     value: numOrNull(p.mktCap),
     unit: "currency mkt cap",
+    ...rowCurrency(p, issuer),
     source: "fmp:stock-peers",
     asOf,
   }));
-  return payloadSection({ title: "Peers", figures, notes: [] });
+  return payloadSection({ title: "Peers", figures, notes: inheritanceNote(figures, issuer) });
 }
 
 function insidersSection(bundle: DataBundle): PayloadSection {
@@ -1315,7 +1351,7 @@ function institutionalSection(bundle: DataBundle): PayloadSection {
   });
 }
 
-function leadershipSection(bundle: DataBundle): PayloadSection {
+function leadershipSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const execAsOf = bundle.executives.ok ? bundle.executives.value.asOf : null;
@@ -1333,11 +1369,13 @@ function leadershipSection(bundle: DataBundle): PayloadSection {
       label: `comp ${strOrNull(c.nameAndPosition) ?? "?"} FY${numOrNull(c.year) ?? "?"}`,
       value: numOrNull(c.total),
       unit: "currency",
+      ...rowCurrency(c, issuer),
       source: "fmp:executive-compensation",
       asOf: isoDay(c.filingDate),
     });
   }
   void execAsOf;
+  notes.push(...inheritanceNote(figures, issuer));
   return payloadSection({ title: "Leadership & compensation", figures, notes });
 }
 
@@ -1765,6 +1803,7 @@ function attachProvenanceRegistry(
       value: figure.value,
       unit,
       currency: resolvedCurrency,
+      ...(figure.currencyInherited && resolvedCurrency !== null ? { currencyBasis: "inherited" as const } : {}),
       period: figure.period,
       ...(figure.periodContext === undefined ? {} : { periodContext: figure.periodContext }),
       asOf,
@@ -2048,6 +2087,14 @@ export function assembleContextPayload(
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
   // resolved them. Each figure below takes only the one its evidence supports.
   const currencies = statementCurrencies(bundle);
+  // D-57: the one currency single-currency provider rows (estimates, targets,
+  // peer caps, compensation) inherit when they carry none — the same rule
+  // Stage B applied to the analyst-consensus growth case.
+  const issuer = inheritedIssuerCurrency({
+    reporting: currencies.model,
+    listing: currencies.trading,
+    isAdr: computed.route.overlays.includes("adr") || profile?.isAdr === true,
+  });
 
   // Validation flags = failed/skipped checks + the flags array (data-quality
   // signals the model should weigh). Deterministically ordered.
@@ -2088,11 +2135,11 @@ export function assembleContextPayload(
     quote: quoteSection(bundle, currencies.trading),
     computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle)),
     statements: statementExtracts(bundle),
-    estimates: estimatesSection(bundle),
-    peers: peersSection(bundle),
+    estimates: estimatesSection(bundle, issuer),
+    peers: peersSection(bundle, issuer),
     insiders: insidersSection(bundle),
     institutional: institutionalSection(bundle),
-    leadership: leadershipSection(bundle),
+    leadership: leadershipSection(bundle, issuer),
     shortInterest: shortInterestSection(bundle),
     segments: segmentsSection(bundle),
     macro: macroSection(bundle),

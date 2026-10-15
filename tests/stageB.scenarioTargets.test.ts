@@ -291,9 +291,10 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
   });
 
   it("floors a negative bear per-share at 0 and caps upside at −100%, disclosed", () => {
-    // netDebt 4200 sits between the −σ (bear) enterprise value and the base EV, so
-    // the raw bear equity bridge is negative (≈ −$0.99/sh pre-fix).
-    const { assumptions, dcf } = buildDcfWithNetDebt(4200);
+    // netDebt 3800 sits between the −σ (bear) enterprise value and the base EV
+    // (3,995 under the D-58 convergent fade; 4,200 sat there under the linear
+    // fade), so the raw bear equity bridge is negative.
+    const { assumptions, dcf } = buildDcfWithNetDebt(3800);
     const valuation: ValuationResult = {
       kind: "dcf", route: "general", assumptions, dcf, sensitivity: null, reverseDcf: null,
       multiples: { multiples: [], enterpriseValue: { value: null, excludingLeases: null, includingLeases: null, leaseLiability: null, includeLeases: false, basis: "test" }, sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },

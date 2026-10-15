@@ -170,14 +170,29 @@ the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
-**Analyst-estimate currency.** `src/pipeline/estimateCurrency.ts` requires the
-estimate row's own `reportedCurrency`/`currency` or a documented provider
-convention. The provider-convention constant is currently null. A matching
-listing currency does not establish an estimate's currency. All estimate rows
-must share the model currency to enter the consensus growth method; otherwise
-they are disclosed as currency unknown or incompatible and excluded. Monetary
-estimate/target fields with unknown currency cannot become verified money
-merely because they are present in the payload.
+**Provider rows without a currency (D-57).** FMP's analyst-estimate,
+price-target, stock-peer and executive-compensation rows carry no currency
+field. `src/pipeline/estimateCurrency.ts` gives each row its own
+`reportedCurrency`/`currency` when it has one. Otherwise the row inherits the
+issuer's currency, but only when three things agree:
+
+- the reporting currency the statements establish (the model currency);
+- the listing currency on the profile;
+- the issuer is not an ADR.
+
+An ADR's provider rows may be per receipt in the listing currency or per
+ordinary share in the reporting currency, so inheritance is withheld. It is
+also withheld when the reporting and listing currencies differ, or when either
+is unknown. An inherited figure is rendered "(USD, inherited)" in the AI
+payload, its registry record carries `currencyBasis: "inherited"`, and the
+`valuation.analystEstimates.currency` manifest entry says the estimates were
+inherited. Stock-peer market caps inherit the subject's currency because FMP
+draws peers from the subject's own exchange. All estimate rows must resolve to
+the model currency to enter the consensus growth method and the year-one
+revenue anchor. A row in another currency is excluded, as is a row whose
+currency stays unknown, and no FX conversion is attempted. D-57 replaces
+D-28's own-row-only rule, which discarded USD consensus, peer sizes and
+executive pay for a USD issuer (NVDA report #34).
 
 These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/stageB.ttm.compute.test.ts`, `tests/currency.quarterEvidence.test.ts`,
@@ -308,11 +323,56 @@ its measured span, e.g. "measured span 2.00 years, not the 3-year window". With
 two annual years of history both windows are excluded rather than counting one
 two-year rate twice. The degraded CAGR series is still displayed with its span.
 
-The median is then **clamped to [−10%, +25%]**, and the anchor the report
-prints is the clamped value — the same number the growth path fades from.
-When the clamp moves it, the anchor's basis says so, the growth-path basis
-repeats it, and the assumption row reads "25.0% (…, clamped from the 65.0%
-median)". Nothing prints the pre-clamp median as if it were the anchor.
+The median is then **clamped to [−10%, +25%]**. The report prints the clamped
+value as the "near-term growth rate", and the year-one revenue anchor below
+uses that value. When the clamp moves it, the rate's basis says so, the
+growth-path basis repeats it, and the assumption row reads "25.0% (…, clamped
+from the 65.0% median)". Nothing prints the pre-clamp median as if it were the
+rate.
+
+### Year-one revenue anchor (D-58)
+
+Year-one revenue is the 12 months after the TTM end. It comes from the first
+available of three sources:
+
+1. **Management guidance** for the next fiscal quarter
+   (`DcfAssumptionInputs.guidance`). The guided quarter is annualized (× 4) and
+   carried 4.5 months, from the guided quarter's midpoint to the year-one
+   window's midpoint, at the near-term growth rate. Guidance must end 80–100
+   days after the TTM and be published after it. A guided operating margin, if
+   present, sets the year-one margin. No 8-K outlook is ingested yet, so this
+   source is empty until that work lands.
+2. **Analyst consensus**, calendarized to the year-one window. Each
+   fiscal-year estimate is spread evenly over its days and weighted by its
+   overlap with the window. A 52/53-week year starts the day after the previous
+   estimate's year end. The estimates must cover at least 97% of the window.
+3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
+   the year-one midpoint at the near-term growth rate.
+
+The **run-rate** is the latest quarter annualized, made seasonally neutral.
+Latest quarter × 4 overstates a seasonal peak quarter and understates a
+trough. So the run-rate is the TTM carried 4.5 months forward at the latest
+quarter's year-over-year growth, which has no seasonal component, bounded by
+the TTM and latest quarter × 4. It needs the same fiscal quarter a year
+earlier (350–380 days before), established in the model currency. Without one,
+the anchor falls back to the pre-D-58 rule: TTM revenue grown one year at the
+near-term growth rate.
+
+**The near-term clamp bounds year-one revenue to [−10%, +25%] of the
+run-rate.** The run-rate is the latest evidenced level, and a fast grower's
+TTM already sits a quarter or more behind it. Without a run-rate the clamp is
+measured against the TTM. When the clamp binds, the anchor row prints both
+values.
+
+**Year two** takes the consensus growth between the year-one and year-two
+calendarized windows, when the estimates cover both. It is bounded to [−10%,
+max(25%, year-one growth)]: consensus may not re-accelerate past both the
+house ceiling and year one.
+
+On NVDA report #34's inputs, the old rule put year-one revenue at $378.7B
+(TTM × 1.25), below the latest quarter × 4 ($384.9B). The run-rate anchor
+gives $442.5B. Consensus ($547.9B calendarized) is clamped to $481.1B, and
+Q3 FY2027 guidance ($108.0B) gives $469.7B (tests/stageB.dcfAnchoring.test.ts).
 
 **Three of the four methods read the same series.** The regression, the 3-year
 CAGR and the 5-year CAGR are all functions of the same annual revenue history,
@@ -338,21 +398,47 @@ regression's R² is where an erratic history now shows up.
 ## Fade and horizon
 
 The explicit horizon is **10 years**, stated in years in the assumption block.
-Growth fades linearly from the anchor in year 1 to the terminal rate in year
-10. The EBIT margin fades from the current margin to a target over 5 years and
-is held flat thereafter; the target is the five-year median, or the better/
-worse of median and current under a dated improving/declining margin regime
-(a slope of more than ±0.5pp per year). The tax rate fades from the observed
-effective rate to the company's own historical median; when no current rate
-can be observed (a pre-tax loss, a missing tax line) the path is held at that
-median and the basis says so. Cash flows are discounted on the **mid-year
-convention**.
 
-**Two guards bound the paths.** The EBIT-margin path is held inside
-[−20%, ceiling], where the ceiling is 45% or the highest margin in the
-issuer's own five-year history, whichever is higher — a cap that never binds
-below a margin the company has demonstrably earned (the TTM figure is not
-evidence for its own cap), and one note when it binds. Sales-to-capital is
+**Growth path (D-58).** Year one, and year two when consensus covers it, come
+from the year-one revenue anchor. Every later year follows a **convergent
+fade** from the last anchored year's growth to the terminal rate in year 10:
+the gap to the terminal rate halves every `GROWTH_FADE_HALF_LIFE_YEARS` = 3
+years, rescaled to reach the terminal rate exactly in year 10. Chan, Karceski
+and Lakonishok (2003) find growth beyond one or two years is not persistent,
+so the gap should close fastest at the start. The former linear fade from
+year one kept a +78% consensus year one above 50% growth for four years. The
+half-life is a house convention pending the backtest in RESEARCH §8.2.
+
+**Margin path.** The EBIT margin starts at the current margin: guided, else
+TTM, else the five-year median. It fades to a target over 5 years and is held
+flat thereafter. The target is the five-year median, or the better/worse of
+median and current under a dated improving/declining margin regime (a slope of
+more than ±0.5pp per year).
+
+**Tax path (D-58).** The tax rate fades from the observed effective rate to a
+terminal rate. The terminal rate is the company's own historical median,
+floored at max(statutory marginal rate, 15% global minimum tax). The
+statutory rates come from `STATUTORY_MARGINAL_TAX_PCT`, which lists only
+sourced national rates: US 21%, 26 U.S.C. §11(b), excluding state taxes. The
+15% floor is the OECD Pillar Two GloBE minimum. A below-statutory effective
+rate (credits, deferrals, preferential regimes) is not carried in perpetuity:
+Damodaran moves the terminal rate toward the marginal rate. NVDA's 8.93%
+historical median becomes a 21% terminal rate. A company whose own median is
+higher keeps it. When no current rate can be observed (a pre-tax loss, a
+missing tax line), the path is held at the terminal rate and the basis says
+so.
+
+Cash flows are discounted on the **mid-year convention**.
+
+**Two guards bound the paths.** The EBIT-margin **target** is held inside
+[−20%, ceiling]. The ceiling is 45% or the highest annual margin in the
+issuer's own five-year history, whichever is higher, so the cap never binds
+below a margin the company has demonstrably earned. D-58 applies the ceiling
+to the margin the path fades to (year 5 onward and the terminal year), not to
+year one. Year one may sit above it unless it exceeds 100%, which no real
+operating margin can. The basis is written after the cap and names the cap
+that bound. NVDA report #34 printed "held flat at current 65.21%" beside a
+62.42% path; the path now runs 65.21% → 62.42% by year 5. Sales-to-capital is
 held inside [0.5, 5]. Both are broken-input guards in the sense of
 [RESEARCH §7.5](RESEARCH.md), not views on what a company can earn: they exist
 so that a mis-scaled statement cannot print a confident number.
@@ -1319,12 +1405,17 @@ inside the 1.5pp Gordon guard is null, rather than moved to a different growth
 rate. Sensitivity growth is an axis experiment; it is not a new base-case
 terminal-growth recommendation.
 
-The **reverse DCF** first searches constant explicit-horizon revenue growth
-over [−20%, 60%], retaining the base margins, taxes, sales-to-capital, terminal
-assumptions and bridge. This constant growth is a different path from the
-forward DCF's fading growth and is labeled accordingly. A 17-point prescan
-finds exact roots or sign-change intervals; multiple branches choose the
-interval nearest base year-one growth. Bisection stops at 0.01pp interval
+The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
+widened to base year-one growth + 30pp when that is higher. It retains the
+base margins, taxes, sales-to-capital, terminal assumptions and bridge. The
+path family is `convergent-shift-to-terminal` (D-58). Year one moves to the
+solved rate, and every later year moves by the same amount times its
+convergent fade weight, so the shift is gone by year 10. The base path is the
+family member at base year-one growth, so implied minus base year-one growth
+(the `reverseImpliedVsAchievable` grading signal) compares like with like.
+Reports stored before D-58 carry `linear-fade-to-terminal` and are read as
+written. A 17-point prescan finds exact roots or sign-change intervals;
+multiple branches choose the interval nearest base year-one growth. Bisection stops at 0.01pp interval
 width, 80 iterations, or valuation error under 0.05% of price. A non-positive
 year-one base FCFF skips that inversion; no growth root also falls back to
 solving a terminal EBIT margin in [0%, 60%], with a margin fade over the full

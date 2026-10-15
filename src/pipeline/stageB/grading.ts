@@ -35,7 +35,7 @@ import type { CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
-import type { ValuationResult } from "@/pipeline/stageB/valuation";
+import { isStartingGrowthFamily, type ValuationResult } from "@/pipeline/stageB/valuation";
 import type { Grade } from "@/types/core";
 import type {
   AspectScore,
@@ -742,10 +742,10 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         : null;
     valuationSignals.push({ name: "dcfUpside", raw: upside, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
     const impliedG = valuation.reverseDcf?.impliedRevenueGrowthPct ?? null;
-    // The reverse solve and this anchor must describe the SAME fading path.
+    // The reverse solve and this anchor must describe the SAME path family.
     // A historical CAGR is not an achievable constant-horizon forecast.
-    const achievable = valuation.reverseDcf?.growthPathFamily === "linear-fade-to-terminal"
-      ? valuation.reverseDcf.baseRevenueGrowthPct ?? valuation.assumptions?.growthPath.value[0] ?? null
+    const achievable = isStartingGrowthFamily(valuation.reverseDcf?.growthPathFamily)
+      ? valuation.reverseDcf?.baseRevenueGrowthPct ?? valuation.assumptions?.growthPath.value[0] ?? null
       : null;
     const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable : null;
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: impliedVsAchievable, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });

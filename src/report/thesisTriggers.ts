@@ -6,6 +6,7 @@
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ThesisTrigger, TracedNumber } from "@/report/schema";
 import { establishedCurrency } from "@/report/format";
+import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -27,14 +28,17 @@ export function buildThesisTriggers(
     "The current quote, net debt, other senior claims and diluted share count remain fixed.",
   ];
   if (validHorizon && reverse?.method === "growth" && finite(reverse.impliedRevenueGrowthPct)) {
-    const fades = reverse.growthPathFamily === "linear-fade-to-terminal";
+    const fades = isStartingGrowthFamily(reverse.growthPathFamily);
+    const linear = reverse.growthPathFamily === "linear-fade-to-terminal";
     triggers.push({
       id: "reverse-growth",
       metric: fades ? "Supported starting annual revenue growth" : "Supported constant annual revenue growth",
       comparator: "below",
       threshold: reverseThreshold(reverse.impliedRevenueGrowthPct),
       horizon: fades
-        ? `Starting annual growth, with a linear fade to the base model's final growth rate across ${years} explicit forecast years`
+        ? linear
+          ? `Starting annual growth, with a linear fade to the base model's final growth rate across ${years} explicit forecast years`
+          : `Starting annual growth, with the base path's later years shifted by the same amount, fading out by the base model's final growth rate across ${years} explicit forecast years`
         : `Across all ${years} explicit forecast years, with constant growth and no fade`,
       fixedAssumptions: [...commonFixed, "The operating-margin path remains at the base case."],
       consequence: "If revised evidence supports growth below this price-implied threshold, reassess the valuation case and recompute the reverse DCF. This is a conditional model comparison, not a next-period growth target or a predicted price change.",

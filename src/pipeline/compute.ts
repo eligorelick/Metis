@@ -12,7 +12,7 @@
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { validateBundle, type ValidationReport, type ValidatableBundle } from "@/pipeline/stageA/validate";
-import { estimateCurrency } from "@/pipeline/estimateCurrency";
+import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
@@ -101,6 +101,7 @@ import {
   type ValuationBundleInputs,
   type DcfAssumptionInputs,
   type DcfIncomeRow,
+  type DcfQuarterRevenue,
   type DcfBalanceRow,
   type AnalystEstimateRow,
   type MultiplesFrameworkInputs,
@@ -2513,11 +2514,18 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   // --- DCF inputs (general route) -------------------------------------------
   // The analyst-consensus growth case divides FY1 estimated revenue by the
-  // statements' revenue, and FY2 by FY1: estimates enter only when their OWN
-  // currency (estimateCurrency — never a matching listing currency) is the
-  // model's. Otherwise the case is unavailable and the anchor uses the rest.
+  // statements' revenue, and FY2 by FY1: estimates enter only when their
+  // currency is the model's — the row's own, else the issuer currency they
+  // inherit when the statements and the listing agree (D-57). Otherwise the
+  // case is unavailable and the anchor uses the rest.
+  const issuerCurrency = inheritedIssuerCurrency({
+    reporting: ctx.modelCurrency,
+    listing: str(profile?.currency),
+    isAdr: route.overlays.includes("adr") || profile?.isAdr === true,
+  });
   const estimateRows = rowsOf(bundle.analystEstimates);
-  const estimateCodes = [...new Set(estimateRows.map((r) => estimateCurrency(r)))];
+  const estimateResolved = estimateRows.map((r) => providerRowCurrency(r, issuerCurrency));
+  const estimateCodes = [...new Set(estimateResolved.map((r) => r.code))];
   const estimatesInModelCurrency =
     ctx.modelCurrency !== null && estimateCodes.length === 1 && estimateCodes[0] === ctx.modelCurrency;
   const estimateGaps: ManifestEntry[] = [];
@@ -2526,10 +2534,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       field: "valuation.analystEstimates.currency",
       reason:
         (estimateCodes.includes(null)
-          ? "analyst estimates carry no currency of their own and the provider documents no convention for them"
+          ? `analyst estimates carry no currency of their own and the issuer currency is ${issuerCurrency.basis}`
           : `analyst estimates are in ${estimateCodes.join("/")}`) +
-        ` while the model runs in ${ctx.modelCurrency ?? "an unestablished currency"} — a matching listing currency is not ` +
-        "evidence, so the analyst-consensus growth case is not used (no FX conversion is attempted)",
+        ` while the model runs in ${ctx.modelCurrency ?? "an unestablished currency"}, so the analyst-consensus ` +
+        "growth case is not used (no FX conversion is attempted)",
+      severity: "info",
+      attemptedSources: ["fmp:/stable/analyst-estimates"],
+    });
+  } else if (estimateResolved.some((r) => r.inherited)) {
+    estimateGaps.push({
+      field: "valuation.analystEstimates.currency",
+      reason: `analyst estimate currency ${issuerCurrency.basis}; the analyst-consensus growth case uses them in ${ctx.modelCurrency}`,
       severity: "info",
       attemptedSources: ["fmp:/stable/analyst-estimates"],
     });
@@ -2578,6 +2593,25 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         totalDebt: num(balPoint.totalDebt),
         totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
+      }
+    : null;
+
+  // D-58: the run-rate quarters — the TTM window's newest quarter and the same
+  // fiscal quarter a year earlier, the latter only when its own currency
+  // evidence establishes the model currency.
+  const latestQuarter = ttmInc ? incomeQuarterly.find((r) => isoDay(r.date) === ttmInc.date) : undefined;
+  const yearAgoQuarter = latestQuarter === undefined ? undefined : incomeQuarterly.find((r) => {
+    const days = (Date.parse(String(latestQuarter.date)) - Date.parse(String(r.date))) / SPREAD_DAYS;
+    return days >= 350 && days <= 380;
+  });
+  const yearAgoDate = yearAgoQuarter === undefined ? null : isoDay(yearAgoQuarter.date);
+  const dcfQuarterRevenue: DcfQuarterRevenue | null = ttmInc && latestQuarter
+    ? {
+        latest: { date: ttmInc.date, revenue: num(latestQuarter.revenue) },
+        yearAgo: yearAgoQuarter !== undefined && yearAgoDate !== null &&
+          establishedCurrencyOn([yearAgoQuarter], yearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
+          ? { date: yearAgoDate, revenue: num(yearAgoQuarter.revenue) }
+          : null,
       }
     : null;
 
@@ -2635,6 +2669,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // already flags — valueCompany suppresses the DCF on mismatch.
           reportedCurrency: ctx.modelCurrency,
           quoteCurrency: str(profile?.currency),
+          // D-58: year-one anchor and terminal tax floor evidence. No 8-K
+          // outlook is ingested yet, so the guidance anchor is empty.
+          quarterRevenue: dcfQuarterRevenue,
+          guidance: null,
+          domicileCountry: str(profile?.country),
         }
       : null;
 

@@ -41,6 +41,7 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
+import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
@@ -513,11 +514,11 @@ function reverseDcfNarrative(computed: ComputedMetrics): string {
   }
   const r = v.reverseDcf;
   if (r.method === "growth" && isNum(r.impliedRevenueGrowthPct)) {
-    const compare = r.growthPathFamily === "linear-fade-to-terminal" && isNum(r.baseRevenueGrowthPct)
+    const compare = isStartingGrowthFamily(r.growthPathFamily) && isNum(r.baseRevenueGrowthPct)
       ? ` Against base starting growth of ${fmtPct(r.baseRevenueGrowthPct)} on the same fading path, the starting-growth gap is ${fmtSignedPp(r.impliedRevenueGrowthPct - r.baseRevenueGrowthPct)}.`
       : "";
-    const path = r.growthPathFamily === "linear-fade-to-terminal"
-      ? "starting revenue growth, fading to the terminal rate over the explicit DCF horizon"
+    const path = isStartingGrowthFamily(r.growthPathFamily)
+      ? "starting revenue growth, converging to the terminal rate over the explicit DCF horizon"
       : "revenue growth (growth-path family unavailable)";
     return `The market price is consistent with ${fmtPct(r.impliedRevenueGrowthPct)} ${path}, with every other DCF input held at its base value.${compare} Deterministic solve; no completed narrative assessment is available.`;
   }
@@ -780,7 +781,7 @@ function synthesis(
   if (v.kind === "excess-return") parts.push(describeFinancialValuation(v.excessReturn.financialAssumptions));
   if (v.kind === "dcf" && v.reverseDcf?.method === "growth" && isNum(v.reverseDcf.impliedRevenueGrowthPct)) {
     parts.push(
-      `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} starting revenue growth${v.reverseDcf.growthPathFamily === "linear-fade-to-terminal" ? ", fading to the terminal rate over the explicit DCF horizon" : " (growth-path family unavailable)"}.`,
+      `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} starting revenue growth${isStartingGrowthFamily(v.reverseDcf.growthPathFamily) ? ", converging to the terminal rate over the explicit DCF horizon" : " (growth-path family unavailable)"}.`,
     );
   }
   const flags = computed.forensics.flags.length;

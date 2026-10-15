@@ -13,6 +13,80 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-57 (NVDA report #34 audit 2026-10-15) Single-currency provider rows inherit the issuer currency when nothing conflicts
+
+- **Options**: (a) keep D-28: an analyst estimate, price target, peer market
+  cap or compensation total is money only in a currency its own row states;
+  (b) inherit the listing currency for every such row; (c) inherit the
+  issuer's currency only when the statements' reporting currency and the
+  listing currency agree and the issuer is not an ADR, and withhold otherwise.
+- **Risks**: (a) discarded USD consensus, every peer size and all executive pay
+  for a USD-reporting, USD-listed issuer (NVDA report #34). Losing consensus
+  removed the only forward anchor for the DCF growth clamp. (b) mislabels an
+  ADR's per-receipt or per-ordinary-share figures. (c) can still be wrong if a
+  provider ever states a single-currency issuer's rows in a third currency;
+  no such case has been observed.
+- **Choice**: (c). `inheritedIssuerCurrency` and `providerRowCurrency` in
+  `src/pipeline/estimateCurrency.ts` are the one rule. Stage B's
+  analyst-consensus growth case, the year-one revenue anchor and the payload's
+  estimate, target, peer and compensation rows all use it. A row's own currency
+  always wins, and a row in another currency than the model's is still
+  excluded.
+- **Why**: the conflict D-28 guarded against is real only for ADRs and for
+  issuers whose reporting and listing currencies differ. For the rest, all
+  available evidence names one currency.
+- **Disclosure**: the payload renders inherited money as "(USD, inherited)"
+  with a section note naming the basis, and the registry record carries
+  `currencyBasis: "inherited"`. The info entry `valuation.analystEstimates.currency`
+  says the estimates were inherited, or why not. `PAYLOAD_VERSION` moves to
+  1.23.0 and `REPORT_SPEC_VERSION` to 1.18.0.
+
+## D-58 (NVDA report #34 audit 2026-10-15) Anchor the DCF's first years on evidence of the level; fade convergently; floor the terminal tax rate
+
+- **Problem** (audit P0-1, P0-3, P0-4, P2-7). NVDA's base case had four
+  defects:
+  - Year-one revenue was TTM × (1 + clamped 25%) = $378.7B, below the latest
+    quarter × 4 ($384.9B) and Q3 guidance × 4 ($432B).
+  - A linear fade from a consensus year one would have kept growth above 50%
+    for four years.
+  - The year-one margin was cut from the 65.2% TTM to the 62.4% best fiscal
+    year, under a basis text written before the cap ("held flat at current
+    65.21%").
+  - Terminal NOPAT was taxed at the 8.9% historical median, while the issuer
+    guides 16–18%.
+- **Options**: (a) keep the rules and add disclosure; (b) raise the clamp;
+  (c) take the year-one (and two) level from guidance, then consensus, then a
+  seasonally neutral run-rate, with the clamp measured against the run-rate.
+  Later years fade convergently from the last anchored year. The margin cap
+  binds the target, and the terminal tax is floored at max(statutory, 15%).
+- **Choice**: (c), in `buildDcfAssumptions`:
+  - **Run-rate**: the TTM carried 4.5 months at the latest quarter's
+    year-over-year growth, bounded by the TTM and the quarter × 4.
+  - **Consensus**: calendarized by day overlap.
+  - **Year two**: consensus growth bounded to [−10%, max(25%, year one)].
+  - **Fade**: the gap to terminal halves every 3 years.
+  - **Reverse DCF**: solves on the `convergent-shift-to-terminal` family,
+    which contains the base path.
+  - **Terminal tax**: the company median floored at
+    `max(STATUTORY_MARGINAL_TAX_PCT[domicile], 15%)` (US 21%).
+  - **Guidance**: `DcfAssumptionInputs.guidance` exists, but compute passes
+    null until 8-K outlooks are ingested.
+- **Why**: (b) moves the arbitrary number without fixing the level/slope
+  coupling. On report #34's inputs (tests/stageB.dcfAnchoring.test.ts and the
+  audit's replication), the old rules give $143.98. The new rules give $175.8
+  on the run-rate alone, $215.3 with Q3 guidance and $213–234 with consensus,
+  all including the 21% tax floor, which alone costs about 10%.
+- **Risks**: the three-year half-life and the run-rate clamp are unbacktested
+  house conventions (RESEARCH §8.7). The convergent fade lowers values for
+  steady growers whose year one equals their history by roughly 4–5% of
+  year-10 revenue against the linear fade. The tax floor raises taxes only
+  for issuers below it. Issuers with no year-ago quarter keep the pre-D-58
+  year one exactly.
+- **Disclosure**: a "year-one revenue anchor" assumption row (source, value,
+  the clamp when it binds) and notes when the clamp, the margin target cap or
+  the tax floor binds. The margin and tax bases name the values the paths
+  hold. Version stamps as D-57.
+
 ## D-56 (source evidence 2026-10-15) Preserve source periods and separate facts from opinion
 
 - **Research**: [XBRL](https://www.xbrl.org/dates-in-xbrl/) distinguishes instant

@@ -195,10 +195,20 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
     anchor.rangePct === null
       ? `${pct1(anchor.pointPct)} (single method${clampNote})`
       : `${pct1(anchor.pointPct)} (range ${pct1(anchor.rangePct[0])} – ${pct1(anchor.rangePct[1])}${clampNote})`;
+  // D-58: what set the year-one revenue level (guidance, consensus or run-rate).
+  const revenueAnchor = a.revenueAnchor;
+  const revenueAnchorRow: DcfAssumption[] = revenueAnchor === undefined
+    ? []
+    : [{
+        name: "year-one revenue anchor",
+        value: `${big(revenueAnchor.yearOneRevenue)} (${revenueAnchor.source}${revenueAnchor.clampedFrom === null ? "" : `, clamped from ${big(revenueAnchor.clampedFrom)}`})`,
+        basis: revenueAnchor.basis,
+      }];
   return [
     { name: "start revenue", value: big(a.startRevenue.value), basis: a.startRevenue.basis },
+    ...revenueAnchorRow,
     { name: "WACC (discount rate)", value: pct1(a.wacc.value), basis: a.wacc.basis },
-    { name: "near-term growth anchor (median of methods, after the house clamp)", value: anchorValue, basis: anchor.basis },
+    { name: "near-term growth rate (median of methods, after the house clamp)", value: anchorValue, basis: anchor.basis },
     { name: "revenue growth (yr1 → yrN)", value: `${pct1(g[0])} → ${pct1(g[g.length - 1])}`, basis: a.growthPath.basis },
     { name: "EBIT margin (yr1 → yrN)", value: `${pct1(m[0])} → ${pct1(m[m.length - 1])}`, basis: a.ebitMarginPath.basis },
     { name: "forecast tax rate (yr1 → yrN)", value: `${pct1(a.taxRatePath.value[0])} → ${pct1(a.taxRatePath.value.at(-1)!)}`, basis: `${a.taxRatePath.basis}; actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path.` },

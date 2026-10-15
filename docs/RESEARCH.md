@@ -1038,17 +1038,28 @@ requests but no paid inference.
 or two years is not persistent, so a valuation that carries a high near-term
 rate for long rests, in their words, on shaky foundations.
 
-**What the code has.** A ten-year linear fade from the anchor to the terminal
-rate, and an anchor that is the median of available methods among four
-candidates, three of which read
-the same filed history (METHODOLOGY *Growth anchor*). A 3y or 5y CAGR counts
-only when its measured span is its window (±0.25 years, D-39).
+**What the code has (D-58, 2026-10-15).** Year one, and year two when
+consensus covers it, come from evidence of the level: guidance, then
+calendarized consensus, then the seasonally neutral run-rate. Each is clamped
+to [−10%, +25%] of the run-rate (METHODOLOGY *Year-one revenue anchor*). Later
+years follow a convergent fade to the terminal rate with a three-year
+half-life. A 3y or 5y CAGR counts only when its measured span is its window
+(±0.25 years, D-39).
 
-**Verdict — keep, and let §8.2 test it.** The ten-year fade is the mainstream
-convention and the anchor is already biased toward the filed record over
-optimistic consensus, which the evidence supports. Fade length is one
-parameter the backtest can vary; changing it by hand first would be another
-unbacktested prior.
+**Verdict — changed before the backtest, on audit evidence.** The previous
+verdict here kept the ten-year linear fade until §8.2 could test it. The NVDA
+report #34 audit showed the linear fade failing both ways, from inputs the
+report itself disclosed:
+
+- Clamped at 25%, year-one revenue sat below the issuer's own latest quarter
+  × 4.
+- Unclamped from consensus, a linear fade from +78% kept growth above 50% for
+  four years.
+
+Anchoring the level on what the issuer already reports, and letting the slope
+decay fastest at the start, follows the CKL finding above more closely than
+either. The three-year half-life is still an unbacktested prior. It is the
+first parameter the §8.2 harness should vary, with the run-rate clamp second.
 
 ### 8.8 The forensic scores on growth stocks
 
@@ -1149,8 +1160,9 @@ each is weighed against the published evidence, with a verdict, in §8:
   chosen for defensibility, not fitted to anything. They are the two inputs a
   reader should override first if they disagree, which is why both are labelled
   in the report rather than buried here. §8.2 describes the point-in-time
-  backtest that could fit the scenario weights and the fade, and §8.7 why the
-  fade should wait for it.
+  backtest that could fit the scenario weights and the fade. §8.7 says why the
+  fade shape changed before it (D-58), and which of its parameters the
+  backtest should vary first.
 
 ## Literature review 2026-10-13: open owner decisions and rejected candidates
 
