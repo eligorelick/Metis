@@ -2745,6 +2745,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     balance: multiplesBalance,
     quarterlyFundamentals,
     enterpriseValuesHistory,
+    reitSubmap: route.reitSubmap,
     ffoApprox: route.base === "reit" ? ffoApprox : null,
     affoApprox: route.base === "reit" ? affoApprox : null,
     // The own-history P/FFO band can only be rebuilt as net income + D&A per

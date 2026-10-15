@@ -24,7 +24,7 @@ import { describeFinancialValuation, type FinancialValuationAssumptions } from "
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
-import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
+import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
 import {
   contiguousQuarterWindows,
@@ -1861,6 +1861,8 @@ export interface MultiplesFrameworkInputs {
   /** REIT-only: FFO/AFFO totals provided by the caller (labeled approximate upstream). */
   ffoApprox?: number | null;
   affoApprox?: number | null;
+  /** Explicitly undetermined subtype withholds equity-REIT current/history/peer multiples. */
+  reitSubmap?: ReitSubmap | null;
   /**
    * REIT-only: true when the CURRENT FFO is the plain net income + total D&A
    * construction — the only definition the own-history series can rebuild
@@ -2245,6 +2247,13 @@ export function multiplesFramework(
   const cf = inputs.cashFlowTtm;
   const bal = inputs.balance;
   const financialsRoute = route === "bank" || route === "insurer" || route === "reit-mortgage";
+  const ffoSubmapUndetermined = route === "reit" && inputs.reitSubmap === "undetermined";
+  const ffoSubmapReason =
+    "REIT sub-map is undetermined — P/FFO and P/AFFO require an evidenced equity REIT; current multiples, own-history bands and peer comparisons are withheld";
+  if (ffoSubmapUndetermined) {
+    notes.push(ffoSubmapReason);
+    gaps.push(gapEntry("valuation.multiples.reitSubmap", ffoSubmapReason, "warn"));
+  }
   // Every multiple here sets the quote (price, market cap, EV) against the
   // statements. Unless both are in one known currency none of them is a
   // figure, and neither is its rank in an own history built the same way:
@@ -2422,8 +2431,8 @@ export function multiplesFramework(
     priceToTbv: safeDiv(mcap, posOrNull(tbv)),
     evToEbitda: financialsRoute ? null : safeDiv(ev, posOrNull(ebitda)),
     evToSales: financialsRoute ? null : safeDiv(ev, revenue),
-    priceToFfo: safeDiv(mcap, posOrNull(inputs.ffoApprox)),
-    priceToAffo: safeDiv(mcap, posOrNull(inputs.affoApprox)),
+    priceToFfo: ffoSubmapUndetermined ? null : safeDiv(mcap, posOrNull(inputs.ffoApprox)),
+    priceToAffo: ffoSubmapUndetermined ? null : safeDiv(mcap, posOrNull(inputs.affoApprox)),
   };
   if (route === "reit" && posOrNull(inputs.ffoApprox) === null) {
     gaps.push(gapEntry("valuation.multiples.priceToFfo", "FFO (approx.) not provided by caller — P/FFO unavailable", "warn"));
@@ -2460,7 +2469,7 @@ export function multiplesFramework(
   // series no other route consumes.
   const derivedKeys: readonly MultipleKey[] = financialsRoute
     ? ["peTtm", "priceToBook"]
-    : route === "reit" ? [...DERIVED_HISTORY_KEYS, "priceToFfo", "priceToAffo"] : DERIVED_HISTORY_KEYS;
+    : route === "reit" && !ffoSubmapUndetermined ? [...DERIVED_HISTORY_KEYS, "priceToFfo", "priceToAffo"] : DERIVED_HISTORY_KEYS;
   // WS6 review (BLOCKER 2): the own-history EV must be built from the SAME
   // definition as the current one — the file's own invariant. `removeOperatingLease`
   // is true exactly when the current EV removed an operating-lease liability.
@@ -2611,6 +2620,9 @@ export function multiplesFramework(
     priceToAffo: "marketCap / AFFO (rough, caller-provided)",
   };
   const multiples: MultipleStat[] = keys.map((key) => {
+    if (ffoSubmapUndetermined && (key === "priceToFfo" || key === "priceToAffo")) {
+      return { key, current: null, basis: ffoSubmapReason, ownHistory: null, peers: null };
+    }
     if (financialsRoute && (key === "priceToFcf" || key === "evToEbitda" || key === "evToSales")) {
       return { key, current: null, basis: "Not applicable to financial companies: debt is an operating input and industrial free cash flow is not meaningful.", ownHistory: null, peers: null };
     }

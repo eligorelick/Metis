@@ -19,6 +19,11 @@ npm run reports:evaluate -- evaluate --snapshot data/evaluations/snapshots/SNAPS
 
 The CLI entry point is `node --import tsx scripts/evaluate-reports.ts`. `schema` prints the complete JSON Schemas for definitions and outcome files. Unknown, repeated, or incomplete arguments fail before output creation. The CLI does not allow a user-selected freeze timestamp.
 
+If an output write fails, its destination may contain incomplete data and is
+retained for inspection. The writer never deletes a pathname after failure:
+another operation could have replaced it. Inspect the failed output and choose
+a new destination for a retry.
+
 For cohorts across reports, `npm run research:evaluate -- frozen-evaluation.json result.json` adds paired baselines, chronological holdouts, issuer-cluster uncertainty, missingness and ablation diagnostics. Its separate contract is described in [methodology](METHODOLOGY.md#offline-outcome-evaluation). `research:replay` reproduces deterministic calculations from the acquired-input snapshot; `reports:evaluate` freezes the final report and its explicit comparison definitions. These snapshots serve different purposes and neither supplies missing historical outcomes.
 
 ## Snapshot definition
@@ -179,3 +184,94 @@ Snapshots created on the report's date are labeled `same-day-snapshot`; later re
 `src/report/evaluation.ts` exports `createEvaluationSnapshot(report, definition, frozenAt?)`, `verifyEvaluationSnapshot(snapshot)`, `evaluateReportSnapshot(snapshot, outcomes, asOf)`, the definition/outcome schemas and TypeScript result types. It has no filesystem or provider dependencies. The optional timestamp supports controlled tests; production callers should retain the default current time.
 
 `src/report/evaluationCli.ts` owns argument parsing and exclusive file creation. Tests exercise arithmetic with hand-derived values, identity/period/currency/basis/maturity exclusions, invalid values, snapshot integrity, input preservation and the executable schema command. No test requires live data.
+
+## Accounting-route regression panel
+
+```sh
+npm run test:product -- tests/research.routePanel.test.ts --maxWorkers=1
+```
+
+The panel exercises seven explicitly synthetic cases: general, bank, insurer,
+equity REIT, ADR, loss-making and pre-revenue companies. Each normalized bundle
+passes through the real Stage A validation, Stage B computation, data-only report
+builder, strict report parser and web/Markdown/print renderers. The tests check
+hand-derived financial values, applicable valuation and share bases, unavailable
+inputs, suppression, immutable inputs and repeatability. Network access fails the
+test; no analyst or synthesis pass runs.
+
+These are integration regressions on controlled inputs. They do not establish
+live-provider ingestion correctness, model prose quality, forecast accuracy or
+representativeness across real issuers. The computed burn/runway controls also do
+not imply that data-only reports expose a dedicated runway table.
+
+The panel caught and reproduces a separate multiples-path defect: an unknown
+REIT subtype could emit equity-only P/FFO and P/AFFO despite withholding the REIT
+valuation. The shared multiples boundary now suppresses those current,
+own-history and peer comparisons with an explicit gap. Supported equity-REIT
+values and the mortgage-REIT common-book route retain their own conventions.
+
+## Selected forecast adapter candidates
+
+`src/report/forecastAdapter.ts` supplies the standalone
+`adaptSelectedForecastV1(report, metadata, artifacts, requestedTarget?)` boundary.
+Its versioned metadata record names an exact deterministic projection path,
+value, source, observation day and annual window. Separate retained structured
+basis and method records must agree on metric, currency, unit, accounting, share
+and corporate-action definitions. Security/ADS identity and ratio, effective
+dates and declared availability are checked. An optional requested V2 target
+cannot replace missing dimensions or contradict the resulting candidate.
+
+The result explicitly carries `productionAdmission: false` and
+`evidenceStatus: "upstream-declared"`. It checks content identity and internal
+compatibility of declared records; it does not verify the semantics of their
+source documents or establish a trusted historical timestamp. It is a
+programmatic candidate-construction boundary, not a report-schema extension.
+
+Ordinary report generation does not acquire these complete metadata records, and
+`reports:evaluate freeze` continues to reject strict V2 registrations for current
+reports. Adding arbitrary fields or a copied target to an old report does not
+enable admission. Validated upstream acquisition and retention alongside the
+selected forecast remain prerequisites for production registration.
+
+## Offline claim-review benchmark
+
+```sh
+npm run claims:evaluate -- schema
+npm run claims:evaluate -- evaluate --corpus data/claim-corpus.json --predictions data/claim-predictions.json --out data/claim-results.json
+```
+
+This separate workflow compares supplied checker outputs with explicit reference
+labels. It makes no provider/model calls or database writes, preserves input
+files, and refuses occupied output paths, including linked files. The schema
+command prints both JSON contracts without requiring input data.
+Failed writes likewise retain the destination and report the error; an incomplete
+output is never treated as a successful benchmark result.
+
+A corpus declares either synthetic reference cases or human-reviewed cases.
+Every case retains the claim text, issuer, information cutoff, source text and
+metadata, exact source spans and content hashes. Reference reviews bind the
+entire case, so editing a claim, source, span or metadata invalidates an old
+review. Human references require two distinct independently declared whole-claim
+reviewers agreeing, or a distinct adjudicator resolving their disagreement.
+Reviewer identities and independence are operator declarations; this tool does
+not authenticate reviewers or certify their judgment.
+
+The shipped corpus is explicitly synthetic. It contains adversarial examples
+for wrong amounts/directions, issuer/period/availability conflicts, share bases
+and compound prose. It supplies no real human-reviewed report corpus and no
+empirical evidence of report factual accuracy. A retained citation or numeric
+match alone never establishes support for an entire compound claim.
+
+Predictions bind a checker identifier/version, corpus hash and per-case hash.
+Results separately report coverage, agreement over all eligible cases, agreement
+among attempted whole-claim assessments, false support and support precision.
+Missing, abstained, duplicate, changed-hash and numeric-only outputs remain
+explicit and stay in the eligible-case denominator. Invalid reference evidence
+is excluded with reasons; unknown checker case IDs are disclosed. Eligible
+foreign-issuer/future/other-period negative challenges remain in the benchmark
+rather than being silently removed. These are descriptive corpus results, with
+no confidence interval or general accuracy claim.
+
+The benchmark does not change the production verifier, confidence labels,
+grades or report text. A real independently adjudicated corpus and measured
+performance are required before any whole-claim checker can affect reports.

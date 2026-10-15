@@ -159,6 +159,10 @@ export const RISK_SOURCE_MANIFEST = [
   "src/evaluation/artifactManifest.ts",
   "src/evaluation/pairedDiagnostics.ts",
   "src/evaluation/registry.ts",
+  // Offline validation boundaries retain the same per-file evidence gate.
+  "src/evaluation/claimBenchmark.ts",
+  "src/evaluation/claimBenchmarkCli.ts",
+  "src/report/forecastAdapter.ts",
   // Research reliability: eligibility, snapshot comparisons and deterministic
   // report claims carry the same per-file coverage floors as existing logic.
   "src/pipeline/peers.ts",

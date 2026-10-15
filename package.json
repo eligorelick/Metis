@@ -58,6 +58,7 @@
     "research:evaluate": "node --import tsx scripts/evaluate-research.ts",
     "research:replay": "node --conditions=react-server --import tsx scripts/replay-run-inputs.ts",
     "reports:evaluate": "node --import tsx scripts/evaluate-reports.ts",
+    "claims:evaluate": "node --import tsx scripts/evaluate-claims.ts",
     "settings:reset": "node --conditions=react-server --import tsx scripts/settings-reset.ts",
     "db:push": "node --conditions=react-server node_modules/drizzle-kit/bin.cjs push",
     "check:dependencies": "node scripts/check-dependency-shape.mjs",

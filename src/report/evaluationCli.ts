@@ -76,8 +76,10 @@ function writeNewJson(filename: string, value: unknown): void {
     fs.closeSync(descriptor);
   } catch (error) {
     try { fs.closeSync(descriptor); } catch { /* Preserve the write failure. */ }
-    try { fs.unlinkSync(filename); } catch { /* Only our newly created file is eligible. */ }
-    throw error;
+    // Another operation can rename our file and replace this pathname while
+    // the descriptor is open. Never unlink a pathname after a failed write.
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`${detail}; output may be incomplete and its destination was retained: ${filename}`, { cause: error });
   }
 }
 

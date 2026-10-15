@@ -5,7 +5,7 @@ import { REPORT_SPEC_VERSION } from "@/report/schema";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 
 export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_EVIDENCE_GATES_1" as const;
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_REIT_ADMISSION_1" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }
