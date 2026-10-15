@@ -22,6 +22,7 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
 
 import { formatExecutionMetadata } from "@/report/execution";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { gradeDisplayLabel, gradeForDisplay } from "@/report/assessment";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
@@ -518,15 +519,15 @@ function sectionProjections(p: Projections): string {
     ${blocks}${auditTablesHtml(projectionAuditTables(p))}<h3>Projection audit trail</h3>${rootAudit}${seriesAudit}</section>`;
 }
 
-function sectionBusiness(b: Business): string {
+function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
   return `<section class="block">${sectionHeading("business")}
     <h3>What they sell</h3>${claimList(b.whatTheySell)}
     <h3>Product segments</h3>${segmentTable(b.segments.product)}
-    <h3>Geographic segments</h3>${segmentTable(b.segments.geographic)}
+    <h3>Geographic segments</h3>${segmentTable(b.segments.geographic)}${auditTablesHtml(extra)}
     <h3>Concentration risks</h3>${claimList(b.concentrationRisks)}</section>`;
 }
 
-function sectionFundamentals(f: Fundamentals, summary?: SourceFactSummary): string {
+function sectionFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra: ReportAuditTable[] = []): string {
   return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock(
     "Fundamentals",
     f.graded,
@@ -534,7 +535,7 @@ function sectionFundamentals(f: Fundamentals, summary?: SourceFactSummary): stri
     <h3>Growth</h3>${metricRowsTable(f.growthTable)}
     <h3>Margin trend</h3>${metricRowsTable(f.marginTrend)}
     <h3>Returns</h3>${metricRowsTable(f.returns)}
-    <h3>Free cash flow</h3>${metricRowsTable(f.fcf)}
+    <h3>Free cash flow</h3>${metricRowsTable(f.fcf)}${auditTablesHtml(extra)}
     ${f.commentary.length > 0 ? `<h3>Commentary</h3>${claimList(f.commentary)}` : ""}${auditTablesHtml(sourceFactAuditTables(summary))}</section>`;
 }
 
@@ -831,7 +832,7 @@ function sectionCompetitive(c: Competitive): string {
     <h3>Market-share direction</h3><p>${esc(c.marketShareDirection)}</p></section>`;
 }
 
-function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false): string {
+function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: ReportAuditTable[] = []): string {
   const catalysts = table(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
     cr.catalysts.map((c) => [
@@ -853,7 +854,7 @@ function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false): string {
     ]),
   );
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
-  return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}<h3>Catalysts</h3>${catalysts}<h3>Risks</h3>${risks}</section>`;
+  return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}<h3>Catalysts</h3>${catalysts}<h3>Risks</h3>${risks}${auditTablesHtml(extra)}</section>`;
 }
 
 function sectionOutlook(report: Report): string {
@@ -862,7 +863,7 @@ function sectionOutlook(report: Report): string {
     <h3>Segment trajectories</h3>${claimList(o.segmentTrajectories)}
     ${o.tam && o.tam.length > 0 ? `<h3>TAM</h3>${claimList(o.tam)}` : ""}
     <h3>Estimate-revision trend</h3>${claimList(o.estimateRevisionTrend)}
-    <h3>Guidance credibility</h3>${claimList(o.guidanceCredibility)}
+    <h3>Guidance credibility</h3>${claimList(o.guidanceCredibility)}${auditTablesHtml(filingDisclosureTables(report.filingDisclosures, "outlook"))}
     <h3>Scenario narratives</h3>
     <h4>1-year</h4>${claimList(o.scenarioNarratives.y1)}
     <h4>3-year</h4>${claimList(o.scenarioNarratives.y3)}
@@ -1039,15 +1040,15 @@ export function reportToPrintBody(report: Report): string {
   );
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
-    business: sectionBusiness(report.business),
-    fundamentals: sectionFundamentals(report.fundamentals,report.sourceFactSummary),
+    business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
+    fundamentals: sectionFundamentals(report.fundamentals,report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals")),
     balanceSheet: sectionBalanceSheet(report.balanceSheet),
     valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, evidenceTimingRows(report)),
     quality: sectionQuality(report.quality),
     technicals: sectionTechnicals(report.technicals),
     leadership: sectionLeadership(report.leadership),
     competitive: sectionCompetitive(report.competitive),
-    catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm")),
+    catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     outlook: sectionOutlook(report),
     projections: report.projections ? sectionProjections(report.projections) : "",
     macro: sectionMacro(report.macro),

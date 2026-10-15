@@ -54,6 +54,8 @@ import type { CompanyFacts } from "@/edgar/xbrl";
 // WS4 (D-14): successor-registrant history.
 import type { PredecessorFacts } from "@/edgar/successor";
 import type { ExtractMethod } from "@/edgar/extract";
+import type { QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
+import type { CurrentReports } from "@/providers/currentReports";
 import type { ShortInterestPoint } from "@/providers/finra";
 import type { FredObservation } from "@/providers/fred";
 import type { InsiderSentimentMonth } from "@/providers/finnhub";
@@ -149,6 +151,15 @@ export interface EdgarBundle {
   auditorChange8Ks: FetchResult<EdgarFiling[]>;
   /** 8-Ks carrying Item 4.02 (non-reliance / restatement red flag). May be empty. */
   nonReliance8Ks: FetchResult<EdgarFiling[]>;
+  /**
+   * The latest Item 2.02 8-Ks' EX-99.1 release / EX-99.2 commentary (guidance,
+   * issuer FCF, capital return) and the last year's material-event 8-K items
+   * (NVDA report #34 audit, work package 3). Optional: absent on bundles built
+   * before it existed and when EDGAR submissions were unavailable.
+   */
+  currentReports?: FetchResult<CurrentReports>;
+  /** Segment revenue by quarter from the latest periodic XBRL instances (audit P1-3). */
+  quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   /** Full companyfacts JSON — validation runs getConcept chains against this. */
   companyFacts: FetchResult<CompanyFacts>;
   // --- WS4 (D-14) ------------------------------------------------------------

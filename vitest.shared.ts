@@ -183,4 +183,12 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/researchReview.ts",
   "src/report/scenarioPresentation.ts",
   "src/report/thesisTriggers.ts",
+  // Added 2026-10-15 (NVDA report #34 audit, work package 3): 8-K guidance,
+  // issuer FCF, capital return, material events and XBRL segment revenue feed
+  // registered payload numbers and the report, so they carry the same floor.
+  "src/edgar/currentReports.ts",
+  "src/edgar/segmentFacts.ts",
+  "src/providers/currentReports.ts",
+  "src/pipeline/filingDisclosures.ts",
+  "src/report/filingDisclosurePresentation.ts",
 ];

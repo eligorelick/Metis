@@ -165,8 +165,8 @@ export function buildLeadershipGuidance(
     "  neither is no source at all. Such a claim is rejected with a reason and shown as rejected in",
     "  the report. If the only thing you have is a search result, write about the COMPANY, not the",
     "  person, or say plainly that the payload carries no evidence about that individual.",
-    "- Guidance credibility: judge it ONLY from the transcript and filing excerpts —",
-    "  the payload carries NO guidance-vs-actuals record; never invent one from memory. Every claim in",
+    "- Guidance credibility: judge it ONLY from the payload's guidance-vs-actuals rows (results against",
+    "  prior guidance, when present) and the transcript and filing excerpts; never invent a record from memory. Every claim in",
     "  an executive's `reasoning` or `evidence.guidanceVsActuals`, and every claim in",
     "  `outlook.guidanceCredibility`, may cite ONLY a payload figure or a filing/transcript excerpt.",
     // The payload carries the computed growth-and-margin figures, the returns
@@ -250,6 +250,20 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Each material numeric assertion in prose must use its exact typed record or its own source passage,",
   "  metric, period, unit and currency. Prefer one metric/period per sourced sentence. A valid citation",
   "  or fetched URL alone does not validate a number. Ambiguous columns, currencies or ranges stay unchecked.",
+  // NVDA report #34 audit (work package 3): guidance, issuer FCF, capital
+  // return, 8-K events and quarterly segments now reach the payload; the report
+  // omitted all of them and twice said issuer FCF was not in the filings.
+  "ISSUER FILINGS (8-K releases, 8-K events, quarterly XBRL), when the payload carries them:",
+  "- State the company's next-period guidance (revenue, margins, opex, tax) with its period and the 8-K it",
+  "  came from, and compare it with the latest quarter and the trailing figures. Guidance is the company's",
+  "  projection: FACT that it was issued, never a result. Use the results-vs-prior-guidance rows for track record.",
+  "- Use the quarterly-trend rows for the latest quarter's year-over-year and sequential growth; an annual",
+  "  growth rate is not the latest quarter's. Use the XBRL segment rows for the current segment mix and its growth.",
+  "- Issuer-defined free cash flow, repurchases, dividends and remaining authorization are in the issuer-filing",
+  "  rows when the release states them: use them; never say the filings do not report them.",
+  "- Each material-event 8-K excerpt is a dated corporate event (agreements, guarantees and other off-balance-",
+  "  sheet obligations, officer and director changes, acquisitions, financings): weigh the material ones as",
+  "  catalysts or risks, citing the excerpt and its filing date, and reflect officer changes in leadership.",
 ].join("\n");
 
 /** WS7 (D-20): the per-side length cap, stated to the analyst that must meet it. */
@@ -468,7 +482,10 @@ export function buildJudgeFraming(
     "- Segment shares: business.segments[].sharePct is COMPUTED deterministically by the pipeline",
     "  (segment revenue ÷ the latest-period segmentation total × 100) and injected AFTER your pass —",
     "  set every sharePct to null; any value you emit there is discarded. The segment name and its",
-    "  revenue TracedNumber are still yours to cite from the payload's segmentation figures.",
+    "  revenue TracedNumber are still yours to cite from the payload's segmentation figures. Fill",
+    "  business.segments from the Revenue segmentation rows only (the share is computed against their total);",
+    "  the pipeline prints the XBRL quarterly segment table itself, so discuss the latest quarter's mix and",
+    "  growth in prose (whatTheySell, outlook.segmentTrajectories) citing the segment-revenue rows.",
     "- Per-section confidence reflecting evidence quality and the disclosed data gaps. The pipeline",
     "  caps each section's confidence by its measured data coverage AFTER your pass (an unscored or",
     "  thinly covered aspect, a withheld fair value or a suppressed scenario fan lowers the ceiling);",

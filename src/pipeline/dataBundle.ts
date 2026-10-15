@@ -41,6 +41,7 @@ import {
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
+import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
 import { discoverCompanyIrEarnings, type CompanyIrOptions } from "@/providers/companyIr";
 import { loadPeerFundamentals } from "@/pipeline/peers";
 import { loadPeerFromFilings } from "@/pipeline/peerFilings";
@@ -1085,6 +1086,7 @@ async function buildEdgarBundle(
   progress: (msg: string) => void,
   nowIso: string,
   edgarSectionBudgetMs: number,
+  filingDisclosures = true,
 ): Promise<EdgarBundle> {
   progress(`EDGAR: resolving CIK for ${symbol}`);
   let cikRes = await settle(`edgar.cik(${symbol})`, edgar.tickerToCik(symbol));
@@ -1147,6 +1149,15 @@ async function buildEdgarBundle(
     ? discoverFiledEarningsAnnouncement(edgar, String(cik), sub.value.data.recentFilings, symbol, nowIso.slice(0, 10), nowIso,
       {cik:String(cik),canonicalName:sub.value.data.name,verifiedWebsite:""})
     : Promise.resolve([]);
+  // Audit work package 3: 8-K releases/commentary and material-event items,
+  // and segment revenue by quarter from the periodic XBRL instances. Both run
+  // beside the section extraction below; neither throws (failures are gaps).
+  const pCurrentReports = sub.ok && filingDisclosures
+    ? settle(`edgar.currentReports(${symbol})`, collectCurrentReports(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), sub.value.endpoint))
+    : null;
+  const pQuarterlySegments = sub.ok && filingDisclosures
+    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10)))
+    : null;
 
   let latestTenK: FetchResult<EdgarFiling>;
   let latestTenQ: FetchResult<EdgarFiling>;
@@ -1336,6 +1347,9 @@ async function buildEdgarBundle(
     progress,
   );
 
+  const currentReports = pCurrentReports === null ? null : await pCurrentReports;
+  const quarterlySegments = pQuarterlySegments === null ? null : await pQuarterlySegments;
+
   return {
     cik: cikRes,
     earningsAnnouncements: (await pCompanyEvents).flatMap((event) => event.ok ? [event.value] : []),
@@ -1346,6 +1360,8 @@ async function buildEdgarBundle(
     tenQMdna,
     auditorChange8Ks,
     nonReliance8Ks,
+    ...(currentReports === null ? {} : { currentReports }),
+    ...(quarterlySegments === null ? {} : { quarterlySegments }),
     companyFacts,
     predecessor,
     xbrlSummary,
@@ -1508,6 +1524,12 @@ export interface BuildDataBundleOptions {
   finra?: FinraConfig;
   /** Bounded public website/IR fallback; injected providers require an explicit config to permit this extra network source. */
   companyIr?: CompanyIrOptions | false;
+  /**
+   * Read the latest 8-K releases/commentary and material-event items, and the
+   * periodic XBRL instances for quarterly segment revenue. Default true; false
+   * skips both (tests about other EDGAR request sequences).
+   */
+  filingDisclosures?: boolean;
   /** Injectable clock (deterministic windows/quarters in tests). */
   now?: () => Date;
   /** Years of EOD history (default 5). */
@@ -1762,7 +1784,7 @@ export async function buildDataBundle(
   const edgarSectionBudgetMs = opts.edgarSectionBudgetMs ?? DEFAULT_EDGAR_SECTION_BUDGET_MS;
   const pEdgar = reserved
     ? Promise.resolve(reservedEdgarBundle(sym))
-    : buildEdgarBundle(sym, profileCik, edgar, progress, builtAt, edgarSectionBudgetMs);
+    : buildEdgarBundle(sym, profileCik, edgar, progress, builtAt, edgarSectionBudgetMs, opts.filingDisclosures !== false);
 
   // ---- await + assemble (deterministic ordering applied here) ---------------
   let statements: StatementSet = {

@@ -727,6 +727,10 @@ describe("payload determinism + provenance", () => {
       // numeric registries, IDs, projection periods and figure labels stay pinned.
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
+      // 1.23.0 (audit work package 3): the fixture's quarterly statements now
+      // also yield the computed quarterly-trend section (+15 records, +3,068
+      // prompt bytes); it has no 8-K or XBRL segment data, so nothing else
+      // moves — finance, citations and projection periods stay pinned.
       // D-59: current-capital bridge rows are labelled by their metric ("total
       // debt including leases", not "debt Bridge total Debt Including Leases"),
       // so their labels, registry ids and figure-label hash move (-132 prompt

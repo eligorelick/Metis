@@ -8620,14 +8620,6 @@
           "after": 129.34602076943392
         }
       ]
-    },
-    {
-      "name": "peer-gates-verifier-2026-10-15",
-      "decisions": [
-        "D-59"
-      ],
-      "reason": "D-59 replaces the never-satisfiable independent-evidence gate with a disclosed comparability caveat (supplied contrary evidence still excludes) and raises the optional peer budget to 10 candidates within 25s. Only the peer-coverage methodology text and the multiples notes that copy it move; this fixture collects no peers, so no median, grade, weight or historical baseline value changes.",
-      "deltas": []
     }
   ]
 }
