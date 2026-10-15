@@ -661,7 +661,9 @@ describe("applyKeylessFallbacks", () => {
     const out = await applyKeylessFallbacks(inputs({ yahoo: fakeYahoo({ fail: new Set(["AAPL", "SPY", "XLK"]) }) }));
     expect(out.members.eodPrices.ok).toBe(false);
     if (out.members.eodPrices.ok) return;
-    expect(out.members.eodPrices.gap.reason).toBe("no API key + no fixture");
+    expect(out.members.eodPrices.gap.reason).toContain("no API key + no fixture");
+    expect(out.members.eodPrices.gap.reason).toMatch(/Yahoo.*429/);
+    expect(!out.members.quote.ok && out.members.quote.gap.reason).toMatch(/Yahoo.*429/);
     expect(out.members.eodPrices.gap.attemptedSources).toEqual(expect.arrayContaining([expect.stringMatching(/yahoo/)]));
     expect(out.gaps.find((g) => g.field === "keyless.eodPrices")?.severity).toBe("warn");
     // Statements still come from EDGAR; the profile still exists but without price-derived fields.

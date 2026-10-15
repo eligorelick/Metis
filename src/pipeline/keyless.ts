@@ -651,14 +651,14 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   /**
    * The keyless source could not serve the member either. FMP's result stays
    * in place — extended with where else we looked — and the failure is its own
-   * `warn` gap. `appendReason` is set for the statements, whose single
-   * companyfacts attempt covers all six members at once.
+   * `warn` gap. Keep both failures on the member itself too: consumers may
+   * show just that gap, and must explain why the public fallback also failed.
    */
   const failKeyless = (
     member: keyof KeylessMembers,
     reason: string,
     attemptedSources: string[],
-    appendReason = false,
+    appendReason = true,
   ): void => {
     const original = inputs.fmp[member] as AnyMemberResult;
     if (!original.ok) {
