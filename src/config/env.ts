@@ -15,6 +15,7 @@ import "server-only";
 
 import { z } from "zod";
 import { withMetisAliases } from "./namespace";
+import { readProviderCredentials } from "@/ai/store";
 
 import {
   ANTHROPIC_REQUEST_TIMEOUT_MS,
@@ -384,11 +385,16 @@ export function parseEnv(
 }
 
 let cached: ThesisConfig | undefined;
+let credentialSignature: string | undefined;
 
-/** Parsed process.env, cached for the lifetime of the server process. */
+/** Saved provider keys override environment keys and take effect without restarting. */
 export function getConfig(): ThesisConfig {
-  if (cached === undefined) {
-    cached = parseEnv(process.env);
+  const credentials = readProviderCredentials();
+  const signature = JSON.stringify(credentials);
+  if (cached === undefined || signature !== credentialSignature) {
+    // Resolve native env lookups before copying: Windows keys are case-insensitive.
+    cached = parseEnv({ ...withMetisAliases(process.env, Object.keys(envSchema.shape)), ...credentials });
+    credentialSignature = signature;
   }
   return cached;
 }

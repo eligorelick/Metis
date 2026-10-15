@@ -25,6 +25,7 @@
  */
 
 import "server-only";
+import { getProviderCredential } from "@/ai/store";
 
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 
@@ -1133,7 +1134,7 @@ export function deriveAsOf(rows: FmpRawRow[], fallbackIso: string): string {
 // ---------------------------------------------------------------------------
 
 export interface FmpClientConfig {
-  /** Defaults to process.env.FMP_API_KEY. Absent/empty → FIXTURE MODE. */
+  /** Defaults to the saved provider key, then the environment. Empty → FIXTURE MODE. */
   apiKey?: string;
   /** Defaults to https://financialmodelingprep.com/stable */
   baseUrl?: string;
@@ -1272,7 +1273,7 @@ export class FmpClient {
 
   constructor(config: FmpClientConfig = {}) {
     this.config = config;
-    const envKey = typeof process !== "undefined" ? process.env.FMP_API_KEY : undefined;
+    const envKey = config.apiKey === undefined ? getProviderCredential("FMP_API_KEY") : undefined;
     const key = (config.apiKey ?? envKey ?? "").trim();
     this.apiKey = key.length > 0 ? key : undefined;
     this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");

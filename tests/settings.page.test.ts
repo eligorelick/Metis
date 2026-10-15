@@ -511,10 +511,14 @@ describe("settings page controller", () => {
       onAnalysisModel: vi.fn(),
       onAnalysisEffort: vi.fn(),
     }));
-    expect(html).toMatch(new RegExp(`EDGAR_CONTACT</span><span[^>]*>${configured ? "configured" : "missing"}</span>`));
+    expect(html).toMatch(new RegExp(`EDGAR_CONTACT</label><span[^>]*>${configured ? "configured" : "missing"}</span>`));
     expect(html).toContain("subscription entitlement");
     expect(html).toContain("HTTP 402");
     expect(html).toContain("reachable email");
+    expect(html).toContain('type="password"');
+    expect(html).toContain('aria-label="Save FMP_API_KEY"');
+    expect(html).toContain('aria-label="Test FMP_API_KEY"');
+    expect(html).not.toContain("provider access (read-only)");
   });
 
   it("the route-used view renders optimistic desired values and honest saving/recovery states", () => {

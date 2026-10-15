@@ -1,4 +1,5 @@
 "use client";
+import { PROVIDER_CREDENTIALS_CHANGED } from "@/settings/credentialContracts";
 import { useCallback, useEffect, useState } from "react";
 import { Panel } from "@/components/ui";
 import { CHATGPT_EFFORTS, type ChatGptEffort, type ChatGptModelChoice, type AiConnectionsView } from "@/ai/contracts";
@@ -21,6 +22,11 @@ export function AiConnections() {
     const data = await r.json(); if (!r.ok) throw new Error(data.error);
     setView(data as AiConnectionsView);
   }, []);
+  useEffect(() => {
+    const changed = () => { void refresh().catch(() => setMessage("Could not refresh provider access. Reload Settings to retry.")); };
+    window.addEventListener(PROVIDER_CREDENTIALS_CHANGED, changed);
+    return () => window.removeEventListener(PROVIDER_CREDENTIALS_CHANGED, changed);
+  }, [refresh]);
   useEffect(() => {
     let active = true;
     void fetch("/api/ai/connections", { cache: "no-store" }).then(async (r) => {

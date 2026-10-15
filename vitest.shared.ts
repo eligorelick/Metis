@@ -10,7 +10,7 @@ export const INTEGRATION_TEST_INCLUDE = [DB_CLI_TEST];
  * with a guard that rejects any non-loopback request, so a test can never reach
  * a live provider. See `tests/setup/noLiveNetwork.ts`.
  */
-export const SHARED_SETUP_FILES = ["./tests/setup/noLiveNetwork.ts"];
+export const SHARED_SETUP_FILES = ["./tests/setup/noLiveNetwork.ts", "./tests/setup/privateCredentials.ts"];
 
 export const SHARED_RESOLVE_ALIAS = {
   "@": path.resolve(__dirname, "src"),
@@ -118,6 +118,9 @@ export const RISK_SOURCE_MANIFEST = [
   "src/app/api/report/[jobId]/stream/route.ts",
   "src/app/api/report/view/[reportId]/route.ts",
   "src/app/api/settings/route.ts",
+  "src/app/api/settings/credentials/route.ts",
+  "src/settings/credentialContracts.ts",
+  "src/settings/testCredential.ts",
   "src/app/api/watchlist/route.ts",
   "src/proxy.ts",
   "src/config/env.ts",
