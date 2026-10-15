@@ -18,14 +18,14 @@ function CredentialRow({ credentialKey, status, ready, onSaved }: {
   onSaved(statuses: ProviderCredentialStatuses): void;
 }) {
   const [value, setValue] = useState("");
-  const [busy, setBusy] = useState<"save" | "test" | null>(null);
+  const [busy, setBusy] = useState<"save" | "test" | "remove" | null>(null);
   const [result, setResult] = useState<{ kind: "saved" | "working" | "error"; message: string } | null>(null);
   const pending = useRef<AbortController | null>(null);
   useEffect(() => () => { pending.current?.abort(); }, []);
   const contact = credentialKey === "EDGAR_CONTACT";
   const inputId = `credential-${credentialKey}`;
 
-  async function act(action: "save" | "test") {
+  async function act(action: "save" | "test" | "remove") {
     if (pending.current) return;
     const controller = new AbortController();
     pending.current = controller;
@@ -35,14 +35,14 @@ function CredentialRow({ credentialKey, status, ready, onSaved }: {
       const response = await fetch("/api/settings/credentials", {
         method: "POST", cache: "no-store", signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, key: credentialKey, ...(value.trim() ? { value: value.trim() } : {}) }),
+        body: JSON.stringify({ action, key: credentialKey, ...(action !== "remove" && value.trim() ? { value: value.trim() } : {}) }),
       });
       const data = await response.json();
       if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(data.error || "The action could not be completed.");
-      if (action === "save") {
+      if (action !== "test") {
         setValue("");
-        setResult({ kind: "saved", message: "Saved. Test to verify the connection." });
+        setResult({ kind: "saved", message: action === "save" ? "Saved. Test to verify the connection." : "Saved override removed. Environment value applies if configured." });
         onSaved(data.credentials as ProviderCredentialStatuses);
       } else {
         setResult({ kind: data.ok === true ? "working" : "error", message: `${data.message}${data.ok === true && value.trim() ? " Save to use this value." : ""}` });
@@ -74,6 +74,7 @@ function CredentialRow({ credentialKey, status, ready, onSaved }: {
         <div className="flex gap-2">
           <button type="button" aria-label={`Save ${credentialKey}`} className={buttonClass} disabled={!ready || busy !== null || !value.trim()} onClick={() => void act("save")}>{busy === "save" ? "Saving…" : "Save"}</button>
           <button type="button" aria-label={`Test ${credentialKey}`} className={buttonClass} disabled={!ready || busy !== null || (!value.trim() && !status.configured)} onClick={() => void act("test")}>{busy === "test" ? "Testing…" : "Test"}</button>
+          <button type="button" aria-label={`Remove saved ${credentialKey}`} className={buttonClass} disabled={!ready || busy !== null || status.source !== "settings"} onClick={() => void act("remove")}>{busy === "remove" ? "Removing…" : "Remove saved"}</button>
         </div>
       </div>
       <div id={`${inputId}-status`} role="status" aria-live="polite" className={`mt-1 flex items-start gap-1.5 text-[11px] ${result?.kind === "working" ? "text-pos" : result?.kind === "error" ? "text-neg" : "text-faint"}`}>
@@ -118,7 +119,7 @@ export function ProviderCredentials({ capabilities }: { capabilities?: SettingsP
       {!(statuses?.FMP_API_KEY.configured ?? capabilities?.hasFmpKey) && <div className="mt-2 border border-warn/40 bg-warn/10 px-2 py-1.5 text-[11px] text-warn">Synthetic fixture mode — no FMP key, so no current market data from FMP. FMP-backed fields remain disclosed gaps; supported real US filers can use SEC EDGAR and Yahoo once EDGAR_CONTACT is set. <Link href="/company/DEMO" className="font-semibold underline">DEMO</Link> and DBNK use synthetic fixtures.</div>}
       {error && <div role="alert" className="py-2 text-[12px] text-neg">{error} <button type="button" className="underline" onClick={() => setRevision((n) => n + 1)}>Retry</button></div>}
       {PROVIDER_CREDENTIAL_KEYS.map((key) => <CredentialRow key={key} credentialKey={key} ready={statuses !== null} status={statuses?.[key] ?? { configured: !!configured[key], source: configured[key] ? "environment" : "missing" }} onSaved={(next) => saved(key, next)} />)}
-      <p className="pt-2 text-[11px] leading-snug text-faint">Saved values stay in the app’s protected local credential store and override environment values. Existing keys are never sent back to the browser. No restart is needed.</p>
+      <p className="pt-2 text-[11px] leading-snug text-faint">Saved values stay in the app’s protected local credential store and override environment values. Remove saved deletes only that override and restores any environment value; account connections and other keys stay saved. Existing keys are never sent back to the browser. No restart is needed.</p>
       <p className="pt-2 text-[11px] leading-snug text-faint">An FMP key does not confirm subscription entitlement. Free or lower-tier keys can return HTTP 402 for restricted endpoints or symbols. A successful test confirms access to the test endpoint; other datasets may require a different plan.</p>
       <p className="pt-2 text-[11px] leading-snug text-faint">SEC EDGAR needs no paid key. Use a reachable email in EDGAR_CONTACT. Testing confirms SEC connectivity, without verifying email ownership. Claude tests check API access without generating a paid response; remaining credits and report-model access are not confirmed.</p>
     </Panel>

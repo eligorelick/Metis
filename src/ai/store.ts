@@ -22,6 +22,8 @@ export interface AiStore {
   profiles: ChatGptProfile[];
   gemini: { id: string; connected: boolean } | null;
   selection: AiSelection;
+  /** Credential/account writes must not turn the implicit provider default into a user choice. */
+  selectionIsDefault?: boolean;
   runtimeOwnerPid?: number;
   providerCredentials?: Partial<Record<ProviderCredentialKey, string>>;
 }
@@ -53,6 +55,7 @@ const aiStoreSchema = z.object({
     }).passthrough(),
   ]),
   runtimeOwnerPid: z.number().int().positive().optional(),
+  selectionIsDefault: z.boolean().optional(),
   providerCredentials: z.partialRecord(z.enum(PROVIDER_CREDENTIAL_KEYS), z.string().min(1).max(2048)).optional(),
 }).passthrough();
 
@@ -155,7 +158,7 @@ function writeAiStore(store: AiStore): void {
 export async function withAiStore<T>(fn: (store: AiStore) => Promise<T> | T): Promise<T> {
   ensurePrivateDirectory(aiDirectory());
   return withAiMutex(path.join(aiDirectory(), "connections.lock"), async () => {
-    const store = readAiStore() ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" } };
+    const store = readAiStore() ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
     const result = await fn(store);
     writeAiStore(store);
     return result;

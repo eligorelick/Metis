@@ -32,7 +32,7 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `npm start`. Keep `.env*` private; only the placeholder `.env.example` belongs in Git. **Settings → Provider keys and SEC contact** offers **Save** and **Test** for each value; a green check confirms usable provider test data. Saved values use protected local storage, override environment keys, and apply without restarting. Existing saved keys stay hidden; tests do not generate paid Claude responses.
+On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `npm start`. Keep `.env*` private; only the placeholder `.env.example` belongs in Git. **Settings → Provider keys and SEC contact** offers **Save**, **Test**, and **Remove saved** for each value; a green check confirms usable provider test data. Saved values use protected local storage, override environment keys, and apply without restarting. Removing an override restores any environment value and keeps account connections intact. Existing saved keys stay hidden; tests do not generate paid Claude responses.
 
 Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
 `EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers

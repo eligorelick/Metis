@@ -102,7 +102,9 @@ does not train a model or change provider account data-use/retention policies.
 ## Keys
 
 Keys can be read from `.env` or entered in **Settings → Provider keys and SEC
-contact**. Each value has separate Save and Test controls. Saved values use the
+contact**. Each value has separate Save, Test, and Remove saved controls. Removal
+deletes only the selected saved override, restoring any environment value while
+preserving other credentials and account tokens. Saved values use the
 protected local credential store described below, override environment values,
 and apply to new provider clients without a restart. Entered values travel from
 the local browser to the server. Existing saved keys never reach the browser in

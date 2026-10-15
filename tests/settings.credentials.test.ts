@@ -8,6 +8,7 @@ import { aiDirectory, readAiStore, withAiStore } from "@/ai/store";
 import { getClient, resolveModel, _resetAnthropicForTests } from "@/providers/anthropic";
 import { FmpClient } from "@/providers/fmp";
 import { createDefaultEdgarTransport, hasConfiguredEdgarIdentity } from "@/providers/edgar";
+import { captureAiSelection, selectConnection } from "@/ai/connections";
 
 let directory: string;
 beforeEach(() => {
@@ -37,6 +38,52 @@ function request(body?: unknown, headers: Record<string, string> = {}): Request 
 
 // macOS fixes credentials to the real OS profile; never write there in tests.
 describe.skipIf(process.platform === "darwin")("provider key settings", () => {
+  it.each([false, true])("selects the first saved Claude key by default after other credential saves: %s", async (saveOtherFirst) => {
+    if (saveOtherFirst) await POST(request({ action: "save", key: "FMP_API_KEY", value: "saved-fmp" }));
+    expect(captureAiSelection()).toEqual({ provider: "none" });
+    expect((await POST(request({ action: "save", key: "ANTHROPIC_API_KEY", value: "saved-claude" }))).status).toBe(200);
+    expect(captureAiSelection()).toEqual({ provider: "anthropic" });
+  }, 60_000);
+
+  it("preserves an explicit Data only selection when a Claude key is saved", async () => {
+    await selectConnection({ provider: "none" });
+    expect((await POST(request({ action: "save", key: "ANTHROPIC_API_KEY", value: "saved-claude" }))).status).toBe(200);
+    expect(captureAiSelection()).toEqual({ provider: "none" });
+  }, 60_000);
+
+  it("removes only the saved override, restores the environment key, and preserves account tokens and choices", async () => {
+    vi.stubEnv("FMP_API_KEY", "environment-fmp");
+    await withAiStore((store) => {
+      store.profiles.push({ id: "account", clientId: "registered-client", tokens: { access: "test-access", refresh: "test-refresh", id: "test-id", expiresAt: 2_000_000_000, scopes: ["chatgpt.tokens.use.direct"] } });
+    });
+    await selectConnection({ provider: "chatgpt", connectionId: "account", model: "test-model" });
+    await POST(request({ action: "save", key: "FMP_API_KEY", value: "saved-fmp" }));
+    await POST(request({ action: "save", key: "FINNHUB_API_KEY", value: "saved-finnhub" }));
+    const before = readAiStore()!;
+    const response = await POST(request({ action: "remove", key: "FMP_API_KEY" }));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(JSON.parse(text).credentials.FMP_API_KEY).toEqual({ configured: true, source: "environment" });
+    expect(text).not.toContain("environment-fmp");
+    expect(getConfig().fmpApiKey).toBe("environment-fmp");
+    const after = readAiStore()!;
+    expect(after.providerCredentials?.FMP_API_KEY).toBeUndefined();
+    expect(after.providerCredentials?.FINNHUB_API_KEY).toBe("saved-finnhub");
+    expect(after.profiles).toEqual(before.profiles);
+    expect(after.selection).toEqual(before.selection);
+    expect(after.hostId).toBe(before.hostId);
+  }, 60_000);
+
+  it("disables the automatic Claude default after removing its only key without a restart", async () => {
+    await POST(request({ action: "save", key: "ANTHROPIC_API_KEY", value: "saved-claude" }));
+    expect(getClient()).not.toBeNull();
+    const response = await POST(request({ action: "remove", key: "ANTHROPIC_API_KEY" }));
+    expect(response.status).toBe(200);
+    expect(captureAiSelection()).toEqual({ provider: "none" });
+    expect(getClient()).toBeNull();
+    expect((await response.json()).credentials.ANTHROPIC_API_KEY).toEqual({ configured: false, source: "missing" });
+  }, 60_000);
+
   it("saves privately, preserves account choices, and updates cached config without a restart", async () => {
     vi.stubEnv("FMP_API_KEY", "environment-key");
     expect(getConfig().fmpApiKey).toBe("environment-key");
@@ -172,6 +219,7 @@ describe.skipIf(process.platform === "darwin")("provider key settings", () => {
     { action: "save", key: "FMP_API_KEY", value: 123 },
     { action: "save", key: "EDGAR_CONTACT", value: "Name contact@example.com" },
     { action: "test", key: "FMP_API_KEY" },
+    { action: "remove", key: "FMP_API_KEY", value: "unexpected-secret" },
   ])("rejects invalid input without writing credentials: %j", async (body) => {
     expect((await POST(request(body))).status).toBe(400);
     expect(readAiStore()).toBeNull();

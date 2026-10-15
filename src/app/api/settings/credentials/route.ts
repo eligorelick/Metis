@@ -42,7 +42,12 @@ export async function POST(request: Request) {
     catch { return response({ error: "Invalid JSON." }, 400); }
     if (!body || typeof body !== "object" || Array.isArray(body)) return response({ error: "Invalid credential request." }, 400);
     const { action, key, value } = body as Record<string, unknown>;
-    if (!isProviderCredentialKey(key) || (action !== "save" && action !== "test")) return response({ error: "Choose a supported credential and action." }, 400);
+    if (!isProviderCredentialKey(key) || (action !== "save" && action !== "test" && action !== "remove")) return response({ error: "Choose a supported credential and action." }, 400);
+    if (action === "remove") {
+      if (value !== undefined) return response({ error: "Removal does not accept a credential value." }, 400);
+      await withAiStore((store) => { if (store.providerCredentials) delete store.providerCredentials[key]; });
+      return response({ ok: true, credentials: statuses(), message: "Saved override removed. Environment value applies if configured." });
+    }
     if (value !== undefined && (typeof value !== "string" || value.length > 2048 || /[\x00-\x1f\x7f]/.test(value))) return response({ error: "Enter a single credential value of at most 2048 characters." }, 400);
     const draft = typeof value === "string" ? value.trim() : undefined;
     const secret = draft || (action === "test" ? getProviderCredential(key) : undefined);

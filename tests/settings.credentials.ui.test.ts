@@ -109,3 +109,27 @@ it("retains the replacement input and allows retry when saving fails", async () 
   expect(button("Save", "FMP_API_KEY").disabled).toBe(false);
   expect(container.querySelector('[aria-label="Connection verified"]')).toBeNull();
 });
+
+it.each([
+  ...PROVIDER_CREDENTIAL_KEYS.map((key) => ({ key, environment: false })),
+  { key: "FMP_API_KEY", environment: true },
+])("removes only the saved $key override with environment fallback: $environment", async ({ key, environment }) => {
+  const initial = { ...missingStatuses(), [key]: { configured: true, source: "settings" } };
+  const requests: unknown[] = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init?: RequestInit) => {
+    if (init?.method !== "POST") return Response.json({ credentials: initial });
+    requests.push(JSON.parse(String(init.body)));
+    return Response.json({ ok: true, credentials: { ...missingStatuses(), [key]: { configured: environment, source: environment ? "environment" : "missing" } } });
+  });
+  await act(async () => root.render(createElement(ProviderCredentials)));
+  const remove = container.querySelector<HTMLButtonElement>(`[aria-label="Remove saved ${key}"]`);
+  expect(remove).not.toBeNull();
+  expect(remove!.disabled).toBe(false);
+  await enterValue(key, "unsaved-draft");
+  await act(async () => remove!.click());
+  expect(requests).toEqual([{ action: "remove", key }]);
+  expect(container.querySelector<HTMLInputElement>(`#credential-${key}`)!.value).toBe("");
+  expect(remove!.disabled).toBe(true);
+  expect(button("Test", key).disabled).toBe(!environment);
+  expect(container.textContent).toContain("Saved override removed.");
+});
