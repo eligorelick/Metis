@@ -887,6 +887,8 @@ describe("settings SQLite serialization", () => {
     expect(routeSource).not.toContain("setSetting(");
   });
 
+  // SQLite may legitimately wait up to the 5-second busy deadline below. The
+  // outer test must also allow worker startup and cleanup on Windows runners.
   it("waits behind an existing writer before reading and comparing the ETag", async () => {
     const directory = mkdtempSync(join(tmpdir(), "thesis-settings-cas-"));
     const file = join(directory, "settings.db");
@@ -930,7 +932,7 @@ describe("settings SQLite serialization", () => {
       fileHandle.sqlite.close();
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("returns an old or new complete snapshot when another handle commits between read executions", async () => {
     const directory = mkdtempSync(join(tmpdir(), "thesis-settings-read-"));

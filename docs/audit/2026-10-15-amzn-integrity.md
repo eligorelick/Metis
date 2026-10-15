@@ -101,6 +101,14 @@ retained skips; its production build passed. The latest public head's product,
 coverage, build, security and Windows results
 are recorded by the accompanying pull request's CI checks.
 
+The next Windows PR run exposed a separate existing settings-serialization
+test deadline: its outer five-second timeout equalled SQLite's own five-second
+busy budget, leaving no allowance for native worker startup and cleanup. The
+same-head Windows push run passed. Only that test's outer deadline is now 15
+seconds; its 500ms lock hold, 5000ms SQLite busy timeout, stale-ETag rejection,
+complete external state and persisted-pair assertions are unchanged. No
+production timeout or global test deadline is relaxed.
+
 ## Final artifact review and release disposition
 
 The post-fix live AMZN pipeline completed all three requested subscription
