@@ -728,13 +728,13 @@ describe("payload determinism + provenance", () => {
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
       // 1.23.0 (audit work package 3): the fixture's quarterly statements now
-      // also yield the computed quarterly-trend section (+15 records, +3,060
+      // also yield the computed quarterly-trend section (+15 records, +3,068
       // prompt bytes); it has no 8-K or XBRL segment data, so nothing else
       // moves — finance, citations and projection periods stay pinned.
-      fingerprint: "1.23.0:a9ea3aca",
-      promptBytes: 126_117,
+      fingerprint: "1.23.0:917ff112",
+      promptBytes: 126_125,
       provenanceCount: 514,
-      provenanceHash: "8af13620",
+      provenanceHash: "e6a2b889",
       provenanceIdsHash: "d6dc67cb",
       citationCount: 65,
       citationHash: "13b5b365",

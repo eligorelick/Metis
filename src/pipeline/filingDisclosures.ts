@@ -25,6 +25,12 @@ function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
+/** "80.0 billion" — a note is prose, not a table cell with a formatter. */
+function scaledMoney(value: number): string {
+  const abs = Math.abs(value);
+  return abs >= 1e9 ? `${(value / 1e9).toFixed(1)} billion` : abs >= 1e6 ? `${(value / 1e6).toFixed(1)} million` : String(value);
+}
+
 function round(v: number | null, dp = 4): number | null {
   return v === null ? null : Number(v.toFixed(dp));
 }
@@ -230,10 +236,10 @@ function quarterlyTrend(bundle: DataBundle): FilingDisclosures["quarterlyTrend"]
     const r = income.get(d)!;
     const c = cash.get(d);
     const revenue = num(r.revenue);
-    const pct = (part: number | null): number | null => (part === null || revenue === null || revenue === 0 ? null : round((part / revenue) * 100, 2));
+    const pct = (part: number | null): number | null => (part === null || revenue === null || revenue === 0 ? null : round((part / revenue) * 100));
     const growth = (prior: FmpIncomeStatementRow | undefined): number | null => {
       const base = num(prior?.revenue);
-      return revenue === null || base === null || base <= 0 ? null : round((revenue / base - 1) * 100, 2);
+      return revenue === null || base === null || base <= 0 ? null : round((revenue / base - 1) * 100);
     };
     const ocf = num(c?.operatingCashFlow) ?? num(c?.netCashProvidedByOperatingActivities);
     const capex = num(c?.capitalExpenditure);
@@ -311,7 +317,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     }
     const added = earlier.capitalReturn.authorizationAdded;
     if (added && capitalCurrency(added.symbol) && capitalReturn?.authorizationAdded == null) {
-      notes.push(`Share repurchase authorization increased by ${added.value} ${currency ?? ""} (8-K ${earlier.accession}, filed ${earlier.filingDate}).`.replace("  ", " "));
+      notes.push(`Share repurchase authorization increased by ${scaledMoney(added.value)} ${currency ?? ""} (8-K ${earlier.accession}, filed ${earlier.filingDate}).`.replace("  ", " "));
     }
   }
 

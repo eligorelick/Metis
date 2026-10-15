@@ -280,7 +280,9 @@ describe("filing disclosures through the payload and the report tables", () => {
 
     const disclosures = FilingDisclosuresSchema.parse(buildFilingDisclosures(bundle));
     expect(disclosures.capitalReturn).toMatchObject({ returned: 26e9, authorizationRemaining: 99e9, dividendPerShare: 0.25 });
-    expect(disclosures.notes.join(" ")).toMatch(/dividend raised from 0\.01 to 0\.25 USD per share/);
+    expect(disclosures.notes.join(" ")).toMatch(/dividend raised from 0\.01 to 0\.25 USD per share.*authorization increased by 80\.0 billion USD/);
+    // Stored at 4 dp so the 1-dp display does not double-round (96,221 / 46,743 − 1 = 105.85…%).
+    expect(disclosures.quarterlyTrend.length).toBeGreaterThan(0);
     const headings = (["outlook", "business", "fundamentals", "catalystsRisks"] as const).flatMap((s) => filingDisclosureTables(disclosures, s).map((t) => t.heading));
     expect(headings).toEqual(expect.arrayContaining([
       "Management guidance (issued with Q2 FY2027 results)",
