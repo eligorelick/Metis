@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import fs from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,9 +15,50 @@ const target = { schemaVersion: 2 as const, targetId: "revenue-2025", issuerId: 
 const manifest = { registrationId: "job:0:revenue-2025", inputHash: artifacts[1].hash, reportHash: artifacts[2].hash, targetHash: sha(canonicalSnapshotJson(target)), sourceManifestHash: sha(canonicalSnapshotJson([{ hash: artifacts[0].hash, kind: "source" }])), methodArtifactHash: target.methodArtifactHash, dependencyLockHash: artifacts[4].hash, codeCommit: null, dirtyDiffHash: null, pipelineVersion: "pipeline-v1", promptHash: null, modelVersion: null, acquiredAt: "2024-11-30", createdAt: target.createdAt, frozenAt: "2024-12-01" };
 const dirs: string[] = [];
 function store() { const dir = mkdtempSync(join(tmpdir(), "thesis-registry-")); dirs.push(dir); const file = join(dir, "registry.jsonl"); return { file, registry: new FileEvaluationRegistryStore(file) }; }
-afterEach(() => { vi.useRealTimers(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
 describe("local append-only forecast registry", () => {
+  it("surfaces non-contention filesystem errors immediately without retries or writes", async () => {
+    vi.useFakeTimers();
+    const {registry,file}=store();
+    const denied=Object.assign(new Error('access denied'),{code:'EACCES'});
+    vi.spyOn(fs,'openSync').mockImplementationOnce(()=>{throw denied;});
+    await expect(registerForecast(manifest,target,registry,artifacts)).rejects.toBe(denied);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(existsSync(file)).toBe(false);
+    expect(existsSync(`${file}.lock`)).toBe(false);
+  });
+  it("serializes registrations behind an externally held lock without losing either record", async () => {
+    vi.useFakeTimers();
+    const {registry,file}=store();
+    writeFileSync(`${file}.lock`, "another writer owns this lock");
+    const first=registerForecast(manifest,target,registry,artifacts);
+    const second=registerForecast({...manifest,registrationId:'job:1:revenue-2025'},target,new FileEvaluationRegistryStore(file),artifacts);
+    const settled=Promise.all([first,second]);
+    void settled.catch(()=>undefined);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(existsSync(file)).toBe(false);
+    unlinkSync(`${file}.lock`);
+    await vi.advanceTimersByTimeAsync(50);
+    const receipts=await settled;
+    expect(receipts.map(r=>r.sequence).sort()).toEqual([1,2]);
+    expect((await registry.list()).map(r=>r.receipt.id).sort()).toEqual([manifest.registrationId,'job:1:revenue-2025'].sort());
+    expect(existsSync(`${file}.lock`)).toBe(false);
+  });
+  it("times out on an unreleased or stale lock while preserving the owner and registry bytes", async () => {
+    vi.useFakeTimers();
+    const {registry,file}=store();
+    await registerForecast(manifest,target,registry,artifacts);
+    const before=readFileSync(file,'utf8');
+    writeFileSync(`${file}.lock`, 'unresolved owner');
+    const pending=registerForecast({...manifest,registrationId:'job:1:revenue-2025'},target,registry,artifacts);
+    const rejection=expect(pending).rejects.toThrow(/registry lock.*timed out.*active or stale/i);
+    void rejection.catch(()=>undefined);
+    await vi.advanceTimersByTimeAsync(5_100);
+    await rejection;
+    expect(readFileSync(file,'utf8')).toBe(before);
+    expect(readFileSync(`${file}.lock`,'utf8')).toBe('unresolved owner');
+  });
   it("binds every retained source independently of acquisition order and rejects an omitted source", async () => {
     const extra = artifact("source", "independent second filing bytes");
     const multiple = [...artifacts, extra];

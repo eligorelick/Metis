@@ -41,12 +41,18 @@ function sourceBoundToIssuer(evidence: CompanyAnnouncementEvidence, url: URL, is
   if (!chain || chain.length < 2 || chain[chain.length - 1] !== url.toString()) return false;
   try { return new URL(chain[0]!).toString() === website.toString() && chain.every((raw) => new URL(raw).protocol === "https:"); } catch { return false; }
 }
+// Only recognized places are datelines. Arbitrary uppercase/wire/issuer
+// prefixes must not move an unrelated issuer mention to the clause's start.
+const LOCATION_DATELINE_PREFIX = /^(?:SEATTLE|REDMOND|NEW YORK|SAN FRANCISCO|BOSTON|CHICAGO|LONDON|DUBLIN)\s*(?:--|[–—])\s*/i;
 function eventSubject(sentence: string, evidence: CompanyAnnouncementEvidence, issuer: ConfirmedIssuerIdentity): { alias: string | null; method: "named-subject" | "issuer-document" } | null {
   if (/\b(?:subsidiary|subsidiaries|parent company|on behalf of)\b/i.test(sentence)) return null;
-  const dateAt = new RegExp(DATE_RE.source, "i").exec(sentence)?.index ?? sentence.length;
-  const action = [...sentence.matchAll(/\b(?:will|to)\s+(?:report|release|announce|publish)\b|\bwill\s+be\s+(?:reported|released|announced|published)\b/gi)].filter((m) => m.index < dateAt).at(-1);
+  // Normalize only for subject recognition; retained evidence spans and the
+  // publication/event-date ambiguity checks still use the original sentence.
+  const subjectSentence = sentence.trimStart().replace(LOCATION_DATELINE_PREFIX, "");
+  const dateAt = new RegExp(DATE_RE.source, "i").exec(subjectSentence)?.index ?? subjectSentence.length;
+  const action = [...subjectSentence.matchAll(/\b(?:will|to)\s+(?:report|release|announce|publish)\b|\bwill\s+be\s+(?:reported|released|announced|published)\b/gi)].filter((m) => m.index < dateAt).at(-1);
   if (!action) return null;
-  const prefix = sentence.slice(0, action.index);
+  const prefix = subjectSentence.slice(0, action.index);
   for (const alias of issuerAliases(issuer)) {
     // The name must introduce the reporting action, not just occur elsewhere
     // in a parent/subsidiary description or another issuer's announcement.

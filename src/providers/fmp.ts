@@ -125,7 +125,8 @@ export interface StatementFieldProvenance {
   observedAt: string;
   tags: string[];
   filings: { accn: string; filed: string; form: string }[];
-  derivation?: "ytd-difference";
+  /** Quarter reconstruction; absent for a directly reported field. */
+  derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters";
 }
 
 export interface StatementFieldConflict {

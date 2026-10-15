@@ -255,9 +255,13 @@ export function createEvaluationSnapshot(
   }
   const operatingForecasts = definition.operating.map((item) => selectOperatingForecast(report, item, definition.asOf));
   for (const item of definition.operating) {
-    const target = item.target;
-    if (target && (target.targetId !== item.id || target.issuerId !== definition.issuer.id || target.metric !== item.metric || target.accountingBasis !== item.basis || target.periodStart !== item.periodStart || target.periodEnd !== item.periodEnd || target.currency !== item.currency || target.unit !== item.unit || Date.parse(target.createdAt) !== Date.parse(reportGeneratedAt))) {
-      throw new Error(`Target dimensions do not match the registered report selection: ${item.id}`);
+    if (item.target) {
+      // Current ProjectionPoint/ProjectionSeries retain no complete typed
+      // security, accounting, share or corporate-action identity. A sidecar
+      // declaration (including item.basis) cannot establish those dimensions
+      // for the selected number. Keep target-free legacy diagnostics available
+      // until a versioned report adapter can bind every V2 dimension.
+      throw new Error(`Strict V2 target dimensions unavailable in selected forecast: securityId, accountingBasis, shareBasis, corporateActionBasis (${item.id}); omit target for legacy diagnostics`);
     }
   }
   const payload = {
@@ -269,7 +273,8 @@ export function createEvaluationSnapshot(
   return JSON.parse(JSON.stringify({ ...payload, snapshotHash: hash(payload) })) as EvaluationSnapshot;
 }
 
-/** Hash validation is tamper evidence, not a signature or trusted timestamp. */
+/** Rebuild through current admission rules, including rejection of saved unsupported V2 targets.
+ * Hash validation is tamper evidence, not a signature or trusted timestamp. */
 export function verifyEvaluationSnapshot(input: unknown): EvaluationSnapshot {
   const obj = record(input);
   if (obj.snapshotVersion !== 1 || obj.policyVersion !== EVALUATION_POLICY_VERSION) throw new Error("Unsupported snapshot or evaluation policy version");

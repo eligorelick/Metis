@@ -89,12 +89,23 @@ hand calculations remain available, labeled `legacy_dimensions_unverified` and
 diagnostic only. Operator-declared forecast kind or partial-year semantics are not
 independently certified by the evaluator.
 
+Current report projection points do not retain complete typed security,
+accounting, share and corporate-action dimensions. Report freezing therefore
+rejects a strict V2 target rather than accepting a contradictory sidecar basis.
+Target-free report snapshots remain legacy diagnostics. A versioned adapter that
+binds those dimensions to the selected forecast is required before strict report
+registration can be enabled; retained hashes alone cannot establish them.
+
 Paired diagnostics separate those exact dimensions and fiscal windows. Calendar
 blocks and issuer-balanced descriptive errors do not establish independent
 regimes, statistical power or predictive validity; unsupported inferential
 intervals are withheld. The optional local `FileEvaluationRegistryStore` retains
 hash-chained registrations with lock/fsync/idempotent retry semantics. Its receipt
 time is local append time, without externally witnessed or deletion-proof custody.
+Contending appends wait up to five seconds for the exclusive lock. An unreleased
+lock fails explicitly without changing registry bytes. A lock may be active or
+stale; ownership must be established before recovery, so the store never deletes
+an unknown writer's lock automatically.
 
 Each outcome ID refers to a registered definition. The following values deliberately produce a revenue error of 20 USD and a security return of 10%, benchmark return of 5%, and excess return of 5 percentage points.
 

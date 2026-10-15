@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
+import { mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { canonicalSnapshotJson } from "@/pipeline/runInputSnapshot";
 
 import {
   createEvaluationSnapshot,
@@ -65,6 +69,99 @@ function snapshot() {
 }
 
 describe("immutable evaluation snapshots", () => {
+  it.each([
+    ["a contradictory EPS share basis", { shareBasis: "split-adjusted-through-2026-01-01" }],
+    ["an unrelated share class", { securityId: "isin:UNRELATED-SHARE-CLASS" }],
+    ["a future corporate-action basis", { corporateActionBasis: "split-adjusted-through-2026-01-01" }],
+    ["plausible declarations without retained dimensions", {}],
+  ])("rejects misleading strict V2 report registration with %s", (_name, patch) => {
+    const eps = structuredClone(report);
+    eps.projections.series[0].metric = "epsDiluted";
+    eps.projections.series[0].unit = "USD/share";
+    Object.assign(eps.projections.series[0].base[0].value, { unit: "USD/share", source: "computed.projections.epsDiluted.base" });
+    const selected = { ...definition.operating[0], metric: "epsDiluted", unit: "USD/share", basis: "diluted-EPS;share-basis=as-reported-2025-01-15" };
+    const target = {
+      schemaVersion: 2, targetId: selected.id, issuerId: issuer.id, securityId: "issuer-level",
+      metric: "epsDiluted", accountingBasis: selected.basis, currency: "USD", unit: "USD/share",
+      shareBasis: "as-reported-2025-01-15", corporateActionBasis: "unadjusted",
+      periodStart: selected.periodStart, periodEnd: selected.periodEnd, horizonMonths: 12,
+      forecastKind: "partial_year", createdAt: report.meta.generatedAt, methodArtifactHash: "a".repeat(64),
+      ...patch,
+    };
+    expect(() => createEvaluationSnapshot(eps, { ...definition, operating: [{ ...selected, target }] }, report.meta.generatedAt))
+      .toThrow(/strict V2.*unavailable.*selected forecast/i);
+  });
+
+  it("keeps legacy EPS comparison diagnostic when the report lacks strict V2 dimensions", () => {
+    const eps = structuredClone(report);
+    eps.projections.series[0].metric = "epsDiluted";
+    eps.projections.series[0].unit = "USD/share";
+    Object.assign(eps.projections.series[0].base[0].value, { value: 1.2, unit: "USD/share", source: "computed.projections.epsDiluted.base" });
+    const selected = { ...definition.operating[0], metric: "epsDiluted", unit: "USD/share", basis: "diluted-EPS;share-basis=as-reported-2025-01-15" };
+    const frozen = createEvaluationSnapshot(eps, { ...definition, operating: [selected], market: [] }, report.meta.generatedAt);
+    const actual = { ...operatingOutcome, metric: "epsDiluted", unit: "USD/share", basis: selected.basis, value: 1 };
+    const result = evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [actual] }, "2026-03-01");
+    expect(result).toMatchObject({ predictiveValidation: false, readiness: "diagnostic", custodyStatus: "local-unwitnessed" });
+    expect(result.operating[0]).toMatchObject({ status: "included", forecastValue: 1.2, actualValue: 1 });
+    if (result.operating[0].status !== "included") throw new Error("Expected legacy diagnostic EPS comparison");
+    expect(result.operating[0].absoluteError).toBeCloseTo(0.2);
+    expect(frozen.operatingForecasts[0]).not.toHaveProperty("target");
+  });
+
+  it.each(["load", "evaluation"])("rejects a persisted target-bearing EPS snapshot during %s despite valid hashes and matching actual metadata", (boundary) => {
+    const eps = structuredClone(report);
+    eps.projections.series[0].metric = "epsDiluted";
+    eps.projections.series[0].unit = "USD/share";
+    Object.assign(eps.projections.series[0].base[0].value, { value: 1.2, unit: "USD/share", source: "computed.projections.epsDiluted.base" });
+    const selected = { ...definition.operating[0], metric: "epsDiluted", unit: "USD/share", basis: "diluted-EPS;share-basis=as-reported-2025-01-15" };
+    const sourceContent = "later filed EPS 1 on an incompatible split basis";
+    const methodContent = "retained prior report method";
+    const source = { kind: "source", content: sourceContent, hash: createHash("sha256").update(sourceContent).digest("hex") };
+    const method = { kind: "method", content: methodContent, hash: createHash("sha256").update(methodContent).digest("hex") };
+    const legacy = createEvaluationSnapshot(eps, { ...definition, operating: [selected], market: [], retainedArtifacts: [method] }, report.meta.generatedAt);
+    const target = {
+      schemaVersion: 2 as const, targetId: selected.id, issuerId: issuer.id, securityId: "issuer-level",
+      metric: "epsDiluted", accountingBasis: selected.basis, currency: "USD", unit: "USD/share",
+      shareBasis: "split-adjusted-through-2026-01-01", corporateActionBasis: "unadjusted",
+      periodStart: selected.periodStart, periodEnd: selected.periodEnd, horizonMonths: 12,
+      forecastKind: "partial_year" as const, createdAt: report.meta.generatedAt, methodArtifactHash: method.hash,
+    };
+    // Reproduce the exact JSON shape accepted before report V2 admission was
+    // withheld. Both definition and selected forecast retain the old target.
+    const { snapshotHash: priorHash, ...priorPayload } = legacy;
+    const payload = {
+      ...priorPayload,
+      definition: { ...legacy.definition, operating: [{ ...legacy.definition.operating[0], target }] },
+      operatingForecasts: [{ ...legacy.operatingForecasts[0], target }],
+    };
+    const priorSnapshot = { ...payload, snapshotHash: createHash("sha256").update(canonicalSnapshotJson(payload)).digest("hex") };
+    expect(priorSnapshot.snapshotHash).not.toBe(priorHash);
+    const actual = {
+      ...operatingOutcome, metric: "epsDiluted", unit: "USD/share", basis: selected.basis, value: 1,
+      observation: {
+        targetId: target.targetId, issuerId: target.issuerId, securityId: target.securityId, metric: target.metric,
+        accountingBasis: target.accountingBasis, currency: target.currency, unit: target.unit,
+        shareBasis: target.shareBasis, corporateActionBasis: target.corporateActionBasis,
+        periodStart: target.periodStart, periodEnd: target.periodEnd, availableAt: operatingOutcome.availableDate,
+        sourceHash: source.hash, value: 1,
+      },
+    };
+    const directory = mkdtempSync(join(tmpdir(), "thesis-report-v2-load-"));
+    const filename = join(directory, "old-snapshot.json");
+    try {
+      writeFileSync(filename, JSON.stringify(priorSnapshot));
+      const loaded: unknown = JSON.parse(readFileSync(filename, "utf8"));
+      const consume = boundary === "load" ? () => verifyEvaluationSnapshot(loaded)
+        : () => evaluateReportSnapshot(loaded, { schemaVersion: 1, outcomes: [actual], retainedArtifacts: [source] }, "2026-03-01");
+      expect(consume)
+        .toThrow(/strict V2.*unavailable.*selected forecast/i);
+      expect(readFileSync(filename, "utf8")).toBe(JSON.stringify(priorSnapshot));
+    } finally {
+      unlinkSync(filename);
+      rmdirSync(directory);
+    }
+  });
+
   it.each([
     ["12M ending 2026-06-30", "computed.projections.revenue.base"],
     ["12M ending 2026-06-30", "payload.computed.projections.revenue.base.12m-ending-2026-06-30"],
@@ -181,21 +278,12 @@ describe("immutable evaluation snapshots", () => {
 });
 
 describe("operating forecast evaluation", () => {
-  it("adds shared v2 dimension/source gates while retaining report fiscal and numeric gates", () => {
+  it("does not treat retained source and method bytes as a report V2 dimension adapter", () => {
     const source = { kind: "source", content: "initial revenue 100", hash: createHash("sha256").update("initial revenue 100").digest("hex") };
     const method = { kind: "method", content: "report method", hash: createHash("sha256").update("report method").digest("hex") };
     const target = { schemaVersion: 2, targetId: operatingOutcome.id, issuerId: issuer.id, securityId: "issuer-level", metric: "revenue", accountingBasis: operatingOutcome.basis, currency: "USD", unit: "USD", shareBasis: "not_per_share", corporateActionBasis: "unadjusted", periodStart: operatingOutcome.periodStart, periodEnd: operatingOutcome.periodEnd, horizonMonths: 12, forecastKind: "partial_year", createdAt: report.meta.generatedAt, methodArtifactHash: method.hash };
-    const actual = { ...operatingOutcome, observation: { targetId: target.targetId, issuerId: target.issuerId, securityId: target.securityId, metric: target.metric, accountingBasis: target.accountingBasis, currency: target.currency, unit: target.unit, shareBasis: target.shareBasis, corporateActionBasis: target.corporateActionBasis, periodStart: target.periodStart, periodEnd: target.periodEnd, availableAt: operatingOutcome.availableDate, sourceHash: source.hash, value: 100 } };
-    const frozen = createEvaluationSnapshot(report, { ...definition, operating: [{ ...definition.operating[0], target }], retainedArtifacts: [method] }, report.meta.generatedAt);
-    const frozenBytes = JSON.stringify(frozen);
-    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [actual], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "included", absoluteError: 20 });
-    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [{ ...actual, observation: { ...actual.observation, issuerId: "OTHER" } }], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["issuer_mismatch"]) });
-    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [{ ...actual, observation: { ...actual.observation, sourceHash: "a".repeat(64) } }], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["source_unbound"]) });
-    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [{ ...actual, metric: "fcf" }], retainedArtifacts: [source] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["metric-mismatch"]) });
-    expect(evaluateReportSnapshot(frozen, { schemaVersion: 1, outcomes: [actual], retainedArtifacts: [{ ...source, content: "changed future source bytes" }] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["source_unbound"]) });
-    const sourceInFrozenInputs = createEvaluationSnapshot(report, { ...definition, operating: [{ ...definition.operating[0], target }], retainedArtifacts: [method, source] }, report.meta.generatedAt);
-    expect(evaluateReportSnapshot(sourceInFrozenInputs, { schemaVersion: 1, outcomes: [actual] }, "2026-03-01").operating[0]).toMatchObject({ status: "excluded", reasons: expect.arrayContaining(["source_unbound"]) });
-    expect(JSON.stringify(frozen)).toBe(frozenBytes);
+    expect(() => createEvaluationSnapshot(report, { ...definition, operating: [{ ...definition.operating[0], target }], retainedArtifacts: [method, source] }, report.meta.generatedAt))
+      .toThrow(/strict V2.*unavailable.*selected forecast/i);
     expect(evaluateReportSnapshot(snapshot(), { schemaVersion: 1, outcomes: [operatingOutcome] }, "2026-03-01")).toMatchObject({ predictiveValidation: false, custodyStatus: "local-unwitnessed", readiness: "diagnostic" });
   });
   it("accepts exact AI-bound projection provenance and rejects another metric, scenario or period", () => {

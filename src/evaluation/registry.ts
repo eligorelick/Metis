@@ -13,6 +13,20 @@ export interface EvaluationRegistryStore {
 }
 const entrySchema = z.object({ sequence: z.number().int().positive(), previousRecordHash: artifactHashSchema.nullable(), recordedAt: evaluationStampSchema, recordHash: artifactHashSchema, record: z.unknown() }).strict();
 
+/** Wait for another writer, but never remove a lock whose ownership is unknown. */
+async function acquireRegistryLock(lock: string): Promise<number> {
+  const deadline = performance.now() + 5_000;
+  for (;;) {
+    try { return fs.openSync(lock, "wx", 0o600); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) throw new Error("Evaluation registry lock acquisition timed out; lock may be active or stale. Registry unchanged; inspect ownership before recovery.", { cause: error });
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(25, remaining)));
+    }
+  }
+}
+
 /** API append-only and hash chained, not an externally witnessed clock or a deletion-proof archive. */
 export class FileEvaluationRegistryStore implements EvaluationRegistryStore {
   constructor(readonly filename: string) {}
@@ -40,7 +54,7 @@ export class FileEvaluationRegistryStore implements EvaluationRegistryStore {
     const record = verifyEvaluationRegistration(input.manifest, input.target, input.artifacts);
     fs.mkdirSync(path.dirname(this.filename), { recursive: true });
     const lock = `${this.filename}.lock`;
-    const descriptor = fs.openSync(lock, "wx", 0o600);
+    const descriptor = await acquireRegistryLock(lock);
     try {
       const entries = this.entries();
       const stored = entries.find(r => r.manifest.registrationId === record.manifest.registrationId);

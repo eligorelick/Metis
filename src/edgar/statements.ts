@@ -2201,7 +2201,7 @@ function buildStatementRows<TRow>(
       const filings = [...new Map((resolved.evidencePoints ?? [resolved.point]).map((p) => [`${p.accn}|${p.filed}`, filingRef(p)])).values()];
       fieldProvenance[field] = { source: "edgar", unit: resolved.unit, periodStart: resolved.periodStart ?? resolved.point.start ?? null,
         periodEnd: resolved.point.end, observedAt: opts.factsObservedAt ?? "", tags: resolved.tags.map((tag) => `us-gaap/${tag}`), filings,
-        ...(resolved.derivation === "ytd-difference" ? { derivation: resolved.derivation } : {}) };
+        ...(resolved.derivation !== undefined ? { derivation: resolved.derivation } : {}) };
     }
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;

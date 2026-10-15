@@ -35,6 +35,11 @@ grade bands, scenario priors or the forward valuation assumptions.
 | Evaluation target identity, retained outcome evidence and replay custody | 5 | 2 | V2 definitions bind exact windows/concepts/units/security/accounting and retained bytes; replay checks actual method, lock, commit and dirty-diff identity when supplied. Legacy inputs remain diagnostic only. |
 | Paired diagnostic grouping and readiness | 4 | 2 | Exact fiscal windows/concepts and method dimensions cannot pool; calendar blocks/readiness are disclosed without unsupported inferential intervals or predictive-accuracy claims. |
 | Adversarial regressions, preservation and release verification | 5 | 1 | Negative cases and compatible controls accompany each boundary; historical report bytes and existing user edits are preserved. |
+| Report V2 registration fails on unavailable forecast dimensions | 5 | 1 | Current report points lack typed security/accounting/share/action identity; a sidecar cannot certify the selected value. Strict report freezing is withheld pending a versioned adapter; target-free diagnostics remain available. |
+| Registry lock contention and unresolved ownership | 4 | 2 | Contenders wait within a five-second bound. An active or stale lock with unknown ownership fails explicitly and leaves registry bytes and the lock intact. No unsafe automatic lock deletion. |
+| Reconstructed quarter provenance | 4 | 1 | All actual derivation labels are retained, including FY minus YTD and FY minus the first three quarters. Financial arithmetic is unchanged. |
+| Recognized release datelines | 4 | 2 | Known conventional location prefixes can precede the bound issuer subject; competitor, wire-attribution and ambiguous-date controls still reject unsupported announcements. |
+| Citation-log entry count | 3 | 1 | The summary counts entries rather than treating the legacy numeric outcome enum as a whole-prose citation count. Per-row support dimensions and separate coverage metrics remain explicit. |
 
 The local evaluation registry is append-only with locks, fsync and hash chaining;
 it establishes local content custody, not an externally trusted timestamp or

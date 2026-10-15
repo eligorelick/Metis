@@ -8,6 +8,11 @@ import {reportToPrintBody} from '@/report/export/printHtml';
 import {loadTask28Fixture} from './helpers/task28Report';
 
 describe('numeric support never implies whole-prose verification',()=>{
+ it('counts log entries without mislabeling supported prose as uncited in the summary',()=>{
+  const report=loadTask28Fixture();
+  report.appendix.verificationLog=[{claim:'Numeric provenance',outcome:'verified'},{claim:'Cited qualitative prose',outcome:'unverified',claimSupportStatus:'cited'},{claim:'Unchecked',outcome:'unverified',claimSupportStatus:'unreviewed'}];
+  expect(renderToStaticMarkup(createElement(ReportView,{report}))).toContain('citation-coverage log (3 entries)');
+ });
  it('labels cited unchecked prose consistently while retaining removed and legacy outcomes',()=>{
   const entry=VerificationLogEntrySchema.parse({claim:'A cited qualitative claim',outcome:'unverified',claimSupportStatus:'cited'});
   const report=loadTask28Fixture();report.appendix.verificationLog=[entry];
