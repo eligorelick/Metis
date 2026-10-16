@@ -92,10 +92,10 @@ export interface ExtractedSection {
   sectionName: "item1A" | "item7" | "tenQItem2" | "item1" | "tenQNotes" | "tenKNotes" | "tenQItem5";
   text: string;
   /**
-   * D-66: for the 10-Q notes, the condensed statements printed before the
-   * notes heading (bounded), read for the cash-flow and investment lines no
-   * typed statement carries (purchases of equity securities, a deal payment).
-   * Absent on sections stored before it and on every other section.
+   * For 10-Q and 10-K notes, the statement prefix before the notes heading
+   * (bounded to 12,000 characters), with the same filing identity as this
+   * section. Supports source-bound debt presentation and cash-flow/investment
+   * facts. Absent on legacy sections, empty prefixes and other section kinds.
    */
   statementsText?: string;
   /** Extraction layer that produced the text (diagnostics/appendix). */

@@ -861,8 +861,8 @@ interface SectionJob {
   stubMinChars?: number;
 }
 
-/** D-66: the 10-Q statements kept beside its notes, for their cash-flow and investment lines. */
-const TEN_Q_STATEMENTS_CHARS = 12_000;
+/** Periodic statements kept beside their notes, for source-bound typed facts and debt scope. */
+const PERIODIC_STATEMENTS_CHARS = 12_000;
 
 const XBRL_FRESHNESS_TAGS = [
   "RevenueFromContractWithCustomerExcludingAssessedTax",
@@ -1000,7 +1000,7 @@ function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>)
   if (notes === null) return result;
   // D-66: the statements before the heading stay beside the notes (bounded)
   // for the lines no typed statement carries.
-  const statementsText = result.value.data.text.slice(0, notes.start).slice(0, TEN_Q_STATEMENTS_CHARS);
+  const statementsText = result.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
   return { ...result, value: { ...result.value, data: { ...result.value.data, text: notes.text, chars: notes.text.length,
     ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
 }
@@ -1021,7 +1021,10 @@ async function annualNotes(
     if (!section.ok) { tried.push(`Item ${item}: ${section.gap.reason}`); continue; }
     const notes = annualNotesToFinancialStatements(section.value.data.text);
     if (notes === null) { tried.push(`Item ${item}: no notes heading`); continue; }
-    return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`, data: { ...section.value.data, text: notes.text, chars: notes.text.length } } };
+    const statementsText = section.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
+    return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`,
+      data: { ...section.value.data, text: notes.text, chars: notes.text.length,
+        ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
   }
   return gapResult(`edgar.tenKNotes(${symbol})`, `no notes to the financial statements were found in 10-K Item 8 or Item 15 (${tried.join("; ")})`, "warn", [docUrl]);
 }
