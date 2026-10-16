@@ -217,7 +217,8 @@ type GuidanceRows = NonNullable<FilingDisclosures["guidance"]>["rows"];
 function forwardGuidance(item: GuidanceItem, releases: readonly EarningsReleaseRecord[]): boolean {
   const latest = releases.find((release) => release.reported.fiscal !== null)?.reported.fiscal;
   if (!latest) return true;
-  return item.period.fiscalQuarter === null ? item.period.fiscalYear >= latest.fiscalYear
+  return item.period.fiscalQuarter === null ? item.period.fiscalYear > latest.fiscalYear ||
+    (item.period.fiscalYear === latest.fiscalYear && latest.fiscalQuarter !== null && latest.fiscalQuarter < 4)
     : item.period.fiscalYear * 4 + item.period.fiscalQuarter > latest.fiscalYear * 4 + (latest.fiscalQuarter ?? 4);
 }
 

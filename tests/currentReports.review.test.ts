@@ -58,6 +58,32 @@ describe("earnings exhibit provenance review", () => {
     expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["original"]);
   });
 
+  it("does not read negated or historical earnings references as an affirmative correction", async () => {
+    for (const text of [
+      "This amendment adds only a supplier agreement and does not amend the previously reported financial results or earnings release.",
+      "This amendment adds only a supplier agreement. The previously furnished Item 2.02 earnings release remains unchanged.",
+    ]) {
+      const { client } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [{ type: "8-K/A", filename: "amended.htm", text: `Item 9.01 Financial Statements and Exhibits. ${text}` }, { type: "EX-99.1", filename: "other.htm", text: "NVIDIA supplier agreement and product exhibition." }] });
+      const result = await collectCurrentReports(client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+      expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["original"]);
+    }
+  });
+
+  it("accepts affirmative earnings correction scope with parsed facts, and withholds an unparseable correction", async () => {
+    const primary = { type: "8-K/A", filename: "amended.htm", text: "Item 9.01 Financial Statements and Exhibits. This amendment corrects the previously furnished earnings release." };
+    const corrected = release.replace("21,341", "22,341").replaceAll(/financial results|earnings|CFO commentary/gi, "issuer data");
+    const { client } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [primary, { type: "EX-99.1", filename: "fixed.htm", text: corrected }] });
+    const result = await collectCurrentReports(client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+    expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["amended"]);
+    const purpose = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [{ ...primary, text: "This amendment is filed solely to correct the previously reported financial results." }, { type: "EX-99.1", filename: "fixed.htm", text: corrected }] });
+    const purposeResult = await collectCurrentReports(purpose.client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+    expect(purposeResult.ok && purposeResult.value.data.releases.map((r) => r.accession)).toEqual(["amended"]);
+    const empty = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [primary, { type: "EX-99.1", filename: "empty.htm", text: "The attached document contains no readable results." }] });
+    const unknown = await collectCurrentReports(empty.client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+    expect(unknown.ok).toBe(false);
+    expect(empty.requested).not.toContain("index:original");
+  });
+
   it("withholds an original when its linked Item 9.01 amendment cannot establish whether earnings were corrected", async () => {
     const { client, requested } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }] });
     const result = await collectCurrentReports(client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
@@ -98,6 +124,21 @@ describe("earnings exhibit provenance review", () => {
     reports.value.data.releases.find((r) => r.accession === "original")!.guidance = null;
     expect(nextPeriodRevenueGuidance(bundle)).toBeNull();
     expect(buildFilingDisclosures(bundle)!.guidance?.rows.some((r) => r.period === "Q2 FY2027")).not.toBe(true);
+  });
+
+  it("does not surface a completed fiscal year's old annual outlook as current guidance", () => {
+    const old = buildEarningsReleaseRecord({ filing: original, releaseUrl: "https://www.sec.gov/release", commentaryUrl: null, releaseText: release, commentaryText: null, includeNarrative: false });
+    for (const quarter of [4, null] as const) {
+      const completed = { ...old, accession: "completed", filingDate: "2027-02-25", reported: { fiscal: { label: "FY2027", fiscalYear: 2027, fiscalQuarter: quarter }, periodEnd: "2027-01-25" }, guidance: null };
+      const bundle = withRelease(completed);
+      const reports = bundle.edgar.currentReports;
+      if (!reports?.ok) throw new Error("missing fixture reports");
+      reports.value.data.releases.push(old);
+      expect(buildFilingDisclosures(bundle)!.guidance).toBeNull();
+    }
+    // While that fiscal year remains incomplete, its annual tax outlook is
+    // still relevant and retains the quarter release that supplied it.
+    expect(buildFilingDisclosures(withRelease(old))!.guidance!.rows.some((r) => r.period === "FY2027")).toBe(true);
   });
 
   it("keeps commentary-only FCF and reconciliation provenance through the report and payload", () => {

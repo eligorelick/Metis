@@ -28,6 +28,7 @@ import {
   parseReportedPeriod,
   releaseNarrative,
   splitEightKItems,
+  splitSentences,
   summarizeItem,
   MATERIAL_EVENT_ITEMS,
   type CapitalReturnFacts,
@@ -266,6 +267,19 @@ function earningsExhibitRole(type: string): "release" | "commentary" | null {
   return match?.[1] === "1" ? "release" : match?.[1] === "2" ? "commentary" : null;
 }
 
+/** References to an old earnings release do not themselves amend its results. */
+function primaryEarningsScope(text: string | null): "earnings" | "unrelated" | "unknown" {
+  if (text === null) return "unknown";
+  const target = String.raw`(?:(?:the|our|its|previously|furnished|reported|issued|published)\s+){0,7}(?:earnings release|financial results|results of operations)`;
+  const direct = new RegExp(String.raw`\b(?:This amendment|This Form 8-K/A|We|The Company)\s+(?:hereby\s+)?(?:amends|amend|corrects|correct|restates|restate|replaces|replace|updates|update)\s+${target}\b`, "i");
+  const purpose = new RegExp(String.raw`\bThis amendment\s+is\s+(?:being\s+)?filed\s+(?:(?:solely|only)\s+)?to\s+(?:amend|correct|restate|replace|update)\s+${target}\b`, "i");
+  const sentences = splitSentences(text);
+  if (sentences.some((sentence) => direct.test(sentence) || purpose.test(sentence))) return "earnings";
+  const disclaimsChange = /\b(?:does|do|will)\s+not\s+(?:amend|correct|restate|replace|update)\b[^.!?]{0,140}\b(?:financial results|earnings release|results of operations)\b|\b(?:financial results|earnings release|results of operations)\s+remain(?:s)?\s+unchanged\b/i;
+  if (sentences.some((sentence) => disclaimsChange.test(sentence))) return "unrelated";
+  return /\bItem\s+2\.02\b|\b(?:earnings release|financial results|results of operations)\b/i.test(text) ? "unknown" : "unrelated";
+}
+
 function earningsFilings(filings: readonly EdgarFiling[], today: string, notes: string[]): EdgarFiling[] {
   const recent = recentEightKs(filings, today, RELEASE_WINDOW_DAYS, () => true);
   const candidates = recent.filter((filing, i) => itemsOf(filing.items).includes("2.02") ||
@@ -329,12 +343,12 @@ export async function collectCurrentReports(
     }
     const primary = linkedExhibitAmendment ? await fetchText(edgar, cik, filing, filing.primaryDocument) : null;
     const primaryText = primary !== null && typeof primary !== "string" ? plain(primary.text) : null;
-    const primaryEarnings = primaryText !== null && /\bItem\s+2\.02\b|\b(?:earnings release|financial results|results of operations)\b/i.test(primaryText);
+    const primaryScope = primaryEarningsScope(primaryText);
     const releaseDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "release") ??
       findDocumentByType({ ...index, documents: index.documents.filter((d) => earningsExhibitRole(d.type) !== "commentary") }, "EX-99");
     const commentaryDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "commentary") ?? null;
     if (!releaseDoc && !commentaryDoc) {
-      if (linkedExhibitAmendment && primaryText !== null && !primaryEarnings && event !== null) {
+      if (linkedExhibitAmendment && primaryScope === "unrelated" && event !== null) {
         amendedEvents.delete(event);
         notes.push(`8-K/A ${filing.accessionNumber}: linked Item 9.01 amendment supplies no earnings scope or EX-99 exhibit; original earnings evidence retained.`);
         continue;
@@ -357,18 +371,6 @@ export async function collectCurrentReports(
       else { commentaryText = plain(commentary.text); commentaryUrl = commentary.url; fetchedAt ??= commentary.fetchedAt; }
     }
     if (releaseUrl === null && commentaryUrl === null) continue;
-    if (linkedExhibitAmendment) {
-      const exhibits = [releaseText, commentaryText ?? ""];
-      const exhibitEarnings = exhibits.some((text) => parseReportedPeriod(text).fiscal !== null && /\b(?:financial results|earnings|CFO commentary)\b/i.test(text.slice(0, 6_000)));
-      if (!primaryEarnings && !exhibitEarnings) {
-        const allRead = (releaseDoc === null || releaseDoc === undefined || releaseUrl !== null) && (commentaryDoc === null || commentaryUrl !== null);
-        if (primaryText !== null && allRead && event !== null) {
-          amendedEvents.delete(event);
-          notes.push(`8-K/A ${filing.accessionNumber}: readable linked Item 9.01 primary/exhibits contain no earnings scope; original earnings evidence retained.`);
-        } else notes.push(`8-K/A ${filing.accessionNumber}: linked Item 9.01 earnings scope remains unestablished; corresponding original withheld.`);
-        continue;
-      }
-    }
     const record = buildEarningsReleaseRecord({
       filing,
       releaseUrl,
@@ -379,6 +381,20 @@ export async function collectCurrentReports(
       commentaryText,
       includeNarrative: true,
     });
+    if (linkedExhibitAmendment) {
+      const exhibits = [releaseText, commentaryText ?? ""];
+      const exhibitEarnings = exhibits.some((text) => parseReportedPeriod(text).fiscal !== null && /\b(?:financial results|earnings|CFO commentary)\b/i.test(text.slice(0, 6_000)));
+      const parsedEarnings = record.reported.fiscal !== null || record.reported.periodEnd !== null || record.freeCashFlow.length > 0 ||
+        (record.reconciliation?.length ?? 0) > 0 || (record.guidance?.items.length ?? 0) > 0;
+      if (!(exhibitEarnings || primaryScope === "earnings") || !parsedEarnings) {
+        const allRead = (releaseDoc === null || releaseDoc === undefined || releaseUrl !== null) && (commentaryDoc === null || commentaryUrl !== null);
+        if (primaryScope === "unrelated" && allRead && event !== null) {
+          amendedEvents.delete(event);
+          notes.push(`8-K/A ${filing.accessionNumber}: readable linked Item 9.01 primary/exhibits contain no earnings scope; original earnings evidence retained.`);
+        } else notes.push(`8-K/A ${filing.accessionNumber}: linked Item 9.01 earnings scope remains unestablished; corresponding original withheld.`);
+        continue;
+      }
+    }
     const guidance = record.guidance;
     if (guidance === null) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): no outlook section was found in the release or commentary`);
     else if (guidance.items.length === 0) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): an outlook section was found but none of its sentences could be read as guidance`);
