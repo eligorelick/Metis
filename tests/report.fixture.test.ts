@@ -218,6 +218,9 @@ describe("report format helpers", () => {
     expect(formatLargeNumber(3.5e12)).toBe("3.50T");
     expect(formatLargeNumber(45.61e9)).toBe("45.61B");
     expect(formatLargeNumber(789e6)).toBe("789.00M");
+    // D-67: report money drops the ".00" a whole amount never stated; a rounded one keeps it.
+    expect(formatLargeNumber(789e6, true)).toBe("789M");
+    expect(formatLargeNumber(1_000_400_000, true)).toBe("1.00B");
     expect(formatLargeNumber(12.3e3)).toBe("12.3K");
     expect(formatLargeNumber(-2.35e12)).toBe("-2.35T");
     expect(formatLargeNumber(500)).toBe("500.00");

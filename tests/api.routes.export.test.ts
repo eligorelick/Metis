@@ -221,7 +221,8 @@ describe("GET /api/export/[reportId]", () => {
     expect(markdownResponse.status).toBe(200);
     const markdown = await markdownResponse.text();
     expect(markdown).not.toContain(entityConflict);
-    expect(markdown).toContain("legacy.entityValidation");
+    // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+    expect(markdown).toContain("Legacy entity validation");
     expect(markdown).toContain("critical");
 
     const stored = handle.sqlite
@@ -239,7 +240,8 @@ describe("GET /api/export/[reportId]", () => {
     expect(printResponse.status).toBe(200);
     const printHtml = await printResponse.text();
     expect(printHtml).not.toContain(entityConflict);
-    expect(printHtml).toContain("legacy.entityValidation");
+    // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+    expect(printHtml).toContain("Legacy entity validation");
     expect(printHtml).toContain("critical");
 
     const stored = handle.sqlite

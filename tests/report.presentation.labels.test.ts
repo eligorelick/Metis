@@ -39,7 +39,8 @@ describe("reader labels for registry ids", () => {
   it("names quarterly-trend, accrual-operand and data-gap records without registry syntax", () => {
     expect(metricLabel("computed.quarterly-trend.q2-fy2027-revenue")).toBe("Q2 FY2027 revenue");
     expect(metricLabel("computed.forensics.accrual-operand-net-income-ni")).toBe("Net income");
-    expect(metricLabel("manifest.fmp.insiderTradingSearch(NVDA)")).toMatch(/^Data-gap record: fmp insider trading search NVDA$/i);
+    // D-67: the provider is named and the symbol argument dropped.
+    expect(metricLabel("manifest.fmp.insiderTradingSearch(NVDA)")).toBe("Data-gap record: FMP insider trading search");
     expect(sourceLabel("edgar:10-Q item2")).toBe("10-Q Item 2");
     expect(sourceLabel("edgar:8-K 0001045810-26-000069")).toBe("8-K 0001045810-26-000069");
   });

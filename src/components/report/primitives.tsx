@@ -23,16 +23,16 @@
 import type { ReactNode } from "react";
 
 import { Badge, GradeChip, type Tone } from "@/components/ui";
-import { gradeForDisplay } from "@/report/assessment";
+import { gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, type AspectEvidence } from "@/report/assessment";
+import type { ReportCompletenessPresentation } from "@/report/completeness";
 import type {
   GradeBlock,
   Report,
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
-import { figureRows, seeAlsoText, withoutTabled } from "@/report/presentation";
+import { displayConfidence, displayProse, figureRows, figureValueText, seeAlsoText, withoutTabled } from "@/report/presentation";
 import {
-  formatFinancialAmount,
   formatNumber,
   unitLabel,
   numericCitationTraceLabel,
@@ -178,7 +178,7 @@ export function TracedFigure({
       className={`inline-flex items-center gap-1 ${className ?? ""}`}
       title={`${unitLabel(n.unit) ? `${unitLabel(n.unit)} · ` : ""}${n.source}${n.asOf ? ` · as of ${n.asOf}` : ""}`}
     >
-      <span className={`mono ${toneClass[tone]}`}>{formatFinancialAmount(n.value, n.unit, n.currency)}</span>
+      <span className={`mono ${toneClass[tone]}`}>{figureValueText(n)}</span>
       <VerificationDot n={n} />
       {showProvenance && (
         <span className="mono text-[9px] text-faint">
@@ -235,6 +235,23 @@ const CONFIDENCE_TONE: Record<GradeBlock["confidence"], Tone> = {
 };
 
 /**
+ * D-67: the headline grade chip. Under the evidence floor no letter is shown;
+ * with the aspect's deterministic score at hand the chip shows that score and
+ * the marker, as the strip, the section header and the scorecard do.
+ */
+export function HeadlineGrade({ block, aspect }: { block: GradeBlock; aspect?: AspectEvidence | null }) {
+  const grade = gradeForDisplay(block);
+  if (grade === null && block.assessmentStatus === "limited-evidence" && hasLimitedEvidence(aspect)) {
+    return (
+      <span className="mono text-[10px] text-warn" aria-label="not assessed — limited evidence" title={gradeDisplayLabel(block, aspect)}>
+        {Math.round(aspect!.score ?? 0)}/100 · limited evidence
+      </span>
+    );
+  }
+  return <GradeChip grade={grade} />;
+}
+
+/**
  * The full reasoning behind a {@link GradeBlock}: the grade chip, one-line why,
  * confidence, then (expandable) the reasoning claims + the key numbers. Used
  * both inline at the top of each graded section and as the scroll-anchor target
@@ -248,20 +265,27 @@ export function GradeReasoning({
   block,
   defaultOpen = false,
   report = {},
+  aspect,
+  completeness,
 }: {
   title: ReactNode;
   block: GradeBlock;
   defaultOpen?: boolean;
   /** D-62: figures a deterministic filing table shows are left to that table. */
   report?: Pick<Report, "filingDisclosures">;
+  /** D-67: the aspect's deterministic score, for the limited-evidence label. */
+  aspect?: AspectEvidence | null;
+  /** D-67: the report's data state, which caps the displayed confidence. */
+  completeness?: Pick<ReportCompletenessPresentation, "metadataStatus" | "dataCriticalCount" | "dataWarningCount">;
 }) {
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   const rows = figureRows(kept);
   const also = seeAlsoText(homes);
+  const confidence = completeness ? displayConfidence(block.confidence, completeness) : { level: block.confidence, cap: null };
   return (
     <div className="border border-edge-strong bg-raised">
       <div className="flex items-center gap-2 border-b border-edge px-2.5 py-1.5">
-        <GradeChip grade={gradeForDisplay(block)} />
+        <HeadlineGrade block={block} aspect={aspect} />
         <span className="mono text-[11px] uppercase tracking-[0.12em] text-muted">
           {title}
         </span>
@@ -269,21 +293,24 @@ export function GradeReasoning({
           <span className="text-[9px] uppercase tracking-[0.1em] text-faint">
             conf
           </span>
-          <Badge tone={CONFIDENCE_TONE[block.confidence]}>
-            {block.confidence}
+          <Badge tone={CONFIDENCE_TONE[confidence.level]}>
+            {confidence.level}
           </Badge>
         </span>
       </div>
       <div className="px-2.5 py-2">
-        <p className="text-[12px] leading-snug text-fg">{block.oneLineWhy}</p>
+        <p className="text-[12px] leading-snug text-fg">{displayProse(block.oneLineWhy)}</p>
         {block.confidenceCap && (
           <p className="mono mt-1 text-[10px] text-faint">
             Confidence capped at {block.confidenceCap.to}: {block.confidenceCap.reason}
           </p>
         )}
+        {confidence.cap && (
+          <p className="mono mt-1 text-[10px] text-faint">Confidence {confidence.cap}.</p>
+        )}
         {block.interpretation && (
           <p className="mt-1.5 border-l-2 border-edge-strong pl-2 text-[12px] leading-relaxed text-muted">
-            {block.interpretation}
+            {displayProse(block.interpretation)}
           </p>
         )}
 
@@ -439,14 +466,14 @@ export function ScenarioCard({
           <ul className="flex flex-col gap-0.5">
             {whatWouldHaveToBeTrue.map((w, i) => (
               <li key={i} className="text-[11px] leading-snug text-fg">
-                → {w}
+                → {displayProse(w)}
               </li>
             ))}
           </ul>
         </div>
         {qualitativeCommentary?.length ? <div>
           <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">Qualitative commentary (not valuation inputs)</div>
-          <ul className="flex flex-col gap-0.5">{qualitativeCommentary.map((text, i) => <li key={i} className="text-[11px] leading-snug text-muted">{text}</li>)}</ul>
+          <ul className="flex flex-col gap-0.5">{qualitativeCommentary.map((text, i) => <li key={i} className="text-[11px] leading-snug text-muted">{displayProse(text)}</li>)}</ul>
         </div> : null}
       </div>
     </div>

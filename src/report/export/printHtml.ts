@@ -28,7 +28,7 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { gradeDisplayLabel, gradeForDisplay } from "@/report/assessment";
+import { gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
@@ -80,21 +80,28 @@ import {
   formatPct,
 } from "@/report/format";
 import {
-  actionableGapTable,
   annualSegmentHeading,
   assessmentLine,
   auditExportPath,
   citedMark,
   claimCitation,
   compactLongIntegers,
+  confidenceText,
   consensusTables,
+  dataGapTables,
   dataStateText,
+  displayProse,
+  executiveGradeText,
+  executiveGroups,
+  ratioPercentText,
+  showAnnualSegments,
+  withoutChartReferences,
   factorExposureTable,
   figureRows,
+  figureValueText,
   gapCountText,
   gapSummary,
   geographyLabel,
-  humanizeInlineCitations,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -139,9 +146,9 @@ export function esc(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Escaped stored prose with registry-id citations under reader labels. */
-function prose(text: string): string {
-  return esc(humanizeInlineCitations(text));
+/** Escaped stored prose: registry ids under reader labels, figures at reader precision (D-67). */
+function prose(text: string, source?: string): string {
+  return esc(displayProse(text, source));
 }
 
 function num(v: number | null | undefined, digits = 2): string {
@@ -206,7 +213,7 @@ function subsection(heading: string, body: string, level = "h3"): string {
 function claimList(claims: readonly SourcedClaim[]): string {
   if (claims.length === 0) return "";
   return `<ul class="claims">${claims
-    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(c.text)} <span class="src">${esc(claimCitation(c))}</span></li>`)
+    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${prose(c.text, c.source)} <span class="src">${esc(claimCitation(c))}</span></li>`)
     .join("")}</ul>`;
 }
 
@@ -222,9 +229,20 @@ function bodyTables(tables: readonly (ReportAuditTable | BodyTable | null)[], le
   }).join("");
 }
 
-function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}): string {
+/** D-67: the aspect's deterministic score (limited-evidence label) and the data state (confidence cap). */
+interface GradeContext {
+  aspect?: AspectEvidence | null;
+  completeness?: ReportCompletenessPresentation;
+}
+
+function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"]): GradeContext {
+  return { aspect: report.scores?.aspects[key] ?? null, completeness: deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData) };
+}
+
+function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
+  const confidence = ctx.completeness ? confidenceText(block.confidence, ctx.completeness) : block.confidence;
   const parts: string[] = [
-    `<div class="gradehead"><span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block))}</span> <strong>${esc(title)}</strong> <span class="conf">confidence: ${esc(block.confidence)}</span></div>`,
+    `<div class="gradehead"><span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block, ctx.aspect))}</span> <strong>${esc(title)}</strong> <span class="conf">confidence: ${esc(confidence)}</span></div>`,
     `<p class="why">${prose(block.oneLineWhy)}</p>`,
   ];
   if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
@@ -242,7 +260,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
     for (const v of row.values) {
       const window = tracedPeriodLabel(v.value.period, v.value.periodContext);
       const periodCell = window === "not supplied" || v.period.includes(window) ? v.period : window.includes(v.period) ? window : `${v.period} (${window})`;
-      body.push([row.label, periodCell, formatFinancialAmount(v.value.value, v.value.unit, v.value.currency), v.value.asOf ?? DASH, citedMark(v.value.verified)]);
+      body.push([row.label, periodCell, figureValueText(v.value), v.value.asOf ?? DASH, citedMark(v.value.verified)]);
     }
   }
   return bodyTable(["Metric", "Period", "Value", "As of", "Cited"], body, ["Cited"]);
@@ -304,7 +322,7 @@ function sectionVerdict(report: Report): string {
     ["Section", "Grade", "Why"],
     gradeSurfaceEntries(v.gradeStrip).map(({ descriptor, block }) => [
       esc(descriptor.label),
-      `<span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block))}</span>`,
+      `<span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block, report.scores?.aspects[descriptor.key]))}</span>`,
       prose(block.oneLineWhy),
     ]),
   );
@@ -321,7 +339,7 @@ function sectionScores(scores: Scoring): string {
   return `<section class="block"><h3>Scorecard (deterministic)</h3>
     <p>Composite: <strong class="mono">${c.score === null ? DASH : Math.round(c.score)} / 100</strong> ${compositeChip}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
-    ${table(card.headers, card.rows.map((row) => row.map(esc)))}
+    ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
     ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores)])}
     <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
 }
@@ -332,12 +350,14 @@ function sectionScores(scores: Scoring): string {
 
 function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
   const quarterly = bodyTables(extra);
-  const shown = quarterly.length > 0;
+  // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
+  const annual = showAnnualSegments(quarterly.length > 0)
+    ? `${subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product))}${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}`
+    : "";
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
     ${quarterly}
-    ${subsection(annualSegmentHeading("Product", b.segments.product, shown), segmentTable(b.segments.product))}
-    ${subsection(annualSegmentHeading("Geographic", b.segments.geographic, shown), segmentTable(b.segments.geographic, true))}
+    ${annual}
     ${subsection("Concentration risks", claimList(b.concentrationRisks))}</section>`;
 }
 
@@ -351,14 +371,14 @@ function sectionFundamentals(f: Fundamentals, summary: SourceFactSummary | undef
   };
   const groups = [group("Growth", f.growthTable), group("Margin trend", f.marginTrend), group("Returns", f.returns), group("Free cash flow", f.fcf)].join("");
   const also = seeAlsoText(homes);
-  return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock("Fundamentals", f.graded, seen, report)}
+  return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock("Fundamentals", f.graded, seen, report, gradeContext(report, "fundamentals"))}
     ${groups}${also ? `<p class="faint">${esc(also)}</p>` : ""}${bodyTables(extra)}
-    ${subsection("Commentary", claimList(f.commentary))}${bodyTables(sourceFactAuditTables(summary))}</section>`;
+    ${subsection("Commentary", claimList(f.commentary))}${bodyTables(sourceFactAuditTables(summary, false))}</section>`;
 }
 
 function sectionBalanceSheet(bs: BalanceSheet, report: Report): string {
   const seen = new Map<string, FigureRow>();
-  const grade = bs.graded ? gradeBlock("Balance Sheet & Capital", bs.graded, seen, report) : "";
+  const grade = bs.graded ? gradeBlock("Balance Sheet & Capital", bs.graded, seen, report, gradeContext(report, "balanceSheet")) : "";
   const group = (title: string, g: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] }): string => {
     const body = `${claimList(g.commentary)}${figureTable(figureRows(withoutTabled(report, g.numbers).kept, seen))}`;
     return subsection(title, body);
@@ -397,7 +417,7 @@ function sectionValuation(
   report: Report,
 ): string {
   const seen = new Map<string, FigureRow>();
-  const parts: string[] = [gradeBlock("Valuation", v.graded, seen, report)];
+  const parts: string[] = [gradeBlock("Valuation", v.graded, seen, report, gradeContext(report, "valuation"))];
   const dcfPs = v.dcf.perShare;
   parts.push(
     dcfPs
@@ -407,11 +427,11 @@ function sectionValuation(
   if (fairValue) {
     parts.push(
       fairValue.status === "available"
-        ? `<p class="faint">${esc(fairValue.basis.join(" "))}</p>`
+        ? `<p class="faint">${prose(fairValue.basis.join(" "))}</p>`
         : `<p class="faint">Intrinsic value per share suppressed &mdash; ${esc(fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" "))}</p>`,
     );
   }
-  parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, compactLongIntegers(a.basis)])));
+  parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
   parts.push(bodyTables(valuationAuditTables(v.dcf)));
 
   const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
@@ -451,14 +471,15 @@ function sectionValuation(
   if (review.scenarioPresentation?.weightBasis) parts.push(`<p class="faint">${esc(review.scenarioPresentation.weightBasis)}</p>`);
   if (scenarioTargets) {
     parts.push(scenarioTargets.status === "available"
-      ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${esc(scenarioTargets.basis.join(" "))}</p>`
+      ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
       : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
   }
   for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
-    parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${esc(p)}</p>`));
-    for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${esc(p)}</p>`));
+    parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${prose(p)}</p>`));
+    for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${prose(p)}</p>`));
+    if (block.table) parts.push(bodyTable(block.table.headers, block.table.rows));
   }
-  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map(compactLongIntegers)));
+  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
   if (common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
   v.scenarios.forEach((sc, index) => parts.push(scenarioCard(sc, specific[index] ?? [], review.scenarioPresentation !== undefined)));
   if (routeMetrics) parts.push(routeMetricsBlock(routeMetrics));
@@ -491,7 +512,8 @@ function sectionQuality(q: Quality, report: Report): string {
       ["Altman Z", fs.altman, num(fs.altman.score, 2)],
       ["Beneish M", fs.beneish, num(fs.beneish.score, 2)],
       ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)],
-      ["Accruals", fs.accruals, num(fs.accruals.score, 2)],
+      // D-67: the accrual ratio prints in percent, as the score drivers and key numbers print it.
+      ["Accruals", fs.accruals, fs.accruals.score === null ? DASH : ratioPercentText(fs.accruals.score)],
     ] as const).map(([label, entry, score]) => [label, entry.variant, score, entry.zone ?? DASH, entry.notApplicableReason ?? DASH]),
   );
   const flags = q.flags.length > 0
@@ -499,7 +521,7 @@ function sectionQuality(q: Quality, report: Report): string {
     : `<p class="faint">No forensic flags raised.</p>`;
   // D-68: methodology and context notes sit under the table; flags are findings.
   const notes = (q.notes ?? []).length > 0 ? `<div><em>Notes</em><ul>${(q.notes ?? []).map((note) => `<li>${prose(note)}</li>`).join("")}</ul></div>` : "";
-  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report)}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
+  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
 }
 
 function sectionTechnicals(report: Report): string {
@@ -511,14 +533,16 @@ function sectionTechnicals(report: Report): string {
     <li><strong>Momentum:</strong> ${prose(t.read.momentum)}</li>
     <li><strong>Key levels:</strong> ${prose(t.read.keyLevels)}</li>
     <li><strong>Relative strength:</strong> ${prose(t.read.relativeStrength)}</li></ul>`;
-  const grade = gradeBlock("Technicals", t.graded, seen, report);
+  const grade = gradeBlock("Technicals", t.graded, seen, report, gradeContext(report, "technicals"));
   const indicators = figureTable(figureRows(t.indicators, seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, timing) })), "Indicator");
   const flags = t.flags.length > 0 ? table(["Severity", "Flag", "Source"], t.flags.map((f) => [esc(f.severity), prose(f.text), esc(sourceLabel(f.source))])) : "";
   return `<section class="block">${sectionHeading("technicals")}${grade}<h3>Structured read</h3>${read}${subsection("Indicators", indicators)}${subsection("Flags", flags)}</section>`;
 }
 
 function sectionLeadership(l: Leadership, report: Report): string {
-  const execs = l.executives
+  // D-67: one card per assessed officer; the not-assessed officers share one line.
+  const groups = executiveGroups(l.executives);
+  const execs = groups.assessed
     .map((e) => {
       const evidence = EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => {
         const claims = e.evidence[descriptor.key];
@@ -526,10 +550,13 @@ function sectionLeadership(l: Leadership, report: Report): string {
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
-        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(e.grade)}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(e.credibilityGrade)}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${e.assessmentReason ? `<p>${esc(e.assessmentReason)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
+        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${e.assessmentReason ? `<p>${prose(e.assessmentReason)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
     })
     .join("");
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership", l.graded, new Map(), report)}<h3>Executives</h3>${execs}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}</section>`;
+  const others = groups.notAssessed.length > 0
+    ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
+    : "";
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {
@@ -556,18 +583,18 @@ function sectionCompetitive(c: Competitive, report: Report): string {
   }
   // D-62: "Scale — narrow", not the raw enums.
   const moat = c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");
-  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report)}<h3>Peer table</h3>${peers}${subsection("Moat assessment", moat)}
+  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>Peer table</h3>${peers}${subsection("Moat assessment", moat)}
     <h3>Market-share direction</h3><p>${prose(c.marketShareDirection)}</p></section>`;
 }
 
 function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: ReportAuditTable[] = []): string {
   const catalysts = bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, humanizeInlineCitations(c.reasoning.text)]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, displayProse(c.reasoning.text, c.reasoning.source)]),
   );
   const risks = bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), humanizeInlineCitations(r.reasoning.text)]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
   );
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
   return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}${subsection("Catalysts", catalysts)}${subsection("Risks", risks)}${bodyTables(extra)}</section>`;
@@ -588,7 +615,8 @@ function sectionOutlook(report: Report): string {
 function sectionProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
   const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
-  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions));
+  // D-67: no chart is rendered here, so a sentence pointing at one is dropped.
+  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions.map((line) => withoutChartReferences(displayProse(line)))));
   const blocks = series
     .map((s, index) => {
       const rows = projectionPeriodRows(s).flatMap((row) => {
@@ -646,9 +674,9 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
     ? "<p>No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.</p>"
     : trust.length > 0 ? table(["Check", "Result"], trust.map((row) => [esc(row.label), esc(row.value)])) : ""}
     <p>Citation coverage: <strong>${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(0)}%`}</strong> of report figures trace to a citation or payload value (provenance, not correctness).</p>${checkLine}`;
-  const named = actionableGapTable(a.missingData);
-  const families = gapSummary(a.missingData);
-  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData)} ${dataStateText(completeness)}`)}</p>${bodyTables([named], "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
+  // D-67: one row per underlying data gap; process disclosures and moot entries apart.
+  const families = gapSummary(a.missingData, completeness.classification);
+  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
   const sources = `<h3>Sources</h3>${table(
     SOURCE_ENTRY_FIELDS.map((field) => field.label),
     a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : esc(source[field.key])))),

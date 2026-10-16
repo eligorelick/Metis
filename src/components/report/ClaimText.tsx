@@ -14,7 +14,7 @@
 import { Badge, type Tone } from "@/components/ui";
 import type { ClaimLabel } from "@/types/core";
 import type { SourcedClaim } from "@/report/schema";
-import { sourceLabel } from "@/report/presentation";
+import { displayProse, sourceLabel } from "@/report/presentation";
 
 const LABEL_TONE: Record<ClaimLabel, Tone> = {
   FACT: "muted",
@@ -79,7 +79,8 @@ export function ClaimText({
           <ClaimLabelChip label={claim.label} />
         </span>
         <span className="min-w-0 flex-1 text-[12px] leading-snug text-fg">
-          {claim.text}{" "}
+          {/* D-67: registry ids under reader labels, figures at reader precision. */}
+          {displayProse(claim.text, claim.source)}{" "}
           <span
             className="mono align-baseline text-[10px] text-faint group-hover:text-accent"
             title={`${claim.source}${claim.asOf ? ` · as of ${claim.asOf}` : ""}`}

@@ -150,6 +150,8 @@ export function ReportView({
     report.meta.dataCompleteness,
     report.appendix.missingData,
   );
+  // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
+  const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
       <div id={sectionAnchorId("verdict")} className="scroll-mt-28">
@@ -158,19 +160,19 @@ export function ReportView({
           <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
         )}
         {report.scores && <div className="mt-3"><CompositeScorecard scores={report.scores} /></div>}
-        <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} /></div>
+        <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
         {/* D-62: the bull/bear debate sits with the verdict it informs. */}
         {report.disagreements.length > 0 && <div className="mt-3 border border-edge bg-panel px-3 py-3"><DisagreementsBlock disagreements={report.disagreements} /></div>}
       </div>
     ),
     business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
-    fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
-    balanceSheet: <BalanceSheetSection report={report} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
-    valuation: <ValuationSection report={report} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
-    quality: <QualityFlags quality={report.quality} index={reportSection("quality").index} />,
-    technicals: <TechnicalsSection report={report} technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
-    leadership: <LeadershipSection report={report} leadership={report.leadership} index={reportSection("leadership").index} />,
-    competitive: <CompetitiveSection report={report} competitive={report.competitive} index={reportSection("competitive").index} />,
+    fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
+    balanceSheet: <BalanceSheetSection report={report} grading={grading("balanceSheet")} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
+    valuation: <ValuationSection report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
+    quality: <QualityFlags quality={report.quality} grading={grading("quality")} index={reportSection("quality").index} />,
+    technicals: <TechnicalsSection report={report} grading={grading("technicals")} technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
+    leadership: <LeadershipSection report={report} grading={grading("leadership")} leadership={report.leadership} index={reportSection("leadership").index} />,
+    competitive: <CompetitiveSection report={report} grading={grading("moat")} competitive={report.competitive} index={reportSection("competitive").index} />,
     catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : null,
@@ -186,7 +188,7 @@ export function ReportView({
       </div>
       {/* Sticky grade strip — clickable, deep-links to each graded section. */}
       <div className="sticky top-0 z-20 -mx-4 border-b border-edge bg-bg/95 px-4 py-2 backdrop-blur">
-        <GradeStripBar gradeStrip={report.verdict.gradeStrip} compact />
+        <GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} compact />
       </div>
 
       {report.meta && <ReportMetaStrip report={report} completeness={completeness} />}
