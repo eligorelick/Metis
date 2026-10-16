@@ -90,6 +90,19 @@
 
 ## Remaining research and presentation limits
 
+The PR review follow-up (D-72) is implemented and independently rechecked.
+Source `47a43dd` passed the complete `npm run verify` gate, exit 0, with 6,256
+product tests (three existing skips), four integration tests, dependency shape,
+typecheck, lint, both coverage gates, production build and zero-vulnerability
+audit. Aggregate risk coverage is 94.77/87.99/97.52/96.99%; audited deltas pass.
+The frozen candidate comparison retains 43 filing facts and identical DCF/EPS
+and scores. It now labels $1.535B as classified acquisition cash plus $13B
+unallocated with overlap unresolved; this replaces the unsupported additive
+total without changing the original D-71 artifact. Inputs were already parsed,
+so this comparison does not establish new exhibit-ingestion behavior. Fresh
+required CI on the revised head and the requested normal-history runs remain
+pending. Log: ignored `tmp/d72-final-release-verify.log`.
+
 The original audit's feature requests for a consolidated five-year financial
 summary and displayed historical multiple percentile bands remain open; current
 reports show annual growth/margin/return measures, quarterly trends and available
