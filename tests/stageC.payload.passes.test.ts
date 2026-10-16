@@ -747,8 +747,14 @@ describe("payload determinism + provenance", () => {
       // the computed quarterly-trend section (509 -> 524); the D-59 current-capital
       // labels set the figure-label hash; prompt bytes add the WP3 issuer-filing
       // bullets; financeHash moves with the combined DCF and peer coverage.
-      fingerprint: "1.23.0:1ae68d76",
-      promptBytes: 127_409,
+      // D-63: Item 1A is read with the risk profile, whose adjacent passages
+      // print as one run instead of being split by the 29-character omission
+      // separator; the fixture's 54,000-char Item 1A stays under the 14,000
+      // floor. Its coverage now lists the risk families. Net -1,119 prompt
+      // bytes (the separators carried multi-byte ellipses); no record, citation
+      // or finance figure moved. The fixture has no Item 1, 10-Q notes or 8-K.
+      fingerprint: "1.23.0:e65a07b5",
+      promptBytes: 126_290,
       provenanceCount: 524,
       provenanceHash: "fe8c84e7",
       provenanceIdsHash: "145e22a3",
@@ -1636,6 +1642,19 @@ describe("prompts embed the five non-negotiable rules verbatim", () => {
     expect(l).toContain("credibility");
     expect(l.toLowerCase()).toContain("guidance-vs-actuals");
     expect(l).toContain("SEPARATELY");
+  });
+
+  it("D-63: states the rounding, figure-bearing FACT, flag-age, evidence-search, track-record and pay rules to every pass", () => {
+    expect(SHARED_RULES_BLOCK).toContain("\"$6.1 billion\" and");
+    expect(SHARED_RULES_BLOCK).toContain("NUMERIC FACTS");
+    expect(SHARED_RULES_BLOCK).toContain("search the");
+    for (const framing of [buildBullFraming(), buildBearFraming(), buildJudgeFraming()]) {
+      expect(framing).toContain("FLAG SEVERITY AND AGE");
+      expect(framing).toContain("IMPLIED EXPECTATIONS");
+      expect(framing).toContain("GUIDANCE TRACK RECORD");
+      expect(framing).toContain("total compensation for FY2026 was USD");
+      expect(framing).not.toContain("keep the amounts out of sentences citing those rows");
+    }
   });
 });
 

@@ -89,7 +89,7 @@ export interface StatementSet {
 /** One extracted 10-K / 10-Q section (text feeds the LLM payload). */
 export interface ExtractedSection {
   /** Which report section this is. */
-  sectionName: "item1A" | "item7" | "tenQItem2";
+  sectionName: "item1A" | "item7" | "tenQItem2" | "item1" | "tenQNotes";
   text: string;
   /** Extraction layer that produced the text (diagnostics/appendix). */
   method: ExtractMethod;
@@ -147,6 +147,17 @@ export interface EdgarBundle {
   mdna: FetchResult<ExtractedSection>;
   /** 10-Q Part I Item 2 (MD&A); Form 6-K never gets an inferred equivalent. */
   tenQMdna: FetchResult<ExtractedSection>;
+  /**
+   * D-63: annual business description — 10-K Item 1 or 20-F Item 4 — from the
+   * same parsed annual document. Optional: absent on bundles built before it
+   * existed and when submissions or the filing-disclosure reads were off.
+   */
+  business?: FetchResult<ExtractedSection>;
+  /**
+   * D-63: the latest 10-Q's notes to the financial statements (Part I Item 1
+   * from its notes heading on). Optional on the same terms as `business`.
+   */
+  tenQNotes?: FetchResult<ExtractedSection>;
   /** 8-Ks carrying Item 4.01 (auditor change) among recent filings. May be empty. */
   auditorChange8Ks: FetchResult<EdgarFiling[]>;
   /** 8-Ks carrying Item 4.02 (non-reliance / restatement red flag). May be empty. */

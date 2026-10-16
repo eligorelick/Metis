@@ -60,6 +60,7 @@ import { createYahooClient, type YahooClient } from "@/providers/yahoo";
 import {
   extractFromExhibit,
   extractSection,
+  notesToFinancialStatements,
   parseDocument,
   type ParsedDocument,
   type SectionSpec,
@@ -721,14 +722,21 @@ export function deriveNextEarnings(
       earnings.value.endpoint,
     ]);
   }
+  // `asOf` is the OBSERVATION date — when this calendar was observed. Using
+  // `next.date` here stamped the datum with the FUTURE event date, so every
+  // downstream freshness and as-of comparison saw it as newer than data
+  // observed later. The event date itself stays in the datum (`data.date`).
+  // D-63: the envelope's asOf is not that date either — for an earnings
+  // history it is the newest REPORTED row (NVDA, 2026-10-15: "2026-08-26"),
+  // so the payload printed a past date beside the next earnings date. The
+  // calendar was observed when it was fetched, never later than today.
+  const fetchedDay = typeof earnings.value.fetchedAt === "string" ? earnings.value.fetchedAt.slice(0, 10) : "";
+  const observed = isValidIsoDate(fetchedDay)
+    ? [earnings.value.asOf, fetchedDay < todayIso ? fetchedDay : todayIso].sort().at(-1)!
+    : earnings.value.asOf;
   const value: Sourced<FmpEarningsRow> = {
     data: next.row,
-    // `asOf` is the OBSERVATION date — when this calendar was observed — which
-    // the derivation inherits from its parent envelope. Using `next.date` here
-    // stamped the datum with the FUTURE event date, so every downstream
-    // freshness and as-of comparison saw it as newer than data observed later.
-    // The event date itself stays in the datum (`data.date`).
-    asOf: earnings.value.asOf,
+    asOf: observed,
     source: earnings.value.source,
     endpoint: `${earnings.value.endpoint} (derived: earliest future row)`,
     fetchedAt: earnings.value.fetchedAt,
@@ -839,7 +847,7 @@ async function buildTranscriptBundle(symbol: string, fmp: FmpClient): Promise<Tr
 // ---------------------------------------------------------------------------
 
 interface SectionJob {
-  member: "item1a" | "mdna" | "tenQMdna";
+  member: "item1a" | "mdna" | "tenQMdna" | "business" | "tenQNotes";
   sectionName: ExtractedSection["sectionName"];
   spec: SectionSpec;
   /** Manifest severity when extraction hard-fails (10-K sections are critical). */
@@ -970,6 +978,17 @@ async function runExtraction(
     job.failSeverity,
     [documentUrl],
   );
+}
+
+/**
+ * D-63: a 10-Q Part I Item 1 cut to its notes. The statements before the
+ * notes heading are tables the payload already carries as typed figures; when
+ * no heading is found the whole item is kept (its notes are inside it).
+ */
+function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>): FetchResult<ExtractedSection> {
+  const notes = notesToFinancialStatements(result.value.data.text);
+  if (notes === null) return result;
+  return { ...result, value: { ...result.value, data: { ...result.value.data, text: notes.text, chars: notes.text.length } } };
 }
 
 /** Newest exact-form filing from an already-fetched submissions payload. */
@@ -1166,6 +1185,17 @@ async function buildEdgarBundle(
   let item1a: FetchResult<ExtractedSection>;
   let mdna: FetchResult<ExtractedSection>;
   let tenQMdna: FetchResult<ExtractedSection>;
+  // D-63: the business description and the 10-Q notes ride on the documents
+  // already fetched and parsed for Item 1A/7 and the 10-Q MD&A — no new SEC
+  // request. Like the 8-K reads they are part of the filing-disclosure layer.
+  let business: FetchResult<ExtractedSection> | undefined;
+  let tenQNotes: FetchResult<ExtractedSection> | undefined;
+  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[]): void => {
+    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted);
+  };
+  const withTenQNotes = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], expected?: boolean): void => {
+    if (filingDisclosures) tenQNotes = gapResult(`edgar.tenQNotes(${symbol})`, reason, severity, attempted, expected);
+  };
 
   if (sub.ok) {
     latestTenK = selectAnnualFiling(sub.value, symbol);
@@ -1239,6 +1269,20 @@ async function buildEdgarBundle(
             parsedDoc,
           );
         }
+        // D-63: Item 1 (Business) from the same parse, under the same budget.
+        if (filingDisclosures) {
+          const businessMs = Date.now() - t0;
+          if (businessMs > edgarSectionBudgetMs) {
+            withBusiness(`${filing.form} business section skipped: parsing and the earlier sections took ${Math.round(businessMs / 1000)}s, ` +
+              `exceeding the ${Math.round(edgarSectionBudgetMs / 1000)}s per-filing extraction budget.`, "warn", [docUrl]);
+          } else if (filing.form === "10-K" || filing.form === "20-F") {
+            business = await runExtraction(edgar, cik, filing, docUrl, html, doc.value.fetchedAt,
+              { member: "business", sectionName: "item1", spec: filing.form === "20-F" ? { form: "20-F", item: "4" } : { form: "10-K", item: "1" }, failSeverity: "warn" },
+              symbol, parsedDoc);
+          } else {
+            withBusiness(`annual filing is Form ${filing.form}, which has no itemised business section`, "info", [docUrl]);
+          }
+        }
       } else {
         const attempted = doc.gap.attemptedSources;
         item1a = gapResult(
@@ -1253,11 +1297,13 @@ async function buildEdgarBundle(
           "critical",
           attempted,
         );
+        withBusiness(`${filing.form} document fetch failed: ${doc.gap.reason}`, "warn", attempted);
       }
     } else {
       const reason = `no annual primary filing (10-K or 20-F) to extract from: ${latestTenK.gap.reason}`;
       item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical");
       mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical");
+      withBusiness(reason);
     }
 
     // 10-Q MD&A (Part I Item 2).
@@ -1272,6 +1318,8 @@ async function buildEdgarBundle(
       );
       if (doc.ok) {
         const docUrl = doc.value.endpoint;
+        // One parse for the MD&A and (D-63) the financial-statement notes.
+        const parsedQ = filingDisclosures ? parseDocument(doc.value.data) : undefined;
         tenQMdna = await runExtraction(
           edgar,
           cik,
@@ -1281,7 +1329,14 @@ async function buildEdgarBundle(
           doc.value.fetchedAt,
           { member: "tenQMdna", sectionName: "tenQItem2", spec: { form: "10-Q", item: "2" }, failSeverity: "warn" },
           symbol,
+          parsedQ,
         );
+        if (filingDisclosures) {
+          const statements = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
+            { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
+            symbol, parsedQ);
+          tenQNotes = statements.ok ? notesOnly(statements) : statements;
+        }
       } else {
         tenQMdna = gapResult(
           `edgar.tenQMdna(${symbol})`,
@@ -1289,6 +1344,7 @@ async function buildEdgarBundle(
           "warn",
           doc.gap.attemptedSources,
         );
+        withTenQNotes(`10-Q document fetch failed: ${doc.gap.reason}`, "warn", doc.gap.attemptedSources);
       }
     } else if (latestTenQ.ok && latestTenQ.value.data.form === "6-K") {
       tenQMdna = gapResult(
@@ -1298,6 +1354,7 @@ async function buildEdgarBundle(
         [latestTenQ.value.endpoint],
         true,
       );
+      withTenQNotes("latest interim filing is Form 6-K, which has no standardized Part I Item 1; no notes were inferred", "info", [latestTenQ.value.endpoint], true);
     } else if (latestTenQ.ok) {
       tenQMdna = gapResult(
         `edgar.tenQMdna(${symbol})`,
@@ -1305,12 +1362,14 @@ async function buildEdgarBundle(
         "warn",
         [latestTenQ.value.endpoint],
       );
+      withTenQNotes(`latest interim filing had unexpected form ${latestTenQ.value.data.form}; no Part I Item 1 notes were extracted`, "warn", [latestTenQ.value.endpoint]);
     } else {
       tenQMdna = gapResult(
         `edgar.tenQMdna(${symbol})`,
         `no 10-Q or confirmed 6-K interim filing to classify: ${latestTenQ.gap.reason}`,
         "warn",
       );
+      withTenQNotes(`no 10-Q interim filing: ${latestTenQ.gap.reason}`);
     }
   } else {
     const reason = `submissions unavailable: ${sub.gap.reason}`;
@@ -1358,6 +1417,8 @@ async function buildEdgarBundle(
     item1a,
     mdna,
     tenQMdna,
+    ...(business === undefined ? {} : { business }),
+    ...(tenQNotes === undefined ? {} : { tenQNotes }),
     auditorChange8Ks,
     nonReliance8Ks,
     ...(currentReports === null ? {} : { currentReports }),

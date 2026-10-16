@@ -2065,6 +2065,8 @@ export const FilingDisclosuresSchema = z
           total: z.array(z.number().nullable()),
           priorPresentation: z.array(z.string()),
           derivedCells: z.number().int().nonnegative(),
+          /** D-63: cells filled as the quarter's total less the other top-level rows. Optional on older reports. */
+          residualCells: z.number().int().nonnegative().optional(),
           sources: z.array(z.string()),
         })
         .strict(),
@@ -2084,9 +2086,47 @@ export const FilingDisclosuresSchema = z
           operatingCashFlow: z.number().nullable(),
           /** Operating cash flow less capital expenditure (standardized, not the issuer's definition). */
           freeCashFlow: z.number().nullable(),
+          /**
+           * D-63: the quarter's net gains (losses) from equity securities and
+           * non-GAAP diluted EPS, from the issuer's reconciliation (8-K EX-99).
+           * Optional: absent on reports written before them.
+           */
+          equitySecuritiesGains: z.number().nullable().optional(),
+          nonGaapEpsDiluted: z.number().nullable().optional(),
         })
         .strict(),
     ),
+    /**
+     * D-63: the latest release's GAAP-to-non-GAAP reconciliation rows (the
+     * free-cash-flow bridge, equity-securities gains, their tax effect, GAAP
+     * and non-GAAP diluted EPS) by column. Optional on older reports.
+     */
+    reconciliation: z.array(
+      z.object({
+        metric: z.enum(["operating-cash-flow", "purchases-property-equipment", "principal-payments-property-equipment",
+          "equity-securities-gains", "non-gaap-tax-impact", "gaap-diluted-eps", "non-gaap-diluted-eps"]),
+        periodEnd: IsoDaySchema,
+        months: z.number().int(),
+        value: z.number(),
+        unit: z.enum(["currency", "currency-per-share"]),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    /** D-63: commitments and guarantees tables (row totals) from the latest CFO commentary or release. Optional. */
+    commitments: z.array(
+      z.object({
+        kind: z.enum(["commitments", "guarantees"]),
+        /** Which table: "future commitments", "additional commitments" or "guarantees (maximum gross exposure)". */
+        table: z.string(),
+        asOf: IsoDaySchema.nullable(),
+        label: z.string(),
+        total: z.number(),
+        tableTotal: z.boolean(),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
+    nonGaapBasisNote: z.string().nullable().optional(),
     notes: z.array(z.string()),
   })
   .strict();
