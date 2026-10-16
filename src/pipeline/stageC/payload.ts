@@ -851,12 +851,18 @@ function computedSections(
     { label: "revenue growth in the accrual fiscal year (year over year)", value: fx.accruals?.revenueGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.revenueGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
     { label: "net operating asset growth in the accrual fiscal year (year over year)", value: fx.accruals?.noaGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.noaGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
     // D-68: how much of the NOA increase an acquisition added, when one did.
-    ...(fx.accruals != null && fx.accruals.notes.some((note) => note.startsWith("Acquisitions "))
+    ...(fx.accruals != null && (fx.accruals.acquisitionCashPaidUnallocated != null || fx.accruals.notes.some((note) => note.startsWith("Acquisitions ")))
       ? [
           { label: "goodwill (current)", value: fx.accruals.goodwillCurrent ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.goodwillCurrent", asOf: fx.accruals.asOf.current },
           { label: "goodwill (prior)", value: fx.accruals.goodwillPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.goodwillPrior", asOf: fx.accruals.asOf.prior },
           { label: "increase in goodwill and other intangible assets", value: fx.accruals.acquiredGoodwillAndIntangibles ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquiredGoodwillAndIntangibles", asOf: fx.accruals.asOf.current },
-          { label: "cash paid for acquisitions, net of cash acquired", value: fx.accruals.acquisitionCashPaid ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaid", asOf: fx.accruals.asOf.current },
+          { label: fx.accruals.acquisitionCashPaidUnallocated != null
+            ? "cash on the classified vendor acquisitions line (partial; filed payment overlap unresolved)"
+            : "cash paid for acquisitions, net of cash acquired", value: fx.accruals.acquisitionCashPaid ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaid", asOf: fx.accruals.asOf.current },
+          ...(fx.accruals.acquisitionCashPaidUnallocated != null
+            ? [{ label: "filed business payment (unallocated; overlap with classified acquisitions unresolved)", value: fx.accruals.acquisitionCashPaidUnallocated,
+              unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaidUnallocated", asOf: fx.accruals.asOf.current }]
+            : []),
           { label: "goodwill and intangibles increase as a share of the net-operating-asset increase", value: fx.accruals.acquiredShareOfNoaIncreasePct ?? null, unit: "%", source: "computed.forensics.accruals.acquiredShareOfNoaIncreasePct", asOf: fx.accruals.asOf.current },
         ]
       : []),

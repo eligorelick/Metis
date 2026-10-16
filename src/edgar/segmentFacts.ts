@@ -211,6 +211,8 @@ export interface QuarterValue {
   filingDate: string;
   /** True when computed as the difference of two windows in one filing. */
   derived: boolean;
+  /** Pooled duration subtraction used operands from different filings. */
+  crossFilingDerived?: boolean;
 }
 
 type DatedFact = RevenueFact & { accession: string; filingDate: string };
@@ -220,8 +222,8 @@ type DatedFact = RevenueFact & { accession: string; filingDate: string };
  * shorter one with the same start is its tail, with the same end its head.
  * Only quarter-length results are kept.
  */
-function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start: string; end: string; value: number }[] {
-  const out: { fact: DatedFact; start: string; end: string; value: number }[] = [];
+function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start: string; end: string; value: number; crossFilingDerived: boolean }[] {
+  const out: { fact: DatedFact; start: string; end: string; value: number; crossFilingDerived: boolean }[] = [];
   for (const long of facts) {
     for (const short of facts) {
       if (long === short || long.currency !== short.currency) continue;
@@ -232,7 +234,7 @@ function derivedQuarters(facts: readonly DatedFact[]): { fact: DatedFact; start:
       if (start === null || end === null || !isQuarterLength(start, end)) continue;
       // The derived cell carries the later of its two filings.
       const newer = long.filingDate >= short.filingDate ? long : short;
-      out.push({ fact: newer, start, end, value: long.value - short.value });
+      out.push({ fact: newer, start, end, value: long.value - short.value, crossFilingDerived: long.accession !== short.accession });
     }
   }
   return out;
@@ -337,7 +339,8 @@ export function buildQuarterlySegments(
     for (const d of derivedQuarters(facts)) {
       const key = factKey({ ...d.fact, start: d.start, end: d.end });
       if (merged.has(key)) continue;
-      merged.set(key, { value: d.value, currency: d.fact.currency, start: d.start, end: d.end, accession: d.fact.accession, filingDate: d.fact.filingDate, derived: true });
+      merged.set(key, { value: d.value, currency: d.fact.currency, start: d.start, end: d.end, accession: d.fact.accession, filingDate: d.fact.filingDate,
+        derived: true, crossFilingDerived: d.crossFilingDerived });
     }
   }
   const totals = [...merged.entries()].filter(([key]) => key.startsWith("||")).map(([, q]) => q);
@@ -373,7 +376,7 @@ export function buildQuarterlySegments(
     const residualCells = fillResiduals(rows, totalCells, (i, missing) => {
       const col = quarters[i]!;
       const total = at(null, null, col);
-      if (total === undefined) return false;
+      if (total === undefined || total.crossFilingDerived) return false;
       // Never relabel an old presentation's C as the current B. Missing
       // historical tags establish no mapping, even when today's rows exhaust revenue.
       if (members.some((member) => !current.includes(member) && at(axis, member, col) !== undefined)) return false;
@@ -384,7 +387,7 @@ export function buildQuarterlySegments(
       return filing !== undefined && filing.facts.some((fact) => fact.axis === axis && fact.member === missing.member && fact.currency === total.currency) &&
         rows.filter((row) => row.childOf === null && row.values[i] !== null).every((row) => {
           const cell = at(axis, row.member, col);
-          return cell?.accession === total.accession && cell.currency === total.currency;
+          return cell?.accession === total.accession && cell.currency === total.currency && !cell.crossFilingDerived;
         });
     });
     rows.sort((a, b) => {

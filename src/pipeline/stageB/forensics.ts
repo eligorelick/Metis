@@ -119,6 +119,8 @@ export interface ForensicsCashFlowRow {
    * `acquisitionsNet`.
    */
   acquisitionsInOtherInvesting?: number | null;
+  /** A positive filed payment whose overlap with acquisitionsNet is unresolved; never additive. */
+  acquisitionsInOtherInvestingUnresolved?: number | null;
 }
 
 /** One fiscal year of aligned statements. Any statement may be missing. */
@@ -1727,6 +1729,8 @@ export interface AccrualsResult {
   acquiredGoodwillAndIntangibles?: number | null;
   /** D-68: cash paid for acquisitions in the current year, net of cash acquired (positive; null when not reported). */
   acquisitionCashPaid?: number | null;
+  /** Positive filed payment unallocated because overlap with the classified acquisition line is unresolved. */
+  acquisitionCashPaidUnallocated?: number | null;
   /** D-68: `acquiredGoodwillAndIntangibles` as a share of the NOA increase (percent; null unless NOA rose). */
   acquiredShareOfNoaIncreasePct?: number | null;
   /**
@@ -1946,6 +1950,14 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
   const acquisitionsOther = nv(current.cashFlow?.acquisitionsInOtherInvesting);
   const acquisitionCashPaid =
     acquisitionsLine === null && acquisitionsOther === null ? null : -((acquisitionsLine ?? 0) + (acquisitionsOther ?? 0));
+  const unresolvedPayment = nv(current.cashFlow?.acquisitionsInOtherInvestingUnresolved);
+  const acquisitionCashPaidUnallocated = unresolvedPayment !== null && unresolvedPayment > 0 ? unresolvedPayment : null;
+  if (acquisitionCashPaidUnallocated !== null) {
+    const reason = `Acquisition cash-flow coverage is partial: the classified vendor acquisitions line is ${acquisitionCashPaid === null ? "unavailable" : fmtAmount(acquisitionCashPaid, currency)}. ` +
+      `The filer separately reports a ${fmtAmount(acquisitionCashPaidUnallocated, currency)} business payment, but its overlap with that line remains unresolved; it is unallocated, not added. The classified line is not total acquisition cash paid.`;
+    notes.push(reason);
+    gaps.push({ field: "forensics.accruals.acquisitionCashPaid", reason, severity: "warn" });
+  }
   const noaIncrease = aggBS !== null && aggBS > 0 ? aggBS : null;
   const acquiredShareOfNoaIncreasePct =
     noaIncrease !== null && acquiredGoodwillAndIntangibles !== null ? (acquiredGoodwillAndIntangibles / noaIncrease) * 100 : null;
@@ -1973,7 +1985,9 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
         acquisitionsLine !== null && acquisitionsLine !== 0 && acquisitionsOther !== null && acquisitionsOther !== 0
           ? ` (${fmtAmount(-acquisitionsLine, currency)} on the acquisitions line and ${fmtAmount(-acquisitionsOther, currency)} the filer tags as a further business acquisition, which the statement row carries in other investing)`
           : "";
-      parts.push(`investing cash flow shows ${fmtAmount(acquisitionCashPaid, currency)} paid for acquisitions, net of cash acquired${split}`);
+      parts.push(acquisitionCashPaidUnallocated !== null
+        ? `the classified vendor acquisitions line shows ${fmtAmount(acquisitionCashPaid, currency)} (partial; the separately filed payment's overlap remains unresolved)`
+        : `investing cash flow shows ${fmtAmount(acquisitionCashPaid, currency)} paid for acquisitions, net of cash acquired${split}`);
     }
     const share =
       acquiredGoodwillAndIntangibles !== null && acquiredGoodwillAndIntangibles > 0 && acquiredShareOfNoaIncreasePct !== null
@@ -2061,6 +2075,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
     goodwillPrior: goodwillKnown ? gwP : null,
     acquiredGoodwillAndIntangibles,
     acquisitionCashPaid,
+    ...(acquisitionCashPaidUnallocated === null ? {} : { acquisitionCashPaidUnallocated }),
     acquiredShareOfNoaIncreasePct,
     balanceSheetAccrualRatio: bsRatio,
     aggregateAccrualsCashFlow: aggCF,

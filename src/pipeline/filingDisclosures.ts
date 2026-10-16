@@ -369,7 +369,8 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
 /** D-63: the disclosure for segment cells filled as the quarter's total less the axis's other rows. */
 export function residualNote(axisLabel: string, cells: number): string {
   return `Segment XBRL, ${axisLabel}: ${cells} quarter value${cells === 1 ? " is" : "s are"} the quarter's total revenue less the axis's other ` +
-    "top-level rows (the rows sum to the total in the latest quarter); this carries a member renamed between filings or a quarter no filing tags.";
+    "top-level rows (the rows sum to the total in the latest quarter). Residuals require the total and known cells to share a filing presentation " +
+    "that names the missing member; unmapped historical members and pooled cross-filing derivations do not establish that continuity.";
 }
 
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */

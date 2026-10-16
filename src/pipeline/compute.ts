@@ -596,8 +596,8 @@ function annualTaggedValue(facts: CompanyFacts | null, tag: string, end: string,
  * filer reports on a line of its own (us-gaap
  * PaymentsToAcquireBusinessTwoNetOfCashAcquired) that the vendor row folds
  * into other investing — NVIDIA's FY2026 $13.0B. The payment is attributed to
- * acquisitions only when the row's other investing outflow holds it, so it is
- * never counted twice.
+ * acquisitions only when no competing acquisitions line exists. Companyfacts
+ * supplies no additive presentation linkage; unresolved overlap is retained.
  */
 function withFiledForensicContext(
   rows: { income: ForensicsIncomeRow[]; cashFlow: ForensicsCashFlowRow[] },
@@ -612,17 +612,14 @@ function withFiledForensicContext(
     }),
     cashFlow: rows.cashFlow.map((row) => {
       const second = annualTaggedValue(facts, "PaymentsToAcquireBusinessTwoNetOfCashAcquired", row.date, currency);
-      const primary = annualTaggedValue(facts, "PaymentsToAcquireBusinessesNetOfCashAcquired", row.date, currency);
       const acquisitions = row.acquisitionsNet ?? null;
-      // A vendor acquisitions line may already include the second payment.
-      // Add it only when that line is empty/zero, or the separate primary tag
-      // reconciles to it; magnitude of other investing alone cannot prove non-overlap.
-      const separate = acquisitions === null || acquisitions === 0 ||
-        (primary !== null && primary >= 0 && Math.abs(acquisitions + primary) <= Math.max(1, primary * 0.005));
       const other = row.otherInvestingActivities ?? null;
-      return separate && second !== null && second > 0 && other !== null && other <= -second * 0.995
+      if (second === null || second <= 0 || other === null || other > -second * 0.995) return row;
+      // Matching generic primary/secondary tags may be aggregate/component
+      // facts. Neither their values nor other investing's size proves exclusion.
+      return acquisitions === null || acquisitions === 0
         ? { ...row, acquisitionsInOtherInvesting: -second }
-        : row;
+        : { ...row, acquisitionsInOtherInvestingUnresolved: second };
     }),
   };
 }
@@ -2131,9 +2128,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const debtExLeases = (row: FmpBalanceSheetRow | undefined): { date: string; debt: number | null } | null => {
     const date = isoDay(row?.date);
     if (row === undefined || date === null) return null;
-    const debt = num(row.totalDebt);
-    const lease = num(row.operatingLeaseLiability);
-    return { date, debt: debt === null || debt < 0 ? null : debt - (lease !== null && lease >= 0 && lease <= debt ? lease : 0) };
+    const debt = bookDebtOnLeaseBasis(row, false).value;
+    const financing = [row.shortTermDebt, row.longTermDebt, row.financeLeaseLiability].map(num);
+    const conflictingZero = debt === 0 && financing.some((part) => part !== null && part !== 0);
+    return { date, debt: debt === null || debt < 0 || conflictingZero ? null : debt };
   };
   const latestIncomeQuarter = incomeQuarterly[0];
   const projectionQuarterDate = isoDay(latestIncomeQuarter?.date);
