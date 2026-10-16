@@ -368,6 +368,7 @@ function sectionBalanceSheet(bs: BalanceSheet, report: Report): string {
     ${group("Debt profile", bs.debtProfile)}
     ${group("Coverage", bs.coverage)}
     ${group("Capex trajectory", bs.capexTrajectory)}
+    ${bodyTables(filingDisclosureTables(report.filingDisclosures, "balanceSheet"))}
     ${subsection("Capital allocation", claimList(bs.capitalAllocation))}</section>`;
 }
 

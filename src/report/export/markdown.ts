@@ -411,6 +411,8 @@ function renderBalanceSheet(bs: BalanceSheet, report: Pick<Report, "filingDisclo
   group("Debt profile", bs.debtProfile);
   group("Coverage", bs.coverage);
   group("Capex trajectory", bs.capexTrajectory);
+  // D-63 commitments and guarantees, in their home section.
+  lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "balanceSheet")));
   lines.push(...subsection("### Capital allocation", claimList(bs.capitalAllocation)));
   return lines.join("\n").trimEnd();
 }

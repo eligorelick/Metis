@@ -54,6 +54,7 @@ import { ValuationReview } from "@/components/report/ValuationReview";
 import type { ValuationReviewInputs } from "@/report/researchReview";
 import type { EvidenceTimingRow } from "@/report/evidenceTiming";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 
 import {
@@ -711,6 +712,7 @@ export function BalanceSheetSection({
           </SubBlock>
         ))}
       </div>
+      <ExtraAuditTables tables={filingDisclosureTables(report.filingDisclosures, "balanceSheet")} />
       <SubBlock label="capital allocation record">
         <ClaimList claims={balanceSheet.capitalAllocation} />
       </SubBlock>

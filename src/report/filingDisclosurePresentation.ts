@@ -1,13 +1,13 @@
 import type { ReportAuditTable } from "@/report/auditTables";
 import { decimalRound, formatFinancialValue } from "@/report/format";
-import type { FilingDisclosures, FilingRef, GuidanceRow } from "@/report/schema";
+import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
 
 /**
  * The report's filing-disclosure tables, grouped by the section that shows
  * them, so the Markdown, print and on-screen surfaces render the same rows.
  * Pure and deterministic.
  */
-export type FilingDisclosureSection = "business" | "fundamentals" | "outlook" | "catalystsRisks";
+export type FilingDisclosureSection = "business" | "fundamentals" | "balanceSheet" | "outlook" | "catalystsRisks";
 
 const DASH = "—";
 
@@ -99,9 +99,17 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
 function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   if (d.quarterlyTrend.length > 0) {
+    // D-63 fields, rendered where present: the quarter's equity-securities
+    // gains and the issuer's non-GAAP diluted EPS (columns that are empty in
+    // every quarter are dropped by the renderers).
+    const trendNotes = [
+      "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.",
+      d.quarterlyTrend.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
+      d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
+    ].filter((n) => n !== "");
     tables.push({
       heading: "Quarterly trend (last eight quarters)",
-      headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", "Gross margin", "Operating expenses", "Operating margin", "Diluted EPS", "Operating cash flow", "FCF (CFO − capex)"],
+      headers: ["Quarter ended", "Fiscal", "Revenue", "YoY", "QoQ", "Gross margin", "Operating expenses", "Operating margin", "Diluted EPS", "Non-GAAP diluted EPS", "Equity-securities gains", "Operating cash flow", "FCF (CFO − capex)"],
       rows: d.quarterlyTrend.map((r) => [
         r.periodEnd,
         r.fiscalLabel ?? DASH,
@@ -112,10 +120,12 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
         money(r.operatingExpenses, d.currency),
         pct(r.operatingMarginPct),
         r.epsDiluted === null ? DASH : money(r.epsDiluted, d.currency, true),
+        r.nonGaapEpsDiluted == null ? DASH : money(r.nonGaapEpsDiluted, d.currency, true),
+        r.equitySecuritiesGains == null ? DASH : money(r.equitySecuritiesGains, d.currency),
         money(r.operatingCashFlow, d.currency),
         money(r.freeCashFlow, d.currency),
       ]),
-      note: "From the quarterly statement rows. YoY compares with the quarter ending about a year earlier, QoQ with the preceding quarter. FCF here is operating cash flow less capital expenditure; the issuer's own definition is shown separately when its release states it.",
+      note: trendNotes.join(" "),
     });
   }
   const fcf = d.freeCashFlow;
@@ -148,7 +158,106 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       ...(note ? { note } : {}),
     });
   }
+  tables.push(...reconciliationTables(d));
   return tables;
+}
+
+type ReconciliationMetric = NonNullable<FilingDisclosures["reconciliation"]>[number]["metric"];
+const RECONCILIATION_LABEL: Record<ReconciliationMetric, string> = {
+  "operating-cash-flow": "Net cash provided by operating activities",
+  "purchases-property-equipment": "Purchases of property, equipment and intangible assets",
+  "principal-payments-property-equipment": "Principal payments on property, equipment and intangible assets",
+  "gaap-diluted-eps": "GAAP diluted EPS",
+  "equity-securities-gains": "Gains on equity securities",
+  "non-gaap-tax-impact": "Tax effect of non-GAAP adjustments",
+  "non-gaap-diluted-eps": "Non-GAAP diluted EPS",
+};
+
+/**
+ * D-63: the latest release's own reconciliation rows, by column: the issuer's
+ * free-cash-flow bridge and its GAAP-to-non-GAAP EPS bridge. Values are shown
+ * as the release states them; nothing is recomputed. Absent on older reports.
+ */
+function reconciliationTables(d: FilingDisclosures): ReportAuditTable[] {
+  const facts = d.reconciliation ?? [];
+  if (facts.length === 0) return [];
+  const columnKey = (f: { periodEnd: string; months: number }) => `${f.months}|${f.periodEnd}`;
+  const columns = [...new Map(facts.map((f) => [columnKey(f), f])).values()]
+    .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd) || a.months - b.months);
+  const header = (c: { periodEnd: string; months: number }) => `${c.months === 3 ? "Quarter" : `${c.months} months`} ended ${c.periodEnd}`;
+  const build = (heading: string, metrics: readonly ReconciliationMetric[], extra: string[][] = [], note?: string): ReportAuditTable | null => {
+    const rows = metrics.flatMap((metric) => {
+      const cells = columns.map((c) => {
+        const fact = facts.find((f) => f.metric === metric && columnKey(f) === columnKey(c));
+        return fact ? money(fact.value, d.currency, fact.unit === "currency-per-share") : DASH;
+      });
+      return cells.every((cell) => cell === DASH) ? [] : [[RECONCILIATION_LABEL[metric], ...cells]];
+    });
+    if (rows.length === 0) return null;
+    return {
+      heading,
+      headers: ["Line", ...columns.map(header)],
+      rows: [...rows, ...extra],
+      note: [`Source: ${filingLabel(facts[0]!.source)}.`, note ?? ""].filter((n) => n !== "").join(" "),
+    };
+  };
+  const sameDay = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) <= 3 * 86_400_000;
+  const issuerFcf = columns.map((c) => {
+    const f = d.freeCashFlow.find((x) => x.months === c.months && sameDay(x.periodEnd, c.periodEnd));
+    return f ? money(f.value, d.currency) : DASH;
+  });
+  const fcfRows = issuerFcf.some((cell) => cell !== DASH) ? [["Free cash flow (issuer definition, as reported)", ...issuerFcf]] : [];
+  return [
+    build("Issuer free-cash-flow reconciliation", ["operating-cash-flow", "purchases-property-equipment", "principal-payments-property-equipment"], fcfRows),
+    build("GAAP to non-GAAP diluted EPS (issuer reconciliation)", ["gaap-diluted-eps", "equity-securities-gains", "non-gaap-tax-impact", "non-gaap-diluted-eps"], [],
+      d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : undefined),
+  ].filter((t): t is ReportAuditTable => t !== null);
+}
+
+/**
+ * D-63: the commitments and guarantees tables (row totals, then each table's
+ * total) as the release or CFO commentary states them. Absent on older reports.
+ */
+function commitmentTables(d: FilingDisclosures): ReportAuditTable[] {
+  const rows = d.commitments ?? [];
+  if (rows.length === 0) return [];
+  return [{
+    heading: "Commitments and guarantees",
+    headers: ["Table", "Item", "Amount", "As of", "Source"],
+    rows: rows.map((r) => [r.table, r.tableTotal ? "Total" : r.label, money(r.total, d.currency), r.asOf ?? DASH, filingLabel(r.source)]),
+    note: "Contractual amounts as the issuer tabulates them; guarantees are maximum gross exposure, not expected payments. Neither is in the DCF's net debt.",
+  }];
+}
+
+/**
+ * D-63: the company-level guidance track record per metric and basis, from
+ * the results-against-guidance rows (counts and the mean difference only).
+ */
+function trackRecordTable(d: FilingDisclosures): ReportAuditTable[] {
+  if (d.guidanceChecks.length < 2) return [];
+  const groups = new Map<string, GuidanceCheck[]>();
+  for (const c of d.guidanceChecks) {
+    const key = `${METRIC_LABELS[c.metric]}${c.basis === "gaap" ? " (GAAP)" : ""}`;
+    groups.set(key, [...(groups.get(key) ?? []), c]);
+  }
+  const rows = [...groups.entries()].map(([label, checks]) => {
+    const count = (position: string) => checks.filter((c) => c.position === position).length;
+    const mean = checks.reduce((sum, c) => sum + c.difference, 0) / checks.length;
+    const sorted = [...checks].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+    return [
+      label,
+      `${sorted[0]!.period} – ${sorted[sorted.length - 1]!.period}`,
+      String(checks.length),
+      `${count("above")} above · ${count("within")} within · ${count("below")} below`,
+      checks[0]!.metric === "revenue" ? pct(mean, true, 1) : `${mean > 0 ? "+" : mean < 0 ? "−" : ""}${decimalRound(Math.abs(mean), 2).toFixed(2)} pp`,
+    ];
+  });
+  return [{
+    heading: "Guidance track record",
+    headers: ["Metric", "Quarters", "Checked", "Against the guided range", "Mean versus midpoint"],
+    rows,
+    note: "Company-level record from the results-against-guidance rows; not attributed to an individual.",
+  }];
 }
 
 function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
@@ -200,8 +309,9 @@ export function filingDisclosureTables(d: FilingDisclosures | undefined, section
   switch (section) {
     case "business": return segmentTables(d);
     case "fundamentals": return trendTables(d);
+    case "balanceSheet": return commitmentTables(d);
     case "outlook": {
-      const tables = guidanceTables(d);
+      const tables = [...guidanceTables(d), ...trackRecordTable(d)];
       // D-62: dividend and repurchase-authorization notes belong with the
       // capital-return table, not under results against guidance — unless
       // that table is not shown.
