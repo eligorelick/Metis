@@ -32,7 +32,7 @@
 - [x] Resolve PR #20's additional D-72 review findings, verify the combined
   source and obtain fresh required CI on the revised head.
 - [x] Commit, push and integrate the original recovery release via GitHub with fresh required CI.
-- [ ] Release the D-74/D-75 follow-up through PR #24 after its revised-head CI passes.
+- [x] Release the D-74/D-75 follow-up through PR #24 after its revised-head CI passes.
 - [x] Validate the preserved transport/checkpoint package and prevent timeout
   recovery from lowering explicitly selected reasoning or speed settings.
 - [ ] After release verification, run CRWV and QCOM as separate normal-history

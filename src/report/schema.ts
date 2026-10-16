@@ -99,7 +99,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.19.2 (D-73): withhold incomplete debt carrying values and dependent metrics.
 // 1.19.3 (D-74, D-75): source-scoped principal summaries, immutable legacy
 // presentation corrections and source-bound preceding-table scale verification.
-// 1.19.4 (D-76): distinguish explicit total/per-share dividend restatements.
+// 1.19.4 (D-76): distinguish explicit total/per-share dividend restatements;
+// identify/refuse unsupported historical EV bridges and qualify partial EDGAR views.
 export const REPORT_SPEC_VERSION = "1.19.4" as const;
 
 /* ------------------------------------------------------------------------ *
