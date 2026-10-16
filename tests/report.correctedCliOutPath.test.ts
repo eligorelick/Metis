@@ -14,6 +14,9 @@ import { runCorrectedExport } from "@/report/export/correctedCli";
  */
 const ROOT = path.resolve(__dirname, "..");
 const REPORT_FIXTURE = path.join(ROOT, "fixtures", "report", "DEMO-sample.json");
+// Hosted Windows runs have exceeded 5s for native SQLite/filesystem work.
+// Give each corrected-export I/O case the same bounded budget.
+const EXPORT_IO_TIMEOUT_MS = 15_000;
 
 let tempDir: string;
 
@@ -77,11 +80,8 @@ describe("corrected export --out without an .html suffix", () => {
     expect(() => runCorrectedExport({ dbFile, reportId: 7, outputHtml: out })).toThrow(failure);
     expect(existsSync(path.join(tempDir, "corrected.json"))).toBe(false);
     expect(readFileSync(dbFile)).toEqual(originalDb);
-  });
+  }, EXPORT_IO_TIMEOUT_MS);
 
-  // A Windows hosted-runner observation took 5.5s for this native filesystem/
-  // SQLite case. Keep every integrity assertion; bound only this I/O case at
-  // 15s instead of the framework's generic 5s CPU-test deadline.
   it.each(["html", "json", "database", "hardlink"])("preserves an existing %s destination and leaves no partial export", (kind) => {
     const dbFile = path.join(tempDir, "source.db");
     seed(dbFile);
@@ -97,7 +97,7 @@ describe("corrected export --out without an .html suffix", () => {
     expect(readFileSync(dbFile)).toEqual(originalDb);
     expect(readFileSync(occupied)).toEqual(originalOutput);
     expect(existsSync(kind === "json" ? out : sidecar)).toBe(false);
-  }, 15_000);
+  }, EXPORT_IO_TIMEOUT_MS);
 
   it("writes the JSON beside the HTML instead of over it", () => {
     const dbFile = path.join(tempDir, "source.db");
@@ -113,7 +113,7 @@ describe("corrected export --out without an .html suffix", () => {
 
     const json = readFileSync(summary.outputJson, "utf8");
     expect(() => JSON.parse(json)).not.toThrow();
-  });
+  }, EXPORT_IO_TIMEOUT_MS);
 
   it("still replaces the suffix when --out ends in .html", () => {
     const dbFile = path.join(tempDir, "source2.db");
@@ -125,5 +125,5 @@ describe("corrected export --out without an .html suffix", () => {
     expect(summary.outputHtml).toBe(out);
     expect(summary.outputJson).toBe(path.join(tempDir, "corrected.json"));
     expect(readFileSync(summary.outputHtml, "utf8").toLowerCase()).toContain("<!doctype html");
-  });
+  }, EXPORT_IO_TIMEOUT_MS);
 });
