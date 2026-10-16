@@ -73,14 +73,15 @@ describe("D-60 scenarios (P0-5)", () => {
     const dcf = runDcf(a, { waccPct: 13.25, netDebt: -23_220e6, dilutedShares: 24_285e6 });
     const valuation = { kind: "dcf", route: "general", assumptions: a, dcf, sensitivity: null, reverseDcf: null,
       multiples: {} as never, notes: [], gaps: [] } as ValuationResult;
-    const income = ANNUAL.map((r) => ({ date: r.date, revenue: r.revenue, ebit: r.operatingIncome, netIncome: r.incomeBeforeTax * 0.85, epsDiluted: 1 }));
+    const income = ANNUAL.map((r) => ({ date: r.date, revenue: r.revenue, ebit: r.operatingIncome, netIncome: r.incomeBeforeTax * 0.85,
+      epsDiluted: 1, interestExpense: r.date === "2026-01-25" ? 259e6 : null }));
     const projections = computeProjections({ route: {} as CompanyRouteResult, valuation, waccPct: 13.25, dilutedShares: 24_285e6,
       incomeHistory: income, fcfHistory: [{ date: "2026-01-25", fcf: 90_290e6 }], shareCountAnnualizedPct: -0.47, currency: "USD", asOf: "2026-10-15" });
     expect(projections.series.find((s) => s.metric === "fcf")?.assumptions.join(" ")).toMatch(/after stock-based compensation/i);
     // P0-D: operating EPS taxed at the DCF's own year-one rate, not a historical NI/EBIT median.
     const row = dcf.yearRows[0];
     expect(projections.series.find((s) => s.metric === "epsDiluted")?.base[0].value.value)
-      .toBeCloseTo(Math.round((row.ebit * (1 - row.taxRatePct / 100)) / 24_285e6 * 100) / 100, 2);
+      .toBeCloseTo(Math.round(((row.ebit - 259e6) * (1 - row.taxRatePct / 100)) / 24_285e6 * 100) / 100, 2);
     const computed = { projections, valuation, scenarioTargets: { status: "unavailable" } } as unknown as ComputedMetrics;
     const narrative = { scenarios: (["bull", "base", "bear"] as const).map((name) => ({ name, probability: 1 / 3, assumptions: [], whatWouldHaveToBeTrue: [], priceTarget: null, horizon: "n/a" })) } as unknown as Valuation;
     expect(applyScenarioPresentation(narrative, computed).scenarios.map((s) => s.probability)).toEqual([null, null, null]);

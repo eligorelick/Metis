@@ -8,7 +8,7 @@ import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 
 const history = [1000, 1100, 1320, 1452, 1742.4].map((revenue, i) => ({
   date: `${2021 + i}-12-31`, revenue, ebit: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i],
-  netIncome: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i] * 0.75, epsDiluted: 1,
+  netIncome: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i] * 0.75, epsDiluted: 1, interestExpense: 10,
 }));
 const route: CompanyRouteResult = { base: "general", overlays: [], evidence: { sector: null, industry: null }, notes: [], gaps: [], asOf: { today: "2026-10-13", incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null } };
 function fixture(basis: "ttm" | "annual" = "ttm") {
@@ -71,9 +71,9 @@ describe("report audit valuation regressions", () => {
   it("refuses unfunded share shrinkage and provides flat-share and historical-trend EPS", () => {
     const eps = projections().series.find(s => s.metric === "epsDiluted")!;
     const firstEbit = fixture().dcf.yearRows[0].ebit;
-    expect(eps.base[0].value.value).toBeCloseTo(firstEbit * .75 / 100, 2);
+    expect(eps.base[0].value.value).toBeCloseTo((firstEbit - 10) * .75 / 100, 2);
     expect(eps.flatShare?.base[0].value.value).toBe(eps.base[0].value.value);
-    expect(eps.shareTrend?.base[0].value.value).toBeCloseTo(firstEbit * .75 / 95, 2);
+    expect(eps.shareTrend?.base[0].value.value).toBeCloseTo((firstEbit - 10) * .75 / 95, 2);
     expect(eps.capitalReturn?.appliedShareCountAnnualizedPct).toBe(0);
     expect(projections(undefined, null).series.some(s => s.metric === "epsDiluted")).toBe(true);
   });
@@ -115,8 +115,8 @@ describe("report audit valuation regressions", () => {
   });
   it("retains positive dilution while exposing a constant-share EPS comparison", () => {
     const eps = projections(undefined, 5).series.find(s => s.metric === "epsDiluted")!;
-    expect(eps.base[0].value.value).toBeCloseTo(fixture().dcf.yearRows[0].ebit * .75 / 105, 2);
-    expect(eps.flatShare?.base[0].value.value).toBeCloseTo(fixture().dcf.yearRows[0].ebit * .75 / 100, 2);
+    expect(eps.base[0].value.value).toBeCloseTo((fixture().dcf.yearRows[0].ebit - 10) * .75 / 105, 2);
+    expect(eps.flatShare?.base[0].value.value).toBeCloseTo((fixture().dcf.yearRows[0].ebit - 10) * .75 / 100, 2);
     expect(eps.capitalReturn?.policy).toBe("dilution-trend");
   });
 });

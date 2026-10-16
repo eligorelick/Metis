@@ -108,6 +108,8 @@ export interface ProjectionIncomeRow {
   epsDiluted: number | null;
   /** D-60: interest expense (positive), deducted before tax in forecast EPS. */
   interestExpense?: number | null;
+  /** A zero is usable only when direct filing evidence distinguishes it from a vendor placeholder. */
+  interestExpenseDisclosed?: boolean;
 }
 
 export interface ProjectionFcfRow {
@@ -143,6 +145,8 @@ export interface ProjectionsInputs {
    * the latest annual interest expense.
    */
   interestRunRate?: { value: number; basis: string } | null;
+  /** Established financing debt at the DCF statement anchor; zero can establish a debt-free interest assumption. */
+  debtAtAnchor?: { date: string; debt: number | null } | null;
 }
 
 /**
@@ -151,11 +155,12 @@ export interface ProjectionsInputs {
  * operating leases excluded: their cost is in operating expenses) is the
  * issuer's own effective rate; applied to the closing debt it prices debt
  * issued during the quarter for a full year. Without both balances, the
- * quarter × 4. Null without a positive quarterly interest figure.
+ * quarter × 4. Null without a nonnegative disclosed quarterly interest figure.
  */
-export function interestRunRate(quarter: { date: string; interestExpense: number | null } | null,
+export function interestRunRate(quarter: { date: string; interestExpense: number | null; interestExpenseDisclosed?: boolean } | null,
   closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string } | null {
-  if (quarter === null || !isNum(quarter.interestExpense) || quarter.interestExpense <= 0) return null;
+  if (quarter === null || !isNum(quarter.interestExpense) || quarter.interestExpense < 0) return null;
+  if (quarter.interestExpense === 0 && quarter.interestExpenseDisclosed !== true) return null;
   const q = quarter.interestExpense;
   const b = (v: number) => `${round2(v / 1e9)}B`;
   if (closing !== null && opening !== null && closing.date === quarter.date && isNum(closing.debt) && isNum(opening.debt) && closing.debt > 0 && opening.debt >= 0) {
@@ -587,6 +592,13 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // Diluted EPS (derived; disclosed + skipped when inputs missing)
   const epsSeries = buildEpsSeries(inputs, { bullRows, baseRows, bearRows }, H, incomeAsc, fwdPeriod, assumptionLines, asOf);
   if (epsSeries) series.push(epsSeries);
+  else if (isNum(inputs.dilutedShares) && inputs.dilutedShares > 0) {
+    series.find((candidate) => candidate.metric === "revenue")?.disclosures.push({
+      field: "projections.eps.interestExpense",
+      reason: "Forecast EPS withheld: no established quarterly or annual interest expense and no matching debt-free balance anchor.",
+      severity: "warn",
+    });
+  }
 
   const dated = (points: ProjectionPoint[]) => points.map((pt, i) => {
     const period = periodsVerified ? baseRows[i]?.period : undefined;
@@ -669,14 +681,18 @@ function buildEpsSeries(
   // annual interest expense (held flat), taxed at that year's DCF rate; interest
   // income, investment gains and other non-operating items are excluded.
   const latestInterest = incomeAsc
-    .filter((r) => isNum(r.interestExpense) && (r.interestExpense as number) >= 0)
+    .filter((r) => isNum(r.interestExpense) && (r.interestExpense > 0 || (r.interestExpense === 0 && r.interestExpenseDisclosed === true)))
     .at(-1);
   // D-65: the latest quarter's run-rate when supplied; the annual figure otherwise.
   const runRate = inputs.interestRunRate && isNum(inputs.interestRunRate.value) && inputs.interestRunRate.value >= 0 ? inputs.interestRunRate : null;
+  const debtFree = inputs.valuation.kind === "dcf" && inputs.debtAtAnchor?.debt === 0 &&
+    inputs.debtAtAnchor.date === inputs.valuation.assumptions?.asOf.statements;
+  if (runRate === null && latestInterest === undefined && !debtFree) return null;
   const interest = runRate ? runRate.value : latestInterest ? (latestInterest.interestExpense as number) : 0;
   const interestText = runRate
     ? `interest expense ${round2(interest / 1e9)}B a year at the latest quarter's run-rate (${runRate.basis})`
-    : `latest annual interest expense ${round2(interest / 1e9)}B`;
+    : latestInterest ? `latest annual interest expense ${round2(interest / 1e9)}B`
+      : `zero interest expense from the evidenced debt-free balance as of ${inputs.debtAtAnchor!.date}`;
   const netIncomeOf = (r: DcfYearRow): number => {
     const pretax = r.ebit - interest;
     return pretax > 0 ? pretax * (1 - r.taxRatePct / 100) : pretax;

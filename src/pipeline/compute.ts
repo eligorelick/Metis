@@ -612,8 +612,15 @@ function withFiledForensicContext(
     }),
     cashFlow: rows.cashFlow.map((row) => {
       const second = annualTaggedValue(facts, "PaymentsToAcquireBusinessTwoNetOfCashAcquired", row.date, currency);
+      const primary = annualTaggedValue(facts, "PaymentsToAcquireBusinessesNetOfCashAcquired", row.date, currency);
+      const acquisitions = row.acquisitionsNet ?? null;
+      // A vendor acquisitions line may already include the second payment.
+      // Add it only when that line is empty/zero, or the separate primary tag
+      // reconciles to it; magnitude of other investing alone cannot prove non-overlap.
+      const separate = acquisitions === null || acquisitions === 0 ||
+        (primary !== null && primary >= 0 && Math.abs(acquisitions + primary) <= Math.max(1, primary * 0.005));
       const other = row.otherInvestingActivities ?? null;
-      return second !== null && second > 0 && other !== null && other <= -second * 0.995
+      return separate && second !== null && second > 0 && other !== null && other <= -second * 0.995
         ? { ...row, acquisitionsInOtherInvesting: -second }
         : row;
     }),
@@ -2087,6 +2094,12 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     reason: `annual period ${period} dropped from the projection history: ${reason}`,
     severity: "warn" as const,
   }));
+  const disclosedProjectionInterest = (row: FmpIncomeStatementRow): boolean => {
+    const evidence = row.fieldProvenance?.interestExpense;
+    return evidence?.source === "edgar" && evidence.periodEnd === isoDay(row.date) && currencies.model !== null &&
+      evidence.unit.toUpperCase() === currencies.model && evidence.tags.length > 0 && evidence.filings.length > 0 &&
+      row.fieldConflicts?.interestExpense === undefined;
+  };
   const projectionIncomeHistory = projNorm.rows.map(
     (r): ProjectionIncomeRow => ({
       date: String(r.date ?? ""),
@@ -2097,6 +2110,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       netIncome: num(r.netIncome),
       epsDiluted: num(r.epsDiluted),
       interestExpense: num(r.interestExpense),
+      interestExpenseDisclosed: disclosedProjectionInterest(r),
     }),
   );
   // Never default a currency. This used to be `?? "USD"`, and the value becomes
@@ -2119,7 +2133,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     if (row === undefined || date === null) return null;
     const debt = num(row.totalDebt);
     const lease = num(row.operatingLeaseLiability);
-    return { date, debt: debt === null ? null : Math.max(0, debt - (lease !== null && lease >= 0 && lease <= debt ? lease : 0)) };
+    return { date, debt: debt === null || debt < 0 ? null : debt - (lease !== null && lease >= 0 && lease <= debt ? lease : 0) };
   };
   const latestIncomeQuarter = incomeQuarterly[0];
   const projectionQuarterDate = isoDay(latestIncomeQuarter?.date);
@@ -2129,13 +2143,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const projectionInterest = latestIncomeQuarter !== undefined && projectionQuarterDate !== null && projectionAnchorDate !== null
     && projectionQuarterDate <= projectionAnchorDate && projectionQuarterDate > projRowDate(inc0Proj)
     && currencies.model !== null && establishedCurrencyOn([latestIncomeQuarter], projectionQuarterDate, currencyEvidence) === currencies.model
-    ? interestRunRate({ date: projectionQuarterDate, interestExpense: num(latestIncomeQuarter.interestExpense) },
+    ? interestRunRate({ date: projectionQuarterDate, interestExpense: num(latestIncomeQuarter.interestExpense),
+      interestExpenseDisclosed: disclosedProjectionInterest(latestIncomeQuarter) },
       debtExLeases(balanceQuarterly.find((b) => isoDay(b.date) === isoDay(latestIncomeQuarter.date))),
       debtExLeases(balanceQuarterly.find((b) => { const d = isoDay(b.date); const q = isoDay(latestIncomeQuarter.date); return d !== null && q !== null && d < q && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS >= 80 && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS <= 100; })))
     : null;
   const projections = computeProjections({
     route,
     interestRunRate: projectionInterest,
+    debtAtAnchor: debtExLeases([...balanceQuarterly, ...balanceAnnual].find((row) => isoDay(row.date) === projectionAnchorDate)),
     valuation,
     waccPct: returns.wacc.waccPct,
     dilutedShares: dilutedSharesProj,

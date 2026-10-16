@@ -370,7 +370,23 @@ export function buildQuarterlySegments(
       childOf: null,
     }));
     markSubtotals(rows);
-    const residualCells = fillResiduals(rows, totalCells);
+    const residualCells = fillResiduals(rows, totalCells, (i, missing) => {
+      const col = quarters[i]!;
+      const total = at(null, null, col);
+      if (total === undefined) return false;
+      // Never relabel an old presentation's C as the current B. Missing
+      // historical tags establish no mapping, even when today's rows exhaust revenue.
+      if (members.some((member) => !current.includes(member) && at(axis, member, col) !== undefined)) return false;
+      // A residual belongs to this presentation only when its total and
+      // known rows are comparative facts of a filing that itself names the
+      // missing member. Cross-filing arithmetic alone cannot establish a recast.
+      const filing = ordered.find((entry) => entry.accession === total.accession);
+      return filing !== undefined && filing.facts.some((fact) => fact.axis === axis && fact.member === missing.member && fact.currency === total.currency) &&
+        rows.filter((row) => row.childOf === null && row.values[i] !== null).every((row) => {
+          const cell = at(axis, row.member, col);
+          return cell?.accession === total.accession && cell.currency === total.currency;
+        });
+    });
     rows.sort((a, b) => {
       const parentA = a.childOf ? rows.find((r) => r.member === a.childOf)! : a;
       const parentB = b.childOf ? rows.find((r) => r.member === b.childOf)! : b;
@@ -414,9 +430,10 @@ function markSubtotals(rows: SegmentRow[]): void {
  * D-63: fill a quarter's one missing top-level cell as the total less the
  * other top-level rows. Only when the top-level rows are exhaustive — every
  * one is tagged in the latest quarter and they sum to its total within 0.1%
- * — and the remainder is not negative. Returns the number of cells filled.
+ * — the historical column has the same filing presentation, and the remainder
+ * is not negative. Returns the number of cells filled.
  */
-function fillResiduals(rows: SegmentRow[], total: readonly (number | null)[]): number {
+function fillResiduals(rows: SegmentRow[], total: readonly (number | null)[], presentationAgrees: (i: number, missing: SegmentRow) => boolean): number {
   const top = rows.filter((r) => r.childOf === null);
   const latestTotal = total[0];
   if (top.length < 2 || latestTotal == null || top.some((r) => r.values[0] == null)) return 0;
@@ -427,6 +444,7 @@ function fillResiduals(rows: SegmentRow[], total: readonly (number | null)[]): n
     const t = total[i];
     const missing = top.filter((r) => r.values[i] == null);
     if (t == null || missing.length !== 1) continue;
+    if (!presentationAgrees(i, missing[0]!)) continue;
     const remainder = t - top.reduce((sum, r) => sum + (r.values[i] ?? 0), 0);
     if (remainder < -tolerance(t)) continue;
     missing[0]!.values[i] = Math.max(0, remainder);

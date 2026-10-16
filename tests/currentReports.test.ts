@@ -136,16 +136,18 @@ describe("XBRL segment revenue by quarter", () => {
     expect(row("Hyperscale").childOf).toBe("nvda:DataCenterMember");
     expect(row("Data Center").childOf).toBeNull();
     expect(platform.priorPresentation).toContain("Gaming");
-    // D-63: Edge Computing is untagged in Q4 FY2026; Data Center and Edge are
-    // the whole of revenue, so that quarter is the total less Data Center.
-    expect(row("Edge Computing").values[2]).toBe(68_127e6 - row("Data Center").values[2]!);
-    expect(row("Edge Computing").residualAt).toContain(2);
+    // The old filing never establishes the new Edge presentation for Q4.
+    // Today's exhaustive rows cannot relabel yesterday's other businesses.
+    expect(row("Edge Computing").values[2]).toBeNull();
+    expect(row("Edge Computing").residualAt ?? []).not.toContain(2);
     // The Q3 FY2026 10-Q tagged "Other" geography under a member the later
-    // filings renamed; the rows still sum to every quarter's total.
+    // filings renamed; without an explicit mapping, the old cell stays missing.
     const geography = series.axes.find((a) => a.axis === "srt:StatementGeographicalAxis")!;
-    expect(geography.rows.find((r) => r.label === "Other")!.values.every((v) => v !== null)).toBe(true);
-    geography.total.forEach((total, i) => expect(geography.rows.reduce((sum, r) => sum + r.values[i]!, 0)).toBeCloseTo(total!, -6));
-    expect(geography.residualCells).toBeGreaterThan(0);
+    expect(geography.rows.find((r) => r.label === "Other")!.values[3]).toBeNull();
+    geography.total.forEach((total, i) => {
+      if (geography.rows.every((r) => r.values[i] !== null))
+        expect(geography.rows.reduce((sum, r) => sum + r.values[i]!, 0)).toBeCloseTo(total!, -6);
+    });
   });
 });
 
