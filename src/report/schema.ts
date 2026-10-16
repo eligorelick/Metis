@@ -2271,6 +2271,10 @@ export const MarketDataSchema = z
     enterpriseValue: z.object({
       value: z.number(), periodEnd: IsoDaySchema, marketCap: NullableNumber, totalDebt: NullableNumber, cash: NullableNumber,
     }).strict().nullable(),
+    /** Absent on older reports; do not infer a vendor from a legacy value alone. */
+    enterpriseValueOrigin: z.enum(["computed", "provider"]).optional(),
+    /** Output-only explanation when a local historical bridge is withheld. */
+    enterpriseValueNote: z.string().optional(),
     estimates: z.array(z.object({
       fiscalYearEnd: IsoDaySchema,
       revenueAvg: NullableNumber, revenueLow: NullableNumber, revenueHigh: NullableNumber,

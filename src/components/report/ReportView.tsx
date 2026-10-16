@@ -30,6 +30,7 @@
 
 import { MetisLogo } from "@/brand/MetisLogo";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
+import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
@@ -147,10 +148,11 @@ export function ReportView({
   technicalsChart?: ReactNode;
   fundamentalsChart?: ReactNode;
 }) {
-  const report = withPrincipalSummarySafety(sourceReport);
+  const report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport));
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,
+    report.appendix.sources,
   );
   // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });

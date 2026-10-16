@@ -12,6 +12,7 @@
 
 import { formatExecutionMetadata } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
+import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { scoreAuditTables, factualValidationText } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
@@ -324,7 +325,7 @@ function renderProjections(p: Projections): string {
  */
 function renderBodyReading(report: Report): string {
   const lines: string[] = [];
-  const k = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData).classification;
+  const k = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources).classification;
   const counted: Array<[string, ClassifiedGap]> = [
     ...k.dataGaps.map((gap) => ["data gap", gap] as [string, ClassifiedGap]),
     ...k.processDisclosures.map((gap) => ["analysis-process disclosure", gap] as [string, ClassifiedGap]),
@@ -378,7 +379,7 @@ function renderBodyReading(report: Report): string {
 
 function renderManifest(report: Report): string {
   const a = report.appendix;
-  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, a.missingData);
+  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, a.missingData, a.sources);
   return [
     "## Missing-data manifest",
     "",
@@ -419,7 +420,7 @@ function renderSources(report: Report): string {
 
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report): string {
-  report = withPrincipalSummarySafety(report);
+  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const m = report.meta;
   const blocks = [
     [
@@ -430,6 +431,7 @@ export function reportToAuditMarkdown(report: Report): string {
       `> ${markdownBlockquote("Machine-checkable record behind the report: raw values, registry ids, checks and data gaps. It is not a second report and adds no analysis.")}`,
     ].join("\n"),
     renderRun(report),
+    report.marketData?.enterpriseValueNote ? `## Historical enterprise-value presentation\n\n${markdownProse(report.marketData.enterpriseValueNote)}` : "",
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),

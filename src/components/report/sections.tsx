@@ -1938,7 +1938,7 @@ export function AppendixSection({
   const m = report.meta;
   const rate = appendix.verificationRate;
   const dataOnly = appendix.missingData.some((gap) => gap.field === "analysis.llm");
-  const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData);
+  const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData, appendix.sources);
   const trust = trustRows(appendix.provenanceCoverage ?? m.provenanceCoverage);
   const checks = appendix.consistencyChecks; // WS7 (D-20)
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
@@ -2053,6 +2053,7 @@ export function ReportMetaStrip({
   const presentation = completeness ?? deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,
+    report.appendix.sources,
   );
   const verification = trustHeadline(m.provenanceCoverage);
   return (

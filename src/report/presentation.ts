@@ -13,6 +13,7 @@
 
 import { parseSubscriptionModel } from "@/ai/contracts";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
+import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -824,7 +825,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
  * report carries no provider market data.
  */
 export function consensusTables(report: Report): BodyTable[] {
-  const md = report.marketData;
+  const md = withHistoricalEnterpriseValueSafety(report).marketData;
   if (!md) return [];
   const tables: BodyTable[] = [];
   const cur = md.estimateCurrency;
@@ -875,8 +876,10 @@ export function consensusTables(report: Report): BodyTable[] {
   }
   if (md.quote?.marketCap != null) rows.push(["Market cap (quote)", `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
   if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
-  // D-65: the vendor's own EV definition at its own date, not this report's market EV.
-  if (md.enterpriseValue) rows.push(["Provider enterprise value (vendor definition, period end)", `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
+  const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
+    : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";
+  if (md.enterpriseValue) rows.push([evLabel, `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
+  if (md.enterpriseValueNote) rows.push(["Historical enterprise value", md.enterpriseValueNote]);
   if (rows.length > 0) tables.push({ heading: "Market data and positioning", headers: ["Item", "Value"], rows });
   return tables;
 }

@@ -11,7 +11,8 @@
  * issuer is not an ADR, else no currency (and the renderers say so).
  */
 
-import { statementCurrencies } from "@/pipeline/compute";
+import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies } from "@/pipeline/compute";
+import { admitHistoricalEnterpriseValue, DERIVED_EV_ENDPOINT } from "@/report/enterpriseValueSafety";
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import type { DataBundle } from "@/pipeline/types";
 import type { MarketData } from "@/report/schema";
@@ -87,6 +88,25 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean }
   const enterpriseValue: MarketData["enterpriseValue"] = ev
     ? { value: n(ev.row.enterpriseValue)!, periodEnd: ev.date, marketCap: n(ev.row.marketCapitalization), totalDebt: n(ev.row.addTotalDebt), cash: n(ev.row.minusCashAndCashEquivalents) }
     : null;
+  const evEnvelope = bundle.enterpriseValues?.ok ? bundle.enterpriseValues.value : null;
+  const evOrigin = evEnvelope?.source === "computed" && evEnvelope.endpoint === DERIVED_EV_ENDPOINT ? "computed" as const
+    : evEnvelope?.source === "fmp" ? "provider" as const : undefined;
+  const currencyEvidence = statementCurrencyEvidence(bundle);
+  const historicalEv = admitHistoricalEnterpriseValue(enterpriseValue, evOrigin, currencies.trading,
+    [...rows(bundle.statements?.balanceQuarterly), ...rows(bundle.statements?.balanceAnnual)].map((row) => ({
+      date: day(row.date) ?? "", currency: establishedCurrencyOn([row], day(row.date), currencyEvidence), value: n(row.totalDebt),
+      usable: !["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"].some((field) =>
+        (row.fieldConflicts as Record<string, { usable?: boolean }> | undefined)?.[field]?.usable === false),
+    })));
+  if (evOrigin === "computed" && historicalEv.enterpriseValue !== null) {
+    const balance = [...rows(bundle.statements?.balanceQuarterly), ...rows(bundle.statements?.balanceAnnual)].find((row) =>
+      day(row.date) === historicalEv.enterpriseValue!.periodEnd && establishedCurrencyOn([row], day(row.date), currencyEvidence) === currencies.trading);
+    const current = n(balance?.shortTermDebt), noncurrent = n(balance?.longTermDebt), leases = n(balance?.capitalLeaseObligations);
+    if (current !== null && noncurrent !== null && leases !== null && leases > 0 && historicalEv.enterpriseValue.totalDebt !== null &&
+        Math.abs(current + noncurrent + leases - historicalEv.enterpriseValue.totalDebt) <= 1) {
+      historicalEv.enterpriseValueNote = "This dated internal cash-only EV bridge uses current and noncurrent carrying debt plus the reported lease liabilities. It retains that historical source basis; the report's primary current EV uses its separately disclosed bridge.";
+    }
+  }
 
   // FY+1 and FY+2: the first two estimate rows after the latest reported fiscal year.
   const lastFiscal = day(rows(bundle.statements?.incomeAnnual)[0]?.date);
@@ -143,7 +163,7 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean }
     estimateCurrencyBasis: (estimateCurrency !== null && inheritedAny) || (estimateCurrency === null && (estimates.length > 0 || ptc)) ? issuer.basis : null,
     quote,
     shares,
-    enterpriseValue,
+    ...historicalEv,
     estimates,
     estimatesAsOf: asOfOf(bundle.analystEstimates),
     priceTarget,

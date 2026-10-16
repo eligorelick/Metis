@@ -6,7 +6,7 @@ import { sectionAnchorId } from "./primitives";
 
 /** Recorded snapshot context; no new fetch, confidence score or inferred date. */
 export function ReportEvidenceRail({ report }: { report: Report }) {
-  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData);
+  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const dates = Object.entries(report.meta.asOfMap);
   return (
     <aside className="workspace-evidence-rail" aria-label="Report evidence and gaps">
