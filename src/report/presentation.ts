@@ -351,17 +351,42 @@ export function figureRow(n: TracedNumber, label?: string): FigureRow {
   };
 }
 
-/**
- * Identities of a figure for de-duplication: the exact stored value and unit
- * (not for small integers, which coincide by chance), and the reader label
- * with the displayed value — the two registries round the same figure to
- * different stored precision.
- */
+/** Explicitly registered aliases; neither a shared label nor an equal amount proves identity. */
+const FIGURE_ALIAS_GROUPS: readonly (readonly string[])[] = [
+  ...[
+    "netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc", "sbcPctOfFcf", "netDebt", "ebitda",
+    "cashBridge.operatingCashFlow", "cashBridge.cashCapitalExpenditure", "cashBridge.standardizedFcf",
+    "cashBridge.financeLeasePrincipalPayments", "cashBridge.leaseAdjustedFcf", "cashBridge.issuerFcf",
+    "cashBridge.stockBasedCompensation", "cashBridge.afterSbcStandardizedFcf", "cashBridge.afterSbcIssuerFcf",
+    "debtBridge.totalDebtIncludingLeases", "debtBridge.operatingLeases", "debtBridge.financeLeases",
+    "debtBridge.cashAndShortTermInvestments", "debtBridge.marketableEquitySecurities", "debtBridge.cashForNetDebt",
+    "debtBridge.netDebtIncludingLeases", "debtBridge.netDebtExcludingOperatingLeases",
+  ].map((path) => [
+    `computed.capital.current.${path}`,
+    `computed.current-capital.${path.split(".").at(-1)!.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
+  ]),
+  ["computed.forensics.accruals.scalerValue", "computed.forensics.accrual-scaler-value"],
+  ["computed.forensics.accruals.cashFlowAccrualRatio", "computed.forensics.accrual-ratio-cash-flow"],
+  ["computed.forensics.accruals.balanceSheetAccrualRatio", "computed.forensics.accrual-ratio-balance-sheet"],
+  ["computed.forensics.accruals.aggregateAccrualsCashFlow", "computed.forensics.aggregate-accruals-cash-flow"],
+  ["computed.forensics.accruals.aggregateAccrualsBalanceSheet", "computed.forensics.aggregate-accruals-balance-sheet"],
+  ["computed.valuation.dcf.perShare", "computed.valuation.dcf-per-share"],
+];
+const FIGURE_METRIC_ALIASES = new Map(FIGURE_ALIAS_GROUPS.flatMap((group) =>
+  group.map((source): [string, string] => [source, group[0]!])));
+
+/** Exact source duplicates, or a known alias with the same displayed value and measurement basis. */
 function figureIdentities(row: FigureRow): string[] {
-  const v = row.trace.value;
-  const trivial = Number.isInteger(v) && Math.abs(v) < 100;
-  const byLabel = `${row.label.toLowerCase().replace(/[^a-z0-9%]+/g, " ").trim()}|${row.value}`;
-  return trivial ? [byLabel] : [`${v}|${row.trace.unit}`, byLabel];
+  const n = row.trace;
+  const p = n.periodContext;
+  const context = p === undefined ? null : p.kind === "instant"
+    ? [p.kind, p.at, p.basis ?? null, p.fiscalLabel ?? null]
+    : [p.kind, p.start, p.end, p.basis ?? null, p.fiscalLabel ?? null];
+  const basis = [n.unit, n.currency ?? null, n.asOf, n.period ?? null, context];
+  const source = n.sourceId ?? n.source;
+  const exact = JSON.stringify(["source", source, n.value, ...basis]);
+  const metric = FIGURE_METRIC_ALIASES.get(source);
+  return metric === undefined ? [exact] : [exact, JSON.stringify(["alias", metric, row.value, ...basis])];
 }
 
 /**
@@ -369,16 +394,19 @@ function figureIdentities(row: FigureRow): string[] {
  * forensic battery register the same figure under two ids
  * (`computed.current-capital.*` and `computed.capital.current.*`), and the
  * report printed both. `seen` carries identities across the tables of one
- * section. The first occurrence wins; a later duplicate only contributes a
- * measurement window the first one lacked.
+ * section. The first occurrence wins. Currency and measurement metadata must
+ * agree; missing metadata is not evidence that two different windows match.
  */
 export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, FigureRow> = new Map()): FigureRow[] {
   const out: FigureRow[] = [];
   for (const row of rows) {
     const identities = figureIdentities(row);
-    const prior = identities.map((identity) => seen.get(identity)).find((entry) => entry !== undefined);
+    const prior = identities.map((identity) => seen.get(identity)).find((entry) =>
+      entry !== undefined && (
+        (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source)
+        || entry.trace.value === row.trace.value
+      ));
     if (prior) {
-      if (prior.period === null && row.period !== null) prior.period = row.period;
       continue;
     }
     const copy = { ...row };

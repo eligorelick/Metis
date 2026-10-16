@@ -53,6 +53,37 @@ describe("reader labels and one source marker", () => {
       ["Total debt including leases", "$38.86B"],
     ]);
   });
+
+  it("retains equal-valued debt and cash instead of treating their amounts as metric identities", () => {
+    const sources = ["computed.capital.current.debtBridge.debtIncludingLeases", "computed.capital.current.debtBridge.cashAndShortTermInvestments"];
+    const rows = figureRows(sources.map((source) => traced(source, 100_000_000, "currency")));
+    expect(rows.map((row) => row.trace.source)).toEqual(sources);
+  });
+
+  it.each([
+    { currency: "EUR" },
+    { asOf: "2025-07-26" },
+    { period: "FY2025" },
+    { periodContext: { kind: "duration" as const, start: "2026-01-01", end: "2026-06-30" } },
+  ])("retains a known alias on a different measurement basis: %j", (basis) => {
+    const first = traced("computed.current-capital.total-debt-including-leases", 100_000_000, "currency");
+    const second = { ...traced("computed.capital.current.debtBridge.totalDebtIncludingLeases", 100_000_000, "currency"), ...basis };
+    expect(figureRows([first, second])).toHaveLength(2);
+  });
+
+  it("retains the same source for distinct windows even when they end on the same day", () => {
+    const first = { ...traced("payload.statement.revenue", 100_000_000, "currency"), periodContext: { kind: "duration" as const, start: "2026-01-01", end: "2026-06-30" } };
+    const second = { ...first, periodContext: { kind: "duration" as const, start: "2026-04-01", end: "2026-06-30" } };
+    expect(figureRows([first, second])).toHaveLength(2);
+  });
+
+  it("removes exact duplicate sources but keeps distinct raw figures that round alike", () => {
+    for (const source of ["computed.example.ratio", "computed.capital.current.interestCoverage"]) {
+      const first = traced(source, 426.7365, "x");
+      expect(figureRows([first, { ...first }])).toHaveLength(1);
+      expect(figureRows([first, { ...first, value: 426.7366 }])).toHaveLength(2);
+    }
+  });
 });
 
 describe("rounding and units", () => {
