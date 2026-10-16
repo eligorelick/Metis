@@ -52,20 +52,22 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       result.asOf = quoteDate; result.windowYears = er?.horizonYears?.value ?? null;
       result.period = `Same equity-return fade over ${result.windowYears ?? "unavailable"} explicit years; return measured at ${result.endDate ?? "unavailable"}`;
     }
-  } else if (/^(?:roic|rote)(?:Level|Stability)$/.test(id) || id === "roicVsWaccSpread" || id === "capitalDeployment") {
+  } else if (/^(?:roic|rote)(?:Level|Floor)$/.test(id) || id === "roicVsWaccSpread") {
     result.family = "capital-returns";
     const tangible = id.startsWith("rote");
     const rows = tangible ? i.rote.series.map(r => ({ date: r.date, value: r.rotePct })) : i.roic.series.map(r => ({ date: r.date, value: r.roicPct }));
     const valid = rows.filter(r => finite(r.value));
     const source = tangible ? "computed.returns.rote" : "computed.returns.roic";
-    if (id.endsWith("Stability")) {
+    if (id.endsWith("Floor")) {
+      // D-61: the lowest annual return in the window; every observation is
+      // an operand so the reader sees which year set the floor.
       dates(valid[0]?.date, valid.at(-1)?.date);
-      result.period = `Annual return observations ${result.period ?? "with unavailable dates"}`;
+      result.period = `Lowest of the annual return observations ${result.period ?? "with unavailable dates"}`;
       for (const row of valid) operand(`return at ${row.date}`, row.value, `${source}.series`, day(row.date));
     } else {
       dates(null, tangible ? i.rote.asOf : i.roic.asOf);
       operand(tangible ? "ROTE" : "ROIC", tangible ? i.rote.latestRotePct : i.roic.latestRoicPct, `${source}.latest${tangible ? "Rote" : "Roic"}Pct`);
-      if (id === "roicVsWaccSpread" || id === "capitalDeployment") {
+      if (id === "roicVsWaccSpread") {
         operand("WACC", i.wacc.waccPct, "computed.returns.wacc.waccPct", rateDate);
         result.period = `ROIC period end ${result.endDate ?? "unavailable"}; WACC observation ${rateDate ?? "unavailable"}`;
       }
@@ -117,12 +119,21 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       operand("original variant Z score before grade-scale mapping", altman?.score, "computed.forensics.altman.score");
       result.period = `Balance ${day(altman?.asOf.balanceSheet) ?? "unavailable"}; income ${day(altman?.asOf.incomeStatement) ?? "unavailable"}; market cap ${day(altman?.asOf.marketCap) ?? "unavailable"}`;
     } else {
-      const metric = id === "beneishM" ? i.forensics.beneish : id === "piotroskiF" ? i.forensics.piotroski : id === "accrualsRatioAbs" ? i.forensics.accruals : null;
+      const metric = id === "beneishM" || id === "beneishMSgiNeutral" ? i.forensics.beneish : id === "piotroskiF" ? i.forensics.piotroski : id === "accrualsRatioAbs" ? i.forensics.accruals : null;
       const p = metric?.asOf;
       dates(p && "prior2" in p ? p.prior2 ?? p.prior : p?.prior, p?.current);
       if (id === "piotroskiF") { operand("signals passed", i.forensics.piotroski?.score, "computed.forensics.piotroski.score"); operand("signals assessed", i.forensics.piotroski?.outOf, "computed.forensics.piotroski.outOf"); }
-      else if (id === "accrualsRatioAbs") operand("cash-flow accrual ratio before absolute transform", i.forensics.accruals?.cashFlowAccrualRatio, "computed.forensics.accruals.cashFlowAccrualRatio");
+      else if (id === "accrualsRatioAbs") {
+        operand("cash-flow accrual ratio before absolute transform", i.forensics.accruals?.cashFlowAccrualRatio, "computed.forensics.accruals.cashFlowAccrualRatio");
+        if (i.forensics.accruals?.definition === "operating") result.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI − CFO).";
+      }
       else if (id === "beneishM") operand("Beneish M", i.forensics.beneish?.score, "computed.forensics.beneish.score");
+      else if (id === "beneishMSgiNeutral") {
+        operand("Beneish M", i.forensics.beneish?.score, "computed.forensics.beneish.score");
+        operand("sales-growth index (SGI)", i.forensics.beneish?.indices.sgi, "computed.forensics.beneish.indices.sgi");
+        operand("Beneish M with SGI at neutral 1.0", i.forensics.beneish?.sgiNeutralScore, "computed.forensics.beneish.sgiNeutralScore");
+        result.fallbackReason = "Sales growth alone carries M above the −1.78 flag line; graded on M with SGI at neutral 1.0 (D-61).";
+      }
     }
   } else if (aspect === "valuation") {
     result.family = "valuation"; result.asOf = quoteDate;
@@ -169,14 +180,19 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     const trend = i.capital.shareCount;
     dates(trend.startDate, trend.endDate); result.windowYears = finite(trend.actualYears) ? trend.actualYears : result.windowYears;
     operand("start shares", trend.startShares, "computed.capital.shareCount.startShares", result.startDate); operand("end shares", trend.endShares, "computed.capital.shareCount.endShares", result.endDate);
-  } else if (id === "buybackDiscipline") {
+  } else if (id === "buybackTiming") {
+    // D-61: each covered fiscal year's actual price paid against that year's
+    // average price; the quote is not an input.
     result.family = "capital-return-policy";
     const b = i.capital.buybackPriceAnalysis;
-    const used = b.years.filter(r => finite(r.sharesProxy) && r.sharesProxy > 0 && finite(r.avgPriceProxy) && r.avgPriceProxy > 0 && r.repurchased > 0);
-    dates(used[0]?.date, used.at(-1)?.date); result.asOf = quoteDate;
-    result.period = `Contributing annual repurchase-price observations ${result.period ?? "unavailable"}; compared with quote ${quoteDate ?? "unavailable"}`;
-    operand("average repurchase price proxy", b.avgPricePaidProxy, "computed.capital.buybackPriceAnalysis.avgPricePaidProxy", result.endDate);
-    operand("current quote", b.currentPrice, "computed.capital.buybackPriceAnalysis.currentPrice", quoteDate);
+    const used = b.years.filter(r => finite(r.actualPricePaid) && finite(r.avgPriceProxy) && r.repurchased > 0);
+    dates(used[0]?.date, used.at(-1)?.date);
+    result.period = `Fiscal years with tagged repurchase prices ${result.period ?? "unavailable"}; each compared with the same year's average price`;
+    for (const row of used) {
+      operand(`price paid, year ending ${row.date}`, row.actualPricePaid, "computed.capital.buybackPriceAnalysis.years.actualPricePaid", day(row.date));
+      operand(`average price, year ending ${row.date}`, row.avgPriceProxy, "computed.capital.buybackPriceAnalysis.years.avgPriceProxy", day(row.date));
+    }
+    operand("share of repurchase dollars covered, percent", b.timingCoveragePct, "computed.capital.buybackPriceAnalysis.timingCoveragePct", result.endDate);
   } else if (id === "grossMarginLevel" || id === "operatingMarginSlope") {
     result.family = "profitability";
     const rows = (id === "grossMarginLevel" ? i.growth.margins.gross.series : i.growth.margins.operating.series).filter(r => finite(r.pct));

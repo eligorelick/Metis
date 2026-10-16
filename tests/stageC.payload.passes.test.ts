@@ -747,14 +747,25 @@ describe("payload determinism + provenance", () => {
       // the computed quarterly-trend section (509 -> 524); the D-59 current-capital
       // labels set the figure-label hash; prompt bytes add the WP3 issuer-filing
       // bullets; financeHash moves with the combined DCF and peer coverage.
-      fingerprint: "1.23.0:1ae68d76",
-      promptBytes: 127_409,
-      provenanceCount: 524,
-      provenanceHash: "fe8c84e7",
-      provenanceIdsHash: "145e22a3",
-      citationCount: 60,
-      citationHash: "0fa208f0",
-      computedFigureLabelHash: "0a7b6733",
+      // D-61 (forensics and grading signals; PAYLOAD_VERSION unchanged): the
+      // forensic section gains the eight Beneish indices, the SGI-neutral M
+      // (+9 numeric records, 524 -> 535 with the two accrual growth rows), the
+      // growth-led flag, the nine Piotroski signal outcomes and the accrual
+      // definition (string rows register as citations, 60 -> 73 with the two
+      // buyback-timing rows this fixture cannot measure: no XBRL execution
+      // prices). The accrual note and the buyback premium label are reworded,
+      // and the aspect-score section says what the leadership score measures
+      // (+3,856 prompt bytes). financeHash moves with the operating-accrual
+      // fallback (this fixture does not separate investment purchases), the
+      // ROIC floor and the stewardship signals.
+      fingerprint: "1.23.0:613a3ae8",
+      promptBytes: 131_265,
+      provenanceCount: 535,
+      provenanceHash: "d0a1c65a",
+      provenanceIdsHash: "6bbc93c7",
+      citationCount: 73,
+      citationHash: "395a88c9",
+      computedFigureLabelHash: "3a309e53",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -768,7 +779,10 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "a442e5d3",
+      // D-61: moat durability is the ROIC floor, leadership drops the second
+      // ROIC − WACC read and grades buyback timing (unmeasurable here), and the
+      // accruals signal reads operating accruals — see the comment above.
+      financeHash: "e9e62820",
     });
   });
 
@@ -1376,8 +1390,12 @@ describe("payload budget helpers", () => {
   it("feeds the actual aggregate accrual definition, operands and tax bridge into context", () => {
     const { payload, computed } = buildInputs();
     const forensics = payload.computed.find((section) => section.title === "Forensics (computed)")!;
-    expect(forensics.notes.join(" ")).toContain("NI - CFO - CFI");
+    // D-61: the note and the prompt name the construction actually used.
+    expect(forensics.notes.join(" ")).toContain(
+      computed.forensics.accruals?.definition === "operating" ? "operating accruals = NI - CFO" : "NI - CFO - operating CFI",
+    );
     expect(forensics.figures).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "accrual definition", value: computed.forensics.accruals?.definition }),
       expect.objectContaining({ label: "aggregate accruals (cash-flow)", value: computed.forensics.accruals?.aggregateAccrualsCashFlow }),
       expect.objectContaining({ label: "accrual scaler value", value: computed.forensics.accruals?.scalerValue }),
       expect.objectContaining({ label: "accrual ratio (balance-sheet)", value: computed.forensics.accruals?.balanceSheetAccrualRatio }),
@@ -1389,7 +1407,7 @@ describe("payload budget helpers", () => {
     const cashflow = payload.statements.find((block) => block.title === "Cash flow — annual")!;
     expect(cashflow.lineItems.map((line) => line.lineItem)).toEqual(expect.arrayContaining(["net income (cash-flow)", "cash flow from investing activities (CFI)"]));
     for (const framing of [buildBullFraming(), buildBearFraming(), buildJudgeFraming()]) {
-      expect(framing).toContain("NI - CFO - CFI");
+      expect(framing).toContain("NI - CFO - operating CFI");
       expect(framing).toContain("exceptional");
     }
     expect(buildLeadershipGuidance()).toContain("not-assessed");

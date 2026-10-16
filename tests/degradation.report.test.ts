@@ -606,7 +606,9 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     const serialized = JSON.stringify(report);
     expect(serialized).toContain("Diluted share count changed -7.5% between 2022-09-24 and 2025-09-27 (buyback).");
     expect(serialized).toContain(
-      "Repurchased 90B USD of stock across the analysed years at an average price proxy 12.5% above the current price.",
+      // D-61: the premium is measured on the proxy price; it is appreciation
+      // since the repurchases, said so, not timing.
+      "Repurchased 90B USD of stock across the analysed years; the current price is 12.5% below the average repurchase price proxy (price appreciation since the repurchases, not timing).",
     );
     expect(serialized).toContain("Average price proxy: repurchase dollars over the change in diluted shares.");
     // No quote, and the fair value's own currency is unknown (null): it is

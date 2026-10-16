@@ -65,12 +65,17 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
   }
   const accrual = computed.forensics?.accruals;
   if (accrual) {
-    for (const field of ["cashFlowAccrualRatio", "balanceSheetAccrualRatio", "aggregateAccrualsCashFlow", "aggregateAccrualsBalanceSheet", "noaCurrent", "noaPrior", "scalerValue", "netIncome", "operatingCashFlow", "investingCashFlow", "operatingAccruals"] as const) {
+    for (const field of ["cashFlowAccrualRatio", "balanceSheetAccrualRatio", "aggregateAccrualsCashFlow", "aggregateAccrualsBalanceSheet", "noaCurrent", "noaPrior", "scalerValue", "netIncome", "operatingCashFlow", "investingCashFlow", "operatingAccruals", "financialAssetCashFlow", "operatingInvestingCashFlow"] as const) {
       append(next.quality.graded.keyNumbers, numeric(`computed.forensics.accruals.${field}`, accrual[field], /Ratio/.test(field) ? "x" : "currency", field === "noaPrior" ? accrual.asOf.prior : accrual.asOf.current,
         /Ratio/.test(field) ? null : current?.currency ?? (bundle ? statementCurrencies(bundle).model : null)));
     }
     const source = "computed.forensics.accruals";
-    const explanation = "Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.";
+    // D-61: the explanation names the construction the ratio was computed on.
+    const explanation = accrual.definition === "financial-asset-adjusted"
+      ? "Cash-flow accruals = (net income − operating cash flow − operating investing cash flow) / average net operating assets, financial-asset-adjusted (Richardson et al. 2005): purchases and sales/maturities of investments are excluded from investing cash flow and long-term investments from net operating assets, so buying securities or strategic stakes is not an accrual. Capex and acquisitions remain. It measures growth in net operating assets and is not a manipulation finding."
+      : accrual.definition === "operating"
+        ? "Cash-flow accruals = (net income − operating cash flow) / average net operating assets: operating accruals, because the statements do not separate investment purchases from operating investment. No investing flow is included. It is not a manipulation finding."
+        : "Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.";
     if (!next.quality.flags.some(f=>f.source===source && f.text===explanation)) next.quality.flags.push({ severity:"low", source, text:explanation });
     for (const note of accrual.notes) {
       if (!next.quality.flags.some(f=>f.source===source && f.text===note)) next.quality.flags.push({ severity: "low", source, text: note });

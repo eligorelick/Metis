@@ -41,6 +41,7 @@ import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { isStartingGrowthFamily, type MultipleKey } from "@/pipeline/stageB/valuation";
+import { piotroskiSignalOutcomes } from "@/pipeline/stageB/forensics";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { guardEarningsReferences } from "@/report/earningsReferences";
@@ -3319,30 +3320,51 @@ export function applyForensicScores(
     ...keepReason(j.altman.notApplicableReason, altmanScore),
   };
 
+  // D-61: the decompositions travel in the strings every renderer already
+  // prints (variant and zone), so the report shows all eight Beneish indices,
+  // whether sales growth alone carries a flag, and which Piotroski signals
+  // failed — without a schema change.
   const beneishScore = forensics?.beneish?.score ?? null;
+  const bx = forensics?.beneish ?? null;
+  const ix = bx?.indices;
+  const two = (v: number | null | undefined): string => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(2) : "n/a");
   const beneish = {
-    variant: "m-score",
+    variant:
+      bx !== null && beneishScore !== null && ix
+        ? `m-score: DSRI ${two(ix.dsri)}, GMI ${two(ix.gmi)}, AQI ${two(ix.aqi)}, SGI ${two(ix.sgi)}, DEPI ${two(ix.depi)}, ` +
+          `SGAI ${two(ix.sgai)}, TATA ${typeof ix.tata === "number" ? ix.tata.toFixed(3) : "n/a"}, LVGI ${two(ix.lvgi)}` +
+          (typeof bx.sgiNeutralScore === "number" ? `; M with SGI at 1.0: ${bx.sgiNeutralScore.toFixed(2)}` : "")
+        : "m-score",
     score: beneishScore,
-    zone: forensics?.beneish?.verdict ?? null,
+    zone: bx?.growthLed === true ? "flag (growth-led; graded on SGI-neutral M)" : bx?.verdict ?? null,
     ...keepReason(j.beneish.notApplicableReason, beneishScore),
   };
 
   const piotroskiScore = forensics?.piotroski?.score ?? null;
+  const outcomes = forensics?.piotroski ? piotroskiSignalOutcomes(forensics.piotroski) : null;
   const piotroski = {
     variant: "f-score",
     score: piotroskiScore,
     zone:
-      forensics?.piotroski && piotroskiScore !== null
-        ? `${piotroskiScore}/${forensics.piotroski.outOf}`
+      forensics?.piotroski && piotroskiScore !== null && outcomes !== null
+        ? `${piotroskiScore}/${forensics.piotroski.outOf}` +
+          (outcomes.failed.length > 0 ? `; failed: ${outcomes.failed.join(", ")}` : "; every evaluable signal passed")
         : null,
     ...keepReason(j.piotroski.notApplicableReason, piotroskiScore),
   };
 
   // PRIMARY accruals construction (Hribar–Collins cash-flow ratio) + its
-  // house-rule band — the same pair Stage B leads with.
+  // house-rule band — the same pair Stage B leads with; the variant names the
+  // D-61 definition behind it.
   const accrualsScore = forensics?.accruals?.cashFlowAccrualRatio ?? null;
+  const definition = forensics?.accruals?.definition;
   const accruals = {
-    variant: "cash-flow",
+    variant:
+      definition === "financial-asset-adjusted"
+        ? "cash-flow, financial-asset-adjusted (Richardson et al. 2005)"
+        : definition === "operating"
+          ? "cash-flow, operating accruals (NI − CFO)"
+          : "cash-flow",
     score: accrualsScore,
     zone: forensics?.accruals?.band ?? null,
     ...keepReason(j.accruals.notApplicableReason, accrualsScore),

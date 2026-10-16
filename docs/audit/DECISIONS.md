@@ -13,6 +13,164 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-61 (NVDA report #34 audit, WP5, 2026-10-15) Forensic and grading signals that measured the wrong thing
+
+- **Evidence**: report 34 and the 2026-10-15 integration rerun
+  (docs/audit/2026-10-15-nvda-report-34-audit.md, P0-6, P2-1…P2-5):
+  - **Accruals 0.91, "red".** NI − CFO − CFI over average NOA charged all of
+    NVDA's FY2026 investing cash flow (−$52.2B) as accruals. Of that, $58.1B was
+    purchases of investments: $40.6B of debt securities and $17.5B of equity
+    stakes (XBRL `PaymentsToAcquireAvailableForSaleSecuritiesDebt`,
+    `PaymentsToAcquireEquitySecuritiesFvNi`), against $26.5B of sales and
+    maturities. NOA removed short-term investments but not the $22.3B of
+    long-term ones.
+  - **ROIC stability, subscore 12.** The population SD of 68.8 → 23.4 → 124.9
+    → 198.2 → 149.8% ROIC was 61pp, so a rise read as instability. That pulled
+    Moat to C beside the judge's "scale (wide)".
+  - **Beneish M = −1.13, "flag", with no decomposition.**
+  - **ROIC − WACC (136.5pp) scored twice**: as quality's `roicVsWaccSpread` and
+    leadership's `capitalDeployment`, with the same band.
+  - **Buyback "discipline" 214.9% → 90.** This was today's quote over the proxy
+    paid price, i.e. appreciation since the buybacks.
+  - **Leadership B grade justified by "guidance execution"**, which is not a
+    score input, while every executive was "not-assessed".
+  - **Piotroski 4/9 with no signal named.**
+- **Options**:
+  - Accruals: (a) keep the broad measure with a caveat; (b) operating accruals
+    NI − CFO everywhere; (c) the Richardson et al. (2005) financial-asset
+    adjustment, falling back to (b) when the statements do not separate the
+    flows.
+  - Durability: (a) SD of residuals around a linear trend; (b) downside
+    deviation below WACC; (c) years with ROIC > WACC; (d) the minimum ROIC
+    over the window.
+  - Buyback: (a) rename the appreciation measure; (b) a cross-year timing
+    measure from the annual price proxies; (c) the price actually paid
+    (tagged repurchase cost ÷ tagged shares) against the same year's average
+    price.
+  - Leadership's second ROIC read: (a) replace it with incremental ROIC; (b)
+    drop it and renormalise.
+- **Risks**:
+  - Accruals (b) also removes capex and acquisitions, which are operating
+    investment in Richardson's ΔNCO. (c) depends on FMP's
+    `purchasesOfInvestments` / `salesMaturitiesOfInvestments` /
+    `longTermInvestments`. Statements built from companyfacts carry none of
+    them, so those issuers get (b).
+  - Durability (a) still scores NVDA 12: the residual SD is 38.5pp, because
+    FY2023's 23% was a real dip. (b) and (c) bring the contested current WACC
+    into moat. (d) reacts to a single bad year, which is the intent.
+  - Buyback (b) is dominated by dollar-cost averaging on a trending stock: a
+    constant-dollar programme would read about +97% for NVDA. Within a year the
+    proxy price equals the average price by construction, so (b) cannot
+    measure timing. (c) needs share-count tags and a split basis.
+  - Leadership (a) stays in the capital-returns family the audit asked to
+    de-duplicate.
+- **Choice**:
+  - **Accruals (c).** In `computeAccruals`, NOA = total assets − cash and
+    short-term investments − long-term investments − (total liabilities −
+    total debt). The numerator is NI − CFO − operating CFI, where operating CFI
+    is CFI minus (purchases + sales/maturities of investments). Capex,
+    acquisitions and unclassified investing flows stay in. The fallback
+    (operating accruals NI − CFO) is used unless both halves are available,
+    and `definition` records which one was used.
+  - **Accrual growth note.** Above 30% revenue growth a note gives revenue and
+    NOA growth (Fairfield, Whisenant & Yohn 2003). It is disclosed, not
+    graded, and the bands are unchanged.
+  - **Durability (d)** (`roicFloor` / `roteFloor`), banded on the level band.
+  - **Beneish.** The result carries `sgiNeutralScore` (M with SGI = 1.0) and
+    `growthLed` (flagged, but not with SGI neutral). When growth-led, the
+    quality signal is graded on the SGI-neutral M under its own name
+    (`beneishMSgiNeutral`). The forensic table's variant string prints all
+    eight indices.
+  - **Leadership (b).** `capitalDeployment` is removed and the aspect weight is
+    unchanged. `buybackTiming` (weight 0.30) is the cost of the shares
+    actually bought at each fiscal year's average price over the cost paid,
+    minus one. It comes from `StockRepurchased[AndRetired]DuringPeriodShares`
+    and `…Value` (or the treasury-stock pair) from the one filing that tags
+    both for the year, with the count put on the current share basis by the
+    split resolution (`repurchaseExecutions.ts`).
+    - A year whose paid price is more than 1.6× from the year's average is
+      left out as a basis mismatch.
+    - Timing is graded only when at least 50% of repurchase dollars are
+      covered.
+    - A company with no repurchases has no timing signal (not missing
+      evidence).
+    - The appreciation figure is still shown, labelled as appreciation, and
+      not graded.
+  - **Leadership label.** The score is labelled "Leadership (capital
+    stewardship)". Its note and the payload say that management quality,
+    guidance execution and governance are not inputs. The analyst grade
+    surface keeps "Leadership".
+  - **Piotroski.** The forensic zone names the failed signals
+    (`piotroskiSignalOutcomes`), and the payload carries all nine.
+- **Why**:
+  - **Accruals.** Richardson, Sloan, Soliman & Tuna (2005, *JAE* 39) treat
+    short- and long-term investments as financial assets, outside operating
+    accruals. Sloan (1996) and Hribar & Collins (2002) measure operating
+    accruals. Buying a Treasury bill is not an accrual.
+  - **Durability.** A moat is persistence of returns above the cost of capital
+    (Fama & French 2000 on the mean reversion of profitability). How low
+    returns fell is evidence of that; how much they moved is not.
+  - **Beneish.** Beneish (1999) includes SGI as a pressure proxy: growth is
+    not manipulation.
+  - **Buyback timing.** Dittmar & Field (2015, *JFE* 115) measure timing as
+    the price actually paid against the same-period market price. The
+    proxies alone cannot do that.
+  - **Leadership.** Dropping the duplicate is the smallest change that scores
+    ROIC − WACC once. `roicLevel` (moat) and `roicVsWaccSpread` (quality)
+    remain, as level reads in different aspects.
+- **NVDA, frozen inputs** (`npm run research:replay` on a copy of the
+  integration database, report 2):
+
+  | Item | Before | After |
+  | --- | --- | --- |
+  | Accrual ratio (cash-flow) | 0.912, red, broad | 0.598, red, financial-asset-adjusted |
+  | Accrual detail | — | operating CFI −$20.6B; NOA $106.1B / $46.4B → $83.9B / $43.0B; CF vs BS divergence 12.9pp → 4.7pp |
+  | Accrual subscore | 16 | 16 |
+  | Moat durability | SD 61.2pp → 12 | floor 23.4% → 79.3 |
+  | Beneish M | −1.13, flag | −1.13, flag; SGI-neutral −1.72, still above −1.78, so not growth-led; subscore 25.9 |
+  | Buyback | appreciation 214.9% → 90 | timing +5.2% (100% of dollars covered) → 62.3 |
+  | Quality | 60.03 C | 60.03 C |
+  | Moat | 68.36 C | 88.54 A |
+  | Leadership | 81.51 B | 61.64 C |
+  | Composite | 73.3 B | 74.34 B |
+  | Business quality | 77.56 | 78.95 |
+
+  - **Accruals stay red** because NVDA's operating assets really grew 95%:
+    receivables, inventory, and a $13.0B acquisition
+    (`PaymentsToAcquireBusinessTwoNetOfCashAcquired`). Revenue grew 65.5%.
+    The growth note says so.
+  - **Beneish stays flagged** because AQI (1.57) and TATA (0.084) carry it as
+    well as SGI.
+  - **Timing.** NVDA paid $15.93, $46.41, $109.73 and $143.22 against year
+    averages of $17.95, $39.33, $113.97 and $156.62.
+- **Disclosure**:
+  - **Forensic notes, payload and prompt.** The accrual definition, operands,
+    growth rates and notes are in the forensic notes and the payload. The
+    Beneish indices, the SGI-neutral M, the growth-led flag and the nine
+    Piotroski outcomes are payload rows. The prompt's reconciliation rule
+    names both accrual constructions. The pipeline's accrual explanation flag
+    names the construction used.
+  - **Score drivers.** They are `roicFloor` / `roteFloor`, `buybackTiming` and
+    `beneishMSgiNeutral`. The `capitalDeployment`, `roicStability` and
+    `buybackDiscipline` drivers no longer exist.
+  - **Capital notes.** They say when timing is not measurable, and why.
+  - **Tests.** `tests/stageB.forensicsD61.test.ts` and the D-61 block in
+    `tests/stageB.grading.test.ts`. The audited delta group
+    `forensics-d61-2026-10-15` and the payload pin in
+    `tests/stageC.payload.passes.test.ts` say what moved.
+  - **Version stamps.** `REPORT_SPEC_VERSION` and `PAYLOAD_VERSION` are
+    unchanged. `SCORE_BANDS_VERSION` is deliberately left at
+    `SCORE_BANDS_2026_10_AUDIT`, as D-57/D-58 left the Stage B version, so
+    the frozen integration snapshots still replay. The band tables did change
+    (timing band; durability on the level bands), so bump it when this
+    merges.
+  - **Not changed.**
+    - AQI still counts long-term strategic investments as non-current
+      assets. That is Beneish's definition: assets whose future benefits are
+      less certain.
+    - Statements built from companyfacts carry no investment-flow
+      components, so their accruals use the operating fallback.
+
 ## D-59 (NVDA report 34 audit, WP4 + WP6, 2026-10-15) Make the peer and executive gates reachable and stop the verifier's false contradictions
 
 - **Evidence**: report 34 (docs/audit/2026-10-15-nvda-report-34-audit.md) showed gates that could never pass. `PeerCandidate.economicEvidence` and `subjectEconomicEvidence` were read but never populated, so every peer of every issuer was excluded; one symbol's HTTP 402 (AVGO) stopped collection, so 2 of 10 candidates were evaluated. `assessExecutiveEvidence` required a `verified` log outcome that the verify pass never assigns to prose, so every executive was "not-assessed". The headline "0/90 validated; 1 contradicted" came from a year-set period rule ("ended 2026-07-26" against "ttm: 2025-07-27 to 2026-07-26"), a symmetric label match against internal key paths ("debt Bridge total Debt Including Leases"), and 60 figure-free claims counted as "unchecked". The earnings reconciliation was "unavailable" because FMP quarters carry no SEC start date.

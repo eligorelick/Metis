@@ -578,7 +578,7 @@ describe("reportToMarkdown", () => {
     expect(scoreBlock).toContain("**Composite: 64 / 100");
     const labels = [
       "Fundamentals", "Valuation", "Quality", "Balance Sheet",
-      "Moat", "Leadership", "Technicals",
+      "Moat", "Leadership (capital stewardship)", "Technicals",
     ];
     let cursor = -1;
     for (const [index, label] of labels.entries()) {
