@@ -82,14 +82,23 @@ const LARGE_NUMBER_SCALES: readonly [scale: number, suffix: string, digits: numb
  * Compact magnitude ("$60.96B"). The scale is chosen on the ROUNDED mantissa,
  * largest first, so it never reaches 1000: 999,996,000,000 prints "1.00T",
  * not "1000.00B", and 999,999.999 prints "1.00M", not "1000.0K".
+ *
+ * `wholeAtScale` (D-67, report money): an amount that is a whole number at
+ * its scale prints without decimals ("959M", "279B"); "$959.00M" claimed a
+ * precision the filing's "$959 million" never stated. Only an exact whole
+ * mantissa is shortened, so 1,000,400,000 still prints "1.00B". Charts and
+ * share counts keep the fixed digits.
  */
-export function formatLargeNumber(value: number | null | undefined): string {
+export function formatLargeNumber(value: number | null | undefined, wholeAtScale = false): string {
   if (value == null || !Number.isFinite(value)) return "n/a";
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
   for (const [scale, suffix, digits] of LARGE_NUMBER_SCALES) {
     const mantissa = decimalRound(abs / scale, digits).toFixed(digits);
-    if (Number(mantissa) >= 1) return `${sign}${mantissa}${suffix}`;
+    if (Number(mantissa) >= 1) {
+      const exact = Number((abs / scale).toPrecision(15));
+      return `${sign}${wholeAtScale && Number.isInteger(exact) ? String(exact) : mantissa}${suffix}`;
+    }
   }
   return `${sign}${decimalRound(abs, 2).toFixed(2)}`;
 }
@@ -116,7 +125,7 @@ export function formatMultiple(value: number | null | undefined, digits = 1): st
  * known to be in dollars.
  */
 function formatMoney(value: number, currency: string | null, large: boolean): string {
-  return withCurrency(large ? formatLargeNumber(value) : formatNumber(value, 2), currency);
+  return withCurrency(large ? formatLargeNumber(value, true) : formatNumber(value, 2), currency);
 }
 
 /**

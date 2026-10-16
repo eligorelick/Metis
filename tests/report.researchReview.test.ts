@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
-import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import type { Report } from "@/report/schema";
 import { valuationReviewBlocks } from "@/report/researchReview";
@@ -52,14 +52,22 @@ describe("research reliability report surfaces", () => {
   });
 
   it("surfaces the peer selection basis, counts, excluded evidence and compatible comparison", () => {
-    const result = surfaces(fixture());
+    const report = fixture();
+    const result = surfaces(report);
+    // D-67: the body keeps a two-line summary and the comparison table; the
+    // screen rules and each exclusion with its reason are in the audit export.
     for (const rendered of Object.values(result)) {
       expect(rendered).toContain("Peer comparison coverage");
-      expect(rendered).toContain("Same industry; comparable reporting currency.");
-      expect(rendered).toContain("PEERA");
-      expect(rendered).toContain("Currency unknown");
+      expect(rendered).toContain("5 of 6 candidate issuers evaluated; eligible: PEERA, PEERB, PEERC, PEERD; 1 excluded at the screen.");
       expect(rendered).toContain("Market cap / TTM common earnings");
+      expect(rendered).toContain("18.0×");
+      expect(rendered).not.toContain("Same industry; comparable reporting currency.");
+      expect(rendered).not.toContain("Currency unknown");
     }
+    const audit = reportToAuditMarkdown(report);
+    expect(audit).toContain("Same industry; comparable reporting currency.");
+    expect(audit).toContain("Excluded — BAD: Currency unknown");
+    expect(audit).toContain("Common earnings, four quarters.");
     expect(result.app).not.toContain("<untrusted>");
     expect(result.print).not.toContain("<untrusted>");
   });
@@ -78,7 +86,7 @@ describe("research reliability report surfaces", () => {
     const blocks = valuationReviewBlocks({ thesisTriggers: report.thesisTriggers, peerCoverage: { methodology: ["Data unavailable."], candidates: 0, evaluated: 0, eligible: [], exclusions: [], comparisons: [] } });
     const text = JSON.stringify(blocks);
     expect(text).toContain("as of 2026-10-13; period FY2027");
-    expect(text).toContain("Eligible issuers: none");
+    expect(text).toContain("0 of 0 candidate issuers evaluated; eligible: none.");
     expect(text).not.toContain("Excluded or unavailable comparisons");
     expect(text).not.toContain("peer median");
     expect(blocks[0].items[0].title).toContain("1");

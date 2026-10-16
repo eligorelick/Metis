@@ -59,7 +59,8 @@ describe("synthetic accounting-route integration panel", () => {
     expect(report.projections?.weightsVersion).toContain("UNBACKTESTED");
     expect(report.projections?.series.find((series) => series.metric === "revenue")?.base[0]?.value)
       .toMatchObject({ unit: "USD", source: "computed.projections.revenue.base", verified: true });
-    for (const surface of Object.values(surfaces)) expect(surface).toContain("$170.00M");
+    // D-67: a whole amount at its scale prints without decimals.
+    for (const surface of Object.values(surfaces)) expect(surface).toContain("$170M");
   });
 
   it.each([
@@ -165,8 +166,8 @@ describe("synthetic accounting-route integration panel", () => {
     const cashFlow = report.fundamentals.fcf.find((row) => row.label === "Free cash flow (after SBC, house default)");
     expect(cashFlow?.values.at(-1)?.value).toMatchObject({ value: 170 * M, currency: "TWD" });
     for (const surface of Object.values(surfaces)) {
-      expect(surface).toContain("170.00M TWD");
-      expect(surface).not.toContain("$170.00M");
+      expect(surface).toContain("170M TWD");
+      expect(surface).not.toContain("$170M");
     }
   });
 
@@ -211,8 +212,10 @@ describe("synthetic accounting-route integration panel", () => {
     expect(report.valuation.multiples.find((row) => row.name === "P/FFO")?.current).toBeNull();
     expect(report.appendix.missingData.some((gap) => gap.field === "valuation.reit.ffo")).toBe(true);
     // D-62: the body names the withheld FFO warning; the full manifest entry
-    // (with the depreciation tags it tried) is in the audit export.
-    for (const surface of Object.values(surfaces)) expect(surface).toContain("valuation.reit.ffo");
+    // (with the depreciation tags it tried) is in the audit export. D-67: by
+    // its reader label; the manifest field itself is in the audit export.
+    for (const surface of Object.values(surfaces)) expect(surface).toContain("Valuation REIT FFO");
+    expect(reportToAuditMarkdown(report)).toContain("valuation.reit.ffo");
     expect(reportToAuditMarkdown(report)).toMatch(/depreciation/i);
   });
 

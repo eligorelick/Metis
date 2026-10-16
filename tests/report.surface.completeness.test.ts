@@ -223,7 +223,8 @@ function expectUnknownCompleteness(text: string): void {
  * described the metadata check, not the data, and read as a contradiction.
  */
 function expectConfirmedState(text: string, expected: ExpectedDimensions, scope?: string): void {
-  expect(text, scope).toMatch(new RegExp(`\\b${expected.state}: ${expected.critical} critical gaps?, ${expected.warnings} warnings?;`, "i"));
+  // D-67: warnings are counted once per underlying data gap ("1 data warning").
+  expect(text, scope).toMatch(new RegExp(`\\b${expected.state}: ${expected.critical} critical gaps?, ${expected.warnings} data warnings?;`, "i"));
   expect(text, scope).toMatch(new RegExp(`EDGAR ${expected.edgar}`, "i"));
   expect(text, scope).toMatch(new RegExp(`XBRL ${expected.xbrl}`, "i"));
   expect(text, scope).toMatch(new RegExp(`forensics ${expected.forensics}`, "i"));

@@ -13,7 +13,10 @@
 import { formatExecutionMetadata } from "@/report/execution";
 import { scoreAuditTables, factualValidationText } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
-import { deriveReportCompletenessPresentation } from "@/report/completeness";
+import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
+import { peerCoverageAuditLines } from "@/report/researchReview";
+import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
   numericCitationTraceLabel,
@@ -312,6 +315,66 @@ function renderProjections(p: Projections): string {
   return lines.join("\n").trimEnd();
 }
 
+/**
+ * D-67: how the report body reads this record — how its header counts the
+ * manifest, and what the body moved here: the annual provider segment tables
+ * (the prior presentation, beside the quarterly XBRL tables), the full peer
+ * screen and the source-fact table with its registry identities.
+ */
+function renderBodyReading(report: Report): string {
+  const lines: string[] = [];
+  const k = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData).classification;
+  const counted: Array<[string, ClassifiedGap]> = [
+    ...k.dataGaps.map((gap) => ["data gap", gap] as [string, ClassifiedGap]),
+    ...k.processDisclosures.map((gap) => ["analysis-process disclosure", gap] as [string, ClassifiedGap]),
+    ...k.downgraded.map((gap) => ["shown as information", gap] as [string, ClassifiedGap]),
+  ];
+  if (counted.length > 0) {
+    lines.push(
+      "### How the report counts the manifest",
+      "",
+      "One row per underlying gap: the report header counts data gaps and analysis-process disclosures separately, and shows the downgraded entries as information for the reason given. The manifest above keeps every recorded severity.",
+      "",
+      table(["Class", "Shown as", "Recorded", "Manifest fields", "Why"], counted.map(([kind, gap]) => [kind, kind === "analysis-process disclosure" ? "disclosure" : gap.severity, gap.recordedSeverity, gap.fields.join(", "), gap.downgrade ?? ""])),
+      "",
+    );
+  }
+  const segments = report.business.segments;
+  const segmentRows = [
+    ...segments.product.map((s) => ["Product", s.name, String(s.revenue.value), s.revenue.unit, s.revenue.asOf ?? "n/a", s.sharePct === null ? "n/a" : String(s.sharePct), s.revenue.source]),
+    ...segments.geographic.map((s) => ["Geographic", s.name, String(s.revenue.value), s.revenue.unit, s.revenue.asOf ?? "n/a", s.sharePct === null ? "n/a" : String(s.sharePct), s.revenue.source]),
+  ];
+  if (segmentRows.length > 0) {
+    lines.push(
+      "### Annual provider segments",
+      "",
+      "The provider's annual segment rows as served (FMP names). The report body shows them only when no quarterly XBRL segment table is available.",
+      "",
+      table(["Kind", "Segment", "Revenue", "Unit", "As of", "Share %", "Registry id"], segmentRows),
+      "",
+    );
+  }
+  const peers = report.valuation.peerCoverage;
+  if (peers) lines.push("### Peer screen", "", ...peerCoverageAuditLines(peers).flatMap((line) => [`- ${markdownProse(line)}`]), "");
+  const facts = sourceFactAuditTables(report.sourceFactSummary, true)[0];
+  if (facts) lines.push(`### ${facts.heading}`, "", table(facts.headers, facts.rows), "");
+  const disclosures: FilingSupplements | undefined = report.filingDisclosures;
+  if (disclosures) {
+    const supplements = Object.fromEntries(Object.entries({
+      filingFacts: disclosures.filingFacts,
+      commentaryOutlook: disclosures.commentaryOutlook,
+      officerChanges: disclosures.officerChanges,
+      sayOnPay: disclosures.sayOnPay,
+      tradingArrangements: disclosures.tradingArrangements,
+    }).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length > 0)));
+    if (Object.keys(supplements).length > 0) {
+      lines.push("### Filing disclosure supplements (raw record)", "", "Stored values, periods, source identities and issuer text, before display rounding.", "", "```json", JSON.stringify(supplements, null, 2), "```", "");
+    }
+  }
+  if (lines.length === 0) return "";
+  return ["## How the report body reads this record", "", ...lines].join("\n").trimEnd();
+}
+
 function renderManifest(report: Report): string {
   const a = report.appendix;
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, a.missingData);
@@ -372,6 +435,7 @@ export function reportToAuditMarkdown(report: Report): string {
     report.projections ? renderProjections(report.projections) : "",
     renderManifest(report),
     renderSources(report),
+    renderBodyReading(report),
   ].filter((block) => block.length > 0);
   return blocks.join("\n\n---\n\n") + "\n";
 }

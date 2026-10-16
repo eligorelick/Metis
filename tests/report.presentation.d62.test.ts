@@ -161,7 +161,8 @@ describe("D-63 filing fields in their home sections", () => {
     const report = ReportSchema.parse(r);
     const outputs = [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))];
     for (const output of outputs) {
-      for (const text of ["Issuer free-cash-flow reconciliation", "−$59.00M", "Commitments and guarantees", "$366.00B", "$108.50B", "Non-GAAP diluted EPS", "$7.77B", "no longer exclude stock-based compensation"]) {
+      // D-67: whole amounts print without decimals ("−$59M", "$366B").
+      for (const text of ["Issuer free-cash-flow reconciliation", "−$59M", "Commitments and guarantees", "$366B", "$108.50B", "Non-GAAP diluted EPS", "$7.77B", "no longer exclude stock-based compensation"]) {
         expect(output).toContain(text);
       }
     }

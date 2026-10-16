@@ -54,7 +54,7 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
     if (!s.capitalReturn) continue;
     tables.push({heading:"EPS capital-return assumptions",headers:["Assumption","Value"],rows:[
       ["Historical share trend",`${n(s.capitalReturn.shareCountAnnualizedPct)}% / year`],["Applied share trend",`${n(s.capitalReturn.appliedShareCountAnnualizedPct)}% / year`],
-      ["Funding policy",s.capitalReturn.policy],["Net income / EBIT, year one",n(s.capitalReturn.netIncomeToEbit,4)],
+      ["Funding policy",s.capitalReturn.policy],["Net income / EBIT, year one",n(s.capitalReturn.netIncomeToEbit,2)],
       ...(s.capitalReturn.authorizationRemaining === undefined ? [] : [
         ["Remaining repurchase authorization",formatFinancialValue(s.capitalReturn.authorizationRemaining,"currency",s.unit.replace(/\/share$/,""))],
         ["Authorization spent evenly at the quote (hypothetical)",s.capitalReturn.authorizationAnnualizedPct == null ? "unavailable" : `${n(s.capitalReturn.authorizationAnnualizedPct)}% / year`],

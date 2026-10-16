@@ -10,17 +10,18 @@ import { loadTask28Fixture } from "./helpers/task28Report";
 
 // D-62: an explicit excerpt unit ("USD millions: Free cash flow") is shown as the
 // compact amount it states with its label ("$7.60B (Free cash flow)"), replacing
-// the "$7,604.00 millions: Free cash flow" spelling. The established-currency rule
+// the "$7,604.00 millions: Free cash flow" spelling. D-67: a whole amount at its
+// scale prints without decimals ("$197B"). The established-currency rule
 // is unchanged; a nonzero amount too small for two decimals keeps three
 // significant digits. Tables whose metric column already names the figure show
 // the amount alone.
 const explicitCases = [
-  { value: 197, unit: "USD billions: Net sales guidance", currency: null, expected: "$197.00B (Net sales guidance)", amount: "$197.00B" },
-  { value: 197_000, unit: "USD millions: Net sales guidance", currency: "USD", expected: "$197.00B (Net sales guidance)", amount: "$197.00B" },
+  { value: 197, unit: "USD billions: Net sales guidance", currency: null, expected: "$197B (Net sales guidance)", amount: "$197B" },
+  { value: 197_000, unit: "USD millions: Net sales guidance", currency: "USD", expected: "$197B (Net sales guidance)", amount: "$197B" },
   { value: -7_604, unit: "currency millions: Free cash flow", currency: "USD", expected: "−$7.60B (Free cash flow)", amount: "−$7.60B" },
   { value: 7_604, unit: "currency millions: Free cash flow", currency: "TWD", expected: "7.60B TWD (Free cash flow)", amount: "7.60B TWD" },
   { value: 7_604, unit: "currency millions: Free cash flow", currency: null, expected: "7.60B (currency unknown) (Free cash flow)", amount: "7.60B (currency unknown)" },
-  { value: 197, unit: "USD billions: Net sales guidance", currency: "EUR", expected: "197.00B (currency unknown) (Net sales guidance)", amount: "197.00B (currency unknown)" },
+  { value: 197, unit: "USD billions: Net sales guidance", currency: "EUR", expected: "197B (currency unknown) (Net sales guidance)", amount: "197B (currency unknown)" },
   { value: 0, unit: "CHF thousand: Operating cash flow", currency: "CHF", expected: "0.00 CHF (Operating cash flow)", amount: "0.00 CHF" },
   { value: 1.25, unit: "USD trillion: Total assets", currency: null, expected: "$1.25T (Total assets)", amount: "$1.25T" },
   { value: 0.00427, unit: "USD billions: Free cash flow", currency: "USD", expected: "$4.27M (Free cash flow)", amount: "$4.27M" },

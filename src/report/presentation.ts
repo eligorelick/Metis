@@ -12,9 +12,12 @@
  */
 
 import { parseSubscriptionModel } from "@/ai/contracts";
-import type { ReportCompletenessPresentation } from "@/report/completeness";
+import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
+import { EXECUTIVE_EVIDENCE_GROUPS } from "@/report/surfaceManifest";
 import {
+  decimalRound,
   formatCostUsd,
   roundedDisplayedCostTotal,
   formatFinancialAmount,
@@ -49,7 +52,31 @@ const WORD_FIXES: Record<string, string> = {
   cfo: "CFO", cfi: "CFI", ceo: "CEO", evp: "EVP", pct: "%", vs: "vs", sma: "SMA",
   pettm: "P/E (TTM)", pricetofcf: "price / FCF", operatingmargin: "operating margin",
   balancesheet: "balance sheet", capex: "capex", ppe: "PP&E", cagr: "CAGR", pp: "pp",
+  // D-67: run-together multiple and metric names, Beneish index codes, providers.
+  pricetobook: "P/B", pricetotbv: "P/TBV", evtoebitda: "EV/EBITDA", evtosales: "EV/Sales",
+  epsdiluted: "diluted EPS", fmp: "FMP", sec: "SEC", xbrl: "XBRL", edgar: "EDGAR",
+  reit: "REIT", ffo: "FFO", affo: "AFFO", nim: "NIM", roe: "ROE", rote: "ROTE", tce: "TCE",
+  aqi: "AQI", tata: "TATA", gmi: "GMI", dsri: "DSRI", sgi: "SGI", depi: "DEPI", sgai: "SGAI", lvgi: "LVGI",
 };
+
+/**
+ * D-67: phrases the word split leaves mechanical ("Non GAAP", "Issuer defined",
+ * "gross margin GAAP"), and a trailing period phrase set off in parentheses
+ * ("… (quarter ended 2026-07-26)") as the statement labels already are.
+ */
+const PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bnon GAAP\b/gi, "non-GAAP"],
+  [/\b(issuer|company) defined\b/gi, "$1-defined"],
+  [/\brun rate\b/gi, "run-rate"],
+  [/\byear one\b/gi, "year-one"],
+  [/\bstock based\b/gi, "stock-based"],
+  [/\b(short|long) term\b/gi, "$1-term"],
+  [/\b(gross margin|operating expenses|operating margin|tax rate|diluted EPS) (GAAP|non-GAAP)\b/g, "$2 $1"],
+  [/\bfree cash flow operating cash flow less capex\b/gi, "FCF, operating cash flow less capex,"],
+  [/\b(operating cash flow) issuer reconciliation\b/gi, "$1, issuer reconciliation,"],
+  [/,? ((?:quarter|year|three months|six months|nine months|\d+ months) ended \d{4}-\d{2}-\d{2}|as of \d{4}-\d{2}-\d{2})$/, " ($1)"],
+  [/,$/, ""],
+];
 
 /** Split a registry segment (kebab, snake or camel case) into display words; ISO dates survive intact. */
 function segmentWords(segment: string): string[] {
@@ -77,8 +104,19 @@ function segmentWords(segment: string): string[] {
 }
 
 function sentence(words: readonly string[]): string {
-  const text = words.join(" ").replace(/\s+%/g, " %").trim();
+  const text = PHRASE_FIXES.reduce((acc, [pattern, replacement]) => acc.replace(pattern, replacement), words.join(" ").replace(/\s+%/g, " %").trim());
   return text.length === 0 ? text : text[0]!.toUpperCase() + text.slice(1);
+}
+
+/** A multiple's reader name from its registry spelling ("pricetobook", "priceToBook"). */
+function multipleName(id: string): string {
+  const key = id.replace(/[-_]/g, "").toLowerCase();
+  const names: Record<string, string> = {
+    pettm: "P/E (TTM)", pricetobook: "P/B", pricetotbv: "P/TBV", pricetofcf: "Price / FCF",
+    evtoebitda: "EV/EBITDA", evtosales: "EV/Sales", marketcaptottmcommonearnings: "Market cap / TTM common earnings",
+    marketcapttmcommonearnings: "Market cap / TTM common earnings",
+  };
+  return names[key] ?? sentence(segmentWords(id));
 }
 
 function titleWords(segment: string): string {
@@ -129,6 +167,19 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.accruals.aggregateAccrualsBalanceSheet": "Aggregate accruals (balance-sheet)",
   "computed.forensics.aggregate-accruals-cash-flow": "Aggregate accruals (cash-flow)",
   "computed.forensics.aggregate-accruals-balance-sheet": "Aggregate accruals (balance-sheet)",
+  // D-67: ids the NVDA final rerun cited under mechanical labels.
+  "computed.valuation.dcf.perShare": "DCF value per share",
+  "computed.valuation.guided-run-rate-growth-over-ttm-next-quarter-guidance-4": "Guided run-rate growth over TTM (next-quarter guidance × 4)",
+  "computed.valuation.guided-sequential-pace-annualized": "Guided sequential pace, annualized",
+  "computed.valuation.consensus-year-one-revenue-growth-over-ttm": "Consensus year-one revenue growth over TTM",
+  "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm": "DCF base-case year-one revenue growth over TTM",
+  "computed.capital.buybackPriceAnalysis.timingPct": "Buyback timing (price paid vs the year's average)",
+  "computed.forensics.accruals.definition": "Accrual definition",
+  "computed.forensics.beneish.growthLed": "Beneish growth-led test",
+  "computed.forensics.beneish-m-with-the-sales-growth-index-at-neutral-1-0": "Beneish M-score (sales-growth index at 1.0)",
+  "computed.forensics.piotroski-f-9-signals": "Piotroski F-score (nine signals)",
+  "computed.forensics.accrual-operand-operating-investing-cash-flow-cfi-without-financial-asset-flows": "Operating investing cash flow (excluding financial-asset flows)",
+  "manifest.valuation.multiples.ownHistory": "Data-gap record: own-history multiple ranks",
 };
 
 const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) => string]> = [
@@ -151,6 +202,14 @@ const PATTERN_LABELS: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =
   [/^payload\.macro\.([a-z0-9]+)-[a-z]+$/, (m) => `FRED ${m[1]!.toUpperCase()}`],
   [/^payload\.insiders\.mspr-(\d{4}-\d{2})$/, (m) => `Insider sentiment (MSPR), ${m[1]}`],
   [/^computed\.forensics\.accrual-operand-(.+)-(?:ni|cfo|cfi)$/, (m) => sentence(segmentWords(m[1]!))],
+  // D-67: "Pricetobook current", "Beneish index aqi", "Product market platform data center share of revenue …".
+  [/^computed\.valuation\.([a-z]+)-(current|peer-median)$/, (m) => `${multipleName(m[1]!)}${m[2] === "peer-median" ? " peer median" : ""}`],
+  [/^computed\.valuation\.peerCoverage\.([a-z-]+)\.median$/, (m) => `${multipleName(m[1]!)} peer median`],
+  [/^computed\.forensics\.beneish-index-([a-z]+)$/, (m) => `Beneish ${m[1]!.toUpperCase()} index`],
+  [/^computed\.quarterly-trend\.(?:product-market-platform|reportable-segment|geography|geographic)-(.+?)-(revenue-growth-year-over-year|revenue-growth-quarter-over-quarter|share-of-revenue|revenue)-quarter-ended-(\d{4}-\d{2}-\d{2})$/, (m) =>
+    `${titleWords(m[1]!)} ${segmentWords(m[2]!).join(" ")} (quarter ended ${m[3]})`],
+  [/^manifest\.valuation\.multiples\.peers\.([A-Za-z]+)\.comparabilityCaveat$/, (m) => `Data-gap record: ${multipleName(m[1]!)} peer comparability caveat`],
+  [/^manifest\.([a-z]+)\.([A-Za-z]+)\([^)]*\)$/, (m) => `Data-gap record: ${segmentWords(m[1]!).join(" ")} ${segmentWords(m[2]!).join(" ")}`],
   [/^manifest\.(.+)$/, (m) => `Data-gap record: ${segmentWords(m[1]!.replace(/[.()]/g, " ")).join(" ")}`],
 ];
 
@@ -226,6 +285,11 @@ export function sourceLabel(source: string): string {
   if (accession) return `${accession[1]!.toUpperCase()} ${accession[2]}`;
   const edgar = /^edgar:(.+)$/.exec(source);
   if (edgar) return `SEC ${edgar[1]}`;
+  // D-67: the DCF basis and thesis triggers cite "sec:8-K EX-99.1 <accession>" and "fred:DGS10".
+  const sec = /^sec:(.+)$/.exec(source);
+  if (sec) return sec[1]!;
+  const fred = /^fred:([A-Za-z0-9]+)$/.exec(source);
+  if (fred) return `FRED ${fred[1]!.toUpperCase()}`;
   if (/^(computed|payload|manifest)\.[^\s]+$/.test(source)) return metricLabel(source);
   return source;
 }
@@ -261,11 +325,23 @@ export function citedMark(verified: TracedNumber["verified"]): string {
   return verified === true ? "✓" : numericCitationTraceLabel(verified);
 }
 
+/**
+ * A figure's displayed value. D-67: a ratio read as a percentage (FCF
+ * conversion, accrual ratios) prints in whole percent wherever it appears, and
+ * the Piotroski count prints against its nine signals.
+ */
+export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "currency" | "source">): string {
+  const unit = n.unit.trim().toLowerCase();
+  if (isRatioAsPercent(n.source) && ["x", "×", "multiple", "fraction", "frac", "ratio"].includes(unit)) return ratioPercentText(n.value);
+  if (/piotroski-f-9-signals$/.test(n.source) && Number.isInteger(n.value)) return `${n.value}/9`;
+  return formatFinancialAmount(n.value, n.unit, n.currency);
+}
+
 export function figureRow(n: TracedNumber, label?: string): FigureRow {
   const period = tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "");
   return {
     label: label ?? metricLabel(n.source, n.unit),
-    value: formatFinancialAmount(n.value, n.unit, n.currency),
+    value: figureValueText(n),
     period: period === "not supplied" ? null : period,
     asOf: n.asOf,
     cited: citedMark(n.verified),
@@ -407,6 +483,56 @@ export function moatHeading(m: Pick<MoatAssessment, "source" | "strength">): str
 
 export function moatSourceLabel(source: MoatAssessment["source"]): string {
   return MOAT_SOURCE[source] ?? source;
+}
+
+/* ======================================================================== *
+ * D-67: executives
+ * ======================================================================== */
+
+type ExecutiveRecord = Report["leadership"]["executives"][number];
+
+/** An executive grade for a reader: the raw enum "not-assessed" is never printed. */
+export function executiveGradeText(grade: ExecutiveRecord["grade"]): string {
+  return grade === "not-assessed" ? "Not assessed" : grade;
+}
+
+export interface ExecutiveGroups {
+  /** Officers with at least one assessed grade: one card each. */
+  assessed: ExecutiveRecord[];
+  /** Officers with neither grade assessed: one line lists them. */
+  notAssessed: ExecutiveRecord[];
+  /** The lines that name them, one per distinct reason. */
+  notAssessedLines: string[];
+  /** Their recorded claims (pay, succession events), kept under the line. */
+  notAssessedClaims: SourcedClaim[];
+}
+
+/**
+ * D-67: the identical "not assessed" cards (NVDA: six of eight, each repeating
+ * the same grade line and reason) collapse into one line per distinct reason
+ * listing those officers; their cited facts stay beneath it.
+ */
+export function executiveGroups(executives: readonly ExecutiveRecord[]): ExecutiveGroups {
+  const notAssessed = executives.filter((e) => e.grade === "not-assessed" && e.credibilityGrade === "not-assessed");
+  const assessed = executives.filter((e) => !notAssessed.includes(e));
+  const byReason = new Map<string, ExecutiveRecord[]>();
+  for (const e of notAssessed) {
+    const reason = e.assessmentReason?.trim() ?? "";
+    byReason.set(reason, [...(byReason.get(reason) ?? []), e]);
+  }
+  const notAssessedLines = [...byReason.entries()].map(([reason, people]) =>
+    `Not assessed: ${people.map((e) => `${e.name} (${e.title})`).join("; ")}.${reason ? ` ${reason}` : ""}`);
+  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])]);
+  return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
+}
+
+/**
+ * D-67: the annual provider segment tables are the prior presentation; once
+ * the quarterly XBRL tables are shown they leave the body (the audit export
+ * keeps them). Without quarterly tables they remain the only segment view.
+ */
+export function showAnnualSegments(quarterlyShown: boolean): boolean {
+  return !quarterlyShown;
 }
 
 /**
@@ -837,8 +963,119 @@ function modelPasses(entries: ExecutionEntries | undefined): ExecutionEntries {
  * (D-62). Anything that is not a registry id or SEC citation is untouched.
  */
 export function humanizeInlineCitations(text: string): string {
-  return text.replace(/\[((?:computed|payload|manifest)\.[^\s\]·]+|edgar:[^\]·]+?)(\s+·\s+(\d{4}-\d{2}-\d{2}))?\]/g, (_match, id: string, _dated: string | undefined, date: string | undefined) =>
-    `[${sourceLabel(id.trim())}${date ? ` · ${date}` : ""}]`);
+  // D-67: a bracket may hold several citations ("[a · d1; b · d2]"); each
+  // registry id or SEC citation in it is labelled, anything else is kept.
+  const bracketed = text.replace(/\[([^[\]]+)\]/g, (match, body: string) => {
+    let changed = false;
+    const parts = body.split(";").map((part) => {
+      const cite = /^\s*((?:computed|payload|manifest)\.\S+?|(?:edgar|sec|fred):.+?)(\s+·\s+\d{4}-\d{2}-\d{2})?\s*$/.exec(part);
+      if (!cite) return part.trim();
+      changed = true;
+      return `${sourceLabel(cite[1]!.trim())}${cite[2] ?? ""}`;
+    });
+    return changed ? `[${parts.join("; ")}]` : match;
+  });
+  return humanizeBareIds(bracketed);
+}
+
+/**
+ * D-67: registry ids written into stored prose outside a citation bracket
+ * ("(source computed.valuation.*)", "(computed.valuation.dcf.perShare)",
+ * "sec:8-K EX-99.1 …", "fred:DGS10") read under their reader labels. A
+ * wildcard names the model family it stands for.
+ */
+export function humanizeBareIds(text: string): string {
+  return text
+    .replace(/(?<![\w[`/.])((?:computed|payload|manifest)(?:\.[A-Za-z0-9][A-Za-z0-9\-_]*)+(?:\([A-Z0-9.,\- ]*\))?)(\.\*)?/g, (_match, id: string, wildcard: string | undefined) =>
+      wildcard ? `${segmentWords(id.split(".").slice(1).join(" ")).join(" ")} model outputs` : sourceLabel(id))
+    .replace(/(?<![\w/])sec:(?=(?:8-K|6-K|10-K|10-Q|20-F|40-F|DEF 14A)\b)/g, "")
+    .replace(/(?<![\w/])fred:([A-Za-z0-9]+)/g, (_m, series: string) => `FRED ${series.toUpperCase()}`);
+}
+
+/* ======================================================================== *
+ * D-67: reader precision for figures inside stored prose
+ * ======================================================================== */
+
+/**
+ * Ratios a reader reads as a percentage: FCF conversion (FCF ÷ net income) and
+ * the accrual ratios. Stored as fractions with an "x" unit, they printed three
+ * ways (65.8%, 0.7×, 0.6585x); every surface now prints whole percent.
+ */
+const RATIO_AS_PERCENT = /fcf-?conversion|accrual-?ratio|accrualsratio/i;
+
+export function isRatioAsPercent(id: string): boolean {
+  return RATIO_AS_PERCENT.test(id);
+}
+
+/** A ratio-as-percent fraction in its one display format ("66%"). */
+export function ratioPercentText(fraction: number): string {
+  return formatPct(fraction * 100, 0);
+}
+
+function roundedText(value: number, digits: number): string {
+  return decimalRound(value, digits).toFixed(digits);
+}
+
+/** Two decimals, or two significant digits below 0.1 so an index of 0.0839 keeps "0.084". */
+function smallOrTwoDecimals(value: number): string {
+  return Math.abs(value) < 0.1 && value !== 0 ? String(Number(value.toPrecision(2))) : roundedText(value, 2);
+}
+
+/**
+ * Figures in stored prose shown at reader precision (D-67): the analysis
+ * passes repeated computed values at four decimals ("USD 296.3179 per share",
+ * "426.7365x", "82.1353%", a score of "85.96" beside an integer scorecard).
+ * The rule matches the prose-precision prompt rule: per-share amounts to
+ * cents, percentages and multiples to one decimal (two below 10×), amounts in
+ * billions or trillions to two decimals, 0–100 scores to an integer. Only a
+ * figure stated more precisely than that is rounded; a three-decimal coupon
+ * ("4.250% Notes") or an exact-to-the-million amount ("USD 7.771 billion") is
+ * left as written. `source` is the claim's citation: a ratio read as a
+ * percentage (FCF conversion, accrual ratios) is shown in percent.
+ */
+export function readerPrecision(text: string, source?: string): string {
+  let out = text
+    .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${roundedText(Number(value), 0)}${tail}`)
+    // A whole compact amount in stored text ("the guided run-rate $432.00B"), as the formatter prints it.
+    .replace(/(\$|\bUSD )(\d+)\.00([KMBT])\b/g, "$1$2$3");
+  if (source !== undefined && isRatioAsPercent(source)) {
+    out = out.replace(/(?<![\w.])(-?\d+(?:\.\d+)?)\s?[x×](?![A-Za-z0-9])/g, (_m, value: string) => ratioPercentText(Number(value)));
+  }
+  return out.replace(
+    /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
+    (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
+      const decimals = fraction.length;
+      const value = Number(`${sign}${whole}.${fraction}`);
+      const tail = unit ?? "";
+      const before = whole_text.slice(Math.max(0, offset - 4), offset);
+      const money = /(?:USD|EUR|GBP|JPY|CHF|CAD|AUD|TWD|\$) ?$/.test(before);
+      if (/^\s?[x×]$/.test(tail)) {
+        if (decimals < 3) return match;
+        return `${Math.abs(value) >= 10 ? roundedText(value, 1) : smallOrTwoDecimals(value)}×`;
+      }
+      if (tail === "%") return decimals >= 4 ? `${roundedText(value, 1)}%` : match;
+      if (/percentage point|pp/.test(tail)) return decimals >= 3 ? `${roundedText(value, 1)}${tail}` : match;
+      if (/trillion|billion|million|thousand/.test(tail)) return decimals >= 4 ? `${roundedText(value, 2)}${tail}` : match;
+      if (tail === " per share" || money) return decimals >= 3 ? `${roundedText(value, 2)}${tail}` : match;
+      return decimals >= 4 ? `${smallOrTwoDecimals(value)}${tail}` : match;
+    },
+  );
+}
+
+/** Stored prose for a reader: registry ids under reader labels, figures at reader precision. */
+export function displayProse(text: string, source?: string): string {
+  return readerPrecision(humanizeInlineCitations(text), source);
+}
+
+/**
+ * D-67: the Markdown and print exports render no chart, so a sentence that
+ * points at one ("The shaded band is the scenario range") is dropped there.
+ * The live view keeps it beside its fan chart.
+ */
+export function withoutChartReferences(text: string): string {
+  return text
+    .replace(/\s*The shaded band\b[^.;]*[.;]\s*([a-z])?/g, (_m, next: string | undefined) => (next ? ` ${next.toUpperCase()}` : ""))
+    .trim();
 }
 
 /** "bull, bear and judge on chatgpt/gpt-6.1-sol (medium effort)" plus any fallback/floor/same-family note. */
@@ -894,8 +1131,39 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
 export function dataStateText(c: ReportCompletenessPresentation): string {
   if (c.metadataStatus !== "confirmed") return c.statusText;
   const state = c.state === "complete" ? "Complete" : c.state === "degraded" ? "Degraded" : c.state === "blocked" ? "Blocked" : "Unknown";
-  const count = (n: number | "unknown", one: string, many: string) => (n === "unknown" ? `unknown ${many}` : `${n} ${n === 1 ? one : many}`);
-  return `${state}: ${count(c.criticalCount, "critical gap", "critical gaps")}, ${count(c.warningCount, "warning", "warnings")}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  // D-67: one count per underlying data gap; how the passes ran is counted apart.
+  const process = c.processDisclosureCount > 0 ? `; ${count(c.processDisclosureCount, "analysis-process disclosure", "analysis-process disclosures")} (not data gaps)` : "";
+  return `${state}: ${count(c.dataCriticalCount, "critical gap", "critical gaps")}, ${count(c.dataWarningCount, "data warning", "data warnings")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
+}
+
+/**
+ * D-67: section confidence as displayed is capped by the report's data state,
+ * the same way D-50 caps it by an aspect's own coverage: "high" is not shown
+ * beside a data warning, and nothing above "low" beside a critical gap.
+ * Stored labels are unchanged.
+ */
+export function displayConfidence(
+  stored: "high" | "medium" | "low",
+  c: Pick<ReportCompletenessPresentation, "metadataStatus" | "dataCriticalCount" | "dataWarningCount">,
+): { level: "high" | "medium" | "low"; cap: string | null } {
+  const rank = { low: 0, medium: 1, high: 2 } as const;
+  const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+  const ceiling: { level: "high" | "medium" | "low"; why: string } | null = c.dataCriticalCount > 0
+    ? { level: "low", why: plural(c.dataCriticalCount, "critical data gap") }
+    : c.dataWarningCount > 0
+      ? { level: "medium", why: plural(c.dataWarningCount, "data warning") }
+      : c.metadataStatus !== "confirmed"
+        ? { level: "medium", why: "data completeness not confirmed" }
+        : null;
+  if (ceiling === null || rank[stored] <= rank[ceiling.level]) return { level: stored, cap: null };
+  return { level: ceiling.level, cap: `capped from ${stored}: ${ceiling.why}` };
+}
+
+/** "medium — capped from high: 1 data warning", or the stored label. */
+export function confidenceText(stored: "high" | "medium" | "low", c: Parameters<typeof displayConfidence>[1]): string {
+  const shown = displayConfidence(stored, c);
+  return shown.cap === null ? shown.level : `${shown.level} — ${shown.cap}`;
 }
 
 /* ======================================================================== *
@@ -910,55 +1178,150 @@ const GAP_FAMILY: ReadonlyArray<readonly [RegExp, string]> = [
   [/^statements\./, "Statement fields enriched or withheld"],
   [/^valuation\./, "Valuation inputs and peer caveats"],
   [/^llm\./, "Analysis-pass disclosures"],
+  [/^verify\./, "Verification findings"],
   [/^earningsCalendar/, "Earnings-date confirmation"],
   [/^analysis\.llm$/, "Analysis not completed"],
 ];
 
+/** How an entry is displayed (D-67): a disclosure or a downgraded entry is not a data warning. */
+export type DisplayedSeverity = "critical" | "warn" | "info" | "disclosure";
+
 export interface GapSummaryRow {
   family: string;
   entries: number;
-  highest: "critical" | "warn" | "info";
+  highest: DisplayedSeverity;
 }
 
-/** The missing-data manifest as counts by family (D-62); the full manifest is in the audit export. */
-export function gapSummary(gaps: readonly ManifestEntry[]): GapSummaryRow[] {
-  const rank = { critical: 3, warn: 2, info: 1 } as const;
+function displayedSeverities(gaps: readonly ManifestEntry[], classification?: ReportCompletenessPresentation["classification"]): Map<ManifestEntry, DisplayedSeverity> {
+  const process = new Set(classification?.processDisclosures.flatMap((gap) => gap.fields) ?? []);
+  const downgraded = new Set(classification?.downgraded.flatMap((gap) => gap.fields) ?? []);
+  return new Map(gaps.map((gap) => [gap, gap.expected === true || downgraded.has(gap.field) ? "info" : process.has(gap.field) ? "disclosure" : gap.severity]));
+}
+
+/**
+ * The missing-data manifest as counts by family (D-62); the full manifest is
+ * in the audit export. D-67: the severity column is the displayed one, so an
+ * expected omission, a moot entry or a process disclosure no longer makes a
+ * family read as a warning.
+ */
+export function gapSummary(gaps: readonly ManifestEntry[], classification?: ReportCompletenessPresentation["classification"]): GapSummaryRow[] {
+  const rank: Record<DisplayedSeverity, number> = { critical: 4, warn: 3, disclosure: 2, info: 1 };
+  const shown = displayedSeverities(gaps, classification);
   const families = new Map<string, GapSummaryRow>();
   for (const gap of gaps) {
     const family = GAP_FAMILY.find(([pattern]) => pattern.test(gap.field))?.[1] ?? "Other";
-    const row = families.get(family) ?? { family, entries: 0, highest: "info" as const };
+    const row = families.get(family) ?? { family, entries: 0, highest: "info" as DisplayedSeverity };
     row.entries += 1;
-    if (rank[gap.severity] > rank[row.highest]) row.highest = gap.severity;
+    const severity = shown.get(gap) ?? gap.severity;
+    if (rank[severity] > rank[row.highest]) row.highest = severity;
     families.set(family, row);
   }
   return [...families.values()].sort((a, b) => rank[b.highest] - rank[a.highest] || b.entries - a.entries || a.family.localeCompare(b.family));
 }
 
-/** "29 actionable gaps and 43 expected disclosures recorded." */
-export function gapCountText(gaps: readonly ManifestEntry[]): string {
+/**
+ * The manifest in one sentence. D-67: "34 actionable gaps" counted every
+ * informational note as actionable; the sentence now says what the entries
+ * are, and counts a data gap once however many entries describe it.
+ */
+export function gapCountText(gaps: readonly ManifestEntry[], c?: Pick<ReportCompletenessPresentation, "classification">): string {
   if (gaps.length === 0) return "No missing-data entries recorded.";
-  const expected = gaps.filter((gap) => gap.expected === true).length;
-  const actionable = gaps.length - expected;
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  return `${plural(actionable, "actionable gap", "actionable gaps")}${expected > 0 ? ` and ${plural(expected, "expected disclosure", "expected disclosures")}` : ""} recorded.`;
+  const expected = gaps.filter((gap) => gap.expected === true).length;
+  if (!c) {
+    const actionable = gaps.length - expected;
+    return `${plural(actionable, "actionable gap", "actionable gaps")}${expected > 0 ? ` and ${plural(expected, "expected disclosure", "expected disclosures")}` : ""} recorded.`;
+  }
+  const k = c.classification;
+  const data = k.dataGaps.filter((gap) => gap.key !== "analysis.llm");
+  const dataEntries = data.reduce((sum, gap) => sum + gap.fields.length, 0);
+  const counted = new Set([...k.dataGaps, ...k.processDisclosures, ...k.downgraded].flatMap((gap) => gap.fields));
+  const informational = gaps.filter((gap) => gap.expected !== true && !counted.has(gap.field)).length;
+  const parts = [
+    expected > 0 ? plural(expected, "expected disclosure", "expected disclosures") : null,
+    informational > 0 ? plural(informational, "informational note", "informational notes") : null,
+    k.downgraded.length > 0 ? `${plural(k.downgraded.length, "recorded warning", "recorded warnings")} shown as information` : null,
+    k.processDisclosures.length > 0 ? plural(k.processDisclosures.length, "analysis-process disclosure", "analysis-process disclosures") : null,
+    data.length > 0 ? `${plural(data.length, "data gap", "data gaps")}${dataEntries > data.length ? ` (${plural(dataEntries, "entry", "entries")})` : ""}` : null,
+  ].filter((part): part is string => part !== null);
+  const list = parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `${plural(gaps.length, "manifest entry", "manifest entries")}: ${list}.`;
+}
+
+const DATASET_LABEL: Record<string, string> = {
+  marketCapHistory: "Market-cap history",
+};
+
+const STATEMENT_LABEL: Record<string, string> = {
+  balanceAnnual: "annual balance sheet", balanceQuarterly: "quarterly balance sheet",
+  incomeAnnual: "annual income statement", incomeQuarterly: "quarterly income statement",
+  cashflowAnnual: "annual cash-flow statement", cashflowQuarterly: "quarterly cash-flow statement",
+};
+
+const PROCESS_LABEL: ReadonlyArray<readonly [RegExp, (m: RegExpExecArray) => string]> = [
+  [/^llm\.(bull|bear)\.length-cap$/, (m) => `${sentence([m[1]!])} case length cap`],
+  [/^llm\.judge\.model-family$/, () => "Judge on the analysts' model family"],
+  [/^verify\.check\.namedIndividual$/, () => "Named-person citation check"],
+];
+
+/** A reader label for a manifest field or an underlying gap (D-67: no raw manifest field in the body). */
+export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
+  const field = gap.fields[0] ?? gap.key;
+  if (DATASET_LABEL[gap.key] !== undefined) return DATASET_LABEL[gap.key]!;
+  for (const [pattern, label] of PROCESS_LABEL) {
+    const match = pattern.exec(field);
+    if (match) return label(match);
+  }
+  const withheld = /^keyless\.([A-Za-z]+)\.backfill\.withheld\.([A-Za-z]+)$/.exec(field);
+  if (withheld) return `${sentence(segmentWords(withheld[2]!))} withheld from the ${STATEMENT_LABEL[withheld[1]!] ?? segmentWords(withheld[1]!).join(" ")} backfill`;
+  const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
+  if (fmp) return `${sentence(segmentWords(fmp[1]!))} (FMP)`;
+  if (field === "analysis.llm") return "Analysis not completed";
+  return sentence(segmentWords(field.replace(/\([^)]*\)/g, "").replace(/[.:]/g, " ")));
+}
+
+/** A long manifest reason cut at a sentence or clause near 320 characters; the audit export keeps it whole. */
+function shortReason(reason: string): string {
+  const limit = 320;
+  if (reason.length <= limit) return reason;
+  const cut = reason.slice(0, limit);
+  const stop = Math.max(cut.lastIndexOf("; "), cut.lastIndexOf(". "));
+  return `${(stop > 120 ? cut.slice(0, stop) : cut).trimEnd()} … (full text in the audit export)`;
 }
 
 /**
- * Critical and warning gaps with their reasons — the entries a reader needs
- * in the body (a withheld metric and why). Informational and expected entries
- * are counted by family; every entry is in the audit export.
+ * D-67: the body's data-gap tables, from the classified manifest. Data
+ * warnings and critical gaps are one row per underlying gap; analysis-process
+ * disclosures and recorded warnings shown as information are separate tables,
+ * each with its reason. The data-only banner entry is not repeated.
  */
-export function actionableGapTable(gaps: readonly ManifestEntry[]): BodyTable | null {
-  const rows = gaps
-    // The analysis.llm reason is the data-only banner; it is not repeated here.
-    .filter((gap) => gap.expected !== true && gap.field !== "analysis.llm" && (gap.severity === "critical" || gap.severity === "warn"))
-    .map((gap) => [gap.field, gap.severity, gap.reason]);
-  return rows.length === 0 ? null : { heading: "Warnings and critical gaps", headers: ["Field", "Severity", "Reason"], rows };
-}
-
-/** The gaps a reader should see by name: critical and warning entries that are not expected omissions. */
-export function actionableGapFields(gaps: readonly ManifestEntry[]): string[] {
-  return gaps.filter((gap) => gap.expected !== true && (gap.severity === "critical" || gap.severity === "warn")).map((gap) => gap.field);
+export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classification">): BodyTable[] {
+  const k = c.classification;
+  const tables: BodyTable[] = [];
+  const data = k.dataGaps.filter((gap) => gap.key !== "analysis.llm");
+  if (data.length > 0) {
+    tables.push({
+      heading: "Data warnings and critical gaps",
+      headers: ["Gap", "Severity", "Reason"],
+      rows: data.map((gap) => [gapLabel(gap), gap.severity, `${shortReason(gap.reason)}${gap.fields.length > 1 ? ` (${gap.fields.length} manifest entries)` : ""}`]),
+    });
+  }
+  if (k.processDisclosures.length > 0) {
+    tables.push({
+      heading: "Analysis-process disclosures",
+      headers: ["Disclosure", "Detail"],
+      rows: k.processDisclosures.map((gap) => [gapLabel(gap), shortReason(gap.reason)]),
+      note: "How the analysis passes ran and what verification found; they are not missing data.",
+    });
+  }
+  if (k.downgraded.length > 0) {
+    tables.push({
+      heading: "Recorded warnings shown as information",
+      headers: ["Entry", "Why it is information"],
+      rows: k.downgraded.map((gap) => [gapLabel(gap), gap.downgrade ?? ""]),
+    });
+  }
+  return tables;
 }
 
 /**
@@ -988,7 +1351,9 @@ export function auditExportPath(report: Pick<Report, "meta">): string | null {
 }
 
 /** A signal's raw value in its own unit ("66.9%", "426.7×", "0.66 frac" → "65.8%"). */
-export function signalValueText(signal: Pick<ScoreSignal, "raw" | "unit">): string {
+export function signalValueText(signal: Pick<ScoreSignal, "raw" | "unit"> & { id?: string }): string {
+  // D-67: FCF conversion and the accrual ratio print as the figure tables print them.
+  if (signal.id !== undefined && isRatioAsPercent(signal.id) && ["frac", "fraction", "x"].includes(signal.unit.trim().toLowerCase())) return ratioPercentText(signal.raw);
   switch (signal.unit.trim().toLowerCase()) {
     case "%": return formatPct(signal.raw);
     case "pp": return `${signal.raw >= 0 ? "+" : ""}${formatNumber(signal.raw, 1)} pp`;
@@ -1026,6 +1391,7 @@ const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = 
  * measures (D-62: replaces the separate weights and aspect-score tables).
  */
 export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable {
+  const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   return {
     heading: "Scorecard",
     headers: ["Aspect", "Score", "Band", "Weight", "Evidence", "What it measures"],
@@ -1035,11 +1401,22 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
       return [
         SCORE_ASPECT_LABEL[key],
         aspect.score === null ? "—" : String(Math.round(aspect.score)),
-        aspect.band ?? "—",
+        // D-67: the letter is withheld under the evidence floor on every surface.
+        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band ?? "—",
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         `${Math.round(aspect.dataCompleteness * 100)}%`,
         aspect.notApplicableReason ?? aspect.note,
       ];
+    }),
+    ...(limited.length === 0 ? {} : {
+      note: `${limited.map((key) => {
+        const signals = scores.aspects[key].signals ?? [];
+        const effective = signals.length > 0
+          ? signals.reduce((sum, s) => sum + s.effectiveCompositeWeightPct, 0)
+          : scores.composite.weights[key] * scores.aspects[key].dataCompleteness;
+        const weight = scores.composite.weights[key];
+        return `${SCORE_ASPECT_LABEL[key]} has evidence for ${Math.round(scores.aspects[key].dataCompleteness * 100)}% of its signal weight, below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
+      }).join(" ")}`,
     }),
   };
 }

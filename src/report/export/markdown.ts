@@ -64,21 +64,28 @@ import {
   peerColumnKeys,
 } from "@/report/format";
 import {
-  actionableGapTable,
   annualSegmentHeading,
   assessmentLine,
   auditExportPath,
   citedMark,
   claimCitation,
   compactLongIntegers,
+  confidenceText,
   consensusTables,
-  humanizeInlineCitations,
+  dataGapTables,
+  displayProse,
+  executiveGradeText,
+  executiveGroups,
   metricRowsWithoutTabled,
+  ratioPercentText,
+  showAnnualSegments,
+  withoutChartReferences,
   seeAlsoText,
   withoutTabled,
   dataStateText,
   factorExposureTable,
   figureRows,
+  figureValueText,
   gapCountText,
   gapSummary,
   geographyLabel,
@@ -98,7 +105,6 @@ import {
   trustHeadline,
   trustRows,
   usageSummary,
-  type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
@@ -120,7 +126,7 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { gradeDisplayLabel } from "@/report/assessment";
+import { gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
 
 /* ======================================================================== *
  * Deterministic value formatting (no locale, no grouping — stable text)
@@ -158,13 +164,13 @@ function asOfSuffix(asOf: string | null): string {
   return asOf ? ` _(as of ${markdownProse(asOf)})_` : "";
 }
 
-/** Stored prose with registry-id citations shown under reader labels (D-62). */
+/** Stored prose with registry ids under reader labels (D-62) and figures at reader precision (D-67). */
 function prose(text: string): string {
-  return markdownProse(humanizeInlineCitations(text));
+  return markdownProse(displayProse(text));
 }
 
 function item(text: string): string {
-  return markdownListItem(humanizeInlineCitations(text));
+  return markdownListItem(displayProse(text));
 }
 
 /** One generated blockquote line; the template marker remains trusted syntax. */
@@ -193,7 +199,7 @@ function subsection(heading: string, body: string): string[] {
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[]): string {
   return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(c.text)} _(${markdownProse(claimCitation(c))})_`)
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayProse(c.text, c.source))} _(${markdownProse(claimCitation(c))})_`)
     .join("\n");
 }
 
@@ -205,10 +211,25 @@ function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): strin
   );
 }
 
+/**
+ * D-67: what a grade line needs beyond its block — the aspect's deterministic
+ * score (the limited-evidence label) and the report's data state (the
+ * confidence cap).
+ */
+interface GradeContext {
+  aspect?: AspectEvidence | null;
+  completeness?: ReportCompletenessPresentation;
+}
+
+function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"], completeness: ReportCompletenessPresentation): GradeContext {
+  return { aspect: report.scores?.aspects[key] ?? null, completeness };
+}
+
 /** The reasoning behind a grade: header line + one-liner + claims + key numbers (deduplicated within the section). */
-function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}): string {
+function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
+  const confidence = ctx.completeness ? confidenceText(block.confidence, ctx.completeness) : block.confidence;
   const lines: string[] = [
-    `**${title} — Grade ${gradeDisplayLabel(block)}** (confidence: ${block.confidence})`,
+    `**${title} — ${gradeHeading(block, ctx.aspect)}** (confidence: ${confidence})`,
     "",
     `_${prose(block.oneLineWhy)}_`,
   ];
@@ -235,7 +256,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
       body.push([
         row.label,
         periodCell,
-        formatFinancialAmount(v.value.value, v.value.unit, v.value.currency),
+        figureValueText(v.value),
         v.value.asOf ?? DASH,
         citedMark(v.value.verified),
       ]);
@@ -322,8 +343,8 @@ function renderVerdict(report: Report): string {
     ["Section", "Grade", "Why"],
     gradeSurfaceEntries(v.gradeStrip).map(({ descriptor, block }) => [
       descriptor.label,
-      gradeDisplayLabel(block),
-      humanizeInlineCitations(block.oneLineWhy),
+      gradeDisplayLabel(block, report.scores?.aspects[descriptor.key]),
+      displayProse(block.oneLineWhy),
     ]),
   );
   const lines: string[] = [sectionHeading("verdict"), "", prose(v.synthesis), ""];
@@ -351,6 +372,7 @@ function renderScores(scores: Scoring): string {
     "",
     table(card.headers, card.rows),
     "",
+    ...(card.note ? [`_${markdownProse(card.note)}_`, ""] : []),
     ...(drivers ? auditTableBlocks([drivers]) : []),
     ...(exposure ? auditTableBlocks([exposure]) : []),
     `_${markdownProse(c.methodology)}_ _(bands ${markdownProse(scores.bandsVersion)})_`,
@@ -366,17 +388,19 @@ function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): s
   const lines: string[] = [sectionHeading("business"), ""];
   lines.push(...subsection("### What they sell", claimList(b.whatTheySell)));
   lines.push(...quarterly);
-  const shown = quarterly.length > 0;
-  lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, shown)}`, segmentTable(b.segments.product)));
-  lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, shown)}`, segmentTable(b.segments.geographic, true)));
+  // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
+  if (showAnnualSegments(quarterly.length > 0)) {
+    lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, false)}`, segmentTable(b.segments.product)));
+    lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, false)}`, segmentTable(b.segments.geographic, true)));
+  }
   lines.push(...subsection("### Concentration risks", claimList(b.concentrationRisks)));
   return lines.join("\n").trimEnd();
 }
 
-function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra: readonly ReportAuditTable[] = [], report: Pick<Report, "filingDisclosures"> = {}): string {
+function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra: readonly ReportAuditTable[] = [], report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
   const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("fundamentals"), ""];
-  lines.push(gradeBlock("Fundamentals", f.graded, seen, report), "");
+  lines.push(gradeBlock("Fundamentals", f.graded, seen, report, ctx), "");
   // D-62: figures a deterministic filing table shows are left to that table.
   const homes: string[] = [];
   const metricGroup = (heading: string, rows: readonly MetricRow[]): void => {
@@ -392,14 +416,15 @@ function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra:
   if (also) lines.push(`_${markdownProse(also)}_`, "");
   lines.push(...auditTableBlocks(extra));
   lines.push(...subsection("### Commentary", claimList(f.commentary)));
-  lines.push(...auditTableBlocks(sourceFactAuditTables(summary)));
+  // D-67: the registry identity column is in the audit export.
+  lines.push(...auditTableBlocks(sourceFactAuditTables(summary, false)));
   return lines.join("\n").trimEnd();
 }
 
-function renderBalanceSheet(bs: BalanceSheet, report: Pick<Report, "filingDisclosures"> = {}): string {
+function renderBalanceSheet(bs: BalanceSheet, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
   const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("balanceSheet"), ""];
-  if (bs.graded) lines.push(gradeBlock("Balance Sheet & Capital", bs.graded, seen, report), "");
+  if (bs.graded) lines.push(gradeBlock("Balance Sheet & Capital", bs.graded, seen, report, ctx), "");
   const group = (title: string, g: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] }): void => {
     const claims = claimList(g.commentary);
     const numbers = figureTable(figureRows(withoutTabled(report, g.numbers).kept, seen));
@@ -444,10 +469,11 @@ function renderValuation(
   fairValue?: FairValue,
   routeMetrics?: RouteMetrics,
   review: ValuationReviewInputs & { report?: Report } = {},
+  ctx: GradeContext = {},
 ): string {
   const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("valuation"), ""];
-  lines.push(gradeBlock("Valuation", v.graded, seen, review.report ?? {}), "");
+  lines.push(gradeBlock("Valuation", v.graded, seen, review.report ?? {}, ctx), "");
 
   // perShare is null when the deterministic fair value was suppressed — show
   // "unavailable", never a fabricated number.
@@ -461,15 +487,15 @@ function renderValuation(
     ...(fairValue
       ? [
           fairValue.status === "available"
-            ? `_${markdownProse(fairValue.basis.join(" "))}_`
-            : `_Intrinsic value per share suppressed — ${markdownProse(
+            ? `_${prose(fairValue.basis.join(" "))}_`
+            : `_Intrinsic value per share suppressed — ${prose(
                 fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" "),
               )}_`,
         ]
       : []),
     "",
   );
-  lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, compactLongIntegers(a.basis)]))));
+  lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))]))));
   lines.push(...auditTableBlocks(valuationAuditTables(v.dcf)));
 
   // Sensitivity grid (WACC × terminal growth), rendered as a pivot table.
@@ -520,20 +546,21 @@ function renderValuation(
   if (review.scenarioPresentation?.weightBasis) lines.push(`_${markdownProse(review.scenarioPresentation.weightBasis)}_`, "");
   if (scenarioTargets) {
     if (scenarioTargets.status === "available") {
-      lines.push(`_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${markdownProse(scenarioTargets.basis.join(" "))}_`, "");
+      lines.push(`_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}_`, "");
     } else {
       const reasons = scenarioTargets.missingReasons.map((m) => m.reason).join("; ");
       lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
     }
   }
   for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
-    lines.push(`### ${markdownHeading(block.title)}`, "", ...block.paragraphs.flatMap((p) => [markdownProse(p), ""]));
+    lines.push(`### ${markdownHeading(block.title)}`, "", ...block.paragraphs.flatMap((p) => [prose(p), ""]));
     for (const item of block.items) {
-      lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [markdownProse(p), ""]));
+      lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [prose(p), ""]));
     }
+    if (block.table) lines.push(table(block.table.headers, block.table.rows), "");
   }
   // D-62: the assumption lines every scenario shares are stated once.
-  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map(compactLongIntegers)));
+  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
   if (common.length > 0) {
     lines.push("**Assumptions common to every scenario:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
   }
@@ -569,9 +596,9 @@ function renderScenario(sc: Scenario, assumptions: readonly string[], computedWe
   return lines.join("\n");
 }
 
-function renderQuality(q: Quality): string {
+function renderQuality(q: Quality, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("quality"), ""];
-  lines.push(gradeBlock("Quality", q.graded, new Map()), "");
+  lines.push(gradeBlock("Quality", q.graded, new Map(), {}, ctx), "");
   const fs = q.forensicScores;
   // "Not applicable" carries the reason a battery was skipped for this route;
   // the column is dropped when no battery was skipped.
@@ -581,23 +608,24 @@ function renderQuality(q: Quality): string {
       ["Altman Z", fs.altman, num(fs.altman.score, 2)] as const,
       ["Beneish M", fs.beneish, num(fs.beneish.score, 2)] as const,
       ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)] as const,
-      ["Accruals", fs.accruals, num(fs.accruals.score, 2)] as const,
+      // D-67: the accrual ratio prints in percent, as the score drivers and key numbers print it.
+      ["Accruals", fs.accruals, fs.accruals.score === null ? DASH : ratioPercentText(fs.accruals.score)] as const,
     ].map(([label, entry, score]) => [label, entry.variant, score, entry.zone ?? DASH, entry.notApplicableReason ?? DASH]),
   )));
   lines.push(
     "### Flags",
     "",
-    q.flags.length > 0 ? table(["Severity", "Flag", "Source"], q.flags.map((f) => [f.severity, humanizeInlineCitations(f.text), sourceLabel(f.source)])) : "_No forensic flags raised._",
+    q.flags.length > 0 ? table(["Severity", "Flag", "Source"], q.flags.map((f) => [f.severity, displayProse(f.text), sourceLabel(f.source)])) : "_No forensic flags raised._",
   );
   return lines.join("\n");
 }
 
-function renderTechnicals(report: Report): string {
+function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
   const t: Technicals = report.technicals;
   const timing = priceTiming(report);
   const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("technicals"), ""];
-  lines.push(gradeBlock("Technicals", t.graded, seen), "");
+  lines.push(gradeBlock("Technicals", t.graded, seen, {}, ctx), "");
   lines.push(
     "### Structured read",
     "",
@@ -610,38 +638,45 @@ function renderTechnicals(report: Report): string {
   const indicators = figureTable(figureRows(t.indicators.map((n) => n), seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, timing) })), "Indicator");
   lines.push(...subsection("### Indicators", indicators));
   if (t.flags.length > 0) {
-    lines.push("### Flags", "", table(["Severity", "Flag", "Source"], t.flags.map((f) => [f.severity, humanizeInlineCitations(f.text), sourceLabel(f.source)])));
+    lines.push("### Flags", "", table(["Severity", "Flag", "Source"], t.flags.map((f) => [f.severity, displayProse(f.text), sourceLabel(f.source)])));
   }
   return lines.join("\n").trimEnd();
 }
 
-function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures"> = {}): string {
+function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
-  lines.push(gradeBlock("Leadership", l.graded, new Map(), report), "");
+  lines.push(gradeBlock("Leadership", l.graded, new Map(), report, ctx), "");
   lines.push("### Executives", "");
-  for (const e of l.executives) {
+  // D-67: one card per assessed officer; the not-assessed officers share one line.
+  const groups = executiveGroups(l.executives);
+  for (const e of groups.assessed) {
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
       "",
-      `Grade **${e.grade}** · credibility **${e.credibilityGrade}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
+      `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
       "",
     );
     if (e.reasoning.length > 0) lines.push(claimList(e.reasoning), "");
-    if (e.assessmentReason) lines.push(markdownProse(e.assessmentReason), "");
+    if (e.assessmentReason) lines.push(prose(e.assessmentReason), "");
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
       const claims = e.evidence[descriptor.key];
       if (!claims || claims.length === 0) continue;
       lines.push(`##### ${descriptor.label}`, "", claimList(claims), "");
     }
   }
+  if (groups.notAssessed.length > 0) {
+    lines.push(`#### ${groups.assessed.length > 0 ? "Other officers" : "Officers"}`, "", ...groups.notAssessedLines.flatMap((line) => [markdownProse(line), ""]));
+    if (groups.notAssessedClaims.length > 0) lines.push(claimList(groups.notAssessedClaims), "");
+  }
   lines.push(...subsection("### Insider activity", claimList(l.insiderSummary)));
   lines.push(...subsection("### Governance", claimList(l.governanceNotes)));
+  lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "leadership")));
   return lines.join("\n").trimEnd();
 }
 
-function renderCompetitive(c: Competitive): string {
+function renderCompetitive(c: Competitive, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("competitive"), ""];
-  lines.push(gradeBlock("Moat", c.moatGraded, new Map()), "");
+  lines.push(gradeBlock("Moat", c.moatGraded, new Map(), {}, ctx), "");
   lines.push("### Peer table", "");
   if (c.peerTable.length > 0) {
     // Columns keyed by the metric, not by position (peerMetricKey).
@@ -683,11 +718,11 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
   lines.push(...subsection("### Catalysts", bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, humanizeInlineCitations(c.reasoning.text)]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, displayProse(c.reasoning.text, c.reasoning.source)]),
   )));
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), humanizeInlineCitations(r.reasoning.text)]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
   )));
   lines.push(...auditTableBlocks(extra));
   return lines.join("\n").trimEnd();
@@ -726,8 +761,9 @@ function renderProjections(p: Projections): string {
   if (series.length === 0) {
     lines.push(`_Not applicable${p.notApplicableReason ? `: ${markdownProse(p.notApplicableReason)}` : "."}_`, "");
   }
-  // D-62: the assumption block every series repeats is stated once.
-  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions));
+  // D-62: the assumption block every series repeats is stated once. D-67: no
+  // chart is rendered here, so a sentence pointing at one is dropped.
+  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions.map((line) => withoutChartReferences(displayProse(line)))));
   if (common.length > 0) {
     lines.push("**Assumptions common to every series:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
   }
@@ -751,7 +787,7 @@ function renderMacro(m: Macro): string {
   lines.push(
     table(
       ["Series", "Name", "Latest", "As of", "Relevance"],
-      m.relevantSeries.map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, humanizeInlineCitations(s.relevance)]),
+      m.relevantSeries.map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, displayProse(s.relevance)]),
     ),
     "",
   );
@@ -802,10 +838,11 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
     lines.push(`Deterministic consistency checks: ${checked - failed}/${checked} passed (direction, period, unit and named-person checks; the log is in the audit export).`, "");
   }
 
-  lines.push("### Data gaps", "", markdownProse(`${gapCountText(a.missingData)} ${dataStateText(completeness)}`), "");
-  lines.push(...auditTableBlocks([actionableGapTable(a.missingData)].filter((t): t is BodyTable => t !== null), "####"));
-  const families = gapSummary(a.missingData);
-  if (families.length > 0) lines.push(table(["Gap family", "Entries", "Highest severity"], families.map((row) => [row.family, String(row.entries), row.highest])), "");
+  // D-67: one row per underlying data gap; process disclosures and moot entries apart.
+  lines.push("### Data gaps", "", markdownProse(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`), "");
+  lines.push(...auditTableBlocks(dataGapTables(completeness), "####"));
+  const families = gapSummary(a.missingData, completeness.classification);
+  if (families.length > 0) lines.push(table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [row.family, String(row.entries), row.highest])), "");
 
   lines.push(
     "### Sources",
@@ -860,13 +897,13 @@ export function reportToMarkdown(report: Report): string {
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
     renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
-    renderFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report),
-    renderBalanceSheet(report.balanceSheet, report),
-    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }),
-    renderQuality(report.quality),
-    renderTechnicals(report),
-    renderLeadership(report.leadership, report),
-    renderCompetitive(report.competitive),
+    renderFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report, gradeContext(report, "fundamentals", completeness)),
+    renderBalanceSheet(report.balanceSheet, report, gradeContext(report, "balanceSheet", completeness)),
+    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness)),
+    renderQuality(report.quality, gradeContext(report, "quality", completeness)),
+    renderTechnicals(report, gradeContext(report, "technicals", completeness)),
+    renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)),
+    renderCompetitive(report.competitive, gradeContext(report, "moat", completeness)),
     renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     renderOutlook(report),
     report.projections ? renderProjections(report.projections) : "",

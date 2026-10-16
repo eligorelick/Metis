@@ -1,13 +1,14 @@
 import type { ReportAuditTable } from "@/report/auditTables";
 import { decimalRound, formatFinancialValue } from "@/report/format";
 import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
+import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 
 /**
  * The report's filing-disclosure tables, grouped by the section that shows
  * them, so the Markdown, print and on-screen surfaces render the same rows.
  * Pure and deterministic.
  */
-export type FilingDisclosureSection = "business" | "fundamentals" | "balanceSheet" | "outlook" | "catalystsRisks";
+export type FilingDisclosureSection = "business" | "fundamentals" | "balanceSheet" | "outlook" | "catalystsRisks" | "leadership";
 
 const DASH = "—";
 
@@ -39,6 +40,11 @@ function value(row: { unit: GuidanceRow["unit"] }, v: number, currency: string |
 /** "≈$26B": an issuer-qualified amount without decimals the release did not print. */
 function approximately(text: string): string {
   return `≈${text.replace(/\.(\d*?)0+([KMBT])/, (_, kept: string, suffix: string) => (kept ? `.${kept}${suffix}` : suffix))}`;
+}
+
+/** The segment axis a filing note is about ("Segment XBRL, Geography: …"), or null. */
+function segmentNoteAxis(note: string): string | null {
+  return /^Segment XBRL, ([^:]+):/.exec(note)?.[1] ?? null;
 }
 
 /** A filing note about dividends or repurchase authorization. */
@@ -185,32 +191,46 @@ function reconciliationTables(d: FilingDisclosures): ReportAuditTable[] {
   const columns = [...new Map(facts.map((f) => [columnKey(f), f])).values()]
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd) || a.months - b.months);
   const header = (c: { periodEnd: string; months: number }) => `${c.months === 3 ? "Quarter" : `${c.months} months`} ended ${c.periodEnd}`;
-  const build = (heading: string, metrics: readonly ReconciliationMetric[], extra: string[][] = [], note?: string): ReportAuditTable | null => {
-    const rows = metrics.flatMap((metric) => {
-      const cells = columns.map((c) => {
-        const fact = facts.find((f) => f.metric === metric && columnKey(f) === columnKey(c));
-        return fact ? money(fact.value, d.currency, fact.unit === "currency-per-share") : DASH;
-      });
-      return cells.every((cell) => cell === DASH) ? [] : [[RECONCILIATION_LABEL[metric], ...cells]];
-    });
-    if (rows.length === 0) return null;
-    return {
-      heading,
-      headers: ["Line", ...columns.map(header)],
-      rows: [...rows, ...extra],
-      note: [`Source: ${filingLabel(facts[0]!.source)}.`, note ?? ""].filter((n) => n !== "").join(" "),
-    };
-  };
+  const fact = (metric: ReconciliationMetric, c: { periodEnd: string; months: number }) =>
+    facts.find((f) => f.metric === metric && columnKey(f) === columnKey(c));
+  const row = (label: string, cells: string[]): string[][] => (cells.every((cell) => cell === DASH) ? [] : [[label, ...cells]]);
+  const metricRow = (metric: ReconciliationMetric): string[][] => row(RECONCILIATION_LABEL[metric], columns.map((c) => {
+    const f = fact(metric, c);
+    return f ? money(f.value, d.currency, f.unit === "currency-per-share") : DASH;
+  }));
+  const table = (heading: string, rows: string[][], note?: string): ReportAuditTable | null => (rows.length === 0 ? null : {
+    heading,
+    headers: ["Line", ...columns.map(header)],
+    rows,
+    note: [`Source: ${filingLabel(facts[0]!.source)}.`, note ?? ""].filter((n) => n !== "").join(" "),
+  });
   const sameDay = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) <= 3 * 86_400_000;
   const issuerFcf = columns.map((c) => {
     const f = d.freeCashFlow.find((x) => x.months === c.months && sameDay(x.periodEnd, c.periodEnd));
     return f ? money(f.value, d.currency) : DASH;
   });
-  const fcfRows = issuerFcf.some((cell) => cell !== DASH) ? [["Free cash flow (issuer definition, as reported)", ...issuerFcf]] : [];
+  // D-67: the EPS bridge mixed per-share and amount rows and had no
+  // adjustment line, so it did not foot. The per-share table foots: GAAP, the
+  // total adjustment as the difference of the two reported figures, non-GAAP.
+  // The itemized amounts are a second table, labelled as the lines captured.
+  const adjustment = row("Non-GAAP adjustments, net of tax (non-GAAP less GAAP)", columns.map((c) => {
+    const gaap = fact("gaap-diluted-eps", c)?.value;
+    const nonGaap = fact("non-gaap-diluted-eps", c)?.value;
+    return gaap === undefined || nonGaap === undefined ? DASH : money(decimalRound(nonGaap - gaap, 2), d.currency, true);
+  }));
+  const perShareNote = [
+    adjustment.length > 0 ? "The adjustment line is the difference of the two reported per-share figures, so it includes every adjustment the release makes and the table foots." : "",
+    d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
+  ].filter((n) => n !== "").join(" ");
+  const fcfLines = [...metricRow("operating-cash-flow"), ...metricRow("purchases-property-equipment"), ...metricRow("principal-payments-property-equipment")];
   return [
-    build("Issuer free-cash-flow reconciliation", ["operating-cash-flow", "purchases-property-equipment", "principal-payments-property-equipment"], fcfRows),
-    build("GAAP to non-GAAP diluted EPS (issuer reconciliation)", ["gaap-diluted-eps", "equity-securities-gains", "non-gaap-tax-impact", "non-gaap-diluted-eps"], [],
-      d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : undefined),
+    table("Issuer free-cash-flow reconciliation", fcfLines.length === 0 ? [] : [...fcfLines, ...row("Free cash flow (issuer definition, as reported)", issuerFcf)]),
+    table("GAAP to non-GAAP diluted EPS (issuer reconciliation, per share)", [
+      ...metricRow("gaap-diluted-eps"), ...adjustment, ...metricRow("non-gaap-diluted-eps"),
+    ], perShareNote || undefined),
+    table("Non-GAAP adjustments itemized in the release (amounts)", [
+      ...metricRow("equity-securities-gains"), ...metricRow("non-gaap-tax-impact"),
+    ], "The release lines captured, as stated. Its other adjustment lines were not captured, so these amounts are not a complete bridge; the per-share table includes every adjustment."),
   ].filter((t): t is ReportAuditTable => t !== null);
 }
 
@@ -283,6 +303,8 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
       s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",
       s.derivedCells > 0 ? `${s.derivedCells} cell(s) are derived as the difference of two reported windows (for example a fiscal year less nine months).` : "",
+      // D-67: a segment axis's own filing note sits under its table, not under guidance.
+      ...d.notes.filter((n) => segmentNoteAxis(n) === s.axisLabel).map((n) => n.replace(/^Segment XBRL, [^:]+:\s*/, "")),
       "A dash means the member is not tagged for that quarter.",
     ].filter((n) => n !== "");
     return {
@@ -304,19 +326,21 @@ function eventTable(d: FilingDisclosures): ReportAuditTable[] {
   }];
 }
 
-export function filingDisclosureTables(d: FilingDisclosures | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
+export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return [];
   switch (section) {
     case "business": return segmentTables(d);
     case "fundamentals": return trendTables(d);
-    case "balanceSheet": return commitmentTables(d);
+    case "balanceSheet": return [...commitmentTables(d), ...filingFactTables(d)];
+    case "leadership": return filingGovernanceTables(d);
     case "outlook": {
-      const tables = [...guidanceTables(d), ...trackRecordTable(d)];
+      const tables = [...guidanceTables(d), ...trackRecordTable(d), ...filingCommentaryOutlookTables(d)];
       // D-62: dividend and repurchase-authorization notes belong with the
       // capital-return table, not under results against guidance — unless
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
-      const notes = [d.currencyBasis, ...d.notes.filter((n) => !capitalShown || !isCapitalReturnNote(n))].join(" ");
+      const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
+      const notes = [d.currencyBasis, ...d.notes.filter((n) => (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
       return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No guidance could be read from the latest earnings releases."]], note: notes }] : [];
     }
     case "catalystsRisks": return eventTable(d);

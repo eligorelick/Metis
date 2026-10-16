@@ -485,7 +485,9 @@ describe("reportToMarkdown", () => {
     expect(md).toContain("60.0%");
     // Large monetary values render through the compact scale.
     expect(md).toContain("7.50B (currency unknown)");
-    expect(md).toContain("5.00B (currency unknown)");
+    // D-67: a whole amount at its scale prints without decimals ("$959M", not "$959.00M").
+    expect(md).toContain("5B (currency unknown)");
+    expect(md).not.toContain("5.00B (currency unknown)");
   });
 
   it("renders every FACT/ESTIMATE/JUDGMENT claim label", () => {
@@ -3225,7 +3227,8 @@ describe("immutable legacy entity safety across stored-report reads", () => {
     const printHtml = reportToPrintHtml(byId!.report);
     for (const rendered of [markdown, printHtml]) {
       expect(rendered).not.toContain(entityConflict);
-      expect(rendered).toContain("legacy.entityValidation");
+      // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+      expect(rendered).toContain("Legacy entity validation");
       expect(rendered).toContain("critical");
     }
 
