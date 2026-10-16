@@ -156,6 +156,7 @@ export const RISK_SOURCE_MANIFEST = [
   // rewrites a model label at assembly; it was left out when D-50 added it.
   "src/pipeline/stageC/confidenceCeiling.ts",
   "src/edgar/financialEnrichment.ts",
+  "src/edgar/debtCompleteness.ts",
   "src/providers/companyEvents.ts",
   "src/providers/companyIr.ts",
   "src/pipeline/runInputSnapshot.ts",

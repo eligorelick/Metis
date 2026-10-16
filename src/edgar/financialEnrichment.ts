@@ -1,6 +1,7 @@
 import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
+import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
 
 const DAY = 86_400_000;
 function validDay(day: unknown): day is string {
@@ -51,6 +52,37 @@ function principal(facts: CompanyFacts, unit: string, end: string, scope: "annua
   return out;
 }
 
+/** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
+export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const gaps: ManifestEntry[] = [];
+  if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps };
+  let out = row;
+  const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
+  const maturitySourced = out.fieldProvenance?.shortTermDebt?.tags.some((tag) => tag === `us-gaap/${maturityTag}`) === true;
+  const scopeReason = maturitySourced ? fiscalMaturityScopeReason(instant(facts, maturityTag, currency, row.date, observedAt)?.value ?? null,
+    instant(facts, "LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear", currency, row.date, observedAt)?.value ?? null) : null;
+  if (scopeReason !== null) {
+    out = { ...out, shortTermDebt: null, fieldConflicts: { ...out.fieldConflicts, shortTermDebt: {
+      vendorValue: typeof row.shortTermDebt === "number" ? row.shortTermDebt : null, secValue: null, usable: false, reason: scopeReason,
+    } } };
+    gaps.push({ field: `statements.balance.${row.date}.shortTermDebt`, reason: scopeReason, severity: "warn" });
+  }
+  const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
+  const reason = scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
+    longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null);
+  for (const field of ["totalDebt", "netDebt"] as const) {
+    const prior = out.fieldConflicts?.[field];
+    if (reason === null && prior?.usable !== false) continue;
+    const refusal = reason ?? prior!.reason;
+    out = { ...out, [field]: null, fieldConflicts: { ...out.fieldConflicts, [field]: {
+      vendorValue: prior?.vendorValue ?? (typeof row[field] === "number" ? row[field] as number : null),
+      secValue: null, usable: false, reason: refusal, ...(aggregate ? { secEvidence: aggregate.evidence } : {}),
+    } } };
+    if (reason !== null) gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "warn" });
+  }
+  return { row: out, gaps };
+}
+
 /** Enrichs missing fields only. Conflicts preserve vendor observations and carry usable:false. */
 export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
@@ -89,6 +121,11 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         }
         out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence } };
         gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, exact ${scope} period ending ${row.date}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
+      }
+      if (kind === "balance") {
+        const admitted = admitDebtFields(out, facts, currency, observedAt);
+        out = admitted.row;
+        gaps.push(...admitted.gaps);
       }
       return out;
     });
