@@ -88,6 +88,11 @@ export const SHARED_RULES_BLOCK = [
   "ROUNDING: two statements of one quantity agree when they are equal at the coarser stated precision (\"$6.1 billion\" and",
   "\"$6.042 billion\" are the same figure). Never call that a discrepancy or say the figures may not be interchangeable;",
   "a difference is real only when it exceeds the rounding of the less precise figure.",
+  // NVDA final rerun: prose repeated model values at four decimals ("USD 296.3179
+  // per share", "82.1353%"). The validator compares at the stated precision.
+  "PROSE PRECISION: in sentences, state figures at reader precision: prices and per-share amounts to cents, percentages,",
+  "multiples and ratios to one decimal, large amounts in billions or trillions to two decimals (\"USD 296.32 per share\",",
+  "\"82.1%\"), never a computed value's full decimals. Numbers are checked at the precision you state.",
   // D-63: 30 of 30 FACT claims in the NVDA rerun carried no figure, so the
   // deterministic numeric validation read 0/30.
   "NUMERIC FACTS: when a registered payload figure supports a FACT, state that figure in the sentence (value, unit or",
