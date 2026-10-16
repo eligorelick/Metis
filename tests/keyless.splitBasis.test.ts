@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SPLIT_RATIO_TAG } from "@/edgar/splits";
-import { applyKeylessFallbacks, type KeylessInputs, type KeylessMembers } from "@/pipeline/keyless";
+import { eodBasisSession, applyKeylessFallbacks, type KeylessInputs, type KeylessMembers } from "@/pipeline/keyless";
 import { createYahooClient } from "@/providers/yahoo";
 import { makeLimiter } from "@/providers/http";
 import type { CompanyFacts } from "@/edgar/xbrl";
@@ -539,5 +539,22 @@ describe("keyless market values: stale sources and ambiguous counts", () => {
     expect(profileCap(out)).toBeNull();
     expect(gapFor(out, "keyless.stockSplits(2026-06-12)")).toMatchObject({ severity: "warn", expected: false });
     expect(out.members.marketCapHistory.ok).toBe(false);
+  });
+});
+
+describe("eodBasisSession — the session undated adjusted closes are stated on", () => {
+  // NVDA integration rerun, 2026-10-16T04:20Z (a Thursday evening in New York):
+  // the newest bar was 2026-10-15 and no session had opened since, yet the
+  // fetch date 2026-10-16 was used and all 1,254 market-cap days were withheld.
+  it("uses the newest bar when no regular session opened between it and the fetch", () => {
+    expect(eodBasisSession("2026-10-15", "2026-10-16T04:20:34.000Z")).toBe("2026-10-15");
+    // Friday's bar fetched on Sunday: Monday has not opened.
+    expect(eodBasisSession("2026-10-16", "2026-10-18T15:00:00.000Z")).toBe("2026-10-16");
+  });
+
+  it("falls back to the fetch day once the next session could have opened", () => {
+    expect(eodBasisSession("2026-10-15", "2026-10-16T14:00:00.000Z")).toBe("2026-10-16");
+    expect(eodBasisSession("2026-10-16", "2026-10-19T13:30:00.000Z")).toBe("2026-10-19");
+    expect(eodBasisSession(null, "2026-10-16T04:20:34.000Z")).toBe("2026-10-16");
   });
 });
