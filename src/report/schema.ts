@@ -1415,6 +1415,8 @@ export const VerificationLogEntrySchema = z
     validationStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
     numericSupportStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
     claimSupportStatus: z.enum(["numeric-only", "cited", "unreviewed", "contradicted"]).optional(),
+    /** Pipeline-derived eligibility of the matched typed metric for executive assessment. */
+    executiveEvidenceKind: z.enum(["guidance-track-record", "execution"]).optional(),
     sourceSpans: z.array(z.object({
       source: z.string(), asOf: IsoDateSchema.nullable(),
       start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string(),

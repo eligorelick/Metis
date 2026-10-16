@@ -211,6 +211,10 @@ export function parseBusinessCombinationFacts(rawText: string, fiscalYearEnd: st
   const notes = [...text.matchAll(/\bNote\s+(\d{1,2})\s*[-–—]\s*/g)];
   for (let i = 0; i < notes.length; i++) {
     const body = text.slice(notes[i]!.index, notes[i + 1]?.index ?? text.length);
+    // A note can cover several transactions. Until amounts are explicitly
+    // transaction-scoped, never attach the whole note to its first party.
+    const parties = new Set([...body.matchAll(/\b(?:agreement|acquisition|merger)\s+with\s+([A-Z][\w&.'’-]*(?:\s+[A-Z][\w&.'’-]*){0,4}?)(?=,|\s+\(|\s+or\b|\s+for\b|\.)|\bacquired\s+([A-Z][\w&.'’-]*(?:\s+[A-Z][\w&.'’-]*){0,4}?)(?=,|\s+\(|\s+or\b|\s+for\b|\.)/g)].map((m) => m[1] ?? m[2]));
+    if (parties.size > 1) continue;
     const party = /\b(?:agreement|acquisition|merger)\s+with\s+([A-Z][\w&.'’-]*(?:\s+[A-Z][\w&.'’-]*){0,4}?)(?:,\s*(?:Inc|LLC|Ltd|Corp|Corporation|Co)\.?)?(?=,|\s+\(|\s+or\b|\s+for\b|\.)/.exec(body)?.[1] ??
       /\bacquired\s+([A-Z][\w&.'’-]*(?:\s+[A-Z][\w&.'’-]*){0,4}?)(?=,|\s+\(|\s+or\b|\s+for\b|\.)/.exec(body)?.[1] ?? null;
     if (party === null) continue;

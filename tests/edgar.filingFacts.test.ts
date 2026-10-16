@@ -53,6 +53,12 @@ describe("D-66 recovered filing facts", () => {
     expect(facts.find((f) => f.key === "deal-consideration-total")?.computed).toBe("13.0 billion + 4 billion");
   });
 
+  it("does not attribute a later transaction's amounts to the first party in a multi-deal note", () => {
+    const text = "Note 2 - Business Combinations We entered into an agreement with Alpha, Inc. The Alpha transaction is not material. We acquired Beta, Inc. We recorded $14.4 billion of goodwill and a $2.5 billion developed technology intangible asset. Total consideration consists of $13.0 billion paid at closing and $4 billion payable within one year.";
+    const facts = parseBusinessCombinationFacts(text, "2026-01-25");
+    expect(facts).toEqual([]);
+  });
+
   it("preserves supply commitments, the financing platform qualifier, and the DSO outlook", () => {
     const commitments = parseCommitmentFacts(notes + " " + mdna);
     expect(commitments).toEqual(expect.arrayContaining([

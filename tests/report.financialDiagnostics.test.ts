@@ -36,11 +36,13 @@ describe("deterministic financial explanation",()=>{
     r.appendix.verificationLog=[{path:"leadership.executives[0].evidence.guidanceVsActuals[0]",claim:"Officer Smith met 99% of guidance targets.",outcome:"unverified",validationStatus:"contradicted"}];
     expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"not-assessed",credibilityGrade:"not-assessed"});
   });
-  it("retains a proposed assessment only for attributable validated evidence",()=>{
+  it("retains a proposed assessment only for attributable pipeline-classified metric evidence",()=>{
     const r=report(), text="Officer Smith met 95% of guidance targets.";
     r.leadership.executives=[{name:"Officer Smith",title:"CFO",tenureYears:null,grade:"B",credibilityGrade:"B",reasoning:[],evidence:{guidanceVsActuals:[{label:"FACT",source:"edgar:10-Q",asOf:"2026-06-30",text}]}}];
     // The verify pass never marks prose "verified"; numeric validation is its strongest outcome.
-    r.appendix.verificationLog=[{path:"leadership.executives[0].evidence.guidanceVsActuals[0]",claim:text,outcome:"unverified",validationStatus:"validated"}];
+    r.appendix.verificationLog=[{path:"leadership.executives[0].evidence.guidanceVsActuals[0]",claim:text,source:"edgar:10-Q",outcome:"unverified",validationStatus:"validated"}];
+    expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"not-assessed",credibilityGrade:"not-assessed"});
+    r.appendix.verificationLog[0]!.executiveEvidenceKind="guidance-track-record";
     expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"B",credibilityGrade:"B"});
   });
 });

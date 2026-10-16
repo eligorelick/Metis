@@ -1,30 +1,52 @@
 import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
 import type { Leadership, Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "@/report/schema";
+import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
+import { citationSourceId } from "@/pipeline/stageC/citations";
+
+/** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
+export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
+  if (record.kind === "computed" && record.id.startsWith("computed.quarterly-trend.") &&
+    (record.unit === "percent" || record.unit === "percentage-points") &&
+    (record.origin === "computed.guidance-track-record" || (/-actual-vs-prior-guidance-midpoint(?:\.\d+)?$/.test(record.id) && /\bactual vs prior guidance midpoint$/.test(record.label ?? "")))) return "guidance-track-record";
+  // Realized operating/capital outcomes may support execution. Compensation,
+  // titles, forecasts and merely announcing guidance do not belong to these
+  // exact statement-line contracts. Unknown/excerpt-only metrics fail closed.
+  const executionLines = new Set(["revenue", "net sales", "operating income", "net income", "operating cash flow", "free cash flow",
+    "capital expenditure", "buybacks (negative)", "dividends paid (negative)"]);
+  if (record.kind === "provider" && record.unit === "currency" && record.id.startsWith("payload.statements.") && executionLines.has(record.label?.toLowerCase() ?? "")) return "execution";
+  return undefined;
+}
 
 /**
  * Individual grades require an attributable validated factual track record: a
  * FACT naming the executive, in that executive's own evidence, whose figures
- * the verify pass matched to the cited typed record or filing span with no
- * failing check. The verify pass never marks prose `verified` (a numeric match
+ * the verify pass matched to an eligible typed performance metric with no
+ * failing check. Unknown/excerpt-only metric semantics stay unassessed. The
+ * verify pass never marks prose `verified` (a numeric match
  * does not adjudicate the whole sentence), so requiring that outcome made the
  * gate unreachable (NVDA report 34: every executive "not-assessed").
  */
 export function assessExecutiveEvidence(leadership: Leadership, log: readonly VerificationLogEntry[], pendingVerification = false): Leadership {
   return {...leadership, executives:leadership.executives.map((executive, index)=>{
-    const admissible = (claim:SourcedClaim, field:string, claimIndex:number):boolean => {
-      if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return false;
+    const admissible = (claim:SourcedClaim, field:string, claimIndex:number): VerificationLogEntry["executiveEvidenceKind"] => {
+      if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return undefined;
       const words = new Set(claim.text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
       const name = executive.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-      if (name.length === 0 || !name.every(word=>words.has(word))) return false;
-      if (/\b(?:no|lacks?|absent|unavailable)\b.{0,40}\b(?:evidence|record)\b|\b(?:evidence|record)\b.{0,40}\b(?:absent|unavailable|not available|not disclosed)\b/i.test(claim.text)) return false;
-      if (pendingVerification) return true;
+      if (name.length === 0 || !name.every(word=>words.has(word))) return undefined;
+      if (/\b(?:no|lacks?|absent|unavailable)\b.{0,40}\b(?:evidence|record)\b|\b(?:evidence|record)\b.{0,40}\b(?:absent|unavailable|not available|not disclosed)\b/i.test(claim.text)) return undefined;
       const path = `leadership.executives[${index}].evidence.${field}[${claimIndex}]`;
-      return log.some(entry=>entry.path===path && entry.claim===claim.text && entry.validationStatus==="validated" && !entry.check) &&
-        !log.some(entry=>entry.path===path && entry.check && entry.outcome==="unverified");
+      if (log.some(entry=>entry.path===path && entry.check && entry.outcome==="unverified")) return undefined;
+      return log.find(entry=>entry.path===path && entry.claim===claim.text && entry.source===citationSourceId(claim) &&
+        entry.validationStatus==="validated" && !entry.check)?.executiveEvidenceKind;
     };
-    const credibility = (executive.evidence.guidanceVsActuals ?? []).some((claim,i)=>admissible(claim,"guidanceVsActuals",i));
-    const execution = credibility || (executive.evidence.capitalAllocation ?? []).some((claim,i)=>admissible(claim,"capitalAllocation",i));
+    // Provisional assembly is internal to verification and preserves proposed
+    // grades; only the final gate consumes pipeline-produced classifications.
+    if (pendingVerification) return executive;
+    const kinds = [...(executive.evidence.guidanceVsActuals ?? []).map((claim,i)=>admissible(claim,"guidanceVsActuals",i)),
+      ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
+    const credibility = kinds.includes("guidance-track-record");
+    const execution = credibility || kinds.includes("execution");
     return {...executive, grade:execution ? executive.grade : "not-assessed", credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
       ...(!execution || !credibility ? {assessmentReason:"Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment."} : {}),
     };

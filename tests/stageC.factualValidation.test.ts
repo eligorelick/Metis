@@ -349,7 +349,7 @@ describe("factual prose numeric validation", () => {
     expect(result.log[0]).toMatchObject({ validationStatus: "validated" });
   });
 
-  it("retains an executive grade the verify pass itself validated against an attributable typed figure", async () => {
+  it.each(["capitalAllocation", "guidanceVsActuals"] as const)("retains a validated execution grade independently of the %s bucket", async (field) => {
     const record = { id: "payload.statements.cash-flow-annual.2026-01-25.operating-cash-flow", label: "operating cash flow", kind: "provider" as const,
       value: 102.718e9, unit: "currency" as const, currency: "USD", period: "2026-01-25", fiscalPeriod: "FY2026", asOf: "2026-01-25",
       origin: "fmp:cash-flow(annual)", formulaVersion: null, displayPrecision: 4 };
@@ -357,13 +357,25 @@ describe("factual prose numeric validation", () => {
     const leadership: Leadership = {
       graded: { grade: "B", oneLineWhy: "Evidence is being checked.", reasoning: [], confidence: "low", keyNumbers: [] },
       executives: [{ name: "Jen-Hsun Huang", title: "President and CEO", tenureYears: null, grade: "B", credibilityGrade: "B", reasoning: [],
-        evidence: { capitalAllocation: [evidence] } }],
+        evidence: { [field]: [evidence] } }],
       insiderSummary: [], governanceNotes: [],
     };
     const result = await runVerifyPass({} as PassDeps, { provenanceRegistry: [record], citationRegistry: [], filings: [] } as unknown as ContextPayload, { leadership });
-    expect(result.log.find(entry => entry.path === "leadership.executives[0].evidence.capitalAllocation[0]")).toMatchObject({ validationStatus: "validated" });
+    expect(result.log.find(entry => entry.path === `leadership.executives[0].evidence.${field}[0]`)).toMatchObject({ validationStatus: "validated", executiveEvidenceKind: "execution" });
     // Execution is evidenced; guidance credibility is not, so only that grade is withdrawn.
     expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
+  });
+
+  it.each(["guidanceVsActuals", "capitalAllocation"] as const)("does not treat validated compensation in %s as an executive performance record", async (field) => {
+    const record = { id: "payload.leadership.comp-jane-doe-ceo-fy2026", label: "total compensation", kind: "provider" as const,
+      value: 1e6, unit: "currency" as const, currency: "USD", period: "FY2026", asOf: "2026-06-30", origin: "edgar:DEF 14A", formulaVersion: null, displayPrecision: 4 };
+    const evidence: SourcedClaim = { label: "FACT", text: "Jane Doe: total compensation for FY2026 was USD 1 million.", source: record.id, asOf: record.asOf };
+    const leadership: Leadership = { graded: { grade: "B", oneLineWhy: "Evidence is being checked.", reasoning: [], confidence: "low", keyNumbers: [] },
+      executives: [{ name: "Jane Doe", title: "CEO", tenureYears: null, grade: "A", credibilityGrade: "A", reasoning: [], evidence: { [field]: [evidence] } }], insiderSummary: [], governanceNotes: [] };
+    const context = { provenanceRegistry: [record], citationRegistry: [], filings: [] } as unknown as ContextPayload;
+    const result = await runVerifyPass({} as PassDeps, context, { leadership });
+    expect(result.log.find((entry) => entry.path === `leadership.executives[0].evidence.${field}[0]`)).toMatchObject({ validationStatus: "validated" });
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "not-assessed", credibilityGrade: "not-assessed" });
   });
 
   it("leaves an unlabeled typed amount unchecked because its metric definition is unavailable", async () => {

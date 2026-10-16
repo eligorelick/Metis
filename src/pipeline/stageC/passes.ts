@@ -122,7 +122,7 @@ import {
   type PassContinuation,
 } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
-import { applyFinancialDiagnostics, assessExecutiveEvidence } from "@/report/financialDiagnostics";
+import { applyFinancialDiagnostics, assessExecutiveEvidence, executiveEvidenceKind } from "@/report/financialDiagnostics";
 import { applyConfidenceCeilings } from "@/pipeline/stageC/confidenceCeiling";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
@@ -2951,6 +2951,8 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       validationStatus,
       numericSupportStatus: validationStatus,
       claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",
+      ...(validated && registryRecord && /^leadership\.executives\[\d+\]\.evidence\./.test(path) && executiveEvidenceKind(registryRecord)
+        ? { executiveEvidenceKind: executiveEvidenceKind(registryRecord) } : {}),
       ...(validation.spans.length === 0 ? {} : { sourceSpans: validation.spans }),
     });
   }

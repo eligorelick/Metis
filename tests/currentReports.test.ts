@@ -512,6 +512,10 @@ describe("D-63 filing evidence", () => {
     const result = await runVerifyPass({} as PassDeps, payload, { leadership, keyNumbers });
     expect(result.log.find((e) => e.path === "leadership.executives[0].evidence.guidanceVsActuals[0]")).toMatchObject({ validationStatus: "validated" });
     expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
+    // A genuine track record stays eligible even if the model chooses another bucket.
+    leadership.executives[0]!.evidence = { capitalAllocation: [fact] };
+    const recategorized = await runVerifyPass({} as PassDeps, payload, { leadership });
+    expect(recategorized.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
     expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, true]);
   });
 });
