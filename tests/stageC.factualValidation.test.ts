@@ -112,6 +112,19 @@ describe("factual prose numeric validation", () => {
     expect(wrong.log[0]).toMatchObject({ outcome: "unverified", reason: "period-mismatch" });
   });
 
+  it("leaves a prose period unchecked, not contradicted, when the cited record carries no period", async () => {
+    // The NVDA final rerun's record and sentence, verbatim.
+    const context = { id: source, label: "DCF base-case year-one revenue growth over TTM", kind: "computed" as const, value: 82.1353, unit: "percent" as const,
+      currency: null, asOf, origin: source, formulaVersion: null, displayPrecision: 4, period: null };
+    const periodless = await verify("", "DCF base-case year-one revenue growth over trailing revenue is 82.1353%.", { provenanceRegistry: [context] });
+    const base = { id: source, label: "Operating margin", kind: "provider" as const, value: 31, unit: "percent" as const,
+      currency: null, asOf, origin: source, formulaVersion: null, displayPrecision: 2 };
+    expect(periodless.log[0]).toMatchObject({ outcome: "unverified", reason: "period-mismatch" });
+    expect(periodless.log[0]?.validationStatus).not.toBe("contradicted");
+    const dated = await verify("", "Q1 FY2026 operating margin was 31%.", { provenanceRegistry: [{ ...base, period: "2026-06-30" }] });
+    expect(dated.log[0]).toMatchObject({ reason: "period-mismatch", validationStatus: "contradicted" });
+  });
+
   it("never joins separated retained source passages into a synthetic numeric sentence", async () => {
     const sourceText = "Operating margin was ";
     const tail = "99%.";

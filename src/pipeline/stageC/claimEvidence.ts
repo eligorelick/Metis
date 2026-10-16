@@ -361,8 +361,14 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       ? established.has(period.key) || window?.key === period.key
       : periodsAgree(period.label, record.period, record.fiscalPeriod ?? null) ||
         (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start));
-    if (own.periods.length > 0 && (record.period === null || !own.periods.every(periodAgrees))) {
-      return support("contradicted", "period-mismatch", "prose period is not established by the cited numeric record");
+    // A record that carries no period cannot contradict a prose period; it can
+    // only fail to establish it (NVDA final rerun: "DCF base-case year-one
+    // revenue growth over trailing revenue is 82.1353%" against a period-less
+    // reverse-DCF context record was counted as a contradiction).
+    if (own.periods.length > 0 && !own.periods.every(periodAgrees)) {
+      return record.period === null
+        ? support("unchecked", "period-mismatch", "the cited numeric record carries no period, so the prose period cannot be checked against it")
+        : support("contradicted", "period-mismatch", "prose period is not established by the cited numeric record");
     }
     const direction = own.direction;
     if (direction !== null && (direction.negated || !isDeltaRecord(record) || direction.relation !== "change")) {
