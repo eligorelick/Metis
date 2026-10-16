@@ -37,12 +37,14 @@
 export interface SectionSpec {
   form: "10-K" | "10-Q" | "20-F";
   /**
-   * 10-K: "1A" (Risk Factors) or "7" (MD&A).
-   * 10-Q: "2" = Part I Item 2 (MD&A), "1A" = Part II Item 1A (Risk Factors).
-   * 20-F: "3D" (Risk Factors) or "5" (Operating and Financial Review).
+   * 10-K: "1" (Business), "1A" (Risk Factors) or "7" (MD&A).
+   * 10-Q: "1" = Part I Item 1 (Financial Statements and their notes),
+   *       "2" = Part I Item 2 (MD&A), "1A" = Part II Item 1A (Risk Factors).
+   * 20-F: "3D" (Risk Factors), "4" (Information on the Company) or "5"
+   *       (Operating and Financial Review).
    */
-  item: "1A" | "7" | "2" | "3D" | "5";
-  /** 10-Q only; defaults: item "2" → part 1, item "1A" → part 2. */
+  item: "1" | "1A" | "7" | "2" | "3D" | "4" | "5";
+  /** 10-Q only; defaults: items "1" and "2" → part 1, item "1A" → part 2. */
   part?: 1 | 2;
 }
 
@@ -120,7 +122,7 @@ export interface ExtractOptions {
   preparsed?: ParsedDocument;
 }
 
-export type SectionKind = "mdna" | "riskFactors";
+export type SectionKind = "mdna" | "riskFactors" | "business" | "financialStatements";
 
 // ---------------------------------------------------------------------------
 // Text utilities (exported for tests)
@@ -533,17 +535,25 @@ const TWENTY_F_SEQUENCE: ItemDef[] = [
 ];
 
 const SECTION_KIND: Record<string, SectionKind> = {
+  "10-K:1": "business",
   "10-K:1A": "riskFactors",
   "10-K:7": "mdna",
+  "10-Q:1": "financialStatements",
   "10-Q:2": "mdna",
   "10-Q:1A": "riskFactors",
   "20-F:3D": "riskFactors",
+  "20-F:4": "business",
   "20-F:5": "mdna",
 };
 
 const TITLE_SYNONYMS: Record<SectionKind, string[]> = {
   mdna: ["management's discussion and analysis", "financial review", "management's discussion & analysis", "operating and financial review and prospects"],
   riskFactors: ["risk factors"],
+  // D-63: matched by containment, so "business" alone would also claim
+  // "Business Strategies"; the 10-K title is "Business" and the 20-F's
+  // "Information on the Company".
+  business: ["information on the company"],
+  financialStatements: ["financial statements (unaudited)", "condensed consolidated financial statements", "financial statements"],
 };
 
 /** Contents-TOC entries that terminate a redirected section slice. */
@@ -573,6 +583,18 @@ const BOUNDARY_SYNONYMS: Record<SectionKind, string[]> = {
     "management's discussion and analysis",
     "financial review",
   ],
+  business: [
+    "risk factors",
+    "unresolved staff",
+    "properties",
+    "operating and financial review",
+    "management's discussion and analysis",
+  ],
+  financialStatements: [
+    "management's discussion and analysis",
+    "quantitative and qualitative disclosures",
+    "controls and procedures",
+  ],
 };
 
 function specKind(spec: SectionSpec): SectionKind {
@@ -581,7 +603,7 @@ function specKind(spec: SectionSpec): SectionKind {
 
 function specPart(spec: SectionSpec): 1 | 2 {
   if (spec.part !== undefined) return spec.part;
-  return spec.item === "2" ? 1 : 2;
+  return spec.item === "2" || spec.item === "1" ? 1 : 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -1278,6 +1300,32 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
 }
 
 // ---------------------------------------------------------------------------
+// Notes to the financial statements (D-63)
+// ---------------------------------------------------------------------------
+
+const NOTES_HEADING_RE = /\bNotes to (?:the )?(?:Condensed )?(?:Consolidated )?(?:Financial Statements|Financial Information)\b/gi;
+const FIRST_NOTE_RE = /^[\s\S]{0,300}?(?:\bNote\s+(?:1|A|One)\b|\b1\s*[.:–—-]\s*[A-Z]|\(1\)\s*[A-Z])/i;
+
+/**
+ * The notes portion of a 10-Q Part I Item 1: from the first "Notes to
+ * (Condensed) (Consolidated) Financial Statements" heading that is followed by
+ * its first note, to the end of the item. The statements before it are tables
+ * the payload already carries as typed figures. `start` is the offset in the
+ * item text; null when no such heading is found, so the caller can disclose
+ * that it kept the whole item instead.
+ */
+export function notesToFinancialStatements(itemText: string): { text: string; start: number } | null {
+  for (const match of itemText.matchAll(NOTES_HEADING_RE)) {
+    // "See accompanying notes to condensed consolidated financial statements."
+    // closes each statement page; it is a reference, not the heading.
+    if (/\b(?:accompanying|see|refer to)\s+(?:the\s+)?$/i.test(itemText.slice(Math.max(0, match.index - 30), match.index))) continue;
+    const after = itemText.slice(match.index + match[0].length, match.index + match[0].length + 400);
+    if (FIRST_NOTE_RE.test(after)) return { text: itemText.slice(match.index), start: match.index };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // extractFromExhibit — Layer 3b completion (EX-13 body)
 // ---------------------------------------------------------------------------
 
@@ -1407,7 +1455,10 @@ export function extractFromExhibit(exhibitHtml: string, opts: ExhibitExtractOpti
  */
 function buildSynonyms(kind: SectionKind, quoted: string[]): string[] {
   const out: string[] = [];
-  const otherKinds = (Object.keys(TITLE_SYNONYMS) as SectionKind[]).filter((k) => k !== kind);
+  // Exhibit redirects exist for the MD&A and risk factors only; the D-63 kinds
+  // (business, financial statements) never reach an EX-13 and must not change
+  // which quoted titles those two keep.
+  const otherKinds = (["mdna", "riskFactors"] as const).filter((k) => k !== kind);
   const namesAnotherKind = (title: string): boolean =>
     !titleMatchesKind(title, kind) && otherKinds.some((k) => titleMatchesKind(title, k));
   for (const q of quoted) {

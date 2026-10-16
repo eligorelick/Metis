@@ -8,11 +8,22 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { parseCapitalReturn, parseGuidance, parseIssuerFreeCashFlow, parseReportedPeriod } from "@/edgar/currentReports";
+import {
+  hasMaterialEventItem,
+  parseCapitalReturn,
+  parseCommitmentTables,
+  parseGuidance,
+  parseIssuerFreeCashFlow,
+  parseReconciliation,
+  parseReportedPeriod,
+  summarizeItem,
+} from "@/edgar/currentReports";
 import { buildQuarterlySegments, fallbackMemberLabel, parseInstanceRevenue, parseMemberLabels } from "@/edgar/segmentFacts";
 import { dcfGuidance, runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
-import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
+import { selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
+import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
+import { assembleContextPayload, riskFactorBudget, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import {
   buildEarningsReleaseRecord,
@@ -23,7 +34,7 @@ import {
 } from "@/providers/currentReports";
 import type { EdgarClient, EdgarFiling } from "@/providers/edgar";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
-import { FilingDisclosuresSchema } from "@/report/schema";
+import { FilingDisclosuresSchema, type Leadership, type SourcedClaim } from "@/report/schema";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 const DIR = path.join(process.cwd(), "fixtures", "edgar", "nvda-current-reports");
@@ -125,6 +136,16 @@ describe("XBRL segment revenue by quarter", () => {
     expect(row("Hyperscale").childOf).toBe("nvda:DataCenterMember");
     expect(row("Data Center").childOf).toBeNull();
     expect(platform.priorPresentation).toContain("Gaming");
+    // D-63: Edge Computing is untagged in Q4 FY2026; Data Center and Edge are
+    // the whole of revenue, so that quarter is the total less Data Center.
+    expect(row("Edge Computing").values[2]).toBe(68_127e6 - row("Data Center").values[2]!);
+    expect(row("Edge Computing").residualAt).toContain(2);
+    // The Q3 FY2026 10-Q tagged "Other" geography under a member the later
+    // filings renamed; the rows still sum to every quarter's total.
+    const geography = series.axes.find((a) => a.axis === "srt:StatementGeographicalAxis")!;
+    expect(geography.rows.find((r) => r.label === "Other")!.values.every((v) => v !== null)).toBe(true);
+    geography.total.forEach((total, i) => expect(geography.rows.reduce((sum, r) => sum + r.values[i]!, 0)).toBeCloseTo(total!, -6));
+    expect(geography.residualCells).toBeGreaterThan(0);
   });
 });
 
@@ -364,5 +385,130 @@ describe("filing disclosures through the payload and the report tables", () => {
       "Issuer-reported free cash flow and capital return",
       "Material SEC current reports (Form 8-K, last 12 months)",
     ]));
+  });
+});
+
+/**
+ * D-63 (NVDA report #34 audit P1-8, P1-14, P0-11, P1-10 and the 2026-10-15
+ * integration-rerun findings): the business description, the 10-Q notes, the
+ * CFO commentary's reconciliation and commitments tables, the 8-K operative
+ * paragraph and the company's guidance track record, read from saved NVIDIA
+ * filings (fixtures/edgar/nvda-periodic-sections: the text extractSection
+ * makes of 10-K Item 1 and of the 10-Q Part I Item 1 notes; q2fy27-ex99-2.txt:
+ * the text parseDocument makes of the Q2 FY2027 CFO commentary).
+ */
+describe("D-63 filing evidence", () => {
+  const SECTIONS = path.join(process.cwd(), "fixtures", "edgar", "nvda-periodic-sections");
+  const ITEM1 = readFileSync(path.join(SECTIONS, "nvda-10k-fy2026-item1.txt"), "utf8");
+  const NOTES = readFileSync(path.join(SECTIONS, "nvda-10q-q2fy27-notes.txt"), "utf8");
+  const Q2_COMMENTARY = read("q2fy27-ex99-2.txt");
+  const section = (sectionName: "item1" | "tenQNotes", text: string, form: string, reportDate: string) => ({
+    ok: true as const,
+    value: {
+      data: { sectionName, text, method: "toc-anchor" as const, chars: text.length, accession: form === "10-K" ? "0001045810-26-000021" : "0001045810-26-000075",
+        form, filingDate: form === "10-K" ? "2026-02-25" : "2026-08-26", reportDate, documentUrl: "https://www.sec.gov/x" },
+      asOf: reportDate, source: "edgar" as const, endpoint: "fixture", fetchedAt: "2026-10-15T00:00:00.000Z",
+    },
+  });
+
+  function nvdaBundle(): DataBundle {
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    const q2 = buildEarningsReleaseRecord({ filing: filing("0001045810-26-000073", "2026-08-26"), releaseUrl: "https://www.sec.gov/q2", commentaryUrl: "https://www.sec.gov/q2cfo",
+      releaseText: Q2_RELEASE, commentaryText: Q2_COMMENTARY, includeNarrative: true });
+    const q1 = buildEarningsReleaseRecord({ filing: filing("0001045810-26-000051", "2026-05-20"), releaseUrl: "https://www.sec.gov/q1", commentaryUrl: null,
+      releaseText: Q1_RELEASE, commentaryText: null, includeNarrative: false });
+    const rvg = buildMaterialEventFiling(filing("0001045810-26-000069", "2026-08-17", "1.01,2.03,7.01"), read("8k-20260817-items-1.01-2.03.txt"), "https://www.sec.gov/rvg");
+    const sourced = <T,>(data: T, asOf: string) => ({ ok: true as const, value: { data, asOf, source: "edgar" as const, endpoint: "fixture", fetchedAt: "2026-10-15T00:00:00.000Z" } });
+    bundle.edgar.currentReports = sourced({ version: CURRENT_REPORTS_VERSION, releases: [q2, q1], events: [rvg], notes: [] }, "2026-08-26");
+    bundle.edgar.business = section("item1", ITEM1, "10-K", "2026-01-25");
+    bundle.edgar.tenQNotes = section("tenQNotes", NOTES, "10-Q", "2026-07-26");
+    const income = bundle.statements.incomeQuarterly;
+    if (!income.ok) throw new Error("fixture income statement missing");
+    income.value.data.rows.unshift({ date: "2026-07-26", period: "Q2", fiscalYear: "2027", reportedCurrency: "USD", revenue: 96_221e6, grossProfit: 72_142e6, operatingIncome: 63_734e6, operatingExpenses: 8_408e6 });
+    return bundle;
+  }
+  const payloadOf = (bundle: DataBundle) => assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+
+  it("retains the business description's platform, roadmap, suppliers, competitors and officers, and the 10-Q notes' material passages", () => {
+    const item1 = selectMaterialEvidence(ITEM1, 12_000, "business");
+    expect(item1.text.length).toBeLessThanOrEqual(12_000);
+    for (const needle of ["CUDA", "Taiwan Semiconductor Manufacturing Company Limited, or TSMC", "Rubin", "Our current competitors include",
+      "Colette M. Kress joined NVIDIA in 2013", "export"]) expect(item1.text).toContain(needle);
+    // The financial reading of the same text kept neither the foundry nor the officers.
+    expect(selectMaterialEvidence(ITEM1, 12_000).text).not.toContain("TSMC");
+    for (const span of item1.spans) expect(ITEM1.slice(span.start, span.end)).toBe(span.text);
+    expect(item1.coverage.version).toBe("section-evidence-2/business");
+
+    const notes = selectMaterialEvidence(NOTES, 12_000, "notes");
+    expect(notes.text.length).toBeLessThanOrEqual(12_000);
+    for (const needle of ["lock-up restrictions", "three direct customers represented 16 %, 15 %, and 13 % of total revenue",
+      "issued an aggregate of $ 25.0 billion of senior unsecured notes", "to $ 279 billion", "affiliate of OpenAI Group PBC (OpenAI)", "equity method"]) {
+      expect(notes.text).toContain(needle);
+    }
+    // A long Item 1A keeps a fifth of itself, between the 14,000 floor and the 24,000 cap.
+    expect([50_000, 114_916, 300_000].map(riskFactorBudget)).toEqual([14_000, 22_983, 24_000]);
+  });
+
+  it("keeps an 8-K's named tenant and counterparty, its dated leads and its amounts, and states a notes offering's total", () => {
+    const payload = payloadOf(nvdaBundle());
+    const rvg = payload.filings.find((e) => e.source === "edgar:8-K 0001045810-26-000069")!;
+    expect(rvg.text).toContain("An affiliate of OpenAI Group PBC (such affiliate, “OpenAI”) will be the tenant.");
+    expect(rvg.text).toContain("SB Energy Corp. (collectively with its affiliates, “SB Energy”)");
+    expect(rvg.text).toContain("capped at $105 billion");
+    expect(payload.filings.map((e) => e.source)).toEqual(expect.arrayContaining(["edgar:10-K item1", "edgar:10-Q notes"]));
+
+    const deal = buildMaterialEventFiling(filing("0001045810-26-000078", "2026-09-03", "8.01"), read("8k-20260902-item-8.01.txt"), "x");
+    const body = deal.sections.map((s) => `Item ${s.item} (${s.title}): ${s.text}`).join("\n\n");
+    expect(selectMaterialEvidence(body, 1_200, "event").text).toContain("approximately $11.9 billion purchase price");
+    expect(hasMaterialEventItem("5.07")).toBe(true);
+    const series = ["4.25% Notes due 2028", "4.35% Notes due 2029", "4.50% Notes due 2031", "4.75% Notes due 2033", "4.95% Notes due 2036", "5.55% Notes due 2046", "5.625% Notes due 2056"];
+    const amounts = ["3,500,000,000", "3,500,000,000", "4,000,000,000", "3,500,000,000", "4,000,000,000", "3,000,000,000", "3,500,000,000"];
+    const offering = { item: "8.01", title: "Other Events", incorporates: null,
+      text: `On June 18, 2026, NVIDIA Corporation completed its offering of ${series.map((name, i) => `$${amounts[i]} aggregate principal amount of its ${name}`).join(", ")}.` };
+    const summary = summarizeItem(offering);
+    expect(summary.length).toBeLessThanOrEqual(600);
+    expect(summary).toMatch(/\[computed: 7 series, \$25\.0 billion aggregate principal amount in total\]$/);
+    expect(summary).not.toMatch(/Notes due …/);
+  });
+
+  it("registers the commentary's reconciliation, commitments and guarantees, and the quarters' equity gains and non-GAAP EPS", () => {
+    const tables = parseCommitmentTables(Q2_COMMENTARY);
+    expect(tables.map((t) => [t.kind, t.total])).toEqual([["commitments", 366e9], ["commitments", 56e9], ["guarantees", 108.5e9]]);
+    expect(tables[0]!.rows).toContainEqual({ label: "Supply and capacity", total: 279e9 });
+    const recon = parseReconciliation(Q2_COMMENTARY);
+    const at = (metric: string, periodEnd: string) => recon.find((f) => f.metric === metric && f.periodEnd === periodEnd && f.months === 3)?.value;
+    expect([at("principal-payments-property-equipment", "2026-07-26"), at("equity-securities-gains", "2026-04-26"), at("non-gaap-diluted-eps", "2026-07-26")])
+      .toEqual([59e6, 15_936e6, 2.22]);
+
+    const bundle = nvdaBundle();
+    expect(FilingDisclosuresSchema.parse(buildFilingDisclosures(bundle)).nonGaapBasisNote).toMatch(/no longer exclude stock-based compensation expense/);
+    const payload = payloadOf(bundle);
+    const record = (id: string) => payload.provenanceRegistry!.find((r) => r.id === id);
+    expect(record("payload.issuer-filings.principal-payments-on-property-and-equipment-and-intangible-assets-three-months-ended-2026-07-26")).toMatchObject({ value: 59e6, currency: "USD" });
+    expect(record("payload.issuer-filings.supply-and-capacity-future-commitments-as-of-2026-07-26")).toMatchObject({ value: 279e9, currency: "USD" });
+    expect(record("payload.issuer-filings.sb-energy-corp-guarantees-guarantees-maximum-gross-exposure-as-of-2026-07-26")).toMatchObject({ value: 105e9 });
+    expect(record("computed.quarterly-trend.net-gains-from-equity-securities-quarter-ended-2026-07-26")).toMatchObject({ value: 7_771e6, currency: "USD" });
+    expect(record("computed.quarterly-trend.non-gaap-diluted-eps-quarter-ended-2026-07-26")).toMatchObject({ value: 2.22, unit: "currency-per-share" });
+  });
+
+  it("validates a CFO guidance-track-record fact the gate then admits, and figures an 8-K or the commentary states in a sentence", async () => {
+    const payload = payloadOf(nvdaBundle());
+    const track = payload.provenanceRegistry!.find((r) => r.id === "computed.quarterly-trend.share-of-the-last-one-guided-quarter-with-revenue-above-the-prior-guided-range")!;
+    expect(track).toMatchObject({ value: 100, unit: "percent", period: null, asOf: "2026-07-26" });
+    const fact: SourcedClaim = { label: "FACT", text: "Colette M. Kress: the share of the last one guided quarter with revenue above the prior guided range was 100%.", source: track.id, asOf: track.asOf };
+    const leadership: Leadership = {
+      graded: { grade: "B", oneLineWhy: "Evidence is being checked.", reasoning: [], confidence: "low", keyNumbers: [] },
+      executives: [{ name: "Colette M. Kress", title: "EVP and CFO", tenureYears: null, grade: "B", credibilityGrade: "A", reasoning: [], evidence: { guidanceVsActuals: [fact] } }],
+      insiderSummary: [], governanceNotes: [],
+    };
+    // Six figures stated in a retained excerpt sentence were untraced on 2026-10-15; two of them.
+    const keyNumbers = [
+      { value: 105, unit: "USD billions: aggregate payment obligation", currency: "USD", period: "2026-08-17", source: "edgar:8-K 0001045810-26-000069", asOf: "2026-08-17", verified: null },
+      { value: 31.6, unit: "USD billions: Inventory", currency: "USD", period: "2026-07-26", source: "edgar:8-K EX-99.2", asOf: "2026-08-26", verified: null },
+    ];
+    const result = await runVerifyPass({} as PassDeps, payload, { leadership, keyNumbers });
+    expect(result.log.find((e) => e.path === "leadership.executives[0].evidence.guidanceVsActuals[0]")).toMatchObject({ validationStatus: "validated" });
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
+    expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, true]);
   });
 });

@@ -15,6 +15,7 @@ import {
   htmlToText,
   mergedAnchors,
   normalizeTitle,
+  notesToFinancialStatements,
   parseCrossRefIndex,
   parseDocument,
   parseQuotedTitles,
@@ -202,6 +203,35 @@ describe("Form 20-F annual sections", () => {
     expect(mdna.method).toBe("toc-anchor");
     expect(mdna.text).toContain("F20MDNA");
     expect(mdna.text).not.toContain("F20DIRECTORS");
+  });
+
+  it("D-63: extracts the business sections (20-F Item 4, 10-K Item 1) and a 10-Q's notes", () => {
+    const company = extractSection(buildTwentyFDoc(), { form: "20-F", item: "4" });
+    expect(company.ok && company.text.includes("F20COMPANY") && !company.text.includes("F20MDNA")).toBe(true);
+    const tenK = [
+      "<table>", itemRow("k_1", "Item 1.", "Business"), itemRow("k_1a", "Item 1A.", "Risk Factors"), "</table>",
+      `<div id="k_1"></div><h2>Item 1. Business</h2>${para(3000, "KBUSINESS")}`,
+      `<div id="k_1a"></div><h2>Item 1A. Risk Factors</h2>${para(3000, "KRISK")}`,
+    ].join("\n");
+    const business = extractSection(tenK, { form: "10-K", item: "1" });
+    expect(business.ok).toBe(true);
+    if (!business.ok) return;
+    expect(business.text).toContain("KBUSINESS");
+    expect(business.text).not.toContain("KRISK");
+    const tenQ = [
+      "<table>", partRow("PART I &#8212; FINANCIAL INFORMATION"), itemRowPlain("q_1", "Item 1.", "Financial Statements (Unaudited)"),
+      itemRowPlain("q_2", "Item 2.", "Management&#8217;s Discussion and Analysis"), partRow("PART II &#8212; OTHER INFORMATION"),
+      itemRowPlain("q_p2_1", "Item 1.", "Legal Proceedings"), "</table>",
+      `<div id="q_1"></div><h2>Item 1. Financial Statements</h2>${para(3000, "QNOTES")}`,
+      `<div id="q_2"></div><h2>Item 2. MD&amp;A</h2>${para(3000, "QMDNA")}`,
+      `<div id="q_p2_1"></div><h2>Item 1. Legal Proceedings</h2>${para(3000, "QLEGAL")}`,
+    ].join("\n");
+    const statements = extractSection(tenQ, { form: "10-Q", item: "1", part: 1 });
+    expect(statements.ok && statements.text.includes("QNOTES") && !statements.text.includes("QMDNA")).toBe(true);
+    // The page-closing reference is not the notes heading; the heading followed by its first note is.
+    const item = "Balance sheet. See accompanying Notes to Condensed Consolidated Financial Statements. 8 Notes to Condensed Consolidated Financial Statements (Unaudited) Note 1 - Summary of Significant Accounting Policies";
+    expect(notesToFinancialStatements(item)?.text).toBe("Notes to Condensed Consolidated Financial Statements (Unaudited) Note 1 - Summary of Significant Accounting Policies");
+    expect(notesToFinancialStatements("Balance sheet only.")).toBeNull();
   });
 
   it("accepts the dotted Item 3.D header when a 20-F has no usable TOC", () => {

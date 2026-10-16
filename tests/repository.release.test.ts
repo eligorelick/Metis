@@ -550,10 +550,12 @@ describe("public release contract", () => {
       read("tests/dataBundle.successor.test.ts"),
       // NVDA report #34 audit, WP3: the nine recorded NVDA 8-K exhibit, 8-K
       // item and XBRL instance/label samples the current-report parsers read.
+      // D-63 adds three: the Q2 FY2027 CFO commentary (EX-99.2) and the
+      // extracted 10-K Item 1 and 10-Q notes text (nvda-periodic-sections).
       read("tests/currentReports.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(30);
+    expect(edgarFixtures).toHaveLength(33);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

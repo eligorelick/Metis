@@ -15,7 +15,7 @@
 import type { DataBundle } from "@/pipeline/types";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsReleaseRecord } from "@/providers/currentReports";
-import type { GuidanceItem } from "@/edgar/currentReports";
+import type { GuidanceItem, ReconciliationFact } from "@/edgar/currentReports";
 import { noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
 
 const SYMBOL_CURRENCY: Readonly<Record<string, string>> = { "US$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY" };
@@ -216,7 +216,19 @@ function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRe
   return checks.sort((a, b) => b.periodEnd.localeCompare(a.periodEnd) || (a.metric === b.metric ? 0 : a.metric === "revenue" ? -1 : 1));
 }
 
-function quarterlyTrend(bundle: DataBundle): FilingDisclosures["quarterlyTrend"] {
+/**
+ * D-63: one three-month reconciliation value per quarter end across the
+ * releases (newest release first), read in the statements' currency only.
+ */
+function quarterReconciliation(releases: readonly EarningsReleaseRecord[], currency: string | null, metric: ReconciliationFact["metric"], periodEnd: string): number | null {
+  for (const release of releases) {
+    const fact = (release.reconciliation ?? []).find((f) => f.metric === metric && f.months === 3 && daysApart(f.periodEnd, periodEnd) <= 3);
+    if (fact && currency !== null && symbolCurrency(fact.symbol, currency) === currency) return fact.value;
+  }
+  return null;
+}
+
+function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[] = [], currency: string | null = null): FilingDisclosures["quarterlyTrend"] {
   const byDate = <T extends FmpRawRow>(rows: T[]): Map<string, T> => {
     const out = new Map<string, T>();
     for (const r of rows) {
@@ -257,8 +269,18 @@ function quarterlyTrend(bundle: DataBundle): FilingDisclosures["quarterlyTrend"]
       epsDiluted: num(r.epsDiluted),
       operatingCashFlow: ocf,
       freeCashFlow: ocf !== null && capex !== null ? ocf - Math.abs(capex) : num(c?.freeCashFlow),
+      ...(releases.length === 0 ? {} : {
+        equitySecuritiesGains: quarterReconciliation(releases, currency, "equity-securities-gains", d),
+        nonGaapEpsDiluted: quarterReconciliation(releases, currency, "non-gaap-diluted-eps", d),
+      }),
     };
   });
+}
+
+/** D-63: the disclosure for segment cells filled as the quarter's total less the axis's other rows. */
+export function residualNote(axisLabel: string, cells: number): string {
+  return `Segment XBRL, ${axisLabel}: ${cells} quarter value${cells === 1 ? " is" : "s are"} the quarter's total revenue less the axis's other ` +
+    "top-level rows (the rows sum to the total in the latest quarter); this carries a member renamed between filings or a quarter no filing tags.";
 }
 
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */
@@ -266,11 +288,11 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const reports = currentReportsOf(bundle);
   const segmentsRes = bundle.edgar?.quarterlySegments;
   const segments = segmentsRes?.ok ? segmentsRes.value.data : null;
-  const trend = quarterlyTrend(bundle);
-  if (reports === null && segments === null && trend.length === 0) return undefined;
   const currency = statementReportingCurrency(bundle);
-  const notes: string[] = [];
   const releases = reports?.releases ?? [];
+  const trend = quarterlyTrend(bundle, releases, currency);
+  if (reports === null && segments === null && trend.length === 0) return undefined;
+  const notes: string[] = [];
 
   const guided = releases.find((r) => (r.guidance?.items.length ?? 0) > 0);
   const guidance: FilingDisclosures["guidance"] = guided && guided.guidance
@@ -350,10 +372,35 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     total: axis.total,
     priorPresentation: axis.priorPresentation,
     derivedCells: axis.derivedCells,
+    ...(axis.residualCells > 0 ? { residualCells: axis.residualCells } : {}),
     sources: segments!.filings.map((f) => `${f.form} ${f.accession} (filed ${f.filingDate})`),
   }));
   if (segments && segments.notes.length > 0) notes.push(...segments.notes.map((n) => `Segment XBRL: ${n}`));
+  for (const axis of segments?.axes ?? []) {
+    if (axis.residualCells > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
+  }
   if (reports) notes.push(...reports.notes.slice(0, 6));
+
+  // D-63: the latest release's reconciliation rows and the commitments and
+  // guarantees tables, in the statements' currency only.
+  const latestCurrencyOk = (symbol: string): boolean => currency !== null && symbolCurrency(symbol, currency) === currency;
+  const reconciliation: NonNullable<FilingDisclosures["reconciliation"]> = latest
+    ? (latest.reconciliation ?? []).filter((f) => latestCurrencyOk(f.symbol))
+      .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: releaseRef(latest, null) }))
+    : [];
+  const commitmentRelease = releases.find((r) => (r.commitments ?? []).length > 0);
+  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease && currency !== null
+    ? (commitmentRelease.commitments ?? []).flatMap((table, index, all) => {
+        const name = table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
+          : all.findIndex((t) => t.kind === "commitments") === index ? "future commitments" : "additional commitments";
+        const source = releaseRef(commitmentRelease, commitmentRelease.commitmentsExhibit ?? "EX-99.1");
+        return [
+          ...table.rows.map((row) => ({ kind: table.kind, table: name, asOf: table.asOf, label: safeText(row.label, "(row label withheld)"), total: row.total, tableTotal: false, source })),
+          ...(table.total === null ? [] : [{ kind: table.kind, table: name, asOf: table.asOf, label: "Total", total: table.total, tableTotal: true, source }]),
+        ];
+      })
+    : [];
+  const basisNote = releases.find((r) => typeof r.nonGaapBasisNote === "string")?.nonGaapBasisNote ?? null;
 
   return {
     version: "1.0.0",
@@ -369,6 +416,9 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     events,
     segments: segmentTables,
     quarterlyTrend: trend,
+    ...(reconciliation.length === 0 ? {} : { reconciliation }),
+    ...(commitments.length === 0 ? {} : { commitments }),
+    ...(basisNote === null ? {} : { nonGaapBasisNote: safeText(basisNote, "The issuer's non-GAAP basis note is withheld from display by the rating-language filter; see the release.") }),
     notes: notes.map((n) => safeText(n, "A disclosure note is withheld from display by the rating-language filter.")),
   };
 }
