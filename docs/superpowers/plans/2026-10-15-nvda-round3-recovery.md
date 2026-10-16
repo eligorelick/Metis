@@ -27,8 +27,8 @@
 - [x] Recover and validate D-67 presentation/completeness; commit in presentation worktree.
 - [x] Merge into `claude/nvda-audit-integration`, resolving shared surfaces without losing fixes.
 - [x] Run the complete `npm run verify` gate and investigate failures.
-- [ ] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
-- [ ] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
+- [x] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
+- [x] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
 - [ ] Commit, push and integrate via GitHub with fresh required CI, if release gates pass.
 - [x] Validate the preserved transport/checkpoint package and prevent timeout
   recovery from lowering explicitly selected reasoning or speed settings.
@@ -70,6 +70,21 @@
   subsequent guarantees; these require correction before release. Reuse the
   saved model output in an explicitly labeled deterministic corrected replay,
   retaining the original report and exact original payload binding.
+- Final corrected replay at application source `ca533a8` preserves the original
+  report and accounting, adds 13 sourced facts (43 total), and validates 85/91
+  numeric claims with zero contradictions. Six numeric and 14 qualitative claims
+  remain unvalidated. One exact source-bound Rubin wording correction is
+  editorially disclosed. Independent review confirmed hashes, source periods,
+  qualifications and unchanged valuation/scores/assumptions. Final artifacts are
+  under ignored `tmp/nvda-round3-live/corrected-deterministic-replay-editorial`.
+  Browser review confirmed desktop/mobile layout and readable print HTML.
+- Final application source `ca533a8` passed the entire `npm run verify` gate
+  (exit 0): 6,188 product tests, three existing skips, four integration tests,
+  typecheck, lint, core coverage, enforced risk-file floors, production build
+  and security audit (zero vulnerabilities). Aggregate risk coverage is
+  94.73% statements, 87.79% branches, 97.50% functions and 96.94% lines.
+  `npm run audit:deltas` also passes. Log: ignored
+  `tmp/nvda-final-release-verify.log`. Required remote CI is still pending.
 
 ## Remaining research and presentation limits
 
