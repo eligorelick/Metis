@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { getReportRecordById, parseReportId } from "@/report/history";
 import type { Report } from "@/report/schema";
+import type { CompletenessSource } from "@/report/completeness";
 import { gradeForDisplay } from "@/report/assessment";
 import {
   gradeSurfaceEntries,
@@ -49,6 +50,8 @@ export interface ReportSummary {
   dataCompleteness: NonNullable<Report["meta"]["dataCompleteness"]> | null;
   /** Sanitized missing-data disclosures needed by compact consumers. */
   missingData: Report["appendix"]["missingData"] | null;
+  /** Minimal retained-source identity for compact coverage presentation. */
+  retainedSources: CompletenessSource[] | null;
 }
 
 export async function GET(
@@ -100,5 +103,6 @@ export async function GET(
     dataOnly,
     dataCompleteness: report?.meta.dataCompleteness ?? null,
     missingData: report?.appendix.missingData ?? null,
+    retainedSources: report?.appendix.sources.map(({ provider, endpoint }) => ({ provider, endpoint })) ?? null,
   });
 }

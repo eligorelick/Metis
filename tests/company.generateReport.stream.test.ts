@@ -90,6 +90,41 @@ function reportSummary(over: Record<string, unknown> = {}) {
 }
 
 describe("GenerateReport — revisioned snapshot stream fence", () => {
+  it("validates compact source evidence before installing and rendering a completed summary", async () => {
+    const fence = createJobStreamSnapshotFence();
+    const source = {};
+    fence.activate(source, "job-A", "AAPL");
+    fence.accept(source, snapshot({ revision: 1, status: "done", reportId: 11 }));
+    const token = fence.token(source, "job-A")!;
+    const malformed = [null, {}, "edgar", [null], [{ provider: "edgar" }], [{ provider: 1, endpoint: "10-Q" }], [{ provider: "edgar", endpoint: 2 }], [{ provider: "edgar", endpoint: "10-Q", unexpected: true }]];
+    const installed: unknown[] = [];
+    for (const retainedSources of malformed) {
+      await fetchReportSummaryForSnapshot(11, token, fence, (summary) => installed.push(summary), async () => ({ ok: true, json: async () => reportSummary({ retainedSources }) }));
+    }
+    expect(installed).toEqual([]);
+    for (const retainedSources of [undefined, [], [{ provider: "edgar", endpoint: "10-Q notes" }]]) {
+      let markup = "";
+      await fetchReportSummaryForSnapshot(11, token, fence, (summary) => {
+        installed.push(summary);
+        markup = renderToStaticMarkup(createElement(ReportReadyPanel, { summary, dataOnly: false, totalCost: 0, steps: [] }));
+      }, async () => ({ ok: true, json: async () => reportSummary({ retainedSources,
+        dataCompleteness: { state: "degraded", criticalCount: 0, warningCount: 1, edgar: "missing", xbrl: "skipped", forensicValidation: "provisional" },
+        missingData: [{ field: "edgar.tenKNotes(QCOM)", reason: "Annual notes unavailable", severity: "warn" }, { field: "validation.xbrlCrossCheck", reason: "XBRL skipped", severity: "info" }],
+      }) }));
+      expect(markup).toContain(`EDGAR ${retainedSources?.length ? "partial" : "missing"}`);
+    }
+    expect(installed).toHaveLength(3);
+    await fetchReportSummaryForSnapshot(11, token, fence, (summary) => installed.push(summary), async () => ({ ok: true, json: async () => reportSummary({ dataOnly: null, grades: [], dataCompleteness: null, missingData: null, retainedSources: [{ provider: "edgar", endpoint: "10-Q" }] }) }));
+    expect(installed).toHaveLength(3);
+    await fetchReportSummaryForSnapshot(11, token, fence, (summary) => {
+      installed.push(summary);
+      const markup = renderToStaticMarkup(createElement(ReportReadyPanel, { summary, dataOnly: false, totalCost: 0, steps: [] }));
+      expect(markup).toContain("completeness unknown");
+      expect(markup).not.toContain("EDGAR partial");
+    }, async () => ({ ok: true, json: async () => reportSummary({ dataOnly: null, grades: [], dataCompleteness: null, missingData: null, retainedSources: null }) }));
+    expect(installed).toHaveLength(4);
+  });
+
   it("accepts revision zero and jumps, but rejects duplicate/regressing or malformed revisions", () => {
     const fence = createJobStreamSnapshotFence();
     const source = {};

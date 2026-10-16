@@ -2,6 +2,9 @@ import type { ManifestEntry } from "@/types/core";
 import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
 
+/** Only source identity is needed to distinguish partial from missing coverage. */
+export type CompletenessSource = Pick<SourceEntry, "provider" | "endpoint">;
+
 export interface DataCompleteness {
   state: "complete" | "degraded" | "blocked";
   criticalCount: number;
@@ -245,7 +248,7 @@ function countLabel(count: number, singular: string, plural: string): string {
 export function deriveReportCompletenessPresentation(
   persisted: PersistedDataCompleteness | undefined,
   gaps: readonly ManifestEntry[],
-  retainedSources: readonly SourceEntry[] = [],
+  retainedSources: readonly CompletenessSource[] = [],
 ): ReportCompletenessPresentation {
   const recomputed = buildDataCompleteness(gaps);
   const metadataStatus: CompletenessMetadataStatus = persisted === undefined

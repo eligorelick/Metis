@@ -16,7 +16,10 @@ Combined source `eaefea32` passed `npm run verify`, exit 0: 6,447 product tests
 96.33/90.21/98.23/97.56% and risk coverage 94.85/88.16/97.58/97.05%
 (statements/branches/functions/lines), production build and zero-vulnerability
 security audit. Independent combined-source and export review found no remaining
-reviewed blocker. Fresh required release CI remains pending.
+reviewed blocker. A subsequent PR review found compact report-ready coverage
+missing its retained-source metadata; the narrow propagation fix has focused
+regressions and awaits independent review and a fresh full gate. Fresh required
+release CI remains pending.
 
 D-74 corrects deterministic principal summaries: an included financing option
 cannot be added to its offering total. Computed sums require proven distinct

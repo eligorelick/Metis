@@ -21,6 +21,9 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportReadyPanel } from "@/app/company/[symbol]/GenerateReport";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +37,7 @@ import { buildDataCompleteness } from "@/report/completeness";
 import { ReportSchema, REPORT_SPEC_VERSION, type Report } from "@/report/schema";
 
 import { GET as exportGET } from "@/app/api/export/[reportId]/route";
-import { GET as viewGET } from "@/app/api/report/view/[reportId]/route";
+import { GET as viewGET, type ReportSummary } from "@/app/api/report/view/[reportId]/route";
 import { task28SentinelReport } from "./helpers/task28Report";
 
 /* ------------------------------------------------------------------------ *
@@ -360,6 +363,34 @@ describe("GET /api/export/[reportId]", () => {
  * ------------------------------------------------------------------------ */
 
 describe("GET /api/report/view/[reportId]", () => {
+  it.each([
+    { source: { provider: "edgar", endpoint: "10-Q notes" }, expected: "partial" },
+    { source: { provider: "fmp", endpoint: "balance-sheet-statement" }, expected: "missing" },
+    { source: { provider: "edgar", endpoint: " " }, expected: "missing" },
+    { source: null, expected: "missing" },
+  ])("carries compact source evidence into the ready panel ($expected, $source)", async ({ source, expected }) => {
+    const report = task28SentinelReport();
+    report.appendix.missingData = [
+      { field: "edgar.tenKNotes(QCOM)", reason: "Requested annual notes unavailable", severity: "warn" },
+      { field: "validation.xbrlCrossCheck", reason: "XBRL skipped", severity: "info" },
+    ];
+    report.appendix.sources = source ? [{ ...source, asOf: "2026-06-28", fetchedAt: report.meta.generatedAt }] : [];
+    report.meta.dataCompleteness = buildDataCompleteness(report.appendix.missingData);
+    expect(report.meta.dataCompleteness.edgar).toBe("missing");
+    const storedBytes = JSON.stringify(report);
+    const id = seedReport(report);
+    const response = await viewGET(...viewReq(String(id)));
+    const body = await response.json() as ReportSummary;
+    expect(body.retainedSources).toEqual(source ? [source] : []);
+    const markup = renderToStaticMarkup(createElement(ReportReadyPanel, { summary: body, dataOnly: false, totalCost: 0, steps: [] }));
+    expect(markup).toContain(`EDGAR ${expected}`);
+    expect(markup).toContain("XBRL skipped");
+    expect(markup).toContain("forensic validation provisional");
+    expect(body.dataCompleteness).toEqual(report.meta.dataCompleteness);
+    expect(body.missingData).toEqual(report.appendix.missingData);
+    expect(handle.db.select({ reportJson: reports.reportJson }).from(reports).where(eq(reports.id, id)).get()?.reportJson).toBe(storedBytes);
+  });
+
   it("withholds current and legacy placeholder grades in compact summaries without rewriting the report", async () => {
     const report = task28SentinelReport();
     report.appendix.missingData.push({ field: "analysis.llm", reason: "No completed assessment", severity: "critical" });
@@ -642,6 +673,7 @@ describe("GET /api/report/view/[reportId]", () => {
     expect(body.dataOnly).toBeNull();
     expect(body.dataCompleteness).toBeNull();
     expect(body.missingData).toBeNull();
+    expect(body).toHaveProperty("retainedSources", null);
     expect(body.synthesis).toContain("unavailable");
   });
 });
