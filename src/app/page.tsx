@@ -192,10 +192,11 @@ export default async function Home() {
             <span className="mono font-semibold uppercase tracking-[0.08em]">
               synthetic fixture mode
             </span>{" "}
-            — no FMP_API_KEY configured. Watchlist quotes and earnings dates use
+            — no FMP_API_KEY configured. No current market data is fetched by
+            watchlist navigation. Quotes and earnings dates use
             eligible saved data or disclosed gaps; cached quotes show their date.
             Real US filers are still served live from SEC
-            EDGAR and Yahoo on their company pages once EDGAR_CONTACT is set. The
+            EDGAR and Yahoo through live analysis once EDGAR_CONTACT is set. The
             fictional general-company ticker{" "}
             <Link href="/company/DEMO" className="font-semibold underline">
               DEMO
