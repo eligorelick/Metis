@@ -305,6 +305,12 @@ fiscal year.
 - **Exclusions.** A year whose paid price is more than 1.6× away from its
   average price is excluded as a basis or tagging mismatch. Timing is
   withheld below 50% coverage of repurchase dollars.
+- **Missing side (D-68).** The year's average price is the market cap over
+  the fiscal window ÷ basic weighted shares. When timing is not measured,
+  the capital note names the side that is missing: the years whose tagged
+  execution price has no year-average price (and why, e.g. no market-cap
+  history inside the fiscal window), the years outside the plausibility band,
+  or no tagged pair at all.
 
 See `tests/stageB.growth.returns.capital.test.ts`,
 `tests/stageB.forensicsD61.test.ts`, `tests/stageB.returnsCurrencyAndIc.test.ts`
@@ -1405,12 +1411,32 @@ long-term investments in both years, the ratio is operating accruals
 NI − CFO. Statements built from companyfacts always take this path. The
 result's `definition`, the forensic notes, the payload and the report's
 "Variant" cell name the construction used. Above 30% revenue growth a note
-gives revenue and NOA growth: accruals of a fast grower are mostly NOA growth
-(Fairfield, Whisenant & Yohn 2003). The note is not graded.
+gives the fiscal year's revenue and NOA growth: accruals of a fast grower are
+mostly NOA growth (Fairfield, Whisenant & Yohn 2003). The note is not graded.
+
+**Acquisitions and NOA composition (D-68).** When the year's increase in
+goodwill and other intangibles, or the cash paid for acquisitions, is at least
+10% of the NOA increase (house rule), a note gives goodwill and intangibles at
+both year ends, the cash paid (the statement's acquisitions line plus a
+payment the filer tags as `PaymentsToAcquireBusinessTwoNetOfCashAcquired`
+when the row carries it in other investing) and the acquired share of the NOA
+increase. With that note or the growth note, a second note splits the NOA
+increase into receivables, inventory, net PP&E, goodwill and intangibles,
+other operating assets and operating liabilities. Neither is graded.
 
 **Beneish.** The report prints all eight indices and M with SGI at neutral
 1.0. When only SGI carries M over −1.78, the zone reads "flag (growth-led)"
-and the quality signal is graded on the SGI-neutral M.
+and the quality signal is graded on the SGI-neutral M. When M is above the
+"unlikely" band (D-68), AQI above 1 is explained from the balance sheet
+(goodwill, other intangibles, long-term investments and the remaining
+non-current assets at both year ends, and AQI without the first three), and
+GMI above 1 from the gross margins and the inventory write-downs the filer
+tags (`InventoryWriteDown`), with GMI and the margin decline recomputed with
+them added back. Context, not graded.
+
+**Notes, not flags (D-68).** The accrual definition, its house bands and the
+growth, acquisition, AQI and GMI context are the report's forensic notes,
+printed under the forensic table. The flags list carries findings only.
 
 **Piotroski.** The zone names the failed signals, and the payload carries all
 nine outcomes.
