@@ -207,8 +207,11 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
   const labelEnd = following ? following.start : end;
   const label = text.slice(labelStart, quantity.start) + " " + text.slice(quantity.end, labelEnd);
   const ownText = text.slice(start, end);
+  // A lock-up restriction names an asset constraint, not an upward change.
+  // Keep offsets and every actual change/negation word for direction binding.
+  const directionText = ownText.replace(/\block[‐‑–—-]up\b/gi, (match) => match.slice(0, -2) + "xx");
   return { start, end, text: ownText, label, periods: periodLabels(ownText),
-    direction: quantityDirection(ownText, quantity.start - start, quantity.end - start,
+    direction: quantityDirection(directionText, quantity.start - start, quantity.end - start,
       all.filter((other) => other.start >= start && other.end <= end).map((other) => ({ start: other.start - start, end: other.end - start }))),
     ambiguous: all.filter((other) => other.start >= start && other.end <= end &&
       (other.unit === quantity.unit || other.unit === null)).length > 1 ||
@@ -271,12 +274,17 @@ function metricTokens(label: string, ignore: readonly string[]): string[] {
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
   // comparison basis is part of a growth's definition (see COMPARISON_BASIS).
   let metric = label.replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bP\s*\/\s*E\b/gi, "pe")
+    .replace(/\block[‐‑–—-]up\b/gi, "lockup")
     .replace(/\byear[\s‐‑–—-]+over[\s‐‑–—-]+year\b|\byoy\b/gi, " yoy ")
     .replace(/\bquarter[\s‐‑–—-]+over[\s‐‑–—-]+quarter\b|\bqoq\b/gi, " qoq ")
     // "Management's guidance" attributes the figure; it does not define it.
     .replace(/\b(?:management|the company)['’]s\b/gi, " ")
     .replace(LABEL_WINDOW, (_match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ");
   for (const period of periodLabels(metric)) metric = metric.replace(period.raw, period.kind === "window" ? ` window${period.key} ` : " ");
+  // Preserve the explicit horizon, including its number, when prose spells
+  // out the technical-series label "6-month" as "over six months".
+  metric = metric.replace(/\b(?:over\s+)?(?:six|6)[\s‐‑–—-]+months?\b/gi, " window6M ");
   // Preserve negative compounds as definitions. Splitting non-GAAP into two
   // words would let a GAAP claim reuse the GAAP substring of its opposite.
   metric = metric.toLowerCase().replace(/\bnon[\s‐‑–—-]+(?=[a-z])/g, "non-").replace(/[‐‑–—]/g, "-");
@@ -317,7 +325,8 @@ function basisWindows(record: NumericProvenanceRecord): Set<string> {
  */
 function labelWindows(record: NumericProvenanceRecord): Set<string> {
   const windows = new Set<string>();
-  for (const period of periodLabels((record.label ?? "").replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ")))
+  for (const period of periodLabels((record.label ?? "").replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(LABEL_WINDOW, (match, quarter: string | undefined) => quarter ? " for the quarter " : " for the year ")))
     if (period.kind === "window") windows.add(period.key);
   return windows;
 }
@@ -342,13 +351,51 @@ function withoutRestatedAcronyms(label: string): string | null {
   });
   return out === label ? null : out;
 }
-/** The readings of a record's label that prose may name it by: as printed, without its axis, without restated acronyms. */
-function labelReadings(label: string | null | undefined): string[] {
+/**
+ * Equivalent names bound to the producers' explicit contracts. These are
+ * additional source labels, never stopwords in arbitrary prose/excerpts.
+ * Accounting basis, entity, formula operands and forecast period survive.
+ */
+function labelReadings(record: NumericProvenanceRecord): string[] {
+  const label = record.label;
   if (!label) return [];
   const forms = new Set<string>([label]);
   for (const form of [...forms]) { const bare = withoutAxis(form); if (bare !== null) forms.add(bare); }
   for (const form of [...forms]) { const bare = withoutRestatedAcronyms(form); if (bare !== null) forms.add(bare); }
+  if (record.kind === "computed") {
+    if (record.unit === "score" && /^computed\.scores\.[a-z]+$/.test(record.origin) &&
+      record.id.startsWith("computed.deterministic-aspect-scores.") && /^[a-z]+ score$/.test(label)) forms.add(`quantitative ${label}`);
+    if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)")
+      forms.add("P/E TTM (current)");
+    if (record.id.startsWith("computed.quarterly-trend.") && record.origin === "fmp:income-statement(quarter)" && record.unit === "currency" &&
+      /^free cash flow \(operating cash flow less capex\), quarter ended \d{4}-\d{2}-\d{2}$/.test(label)) forms.add(`standardized ${label}`);
+    const forward = /^(fcf|epsDiluted) weighted (12M ending \d{4}-\d{2}-\d{2})$/.exec(label);
+    if (forward !== null && record.id.startsWith("computed.weighted-projections.") && record.period === forward[2]) {
+      // projections.ts: forward fcf is FCFF; forward epsDiluted uses the
+      // D-65 operating-EPS formula. Neither alias applies to historical EPS/FCF.
+      if (forward[1] === "fcf" && record.origin === "computed.projections.fcf.weighted" && record.unit === "currency")
+        forms.add(`FCFF weighted ${forward[2]}`);
+      if (forward[1] === "epsDiluted" && record.origin === "computed.projections.epsDiluted.weighted" && record.unit === "currency-per-share")
+        forms.add(`operating EPS weighted ${forward[2]}`);
+    }
+  }
+  if (record.kind === "provider" && record.id.startsWith("payload.filing-facts.") && /^edgar:8-K\s/.test(record.origin)) {
+    if (record.unit === "currency" && / \(appointment package\)$/.test(label)) forms.add(label.replace(/ \(appointment package\)$/, ""));
+  }
   return [...forms];
+}
+/** Explicit typed-source metadata/formula readings; replacements preserve quantity offsets. */
+function typedClaimContext(text: string, record: NumericProvenanceRecord): string {
+  if (record.kind === "provider" && record.id.startsWith("payload.filing-facts.") && /^edgar:8-K\s/.test(record.origin) &&
+    record.unit === "percent" && record.label === "say-on-pay support (votes for / for + against + abstentions)") {
+    // Read this exact formula before the unordered metric tokens: swapping
+    // votes against into the numerator must not reuse the same word set.
+    return text.replace(/\bmeasured as votes for divided by votes for, against and abstentions\b/gi,
+      (match) => "(votes for / for + against + abstentions)".padEnd(match.length));
+  }
+  if (record.kind !== "provider" || !record.id.startsWith("payload.issuer-filings.") || !/^edgar:8-K\s/.test(record.origin) ||
+    !/\bguidance\b/.test(record.label ?? "") || !isIsoDate(record.asOf ?? "")) return text;
+  return text.replace(/\bissued on (\d{4}-\d{2}-\d{2})\b/gi, (match, date: string) => date === record.asOf ? " ".repeat(match.length) : match);
 }
 /** A typed record's "<basis>: <start> to <end>" window. */
 function recordWindow(record: NumericProvenanceRecord): { key: string; start: string; end: string } | null {
@@ -543,7 +590,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   if (record !== undefined) {
     if (stated.length !== 1) return support("unchecked", "text-ambiguous", "one numeric record cannot bind multiple prose quantities");
     const quantity = stated[0];
-    const own = context(claim.text, quantity, stated);
+    const own = context(typedClaimContext(claim.text, record), quantity, stated);
     if (own.periods.some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
@@ -556,7 +603,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // A window the record's basis establishes may be left unstated on either side.
     const unestablished = (words: string[]): string[] => words.filter((word) => ![...established].some((key) => word === `window${key.toLowerCase()}`));
     const claimTokens = perShare(unestablished(metricTokens(own.label, ignore)).filter((word) => !(word === "yoy" && established.has("annual"))));
-    const labels = labelReadings(record.label);
+    const labels = labelReadings(record);
     if (!labels.some((label) => namesMetric(claimTokens, perShare(unestablished(metricTokens(`${label} ${record.period ?? ""}`, ignore)))))) {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
     }
