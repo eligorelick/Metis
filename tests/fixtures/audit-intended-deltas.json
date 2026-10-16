@@ -9485,14 +9485,14 @@
       ]
     },
     {
-      "name": "principal-summary-safety",
-      "decisions": ["D-74", "D-75"],
-      "reason": "D-74/D-75: report 1.19.3 scopes generated principal sums to proven distinct named issuance tranches, corrects legacy presentation copies immutably and binds preceding table scales conservatively. This fixture has no affected annotation or table-scale claim: only the report convention stamp changes; all financial leaves, grades and weights remain pinned. Saved reports retain their original conventions.",
+      "name": "d76-dividend-units-and-output-evidence",
+      "decisions": ["D-76"],
+      "reason": "D-76: report 1.19.4 distinguishes an explicitly printed dividend total from its per-share restatement without relaxing unrelated unit or ambiguity checks. This fixture has no affected dividend claim: only the report convention stamp changes; all financial leaves, grades and weights remain pinned. Saved reports retain their original conventions.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.19.3"
+          "after": "1.19.4"
         }
       ]
     }
