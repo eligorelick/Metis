@@ -266,6 +266,8 @@ export interface SegmentRow {
   values: (number | null)[];
   /** A member whose latest-quarter value equals the sum of two or three others (a subtotal). */
   childOf: string | null;
+  /** D-63: quarter indexes filled as the total less the other top-level rows (see `residualCells`). */
+  residualAt?: number[];
 }
 
 export interface SegmentSeries {
@@ -281,6 +283,14 @@ export interface SegmentSeries {
   priorPresentation: string[];
   /** Quarter cells derived as differences of two windows, as "member end-date". */
   derivedCells: number;
+  /**
+   * D-63: cells filled as the quarter's total less the axis's other top-level
+   * members, where the members are shown to be exhaustive (they sum to the
+   * total in the latest quarter) and exactly one is untagged in that quarter —
+   * a member renamed between filings (NVIDIA's "Other" geography) or a quarter
+   * no filing states for it (Edge Computing = total less Data Center).
+   */
+  residualCells: number;
 }
 
 export interface QuarterlySegmentRevenue {
@@ -360,6 +370,7 @@ export function buildQuarterlySegments(
       childOf: null,
     }));
     markSubtotals(rows);
+    const residualCells = fillResiduals(rows, totalCells);
     rows.sort((a, b) => {
       const parentA = a.childOf ? rows.find((r) => r.member === a.childOf)! : a;
       const parentB = b.childOf ? rows.find((r) => r.member === b.childOf)! : b;
@@ -370,7 +381,7 @@ export function buildQuarterlySegments(
     });
     const prior = members.filter((member) => !current.includes(member)).map((member) => labels[member] ?? fallbackMemberLabel(member)).sort();
     const axisCurrency = at(axis, current[0]!, quarters[0]!)!.currency;
-    axes.push({ axis, axisLabel: SEGMENT_AXES[axis]!, currency: axisCurrency, quarters, rows, total: totalCells, priorPresentation: prior, derivedCells });
+    axes.push({ axis, axisLabel: SEGMENT_AXES[axis]!, currency: axisCurrency, quarters, rows, total: totalCells, priorPresentation: prior, derivedCells, residualCells });
   }
   return {
     quarters,
@@ -397,6 +408,32 @@ function markSubtotals(rows: SegmentRow[]): void {
     const found = combos(others, 2).concat(combos(others, 3)).find((combo) => Math.abs(combo.reduce((sum, i) => sum + latest[i]!, 0) - parent) <= tolerance);
     if (found) for (const i of found) rows[i]!.childOf = rows[p]!.member;
   }
+}
+
+/**
+ * D-63: fill a quarter's one missing top-level cell as the total less the
+ * other top-level rows. Only when the top-level rows are exhaustive — every
+ * one is tagged in the latest quarter and they sum to its total within 0.1%
+ * — and the remainder is not negative. Returns the number of cells filled.
+ */
+function fillResiduals(rows: SegmentRow[], total: readonly (number | null)[]): number {
+  const top = rows.filter((r) => r.childOf === null);
+  const latestTotal = total[0];
+  if (top.length < 2 || latestTotal == null || top.some((r) => r.values[0] == null)) return 0;
+  const tolerance = (t: number): number => Math.max(Math.abs(t) * 0.001, 1);
+  if (Math.abs(top.reduce((sum, r) => sum + r.values[0]!, 0) - latestTotal) > tolerance(latestTotal)) return 0;
+  let filled = 0;
+  for (let i = 1; i < total.length; i++) {
+    const t = total[i];
+    const missing = top.filter((r) => r.values[i] == null);
+    if (t == null || missing.length !== 1) continue;
+    const remainder = t - top.reduce((sum, r) => sum + (r.values[i] ?? 0), 0);
+    if (remainder < -tolerance(t)) continue;
+    missing[0]!.values[i] = Math.max(0, remainder);
+    missing[0]!.residualAt = [...(missing[0]!.residualAt ?? []), i];
+    filled += 1;
+  }
+  return filled;
 }
 
 function combos(items: number[], k: number): number[][] {

@@ -343,37 +343,213 @@ const MONTH_WORDS: Record<string, 3 | 6 | 9 | 12> = { three: 3, six: 6, nine: 9,
  * prints exactly as many month-day / year pairs as the row has values; the
  * year-to-date group starts where the first column's date repeats.
  */
-export function parseIssuerFreeCashFlow(rawText: string): FreeCashFlowFact[] {
-  const text = normalizeFilingText(rawText);
-  const row = /\bFree cash flow\s+((?:\$?\s?\(?-?[\d,]+(?:\.\d+)?\)?\s*){1,8})/.exec(text);
-  if (!row) return [];
-  const values = [...row[1]!.matchAll(/\(?-?[\d,]+(?:\.\d+)?\)?/g)].map((m) => {
+const ROW_VALUES = String.raw`((?:\$?\s?\(?-?[\d,]+(?:\.\d+)?\)?\s*){1,8})`;
+
+function rowNumbers(cells: string): number[] {
+  return [...cells.matchAll(/\(?-?[\d,]+(?:\.\d+)?\)?/g)].map((m) => {
     const negative = m[0].startsWith("(") || m[0].startsWith("-");
     return (negative ? -1 : 1) * Number(m[0].replace(/[(),\-]/g, ""));
   });
-  const before = text.slice(Math.max(0, row.index - 12_000), row.index);
+}
+
+/**
+ * The columns of the statement or reconciliation table a row at `rowIndex`
+ * belongs to: each column's period end and window, bound only when the nearest
+ * "… Months Ended" header prints exactly `count` month-day / year pairs; the
+ * year-to-date group starts where the first column's date repeats. `scale` is
+ * the table's stated unit (null when none is printed).
+ */
+function tableColumns(text: string, rowIndex: number, count: number): { ends: string[]; months: (3 | 6 | 9 | 12)[]; scale: number | null } | null {
+  const before = text.slice(Math.max(0, rowIndex - 12_000), rowIndex);
   const headerAt = before.lastIndexOf("Months Ended");
-  if (headerAt < 0) return [];
+  if (headerAt < 0) return null;
   const header = before.slice(Math.max(0, headerAt - 40), headerAt + 400);
   const groups = [...header.matchAll(/\b(Three|Six|Nine|Twelve) Months Ended\b/gi)].map((m) => MONTH_WORDS[m[1]!.toLowerCase()]!);
   const afterGroups = header.slice(header.toLowerCase().lastIndexOf("months ended") + "months ended".length);
   const days = [...afterGroups.matchAll(/\b(January|February|March|April|May|June|July|August|September|October|November|December) (\d{1,2}),/g)];
   const years = [...afterGroups.slice(days.at(-1) ? days.at(-1)!.index : 0).matchAll(/\b(20\d{2})\b/g)].map((m) => m[1]!);
-  if (days.length === 0 || days.length !== years.length || days.length !== values.length || groups.length === 0) return [];
+  if (days.length === 0 || days.length !== years.length || days.length !== count || groups.length === 0) return null;
   const ends = days.map((d, i) => isoFromMonthDate(`${d[1]} ${d[2]}, ${years[i]}`));
-  if (ends.some((e) => e === null)) return [];
+  if (ends.some((e) => e === null)) return null;
   const scaleWindow = before.slice(Math.max(0, headerAt - 600), headerAt);
   const scale = /in thousands/i.test(scaleWindow) ? 1e3 : /in billions/i.test(scaleWindow) ? 1e9 : /in millions/i.test(scaleWindow) ? 1e6 : null;
-  if (scale === null) return [];
   const ytdStart = groups.length > 1 ? ends.findIndex((end, i) => i > 0 && end === ends[0]) : -1;
+  return { ends: ends as string[], months: ends.map((_, i) => (ytdStart > 0 && i >= ytdStart ? groups[1]! : groups[0]!)), scale };
+}
+
+export function parseIssuerFreeCashFlow(rawText: string): FreeCashFlowFact[] {
+  const text = normalizeFilingText(rawText);
+  const row = new RegExp(String.raw`\bFree cash flow\s+${ROW_VALUES}`).exec(text);
+  if (!row) return [];
+  const values = rowNumbers(row[1]!);
+  const columns = tableColumns(text, row.index, values.length);
+  if (columns === null || columns.scale === null) return [];
+  const scale = columns.scale;
   const definition = /Free cash flow is (?:calculated|defined) as [^.]{10,300}\./i.exec(text)?.[0] ?? null;
   return values.map((value, i) => ({
     value: value * scale,
     symbol: "$",
-    periodEnd: ends[i]!,
-    months: ytdStart > 0 && i >= ytdStart ? groups[1]! : groups[0]!,
+    periodEnd: columns.ends[i]!,
+    months: columns.months[i]!,
     definition,
   })).filter((fact) => /\$/.test(row[1]!) || fact.value !== 0);
+}
+
+export type ReconciliationMetric =
+  | "operating-cash-flow"
+  | "purchases-property-equipment"
+  | "principal-payments-property-equipment"
+  | "equity-securities-gains"
+  | "non-gaap-tax-impact"
+  | "gaap-diluted-eps"
+  | "non-gaap-diluted-eps";
+
+export interface ReconciliationFact {
+  metric: ReconciliationMetric;
+  /**
+   * Base units of the printed symbol; per-share amounts as printed. Gains from
+   * equity securities are the gain (the reconciliation prints its removal in
+   * parentheses); purchases and principal payments are positive outflows.
+   */
+  value: number;
+  unit: "currency" | "currency-per-share";
+  symbol: string;
+  periodEnd: string;
+  months: 3 | 6 | 9 | 12;
+}
+
+const RECONCILIATION_ROWS: { metric: ReconciliationMetric; label: RegExp; sign: 1 | -1 | "abs" }[] = [
+  { metric: "operating-cash-flow", label: /GAAP net cash provided by operating activities/, sign: 1 },
+  { metric: "purchases-property-equipment", label: /Purchases related to property and equipment and intangible assets/, sign: "abs" },
+  { metric: "principal-payments-property-equipment", label: /Principal payments on property and equipment and intangible assets/, sign: "abs" },
+  { metric: "equity-securities-gains", label: /(?:Gains|\(Gains\)|Losses \(gains\)|\(Gains\) losses) (?:from|on) equity securities, net/, sign: -1 },
+  { metric: "non-gaap-tax-impact", label: /Income tax impact of non-GAAP adjustments/, sign: 1 },
+];
+
+/**
+ * D-63 (NVDA audit P1-A, P1-B): the GAAP-to-non-GAAP reconciliation an
+ * earnings release or CFO commentary prints — the free-cash-flow bridge (so
+ * the issuer's FCF and operating cash flow less capex reconcile: NVIDIA's
+ * Q2 FY2027 $59 million gap is principal payments), the equity-securities
+ * gains the non-GAAP figures remove, their tax effect, and GAAP and non-GAAP
+ * diluted EPS by quarter. Each row binds to its own table's columns; a row
+ * that also appears in the cash-flow statement binds there too, and the first
+ * value read for a metric, period and window wins. Pure.
+ */
+export function parseReconciliation(rawText: string): ReconciliationFact[] {
+  const text = normalizeFilingText(rawText);
+  const out: ReconciliationFact[] = [];
+  const push = (fact: ReconciliationFact): void => {
+    if (!out.some((f) => f.metric === fact.metric && f.periodEnd === fact.periodEnd && f.months === fact.months)) out.push(fact);
+  };
+  for (const rule of RECONCILIATION_ROWS) {
+    for (const row of text.matchAll(new RegExp(String.raw`${rule.label.source}\s+${ROW_VALUES}`, "g"))) {
+      const values = rowNumbers(row[1]!);
+      const columns = tableColumns(text, row.index, values.length);
+      if (columns === null || columns.scale === null) continue;
+      values.forEach((value, i) => push({
+        metric: rule.metric,
+        value: (rule.sign === "abs" ? Math.abs(value) : value * rule.sign) * columns.scale!,
+        unit: "currency", symbol: "$", periodEnd: columns.ends[i]!, months: columns.months[i]!,
+      }));
+    }
+  }
+  // "Diluted net income per share GAAP $ 2.46 … Non-GAAP* $ 2.22 …": the
+  // per-share rows print no scale; the values are the amounts.
+  const eps = new RegExp(String.raw`Diluted net income per share\s+GAAP\s+${ROW_VALUES}Non-GAAP\*?\s+${ROW_VALUES}`).exec(text);
+  if (eps) {
+    for (const [metric, cells] of [["gaap-diluted-eps", eps[1]!], ["non-gaap-diluted-eps", eps[2]!]] as const) {
+      const values = rowNumbers(cells);
+      const columns = tableColumns(text, eps.index, values.length);
+      if (columns === null || !/\$/.test(cells)) continue;
+      values.forEach((value, i) => push({ metric, value, unit: "currency-per-share", symbol: "$", periodEnd: columns.ends[i]!, months: columns.months[i]! }));
+    }
+  }
+  return out;
+}
+
+/**
+ * D-63: the issuer's statement that its non-GAAP basis changed ("Beginning in
+ * the first quarter of fiscal 2027, NVIDIA's non-GAAP financial measures no
+ * longer exclude stock-based compensation expense."), with the sentence after
+ * it when that says how history was restated. Null when none is printed.
+ */
+export function parseNonGaapBasisNote(rawText: string): string | null {
+  const text = normalizeFilingText(rawText);
+  const m = /\bBeginning (?:in|with) (?:the )?(?:first|second|third|fourth) quarter of fiscal(?: year)? \d{4},[^.]{0,240}\bnon-GAAP\b[^.]{0,240}\.(?:\s+The historical non-GAAP[^.]{0,240}\.)?/i.exec(text);
+  return m ? (m[0].length > 600 ? `${m[0].slice(0, 599)}…` : m[0]) : null;
+}
+
+export interface CommitmentRow {
+  label: string;
+  /** The row's total column, base units of the printed symbol. */
+  total: number;
+}
+
+export interface CommitmentTable {
+  /** "Future commitments" or "Guarantees (maximum gross exposure)". */
+  kind: "commitments" | "guarantees";
+  /** The date the table is stated as of, when printed. */
+  asOf: string | null;
+  rows: CommitmentRow[];
+  /** The table's own Total row, when printed. */
+  total: number | null;
+}
+
+const CELL = /^(?:\$|—|–|-|\(?[\d,]+(?:\.\d+)?\)?)$/;
+
+/** Rows of a flattened table: a label, then `columns` cells ("$" is skipped, a dash is zero). */
+function tableRows(body: string, columns: number, maxRows = 12): { label: string; cells: number[] }[] {
+  const tokens = body.split(/\s+/).filter((t) => t !== "");
+  const rows: { label: string; cells: number[] }[] = [];
+  let i = 0;
+  while (i < tokens.length && rows.length < maxRows) {
+    const label: string[] = [];
+    while (i < tokens.length && !CELL.test(tokens[i]!)) label.push(tokens[i++]!);
+    const cells: number[] = [];
+    while (i < tokens.length && cells.length < columns && CELL.test(tokens[i]!)) {
+      const t = tokens[i++]!;
+      if (t === "$") continue;
+      cells.push(/^[—–-]$/.test(t) ? 0 : rowNumbers(t)[0]!);
+    }
+    if (label.length === 0 || cells.length !== columns || label.length > 14) break;
+    rows.push({ label: label.join(" "), cells });
+    if (/^Total$/i.test(label.join(" "))) break;
+  }
+  return rows;
+}
+
+/**
+ * D-63 (NVDA audit P1-D): the commitments and guarantees tables a CFO
+ * commentary or a 10-Q note prints — "Future commitments by fiscal year as of
+ * July 26, 2026 … Total (In billions) Supply and capacity $ 92 … $ 279" and
+ * "maximum gross exposure related to our guarantees … (in billions): …
+ * Total $ 108.5". Each row keeps its total column. Pure; a table whose rows do
+ * not line up with its header is skipped, never guessed.
+ */
+export function parseCommitmentTables(rawText: string): CommitmentTable[] {
+  const text = normalizeFilingText(rawText);
+  const out: CommitmentTable[] = [];
+  for (const m of text.matchAll(/Future commitments by fiscal year as of ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}),? were as follows:\s*([\s\S]{0,200}?)\(In (billions|millions)\)/g)) {
+    const header = m[2]!;
+    const columns = (header.match(/\b20\d{2}\b/g) ?? []).length + (/\bTotal\b/.test(header) ? 1 : 0);
+    if (columns < 2) continue;
+    const scale = m[3] === "billions" ? 1e9 : 1e6;
+    const rows = tableRows(text.slice(m.index + m[0].length, m.index + m[0].length + 2_000), columns);
+    const totalRow = rows.find((r) => /^Total$/i.test(r.label)) ?? null;
+    const items = rows.filter((r) => r !== totalRow).map((r) => ({ label: r.label, total: r.cells.at(-1)! * scale }));
+    if (items.length > 0) out.push({ kind: "commitments", asOf: isoFromMonthDate(m[1]!), rows: items, total: totalRow === null ? null : totalRow.cells.at(-1)! * scale });
+  }
+  const guarantees = /maximum gross exposure related to our guarantees[^:]{0,160}\(in (billions|millions)\):?\s*/i.exec(text);
+  if (guarantees) {
+    const scale = guarantees[1]!.toLowerCase() === "billions" ? 1e9 : 1e6;
+    const rows = tableRows(text.slice(guarantees.index + guarantees[0].length, guarantees.index + guarantees[0].length + 600), 1, 8);
+    const totalRow = rows.find((r) => /^Total$/i.test(r.label)) ?? null;
+    const items = rows.filter((r) => r !== totalRow).map((r) => ({ label: r.label, total: r.cells[0]! * scale }));
+    const asOf = isoFromMonthDate(/as of ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4})/.exec(text.slice(Math.max(0, guarantees.index - 3_000), guarantees.index))?.[1] ?? "");
+    if (items.length > 0) out.push({ kind: "guarantees", asOf, rows: items, total: totalRow === null ? null : totalRow.cells[0]! * scale });
+  }
+  return out;
 }
 
 export interface CapitalReturnFacts {
@@ -468,6 +644,9 @@ export const MATERIAL_EVENT_ITEMS: Readonly<Record<string, string>> = {
   "2.05": "Costs Associated with Exit or Disposal Activities",
   "2.06": "Material Impairments",
   "5.02": "Departure of Directors or Certain Officers; Election of Directors; Appointment of Certain Officers; Compensatory Arrangements of Certain Officers",
+  // D-63 (NVDA audit P1-J): the annual meeting's votes — director elections
+  // and say-on-pay — are governance evidence the leadership section needs.
+  "5.07": "Submission of Matters to a Vote of Security Holders",
   "8.01": "Other Events",
 };
 
@@ -575,6 +754,42 @@ export function summarizeItem(section: EightKItemSection, maxChars = 600): strin
   if (picked.length === 0 && sentences[0]) picked.push(sentences[0]);
   const money = sentences.find((s) => !picked.includes(s) && /(?:US)?\$\s?\d[\d,.]*\s*(?:billion|million|trillion)?/.test(s));
   if (money && section.item !== "5.02") picked.push(money);
-  const joined = picked.join(" ");
-  return joined.length > maxChars ? `${joined.slice(0, maxChars - 1)}…` : joined;
+  // D-63 (NVDA audit P1-E): whole sentences, never a cut mid-list. A notes
+  // offering's dated sentence names every tranche ("…$3,500,000,000 of 4.25%
+  // Notes due 2028, …") and used to end "…Notes due …" with the total unread,
+  // so the series' aggregate principal is stated, marked as computed.
+  const total = aggregatePrincipal(section.text);
+  const suffix = total === null ? "" : ` [computed: ${total.count} series, ${total.text} aggregate principal amount in total]`;
+  const room = Math.max(0, maxChars - suffix.length);
+  const kept: string[] = [];
+  for (const s of picked) {
+    if ([...kept, s].join(" ").length <= room) kept.push(s);
+    else break;
+  }
+  const body = kept.length > 0 ? kept.join(" ") : clipAtClause(picked[0] ?? "", room);
+  return `${body}${suffix}`;
+}
+
+/** Cut a sentence at its last clause boundary (", " / "; ") that fits, with an ellipsis. */
+function clipAtClause(sentence: string, maxChars: number): string {
+  if (sentence.length <= maxChars) return sentence;
+  const head = sentence.slice(0, Math.max(0, maxChars - 1));
+  const cut = Math.max(head.lastIndexOf("; "), head.lastIndexOf(", "));
+  return `${cut > maxChars / 3 ? head.slice(0, cut) : head.trimEnd()}…`;
+}
+
+/**
+ * The sum of the "$X aggregate principal amount" series an item lists, when it
+ * lists two or more in one currency symbol; null otherwise.
+ */
+function aggregatePrincipal(text: string): { count: number; text: string } | null {
+  const amounts = [...normalizeFilingText(text).matchAll(/((?:US)?\$)\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(thousand|million|billion|trillion))?\s+(?:in\s+)?aggregate principal amount/gi)];
+  if (amounts.length < 2 || new Set(amounts.map((m) => m[1]!.toUpperCase())).size !== 1) return null;
+  const sum = amounts.reduce((acc, m) => acc + Number(m[2]!.replace(/,/g, "")) * (m[3] ? SCALE[m[3].toLowerCase()]! : 1), 0);
+  const symbol = amounts[0]![1]!.toUpperCase();
+  const fmt = (v: number): string => {
+    const s = v.toFixed(3).replace(/0+$/, "");
+    return s.endsWith(".") ? `${s}0` : s;
+  };
+  return { count: amounts.length, text: sum >= 1e9 ? `${symbol}${fmt(sum / 1e9)} billion` : `${symbol}${fmt(sum / 1e6)} million` };
 }

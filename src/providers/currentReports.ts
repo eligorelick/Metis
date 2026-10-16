@@ -20,16 +20,21 @@ import {
   hasMaterialEventItem,
   itemsOf,
   parseCapitalReturn,
+  parseCommitmentTables,
   parseGuidance,
   parseIssuerFreeCashFlow,
+  parseNonGaapBasisNote,
+  parseReconciliation,
   parseReportedPeriod,
   releaseNarrative,
   splitEightKItems,
   summarizeItem,
   MATERIAL_EVENT_ITEMS,
   type CapitalReturnFacts,
+  type CommitmentTable,
   type FreeCashFlowFact,
   type IssuerGuidance,
+  type ReconciliationFact,
   type ReportedPeriod,
 } from "@/edgar/currentReports";
 import {
@@ -63,6 +68,18 @@ export interface EarningsReleaseRecord {
   guidanceExhibit: "EX-99.1" | "EX-99.2" | null;
   freeCashFlow: FreeCashFlowFact[];
   capitalReturn: CapitalReturnFacts;
+  /**
+   * D-63: GAAP-to-non-GAAP reconciliation rows (FCF bridge, equity-securities
+   * gains, their tax effect, GAAP and non-GAAP diluted EPS) by column, from the
+   * release and the commentary. Optional: absent on records stored before it.
+   */
+  reconciliation?: ReconciliationFact[];
+  /** D-63: commitments and guarantees tables (commentary first, then release). */
+  commitments?: CommitmentTable[];
+  /** D-63: the exhibit the commitments tables were read from. */
+  commitmentsExhibit?: "EX-99.1" | "EX-99.2" | null;
+  /** D-63: the issuer's statement of a non-GAAP basis change, when printed. */
+  nonGaapBasisNote?: string | null;
   /** Narrative prose (newest release only), bounded. */
   releaseNarrative: string | null;
   commentaryNarrative: string | null;
@@ -160,9 +177,27 @@ export function buildEarningsReleaseRecord(args: {
     guidanceExhibit: guidance === null || guidance.items.length === 0 ? null : guidance === fromRelease ? "EX-99.1" : "EX-99.2",
     freeCashFlow: fcfRelease.length > 0 || commentaryText === null ? fcfRelease : parseIssuerFreeCashFlow(commentaryText),
     capitalReturn: parseCapitalReturn(releaseText),
+    reconciliation: mergeReconciliation(parseReconciliation(releaseText), commentaryText === null ? [] : parseReconciliation(commentaryText)),
+    ...commitmentsOf(releaseText, commentaryText),
+    nonGaapBasisNote: parseNonGaapBasisNote(releaseText) ?? (commentaryText === null ? null : parseNonGaapBasisNote(commentaryText)),
     releaseNarrative: args.includeNarrative ? releaseNarrative(releaseText).slice(0, NARRATIVE_CHARS) : null,
     commentaryNarrative: args.includeNarrative && commentaryText !== null ? releaseNarrative(commentaryText).slice(0, NARRATIVE_CHARS) : null,
   };
+}
+
+function commitmentsOf(releaseText: string, commentaryText: string | null): Pick<EarningsReleaseRecord, "commitments" | "commitmentsExhibit"> {
+  const fromCommentary = commentaryText === null ? [] : parseCommitmentTables(commentaryText);
+  if (fromCommentary.length > 0) return { commitments: fromCommentary, commitmentsExhibit: "EX-99.2" };
+  const fromRelease = parseCommitmentTables(releaseText);
+  return { commitments: fromRelease, commitmentsExhibit: fromRelease.length > 0 ? "EX-99.1" : null };
+}
+
+function mergeReconciliation(first: ReconciliationFact[], second: ReconciliationFact[]): ReconciliationFact[] {
+  const out = [...first];
+  for (const fact of second) {
+    if (!out.some((f) => f.metric === fact.metric && f.periodEnd === fact.periodEnd && f.months === fact.months)) out.push(fact);
+  }
+  return out;
 }
 
 /** One material-event 8-K from its primary document's plain text. Pure. */

@@ -58,7 +58,25 @@ function quantities(text: string): Quantity[] {
 
 interface PeriodReference { key: string; label: string; raw: string; kind: "date" | "month" | "period" | "window" }
 interface Context { start: number; end: number; text: string; label: string; periods: PeriodReference[]; ambiguous: boolean; direction: QuantityDirection | null }
-interface SourceBinding { quantity: Quantity; context: Context; span: ClaimSourceSpan }
+interface SourceBinding {
+  quantity: Quantity; context: Context; span: ClaimSourceSpan;
+  /**
+   * D-63: the periods the excerpt itself states (its reporting period, fiscal
+   * quarter or event date, from the title), which a clause that names no
+   * period of its own is read under. "Inventory was $31.6 billion" in the Q2
+   * FY2027 CFO commentary is the quarter's inventory.
+   */
+  inherited: PeriodReference[];
+  /**
+   * D-63: a source clause is ambiguous for this figure only when another
+   * figure of its unit could be part of the same list (no metric words of its
+   * own, or "respectively"); "…$31.6 billion, up from $25.8 billion" is a
+   * comparison, not a list. Replaces `context.ambiguous` on the source side.
+   */
+  listAmbiguous: boolean;
+  /** "$31.6 billion, up from $25.8 billion": the figure is the level reached, with no direction of its own. */
+  levelBeforeComparison: boolean;
+}
 /** Run-local memo; never retained across reports, payloads or source revisions. */
 export type ClaimEvidenceIndex = Map<TextExcerpt, SourceBinding[]>;
 const MONTHS: Readonly<Record<string, number>> = { january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4,
@@ -151,6 +169,9 @@ const PERIOD_DESCRIPTORS = new Set(["latest", "recent", "most", "same", "end", "
 // Registry labels abbreviate what prose spells out.
 const ABBREVIATIONS: Readonly<Record<string, readonly string[]>> = {
   fcf: ["free", "cash", "flow"], sbc: ["stock-based", "compensation"], capex: ["capital", "expenditure"],
+  // D-63: an executive-compensation row ("comp Jen-Hsun Huang President and CEO
+  // FY2026") is the summary table's total, which prose calls total compensation.
+  comp: ["total", "compensation"],
 };
 function metricTokens(label: string, ignore: readonly string[]): string[] {
   let metric = label;
@@ -206,14 +227,102 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
   return { status, reason, note, spans };
 }
 
+/**
+ * Source-side metric support (D-63). The claim's description must be stated
+ * in the source clause, and a definition-changing modifier the clause states
+ * must be in the claim too ("non-GAAP", "operating", "diluted"). The record
+ * path keeps exact symmetry; an excerpt clause also carries its verb and its
+ * context ("…is cumulatively capped at $105 billion for its initial commitment
+ * under the Agreements"), which demanding in the claim failed every figure a
+ * filing states in a sentence (NVDA, 2026-10-15: six correct figures untraced).
+ */
+const DEFINITION_MODIFIERS = new Set(["non-gaap", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
+  "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",
+  "segment", "not", "no", "without", "constant", "incremental", "cumulative", "average"]);
+function excerptNamesMetric(claim: string[], source: string[]): boolean {
+  if (claim.length === 0 || source.length === 0) return false;
+  const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
+  const inClaim = (word: string): boolean => claim.some((other) => stem(word) === stem(other));
+  return claim.every((word) => source.some((other) => stem(word) === stem(other))) &&
+    source.every((word) => !DEFINITION_MODIFIERS.has(word) || inClaim(word));
+}
+const COMPARATIVE_LEAD = /^[\s,;(]*(?:(?:up|down|higher|lower|increas\w*|decreas\w*|rose|fell|compared)\s+)?(?:from|with|versus|vs\.?|compared (?:to|with)|against)[\s:]*$/i;
+/** The excerpt's own period statements: its reporting period, fiscal quarter, quarter end or event date — never its filing date or accession. */
+function excerptPeriods(excerpt: TextExcerpt): PeriodReference[] {
+  const title = excerpt.title
+    .replace(/\bfiled \d{4}-\d{2}-\d{2}\b/gi, " ")
+    .replace(/\b\d{10}-\d{2}-\d{6}\b/g, " ");
+  return periodLabels(title).filter((period) => period.kind === "date" || period.kind === "period");
+}
+
+const HEADER_DATE = new RegExp(String.raw`\b(?:${MONTH_NAMES})\.?\s+\d{1,2},?\s+(?:19|20)\d{2}\b|\b\d{4}-\d{2}-\d{2}\b`, "gi");
+
+/**
+ * D-63: column bindings of a flattened statement table ("Jul 26, 2026 Jan 25,
+ * 2026 (In millions) Cash and cash equivalents $ 22,443 $ 10,605 …"). A row is
+ * a label followed by exactly as many figures as its header — the nearest
+ * preceding run of two or more dates — names, with nothing but "$" or spaces
+ * between the figures; the j-th figure is the j-th date's, under the row's
+ * label. A row that does not line up with its header binds nothing.
+ */
+function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, { label: string; period: PeriodReference; rowStart: number }> {
+  const out = new Map<Quantity, { label: string; period: PeriodReference; rowStart: number }>();
+  const dates = [...text.matchAll(HEADER_DATE)].map((m) => ({ start: m.index, end: m.index + m[0].length, raw: m[0] }));
+  const headers: { end: number; dates: string[] }[] = [];
+  for (let i = 0; i < dates.length;) {
+    let j = i;
+    while (j + 1 < dates.length && /^[\s,|]*$/.test(text.slice(dates[j]!.end, dates[j + 1]!.start))) j++;
+    if (j > i) headers.push({ end: dates[j]!.end, dates: dates.slice(i, j + 1).map((d) => d.raw) });
+    i = j + 1;
+  }
+  const blank = (a: number, b: number): boolean => /^[\s$€£¥]*$/.test(text.slice(a, b));
+  for (let q = 0; q < found.length;) {
+    const header = headers.filter((h) => h.end <= found[q]!.start).at(-1);
+    const prevEnd = q > 0 ? found[q - 1]!.end : 0;
+    const lead = text.slice(Math.max(prevEnd, header?.end ?? 0), found[q]!.start);
+    if (header === undefined || blank(Math.max(prevEnd, header.end), found[q]!.start) || /[.!?]\s/.test(lead)) { q++; continue; }
+    let r = q;
+    while (r + 1 < found.length && blank(found[r]!.end, found[r + 1]!.start)) r++;
+    const k = header.dates.length;
+    if (r - q + 1 === k && metricTokens(lead, []).length > 0) {
+      for (let c = 0; c < k; c++) {
+        const period = periodLabels(header.dates[c]!)[0];
+        if (period !== undefined) out.set(found[q + c]!, { label: lead, period, rowStart: Math.max(prevEnd, header.end) });
+      }
+    }
+    q = r + 1;
+  }
+  return out;
+}
+
 function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   const bodies = excerpt.spans ?? [{ start: 0, end: excerpt.text.length, text: excerpt.text.split("…[TRUNCATED")[0] }];
+  const inherited = excerptPeriods(excerpt);
   return bodies.flatMap((body) => {
     const found = quantities(body.text);
+    const columns = tableColumns(body.text, found);
     return found.map((quantity) => {
+      const column = columns.get(quantity);
+      if (column !== undefined) {
+        // A table cell: its row label and its column's date, no list reading.
+        const own = { ...context(body.text, quantity, found), label: column.label, periods: [column.period], ambiguous: false, direction: null };
+        const rowStart = column.rowStart + (body.text.slice(column.rowStart).length - body.text.slice(column.rowStart).trimStart().length);
+        return { quantity, context: own, inherited, listAmbiguous: false, levelBeforeComparison: false,
+          span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
+      }
       const own = context(body.text, quantity, found);
-      return { quantity, context: own, span: { source: excerpt.source, asOf: excerpt.asOf,
-        start: body.start + own.start, end: body.start + own.end, text: own.text } };
+      const inClause = found.filter((other) => other !== quantity && other.start >= own.start && other.end <= own.end &&
+        (other.unit === quantity.unit || other.unit === null || quantity.unit === null));
+      const listAmbiguous = /\brespectively\b/i.test(own.text) ||
+        /^\s+(?:and|versus|vs\.?)\s+(?:[$€£¥]|[A-Z]{3}\s*)?[-+−]?\d/i.test(body.text.slice(quantity.end)) ||
+        inClause.some((other) => {
+          const before = found[found.indexOf(other) - 1];
+          const lead = body.text.slice(Math.max(own.start, before ? before.end : own.start), other.start);
+          return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
+        });
+      return { quantity, context: own, inherited, listAmbiguous,
+        levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
+        span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
   });
 }
@@ -289,30 +398,36 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       const bindings = options.index?.get(excerpt) ?? sourceBindings(excerpt);
       options.index?.set(excerpt, bindings);
       for (const binding of bindings) {
-        if (namesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []))) candidates.push(binding);
+        if (excerptNamesMetric(tokens, metricTokens(binding.context.label, options.ignoreWords ?? []))) candidates.push(binding);
       }
     }
     if (candidates.some((candidate) => candidate.context.periods.some((period) => period.key.startsWith("unestablished-date:")))) {
       return support("unchecked", "period-mismatch", "the source exact date is invalid or locale-ambiguous", candidates.slice(0, 3).map((candidate) => candidate.span));
     }
-    const matchingPeriods = candidates.filter((candidate) =>
-      own.periods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
-      candidate.context.periods.every((period) => own.periods.some((stated) => stated.key === period.key)));
+    // A clause that names no period is read under the excerpt's own (D-63);
+    // one that names a period must name exactly the stated one, as before.
+    const matchingPeriods = candidates.filter((candidate) => candidate.context.periods.length > 0
+      ? own.periods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
+        candidate.context.periods.every((period) => own.periods.some((stated) => stated.key === period.key))
+      : own.periods.every((period) => candidate.inherited.some((source) => source.key === period.key)));
     if (matchingPeriods.length === 0) {
-      if (own.periods.length > 0 && candidates.length === 1 && candidates[0].context.periods.length > 0) {
+      // One stated other period contradicts; a flattened table's header of
+      // several periods binds no column, so it stays unchecked.
+      if (own.periods.length > 0 && candidates.length === 1 && candidates[0].context.periods.length === 1) {
         return support("contradicted", "period-mismatch", "the uniquely bound source figure is for another period", [candidates[0].span]);
       }
       return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
     }
+    const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
     const distinct = new Set(matchingPeriods.map((candidate) => JSON.stringify([
       candidate.quantity.value, candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
-      candidate.context.direction,
+      directionOf(candidate),
     ])));
-    if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.context.ambiguous || candidate.context.periods.length > 1)) {
+    if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous || candidate.context.periods.length > 1)) {
       return support("unchecked", "text-ambiguous", "multiple source values, periods or columns could bind the prose quantity", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
     }
     const candidate = matchingPeriods[0];
-    const sourceDirection = candidate.context.direction;
+    const sourceDirection = directionOf(candidate);
     if (own.direction?.negated || sourceDirection?.negated || (own.direction === null) !== (sourceDirection === null)) {
       return support("unchecked", "text-context-mismatch", "the source does not establish the prose directional relation", [candidate.span]);
     }

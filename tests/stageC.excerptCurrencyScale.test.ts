@@ -124,6 +124,18 @@ describe("scaled excerpt numbers retain the source-span binding", () => {
     expect(number.verified).toBe(false);
   });
 
+  it("D-63: binds a flattened table's cells to its header dates under the row label", async () => {
+    // NVIDIA's Q2 FY2027 10-Q liquidity table, as extracted; the figure was untraced on 2026-10-15.
+    const body = "Liquidity and Capital Resources Jul 26, 2026 Jan 25, 2026 (In millions) Cash and cash equivalents $ 22,443 $ 10,605 " +
+      "Marketable debt securities 34,143 39,065 Cash, cash equivalents, and marketable debt securities $ 56,586 $ 49,670 " +
+      "Six Months Ended Jul 26, 2026 Jul 27, 2025 (In millions) Net cash provided by operating activities $ 74,421 $ 42,779";
+    const unit = "USD millions: Cash, cash equivalents, and marketable debt securities";
+    expect((await verify(56_586, unit, "2026-07-26", body)).number.verified).toBe(true);
+    expect((await verify(49_670, unit, "2026-01-25", body)).number.verified).toBe(true);
+    expect((await verify(49_670, unit, "2026-07-26", body)).number.verified).toBe(false);
+    expect((await verify(42_779, "USD millions: Net cash provided by operating activities", "2025-07-27", body)).number.verified).toBe(true);
+  });
+
   it("leaves a flattened quarter/half-year table unchecked without column bindings", async () => {
     const body = "(in millions) Three months ended June 30 Six months ended June 30 2026 2025 2026 2025 Capital expenditures $ 53,100 $ 31,400 $ 96,300 $ 55,600";
     const { entry, number } = await verify(96.3, "USD billions: Capital expenditures", "Q2 2026", body);

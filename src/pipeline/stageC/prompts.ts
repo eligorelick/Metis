@@ -75,6 +75,25 @@ export const SHARED_RULES_BLOCK = [
   "so write no number in that sentence. Never use 'unsupported', 'n/a' or any placeholder as a source.",
   "If no row discloses the gap, leave that list empty. Say what this report's evidence lacks",
   "(\"not in the filings and data reviewed\"), never that the company does not disclose it.",
+  // D-63 (NVDA audit, 2026-10-15): the report twice said evidence the payload
+  // carried was "not in the filings" or "not established" (issuer FCF bridge,
+  // non-GAAP reconciliation, the Hugging Face price, the OCF drop's cause).
+  "Before writing that something is not in the filings and data reviewed, not disclosed or not established, search the",
+  "whole payload for it: the issuer-filing rows (guidance, free cash flow and its reconciliation, commitments, guarantees),",
+  "the quarterly-trend rows, and every excerpt (10-K Items 1, 1A and 7, the 10-Q MD&A and notes, the 8-K release,",
+  "commentary and event excerpts). If any states it, use it. An excerpt's coverage note lists what was omitted from it;",
+  "an omitted passage is a limit of this review, never evidence that the item is absent.",
+  // D-63 (audit P0-10): "$6.1 billion" (MD&A) and "$6.042 billion" (cash-flow
+  // statement) were reported as a discrepancy.
+  "ROUNDING: two statements of one quantity agree when they are equal at the coarser stated precision (\"$6.1 billion\" and",
+  "\"$6.042 billion\" are the same figure). Never call that a discrepancy or say the figures may not be interchangeable;",
+  "a difference is real only when it exceeds the rounding of the less precise figure.",
+  // D-63: 30 of 30 FACT claims in the NVDA rerun carried no figure, so the
+  // deterministic numeric validation read 0/30.
+  "NUMERIC FACTS: when a registered payload figure supports a FACT, state that figure in the sentence (value, unit or",
+  "currency, and period) in the record's own metric words, one figure per sentence, and cite its tag: \"Revenue for the",
+  "quarter ended 2026-07-26 was USD 96.2 billion.\" The verifier validates such a sentence against its record; a FACT",
+  "that leaves the figure out cannot be validated.",
   "A figure shown with \"(currency unknown)\" has no established currency: never write a currency symbol or code beside it.",
   // D-57 (2026-10-15): estimates, targets, peer caps and pay rows carry no
   // currency of their own; when the issuer's reporting and listing currencies
@@ -158,9 +177,14 @@ export function buildLeadershipGuidance(
     "  it: no nickname, no added or dropped initial or name, no shortened or extended title. A",
     "  compensation row 'Susan Li Chief Financial Officer' supports 'Susan Li, Chief Financial Officer';",
     "  a row reading 'Co-CEO, Commercial & Investment Bank' supports 'Co-CEO of Commercial & Investment",
-    "  Bank', not 'CEO'. A person row supports identity, title, tenure, the direction of pay between",
-    "  years, or the trade only. Compensation amounts carry no established currency: never write a",
-    "  currency symbol or code for them, and keep the amounts out of sentences citing those rows.",
+    "  Bank', not 'CEO'. A person row supports identity, title, tenure, pay, or the trade only.",
+    // D-63 (audit P1-F): with D-57 the compensation rows of a single-currency
+    // issuer are registered money, yet the report stated no pay at all.
+    "- PAY: a compensation row printed with a currency (\"(USD, inherited)\" or its own) is a registered amount. In",
+    "  that officer's `evidence.compensation`, state the total and its fiscal year, one officer per sentence, citing",
+    "  the row's tag: '<Name>, <title as the row spells it>: total compensation for FY2026 was USD 36.3 million.' Add",
+    "  the prior year's row the same way when it is shown. A row shown \"(currency unknown)\" has no established",
+    "  currency: never write a currency symbol or code for it, and keep its amount out of the sentence.",
     "  A web-search result is NOT an acceptable source for a claim about a named individual, and",
     "  neither is no source at all. Such a claim is rejected with a reason and shown as rejected in",
     "  the report. If the only thing you have is a search result, write about the COMPANY, not the",
@@ -179,6 +203,21 @@ export function buildLeadershipGuidance(
     "- Insider net activity trailing 12 months (payload insider trades + statistics).",
     "- Compensation vs performance (executive-compensation rows vs the return/margin trend).",
     "- Tenure and turnover (titleSince dates; frequent C-suite churn is a JUDGMENT signal).",
+    // D-63 (audit P1-10): the gate became reachable (D-59) but the judge gave
+    // no card an admissible record, so every card read "not-assessed".
+    "- GUIDANCE TRACK RECORD: the quarterly-trend rows \"share of the last <N> guided quarters with <metric> above",
+    "  (below) the prior guided range\" are the company's record against its own outlook, and the per-quarter",
+    "  \"actual vs prior guidance midpoint\" rows its detail. The CEO and the CFO issue that outlook (the earnings",
+    "  release and CFO commentary), so for each of them whose tenure covers those quarters (titleSince, or the",
+    "  executive-officer biography in the 10-K Item 1 excerpt), put ONE FACT in `evidence.guidanceVsActuals` naming",
+    "  the executive exactly as the payload row spells the name and stating that row's figure in its own words, citing",
+    "  its tag and as-of: '<Name>: the share of the last three guided quarters with revenue above the prior guided",
+    "  range was 100%.' Grade credibility on the whole record (the below-range share, margin outcomes, the per-quarter",
+    "  rows), and say in `assessmentReason` that it is the company's outlook record during their tenure.",
+    "- CARDS: write a card for the CEO, the CFO, each officer with a compensation row, and each officer an 8-K",
+    "  excerpt names (departing or appointed). A departing officer's card says so in `title` (\"…, retiring per 8-K",
+    "  filed 2026-07-02\"). Do not write cards that only repeat that evidence is missing: say once, in",
+    "  `governanceNotes`, which officers have no attributable record.",
     "Output a card per key executive: an overall grade AND a separate credibility grade, each with a",
     "one-line why and SourcedClaim reasoning. If attributable evidence does not assess execution or",
     "guidance accuracy, set that card's `grade` or `credibilityGrade` to `not-assessed` and explain",
@@ -262,8 +301,31 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Issuer-defined free cash flow, repurchases, dividends and remaining authorization are in the issuer-filing",
   "  rows when the release states them: use them; never say the filings do not report them.",
   "- Each material-event 8-K excerpt is a dated corporate event (agreements, guarantees and other off-balance-",
-  "  sheet obligations, officer and director changes, acquisitions, financings): weigh the material ones as",
-  "  catalysts or risks, citing the excerpt and its filing date, and reflect officer changes in leadership.",
+  "  sheet obligations, officer and director changes, acquisitions, financings, shareholder votes): weigh the material",
+  "  ones as catalysts or risks, citing the excerpt and its filing date, and name the counterparties it names (the",
+  "  tenant, lessor, acquiree or lender). Reflect officer changes in leadership: an officer an Item 5.02 excerpt reports",
+  "  as departing is described as departing (with the date), never as current, and the named successor is identified.",
+  // D-63: the business description, the 10-Q notes and the release's
+  // reconciliation, commitments and guarantees tables now reach the payload.
+  "- The 10-K Item 1 (Business) excerpt names the software platform and developer ecosystem, the product roadmap,",
+  "  customers, suppliers and manufacturing partners, and competitors: use those names in the business, moat and",
+  "  competitive sections. The 10-Q notes excerpt is the latest word on customer concentration, investments (and any",
+  "  lock-up on selling them), commitments, guarantees and debt issued: prefer it to the older annual figures.",
+  "- The issuer-filing rows carry the release's reconciliation (operating cash flow, capital purchases and principal",
+  "  payments behind the issuer's free cash flow; equity-securities gains and their tax effect; GAAP and non-GAAP EPS)",
+  "  and the commitments and guarantees tables: cite those rows rather than an excerpt's table cell.",
+  "FLAG SEVERITY AND AGE: date every quality flag and risk. An item from a period that ended more than four quarters",
+  "before the latest reported quarter (an 18-month-old inventory charge) is historical context, at most low or medium",
+  "severity, unless the filings show it recurring or still affecting current results. Grade severity by materiality to",
+  "current earnings, not by the size the item once had.",
+  // D-63 (audit P0-E): "the price requires demanding growth" although the
+  // price-implied growth was below guidance-, consensus- and latest-quarter growth.
+  "IMPLIED EXPECTATIONS: before calling a price-implied (reverse-DCF) growth rate demanding or modest, compare it with",
+  "the growth implied by the company's guidance, the consensus case and the latest quarter's year-over-year growth in",
+  "the payload, and say which of them it is above or below.",
+  "CATALYSTS: give each catalyst the date or window its evidence states (the next earnings date row, a product's",
+  "launch quarter, a deal's expected close, when a guarantee takes effect) and cite it; write it undated only when no",
+  "payload row or excerpt dates it.",
 ].join("\n");
 
 /** WS7 (D-20): the per-side length cap, stated to the analyst that must meet it. */

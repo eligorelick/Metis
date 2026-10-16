@@ -872,9 +872,12 @@ describe("data-bundle provider boundaries", () => {
     // a date in the future made every freshness and as-of comparison downstream
     // treat it as newer than data that had actually been observed later. The
     // event date stays where it belongs, in the datum itself.
+    // D-63: the observation date is the fetch day bounded by today (fetched
+    // 2026-08-08, derived on 2026-08-01), not the envelope's newest reported
+    // row (2026-06-30), which printed a past date beside the next earnings date.
     expect(result).toMatchObject({
       ok: true,
-      value: { asOf: "2026-06-30", stale: true, data: { date: "2026-08-15" } },
+      value: { asOf: "2026-08-01", stale: true, data: { date: "2026-08-15" } },
     });
     expect(rows).toEqual(before);
 

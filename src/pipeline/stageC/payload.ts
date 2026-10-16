@@ -37,7 +37,7 @@ import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
-import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
   PROJECTION_PATH_ORDER,
@@ -55,7 +55,7 @@ import {
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
-import { selectMaterialEvidence, type EvidenceSpan, type EvidenceCoverage } from "@/pipeline/stageC/evidenceSelection";
+import { selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -79,12 +79,26 @@ import type {
 export const PAYLOAD_BUDGETS = {
   /** Latest earnings-call transcript text (~15-20k chars). */
   transcriptChars: 18_000,
-  /** Annual risk-factors excerpt: 10-K Item 1A or 20-F Item 3.D. */
+  /**
+   * Annual risk-factors excerpt: 10-K Item 1A or 20-F Item 3.D. D-63: this is
+   * the floor; a long section keeps `item1aLongShare` of its length, up to
+   * `item1aMaxChars` (NVDA's 114,916-char Item 1A kept 12% under the flat cap).
+   */
   item1aChars: 14_000,
+  item1aMaxChars: 24_000,
+  item1aLongShare: 0.2,
+  /** D-63: annual business description — 10-K Item 1 or 20-F Item 4. */
+  businessChars: 12_000,
+  /** D-63: the latest 10-Q's notes to the financial statements (Part I Item 1). */
+  tenQNotesChars: 12_000,
   /** Annual review excerpt: 10-K Item 7 or 20-F Item 5. */
   mdnaChars: 14_000,
-  /** 10-Q Part I Item 2 (MD&A) excerpt. */
-  tenQMdnaChars: 8_000,
+  /**
+   * 10-Q Part I Item 2 (MD&A) excerpt. D-63: 8,000 dropped 81% of NVDA's
+   * latest-quarter MD&A, including the H200 inventory charge and the
+   * Hyperscale/ACIE recast; it is the most current narrative the filings give.
+   */
+  tenQMdnaChars: 12_000,
   /** Free-text news/press snippet total (many small rows). */
   newsChars: 6_000,
   /** Annual statement periods kept in the compact extract (last 5). */
@@ -93,10 +107,19 @@ export const PAYLOAD_BUDGETS = {
   quarterlyPeriods: 4,
   /** Rows kept for list-shaped sources (insiders, holders, peers, estimates). */
   listRows: 12,
-  /** Latest 8-K EX-99.1 earnings-release narrative (outlook, highlights). */
-  earningsReleaseChars: 5_000,
-  /** Latest 8-K EX-99.2 CFO commentary narrative (drivers, commitments, cash flow). */
-  cfoCommentaryChars: 7_000,
+  /**
+   * Latest 8-K EX-99.1 earnings-release narrative (outlook, highlights). D-63:
+   * 5,000 dropped 4,096 of NVDA's 8,593-char Q2 FY2027 narrative, and the
+   * report then said what it held was "not in the filings".
+   */
+  earningsReleaseChars: 9_000,
+  /**
+   * Latest 8-K EX-99.2 CFO commentary narrative (drivers, commitments, cash
+   * flow). D-63: 7,000 dropped the balance-sheet paragraph (DSO 60 vs 45 days,
+   * receivables, inventory ahead of Vera Rubin, cash taxes) that explains the
+   * quarter's operating-cash-flow drop.
+   */
+  cfoCommentaryChars: 11_000,
   /** One material-event 8-K's item text. */
   eightKEventChars: 1_200,
   /** All material-event 8-K excerpts together. */
@@ -1565,17 +1588,24 @@ function transcriptExcerpt(bundle: DataBundle): TextExcerpt | null {
   };
 }
 
+/** D-63: a long risk-factor section keeps a share of its length, between the floor and the cap. */
+export function riskFactorBudget(sourceChars: number): number {
+  return Math.min(PAYLOAD_BUDGETS.item1aMaxChars,
+    Math.max(PAYLOAD_BUDGETS.item1aChars, Math.round(sourceChars * PAYLOAD_BUDGETS.item1aLongShare)));
+}
+
 function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
   const add = (
-    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } },
+    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } } | undefined,
     title: (form: string) => string,
-    budget: number,
+    budget: number | ((sourceChars: number) => number),
     source: (form: string) => string,
+    profile: EvidenceProfile = "financial",
   ): void => {
-    if (!res.ok || !res.value) return;
+    if (!res?.ok || !res.value) return;
     const sec = res.value.data;
-    const cut = selectMaterialEvidence(sec.text, budget);
+    const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile);
     const markerNote = sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "";
     const reportingPeriod = isoDay(sec.reportDate);
     const filingDate = isoDay(sec.filingDate);
@@ -1592,11 +1622,22 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
       coverage: cut.coverage,
     });
   };
+  // D-63: the business description (software platform, roadmap, customers,
+  // suppliers, competitors, officers) and the latest 10-Q's notes join the
+  // risk factors and MD&A; risk factors are read for business risks too.
+  add(
+    bundle.edgar.business,
+    (form) => (form === "20-F" ? "20-F Item 4 — Information on the Company" : "10-K Item 1 — Business"),
+    PAYLOAD_BUDGETS.businessChars,
+    (form) => (form === "20-F" ? "edgar:20-F item4" : "edgar:10-K item1"),
+    "business",
+  );
   add(
     bundle.edgar.item1a,
     (form) => (form === "20-F" ? "20-F Item 3.D — Risk Factors" : "10-K Item 1A — Risk Factors"),
-    PAYLOAD_BUDGETS.item1aChars,
+    riskFactorBudget,
     (form) => (form === "20-F" ? "edgar:20-F item3D" : "edgar:10-K item1A"),
+    "risk",
   );
   add(
     bundle.edgar.mdna,
@@ -1605,6 +1646,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     (form) => (form === "20-F" ? "edgar:20-F item5" : "edgar:10-K item7"),
   );
   add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2");
+  add(bundle.edgar.tenQNotes, () => "10-Q Part I Item 1 — Notes to the financial statements", PAYLOAD_BUDGETS.tenQNotesChars, () => "edgar:10-Q notes", "notes");
   out.push(...currentReportExcerpts(bundle));
   return out;
 }
@@ -1626,7 +1668,11 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     out.push({ title, text: cut.text, source, asOf: latest.filingDate, truncated: cut.truncated, originalChars: cut.originalChars, spans: cut.spans, coverage: cut.coverage });
   };
   if (latest !== undefined) {
-    const period = latest.reported.fiscal?.label ?? latest.reported.periodEnd ?? "latest quarter";
+    // D-63: the quarter end is stated too, so a figure the narrative gives
+    // without restating its period is read as that quarter's (claimEvidence).
+    const fiscal = latest.reported.fiscal?.label ?? null;
+    const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
+    const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}` : fiscal ?? periodEnd ?? "latest quarter";
     const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
     narrative(latest.releaseNarrative, `8-K EX-99.1 — earnings release, ${period} (${where})`, "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
@@ -1638,7 +1684,9 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     const body = event.sections
       .map((s) => s.incorporates !== null ? `Item ${s.item} (${s.title}): incorporates Item ${s.incorporates} by reference.` : `Item ${s.item} (${s.title}): ${s.text}`)
       .join("\n\n");
-    const cut = selectMaterialEvidence(body, Math.min(PAYLOAD_BUDGETS.eightKEventChars, PAYLOAD_BUDGETS.eightKEventsTotalChars - used));
+    // D-63: the operative paragraph's dated lead, named parties and amounts
+    // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
+    const cut = selectMaterialEvidence(body, Math.min(PAYLOAD_BUDGETS.eightKEventChars, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), "event");
     used += cut.text.length;
     const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";
     out.push({
@@ -1670,6 +1718,16 @@ const GUIDANCE_METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
   "tax-rate": "tax rate",
   eps: "diluted EPS",
   "capital-expenditures": "capital expenditures",
+};
+
+const RECONCILIATION_LABELS: Record<NonNullable<FilingDisclosures["reconciliation"]>[number]["metric"], string> = {
+  "operating-cash-flow": "operating cash flow (issuer reconciliation)",
+  "purchases-property-equipment": "purchases related to property and equipment and intangible assets",
+  "principal-payments-property-equipment": "principal payments on property and equipment and intangible assets",
+  "equity-securities-gains": "net gains from equity securities",
+  "non-gaap-tax-impact": "income tax impact of non-GAAP adjustments",
+  "gaap-diluted-eps": "GAAP diluted EPS",
+  "non-gaap-diluted-eps": "non-GAAP diluted EPS",
 };
 
 function guidanceMetricLabel(metric: GuidanceRow["metric"], basis: GuidanceRow["basis"]): string {
@@ -1731,6 +1789,36 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   for (const check of disclosures.guidanceChecks) {
     notes.push(`${check.period} ${guidanceMetricLabel(check.metric, check.basis)}: actual ${check.position === "within" ? "within" : check.position} the guided range (outlook from 8-K filed ${check.guidance.filingDate}; actual from ${check.actualSource}).`);
   }
+  // D-63: the release's GAAP-to-non-GAAP reconciliation (the free-cash-flow
+  // bridge, the tax effect of the adjustments, GAAP EPS; the quarterly equity
+  // gains and non-GAAP EPS are in the quarterly-trend rows) and the
+  // commitments and guarantees tables.
+  // Quarter columns only (the year-to-date free cash flow is above), to bound the prompt.
+  for (const f of disclosures.reconciliation ?? []) {
+    if (f.months !== 3 || f.metric === "equity-securities-gains" || f.metric === "non-gaap-diluted-eps") continue;
+    figures.push({
+      label: `${RECONCILIATION_LABELS[f.metric]}, three months ended ${f.periodEnd}`,
+      value: f.value,
+      unit: f.unit === "currency-per-share" ? "currency/share" : "currency",
+      currency,
+      period: f.periodEnd,
+      source: "edgar:8-K EX-99 reconciliation",
+      asOf: f.source.filingDate,
+    });
+  }
+  for (const c of disclosures.commitments ?? []) {
+    const label = c.tableTotal ? `${c.table} table total` : `${c.label} (${c.table})`;
+    figures.push({
+      label: `${label}${c.asOf === null ? "" : `, as of ${c.asOf}`}`,
+      value: c.total,
+      unit: "currency",
+      currency,
+      period: c.asOf,
+      source: `edgar:8-K ${c.source.exhibit ?? "EX-99.1"}`,
+      asOf: c.source.filingDate,
+    });
+  }
+  if (disclosures.nonGaapBasisNote) notes.push(`Non-GAAP basis (issuer text): ${disclosures.nonGaapBasisNote}`);
   for (const n of disclosures.notes) notes.push(n);
   notes.push(disclosures.currencyBasis);
   if (figures.length === 0 && g === null && cr === null && disclosures.notes.length === 0) return undefined;
@@ -1752,14 +1840,16 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
         const q = axis.quarters[i]!;
         const value = row.values[i] ?? null;
         if (value === null) continue;
+        // D-63: a cell filled as the total less the other rows says so.
+        const residual = row.residualAt?.includes(i) === true;
         figures.push({
-          label: `${axis.axisLabel}: ${row.label} revenue, quarter ended ${q.end}`,
+          label: `${axis.axisLabel}: ${row.label} revenue${residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
           value,
           unit: "currency",
           currency: axis.currency,
           period: q.end,
           periodContext: { kind: "duration", start: q.start, end: q.end, basis: "fiscal-quarter" },
-          source: "edgar:xbrl segment revenue",
+          source: residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
           asOf,
         });
       }
@@ -1768,6 +1858,7 @@ function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
     if (children.length > 0) notes.push(`${axis.axisLabel}: ${children.map((c) => c.label).join(" and ")} are components of ${axis.rows.find((r) => r.member === children[0]!.childOf)?.label ?? "another row"} (they sum to it in the latest quarter).`);
     if (axis.priorPresentation.length > 0) notes.push(`${axis.axisLabel}: members tagged only in earlier quarters (a prior presentation) are not shown: ${axis.priorPresentation.join(", ")}.`);
     if (axis.derivedCells > 0) notes.push(`${axis.axisLabel}: ${axis.derivedCells} quarter value(s) are derived as the difference of two reported windows (e.g. fiscal year less nine months).`);
+    if ((axis.residualCells ?? 0) > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
   }
   notes.push(`Read from ${data.filings.map((f) => `${f.form} ${f.accession} (filed ${f.filingDate})`).join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`);
   for (const n of data.notes) notes.push(n);
@@ -1797,6 +1888,10 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
     if (row.grossMarginPct !== null) figures.push({ ...base, label: `gross margin, ${at}`, value: row.grossMarginPct, unit: "%" });
     if (row.operatingMarginPct !== null) figures.push({ ...base, label: `operating margin, ${at}`, value: row.operatingMarginPct, unit: "%" });
     if (row.freeCashFlow !== null) figures.push({ ...base, label: `free cash flow (operating cash flow less capex), ${at}`, value: row.freeCashFlow, unit: "currency", currency });
+    // D-63 (audit P1-B): the issuer's own reconciliation figures by quarter.
+    const recon = { ...base, source: "edgar:8-K EX-99 reconciliation" };
+    if (row.equitySecuritiesGains != null) figures.push({ ...recon, label: `net gains from equity securities, ${at}`, value: row.equitySecuritiesGains, unit: "currency", currency });
+    if (row.nonGaapEpsDiluted != null) figures.push({ ...recon, label: `non-GAAP diluted EPS, ${at}`, value: row.nonGaapEpsDiluted, unit: "currency/share", currency });
   }
   const segments = bundle.edgar?.quarterlySegments;
   if (segments?.ok) {
@@ -1830,13 +1925,58 @@ function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosure
       asOf: check.periodEnd,
     });
   }
+  const notes = [
+    "Year-over-year growth compares with the quarter ending 350-380 days earlier; quarter-over-quarter with the quarter ending 80-100 days earlier. Free cash flow here is operating cash flow less capital expenditure, not the issuer's own definition.",
+  ];
+  // D-63: the company's guidance track record, one citable figure per metric:
+  // the share of the guided quarters whose result landed above (below) the
+  // range the preceding release gave. The CEO and CFO issue that outlook, so
+  // it is their guidance-credibility record for the quarters of their tenure.
+  for (const record of guidanceTrackRecord(disclosures.guidanceChecks)) {
+    figures.push(...record.figures);
+    notes.push(record.note);
+  }
   if (figures.length === 0) return undefined;
   return payloadSection({
     title: "Quarterly trend (computed: last eight quarters, segment growth, results vs prior guidance)",
     figures,
-    notes: [
-      "Year-over-year growth compares with the quarter ending 350-380 days earlier; quarter-over-quarter with the quarter ending 80-100 days earlier. Free cash flow here is operating cash flow less capital expenditure, not the issuer's own definition.",
-    ],
+    notes,
+  });
+}
+
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+
+/**
+ * D-63: a company-level guidance track record per metric and basis, as two
+ * percentages of the quarters checked (above / below the prior guided range).
+ * The count is a word, not a digit, so a sentence stating the share carries
+ * exactly one figure and the claim validator can bind it.
+ */
+export function guidanceTrackRecord(checks: FilingDisclosures["guidanceChecks"]): { figures: PayloadFigureInput[]; note: string }[] {
+  const groups = new Map<string, FilingDisclosures["guidanceChecks"]>();
+  for (const check of checks) {
+    const key = `${check.metric}|${check.basis}`;
+    groups.set(key, [...(groups.get(key) ?? []), check]);
+  }
+  return [...groups.values()].flatMap((group) => {
+    const n = group.length;
+    if (n === 0 || n >= COUNT_WORDS.length) return [];
+    const metric = guidanceMetricLabel(group[0]!.metric, group[0]!.basis);
+    const quarters = `last ${COUNT_WORDS[n]} guided ${n === 1 ? "quarter" : "quarters"}`;
+    const newest = group.reduce((a, b) => (a.periodEnd >= b.periodEnd ? a : b));
+    const oldest = group.reduce((a, b) => (a.periodEnd <= b.periodEnd ? a : b));
+    const share = (position: "above" | "below"): number => Number(((group.filter((c) => c.position === position).length / n) * 100).toFixed(2));
+    const base = { unit: "%", source: "computed.guidance-track-record", asOf: newest.periodEnd };
+    return [{
+      figures: [
+        { ...base, label: `share of the ${quarters} with ${metric} above the prior guided range`, value: share("above") },
+        { ...base, label: `share of the ${quarters} with ${metric} below the prior guided range`, value: share("below") },
+      ],
+      note: `Guidance track record for ${metric}: ${n} quarter${n === 1 ? "" : "s"} checked, ${oldest.period} to ${newest.period} ` +
+        `(${group.filter((c) => c.position === "above").length} above, ${group.filter((c) => c.position === "within").length} within, ` +
+        `${group.filter((c) => c.position === "below").length} below the range the preceding release gave). This is the company's outlook record; ` +
+        "the CEO and CFO issue that outlook, so it is their guidance-credibility record for the quarters they held the role.",
+    }];
   });
 }
 
