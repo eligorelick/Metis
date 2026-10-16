@@ -8,7 +8,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // NVDA_AUDIT_2 (D-65..D-68): all eligible consensus windows, non-operating
 // investment add-backs, quote-date discounting, consistent EV multiples and
 // effective scenario shocks. Earlier snapshots require their original engine.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_NVDA_AUDIT_2" as const;
+// D-72: missing interest, acquisition payments and segment-history safeguards.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_NVDA_AUDIT_3" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

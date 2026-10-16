@@ -9475,14 +9475,16 @@
       ]
     },
     {
-      "name": "nvda-round3-integration-20261015",
-      "decisions": ["D-69"],
-      "reason": "D-69: report 1.19.0 identifies D-65 through D-68 financial conventions (consensus-covered forecast windows, non-operating investments, quote-date DCF and consistent EV). Historical report bytes stay unchanged; comparisons cannot treat the old 1.18.0 calculation as the same method. This leaf changes only the new report's convention stamp.",
+      "name": "nvda-review-evidence-2026-10-16",
+      "decisions": [
+        "D-72"
+      ],
+      "reason": "D-72: report 1.19.1 separates exhibit-bound filing facts, restatement/currency disclosure selection, conservative missing-interest EPS, acquisition payment accounting and segment-history evidence from 1.19.0. The audited DEMO input retains its financial values; only the new report convention stamp changes. Saved historical reports are not rewritten.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.19.0"
+          "after": "1.19.1"
         }
       ]
     }

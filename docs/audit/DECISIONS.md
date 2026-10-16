@@ -13,6 +13,14 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-72 (PR review, 2026-10-16) Preserve the source and withhold unsupported financial history
+
+- **Status:** Implementation and fresh combined verification are in progress; D-71 records the preceding source's completed gate, not this revision's.
+- **Evidence:** PR #20 identified nine reproducible boundary issues: merged EX-99.2 financial values lost their originating exhibit, zero-padded exhibits and earnings amendments were omitted, quarterly disclosures bypassed whole-row restatement selection, old reporting currencies suppressed current release facts, missing analyst buckets became zeros, undisclosed interest became zero forecast expense, tagged acquisition cash could be counted twice, and a historical residual could be renamed as a new segment. An earlier push's Windows job also exceeded a five-second test deadline while starting two independently bounded real CLI processes; the PR-triggered rerun passed.
+- **Choice:** Preserve per-fact filing provenance, include canonical exhibit spellings and corresponding amendments, reuse whole-row period selection, require established current disclosure currency, and withhold incomplete analyst distributions. Forecast EPS needs evidenced interest or an evidenced debt-free exception. Acquisition payments and segment residuals require evidence of distinct payments and presentation continuity respectively. Keep existing financial grades and thresholds.
+- **Versions:** Report `1.19.1`, payload `1.24.1`, Stage B `STAGE_B_2026_10_NVDA_AUDIT_3`. Prior saved reports and payload artifacts retain their original meaning and cannot resume as equivalent. The audited DEMO comparison changes only its report-version leaf at version integration; any subsequent financial leaf requires a separate reviewed rationale.
+- **CI test boundary:** Keep each CLI subprocess's 20-second hard limit and give the enclosing test the sum of its child limits plus five seconds of overhead. This leaves production deadlines and global unit-test timeouts unchanged. The focused Windows test and typecheck pass locally; fresh full release and remote CI remain gates.
+
 ## D-71 (live output audit, 2026-10-16) Correct source-bound disclosures without discarding saved analysis
 
 - **Live evidence:** NVDA job `0cf239de-24d5-43c3-9c25-0a030a3bd262` completed as isolated report 3 at 2026-10-16T07:46:29.701Z, on GPT-6.1 Sol, medium reasoning and standard speed. Its snapshot is `6e1f43a73b4d8af967160b3f4ea378b3d6896599179683fa68ef42bf3ae0008d`. Independent arithmetic, without valuation-engine calls, reproduced base/bull/bear $217.039943/$365.939972/$120.491218 and composite 75.19. Market EV, the investment bridge, years 1-4 consensus coverage, sensitivity crossings and leadership presentation reconcile.

@@ -787,7 +787,8 @@ describe("payload determinism + provenance", () => {
       // (computed.technicals.trend-read / momentum-read) instead of sharing
       // computed.technicals.read, so one more citation is registered (73 -> 74)
       // and the two tags add 15 prompt bytes; no number moved.
-      fingerprint: "1.24.0:b2d920e4",
+      // D-72 version stamp only; the payload fields/registries above stay pinned.
+      fingerprint: "1.24.1:9219fa55",
       promptBytes: 132_882,
       provenanceCount: 531,
       provenanceHash: "4a143732",
@@ -937,7 +938,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.24.0");
+    expect(first.payloadVersion).toBe("1.24.1");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2430,7 +2431,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.19.0");
+    expect(report.meta.specVersion).toBe("1.19.1");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

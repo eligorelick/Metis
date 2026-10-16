@@ -370,7 +370,8 @@ export interface ContextPayload {
 // 1.24.0 (D-65..D-68): consensus/calendarization and equity-bridge conventions,
 // typed filing facts and governance disclosures, bounded verifier matching,
 // and corrected forensic notes. Prior analyst/judge artifacts cannot resume.
-export const PAYLOAD_VERSION = "1.24.0" as const;
+// 1.24.1 (D-72): revised financial evidence and source-bound filing facts.
+export const PAYLOAD_VERSION = "1.24.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

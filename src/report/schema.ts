@@ -94,7 +94,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.19.0 (D-65..D-68): consensus-covered forecast windows, quote-date DCF,
 // non-operating investments, consistent EV and effective scenario inputs.
 // Earlier reports retain their saved conventions and are not like-for-like.
-export const REPORT_SPEC_VERSION = "1.19.0" as const;
+// 1.19.1 (D-72): exhibit-bound disclosures, restatement/currency selection,
+// conservative missing-interest EPS, acquisition cash and segment provenance.
+export const REPORT_SPEC_VERSION = "1.19.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
