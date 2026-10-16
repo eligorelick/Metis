@@ -24,14 +24,22 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
   const b = dcf.bridge;
   if (b) {
     const money = (v:number|null)=>v === null ? "unavailable" : formatFinancialValue(v,"currency",b.currency);
+    // D-65: this is the DCF's value of the operating assets, not the market EV
+    // the key-data box and the multiples use; the label says so.
+    const components = b.nonOperatingComponents ?? (b.nonOperatingAssets === undefined ? [] : [{ label: "marketable equity securities (filed fair value, not cash)", value: b.nonOperatingAssets }]);
     result.push({heading:"Enterprise value to equity bridge",headers:["Component","Value"],rows:[
       ["Explicit cash-flow present value",money(b.presentValueExplicit)],["Terminal present value",money(b.presentValueTerminal)],
-      ["Enterprise value",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
+      ["Intrinsic enterprise value (DCF, operating assets)",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
       ["Less minority interest",money(b.minorityInterest)],["Less preferred equity",money(b.preferredEquity)],
-      ...(b.nonOperatingAssets === undefined ? [] : [["Plus non-operating marketable equity securities (filed fair value, not cash)",money(b.nonOperatingAssets)]]),
+      ...components.map((c) => [`Plus non-operating ${c.label}`, money(c.value)]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
-      ["Valuation as of",b.asOf ?? "unavailable"],
-    ],note:"Per-share value = common equity value ÷ diluted share denominator."});
+      ...(b.sharesOutstandingAtQuote === undefined ? [] : [["Shares outstanding at the quote (market cap ÷ price; not the divisor)", formatLargeNumber(b.sharesOutstandingAtQuote)]]),
+      ...(b.valuationDate === undefined
+        ? [["Valuation as of", b.asOf ?? "unavailable"]]
+        : [["Value stated at (quote date)", `${b.valuationDate}${b.rollForwardFactor === undefined ? "" : ` (rolled forward from ${b.asOf ?? "the statement date"} at the WACC, × ${b.rollForwardFactor.toFixed(4)})`}`],
+           ["Balance sheet in the bridge", b.asOf ?? "unavailable"]]),
+    ],note:"Per-share value = common equity value ÷ diluted share denominator. The diluted weighted-average count carries option and RSU dilution the quoted share count omits." +
+      (b.valuationDate === undefined ? "" : " Cash flows are discounted from the statement date and rolled forward to the quote date at the WACC; the bridge's balances stay at the statement date.")});
   }
   const gm = dcf.growthMarginGrid;
   const shift = (v: number) => `${v > 0 ? "+" : ""}${v}pp`;
@@ -40,6 +48,16 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
     rows:gm.perShare.map((row,i)=>[shift(gm.growthShiftsPp[i] ?? 0),...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",b?.currency ?? null))]),
     note:gm.notes.join("; ")});
   if (dcf.forecastRows?.length) result.push({heading:"DCF annual cash-flow path",headers:["Period","Revenue","Growth %","EBIT margin %","Tax %","NOPAT","Reinvestment","FCFF","Present value"],rows:dcf.forecastRows.map(r=>[r.period,...[r.revenue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null)),n(r.growthPct),n(r.ebitMarginPct),n(r.taxRatePct),...[r.nopat,r.reinvestment,r.fcff,r.presentValue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null))])});
+  // D-65: the DCF path beside calendarized consensus, every covered window.
+  if (dcf.consensusPath?.length) {
+    const money = (v: number | null) => v === null ? "not covered" : formatFinancialValue(v, "currency", b?.currency ?? null);
+    const anchoredCount = dcf.consensusPath.filter((r) => r.anchored).length;
+    result.push({heading:"DCF path vs consensus",headers:["Period","DCF revenue","Consensus (calendarized)","DCF vs consensus","Consensus-anchored","Fiscal-year estimates"],
+      rows:dcf.consensusPath.map((r)=>[r.period,money(r.modelRevenue),money(r.consensusRevenue),r.gapPct === null ? "—" : `${r.gapPct >= 0 ? "+" : "−"}${Math.abs(r.gapPct).toFixed(1)}%`,
+        r.anchored ? "yes" : `no — ${r.status.replace(/^not anchored: /, "")}`, r.fiscalYears || "—"]),
+      note:`Consensus is calendarized to each 12-month window by day overlap from the provider's fiscal-year estimates; the first window takes the current fiscal year's consensus less the revenue already reported. ` +
+        `${anchoredCount === 0 ? "No window" : `${anchoredCount} window${anchoredCount === 1 ? "" : "s"}`} set the DCF's revenue; later years follow the convergent fade. Consensus is other analysts' forecast, not this report's.`});
+  }
   return result;
 }
 
@@ -47,7 +65,13 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   const a = p.scenarioAssumptions;
   if (a) {
-    tables.push({heading:"Scenario construction and terminal transition",headers:["Scenario","Growth shift (pp)","Margin shift (pp)"],rows:a.scenarios.map(s=>[s.name,n(s.growthDeltaPp),n(s.marginDeltaPp)]),note:a.terminalTransition});
+    // D-65: a requested margin shock the cap removes is shown beside the shift
+    // the path actually carries, so the weighted margin reconciles.
+    const capped = a.scenarios.some((s) => s.effectiveMarginDeltaPp !== undefined);
+    tables.push({heading:"Scenario construction and terminal transition",
+      headers: capped ? ["Scenario","Growth shift (pp)","Margin shift requested (pp)","Margin shift after the cap (pp)"] : ["Scenario","Growth shift (pp)","Margin shift (pp)"],
+      rows: a.scenarios.map(s => capped ? [s.name,n(s.growthDeltaPp),n(s.marginDeltaPp),n(s.effectiveMarginDeltaPp ?? s.marginDeltaPp)] : [s.name,n(s.growthDeltaPp),n(s.marginDeltaPp)]),
+      note: a.terminalTransition});
     if (a.alternatives.length) tables.push({heading:"Illustrative sensitivity: alternative shock construction",headers:["Alternative","Bull value/share","Bear value/share","Basis"],rows:a.alternatives.map(s=>[s.name,n(s.bullPerShare),n(s.bearPerShare),s.basis])});
   }
   for (const s of p.series) {

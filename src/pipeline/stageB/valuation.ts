@@ -237,6 +237,60 @@ const NEXT_QUARTER_DAYS: readonly [number, number] = [80, 100];
 /** A calendarized consensus window must be this fully covered by fiscal-year estimates. */
 const CONSENSUS_COVERAGE_MIN = 0.97;
 
+/**
+ * D-65: a fiscal-year estimate anchors a DCF year only when at least this many
+ * analysts contribute a revenue estimate. A mean of one or two forecasts is a
+ * forecaster's view, not a consensus, and dispersion is undefined below two
+ * (Diether, Malloy and Scherbina 2002 measure it only with two or more); three
+ * gives the low-high range an interior point. Unbacktested house convention.
+ */
+export const MIN_CONSENSUS_ANALYSTS = 3;
+/**
+ * D-65: and only while the analysts agree on the level: the implied
+ * coefficient of variation, (high − low) / (d2(n) × mean), may not exceed
+ * this. The raw range widens with the number of forecasters, so it is
+ * normalised by d2(n), the expected range of n normal draws (Tippett 1925),
+ * which turns it into an estimate of one standard deviation. At 25% one
+ * standard deviation of disagreement already spans half the level; wider than
+ * that the mean no longer pins a level (dispersion as uncertainty: Barron,
+ * Kim, Lim and Stevens 1998). Unbacktested house convention (RESEARCH §8).
+ */
+export const MAX_CONSENSUS_CV_PCT = 25;
+
+/**
+ * Expected range of n independent standard normal draws (the d2 constant of
+ * range charts; Harter 1960 tables). Linear between tabulated n, held at
+ * d2(50) above it, which overstates the implied dispersion of a larger panel
+ * and so errs toward not anchoring.
+ */
+const D2_TABLE: readonly (readonly [number, number])[] = [
+  [2, 1.128], [3, 1.693], [4, 2.059], [5, 2.326], [6, 2.534], [7, 2.704], [8, 2.847], [9, 2.97], [10, 3.078],
+  [11, 3.173], [12, 3.258], [13, 3.336], [14, 3.407], [15, 3.472], [16, 3.532], [17, 3.588], [18, 3.64], [19, 3.689],
+  [20, 3.735], [21, 3.778], [22, 3.819], [23, 3.858], [24, 3.895], [25, 3.931], [30, 4.086], [35, 4.213], [40, 4.322],
+  [45, 4.415], [50, 4.498],
+];
+export function expectedNormalRange(n: number): number | null {
+  if (!Number.isFinite(n) || n < 2) return null;
+  const last = D2_TABLE[D2_TABLE.length - 1];
+  if (n >= last[0]) return last[1];
+  for (let i = 1; i < D2_TABLE.length; i++) {
+    const [n1, d1] = D2_TABLE[i];
+    const [n0, d0] = D2_TABLE[i - 1];
+    if (n <= n1) return d0 + ((d1 - d0) * (n - n0)) / (n1 - n0);
+  }
+  return last[1];
+}
+
+/** D-65: implied coefficient of variation (percent) of one fiscal-year revenue estimate; null without a count and range. */
+export function consensusDispersionPct(row: AnalystEstimateRow): number | null {
+  const mean = posOrNull(row.revenueAvg);
+  const n = isNum(row.analysts) ? row.analysts : null;
+  if (mean === null || n === null || !isNum(row.revenueLow) || !isNum(row.revenueHigh) || row.revenueHigh < row.revenueLow) return null;
+  const d2 = expectedNormalRange(n);
+  if (d2 === null) return null;
+  return ((row.revenueHigh - row.revenueLow) / (d2 * mean)) * 100;
+}
+
 const DAY_MS = 24 * 3600 * 1000;
 function daysBetween(from: string, to: string): number | null {
   const a = Date.parse(from);
@@ -287,36 +341,79 @@ export function revenueRunRate(
 export function calendarizedConsensus(
   rows: AnalystEstimateRow[] | null,
   window: { startDate: string; endDate: string },
+  reported?: FiscalYearToDate | null,
 ): number | null {
-  if (!rows) return null;
+  return calendarizeConsensusWindow(rows, window, reported).value;
+}
+
+/**
+ * D-58/D-65: the calendarized window and the fiscal-year estimates behind it.
+ * D-65: when the issuer has already reported part of a fiscal year that
+ * overlaps the window, that year contributes its consensus LESS the reported
+ * revenue, spread over its unreported days (NVDA FY2027: $409.80B − $177.84B
+ * reported for H1 = $231.96B for 2026-07-27..2027-01-25, where an even spread
+ * gave $205.5B). A consensus at or below what is already reported is stale
+ * and leaves the window uncovered.
+ */
+export function calendarizeConsensusWindow(
+  rows: AnalystEstimateRow[] | null,
+  window: { startDate: string; endDate: string },
+  reported?: FiscalYearToDate | null,
+): { value: number | null; fiscalYears: ConsensusPathRow["fiscalYears"]; staleAgainstReported: boolean } {
+  const empty = { value: null, fiscalYears: [], staleAgainstReported: false };
+  if (!rows) return empty;
   const windowStart = Date.parse(window.startDate);
   const windowEnd = Date.parse(window.endDate) + DAY_MS;
-  if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart) return null;
-  const byDate = new Map<string, number>();
+  if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart) return empty;
+  const byDate = new Map<string, AnalystEstimateRow & { revenueAvg: number }>();
   for (const row of rows) {
     const revenue = posOrNull(row.revenueAvg);
-    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) byDate.set(row.date.slice(0, 10), revenue);
+    if (revenue !== null && /^\d{4}-\d{2}-\d{2}$/.test(row.date.slice(0, 10))) byDate.set(row.date.slice(0, 10), { ...row, revenueAvg: revenue });
   }
+  const reportedEnd = reported && posOrNull(reported.revenue) !== null ? Date.parse(reported.through) : Number.NaN;
   let total = 0;
   let covered = 0;
+  let stale = false;
+  const fiscalYears: ConsensusPathRow["fiscalYears"] = [];
   let previousEnd: string | null = null;
-  for (const [date, revenue] of [...byDate].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [date, row] of [...byDate].sort(([a], [b]) => a.localeCompare(b))) {
     const fy = forecastYearPeriod(date, 0, "fiscal-year");
     if (fy === null) continue;
     // A 52/53-week year starts the day after the previous estimate's year
     // end, not on a calendar anniversary, so adjacent years never share a day.
     const span = previousEnd === null ? null : daysBetween(previousEnd, date);
     const chained = previousEnd !== null && span !== null && span >= YEAR_AGO_QUARTER_DAYS[0] && span <= YEAR_AGO_QUARTER_DAYS[1];
-    const fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
+    let fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
     previousEnd = date;
     const fyEnd = Date.parse(fy.endDate) + DAY_MS;
+    let revenue = row.revenueAvg;
+    let reportedToDate: number | undefined;
+    // D-65: the fiscal year the reported quarters belong to (its prior year
+    // end a fiscal year before this estimate's end, the reported days inside it).
+    const priorGap = reported ? daysBetween(reported.priorFiscalYearEnd, date) : null;
+    if (reported && Number.isFinite(reportedEnd) && priorGap !== null && priorGap >= YEAR_AGO_QUARTER_DAYS[0] && priorGap <= YEAR_AGO_QUARTER_DAYS[1]
+      && reportedEnd + DAY_MS > fyStart && reportedEnd + DAY_MS < fyEnd) {
+      if (revenue - reported.revenue <= 0) {
+        stale = true;
+        continue;
+      }
+      revenue -= reported.revenue;
+      reportedToDate = reported.revenue;
+      fyStart = reportedEnd + DAY_MS;
+    }
     const overlap = Math.min(windowEnd, fyEnd) - Math.max(windowStart, fyStart);
     if (overlap <= 0) continue;
     total += (revenue * overlap) / (fyEnd - fyStart);
     covered += overlap;
+    fiscalYears.push({
+      date, revenue: row.revenueAvg, analysts: isNum(row.analysts) ? row.analysts : null,
+      dispersionPct: consensusDispersionPct(row), days: Math.round(overlap / DAY_MS),
+      ...(reportedToDate !== undefined ? { reportedToDate } : {}),
+    });
   }
   const span = windowEnd - windowStart;
-  return covered >= CONSENSUS_COVERAGE_MIN * span && covered <= (2 - CONSENSUS_COVERAGE_MIN) * span ? total : null;
+  const value = covered >= CONSENSUS_COVERAGE_MIN * span && covered <= (2 - CONSENSUS_COVERAGE_MIN) * span ? total : null;
+  return { value, fiscalYears, staleAgainstReported: stale };
 }
 
 /** Linear-interpolated quantile (p in [0,1]) over finite values. */
@@ -363,6 +460,42 @@ export interface AnalystEstimateRow {
   /** Fiscal period end the estimate refers to (ISO). */
   date: string;
   revenueAvg: number | null;
+  /** D-65: number of analysts behind the revenue estimate (FMP numAnalystsRevenue); absent when the provider gives none. */
+  analysts?: number | null;
+  /** D-65: lowest and highest analyst revenue estimate. */
+  revenueLow?: number | null;
+  revenueHigh?: number | null;
+}
+
+/**
+ * D-65: revenue the issuer has already reported inside the fiscal year that
+ * holds the start of the first forecast window (NVDA: Q1 + Q2 FY2027 =
+ * $177.84B through 2026-07-26). The window takes that year's consensus less
+ * this, instead of an even share of the whole year.
+ */
+export interface FiscalYearToDate {
+  /** End of the previous fiscal year (the day before this fiscal year starts). */
+  priorFiscalYearEnd: string;
+  /** Last day reported (the TTM end). */
+  through: string;
+  revenue: number;
+  quarters: number;
+}
+
+/** D-65: one forecast window set against calendarized consensus. */
+export interface ConsensusPathRow {
+  year: number;
+  label: string;
+  startDate: string;
+  endDate: string;
+  /** Calendarized consensus revenue; null when the estimates do not cover the window. */
+  consensus: number | null;
+  /** True when this year's growth came from consensus. */
+  anchored: boolean;
+  /** Why the year is or is not anchored. */
+  status: string;
+  /** Fiscal-year estimates behind the window. */
+  fiscalYears: { date: string; revenue: number; analysts: number | null; dispersionPct: number | null; days: number; reportedToDate?: number }[];
 }
 
 /** Income-statement slice used by the DCF builder (FMP field names). */
@@ -480,6 +613,14 @@ export interface DcfAssumptionInputs {
   guidance?: DcfGuidance | null;
   /** D-58: issuer domicile (ISO 3166 alpha-2), for the statutory marginal tax floor. */
   domicileCountry?: string | null;
+  /** D-65: revenue already reported in the fiscal year the first window starts in. */
+  fiscalYearToDate?: FiscalYearToDate | null;
+  /**
+   * D-65: the date the value is compared with a price (the quote date). Cash
+   * flows discounted to the statement date are rolled forward to it at the
+   * WACC. Omitted or not after the statement date: no roll-forward.
+   */
+  valuationDate?: string | null;
 }
 
 /** D-58: the run-rate quarters (revenue in the model currency). */
@@ -529,6 +670,16 @@ export interface RevenueAnchor {
   yearOneGrowthPct: number;
   /** Year-two growth from consensus, percent, when consensus anchored year two. */
   yearTwoGrowthPct: number | null;
+  /**
+   * D-65: the growth of every anchored year in order (year one first): year
+   * one from the anchor source, each later entry from consensus. The fade
+   * starts after the last entry. Absent on assumptions built before D-65.
+   */
+  anchoredGrowthPct?: number[];
+  /** D-65: the 1-based years whose growth came from consensus. */
+  consensusYears?: number[];
+  /** D-65: every explicit window against calendarized consensus, anchored or not. */
+  consensusPath?: ConsensusPathRow[];
   runRate: RevenueRunRate | null;
   /** The unclamped year-one revenue when the house clamp moved it; null otherwise. */
   clampedFrom: number | null;
@@ -757,9 +908,30 @@ export interface DcfAssumptions {
    * when gross profit is not on record; absent on assumptions built before D-60.
    */
   scenarioMarginCeiling?: ScenarioMarginCeiling | null;
+  /**
+   * D-65: the date the value is stated at. The explicit years are windows
+   * from the statement date, so their flows are discounted from it; every
+   * discount exponent then moves back by `elapsedYears`, which rolls the whole
+   * value forward to the quote date at the WACC. Absent or 0: the value is at
+   * the statement date (assumptions built before D-65, or no later quote).
+   */
+  valuationDate?: { value: string; elapsedYears: number; basis: string };
+  /**
+   * D-65: long-term investments the sales-to-capital denominator removed as
+   * non-operating (D-60). The equity bridge adds back exactly this amount, so
+   * an asset left out of operating capital is never left out of value too.
+   */
+  nonOperatingInvestments?: { value: number; balanceDate: string };
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
 }
+
+/**
+ * D-65: a quote more than this many days after the statement date is not
+ * rolled forward: a stale statement is a data problem, not a timing one, and
+ * the bridge's balance sheet would be older still.
+ */
+export const MAX_ROLL_FORWARD_DAYS = 200;
 
 /**
  * D-60: operating margin = gross margin − operating-expense ratio, so no
@@ -800,14 +972,15 @@ function analystTwoYearGrowthPct(
   rows: AnalystEstimateRow[] | null,
   ttmRevenue: number | null,
   ttmDate: string | null,
-): { value: number | null; asOf: string | null; notes: string[] } {
+): { value: number | null; asOf: string | null; notes: string[]; legs: string[] } {
   const notes: string[] = [];
-  if (!rows || rows.length === 0) return { value: null, asOf: null, notes };
+  const legs: string[] = [];
+  if (!rows || rows.length === 0) return { value: null, asOf: null, notes, legs };
   const future = rows
     .filter((r) => posOrNull(r.revenueAvg) !== null && (!ttmDate || r.date > ttmDate))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 2);
-  if (future.length === 0) return { value: null, asOf: null, notes };
+  if (future.length === 0) return { value: null, asOf: null, notes, legs };
   const growths: number[] = [];
   const base = posOrNull(ttmRevenue);
   if (base !== null) {
@@ -822,6 +995,7 @@ function analystTwoYearGrowthPct(
     ) {
       // Aligned full fiscal year (or no day-count derivable): raw ratio is the annual rate.
       growths.push((ratio - 1) * 100);
+      legs.push(`FY ending ${future[0].date} over TTM ${fmtNum((ratio - 1) * 100)}%`);
     } else if (days < ANALYST_LEG_MIN_DAYS) {
       notes.push(
         `analyst year-1 growth leg skipped: TTM end ${ttmDate} to FY1 end ${future[0].date} spans only ${days} days (< ${ANALYST_LEG_MIN_DAYS}) — too noisy to annualize; FY1→FY2 leg used alone`,
@@ -832,17 +1006,67 @@ function analystTwoYearGrowthPct(
         `analyst year-1 growth leg annualized by day-count: ${fmtNum((ratio - 1) * 100)}% over ${days} days (TTM end ${ttmDate} → FY1 end ${future[0].date}) → ${fmtNum(annualized)}%/yr`,
       );
       growths.push(annualized);
+      legs.push(`FY ending ${future[0].date} over TTM ${fmtNum((ratio - 1) * 100)}% in ${days} days, annualized ${fmtNum(annualized)}%`);
     }
   }
   if (future.length === 2) {
-    growths.push(((future[1].revenueAvg as number) / (future[0].revenueAvg as number) - 1) * 100);
+    const g = ((future[1].revenueAvg as number) / (future[0].revenueAvg as number) - 1) * 100;
+    growths.push(g);
+    legs.push(`FY ending ${future[1].date} over FY ending ${future[0].date} ${fmtNum(g)}%`);
   }
-  if (growths.length === 0) return { value: null, asOf: null, notes };
+  if (growths.length === 0) return { value: null, asOf: null, notes, legs };
   return {
     value: growths.reduce((a, b) => a + b, 0) / growths.length,
     asOf: future[future.length - 1].date,
     notes,
+    legs,
   };
+}
+
+const YEAR_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+const yearWord = (k: number): string => YEAR_WORDS[k] ?? String(k);
+
+/** D-65: "years 1–4", "year one", "no year": the years consensus set, for every text that names them. */
+export function consensusYearsText(years: readonly number[]): string {
+  if (years.length === 0) return "no year";
+  if (years.length === 1) return `year ${yearWord(years[0])}`;
+  const contiguous = years.every((y, i) => i === 0 || y === years[i - 1] + 1);
+  return contiguous ? `years ${years[0]}–${years[years.length - 1]}` : `years ${years.join(", ")}`;
+}
+
+/** D-65: the reported fiscal-year-to-date revenue, only when it ends on the TTM end and spans whole quarters. */
+function validFiscalYearToDate(ytd: FiscalYearToDate | null | undefined, ttmEnd: string | null, basis: DcfIncomeRow["basis"]): FiscalYearToDate | null {
+  if (!ytd || ttmEnd === null || basis === "annual" || ytd.through !== ttmEnd || posOrNull(ytd.revenue) === null) return null;
+  const days = daysBetween(ytd.priorFiscalYearEnd, ytd.through);
+  if (days === null || !Number.isInteger(ytd.quarters) || ytd.quarters < 1 || ytd.quarters > 3) return null;
+  // 52/53-week quarters run 13 or 14 weeks.
+  return days >= ytd.quarters * 84 && days <= ytd.quarters * 98 ? ytd : null;
+}
+
+/**
+ * D-65: why the fiscal-year estimates behind a window cannot anchor it, or
+ * null when they can. A provider row without an analyst count or range is
+ * accepted for years one and two (the D-60 rule, under which those years were
+ * already consensus) and never beyond, where coverage thins.
+ */
+function consensusGate(fiscalYears: ConsensusPathRow["fiscalYears"], year: number): string | null {
+  for (const f of fiscalYears) {
+    if (f.analysts === null) {
+      if (year > 2) return `the provider gives no analyst count for the fiscal year ending ${f.date}, required beyond year two`;
+      continue;
+    }
+    if (f.analysts < MIN_CONSENSUS_ANALYSTS) {
+      return `the fiscal year ending ${f.date} has ${f.analysts} revenue estimate${f.analysts === 1 ? "" : "s"}, fewer than the ${MIN_CONSENSUS_ANALYSTS} a consensus needs`;
+    }
+    if (f.dispersionPct === null) {
+      if (year > 2) return `the provider gives no low-high range for the fiscal year ending ${f.date}, required beyond year two`;
+      continue;
+    }
+    if (f.dispersionPct > MAX_CONSENSUS_CV_PCT) {
+      return `the fiscal year ending ${f.date} has an implied analyst dispersion of ${fmtNum(f.dispersionPct)}%, above the ${MAX_CONSENSUS_CV_PCT}% limit`;
+    }
+  }
+  return null;
 }
 
 /** D-58: guidance usable as the next-quarter level, or null. */
@@ -896,10 +1120,29 @@ function buildRevenueAnchor(args: {
     ? `${periodBasis} revenue ${fmtMoney(startRev)}`
     : `the seasonally neutral run-rate ${fmtMoney(runRate.value)} (latest quarter ending ${runRate.latestQuarterEnd} × 4 = ${fmtMoney(runRate.latestQuarterAnnualized)}; ` +
       `${periodBasis} ${fmtMoney(startRev)} carried 4.5 months at the quarter's ${fmtNum(runRate.yoyPct)}% year-over-year growth = ${fmtMoney(runRate.seasonallyNeutral)}; bounded by the two)`;
-  const window1 = ttmEnd === null ? null : forecastYearPeriod(ttmEnd, 1, windowBasis);
-  const window2 = ttmEnd === null ? null : forecastYearPeriod(ttmEnd, 2, windowBasis);
-  const ntm1 = window1 === null ? null : calendarizedConsensus(inputs.analystEstimates, window1);
-  const ntm2 = window2 === null ? null : calendarizedConsensus(inputs.analystEstimates, window2);
+  // D-65: every explicit window against calendarized consensus. The first
+  // window takes the current fiscal year's consensus less what is already
+  // reported; each window then passes or fails the breadth and agreement gates.
+  const reported = validFiscalYearToDate(inputs.fiscalYearToDate, ttmEnd, ttm?.basis);
+  const path: (ConsensusPathRow & { gate: string | null })[] = [];
+  for (let k = 1; ttmEnd !== null && k <= DCF_HORIZON_YEARS; k++) {
+    const w = forecastYearPeriod(ttmEnd, k, windowBasis);
+    if (w === null) break;
+    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported);
+    const gate = cal.value === null
+      ? cal.staleAgainstReported
+        ? `the fiscal-year consensus is at or below the ${fmtMoney((reported as FiscalYearToDate).revenue)} already reported through ${(reported as FiscalYearToDate).through}`
+        : `${w.label} is not covered by the fiscal-year estimates`
+      : consensusGate(cal.fiscalYears, k);
+    path.push({ year: k, label: w.label, startDate: w.startDate, endDate: w.endDate, consensus: cal.value, anchored: false, status: "", fiscalYears: cal.fiscalYears, gate });
+  }
+  const usable = (k: number): boolean => path[k - 1] !== undefined && path[k - 1].consensus !== null && path[k - 1].gate === null;
+  const window1 = path[0] ?? null;
+  const ntm1 = usable(1) ? path[0].consensus : null;
+  const ntm2 = usable(2) ? path[1].consensus : null;
+  const reportedText = reported === null || !window1?.fiscalYears.some((f) => f.reportedToDate !== undefined) ? "" :
+    `; the fiscal year ending ${window1.fiscalYears.find((f) => f.reportedToDate !== undefined)?.date} contributes its consensus less the ${fmtMoney(reported.revenue)} ` +
+    `already reported through ${reported.through} (${reported.quarters} quarter${reported.quarters === 1 ? "" : "s"}), spread over its unreported days`;
   const guide = nextQuarterGuidance(inputs.guidance, ttmEnd);
   const carry = (from: number, years: number, ratePct: number): number => from * Math.pow(1 + ratePct / 100, years);
 
@@ -927,7 +1170,7 @@ function buildRevenueAnchor(args: {
   if (ntm1 !== null && window1 !== null && consensusConsistent) {
     source = "consensus";
     raw = ntm1;
-    rawText = `analyst consensus calendarized to ${window1.label} (fiscal-year estimates weighted by day overlap)` +
+    rawText = `analyst consensus calendarized to ${window1.label} (fiscal-year estimates weighted by day overlap${reportedText})` +
       (guide === null ? "" : `, at or above the guided run-rate (${guidanceText}${guidedFloor !== guidedRunRate ? `; low end × 4 = ${fmtMoney(guidedFloor as number)}` : ""}), so consistent with the outlook`);
   } else if (guide !== null) {
     source = "guidance";
@@ -938,7 +1181,9 @@ function buildRevenueAnchor(args: {
       (guidedPacePct === null
         ? `the near-term growth rate ${fmtNum(gMid)}% (no latest reported quarter to measure the guided pace against)`
         : `the guided sequential pace ${fmtNum(guidedPacePct)}%/yr (guided quarter over the quarter ending ${ttmEnd}, ${fmtMoney(latestQuarter as number)}, annualized)`) +
-      (ntm1 === null ? "" : `; consensus ${fmtMoney(ntm1)} for the window sits below the guided run-rate and is not used for year one`);
+      (ntm1 === null
+        ? window1?.consensus != null && window1.gate !== null ? `; consensus ${fmtMoney(window1.consensus)} for the window is not used: ${window1.gate}` : ""
+        : `; consensus ${fmtMoney(ntm1)} for the window sits below the guided run-rate and is not used for year one`);
   } else {
     source = runRate === null ? "ttm" : "run-rate";
     nearTermRateUsed = true;
@@ -961,32 +1206,97 @@ function buildRevenueAnchor(args: {
   // Without a run-rate, guidance or consensus this is the pre-D-58 rule
   // exactly: TTM grown one year at the clamped rate.
   const yearOneGrowthPct = source === "ttm" && clampedFrom === null ? gMid : (yearOneRevenue / startRev - 1) * 100;
-  // Year two: the consensus level when consensus set year one (growth
-  // C2/C1), else consensus growth applied to the year-one level actually used,
-  // with the gap to the consensus level stated. It may not fall below the
-  // house floor or re-accelerate past both the house ceiling and year one.
-  let yearTwoGrowthPct: number | null = null;
-  let yearTwoText = "";
-  if (ntm1 !== null && ntm2 !== null && window2 !== null) {
-    const rawG2 = (ntm2 / ntm1 - 1) * 100;
-    const g2Hi = Math.max(NEAR_TERM_GROWTH_CLAMP_PP[1], yearOneGrowthPct);
-    yearTwoGrowthPct = clampWithNote(rawG2, NEAR_TERM_GROWTH_CLAMP_PP[0], g2Hi, "consensus year-two growth (pct)", notes);
-    const yearTwoRevenue = yearOneRevenue * (1 + yearTwoGrowthPct / 100);
-    const gap = (yearTwoRevenue / ntm2 - 1) * 100;
-    yearTwoText =
-      `; year two grows ${fmtNum(yearTwoGrowthPct)}% on consensus (${window2.label} ${fmtMoney(ntm2)} over ${fmtMoney(ntm1)}` +
-      `${yearTwoGrowthPct === rawG2 ? "" : `, ${fmtNum(rawG2)}% clamped to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${fmtNum(g2Hi)}%] = [house floor, max(house ceiling ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year-one growth)]`})` +
-      (Math.abs(gap) < 0.05 ? "" : `, so year two ${fmtMoney(yearTwoRevenue)} is ${fmtNum(Math.abs(gap))}% ${gap < 0 ? "below" : "above"} the consensus level`);
+  // Later years (D-58/D-60 for year two, D-65 beyond): each takes consensus
+  // growth, window over window — the consensus level itself when consensus set
+  // year one, else consensus growth applied to the level actually used, with
+  // the gap to the consensus level stated. Year two may not fall below the
+  // house floor or re-accelerate past both the house ceiling and year one
+  // (clamped, as D-58 did); from year three a window that fails a gate, or
+  // whose growth leaves that band, ends the anchored stretch, and the fade
+  // starts from the last anchored year. The final explicit year is always the
+  // fade's, so the path reaches the terminal rate.
+  if (path[0]) {
+    path[0].anchored = source === "consensus";
+    path[0].status = source === "consensus"
+      ? "anchored: the year-one level"
+      : path[0].gate !== null ? `not anchored: ${path[0].gate}`
+        : `not anchored: year one comes from ${source}${guidedFloor !== null && ntm1 !== null && ntm1 < guidedFloor ? " (consensus is below the guided run-rate floor)" : ""}`;
   }
+  const anchoredGrowth = [yearOneGrowthPct];
+  const consensusYears: number[] = source === "consensus" ? [1] : [];
+  const stepTexts: string[] = [];
+  let anchoredLevel = yearOneRevenue;
+  let stop: { year: number; reason: string } | null = null;
+  for (let k = 2; k <= path.length; k++) {
+    const row = path[k - 1];
+    if (stop !== null) {
+      row.status = `not anchored: the anchored stretch ended at year ${yearWord(anchoredGrowth.length)}`;
+      continue;
+    }
+    if (k >= DCF_HORIZON_YEARS) {
+      stop = { year: k, reason: "it is the final explicit year, which the fade sets to the terminal rate" };
+    } else if (!usable(k - 1)) {
+      stop = { year: k, reason: `there is no consensus growth into it (year ${yearWord(k - 1)}: ${path[k - 2].gate ?? "no consensus"})` };
+    } else if (!usable(k)) {
+      stop = { year: k, reason: row.gate ?? "no consensus" };
+    } else if (k > 2 && !consensusYears.includes(k - 1)) {
+      stop = { year: k, reason: `year ${yearWord(k - 1)} was not anchored` };
+    }
+    if (stop !== null) {
+      row.status = `not anchored: ${stop.reason}`;
+      continue;
+    }
+    const prev = path[k - 2].consensus as number;
+    const cur = row.consensus as number;
+    const rawG = (cur / prev - 1) * 100;
+    const prevG = anchoredGrowth[anchoredGrowth.length - 1];
+    const gHi = Math.max(NEAR_TERM_GROWTH_CLAMP_PP[1], prevG);
+    let g = rawG;
+    let clampNote = "";
+    if (k === 2) {
+      g = clampWithNote(rawG, NEAR_TERM_GROWTH_CLAMP_PP[0], gHi, "consensus year-two growth (pct)", notes);
+      if (g !== rawG) {
+        clampNote = `, ${fmtNum(rawG)}% clamped to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${fmtNum(gHi)}%] = [house floor, max(house ceiling ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year-one growth)]`;
+      }
+    } else if (rawG < NEAR_TERM_GROWTH_CLAMP_PP[0] || rawG > gHi) {
+      stop = { year: k, reason: `consensus growth ${fmtNum(rawG)}% ${rawG < NEAR_TERM_GROWTH_CLAMP_PP[0] ? `falls below the ${NEAR_TERM_GROWTH_CLAMP_PP[0]}% house floor` : `re-accelerates past max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year ${yearWord(k - 1)}'s ${fmtNum(prevG)}%)`}` };
+      row.status = `not anchored: ${stop.reason}`;
+      continue;
+    }
+    anchoredGrowth.push(g);
+    consensusYears.push(k);
+    anchoredLevel *= 1 + g / 100;
+    row.anchored = true;
+    row.status = g === rawG ? "anchored: consensus growth" : "anchored: consensus growth, clamped";
+    const gap = (anchoredLevel / cur - 1) * 100;
+    stepTexts.push(
+      `year ${yearWord(k)} grows ${fmtNum(g)}% on consensus (${row.label} ${fmtMoney(cur)} over ${fmtMoney(prev)}${clampNote})` +
+      (Math.abs(gap) < 0.05 ? "" : `, so year ${yearWord(k)} ${fmtMoney(anchoredLevel)} is ${fmtNum(Math.abs(gap))}% ${gap < 0 ? "below" : "above"} the consensus level`),
+    );
+    // A clamped year two leaves the consensus levels behind; later years fade.
+    if (g !== rawG) stop = { year: k + 1, reason: "year two's consensus growth was clamped" };
+  }
+  const yearTwoGrowthPct = consensusYears.includes(2) ? anchoredGrowth[1] : null;
+  const yearTwoText = stepTexts.length === 0 ? "" : `; ${stepTexts.join("; ")}`;
+  const anyConsensus = path.some((r) => r.consensus !== null);
+  const lastCovered = [...path].reverse().find((r) => r.consensus !== null);
+  const stopText = stop === null || !anyConsensus ? "" :
+    `; year ${yearWord(stop.year)} is not anchored: ${stop.reason}${/not covered/.test(stop.reason) && lastCovered ? ` (the estimates cover through ${lastCovered.label})` : ""}`;
   const yearOneGap = ntm1 === null || source === "consensus" ? null : (yearOneRevenue / ntm1 - 1) * 100;
   const yearOneGapText = yearOneGap === null || Math.abs(yearOneGap) < 0.05 ? "" :
     `; year one is ${fmtNum(Math.abs(yearOneGap))}% ${yearOneGap < 0 ? "below" : "above"} the consensus ${fmtMoney(ntm1 as number)}`;
+  const gateText = !anyConsensus ? "" :
+    ` House rule D-65: consensus sets every year whose fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts and an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}%, while its growth stays within [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, the prior year)].`;
   const basis =
     `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
-    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText} (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate)`;
+    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText}${stopText} (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate).${gateText}`;
   notes.push(`Year-one revenue anchor: ${basis}`);
   return {
     source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis,
+    anchoredGrowthPct: anchoredGrowth,
+    consensusYears,
+    consensusPath: path.map((row) => ({ year: row.year, label: row.label, startDate: row.startDate, endDate: row.endDate,
+      consensus: row.consensus, anchored: row.anchored, status: row.status, fiscalYears: row.fiscalYears })),
     evidence: { guidedRunRate, guidedPacePct, consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
       guidedQuarter: guide === null ? null : { periodEnd: guide.periodEnd, revenueLow: posOrNull(guide.revenueLow) ?? guide.revenue, revenueMid: guide.revenue,
         grossMarginLowPct: isNum(guide.grossMarginLowPct) ? guide.grossMarginLowPct : null, source: guide.source, asOf: guide.asOf } },
@@ -1130,7 +1440,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     methods.push({
       name: "analyst-consensus case",
       valuePct: analyst.value,
-      detail: `${fmtNum(analyst.value)}% (average implied growth over the next 2 fiscal years, through ${analyst.asOf ?? "?"})`,
+      // D-65 (P2-9): both legs are printed, so the average can be reproduced.
+      detail: `${fmtNum(analyst.value)}% (mean of ${analyst.legs.join(" and ")}, through ${analyst.asOf ?? "?"})`,
     });
   } else {
     methods.push({
@@ -1199,7 +1510,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   }
   if (analyst.value === null) {
     gaps.push(
-      gapEntry("valuation.dcf.analystGrowth", "no usable analyst revenue estimates — the consensus-anchored method was excluded from the median", "info"),
+      gapEntry("valuation.dcf.analystGrowth", "no usable analyst revenue estimates — the analyst-consensus growth method was excluded from the median", "info"),
     );
   }
 
@@ -1223,10 +1534,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // have kept growth above 50% for four years. The anchored years now come
   // from guidance, consensus or the run-rate; every later year closes the
   // gap to the terminal rate geometrically from the last anchored year.
-  const anchoredGrowth = [
-    revenueAnchor.yearOneGrowthPct,
-    ...(revenueAnchor.yearTwoGrowthPct !== null && years > 2 ? [revenueAnchor.yearTwoGrowthPct] : []),
-  ];
+  // D-65: every year consensus anchors, not only the first two.
+  const anchoredGrowth = (revenueAnchor.anchoredGrowthPct ?? [revenueAnchor.yearOneGrowthPct]).slice(0, Math.max(1, years - 1));
   const lastAnchored = anchoredGrowth[anchoredGrowth.length - 1];
   const growthPath = [
     ...anchoredGrowth,
@@ -1462,7 +1771,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const s2c = clampWithNote(startRev / (operatingIc ?? ic), S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
   const s2cBasis = operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; long-term investments are non-operating, house rule D-60)`
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)`
     : `${periodBasis} revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
 
@@ -1499,6 +1808,30 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // construction text states it; it does not bind the base path.
   const scenarioCeiling = scenarioMarginCeiling(ttm, inputs.incomeHistory);
 
+  // D-65: the explicit windows start the day after the statement date, so the
+  // flows are discounted to that date; the price they are compared with is a
+  // later quote. Rolling the value forward at the WACC states it at the quote
+  // date. The bridge stays at the statement-date balance: cash generated since
+  // then is inside the first window's flows, not double counted.
+  const statementDate = ttm?.date ?? null;
+  const elapsedDays = statementDate !== null && inputs.valuationDate ? daysBetween(statementDate, inputs.valuationDate) : null;
+  let valuationDate: DcfAssumptions["valuationDate"] | undefined;
+  if (elapsedDays !== null && elapsedDays > 0 && elapsedDays <= MAX_ROLL_FORWARD_DAYS) {
+    const elapsedYears = elapsedDays / DAYS_PER_YEAR;
+    const factor = Math.pow(1 + inputs.waccPct / 100, elapsedYears);
+    valuationDate = {
+      value: inputs.valuationDate as string,
+      elapsedYears,
+      basis: `cash flows are discounted from the statement date ${statementDate} and rolled forward ${elapsedDays} days to the quote date ${inputs.valuationDate} ` +
+        `at the WACC (× ${factor.toFixed(4)}), so the per-share value and the price it is compared with share a date; the equity bridge stays at the ${statementDate} balance, ` +
+        "whose later cash generation is inside the first window's flows (house rule D-65)",
+    };
+    notes.push(`Valuation date: ${valuationDate.basis}`);
+  } else if (elapsedDays !== null && elapsedDays > MAX_ROLL_FORWARD_DAYS) {
+    notes.push(`Valuation date: the quote ${inputs.valuationDate} is ${elapsedDays} days after the statement date ${statementDate}, beyond the ${MAX_ROLL_FORWARD_DAYS}-day roll-forward limit; the value is stated at the statement date (house rule D-65)`);
+    gaps.push(gapEntry("valuation.dcf.valuationDate", `quote ${elapsedDays} days after the statement date — value not rolled forward`, "info"));
+  }
+
   const assumptions: DcfAssumptions = {
     ...(ttm?.date ? { forecastPeriod: {
       basis: ttm.basis === "annual" ? "fiscal-year" as const : "rolling-12-month" as const,
@@ -1527,7 +1860,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       value: growthPath,
       basis:
         `year one ${fmtNum(growthPath[0])}% from the revenue anchor (${revenueAnchor.source === "consensus" ? "analyst consensus" : revenueAnchor.source})` +
-        `${anchoredGrowth.length === 2 ? `, year two ${fmtNum(growthPath[1])}% on consensus` : ""}; ` +
+        (anchoredGrowth.length >= 2
+          ? `, ${anchoredGrowth.length === 2 ? "year two" : `years 2–${anchoredGrowth.length}`} ${anchoredGrowth.slice(1).map((g) => `${fmtNum(g)}%`).join(", ")} on consensus` +
+            ` (consensus anchors ${consensusYearsText(revenueAnchor.consensusYears ?? [])}; house rule D-65)`
+          : revenueAnchor.source === "consensus" ? " (consensus anchors year one only)" : "") +
+        "; " +
         `later years follow a convergent fade from year ${anchoredGrowth.length}'s ${fmtNum(lastAnchored)}% to the terminal rate ${fmtNum(gTerm)}% in year ${years}: ` +
         `the excess over the terminal rate decays geometrically with a ${GROWTH_FADE_HALF_LIFE_YEARS}-year half-life, rescaled so it closes exactly in year ${years}, ` +
         `so it falls somewhat faster than halving every ${GROWTH_FADE_HALF_LIFE_YEARS} years (house rule D-58; the linear fade is retired). ` +
@@ -1552,6 +1889,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     },
     midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
     scenarioMarginCeiling: scenarioCeiling,
+    ...(valuationDate ? { valuationDate } : {}),
+    ...(operatingIc !== null && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
   };
@@ -1581,6 +1920,16 @@ export interface DcfRunOptions {
    * EBIT, so the FCFF path does not value them. Omit/null ⇒ none.
    */
   nonOperatingAssets?: number | null;
+  /** D-65: what `nonOperatingAssets` is made of, for the bridge disclosure; the engine reads only the total. */
+  nonOperatingComponents?: NonOperatingAssetComponent[] | null;
+}
+
+/** D-65: one non-operating asset the equity bridge adds, at its filed carrying or fair value. */
+export interface NonOperatingAssetComponent {
+  kind: "marketable-equity-securities" | "long-term-investments";
+  label: string;
+  value: number;
+  basis: string;
 }
 
 export interface DcfYearRow {
@@ -1637,6 +1986,13 @@ export interface DcfBridge {
   preferred: number | null;
   /** D-60: present only when the bridge added a sourced non-operating asset. */
   nonOperatingAssets?: number;
+  /** D-65: the components of `nonOperatingAssets`, when more than the D-60 equity securities are known. */
+  nonOperatingComponents?: NonOperatingAssetComponent[];
+  /**
+   * D-65: shares outstanding the quote implies (market cap ÷ price), shown
+   * beside the diluted denominator; disclosure only, never the divisor.
+   */
+  sharesOutstandingAtQuote?: number;
 }
 
 export interface DcfResult {
@@ -1710,6 +2066,9 @@ function dcfCore(
   }
 
   const s2c = a.salesToCapital.value;
+  // D-65: the value is stated at the quote date, `elapsed` years after the
+  // statement date the windows are measured from.
+  const elapsed = a.valuationDate && Number.isFinite(a.valuationDate.elapsedYears) && a.valuationDate.elapsedYears > 0 ? a.valuationDate.elapsedYears : 0;
   const yearRows: DcfYearRow[] = [];
   let rev = a.startRevenue.value;
   let pvExplicit = 0;
@@ -1753,7 +2112,7 @@ function dcfCore(
     }
     const reinvestment = Math.max(0, (rev - prev) / s2c);
     const fcff = nopat - reinvestment;
-    const discountFactor = Math.pow(1 + w, midYear ? t - 0.5 : t);
+    const discountFactor = Math.pow(1 + w, (midYear ? t - 0.5 : t) - elapsed);
     const pv = fcff / discountFactor;
     pvExplicit += pv;
     yearRows.push({
@@ -1810,7 +2169,7 @@ function dcfCore(
   const nopatN1 = ebitN1 > 0 ? ebitN1 * (1 - taxTerm / 100) : ebitN1;
   const fcffN1 = nopatN1 * (1 - reinvestRate);
   const terminalValue = fcffN1 / ((waccPct - gTerm) / 100);
-  const pvTerminal = terminalValue / Math.pow(1 + w, midYear ? n - 0.5 : n);
+  const pvTerminal = terminalValue / Math.pow(1 + w, (midYear ? n - 0.5 : n) - elapsed);
 
   return {
     pvExplicit,
@@ -1869,6 +2228,8 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     minorityInterest: opts.minorityInterest ?? null,
     preferred: opts.preferred ?? null,
     ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 ? { nonOperatingAssets: opts.nonOperatingAssets } : {}),
+    ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 && opts.nonOperatingComponents && opts.nonOperatingComponents.length > 0
+      ? { nonOperatingComponents: opts.nonOperatingComponents.map((c) => ({ ...c })) } : {}),
   };
   const core = dcfCore(assumptions, opts.waccPct, { guardMode: "clamp" });
   if (core === null) {
@@ -2380,6 +2741,13 @@ export interface MultiplesBalance {
   cashAndCashEquivalents?: number | null;
   shortTermInvestments?: number | null;
   cashAndShortTermInvestments: number | null;
+  /**
+   * D-65: the filed fair value of marketable equity securities inside cash and
+   * short-term investments (D-60). The multiples' EV nets the same canonical
+   * net cash as the DCF bridge and the key-data box, so equity stakes are not
+   * cash here either.
+   */
+  marketableEquitySecurities?: number | null;
   totalStockholdersEquity: number | null;
   goodwill: number | null;
   intangibleAssets: number | null;
@@ -2448,6 +2816,8 @@ export interface QuarterlyFundamentalsRow {
   capitalLeaseObligations?: number | null;
   financeLeaseLiability?: number | null;
   cashAndShortTermInvestments?: number | null;
+  /** D-65: that quarter's filed marketable equity securities inside cash and short-term investments, so the own-history EV nets the same cash as the current one. */
+  marketableEquitySecurities?: number | null;
   preferredStock?: number | null;
   minorityInterest?: number | null;
   /**
@@ -3001,6 +3371,9 @@ export function multiplesFramework(
       ? "Enterprise value INCLUDES the operating-lease liability (THESIS_EV_INCLUDE_LEASES=1). "
       : "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). ") +
     "EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments" +
+    (netDebt.nonOperatingEquitySecurities !== undefined
+      ? ` excluding ${fmtNum(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
+      : "") +
     (leaseLiability === null
       ? totalLeaseLiability === null
         ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
@@ -4184,6 +4557,13 @@ export interface ValuationBundleInputs {
    * disclosed non-operating asset. Null ⇒ none identified.
    */
   nonOperatingAssets?: { value: number; basis: string } | null;
+  /**
+   * D-65: the filed source of the long-term investments the DCF removes from
+   * operating capital (balance date, filing, any XBRL carrying-value fact),
+   * for the bridge disclosure. The amount is the DCF's own
+   * (`DcfAssumptions.nonOperatingInvestments`), never supplied separately.
+   */
+  longTermInvestmentsBasis?: string | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
   multiples: MultiplesFrameworkInputs;
@@ -4557,14 +4937,23 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       }
       // D-60: equity securities left out of cash return as a non-operating
       // asset at their filed fair value, only when net debt itself bridges.
-      const nonOperating =
-        isNum(netDebtForBridge) && inputs.nonOperatingAssets && isNum(inputs.nonOperatingAssets.value) && inputs.nonOperatingAssets.value > 0
-          ? inputs.nonOperatingAssets
-          : null;
-      if (nonOperating !== null) {
+      // D-65: so do the long-term investments the sales-to-capital
+      // denominator removed as non-operating, at their filed carrying value.
+      const components: NonOperatingAssetComponent[] = [];
+      if (isNum(netDebtForBridge) && inputs.nonOperatingAssets && isNum(inputs.nonOperatingAssets.value) && inputs.nonOperatingAssets.value > 0) {
+        components.push({ kind: "marketable-equity-securities", label: "marketable equity securities (filed fair value, not cash)",
+          value: inputs.nonOperatingAssets.value, basis: inputs.nonOperatingAssets.basis });
+      }
+      const lti = assumptions.nonOperatingInvestments ?? null;
+      if (isNum(netDebtForBridge) && lti !== null && isNum(lti.value) && lti.value > 0) {
+        components.push({ kind: "long-term-investments", label: "long-term investments (filed carrying value)", value: lti.value,
+          basis: inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: the amount the sales-to-capital denominator removes as non-operating` });
+      }
+      const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
+      for (const c of components) {
         notes.push(
-          `DCF equity bridge adds non-operating assets of ${fmtNum(nonOperating.value)}: ${nonOperating.basis}. ` +
-            "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount is estimated.",
+          `DCF equity bridge adds ${c.label} of ${fmtNum(c.value)}: ${c.basis}. ` +
+            "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied.",
         );
       }
       const runOpts: DcfRunOptions = {
@@ -4573,7 +4962,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         dilutedShares: inputs.dilutedShares,
         minorityInterest: inputs.minorityInterest ?? null,
         preferred: inputs.preferred ?? null,
-        ...(nonOperating !== null ? { nonOperatingAssets: nonOperating.value } : {}),
+        ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
       sensitivity = sensitivityGrid(assumptions, runOpts);
@@ -4607,6 +4996,8 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       if (isNum(inputs.dilutedShares) && inputs.dilutedShares > 0 && isNum(quotePrice) && quotePrice > 0 && isNum(quoteCap) && quoteCap > 0) {
         const implied = quoteCap / quotePrice;
         const diff = (inputs.dilutedShares / implied - 1) * 100;
+        // D-65: the reader sees both share counts beside the bridge.
+        dcf.bridge.sharesOutstandingAtQuote = implied;
         if (Math.abs(diff) >= 0.1) {
           notes.push(
             `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}; the quoted market cap implies ${fmtMoney(implied)} shares ` +

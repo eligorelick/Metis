@@ -545,8 +545,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const marketCap = quotedCap ?? (price !== null && dilutedShares !== null && dilutedShares > 0 ? price * dilutedShares : null);
   if (marketCap !== null) rows.push({ label: "Market cap", value: money(marketCap, priceCurrency), note: quotedCap !== null ? "quote" : "price × diluted shares" });
   if (marketCap !== null && bridge && bridge.netDebt !== null) {
+    // D-65: the market EV, on the same net cash the DCF bridge and the EV
+    // multiples use; the DCF's own intrinsic EV and the provider's period-end
+    // EV carry their own labels where they print.
     const ev = marketCap + bridge.netDebt + (bridge.minorityInterest ?? 0) + (bridge.preferredEquity ?? 0);
-    rows.push({ label: "Enterprise value", value: money(ev, priceCurrency), note: `market cap + net debt${bridge.asOf ? ` at ${bridge.asOf}` : ""} from the DCF bridge` });
+    rows.push({ label: "Enterprise value (market)", value: money(ev, priceCurrency), note: `market cap + net debt${bridge.asOf ? ` at ${bridge.asOf}` : ""} (equity securities are not cash); the EV multiples use the same figure` });
   }
   const outstanding = md?.shares?.outstanding ?? null;
   if (outstanding !== null && outstanding > 0) {
@@ -608,7 +611,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const epsSeries = report.projections?.series.find((s) => s.metric === "epsDiluted");
   const nextEps = epsSeries?.base[0];
   if (nextEps && price !== null && nextEps.value.value > 0) {
-    rows.push({ label: "Forward P/E (model base-case EPS)", value: formatMultiple(price / nextEps.value.value), note: nextEps.period });
+    // D-65: the model's EPS is operating EPS (EBIT less interest, taxed at the
+    // DCF rate), not a GAAP diluted EPS forecast like the consensus row above.
+    rows.push({ label: "Forward P/E (model base-case operating EPS)", value: formatMultiple(price / nextEps.value.value), note: `${nextEps.period}; excludes investment gains` });
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
   if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current) });
@@ -701,7 +706,8 @@ export function consensusTables(report: Report): BodyTable[] {
   }
   if (md.quote?.marketCap != null) rows.push(["Market cap (quote)", `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
   if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float ${formatLargeNumber(md.shares.float)}` : ""}`]);
-  if (md.enterpriseValue) rows.push(["Enterprise value (provider, period end)", `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (market cap + debt − cash at that date)`]);
+  // D-65: the vendor's own EV definition at its own date, not this report's market EV.
+  if (md.enterpriseValue) rows.push(["Provider enterprise value (vendor definition, period end)", `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
   if (rows.length > 0) tables.push({ heading: "Market data and positioning", headers: ["Item", "Value"], rows });
   return tables;
 }

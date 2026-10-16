@@ -44,7 +44,8 @@ const METRIC_LABELS = [
   "Revenue",
   "Operating margin",
   "Cash flow (historical FCF; forecast FCFF)",
-  "Diluted EPS",
+  // D-65: projected EPS is operating EPS; the label says so.
+  "EPS (historical GAAP diluted; forecast operating)",
 ] as const;
 const PATHS = ["historical", "bull", "base", "bear", "weighted"] as const;
 const PATH_LABELS = ["Historical", "Bull", "Base", "Bear", "Weighted"] as const;
@@ -554,7 +555,7 @@ describe("Task 28 complete report surfaces", () => {
       expect(occurrenceCount(output, "projections.eps.shareCountTrend")).toBe(1);
       expect(output).toContain("TASK28:missing-EPS:share-trend-disclosure");
       expect(projectionAudit).not.toContain("TASK28:epsDiluted:historical:0:source-display");
-      expect(projectionAudit).not.toContain("Diluted EPS");
+      expect(projectionAudit).not.toContain("EPS (historical GAAP diluted; forecast operating)");
     }
     expect(JSON.stringify(report)).toBe(before);
   });

@@ -39,7 +39,7 @@ import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
-import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
@@ -848,7 +848,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const candidate: Report = {
     ...stub,
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
-    thesisTriggers: buildThesisTriggers(computed),
+    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle))),
     verdict: {
       synthesis: synthesis(computed, bundle, args.reason, currency, stub.appendix.missingData.length),
       gradeStrip: {

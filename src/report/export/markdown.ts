@@ -736,7 +736,8 @@ function renderProjections(p: Projections): string {
   }
   const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
   series.forEach((s, index) => {
-    lines.push(`### ${PROJECTION_METRIC_BY_KEY[s.metric].label} (${markdownHeading(s.unit)})`, "");
+    // D-65: the table prints forecast periods only, so the heading names the forecast measure.
+    lines.push(`### ${PROJECTION_METRIC_BY_KEY[s.metric].forecastLabel} (${markdownHeading(s.unit)})`, "");
     const rows = projectionPeriodRows(s).flatMap((row) => {
       const points = forwardPaths.map((descriptor) => projectionCellPoint(row, descriptor.key, s.unit));
       if (points.every((point) => point === null)) return [];

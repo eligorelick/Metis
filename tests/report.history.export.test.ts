@@ -651,8 +651,9 @@ describe("reportToMarkdown", () => {
       "### Revenue (USD)",
       "### Revenue (USD duplicate metric)",
       "### Operating margin (%)",
-      "### Cash flow (historical FCF; forecast FCFF) (USD)",
-      "### Diluted EPS (USD/share)",
+      // D-65: the export tables print forecast periods only, so they name the forecast measure.
+      "### Free cash flow to the firm (FCFF) (USD)",
+      "### Operating EPS (diluted shares) (USD/share)",
     ];
     let headingCursor = -1;
     for (const heading of headings) {
@@ -685,8 +686,8 @@ describe("reportToMarkdown", () => {
       "Revenue (USD)",
       "Revenue (USD duplicate metric)",
       "Operating margin (%)",
-      "Cash flow (historical FCF; forecast FCFF) (USD)",
-      "Diluted EPS (USD/share)",
+      "Free cash flow to the firm (FCFF) (USD)",
+      "Operating EPS (diluted shares) (USD/share)",
     ]) {
       const next = printed.indexOf(`>${label}</h3>`);
       expect(next, label).toBeGreaterThan(printCursor);
@@ -2811,7 +2812,8 @@ describe("history diff route-used SSR renderer", () => {
       diffReports(older, newer, persistedVersions(older, newer)),
     );
     const projectionStart = html.indexOf("projection changes");
-    const labels = ["Revenue", "Operating margin", "Cash flow (historical FCF; forecast FCFF)", "Diluted EPS"];
+    // D-65: the EPS chart label says history is GAAP and the forecast operating.
+    const labels = ["Revenue", "Operating margin", "Cash flow (historical FCF; forecast FCFF)", "EPS (historical GAAP diluted; forecast operating)"];
     let cursor = projectionStart;
     for (const label of labels) {
       const next = html.indexOf(label, cursor + 1);

@@ -59,7 +59,15 @@ export interface ScoreWeightDescriptor {
 export interface ProjectionMetricDescriptor {
   readonly id: `projection-metric:${ProjectionMetric}`;
   readonly key: ProjectionMetric;
+  /** The chart's label: history and forecast on one axis. */
   readonly label: string;
+  /**
+   * D-65: the label of a forecast-only table (the export body prints no
+   * history), naming what the projected figures are: unlevered FCFF, and
+   * operating EPS (EBIT less interest, taxed at the DCF rate) rather than a
+   * GAAP diluted EPS forecast.
+   */
+  readonly forecastLabel: string;
 }
 
 export interface ProjectionPathDescriptor {
@@ -187,10 +195,10 @@ export const PROJECTION_METRIC_ORDER = [
 ] as const satisfies readonly ProjectionMetric[];
 
 export const PROJECTION_METRICS = [
-  { id: "projection-metric:revenue", key: "revenue", label: "Revenue" },
-  { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin" },
-  { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)" },
-  { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "Diluted EPS" },
+  { id: "projection-metric:revenue", key: "revenue", label: "Revenue", forecastLabel: "Revenue" },
+  { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin", forecastLabel: "Operating margin" },
+  { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)", forecastLabel: "Free cash flow to the firm (FCFF)" },
+  { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "EPS (historical GAAP diluted; forecast operating)", forecastLabel: "Operating EPS (diluted shares)" },
 ] as const satisfies readonly ProjectionMetricDescriptor[];
 
 export const PROJECTION_METRIC_BY_KEY = {

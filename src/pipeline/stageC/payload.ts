@@ -39,6 +39,8 @@ import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/st
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
+import { peerSizeExclusion } from "@/pipeline/peers";
+import { consensusYearsText } from "@/pipeline/stageB/valuation";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
   PROJECTION_PATH_ORDER,
@@ -996,8 +998,21 @@ function computedSections(
       });
     }
   }
+  // D-65: which base-path years consensus sets, so the prose names them
+  // instead of calling a ten-year path "consensus-anchored".
+  const consensusYears = val.kind === "dcf" ? val.assumptions?.revenueAnchor?.consensusYears : undefined;
+  const consensusPath = val.kind === "dcf" ? val.assumptions?.revenueAnchor?.consensusPath ?? [] : [];
+  const anchoredLabels = consensusPath.filter((r) => r.anchored).map((r) => r.label);
+  const consensusNote = consensusYears === undefined || val.kind !== "dcf" ? [] : [
+    consensusYears.length === 0
+      ? "Consensus anchoring (D-65): no base-path year takes its revenue from analyst consensus; do not describe the base path as consensus-anchored."
+      : `Consensus anchoring (D-65): consensus sets ${consensusYearsText(consensusYears)} of the ${val.assumptions?.years ?? 10}-year base path` +
+        `${anchoredLabels.length > 0 ? ` (${anchoredLabels[0]}${anchoredLabels.length > 1 ? ` through ${anchoredLabels[anchoredLabels.length - 1]}` : ""})` : ""}; ` +
+        `the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.`,
+  ];
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...consensusNote,
     ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
       ? ["Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures."]
       : []),
@@ -1123,7 +1138,12 @@ function computedSections(
     sections.push(payloadSection({
       title: `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
       figures: projFigures,
-      notes: [...new Set(projectionSeries.flatMap((series) => series.assumptions))],
+      // D-65: the capital-return basis left the EPS series' assumptions (the
+      // report states it once, under its table); the model still reads it here.
+      notes: [...new Set(projectionSeries.flatMap((series) => [
+        ...series.assumptions,
+        ...(series.capitalReturn?.basis ? [series.capitalReturn.basis] : []),
+      ]))],
     }));
   } else if (computed.projections && computed.projections.notApplicableReason) {
     // No weights here: nothing is weighted on this route, so none are shown.
@@ -1427,7 +1447,11 @@ function nextEarningsNote(bundle: DataBundle): string | null {
  * under the same D-57 rule (which requires it to equal the reporting one).
  */
 function peersSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
-  const peers = rowsOf(bundle.peers).slice(0, PAYLOAD_BUDGETS.listRows);
+  // D-65: discovery candidates outside the comparable-size band are named in
+  // a note, not listed as peers (NVDA: a $29M and a $265M listing beside $5.2T).
+  const subjectCap = numOrNull(firstRow(bundle.quote)?.marketCap) ?? numOrNull(firstRow(bundle.profile)?.marketCap);
+  const screened = rowsOf(bundle.peers).map((p) => ({ p, size: peerSizeExclusion(subjectCap, numOrNull(p.mktCap)) }));
+  const peers = screened.filter((s) => s.size === null).map((s) => s.p).slice(0, PAYLOAD_BUDGETS.listRows);
   const asOf = bundle.peers.ok ? bundle.peers.value.asOf : null;
   const figures: PayloadFigureInput[] = peers.map((p) => ({
     label: `${strOrNull(p.symbol) ?? "?"} — ${strOrNull(p.companyName) ?? "?"}`,
@@ -1437,7 +1461,9 @@ function peersSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): Payl
     source: "fmp:stock-peers",
     asOf,
   }));
-  return payloadSection({ title: "Peers", figures, notes: inheritanceNote(figures, issuer) });
+  const sizeNotes = screened.filter((s) => s.size !== null)
+    .map((s) => `${strOrNull(s.p.symbol) ?? "?"} (${strOrNull(s.p.companyName) ?? "?"}) is not listed as a peer: ${s.size}.`);
+  return payloadSection({ title: "Peers", figures, notes: [...inheritanceNote(figures, issuer), ...sizeNotes] });
 }
 
 function insidersSection(bundle: DataBundle): PayloadSection {
@@ -1839,6 +1865,30 @@ function guidanceMetricLabel(metric: GuidanceRow["metric"], basis: GuidanceRow["
   return `${GUIDANCE_METRIC_LABELS[metric]}${basis === "gaap" ? " (GAAP)" : basis === "non-gaap" ? " (non-GAAP)" : ""}`;
 }
 
+function guidanceFigureName(row: Pick<GuidanceRow, "period" | "metric" | "basis">): string {
+  return `${row.period} ${guidanceMetricLabel(row.metric, row.basis)} guidance`;
+}
+
+/** D-65: the registry id of one guidance figure, as issuerFilingsSection registers it. */
+export function guidanceRecordId(row: Pick<GuidanceRow, "period" | "metric" | "basis">, part: "low" | "midpoint" | "high"): string {
+  return `payload.issuer-filings.${semanticSlug(`${guidanceFigureName(row)} ${part}`)}`;
+}
+
+/**
+ * D-65: the registered record a guided-quarter checkpoint cites: the low end
+ * of the matching range row (revenue, or GAAP gross margin) in the release's
+ * guidance table. Null when no registered row carries that low end, so the
+ * checkpoint keeps its filing citation rather than an id nothing registered.
+ */
+export function guidanceLowCitation(disclosures: FilingDisclosures | undefined): (metric: "revenue" | "gross-margin", low: number) => string | null {
+  const rows = disclosures?.guidance?.rows ?? [];
+  return (metric, low) => {
+    const row = rows.find((r) => r.metric === metric && r.basis !== "non-gaap" && (r.form === "range" || r.form === "plus-minus")
+      && Math.abs(r.low - low) <= Math.max(1e-9, Math.abs(low) * 1e-9));
+    return row === undefined ? null : guidanceRecordId(row, "low");
+  };
+}
+
 function guidanceUnit(unit: GuidanceRow["unit"]): string {
   return unit === "%" ? "%" : unit === "currency-per-share" ? "currency/share" : "currency";
 }
@@ -1853,7 +1903,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   if (g !== null) {
     const source = `edgar:8-K ${g.source.exhibit ?? "EX-99"}`;
     for (const row of g.rows) {
-      const name = `${row.period} ${guidanceMetricLabel(row.metric, row.basis)} guidance`;
+      const name = guidanceFigureName(row);
       const base = { unit: guidanceUnit(row.unit), currency: row.unit === "%" ? null : currency, period: row.period, source, asOf: g.source.filingDate };
       if (row.form === "range" || row.form === "plus-minus") {
         figures.push({ ...base, label: `${name} low`, value: row.low }, { ...base, label: `${name} midpoint`, value: row.mid }, { ...base, label: `${name} high`, value: row.high });

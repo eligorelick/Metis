@@ -774,10 +774,19 @@ describe("payload determinism + provenance", () => {
       // (year over year)"; their labels and registry ids move (+80 prompt
       // bytes), values and periods do not. The fixture made no acquisition and
       // its Beneish M (-2.49) is in the "unlikely" band, so no D-68 context row joins.
-      fingerprint: "1.23.0:c8b504b9",
-      promptBytes: 131_822,
+      // D-65 (+1,045 prompt bytes; no record or citation added or removed): the
+      // year-one window takes FY2026 consensus less the $219B already reported
+      // for Q1-Q2 (2025-12-28, 2026-03-28) instead of an even share; the value is
+      // rolled forward 99 days from 2026-03-28 to the 2026-07-05 quote; forecast
+      // EPS deducts Q2's $0.95B × 4 of interest. The anchor basis names the
+      // years consensus sets (year one: FY2028 has no estimate) and the D-65
+      // gates, a consensus-anchoring note joins the valuation notes, the
+      // analyst-consensus method prints both legs, and the scenario-decay and
+      // flat-share paragraphs each appear once. Values move provenanceHash.
+      fingerprint: "1.23.0:519f81a8",
+      promptBytes: 132_867,
       provenanceCount: 531,
-      provenanceHash: "28d23173",
+      provenanceHash: "4a143732",
       provenanceIdsHash: "0dee6be6",
       citationCount: 73,
       citationHash: "395a88c9",
@@ -798,7 +807,9 @@ describe("payload determinism + provenance", () => {
       // D-61: moat durability is the ROIC floor, leadership drops the second
       // ROIC − WACC read and grades buyback timing (unmeasurable here), and the
       // accruals signal reads operating accruals — see the comment above.
-      financeHash: "12125e0e",
+      // D-65: the DCF (reported-half year one, quote-date roll-forward), the
+      // EPS interest run-rate and the scenario construction text — see above.
+      financeHash: "294b59a3",
     });
   });
 
@@ -2542,6 +2553,8 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     const { computed } = buildInputs();
     if (computed.valuation.kind !== "dcf") throw new Error("fixture must use DCF");
     computed.valuation.sensitivity = { waccPcts: [8, 9], gTermPcts: [2, 3], perShare: [[190, 220], [null, 180]], notes: [], gaps: [] };
+    // D-65: the growth × margin grid now joins the conclusion; this test pins the WACC × g cells alone.
+    computed.valuation.growthMarginGrid = null;
     computed.fairValue = availableFairValue(100, 0);
     const report = assemble(computed, judgeOutput());
     expect(report.scenarioPresentation?.sensitivity).toMatchObject({ status: "sensitive", validCells: 3, totalCells: 4, minPerShare: 180, maxPerShare: 220 });
