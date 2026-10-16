@@ -1335,6 +1335,8 @@ describe("applyKeylessFallbacks — public float measurement date", () => {
       publicFloatAsOf: "2025-03-28", // the FLOAT's own, earlier date
     });
     expect(row!.floatShares).toBeGreaterThan(0);
+    expect(row!.freeFloat).toBeNull();
+    expect(out.gaps.some((g) => g.field === "keyless.sharesFloat.freeFloat" && /different dates/.test(g.reason))).toBe(true);
     expect(out.notes.some((n) => n.includes("public float 3000000 USD measured 2025-03-28"))).toBe(true);
   });
 
@@ -1346,6 +1348,20 @@ describe("applyKeylessFallbacks — public float measurement date", () => {
     expect(entry.reason).toMatch(/measured 2025-03-28 \(17 months before the analysis date\)/);
     expect(entry.reason).toMatch(/more than 6 months/);
     expect(out.members.sharesFloat.ok && out.members.sharesFloat.value.data.rows[0]!.publicFloatStale).toBe(true);
+  });
+
+  it("retains a bounded float percentage when both share measurements have the same date", async () => {
+    const out = await applyKeylessFallbacks(withFacts(withFloatDate("2025-10-17", 1_000_000)));
+    const row = out.members.sharesFloat.ok ? out.members.sharesFloat.value.data.rows[0]! : null;
+    expect(row!.freeFloat).toBeGreaterThan(0);
+    expect(row!.freeFloat).toBeLessThanOrEqual(100);
+  });
+
+  it("withholds an impossible same-date float percentage without changing outstanding shares", async () => {
+    const out = await applyKeylessFallbacks(withFacts(withFloatDate("2025-10-17", 1e12)));
+    const row = out.members.sharesFloat.ok ? out.members.sharesFloat.value.data.rows[0]! : null;
+    expect(row).toMatchObject({ outstandingShares: 14_776, freeFloat: null, publicFloatAsOf: "2025-10-17" });
+    expect(row!.floatShares).toBeGreaterThan(14_776);
   });
 
   it("does not flag a float measured within six months, but still names the date", async () => {

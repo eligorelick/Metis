@@ -2261,6 +2261,8 @@ export const MarketDataSchema = z
     }).strict().nullable(),
     shares: z.object({
       outstanding: NullableNumber, float: NullableNumber, freeFloatPct: NullableNumber, asOf: z.string().nullable(),
+      /** The float measurement can predate the separately reported outstanding count. */
+      floatAsOf: z.string().nullable().optional(),
     }).strict().nullable(),
     enterpriseValue: z.object({
       value: z.number(), periodEnd: IsoDaySchema, marketCap: NullableNumber, totalDebt: NullableNumber, cash: NullableNumber,

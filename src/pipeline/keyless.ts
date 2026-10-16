@@ -1774,7 +1774,14 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         publicFloat !== null && floatPrice !== null && floatPrice > 0 && floatIssue === null
           ? publicFloat.value / floatPrice
           : null;
-      const freeFloat = floatShares !== null && outstanding.value > 0 ? (floatShares / outstanding.value) * 100 : null;
+      const ratio = floatShares !== null && outstanding.value > 0 ? (floatShares / outstanding.value) * 100 : null;
+      const sameFloatDate = publicFloat?.asOf === outstanding.asOf && floatPriceBasis === "measurement date";
+      const freeFloat = sameFloatDate && ratio !== null && ratio >= 0 && ratio <= 100 ? ratio : null;
+      if (ratio !== null && freeFloat === null) {
+        gaps.push({ field: "keyless.sharesFloat.freeFloat", severity: "warn", reason:
+          `Free-float percentage withheld: ${!sameFloatDate ? "float and outstanding shares have different dates or the conversion lacks a measurement-date price" : "the inferred ratio is outside 0–100%"}. ` +
+          `The float measurement (${publicFloat?.asOf ?? "unknown"}) and outstanding shares (${outstanding.asOf}) remain separately dated; the outstanding count is unchanged.` });
+      }
       const floatAge = describePublicFloatAge(publicFloat, floatPrice, floatPriceBasis, inputs.today, floatIssue);
       gaps.push(floatAge.gap);
       if (floatAge.note !== null) notes.push(`keyless shares float: ${floatAge.note}`);

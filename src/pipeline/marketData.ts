@@ -68,8 +68,15 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean }
     : null;
 
   const sf = rows(bundle.sharesFloat)[0];
+  const sharesAsOf = day(sf?.date) ?? day(asOfOf(bundle.sharesFloat));
+  const floatAsOf = sf?.publicFloatPriceBasis === "latest quote" ? null : day(sf?.publicFloatAsOf) ?? sharesAsOf;
+  const percentage = n(sf?.freeFloat);
+  const outstanding = n(sf?.outstandingShares);
+  const float = n(sf?.floatShares);
+  const comparable = sharesAsOf !== null && floatAsOf === sharesAsOf &&
+    (float === null || (float >= 0 && (outstanding === null || (outstanding > 0 && float <= outstanding))));
   const shares: MarketData["shares"] = sf && (n(sf.outstandingShares) !== null || n(sf.floatShares) !== null)
-    ? { outstanding: n(sf.outstandingShares), float: n(sf.floatShares), freeFloatPct: n(sf.freeFloat), asOf: day(sf.date) ?? asOfOf(bundle.sharesFloat) }
+    ? { outstanding, float, freeFloatPct: comparable && percentage !== null && percentage >= 0 && percentage <= 100 ? percentage : null, asOf: sharesAsOf, floatAsOf }
     : null;
 
   const evRows = rows(bundle.enterpriseValues)
