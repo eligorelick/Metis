@@ -295,11 +295,13 @@ describe("shared report surface manifest", () => {
         sectionKey,
       })),
     );
+    // Re-pinned for D-65: forecast-only tables name the forecast measure (FCFF,
+    // operating EPS), and the chart's EPS label says history is GAAP and the forecast operating.
     expect(PROJECTION_METRICS).toEqual([
-      { id: "projection-metric:revenue", key: "revenue", label: "Revenue" },
-      { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin" },
-      { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)" },
-      { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "Diluted EPS" },
+      { id: "projection-metric:revenue", key: "revenue", label: "Revenue", forecastLabel: "Revenue" },
+      { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin", forecastLabel: "Operating margin" },
+      { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)", forecastLabel: "Free cash flow to the firm (FCFF)" },
+      { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "EPS (historical GAAP diluted; forecast operating)", forecastLabel: "Operating EPS (diluted shares)" },
     ]);
     expect(PROJECTION_PATHS).toEqual([
       { id: "projection-path:historical", key: "historical", label: "Historical", kind: "historical" },

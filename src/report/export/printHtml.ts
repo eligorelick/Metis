@@ -596,7 +596,7 @@ function sectionProjections(p: Projections): string {
       });
       const own = specific[index] ?? [];
       const assumptions = own.length > 0 ? `<ul class="claims">${own.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : "";
-      return `<h3>${esc(PROJECTION_METRIC_BY_KEY[s.metric].label)} (${esc(s.unit)})</h3>${table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows)}${assumptions}`;
+      return `<h3>${esc(PROJECTION_METRIC_BY_KEY[s.metric].forecastLabel)} (${esc(s.unit)})</h3>${table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows)}${assumptions}`;
     })
     .join("");
   const pct = (w: number) => `${Math.round(w * 100)}%`;

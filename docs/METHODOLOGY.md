@@ -357,17 +357,26 @@ rate.
 Year-one revenue is the 12 months after the TTM end. D-60 takes it from the
 first available of three sources:
 
-1. **Analyst consensus levels**, calendarized to the year-one (and year-two)
-   window, when consensus is consistent with guidance: no guidance, or a
-   year-one consensus at or above the guided quarter's low end × 4. Each
-   fiscal-year estimate is spread evenly over its days and weighted by its
-   overlap with the window. A 52/53-week year starts the day after the
-   previous estimate's year end. The estimates must cover at least 97% of the
-   window. Consensus covers the window's four quarters; guidance covers one,
-   and an issuer that reports above its own range each quarter makes the
-   guided run-rate a floor rather than a central case. A consensus below the
-   guided run-rate predates or contradicts the outlook and is not used for
-   year one.
+1. **Analyst consensus levels**, calendarized to the year-one window, when
+   consensus is consistent with guidance: no guidance, or a year-one
+   consensus at or above the guided quarter's low end × 4. Each fiscal-year
+   estimate is spread evenly over its days and weighted by its overlap with
+   the window. A 52/53-week year starts the day after the previous estimate's
+   year end. The estimates must cover at least 97% of the window. D-65: the
+   fiscal year the window starts in contributes its consensus **less the
+   revenue already reported** in it (the quarters after the latest annual
+   statement through the TTM end, consecutive 13/14-week quarters in the model
+   currency), spread over its unreported days; a consensus at or below what
+   is already reported is stale and leaves the window uncovered. NVDA FY2027:
+   $409.80B − $177.84B reported for H1 = $231.96B for 2026-07-27..2027-01-25,
+   where an even share gave $205.5B. The next fiscal year's share is still an
+   even spread, which for a fast grower overstates its early quarters
+   (disclosed in D-65; no within-year shape is assumed). Consensus covers the
+   window's four quarters; guidance covers one, and an issuer that reports
+   above its own range each quarter makes the guided run-rate a floor rather
+   than a central case. A consensus below the guided run-rate predates or
+   contradicts the outlook and is not used for year one. The same breadth and
+   agreement gates as later years apply (below).
 2. **Management guidance** for the next fiscal quarter
    (`DcfAssumptionInputs.guidance`, from the 8-K earnings release). The guided
    quarter is annualized (× 4) and carried 4.5 months, from the guided
@@ -397,20 +406,58 @@ mis-scaled estimate without overruling the issuer's own reported trajectory.
 Without a run-rate it is measured against the TTM. When it binds, the anchor
 row prints both values.
 
-**Year two** is the consensus level when consensus set year one (growth from
-year one to year two on consensus). When guidance set year one, consensus
-growth is applied to that level and the basis states how far the result sits
-from the consensus level. Year-two growth is bounded to [−10%, max(25%,
-year-one growth)].
+**Later years (D-65).** Every explicit year after the first takes consensus
+growth, window over window, while consensus covers it: the consensus level
+itself when consensus set year one, else consensus growth applied to the level
+actually used, with the gap to the consensus level stated. D-60 stopped at year
+two, and the convergent fade from there put NVDA's years 3–5 9–45% above the
+FY+3…FY+5 consensus the same provider response held. A year is anchored only
+while every fiscal-year estimate behind its window passes two gates, and its
+growth stays in band:
+
+- **Breadth:** at least `MIN_CONSENSUS_ANALYSTS` = 3 revenue estimates. A mean
+  of one or two forecasts is a forecaster's view, not a consensus, and
+  dispersion is undefined below two (Diether, Malloy and Scherbina 2002 require
+  two or more); three gives the low–high range an interior point.
+- **Agreement:** an implied coefficient of variation, (high − low) ÷ (d2(n) ×
+  mean), of at most `MAX_CONSENSUS_CV_PCT` = 25%. The raw range widens with the
+  number of forecasters, so it is divided by d2(n), the expected range of n
+  normal draws (Tippett 1925; the range-chart constant, Harter 1960 tables,
+  linear between tabulated n and held at d2(50) above it). One standard
+  deviation of disagreement wider than a quarter of the level means the mean
+  no longer pins a level (dispersion as uncertainty: Barron, Kim, Lim and
+  Stevens 1998).
+- **Band:** growth within [−10%, max(25%, the prior anchored year's growth)].
+  Year two is clamped to it (as D-58 did) and then ends the stretch; from year
+  three a window outside it ends the stretch.
+
+A provider row without an analyst count or range is accepted for years one and
+two (the D-60 rule) and never beyond. The stretch is contiguous, and the final
+explicit year always belongs to the fade, so the path reaches the terminal
+rate. The fade starts from the last anchored year. Both gates and the band are
+unbacktested house conventions (RESEARCH §8).
+
+The assumption block prints a **consensus-anchored years** row ("years 1–4 of
+10"), and the valuation section a **DCF path vs consensus** table: each window's
+DCF revenue beside calendarized consensus, the gap, whether it was anchored and
+why not, and the fiscal-year estimates behind it (days, analyst count, implied
+dispersion). Text names the anchored years; it never calls the path
+"consensus-anchored" alone.
 
 **The near-term growth rate** (median of methods, clamped to [−10%, 25%]) sets
-year one only on the run-rate and TTM paths; otherwise its row says it does
-not set year one and is a cross-check.
+year one only on the run-rate and TTM paths. D-65: when it does not, it is not
+an assumption row (its methods stay in the notes and the audit export), and the
+analyst-consensus method prints both of its legs so the average can be
+reproduced.
 
-On NVDA's 2026-10-15 inputs, consensus ($551.8B for the 12 months to
-2027-07-26) sits above guidance × 4 ($432B), so it sets year one (+82.1% over
-TTM) and year two ($810.5B, +46.9%). Guidance alone would give $513.7B at the
-guided 58.7% annual pace; D-58 gave $469.7B (tests/stageB.dcfAnchoring.test.ts).
+On NVDA's 2026-10-15 inputs, consensus sits above guidance × 4 ($432B), so it
+sets year one: $578.3B for the 12 months to 2027-07-26 (+90.9% over TTM; D-60's
+even spread gave $551.8B). Consensus also covers the windows to 2028, 2029 and
+2030-07-26 ($810.5B, $1,013.9B, $1,133.7B: +40.1%, +25.1%, +11.8%), with 30–42
+analysts and implied dispersions of 2.9–15.0%; FY2032 has no estimate, so year
+five is the fade's. Guidance alone would give $513.7B at the guided 58.7%
+annual pace; D-58 gave $469.7B (tests/stageB.dcfAnchoring.test.ts,
+tests/stageB.valuationD65.test.ts).
 
 **Three of the four methods read the same series.** The regression, the 3-year
 CAGR and the 5-year CAGR are all functions of the same annual revenue history,
@@ -437,13 +484,14 @@ regression's R² is where an erratic history now shows up.
 
 The explicit horizon is **10 years**, stated in years in the assumption block.
 
-**Growth path (D-58).** Year one, and year two when consensus covers it, come
-from the year-one revenue anchor. Every later year follows a **convergent
+**Growth path (D-58, D-65).** Year one comes from the year-one revenue
+anchor, and every later year consensus covers takes consensus growth (D-65,
+above). Every year after the anchored stretch follows a **convergent
 fade** from the last anchored year's growth to the terminal rate in year 10:
 the gap to the terminal rate decays geometrically with a
 `GROWTH_FADE_HALF_LIFE_YEARS` = 3 year half-life, rescaled to reach the
 terminal rate exactly in year 10, so it closes somewhat faster than halving
-every three years (NVDA: 44.4pp of excess in year two, 18.0pp in year five). Chan, Karceski
+every three years (NVDA since D-65: 9.3pp of excess in year four, 6.8pp in year five). Chan, Karceski
 and Lakonishok (2003) find growth beyond one or two years is not persistent,
 so the gap should close fastest at the start. The former linear fade from
 year one kept a +78% consensus year one above 50% growth for four years. The
@@ -477,6 +525,17 @@ Koller, Goedhart and Wessels apply the half-year adjustment to the whole value).
 Discounting it at N would treat explicit flows as mid-year and perpetuity
 flows as year-end, lowering it by (1 + WACC)^0.5. D-60 prints the convention as
 an assumption row ("discounting convention") rather than leaving it implicit.
+
+**Valuation date (D-65).** The explicit windows start the day after the
+statement date, so their flows are discounted to it, while the per-share value
+is compared with a later quote. Every discount exponent is reduced by the years
+elapsed from the statement date to the quote date, which rolls the whole value
+forward at the WACC (NVDA: 81 days, × 1.0279). The equity bridge keeps the
+statement-date balance: cash generated since then is inside the first window's
+flows, so it is not counted twice. A quote more than `MAX_ROLL_FORWARD_DAYS` =
+200 days after the statement is not rolled forward (a stale statement is a data
+problem, not a timing one), and a gap says so. The "valuation date" assumption
+row and the bridge's "value stated at" row print the date and factor.
 
 **Two guards bound the paths.** The EBIT-margin **target** is held inside
 [−20%, ceiling]. The ceiling is 45% or the highest sustained margin in the
@@ -728,7 +787,39 @@ Preferred and minority interests are claims senior to common equity, so they
 belong in EV; undisclosed means zero, following the provider's convention. The
 DCF's equity bridge is the same identity read backwards: equity value =
 EV − net debt − minority interest − preferred equity + non-operating
-marketable equity securities (D-60, when identified).
+marketable equity securities (D-60, when identified) + the long-term
+investments sales-to-capital removed as non-operating (D-65).
+
+**Three enterprise values, three labels (D-65).** The key-data box's
+**Enterprise value (market)** is the quote's market cap plus the D-60 net debt
+(equity securities are not cash), and since D-65 the EV multiples (EV/EBITDA,
+EV/Sales, and their own-history ranks, each quarter on its own filed equity
+securities) use exactly that net debt, so the box and the multiples agree (NVDA:
+$5.21T, EV/EBITDA 25.9×, EV/Sales 17.2×; before D-65 the multiples netted the
+$42.78B of equity stakes as cash and reconciled to $5.17T). The DCF bridge's
+**Intrinsic enterprise value (DCF, operating assets)** is the model's value of
+the operating business; it excludes the non-operating assets the bridge adds
+back. The **Provider enterprise value (vendor definition, period end)** is the
+vendor's own figure at its period end (that date's market cap + debt − cash and
+equivalents) and is shown only as provider data.
+
+**Long-term investments (D-65).** Sales-to-capital removes the balance sheet's
+long-term investments from invested capital as non-operating (D-60); the bridge
+now adds the same amount back at its filed carrying value, so an asset left out
+of operating capital is never left out of value too. Where the companyfacts
+carry the issuer's non-marketable carrying value
+(`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`: cost less
+impairment, adjusted for observable price changes) it is cited beside the line
+(NVDA: $51.16B, of which $47.90B non-marketable equity). No fair-value estimate
+or marketability discount is applied. Equity stakes a filing places inside
+other assets (NVDA's $4.96B long-term portion of locked-up public equity, 10-Q
+Note 5) are tagged only with a dimension the companyfacts omit, so they stay in
+operating capital and outside the bridge.
+
+**Share basis (D-65).** Per-share values divide by the latest weighted-average
+diluted count, which carries option and RSU dilution; the bridge table also
+prints the shares outstanding the quote implies (market cap ÷ price) and says
+which one divides.
 
 `src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
 the combined cash-and-short-term-investments field, or minus both separately
@@ -894,6 +985,21 @@ caveat (D-59). The report lists the method, metric-specific counts and
 excluded candidates. Keyless, reserved fixture symbols, unavailable data and
 thin coverage publish no unsupported median. This is a screened provider list,
 not an exhaustive or independently optimized peer universe.
+
+**Size screen (D-65).** A candidate whose market capitalization is more than
+`PEER_SIZE_RATIO_LIMIT` = 100 times smaller or larger than the subject's is not
+a comparable company: it is excluded at discovery (on the discovery row's
+market cap, so it costs no provider reads), again at comparison (on its own
+quote), and left out of the peer list the analysis reads, with a note naming it
+and the ratio. Size is a priced risk characteristic (Fama and French 1992) and
+multiples differ systematically with it; comparable-company practice selects
+on industry first and size second, and industry is the decisive screen (Alford
+1992), so the bound is deliberately loose. NVDA ($5.24T) keeps AVGO, AMD, INTC,
+ARM, MRVL and QCOM (1/3 to 1/27 of its size) and drops CoreWeave (1/136),
+Cerebras (1/163) and the $265M and $29M listings the rerun's peer table printed.
+CoreWeave is also an NVIDIA customer; no structured source identifies customer
+relationships, so the screen removes it here on size alone. Unbacktested house
+convention (RESEARCH §8).
 
 Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
@@ -1593,15 +1699,25 @@ sales or operating response. See `tests/compute.runwayAnchor.test.ts`,
 `src/pipeline/stageB/projections.ts` displays the first five years of the
 general-route DCF's explicit path, with up to four annual historical points.
 Revenue, operating margin and FCFF come from the DCF year rows. Forward EPS
-(D-60) is operating EBIT less the latest fiscal year's interest expense, held
-flat, taxed at that year's DCF rate, divided by diluted shares compounded at the
-applied share-count trend. Interest income, investment gains and other
-non-operating items are excluded, so it is operating EPS, not a forecast of
-GAAP EPS; the former median historical net-income/EBIT ratio (NVDA 0.9525)
-carried low-tax years and investment gains into every forecast year. A missing
-positive share anchor withholds EPS. Fiscal labels advance from the DCF's
-statement anchor, so a TTM-anchored path need not start from the last annual
-fiscal-year label.
+(D-60) is operating EBIT less interest expense, held flat, taxed at that year's
+DCF rate, divided by diluted shares compounded at the applied share-count
+trend. D-65: the interest is the latest quarter's run-rate when a quarter
+newer than the latest fiscal year exists — the quarter's interest over its
+average debt (opening and closing balances, operating leases excluded) is the
+issuer's own effective rate, applied to the closing debt so debt issued during
+the quarter is priced for a full year; without both balances, the quarter × 4;
+else the latest fiscal year's. NVDA: FY2026 $0.26B predates $25B of notes
+issued in Q2 FY2027; Q2's $227M on $20.9B average debt is 4.34% a year, $1.45B
+on $33.4B. Interest income, investment gains and other non-operating items are
+excluded, so it is operating EPS, not a forecast of GAAP EPS, and the export
+tables, the chart and the page-1 forward P/E say "operating EPS" (D-65); the
+former median historical net-income/EBIT ratio (NVDA 0.9525) carried low-tax
+years and investment gains into every forecast year. A missing positive share
+anchor withholds EPS. Fiscal labels advance from the DCF's statement anchor, so
+a TTM-anchored path need not start from the last annual fiscal-year label.
+Forecast-only tables are headed by the forecast measure ("Free cash flow to the
+firm (FCFF)", "Operating EPS (diluted shares)"); the chart, which also plots
+history, keeps the two-part labels.
 
 The base EPS holds the share count flat (a positive dilution trend is kept). A
 repurchase authorization is discretionary capacity, not a committed schedule;
@@ -1636,7 +1752,15 @@ and the last five fiscal years, never below the base path: operating margin is
 gross margin less operating expenses, so no scenario can earn more than today's
 gross margin with the leanest cost base the issuer has run (NVDA: 74.67% −
 9.46% = 65.21%). Without gross profit the cap is unavailable and the
-construction text says so.
+construction text says so. D-65: when the cap (or a bound) cuts a requested
+shock, the scenario construction carries `effectiveMarginDeltaPp`, and the
+construction table, the price-target basis and each scenario's inputs print the
+shift that remains beside the one requested (NVDA bull: +10.12pp requested,
+0pp after the cap, because the base year-one margin already sits at the
+ceiling; bear −10.12pp). The weighted margin then reconciles to the shifts
+shown: it sits below the base by a quarter of the bear shift. The decay-and-cap
+paragraph is stated once, as that table's note; the price-target basis points
+to it.
 
 The versioned `UNBACKTESTED_SCENARIO_PRIOR_2026_07` weighted projection is
 25% bull + 50% base + 25% bear, a fixed display prior on the operating
@@ -1676,17 +1800,25 @@ targets carry no weight and that the projection prior is not a calibrated
 probability; a stored report that recorded weights still renders them.
 Scenario inputs describe the computed shocks and paths; model-authored
 assumptions are preserved as qualitative commentary. Sensitivity conclusions
-summarize the actual grid against the comparable quote. An incomplete grid
-cannot establish robustness, and no grid is described as an empirical
-prediction interval.
+summarize the actual grids against the comparable quote. D-65: both grids
+decide — the WACC × terminal-growth grid and the year-one growth × sustained
+margin grid (its cells withheld above the margin ceiling are outside its tested
+range). "Robust" requires every valid cell of both on one side of the price;
+otherwise the conclusion counts the cells at or below the price in each grid and
+names the growth × margin cells (NVDA report #34 rerun called the value robust
+because every WACC × g cell sat above $217.23 while four growth × margin cells
+sat below it). An incomplete WACC grid cannot establish robustness, and no grid
+is described as an empirical prediction interval.
 
 Model-derived thesis review conditions disclose a threshold, horizon, source,
 fixed assumptions and the consequence of crossing it, and (D-60) each is
 observable. The reverse-DCF condition also names the first modeled year's
 revenue the price implies, beside the base case, consensus and the guided
 run-rate; guidance adds the guided quarter's revenue and GAAP gross-margin low
-ends. The first-year projection milestones restated the base path and are no
-longer emitted. Unsupported routes or missing values produce no fabricated
+ends, each citing the registered guidance-table record it reads
+(`payload.issuer-filings.<period>-<metric>-guidance-low`, D-65) rather than the
+8-K accession, which no registry record carries. The first-year projection
+milestones restated the base path and are no longer emitted. Unsupported routes or missing values produce no fabricated
 triggers. The same details appear in the app, Markdown and printable report.
 See [report evaluation](REPORT-EVALUATION.md) for immutable snapshots and
 eligible realized-outcome comparisons.

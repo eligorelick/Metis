@@ -972,7 +972,19 @@ export const DcfSchema = z
       currency: z.string().nullable(), asOf: IsoDateSchema.nullable(),
       /** D-60: marketable equity securities added as a non-operating asset (absent when none). */
       nonOperatingAssets: z.number().optional(),
+      /** D-65: the non-operating assets one row each (equity securities, long-term investments). */
+      nonOperatingComponents: z.array(z.object({ label: z.string(), value: z.number() }).strict()).optional(),
+      /** D-65: the quote date the value is rolled forward to, and the factor applied. */
+      valuationDate: IsoDateSchema.optional(),
+      rollForwardFactor: z.number().optional(),
+      /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
+      sharesOutstandingAtQuote: z.number().optional(),
     }).strict().optional(),
+    /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
+    consensusPath: z.array(z.object({
+      period: z.string(), modelRevenue: z.number(), consensusRevenue: z.number().nullable(), gapPct: z.number().nullable(),
+      anchored: z.boolean(), fiscalYears: z.string(), status: z.string(),
+    }).strict()).optional(),
     /** D-60: year-one growth × sustained margin per-share grid (null cells withheld). */
     growthMarginGrid: z.object({
       growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
@@ -1711,7 +1723,9 @@ const ProjectionPathsSchema = z.object({ bull: z.array(ProjectionPointSchema), b
 export const ScenarioAssumptionsSchema = z.object({
   methodVersion: z.string(), shockPersistence: z.enum(["mean-reverting-convergent", "persistent-explicit-horizon"]), terminalTransition: z.string(),
   growthMarginCorrelation: z.number().min(-1).max(1).nullable(),
-  scenarios: z.array(z.object({ name: z.enum(["bull", "base", "bear"]), growthDeltaPp: z.number(), marginDeltaPp: z.number() }).strict()),
+  scenarios: z.array(z.object({ name: z.enum(["bull", "base", "bear"]), growthDeltaPp: z.number(), marginDeltaPp: z.number(),
+    /** D-65: the year-one margin shift left after the scenario cap, when the cap cut the requested shock. */
+    effectiveMarginDeltaPp: z.number().optional() }).strict()),
   alternatives: z.array(z.object({ name: z.literal("decaying-growth-shock"), bullPerShare: z.number().nullable(), bearPerShare: z.number().nullable(), basis: z.string() }).strict()),
 }).strict();
 export type ScenarioAssumptions = z.infer<typeof ScenarioAssumptionsSchema>;
@@ -2206,7 +2220,8 @@ const JudgeOutputObjectSchema = z
     business: BusinessSchema,
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true }) }),
+    // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,

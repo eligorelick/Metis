@@ -49,6 +49,20 @@ function instantFact(facts: CompanyFacts, tag: string, unit: string, end: string
 
 const billions = (v: number): string => `${(v / 1e9).toFixed(3)}B`;
 
+/**
+ * D-65: the issuer's filed carrying value of equity securities without a
+ * readily determinable fair value (us-gaap/EquitySecuritiesWithoutReadily-
+ * DeterminableFairValueAmount: cost less impairment, adjusted for observable
+ * price changes) at the balance date. Cited beside the long-term investments
+ * the DCF bridge adds back; never used to size them.
+ */
+export function nonMarketableEquityCarrying(facts: CompanyFacts | null | undefined, date: string | null, unit: string | null, observedAt: string): { value: number; accn: string; form: string; filed: string } | null {
+  const observedDay = observedAt.slice(0, 10);
+  if (!facts || !validDay(date) || typeof unit !== "string" || !/^[A-Z]{3}$/.test(unit) || !validDay(observedDay)) return null;
+  const fact = instantFact(facts, "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount", unit, date, observedDay);
+  return fact === null || fact.val <= 0 ? null : { value: fact.val, accn: fact.accn, form: fact.form, filed: fact.filed };
+}
+
 export function marketableEquityInCash(facts: CompanyFacts | null | undefined, row: MarketableEquityBalance, observedAt: string): MarketableEquityInCash | null {
   const date = row.date ?? null;
   const unit = row.reportedCurrency ?? null;

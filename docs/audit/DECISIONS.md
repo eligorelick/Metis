@@ -13,6 +13,84 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-65 (independent audit of the NVDA report built on metis-final.db, report 1, 2026-10-16) Consensus where it exists, one net cash in every EV, robustness on both grids, a dated value
+
+- **Evidence**: the audit of the live NVDA report (spec 1.18.0; frozen inputs replayed offline through `runStageB` on a copy of `metis-final.db`, which reproduces bull $501.15 / base $296.32 / bear $163.44 at `6e5367a`) found:
+  - **P0, consensus beyond year two.** The base path was called "consensus-anchored", but only years 1–2 used consensus. The D-58 fade from year two's 46.9% put years 3–5 9–45% above the FY+3…FY+5 consensus the same cached FMP response held (FY ending 2029-01 $924.4B from 38 analysts, 2030-01 $1,106.5B from 30, 2031-01 $1,161.0B from 35). The auditor's rebuild with years 1–4 on consensus and the same fade gave about $208.
+  - **P2-2.** Year one spread FY2027 consensus evenly over its days although H1 FY2027 ($177.84B) was already reported.
+  - **P1, enterprise values.** The key-data EV ($5.21T, D-60 net cash −$23.22B), the EV multiples (25.7× EBITDA and 17.1× sales, which reconcile only to $5.17T: `multiplesFramework` resolved net debt without the $42.78B equity securities), the provider's $4.77T and the DCF's $7.13T all printed as "Enterprise value".
+  - **P1, robustness.** "All valid cells remain above the current price" read only the WACC × g grid; four year-one growth × margin cells sat below $217.23.
+  - **P2-1.** The $51.16B of long-term investments left invested capital (D-60) but never entered the equity bridge.
+  - **P2-3.** Flows were discounted to 2026-07-26 and compared with the 2026-10-15 price; the diluted-vs-outstanding share basis was a payload note only.
+  - **P2-4.** The bull's +10.12pp margin shock was removed entirely by the scenario cap but still printed, so the 62.95% weighted margin did not reconcile to ±10.12pp.
+  - **P2-8.** Forecast EPS deducted FY2026 interest ($0.26B, flat) although $25B of notes were issued in Q2 FY2027 (Q2 interest $227M).
+  - **P2-9.** An unused "near-term growth 25.0% (range …)" row, and an "analyst-consensus case 76.11%" whose legs were not printed.
+  - **Presentation.** The scenario-decay paragraph printed three times and the flat-share paragraph twice; "shaded band" named a chart the export does not have; the FCF heading promised history the table does not show; projected "Diluted EPS" and the page-1 forward P/E were operating EPS.
+  - **Triggers.** The $105.84B and 73.5% thresholds cited `sec:8-K EX-99.1 …`, which no registry record carries (both "untraced").
+  - **Peers.** The peer list showed a customer (CoreWeave) and listings of $265M and $29M beside a $5.24T issuer.
+- **Options**: (a) disclose the D-60 path's gap to consensus and keep it; (b) anchor every year consensus covers, with no quality gate; (c) anchor every year consensus covers **with adequate breadth and agreement**, fade after the last; plus, for each finding, the narrowest change that makes the printed figure true.
+- **Choice**: (c), and:
+  1. *Consensus path* (`buildRevenueAnchor`, `calendarizeConsensusWindow`). Every explicit window is calendarized against the fiscal-year estimates. A year takes consensus growth (window over window; the level itself when consensus set year one) while every estimate behind it has at least `MIN_CONSENSUS_ANALYSTS` = 3 analysts and an implied dispersion (high − low) ÷ (d2(n) × mean) of at most `MAX_CONSENSUS_CV_PCT` = 25%, and its growth stays within [−10%, max(25%, the prior year)]. Rows without a count or range keep the D-60 rule for years 1–2 and are refused beyond. The stretch is contiguous, and the final year is always the fade's. The fiscal year the first window starts in contributes its consensus less the revenue already reported in it (`FiscalYearToDate`, built from the quarters after the latest annual statement). Disclosure: a "consensus-anchored years" row, a "DCF path vs consensus" table (`dcf.consensusPath`), the anchor basis naming each anchored year and why the next is not, and a payload note telling the analysis to name those years. Projection and growth-path text say "years 1–4" instead of "consensus-anchored".
+  2. *Enterprise values.* `MultiplesBalance` and the own-history rows carry the filed `marketableEquitySecurities`, so `resolveNetDebt` gives the multiples the same net cash as the bridge. The labels are "Enterprise value (market)" (key data), "Intrinsic enterprise value (DCF, operating assets)" (bridge) and "Provider enterprise value (vendor definition, period end)".
+  3. *Robustness.* `summarizeSensitivity` reads both grids. "Robust" needs every valid cell of both on one side of the price; otherwise it counts each grid's cells at or below the price and names the growth × margin cells.
+  4. *Long-term investments.* `DcfAssumptions.nonOperatingInvestments` records what sales-to-capital removed, and the bridge adds exactly that back at its filed carrying value, citing the XBRL non-marketable carrying value when present (`nonMarketableEquityCarrying`). Bridge rows list each non-operating asset.
+  5. *Valuation date.* `DcfAssumptions.valuationDate` moves every discount exponent back by the years from the statement date to the quote date (at most 200 days). The bridge keeps the statement-date balance. The bridge prints the date and factor, plus the shares outstanding at the quote beside the diluted divisor, which is kept.
+  6. *Scenario margins.* `effectiveMarginDeltaPp` records the shift that survives the cap. The construction table, the target basis and each scenario's inputs print it beside the request, and the weighted margin reconciles.
+  7. *EPS interest.* `interestRunRate`: the latest quarter's interest over its average debt (operating leases excluded), applied to the closing debt; else the quarter × 4; else the fiscal year.
+  8. *P2-9.* The near-term row prints only when it set year one, and the consensus method prints both legs (35.26% over 183 days annualized to 82.73%; 69.50%).
+  9. *Presentation.* The decay paragraph is the scenario-construction table's note alone (the target basis points to it); the flat-share paragraph is the capital-return table's note alone (the payload still carries it). "Bull-to-bear spread" replaces "shaded band". Forecast-only tables are headed "Free cash flow to the firm (FCFF)" and "Operating EPS (diluted shares)", the chart's EPS label says "historical GAAP diluted; forecast operating", and the key-data row is "Forward P/E (model base-case operating EPS)".
+  10. *Triggers.* `guidanceLowCitation` returns the guidance-table record's id (`payload.issuer-filings.q3-fy2027-revenue-guidance-low`, `…-gross-margin-gaap-guidance-low`).
+  11. *Peers.* `peerSizeExclusion`: candidates more than `PEER_SIZE_RATIO_LIMIT` = 100× smaller or larger than the subject by market cap are excluded at discovery and at comparison, and are named in a payload note rather than listed as peers.
+- **Why**:
+  - **Consensus.** It is the only forward evidence of the level that the provider response carries. Once it covers a year, a mechanical fade has no better claim to that year.
+  - **Breadth gate.** A mean of one or two forecasts is not a consensus. Dispersion needs two or more estimates (Diether, Malloy and Scherbina 2002), and three give the range an interior point.
+  - **Agreement gate.** The raw range grows with the number of analysts, so it is normalised by d2(n), the expected range of n normal draws (Tippett 1925; Harter 1960 tables), into an implied standard deviation. Dispersion measures uncertainty about the level (Barron, Kim, Lim and Stevens 1998), and above 25% one standard deviation spans half of it.
+  - **Growth band.** It is D-58's year-two bound, applied to every later year.
+  - **Reported half.** Subtracting H1 uses the issuer's own reported fact instead of an even-spread assumption.
+  - **Enterprise values and investments.** The EV, bridge and investment changes put each figure on the definition its label states.
+  - **Roll-forward.** The value and the price it is compared with now share a date. The bridge stays at the statement-date balance because cash generated since then is already in the first window's flows.
+  - **Size screen.** Size is a priced risk characteristic (Fama and French 1992). Industry, not size, is the decisive comparable screen (Alford 1992), so the bound is two orders of magnitude.
+- **NVDA, frozen 2026-10-15 inputs** (offline `runStageB` on a copy of `metis-final.db`):
+
+  | Item | Before | After |
+  | --- | --- | --- |
+  | Base / bull / bear per share | $296.32 / $501.15 / $163.44 | $217.04 / $365.94 / $120.49 |
+  | Upside vs $217.23 | +36.4% | −0.1% |
+  | Years on consensus | 1–2 | 1–4 (FY2032 has no estimate) |
+  | Revenue, years 1–5 | $551.8B, $810.5B, $1.10T, $1.40T, $1.69T | $578.3B, $810.5B, $1.01T, $1.13T, $1.24T |
+  | DCF vs calendarized consensus, years 3–4 | +8.7%, +23.9% | 0.0%, 0.0% (year five not covered) |
+  | Intrinsic EV (bridge) | $7.13T | $5.15T, stated at 2026-10-15 (× 1.0279) |
+  | Non-operating assets added | $42.78B | $42.78B + $51.16B |
+  | Market EV / EV/EBITDA / EV/Sales | $5.21T (box), multiples on $5.17T: 25.7× / 17.1× | $5.21T everywhere: 25.9× / 17.2× |
+  | Sensitivity conclusion | robust: all valid cells above | sensitive: 13 of 25 WACC × g cells and 9 of 15 growth × margin cells at or below the price |
+  | Operating EPS, year one / year five; interest | $12.34 / $36.91; $0.26B | $12.89 / $26.97; $1.45B (4.34% on $33.4B) |
+  | Reverse-DCF implied year-one growth | 68.0% | 90.9% (base 90.9%) |
+  | Valuation score / composite | 86 A / 77 B | 55 D / 72 B |
+
+  - **One-at-a-time reverts** from the after state: the D-60 two-year path +$89.59, the roll-forward −$5.76, the investments add-back −$2.11, the even-spread year one −$0.53. The auditor's rebuild (years 1–4, even spread, no roll-forward or investments) reproduces at $208.66.
+  - **Before-state check.** On the before state the new robustness rule reads: all 25 WACC × g cells above, and four growth × margin cells below (growth −20pp at margin −10pp to 0pp; growth −10pp at −10pp) (tests/stageB.valuationD65.test.ts).
+- **Risks**:
+  - Consensus can herd and goes stale: the gates measure breadth and agreement, not accuracy. Long-horizon sell-side growth is optimistic on average (Chan, Karceski and Lakonishok 2003), though here consensus lies below the house fade.
+  - The 3-analyst, 25% and 100× thresholds are unbacktested house conventions (RESEARCH §8).
+  - The fiscal year after the reported part is still spread evenly, which for a fast grower overstates its early quarters. For NVDA, half of FY2028 is $346B, against about $302B if FY2028's quarters grew at a constant rate from Q4 FY2027's implied $124B (H2 consensus $231.96B less the $108B guided Q3).
+    - On that shape year one would be about $534B. That is 7.6% below the $578.3B used, and 3.2% below D-60's even-spread $551.8B. The H1 subtraction alone therefore moves year one away from the shaped estimate.
+    - Value barely moves (+$0.53 a share), because year two is anchored at the consensus level either way.
+    - The printed year-one growth (90.9%) and the shocks and reverse DCF measured from it are high by about that gap.
+    - No within-year shape is assumed, because no source supplies one.
+  - The roll-forward compounds at the WACC and ignores distributions since the statement date (NVDA paid dividends and bought back shares in the interim, roughly value-neutral at the quote).
+  - The size screen removes Cerebras, a direct competitor, alongside the micro-caps. It cannot recognise a customer: CoreWeave leaves on size alone.
+- **Not fixed**:
+  - NVDA's $4.96B long-term portion of locked-up public equity sits in other assets and is tagged only with a dimension that companyfacts omit, so it stays in operating capital and outside the bridge ($0.20 a share).
+  - LLM-written prose that says "consensus-anchored" is steered by the payload note, not rewritten. No live run was made to confirm it.
+  - Year one and the anchored years still assume the base margin path; consensus EBIT (also in the response) is not used.
+- **Disclosure**:
+  - Assumption rows "consensus-anchored years" and "valuation date"; the "DCF path vs consensus" table; bridge rows for each non-operating asset, the quote date and factor, and shares outstanding; the scenario-construction column "Margin shift after the cap".
+  - Payload notes for consensus anchoring and peer size exclusions; peer methodology text.
+  - Tests: `tests/stageB.valuationD65.test.ts` (9 tests, all failing on `6e5367a`). Re-pins, each with its reason: `tests/stageC.payload.passes.test.ts` (+1,045 prompt bytes, same 531 records and 73 citations), the projection-label pins, and two WACC-grid-only sensitivity tests that now null the second grid.
+  - Audited delta group `valuation-r3-2026-10-16` (163 DEMO leaves: consensus years 1–5, the $0.5B investments add-back, per share 146.23 → 154.97).
+  - `REPORT_SPEC_VERSION`, `PAYLOAD_VERSION`, `SCORE_BANDS_VERSION` and `STAGE_B_IMPLEMENTATION_VERSION` are left for the integrator. All new report fields are optional.
+  - Recovery validation: the frozen snapshot replayed offline against archived `6e5367a` and the recovered tree reproduces both sides of the table above. The nine D-65 tests fail against that archived source and pass against the recovered source. Fresh typecheck, lint, 6,052 product tests (3 skipped), 4 integration tests, core coverage and the exact audited-delta comparison pass; risk coverage is checked separately before integration. These checks establish implementation consistency, not forecast accuracy.
+
 ## D-64 (NVDA rerun audit 2026-10-15) A fourth-quarter EPS is never FY EPS minus nine-month EPS
 
 - **Evidence**: the integration rerun showed Q4 FY2025 diluted EPS $0.90; NVIDIA reported $0.89. The EDGAR backfill derived it as FY $2.94 − nine-month $2.04, but per-share amounts are not additive when the weighted share count moves between quarters.

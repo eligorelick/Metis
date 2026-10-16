@@ -277,11 +277,19 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     mk("bear", bear.value, pessimistic.growthDeltaPp, pessimistic.marginDeltaPp),
   ];
 
+  // D-65: the margin shift a path actually carries, when the cap cut it.
+  const capped = shared.scenarioAssumptions.scenarios.filter((s) => s.effectiveMarginDeltaPp !== undefined);
+  const signed = (v: number) => `${v >= 0 ? "+" : "−"}${round2(Math.abs(v))}pp`;
+  const cappedText = capped.length === 0 ? "" :
+    ` After the scenario margin cap the year-one margin shift is ${capped.map((s) => `${signed(s.effectiveMarginDeltaPp as number)} for ${s.name} (${signed(s.marginDeltaPp)} requested)`).join(" and ")}` +
+    `${shared.scenarioAssumptions.scenarios.filter((s) => s.name !== "base" && s.effectiveMarginDeltaPp === undefined).map((s) => `, ${signed(s.marginDeltaPp)} for ${s.name}`).join("")}, so the shocks are not symmetric around the base margin.`;
   const basis = [
     "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
-    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(dm)}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated. Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
+    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(dm)}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated.${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
     "Targets are computed-derived DCF sensitivities, not source-verified facts; no weight or probability is attached to them.",
-    shared.scenarioAssumptions.terminalTransition,
+    // D-65: the decay-and-cap paragraph is stated once, as the note of the
+    // projections' scenario-construction table (it was printed three times).
+    "The shock decay and the scenario margin cap are set out under the weighted projections' scenario construction.",
   ];
 
   return {

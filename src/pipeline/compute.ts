@@ -107,6 +107,7 @@ import {
   type DcfGuidance,
   type DcfBalanceRow,
   type AnalystEstimateRow,
+  type FiscalYearToDate,
   type MultiplesFrameworkInputs,
   type MultiplesQuoteInputs,
   type MultiplesIncomeTtm,
@@ -118,11 +119,11 @@ import {
   type ReitInputs,
 } from "@/pipeline/stageB/valuation";
 import { computeScores } from "@/pipeline/stageB/grading";
-import { computeProjections, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
+import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
-import { marketableEquityInCash } from "@/pipeline/stageB/marketableEquity";
+import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
@@ -2059,8 +2060,24 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // projections and scenario targets were silently DROPPED from the registry —
   // a worse outcome than the USD default this replaced.
   const projectionCurrency = currencies.model;
+  // D-65: forecast EPS deducts interest at the latest quarter's run-rate, on
+  // debt net of the operating-lease liability (its cost is an operating expense).
+  const debtExLeases = (row: FmpBalanceSheetRow | undefined): { date: string; debt: number | null } | null => {
+    const date = isoDay(row?.date);
+    if (row === undefined || date === null) return null;
+    const debt = num(row.totalDebt);
+    const lease = num(row.operatingLeaseLiability);
+    return { date, debt: debt === null ? null : Math.max(0, debt - (lease !== null && lease >= 0 && lease <= debt ? lease : 0)) };
+  };
+  const latestIncomeQuarter = incomeQuarterly[0];
+  const projectionInterest = latestIncomeQuarter !== undefined && projRowDate(latestIncomeQuarter) > projRowDate(inc0Proj)
+    ? interestRunRate({ date: isoDay(latestIncomeQuarter.date) ?? "", interestExpense: num(latestIncomeQuarter.interestExpense) },
+      debtExLeases(balanceQuarterly.find((b) => isoDay(b.date) === isoDay(latestIncomeQuarter.date))),
+      debtExLeases(balanceQuarterly.find((b) => { const d = isoDay(b.date); const q = isoDay(latestIncomeQuarter.date); return d !== null && q !== null && d < q && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS >= 80 && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS <= 100; })))
+    : null;
   const projections = computeProjections({
     route,
+    interestRunRate: projectionInterest,
     valuation,
     waccPct: returns.wacc.waccPct,
     dilutedShares: dilutedSharesProj,
@@ -2689,7 +2706,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   }
   const analystEstimates: AnalystEstimateRow[] | null = bundle.analystEstimates.ok && estimatesInModelCurrency
     ? estimateRows
-        .map((r) => ({ date: String(r.date ?? ""), revenueAvg: num(r.revenueAvg) }))
+        // D-65: the analyst count and range are the breadth and agreement evidence beyond year two.
+        .map((r) => ({ date: String(r.date ?? ""), revenueAvg: num(r.revenueAvg), analysts: num(r.numAnalystsRevenue),
+          revenueLow: num(r.revenueLow), revenueHigh: num(r.revenueHigh) }))
         .filter((r) => r.date.length > 0)
     : null;
 
@@ -2756,6 +2775,31 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           : null,
       }
     : null;
+
+  // D-65: revenue already reported in the fiscal year the first DCF window
+  // starts in — the quarters after the latest annual statement through the TTM
+  // end, each in the model currency. Consecutive 13/14-week quarters only.
+  const fiscalYearToDate: FiscalYearToDate | null = (() => {
+    const priorFiscalYearEnd = isoDay(inc0?.date);
+    if (!ttmInc || priorFiscalYearEnd === null || priorFiscalYearEnd >= ttmInc.date) return null;
+    const quarters = incomeQuarterly
+      .filter((r) => { const d = isoDay(r.date); return d !== null && d > priorFiscalYearEnd && d <= ttmInc.date; })
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    // A repeated quarter end (a restatement served twice) would double count; refuse rather than pick one.
+    if (quarters.length < 1 || quarters.length > 3 || isoDay(quarters.at(-1)?.date) !== ttmInc.date
+      || new Set(quarters.map((q) => isoDay(q.date))).size !== quarters.length) return null;
+    let previous = priorFiscalYearEnd;
+    let revenue = 0;
+    for (const q of quarters) {
+      const day = isoDay(q.date) as string;
+      const span = (Date.parse(day) - Date.parse(previous)) / SPREAD_DAYS;
+      const value = num(q.revenue);
+      if (span < 84 || span > 98 || value === null || value <= 0 || establishedCurrencyOn([q], day, ctx.currencyEvidence) !== ctx.modelCurrency) return null;
+      revenue += value;
+      previous = day;
+    }
+    return { priorFiscalYearEnd, through: ttmInc.date, revenue, quarters: quarters.length };
+  })();
 
   const rf = riskFreePct(bundle);
   const revenueCagr3y = windowCagr(growth.revenueCagrs, 3);
@@ -2829,6 +2873,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           quarterRevenue: dcfQuarterRevenue,
           guidance: dcfGuidance(bundle, ctx.modelCurrency),
           domicileCountry: str(profile?.country),
+          // D-65: the fiscal year's reported revenue so far, and the quote date the value is stated at.
+          fiscalYearToDate,
+          valuationDate: bundle.quote.ok ? isoDay(bundle.quote.value.asOf) : null,
         }
       : null;
 
@@ -2903,6 +2950,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         cashAndCashEquivalents: num(balPoint.cashAndCashEquivalents),
         shortTermInvestments: num(balPoint.shortTermInvestments),
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
+        // D-65: the multiples' EV nets the same canonical (D-60) net cash as the DCF bridge.
+        marketableEquitySecurities: num(balPoint.marketableEquitySecurities),
         totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
         goodwill: num(balPoint.goodwill),
         intangibleAssets: num(balPoint.intangibleAssets),
@@ -3121,6 +3170,19 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     nonOperatingAssets: netDebtInfo.nonOperatingEquitySecurities !== undefined
       ? { value: netDebtInfo.nonOperatingEquitySecurities, basis: str(balPoint?.marketableEquityBasis) ?? "marketable equity securities at filed fair value" }
       : null,
+    // D-65: the filed source of the long-term investments the DCF removes from operating capital.
+    longTermInvestmentsBasis: (() => {
+      const lti = balPoint ? num(balPoint.longTermInvestments) : null;
+      const date = balPoint ? isoDay(balPoint.date) : null;
+      if (lti === null || lti <= 0 || date === null) return null;
+      const filed = isoDay(balPoint?.filingDate) ?? (typeof balPoint?.acceptedDate === "string" ? isoDay(balPoint.acceptedDate.slice(0, 10)) : null);
+      const privateStakes = nonMarketableEquityCarrying(bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+        date, ctx.modelCurrency, bundle.builtAt);
+      const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
+      return `long-term investments ${b(lti)} on the ${date} ${balPointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — the amount the sales-to-capital denominator removes as non-operating` +
+        (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
+        "; equity stakes the filing places in other assets are not separable from the statements and stay in operating capital";
+    })(),
     dcfInputs,
     multiples,
     excessReturn,
@@ -3411,6 +3473,8 @@ function mergeQuarterly(
       shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,
       capitalLeaseObligations: bal ? num(bal.capitalLeaseObligations) : null,
       financeLeaseLiability: bal ? num(bal.financeLeaseLiability) : null,
+      // D-65: each quarter's own filed equity securities, so its EV nets the D-60 cash.
+      marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
       cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
       preferredStock: bal ? num(bal.preferredStock) : null,
       minorityInterest: bal ? num(bal.minorityInterest) : null,

@@ -12,7 +12,13 @@ export interface ScenarioAssumptions {
   shockPersistence: "mean-reverting-convergent" | "persistent-explicit-horizon";
   terminalTransition: string;
   growthMarginCorrelation: number | null;
-  scenarios: { name: "bull" | "base" | "bear"; growthDeltaPp: number; marginDeltaPp: number }[];
+  /**
+   * `marginDeltaPp` is the shock requested; `effectiveMarginDeltaPp` (D-65),
+   * present only when the scenario margin cap or the house bounds cut it, is
+   * the year-one shift the path actually carries (NVDA bull: +10.12pp
+   * requested, 0pp effective under the 65.21% cap).
+   */
+  scenarios: { name: "bull" | "base" | "bear"; growthDeltaPp: number; marginDeltaPp: number; effectiveMarginDeltaPp?: number }[];
   alternatives: { name: "decaying-growth-shock"; bullPerShare: number | null; bearPerShare: number | null; basis: string }[];
 }
 
@@ -65,8 +71,13 @@ export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispe
   const correlation = negligible ? null : dispersion.growthMarginCorrelation;
   const dg = dispersion.sigmaGrowth;
   const dm = dispersion.sigmaMargin * (correlation ?? 0);
-  const run = (growthDeltaPp: number, marginDeltaPp: number) => ({ growthDeltaPp, marginDeltaPp,
-    result: runDcf(perturbScenarioAssumptions(a, growthDeltaPp, marginDeltaPp), opts) });
+  const run = (growthDeltaPp: number, marginDeltaPp: number) => {
+    const shocked = perturbScenarioAssumptions(a, growthDeltaPp, marginDeltaPp);
+    // D-65: the shift that survives the margin cap and growth bounds, by year.
+    const effectiveMargin = shocked.ebitMarginPath.value.map((m, i) => m - a.ebitMarginPath.value[i]);
+    return { growthDeltaPp, marginDeltaPp, effectiveMarginDeltaPp: effectiveMargin[0] ?? 0,
+      marginCapBinding: Math.abs((effectiveMargin[0] ?? 0) - marginDeltaPp) > 1e-9, result: runDcf(shocked, opts) };
+  };
   const up = run(dg, dm);
   const down = run(-dg, -dm);
   // EV ordering works even when the per-share bridge is unavailable, and is the
@@ -74,15 +85,16 @@ export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispe
   const orderingInverted = down.result.enterpriseValue > up.result.enterpriseValue;
   const bull = orderingInverted ? down : up;
   const bear = orderingInverted ? up : down;
+  const effective = (s: typeof up) => (s.marginCapBinding ? { effectiveMarginDeltaPp: s.effectiveMarginDeltaPp } : {});
   const scenarioAssumptions: ScenarioAssumptions = {
     methodVersion: SCENARIO_PATHS_METHOD_VERSION,
     shockPersistence: "mean-reverting-convergent",
     terminalTransition: scenarioTerminalTransition(a),
     growthMarginCorrelation: correlation,
     scenarios: [
-      { name: "bull", growthDeltaPp: bull.growthDeltaPp, marginDeltaPp: bull.marginDeltaPp },
+      { name: "bull", growthDeltaPp: bull.growthDeltaPp, marginDeltaPp: bull.marginDeltaPp, ...effective(bull) },
       { name: "base", growthDeltaPp: 0, marginDeltaPp: 0 },
-      { name: "bear", growthDeltaPp: bear.growthDeltaPp, marginDeltaPp: bear.marginDeltaPp },
+      { name: "bear", growthDeltaPp: bear.growthDeltaPp, marginDeltaPp: bear.marginDeltaPp, ...effective(bear) },
     ],
     // The decaying-growth alternative is now the main construction.
     alternatives: [],

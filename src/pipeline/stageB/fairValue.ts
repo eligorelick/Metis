@@ -22,7 +22,7 @@
  * value is SUPPRESSED, never fabricated.
  */
 
-import type { DcfAssumptions, DcfYearRow, ValuationResult } from "@/pipeline/stageB/valuation";
+import { consensusYearsText, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, type DcfAssumptions, type DcfYearRow, type ValuationResult } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 
@@ -204,11 +204,37 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
         value: `${big(revenueAnchor.yearOneRevenue)} (${revenueAnchor.source}${revenueAnchor.clampedFrom === null ? "" : `, clamped from ${big(revenueAnchor.clampedFrom)}`})`,
         basis: revenueAnchor.basis,
       }];
+  // D-65 (P2-9): the near-term rate is a row only when it set year one. Under
+  // guidance or consensus it moves nothing in the DCF, and a "25.0% (range
+  // …)" row beside an 82% year one read as an input; its methods stay in the
+  // notes and the audit export.
+  const nearTermRow: DcfAssumption[] = revenueAnchor?.evidence?.nearTermRateUsed === false
+    ? []
+    : [{ name: "near-term growth rate (median of methods, after the house clamp)", value: anchorValue, basis: anchor.basis }];
+  // D-65: which explicit years consensus set, stated as a row so no text has to say "consensus-anchored" alone.
+  const consensusYears = revenueAnchor?.consensusYears;
+  const consensusRow: DcfAssumption[] = consensusYears === undefined || revenueAnchor?.consensusPath === undefined
+    ? []
+    : [{
+        name: "consensus-anchored years",
+        value: consensusYears.length === 0 ? "none" : `${consensusYearsText(consensusYears)} of ${a.years}`,
+        basis: consensusYears.length === 0
+          ? "no explicit year takes its growth from analyst consensus; the revenue anchor row says why"
+          : `${consensusYearsText(consensusYears)} take their revenue from calendarized analyst consensus; years ${consensusYears[consensusYears.length - 1] + 1}–${a.years} follow the convergent fade. ` +
+            `A year is anchored only while its fiscal-year estimates have at least ${MIN_CONSENSUS_ANALYSTS} analysts, an implied dispersion of at most ${MAX_CONSENSUS_CV_PCT}% ` +
+            "((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window",
+      }];
+  const valuationDateRow: DcfAssumption[] = a.valuationDate === undefined ? [] : [{
+    name: "valuation date",
+    value: a.valuationDate.value,
+    basis: a.valuationDate.basis,
+  }];
   return [
     { name: "start revenue", value: big(a.startRevenue.value), basis: a.startRevenue.basis },
     ...revenueAnchorRow,
+    ...consensusRow,
     { name: "WACC (discount rate)", value: pct1(a.wacc.value), basis: a.wacc.basis },
-    { name: "near-term growth rate (median of methods, after the house clamp)", value: anchorValue, basis: anchor.basis },
+    ...nearTermRow,
     { name: "revenue growth (yr1 → yrN)", value: `${pct1(g[0])} → ${pct1(g[g.length - 1])}`, basis: a.growthPath.basis },
     { name: "EBIT margin (yr1 → yrN)", value: `${pct1(m[0])} → ${pct1(m[m.length - 1])}`, basis: a.ebitMarginPath.basis },
     { name: "forecast tax rate (yr1 → yrN)", value: `${pct1(a.taxRatePath.value[0])} → ${pct1(a.taxRatePath.value.at(-1)!)}`, basis: `${a.taxRatePath.basis}; actual year-row tax rates include modeled loss carryforwards and can differ from this assumption path.` },
@@ -219,6 +245,7 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
     // assumptions the value depends on, so they are rows, not footnotes.
     { name: "terminal reinvestment (terminal growth / terminal ROIC)", value: pct1(a.terminal.reinvestmentRate.value * 100), basis: a.terminal.reinvestmentRate.basis },
     { name: "discounting convention", value: a.midYear.value ? "mid-year (terminal value at N − 0.5)" : "year-end", basis: a.midYear.basis },
+    ...valuationDateRow,
     {
       name: "free cash flow, SBC treatment",
       value:
@@ -239,7 +266,16 @@ export interface DcfDisplay {
     enterpriseValue: number | null; netDebt: number | null; minorityInterest: number | null; preferredEquity: number | null;
     equityValue: number | null; dilutedShares: number | null; presentValueExplicit: number | null; presentValueTerminal: number | null;
     currency: string | null; asOf: string | null; nonOperatingAssets?: number;
+    /** D-65: the bridge's non-operating assets, one row each. */
+    nonOperatingComponents?: { label: string; value: number }[];
+    /** D-65: the date the value is stated at, when rolled forward from the statement date. */
+    valuationDate?: string; rollForwardFactor?: number;
+    /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
+    sharesOutstandingAtQuote?: number;
   };
+  /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
+  consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
+    fiscalYears: string; status: string }[];
   growthMarginGrid?: { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][]; notes: string[] };
   forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
     revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
@@ -270,11 +306,37 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ? { growthMarginGrid: { growthShiftsPp: [...valuation.growthMarginGrid.growthShiftsPp], marginShiftsPp: [...valuation.growthMarginGrid.marginShiftsPp],
         perShare: valuation.growthMarginGrid.perShare.map((row) => [...row]), notes: [...valuation.growthMarginGrid.notes] } }
     : {};
+  const a = valuation.assumptions;
+  const vd = a.valuationDate;
+  // D-65: the DCF path beside consensus, through the first window the
+  // estimates no longer cover (the rest of the horizon is the fade alone).
+  const path = a.revenueAnchor?.consensusPath;
+  const lastCovered = path ? path.reduce((last, r, i) => (r.consensus !== null ? i : last), -1) : -1;
+  const consensusPath = path && lastCovered >= 0
+    ? path.slice(0, Math.min(path.length, lastCovered + 2)).flatMap((r) => {
+        const row = dcf.yearRows[r.year - 1];
+        if (row === undefined) return [];
+        return [{
+          period: row.period?.label ?? r.label,
+          modelRevenue: row.revenue,
+          consensusRevenue: r.consensus,
+          gapPct: r.consensus === null || r.consensus <= 0 ? null : (row.revenue / r.consensus - 1) * 100,
+          anchored: r.anchored,
+          fiscalYears: r.fiscalYears.map((f) => `FY ending ${f.date}: ${big(f.revenue)}${f.reportedToDate !== undefined ? ` less ${big(f.reportedToDate)} reported` : ""}` +
+            `, ${f.days} days, ${f.analysts === null ? "analyst count not given" : `${f.analysts} analysts`}` +
+            `${f.dispersionPct === null ? "" : `, implied dispersion ${pct1(f.dispersionPct)}`}`).join("; "),
+          status: r.status,
+        }];
+      })
+    : [];
   return { assumptions, sensitivityGrid, ...growthMarginGrid, bridge: {
     enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
     asOf: valuation.assumptions.asOf.statements,
     ...(dcf.bridge.nonOperatingAssets !== undefined ? { nonOperatingAssets: dcf.bridge.nonOperatingAssets } : {}),
-  }, forecastRows: dcf.yearRows.map(mapRow) };
+    ...(dcf.bridge.nonOperatingComponents ? { nonOperatingComponents: dcf.bridge.nonOperatingComponents.map((c) => ({ label: c.label, value: c.value })) } : {}),
+    ...(vd !== undefined ? { valuationDate: vd.value, rollForwardFactor: Math.pow(1 + a.wacc.value / 100, vd.elapsedYears) } : {}),
+    ...(dcf.bridge.sharesOutstandingAtQuote !== undefined ? { sharesOutstandingAtQuote: dcf.bridge.sharesOutstandingAtQuote } : {}),
+  }, forecastRows: dcf.yearRows.map(mapRow), ...(consensusPath.length > 0 ? { consensusPath } : {}) };
 }

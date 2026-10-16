@@ -83,6 +83,7 @@ import {
   payloadFingerprint,
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
+  guidanceLowCitation,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -3541,6 +3542,11 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   ), args.computed);
   const quality = applyForensicScores(args.judgeOutput.quality, args.computed.forensics);
   const business = applySegmentShares(args.judgeOutput.business, args.bundle);
+  // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
+  // events, XBRL segment revenue by quarter and the eight-quarter trend,
+  // pipeline-filled from the bundle. Built before the triggers (D-65), which
+  // cite its guidance records.
+  const filingDisclosures = buildFilingDisclosures(args.bundle);
 
   const candidate: Report = {
     meta,
@@ -3565,7 +3571,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(args.computed.projections ? { projections: args.computed.projections } : {}),
     ...(scenarioTargets ? { scenarioTargets } : {}),
     scenarioPresentation: buildScenarioPresentation(args.computed, comparableScenarioPrice(args.computed, args.bundle)),
-    thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed) : [],
+    thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed, guidanceLowCitation(filingDisclosures)) : [],
     ...(fairValue ? { fairValue } : {}),
     // WS5 (D-17): the bank / insurer / mortgage-REIT route metrics and the
     // P/TBV-against-ROTE reading, pipeline-filled exactly like the blocks
@@ -3573,10 +3579,6 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     // unchanged.
     ...(routeMetrics ? { routeMetrics } : {}),
   };
-  // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
-  // events, XBRL segment revenue by quarter and the eight-quarter trend,
-  // pipeline-filled from the bundle like the blocks above.
-  const filingDisclosures = buildFilingDisclosures(args.bundle);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data (quote, shares, EV, FY+1/FY+2
   // consensus, price targets, grade counts, short interest) for the page-1

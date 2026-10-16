@@ -22,8 +22,16 @@ function reverseThreshold(value: number): TracedNumber {
   return { value, unit: "%", source: "computed.valuation.reverseDcf", asOf: null, verified: null };
 }
 
+/**
+ * D-65: `citeGuidanceLow` returns the registry id of the guidance-table record
+ * whose low end a guided-quarter checkpoint uses (payload.ts
+ * `guidanceLowCitation`). The thresholds cited the 8-K accession, which no
+ * registry record carries, so both printed as untraced; with the id they
+ * trace to the same record the guidance table prints.
+ */
 export function buildThesisTriggers(
   computed: Pick<ComputedMetrics, "valuation" | "projections">,
+  citeGuidanceLow?: (metric: "revenue" | "gross-margin", low: number) => string | null,
 ): ThesisTrigger[] {
   const triggers: ThesisTrigger[] = [];
   const val = computed.valuation;
@@ -84,7 +92,7 @@ export function buildThesisTriggers(
       id: "guided-quarter-revenue",
       metric: `Reported revenue for the guided quarter ending ${quarter.periodEnd}`,
       comparator: "below",
-      threshold: { value: quarter.revenueLow, unit: currency, currency, source: quarter.source, asOf: quarter.asOf, verified: null },
+      threshold: { value: quarter.revenueLow, unit: currency, currency, source: citeGuidanceLow?.("revenue", quarter.revenueLow) ?? quarter.source, asOf: quarter.asOf, verified: null },
       horizon: `The fiscal quarter ending ${quarter.periodEnd}, reported in the next earnings release (guided midpoint ${money(quarter.revenueMid)})`,
       fixedAssumptions: ["Compare GAAP revenue for the same fiscal quarter with the low end of the range management published."],
       consequence: "A result below the low end of management's own range would break the trajectory the year-one revenue anchor is checked against; review the anchor and recompute the DCF. A shortfall initiates review; it does not by itself invalidate the thesis.",
@@ -94,7 +102,7 @@ export function buildThesisTriggers(
         id: "guided-quarter-gross-margin",
         metric: `Reported GAAP gross margin for the guided quarter ending ${quarter.periodEnd}`,
         comparator: "below",
-        threshold: { value: quarter.grossMarginLowPct, unit: "%", source: quarter.source, asOf: quarter.asOf, verified: null },
+        threshold: { value: quarter.grossMarginLowPct, unit: "%", source: citeGuidanceLow?.("gross-margin", quarter.grossMarginLowPct) ?? quarter.source, asOf: quarter.asOf, verified: null },
         horizon: `The fiscal quarter ending ${quarter.periodEnd}, reported in the next earnings release`,
         fixedAssumptions: ["Compare the GAAP gross margin for the same fiscal quarter with the low end of the guided range."],
         consequence: "The base operating-margin path and the scenario margin ceiling rest on gross margin near the guided level; a result below the guided range calls for revisiting both. This is a review prompt, not a forecast.",

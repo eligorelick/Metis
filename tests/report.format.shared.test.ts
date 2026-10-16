@@ -237,7 +237,8 @@ describe("manifest-driven real report consumers", () => {
         revenue: "Revenue",
         operatingMargin: "Operating margin",
         fcf: "Cash flow (historical FCF; forecast FCFF)",
-        epsDiluted: "Diluted EPS",
+        // D-65: projected EPS is operating EPS; the chart label says so.
+        epsDiluted: "EPS (historical GAAP diluted; forecast operating)",
       }[metric]);
     }
 

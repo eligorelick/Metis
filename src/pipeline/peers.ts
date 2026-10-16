@@ -16,6 +16,30 @@ const MAX_QUOTE_AGE = 7 * DAY;
 const MAX_STATEMENT_AGE = 200 * DAY;
 const MAX_PERIOD_DIFFERENCE = 100 * DAY;
 
+/**
+ * D-65: a candidate more than this many times smaller (or larger) than the
+ * subject by market capitalization is not a comparable company. Size is a
+ * priced risk characteristic (Fama and French 1992) and multiples differ
+ * systematically with it; comparable-company practice selects on industry
+ * first and similar size second (Alford 1992 finds industry the decisive
+ * screen, so this bound is deliberately loose: two orders of magnitude).
+ * NVDA report #34 rerun listed a $29M and a $265M listing beside a $5.2T
+ * issuer. Unbacktested house convention (RESEARCH §8).
+ */
+export const PEER_SIZE_RATIO_LIMIT = 100;
+
+/** D-65: why a candidate's size makes it non-comparable, or null. */
+export function peerSizeExclusion(subjectMarketCap: unknown, peerMarketCap: unknown): string | null {
+  const subject = typeof subjectMarketCap === "number" && Number.isFinite(subjectMarketCap) && subjectMarketCap > 0 ? subjectMarketCap : null;
+  const peer = typeof peerMarketCap === "number" && Number.isFinite(peerMarketCap) && peerMarketCap > 0 ? peerMarketCap : null;
+  if (subject === null || peer === null) return null;
+  const ratio = peer / subject;
+  if (ratio >= 1 / PEER_SIZE_RATIO_LIMIT && ratio <= PEER_SIZE_RATIO_LIMIT) return null;
+  const big = (v: number) => v >= 1e12 ? `${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : `${(v / 1e6).toFixed(0)}M`;
+  const grouped = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `size screen: market cap ${big(peer)} is ${ratio < 1 ? `${grouped(1 / ratio)}× smaller than` : `${grouped(ratio)}× larger than`} the subject's ${big(subject)}, outside the ${PEER_SIZE_RATIO_LIMIT}× comparable-size band (house rule D-65)`;
+}
+
 export interface PeerExclusion { symbol: string; reason: string }
 export interface PeerCoverage {
   methodology: string[];
@@ -92,7 +116,12 @@ export async function loadPeerFundamentals(opts: {
     const symbol = normalize(row.symbol);
     if (!/^[A-Z0-9][A-Z0-9.-]{0,19}$/.test(symbol)) { result.exclusions.push({ symbol: symbol || "(missing)", reason: "invalid candidate symbol" }); continue; }
     if (seen.has(symbol)) { result.exclusions.push({ symbol, reason: "self or duplicate candidate symbol" }); continue; }
-    seen.add(symbol); symbols.push(symbol);
+    seen.add(symbol);
+    // D-65: a micro-cap beside a mega-cap is not requested; the comparison
+    // repeats the screen on the candidate's own quote.
+    const size = peerSizeExclusion(opts.profile.marketCap, row.mktCap);
+    if (size !== null) { result.exclusions.push({ symbol, reason: size }); continue; }
+    symbols.push(symbol);
   }
   result.candidateCount = symbols.length;
   for (const symbol of symbols.slice(PEER_CANDIDATE_LIMIT)) result.exclusions.push({ symbol, reason: `optional candidate budget limit (${PEER_CANDIDATE_LIMIT})` });
@@ -233,7 +262,7 @@ export function comparePeerFundamentals(opts: {
   const collection = opts.collection;
   const peerCoverage: PeerCoverage = {
     methodology: [
-      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
+      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
@@ -286,6 +315,8 @@ export function comparePeerFundamentals(opts: {
       { incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null, availableQuarters: null }, { today: opts.now.toISOString().slice(0, 10) }).base;
     if (candidateRoute !== opts.route) { exclude(peerSymbol, "valuation route differs from subject's resolved route"); continue; }
     const peerQuote = rows(candidate.quote)[0]; const quoteMs = (peerQuote.timestamp as number) * 1000;
+    const sizeReason = peerSizeExclusion(subject.quote.marketCap, peerQuote.marketCap);
+    if (sizeReason !== null) { exclude(peerSymbol, sizeReason); continue; }
     const normalizedBalance = normalizeQuarterRows(rows(candidate.balanceQuarterly));
     const bal = normalizedBalance.rows[0]; const balanceEnd = day(bal?.date);
     const balReason = bal ? statementReason(bal, currency, quoteMs) : "quarterly balance missing";
