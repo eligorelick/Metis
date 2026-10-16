@@ -575,7 +575,7 @@ function renderQuality(q: Quality): string {
   const fs = q.forensicScores;
   // "Not applicable" carries the reason a battery was skipped for this route;
   // the column is dropped when no battery was skipped.
-  lines.push(...subsection("### Forensic scores", bodyTable(
+  const forensicTable = bodyTable(
     ["Battery", "Variant", "Score", "Zone", "Not applicable"],
     [
       ["Altman Z", fs.altman, num(fs.altman.score, 2)] as const,
@@ -583,7 +583,10 @@ function renderQuality(q: Quality): string {
       ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)] as const,
       ["Accruals", fs.accruals, num(fs.accruals.score, 2)] as const,
     ].map(([label, entry, score]) => [label, entry.variant, score, entry.zone ?? DASH, entry.notApplicableReason ?? DASH]),
-  )));
+  );
+  // D-68: methodology and context notes sit under the table; flags are findings.
+  const forensicNotes = (q.notes ?? []).length > 0 ? `Notes:\n\n${(q.notes ?? []).map((note) => `- ${item(note)}`).join("\n")}` : "";
+  lines.push(...subsection("### Forensic scores", [forensicTable, forensicNotes].filter((part) => part.length > 0).join("\n\n")));
   lines.push(
     "### Flags",
     "",

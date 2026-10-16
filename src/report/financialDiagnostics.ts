@@ -69,17 +69,30 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
       append(next.quality.graded.keyNumbers, numeric(`computed.forensics.accruals.${field}`, accrual[field], /Ratio/.test(field) ? "x" : "currency", field === "noaPrior" ? accrual.asOf.prior : accrual.asOf.current,
         /Ratio/.test(field) ? null : current?.currency ?? (bundle ? statementCurrencies(bundle).model : null)));
     }
-    const source = "computed.forensics.accruals";
-    // D-61: the explanation names the construction the ratio was computed on.
-    const explanation = accrual.definition === "financial-asset-adjusted"
-      ? "Cash-flow accruals = (net income − operating cash flow − operating investing cash flow) / average net operating assets, financial-asset-adjusted (Richardson et al. 2005): purchases and sales/maturities of investments are excluded from investing cash flow and long-term investments from net operating assets, so buying securities or strategic stakes is not an accrual. Capex and acquisitions remain. It measures growth in net operating assets and is not a manipulation finding."
-      : accrual.definition === "operating"
-        ? "Cash-flow accruals = (net income − operating cash flow) / average net operating assets: operating accruals, because the statements do not separate investment purchases from operating investment. No investing flow is included. It is not a manipulation finding."
-        : "Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.";
-    if (!next.quality.flags.some(f=>f.source===source && f.text===explanation)) next.quality.flags.push({ severity:"low", source, text:explanation });
-    for (const note of accrual.notes) {
-      if (!next.quality.flags.some(f=>f.source===source && f.text===note)) next.quality.flags.push({ severity: "low", source, text: note });
+  }
+  // D-68: the accrual definition, its house bands, the growth and acquisition
+  // context and the statement figures behind AQI and GMI are methodology and
+  // context, not findings: they are notes under the forensic table, and the
+  // flags list keeps the findings. The definition itself is the model's own
+  // note (computeAccruals names the construction it used); only a result
+  // from before D-61, which records none, gets the broad-screen explanation.
+  const notes: string[] = [...(next.quality.notes ?? [])];
+  const addNote = (text: string | null | undefined): void => {
+    if (typeof text === "string" && text.trim().length > 0 && !notes.includes(text)) notes.push(text);
+  };
+  if (accrual) {
+    if (accrual.definition === undefined) {
+      addNote("Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.");
     }
+    for (const note of accrual.notes) addNote(note);
+  }
+  const beneish = computed.forensics?.beneish;
+  addNote(beneish?.aqiContext);
+  addNote(beneish?.gmiContext);
+  if (notes.length > 0) {
+    next.quality.notes = notes;
+    // A report assembled before D-68 carried these as "low" flags; never both.
+    next.quality.flags = next.quality.flags.filter((f) => !(f.source === "computed.forensics.accruals" && f.severity === "low" && notes.includes(f.text)));
   }
   next.leadership = assessExecutiveEvidence(next.leadership,next.appendix.verificationLog ?? [],options.pendingVerification);
   return next;

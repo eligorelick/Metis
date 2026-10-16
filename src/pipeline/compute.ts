@@ -124,7 +124,7 @@ import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { marketableEquityInCash } from "@/pipeline/stageB/marketableEquity";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
-import type { CompanyFacts } from "@/edgar/xbrl";
+import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import {
   normalizeQuarterRows,
@@ -554,6 +554,9 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     totalDebt: num(r.totalDebt),
     // D-61: financial assets leave net operating assets (Richardson et al. 2005).
     longTermInvestments: num(r.longTermInvestments),
+    // D-68: what an acquisition adds to NOA and to AQI's numerator.
+    goodwill: num(r.goodwill),
+    intangibleAssets: num(r.intangibleAssets),
   };
 }
 
@@ -569,6 +572,50 @@ function toForensicsCashFlow(r: FmpCashFlowRow): ForensicsCashFlowRow {
     purchasesOfInvestments: num(r.purchasesOfInvestments),
     salesMaturitiesOfInvestments: num(r.salesMaturitiesOfInvestments),
     otherInvestingActivities: num(r.otherInvestingActivities),
+    acquisitionsNet: num(r.acquisitionsNet),
+  };
+}
+
+/**
+ * D-68: one fiscal year's value of a duration tag from the filer's own
+ * companyfacts (latest core-form filing, annual duration, in the statements'
+ * currency); null when untagged.
+ */
+function annualTaggedValue(facts: CompanyFacts | null, tag: string, end: string, currency: string | null): number | null {
+  if (facts === null || end.length === 0) return null;
+  const series = tagPoints(facts, tag, currency ?? undefined);
+  if (series === null || (currency !== null && series.unit.toUpperCase() !== currency.toUpperCase())) return null;
+  const { point } = findPointForPeriod(series.points, { end, durationHint: "FY", toleranceDays: 7 });
+  return point !== null && Number.isFinite(point.val) ? point.val : null;
+}
+
+/**
+ * D-68: forensic context the vendor statements do not carry, from the
+ * filer's tags: inventory write-downs (GMI), and a business acquisition the
+ * filer reports on a line of its own (us-gaap
+ * PaymentsToAcquireBusinessTwoNetOfCashAcquired) that the vendor row folds
+ * into other investing — NVIDIA's FY2026 $13.0B. The payment is attributed to
+ * acquisitions only when the row's other investing outflow holds it, so it is
+ * never counted twice.
+ */
+function withFiledForensicContext(
+  rows: { income: ForensicsIncomeRow[]; cashFlow: ForensicsCashFlowRow[] },
+  facts: CompanyFacts | null,
+  currency: string | null,
+): { income: ForensicsIncomeRow[]; cashFlow: ForensicsCashFlowRow[] } {
+  if (facts === null) return rows;
+  return {
+    income: rows.income.map((row) => {
+      const writeDown = annualTaggedValue(facts, "InventoryWriteDown", row.date, currency);
+      return writeDown !== null && writeDown >= 0 ? { ...row, inventoryWriteDown: writeDown } : row;
+    }),
+    cashFlow: rows.cashFlow.map((row) => {
+      const second = annualTaggedValue(facts, "PaymentsToAcquireBusinessTwoNetOfCashAcquired", row.date, currency);
+      const other = row.otherInvestingActivities ?? null;
+      return second !== null && second > 0 && other !== null && other <= -second * 0.995
+        ? { ...row, acquisitionsInOtherInvesting: -second }
+        : row;
+    }),
   };
 }
 
@@ -1840,10 +1887,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   }
 
   // --- Forensics (route-aware; module handles financial suppression) --------
+  const forensicContext = withFiledForensicContext(
+    { income: incomeAnnual.map(toForensicsIncome), cashFlow: cashflowAnnual.map(toForensicsCashFlow) },
+    companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
+    str(inc0?.reportedCurrency),
+  );
   const forensics = runForensics(route, {
-    income: incomeAnnual.map(toForensicsIncome),
+    income: forensicContext.income,
     balance: balanceAnnual.map(toForensicsBalance),
-    cashFlow: cashflowAnnual.map(toForensicsCashFlow),
+    cashFlow: forensicContext.cashFlow,
     marketCap: num(profile?.marketCap ?? quote?.marketCap),
     // The as-of of a datum is its OBSERVATION date — the envelope of whichever
     // source supplied the figure — not the fiscal-year end of the statement it

@@ -13,6 +13,58 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-68 (NVDA final-report audit, forensics round 3, 2026-10-16) Name what is missing, what was bought, and what is a note
+
+- **Evidence** (final live run, report 1, run-input snapshot `041924526ebb…` captured 2026-10-16T04:20Z, a US evening):
+  - **Leadership** printed "Repurchase timing is unavailable", evidence 45%, score 61 (C), shown as "Not assessed — limited evidence". The D-61 replay of an earlier snapshot had measured +5.2% with 100% of buyback dollars covered.
+  - **Accrual growth note** said revenue and NOA grew "over the same two years"; the comparison is one fiscal year against the prior.
+  - **Unexplained drivers.** Nothing said that NVDA's NOA growth, AQI 1.57 and GMI 1.06 carry an acquisition (goodwill $5.19B → $20.83B, $13.0B tagged `PaymentsToAcquireBusinessTwoNetOfCashAcquired`), strategic investments (long-term investments $3.39B → $22.25B) and inventory write-downs, so the forensic text read the growth as unexplained operating-asset expansion.
+  - **Flags table.** Four methodology notes were "low" severity rows in the Flags table, beside the findings.
+- **Root cause of the missing timing**, reproduced offline on a copy of the frozen snapshot (`runStageB` only):
+  - **Executions were found.** `repurchaseExecutions.ts` was not the cause: its share-basis check passed for all five years with repurchase tags (basis day 2026-10-15, which the split list covers).
+  - **The year-average price was missing.** It is market cap over the fiscal window ÷ basic weighted shares, and the market-cap history was empty. FMP refused the endpoint (HTTP 402), and the keyless derivation withheld all 1,254 days: before afbed58 the closes were dated by the fetch's UTC day, 2026-10-16, which no split list could cover.
+  - **The note blamed the tags.** It fell through to "no tagged repurchase share count and cost on a known share basis matches the fiscal years".
+  - **afbed58 restores it.** Re-deriving the keyless market caps with its basis session (the newest bar, 2026-10-15) restores all 1,254 days and timing +5.18% at 100% coverage. With the fetch day, every day is still withheld.
+- **Options**:
+  - Timing: (a) a fallback year-average price from the daily closes when market caps are missing; (b) keep one measure and name the missing input.
+  - Notes: (a) keep them as "low" flags; (b) a pipeline-owned `quality.notes` list under the forensic table.
+  - Drivers: (a) a generic caveat; (b) the statement figures behind each driver.
+- **Risks**:
+  - Timing (a) needs the closes' basis session, which only the keyless layer knows; the keyless market caps already carry that guard. With afbed58 the case that emptied the history no longer occurs, so (a) would rarely trigger and would mix two price proxies across years.
+  - Drivers (b) needs data the vendor rows lack: inventory write-downs, and a second acquisition that FMP folds into other investing. These come from the filer's tags. The acquisition payment is attributed only when the row's other investing outflow holds it, so it is never counted twice.
+- **Choice**:
+  - **Timing (b).** When timing is not measured, `computeCapital` says which side is missing: the years whose tagged price has no year-average price and why, the years outside the plausibility band, or no tagged pair. A fixture trimmed from the frozen snapshot pins the chain on NVDA's real inputs: the keyless market caps derived on the newest session, the executions, and timing +5.18% at 100% coverage.
+  - **Growth note.** The note says "in the fiscal year ended …". The payload's two growth rows say "in the accrual fiscal year (year over year)".
+  - **Acquisition note.** The note is written when the increase in goodwill and other intangibles, or the cash paid for acquisitions, is at least 10% of the NOA increase (house rule). It gives goodwill and intangibles at both year ends, the cash paid, and the acquired share of the NOA increase. With that note or the growth note, a composition note splits the NOA increase by line.
+  - **Beneish context.** When M is above the "unlikely" band, AQI above 1 is decomposed into goodwill, other intangibles, long-term investments and the remaining non-current assets, with AQI recomputed without the first three. GMI above 1 is explained by the margins and the inventory write-downs the filer tags (`InventoryWriteDown`), recomputed with them added back. Context, never graded.
+  - **Notes, not flags.** The definition, house-band, growth and context notes become `report.quality.notes`. That field is pipeline-owned and removed from the judge request schema. The Flags table keeps findings. The renderer's duplicate definition string is no longer added; a pre-D-61 result, which records no definition, still gets the broad-screen explanation.
+  - **Wording.** "Capex, acquisitions stay in" now reads "Capex and acquisitions stay in" when nothing is unclassified.
+- **Why**:
+  - A missing input should be named where it is missing. The tags were present, and saying otherwise sends the reader to the wrong source.
+  - An acquirer's goodwill and a strategic investor's stakes raise AQI as capitalised costs would, and an inventory charge lowers gross margin as pricing pressure would. The statement lines can tell them apart; the index alone cannot.
+- **NVDA, frozen inputs** (offline replay; scores do not depend on the D-68 text):
+
+  | Item | Live run (pre-afbed58 market caps) | afbed58 market caps + D-68 |
+  | --- | --- | --- |
+  | Market-cap days | 0 of 1,254 | 1,254 |
+  | Repurchase timing | unavailable; note blamed the tags | +5.18%, 100% of dollars covered |
+  | Timing note | "no tagged repurchase share count and cost … matches" | (D-68 text when missing: "tagged repurchase prices were found for 4 of 4 fiscal years … but no year-average price … (no market-cap history inside the fiscal window)") |
+  | Leadership | 60.83 C, evidence 45% | 61.64 C, evidence 100% |
+  | Valuation | 85.96 A, evidence 70% | 86.57 A, evidence 100% |
+  | Composite | 76.59 B | 79.54 B |
+  | Business quality | 77.91 | 78.80 |
+  | Quality | 60.03 C | 60.03 C |
+  | NOA increase | unexplained | $40.90B: goodwill and intangibles +$18.14B (44%), receivables +$15.40B, inventory +$11.32B, PP&E +$5.17B, other +$6.95B, operating liabilities +$16.09B; $14.54B paid for acquisitions ($1.54B acquisitions line + $13.00B tagged business acquisition) |
+  | AQI 1.57 | no decomposition | soft assets $23.40B (21.0% of TA) → $67.95B (32.9%); without goodwill, intangibles and long-term investments 0.83 |
+  | GMI 1.06 | no decomposition | margin 75.0% → 71.1%; tagged write-downs $4.00B vs $1.60B; added back 76.2% → 72.9% (GMI 1.05), 0.6pp of the 3.9pp decline |
+
+  - **Write-downs vs the H20 charge.** The tagged write-downs explain 0.6pp of the 3.9pp margin decline. The 10-K's "$4.5 billion charge … associated with H20 for excess inventory and purchase obligations" also covers purchase obligations, which are not inventory write-downs. The note states only what is tagged; the H20 charge reaches the analysis through the filing excerpts.
+- **Disclosure**:
+  - **Tests.** `tests/stageB.forensicsR3.test.ts` covers the NVDA timing chain on `fixtures/financial/nvda-buyback-timing-20261016.json`, the missing-side note, the forensic notes, and notes vs flags.
+  - **Payload.** The payload golden moves +80 prompt bytes for the two relabelled growth rows (no new record on that fixture). The new forensic payload rows (goodwill, the acquired share, cash paid, AQI and GMI recomputed, tagged write-downs) appear only when their note does.
+  - **Audit deltas.** The group `forensics-r3-2026-10-16` records DEMO's notes moving to `report.quality.notes` and its acquisition and composition notes (DEMO pays 100M for acquisitions with goodwill unchanged).
+  - **Versions.** `PAYLOAD_VERSION`, `REPORT_SPEC_VERSION` and `SCORE_BANDS_VERSION` are unchanged, as instructed: no score, band or ratio moves, and the new report field is optional.
+
 ## D-64 (NVDA rerun audit 2026-10-15) A fourth-quarter EPS is never FY EPS minus nine-month EPS
 
 - **Evidence**: the integration rerun showed Q4 FY2025 diluted EPS $0.90; NVIDIA reported $0.89. The EDGAR backfill derived it as FY $2.94 − nine-month $2.04, but per-share amounts are not additive when the weighted share count moves between quarters.
