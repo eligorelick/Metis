@@ -56,6 +56,8 @@ export interface SerializedPassFailure {
    * been paid for could not be diagnosed afterwards from anything durable.
    */
   detail?: string;
+  /** Recovery text, never promoted to a successful artifact without full validation. */
+  partialText?: string;
 }
 
 export type PassSettlement<T> =
@@ -214,7 +216,7 @@ function boundedText(value: unknown, fallback: string, max: number): string {
 
 export function serializePassFailure(
   error: unknown,
-  details: { kind?: string; retryable?: boolean; detail?: string } = {},
+  details: { kind?: string; retryable?: boolean; detail?: string; partialText?: string } = {},
 ): SerializedPassFailure {
   const candidate = error instanceof Error ? error : null;
   const failure: SerializedPassFailure = {
@@ -226,6 +228,7 @@ export function serializePassFailure(
   if (details.detail !== undefined && details.detail !== "") {
     failure.detail = boundedText(details.detail, "", 4_096);
   }
+  if (details.partialText) failure.partialText = details.partialText.slice(0, 1_000_000);
   return failure;
 }
 
@@ -253,6 +256,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
   if ("kind" in value) allowed.push("kind");
   if ("retryable" in value) allowed.push("retryable");
   if ("detail" in value) allowed.push("detail");
+  if ("partialText" in value) allowed.push("partialText");
   if (!hasExactKeys(value, allowed)) throw new Error("jobArtifacts: unexpected failure fields");
   if (
     typeof value.name !== "string" ||
@@ -264,6 +268,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
     (value.kind !== undefined &&
       (typeof value.kind !== "string" || value.kind.length === 0 || value.kind.length > 128)) ||
     (value.retryable !== undefined && typeof value.retryable !== "boolean") ||
+    (value.partialText !== undefined && (typeof value.partialText !== "string" || value.partialText.length > 1_000_000)) ||
     (value.detail !== undefined &&
       (typeof value.detail !== "string" || value.detail.length === 0 || value.detail.length > 4_096))
   ) {
@@ -275,6 +280,7 @@ function parseFailure(value: unknown): SerializedPassFailure {
     ...(value.kind === undefined ? {} : { kind: value.kind }),
     ...(value.retryable === undefined ? {} : { retryable: value.retryable }),
     ...(value.detail === undefined ? {} : { detail: value.detail }),
+    ...(value.partialText === undefined ? {} : { partialText: value.partialText }),
   };
 }
 

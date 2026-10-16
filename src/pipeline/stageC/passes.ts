@@ -159,6 +159,7 @@ import {
   statesOnlyAllowedDates,
 } from "@/pipeline/stageC/consistency";
 import { annotateSharedModelFamily, sharedModelFamilyOf } from "@/report/execution";
+import { createHash } from "node:crypto";
 import type {
   ConsistencyChecks,
   JudgeOrder,
@@ -280,11 +281,12 @@ export interface RunPassArgs {
   /** Reservation identity for the per-request maximum. */
   reservationPass?: "bull" | "bear" | "synthesize" | "verify";
   /**
-   * Steps to lower a subscription connection's reasoning effort for this
-   * request, after earlier attempts ran into the provider's time limit.
-   * Ignored by the paid API, which has no such limit.
+   * Earlier interrupted section attempts: shrink subscription section batches
+   * without changing the captured model, reasoning effort or speed.
    */
-  effortStepDown?: number;
+  sectionRetryCount?: number;
+  /** Subscription stream recovery only; partial text is never a successful result. */
+  onPartialText?: (text: string) => void;
 }
 
 /** The injected non-streaming runner. */
@@ -325,6 +327,12 @@ export interface PassDeps {
    * such limit and keeps one request per pass.
    */
   sectionedOutput?: boolean;
+  sectionCheckpoint?: {
+    load: (field: string) => Record<string, unknown>;
+    save: (field: string, completed: Record<string, unknown>) => void;
+    /** Append-only observations remain auditable even if the worker dies before settlement. */
+    record?: (field: string, telemetry: { model: string; usage: PassUsage; costUsd: number; execution?: ProviderExecution }) => void;
+  };
   /** One job-scoped cancellation/deadline signal. */
   signal?: AbortSignal;
   /** Per-request cost admission, by pass (DECISIONS D-10). */
@@ -742,6 +750,39 @@ function sumUsage(a: PassUsage, b: PassUsage): PassUsage {
   };
 }
 
+/** Attribute section usage only to provider evidence shared by all requests. */
+function sectionExecution(
+  requestedModel: string,
+  observations: { model?: string; execution?: ProviderExecution }[],
+  recoveredSections: boolean,
+): { model: string; execution?: ProviderExecution } {
+  let model = observations.at(-1)?.model ?? requestedModel;
+  const provider = parseSubscriptionModel(requestedModel)?.provider;
+  if (provider === undefined || !observations.some((o) => o.execution !== undefined)) {
+    return { model, ...(provider !== undefined && recoveredSections ? { execution: {
+      requestedModel, modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null,
+    } } : {}) };
+  }
+  const same = <K extends keyof ProviderExecution>(key: K): ProviderExecution[K] | null => {
+    const first = observations[0]?.execution?.[key];
+    return first !== undefined && observations.every((o) => o.execution?.[key] === first) ? first : null;
+  };
+  const observedModels = [...new Set(observations.flatMap((o) => o.execution?.modelObserved !== true ? []
+    : o.execution.observedModels ?? (o.model === undefined ? [] : [parseSubscriptionModel(o.model)?.model ?? o.model])))];
+  if (observedModels.length > 1) model = subscriptionModel(provider, "multiple-models");
+  const requestedServiceTier = same("requestedServiceTier");
+  return { model, execution: {
+    requestedModel,
+    requestedEffort: same("requestedEffort"),
+    effectiveEffort: recoveredSections ? null : same("effectiveEffort"),
+    ...(requestedServiceTier === null ? {} : { requestedServiceTier }),
+    ...(provider === "chatgpt" ? { effectiveServiceTier: recoveredSections ? null : same("effectiveServiceTier") } : {}),
+    modelObserved: !recoveredSections && observations.every((o) => o.execution?.modelObserved === true),
+    usageReported: !recoveredSections && observations.every((o) => o.execution?.usageReported === true),
+    observedModels,
+  } };
+}
+
 /**
  * Produce one structured response in parts (see JUDGE_SECTION_PARTS): each
  * request returns only its group of top-level sections, later groups see the
@@ -759,8 +800,23 @@ async function runPassInSections<T>(a: {
   field: string;
   requestedModel: string;
 }): Promise<PassRun<T>> {
-  const completed: Record<string, unknown> = { ...(a.completed ?? {}) };
+  // The mirror and schema repair are different draws even within one job.
+  const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
+  const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
+  const completed: Record<string, unknown> = {
+    ...Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key))),
+    ...(a.completed ?? {}),
+  };
+  let lastCheckpoint = JSON.stringify(stored);
+  const checkpoint = (sections: Record<string, unknown>): void => {
+    const json = JSON.stringify(sections);
+    if (json === lastCheckpoint) return;
+    a.deps.sectionCheckpoint?.save(checkpointField, sections);
+    lastCheckpoint = json;
+  };
   let last: Extract<RunPassOutcome, { ok: true }> | null = null;
+  const observations: { model?: string; execution?: ProviderExecution }[] = [];
+  const recoveredSections = Object.keys(completed).length > 0;
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
   const pending = (keys: readonly string[]): string[] => keys.filter((key) => !(key in completed));
@@ -776,43 +832,65 @@ async function runPassInSections<T>(a: {
           ...a.base.messages,
           { role: "user", content: sectionRequestInstruction(completed, keys, a.allKeys) },
         ],
+        onPartialText: (text) => {
+          const streamed = completedTopLevelFields(text);
+          const kept = { ...completed };
+          for (const key of keys) if (key in streamed) kept[key] = streamed[key];
+          if (Object.keys(kept).length > Object.keys(completed).length) checkpoint(kept);
+        },
       };
       a.deps.validateRunPass?.(request);
       const outcome = await a.deps.runPass(request);
       if (!outcome.ok) {
+        observations.push({ model: outcome.error.model, execution: outcome.error.execution });
         const kept = { ...completed };
         for (const [key, value] of Object.entries(completedTopLevelFields(outcome.error.partialText ?? ""))) {
           if (keys.includes(key)) kept[key] = value;
         }
         const partialText = Object.keys(kept).length > 0 ? JSON.stringify(kept) : undefined;
+        checkpoint(kept);
         return finishStructuredPass(
-          { ...outcome, error: { ...outcome.error, ...(partialText === undefined ? {} : { partialText }) } },
+          { ...outcome, error: { ...outcome.error, usage: sumUsage(usage, outcome.error.usage ?? { input_tokens: 0, output_tokens: 0 }), costUsd: costUsd + (outcome.error.costUsd ?? 0),
+            ...sectionExecution(a.requestedModel, observations, recoveredSections), ...(partialText === undefined ? {} : { partialText }) } },
           a.parse,
           a.field,
           a.requestedModel,
         );
       }
       let json: unknown;
+      a.deps.sectionCheckpoint?.record?.(checkpointField, {
+        model: outcome.value.data.model, usage: outcome.value.data.usage,
+        costUsd: outcome.value.data.costUsd, execution: outcome.value.data.execution,
+      });
+      observations.push(outcome.value.data);
+      usage = sumUsage(usage, outcome.value.data.usage);
+      costUsd += outcome.value.data.costUsd;
       try {
         json = parseJsonSalvaging(extractText(outcome.value.data.message));
       } catch {
         if (tries === 0) continue;
         // Report the unparseable part exactly as a single response would be.
-        return finishStructuredPass(outcome, a.parse, a.field, a.requestedModel);
+        return finishStructuredPass({ ...outcome, value: { data: { ...outcome.value.data, usage, costUsd,
+          ...sectionExecution(a.requestedModel, observations, recoveredSections) } } }, a.parse, a.field, a.requestedModel);
       }
-      usage = sumUsage(usage, outcome.value.data.usage);
-      costUsd += outcome.value.data.costUsd;
       last = outcome;
       if (json !== null && typeof json === "object" && !Array.isArray(json)) {
         for (const key of keys) {
           if (key in (json as Record<string, unknown>)) completed[key] = (json as Record<string, unknown>)[key];
         }
       }
+      checkpoint(completed);
       return null;
     }
   };
 
-  for (const group of splitSections(a.allKeys, a.parts)) {
+  // A cutoff demonstrates that the original groups were too large for this
+  // connection. Keep the user's model/effort and reduce only the remaining batch size.
+  const recovering = Object.keys(stored).length > 0 || Object.keys(a.completed ?? {}).length > 0;
+  const retryCount = a.base.sectionRetryCount ?? 0;
+  const retryLevel = Math.max(recovering ? 1 : 0, Number.isFinite(retryCount) ? Math.min(6, Math.max(0, Math.floor(retryCount))) : 0);
+  const sectionParts = Math.min(a.allKeys.length, a.parts * 2 ** retryLevel);
+  for (const group of splitSections(a.allKeys, sectionParts)) {
     const keys = pending(group);
     if (keys.length === 0) continue;
     const ended = await requestPart(keys);
@@ -823,8 +901,10 @@ async function runPassInSections<T>(a: {
   // missing — never a request for an optional section the model omitted.
   const missing = pending(a.allKeys);
   if (missing.length > 0 && !a.parse(completed).ok) {
-    const ended = await requestPart(missing);
-    if (ended !== null) return ended;
+    for (const group of splitSections(missing, sectionParts)) {
+      const ended = await requestPart(group);
+      if (ended !== null) return ended;
+    }
   }
 
   // Assigned inside requestPart; TypeScript cannot see through the closure.
@@ -837,7 +917,12 @@ async function runPassInSections<T>(a: {
         costUsd: 0,
         fallbackUsed: false,
         model: a.requestedModel,
+        execution: { requestedModel: a.requestedModel, modelObserved: false, usageReported: false },
       };
+  // Execution evidence must describe every newly completed request, rather
+  // than inheriting the last part's settings. Recovered text has no execution
+  // metadata in the checkpoint; retain the request but withhold attribution.
+  Object.assign(data, sectionExecution(a.requestedModel, observations, recoveredSections));
   const merged: RunPassOutcome = {
     ok: true,
     value: {
@@ -847,7 +932,10 @@ async function runPassInSections<T>(a: {
       },
     },
   };
-  return finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+  const finished = finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+  // A schema-invalid section must be repaired, not pinned forever by a checkpoint.
+  if (!finished.ok) checkpoint({});
+  return finished;
 }
 
 /** Exact provider request used by either analyst side. */
@@ -1149,6 +1237,7 @@ function settlementFromPassRun<T>(
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
+      partialText: run.error.partialText,
     }),
     telemetry,
   };
@@ -1251,15 +1340,15 @@ export async function runAnalystContinuationPass(
   beforeProviderLaunch?: () => void | Promise<void>,
 ): Promise<PassRun<AnalystCase>> {
   const base = buildAnalystRunPassArgs(deps, payload, side);
-  const stepDown = continuation.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {};
+  const retry = continuation.sectionRetryCount ? { sectionRetryCount: continuation.sectionRetryCount } : {};
   const request: RunPassArgs = deps.sectionedOutput
-    ? { ...base, ...stepDown }
+    ? { ...base, ...retry }
     : {
         ...base,
         messages: hasCompletedSections(continuation)
           ? [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }]
           : base.messages,
-        ...stepDown,
+        ...retry,
       };
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
@@ -2076,7 +2165,7 @@ export function buildJudgeRunPassArgs(
     signal: deps.signal,
     admission: deps.admissionFor?.("synthesize"),
     reservationPass: "synthesize",
-    ...(continuation?.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {}),
+    ...(continuation?.sectionRetryCount ? { sectionRetryCount: continuation.sectionRetryCount } : {}),
   };
 }
 
@@ -2111,7 +2200,7 @@ export async function runJudgePass(
       // In parts: the kept sections seed the parts instead of a continuation turn.
       const base = buildJudgeRunPassArgs(
         deps, payload, bull, bear, validationFeedback, order,
-        continuation === undefined ? undefined : { completed: {}, effortStepDown: continuation.effortStepDown },
+        continuation === undefined ? undefined : { completed: {}, sectionRetryCount: continuation.sectionRetryCount },
       );
       finished = await runPassInSections({
         deps,
