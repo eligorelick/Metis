@@ -13,6 +13,14 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-64 (NVDA rerun audit 2026-10-15) A fourth-quarter EPS is never FY EPS minus nine-month EPS
+
+- **Evidence**: the integration rerun showed Q4 FY2025 diluted EPS $0.90; NVIDIA reported $0.89. The EDGAR backfill derived it as FY $2.94 − nine-month $2.04, but per-share amounts are not additive when the weighted share count moves between quarters.
+- **Options**: (a) keep FY − YTD (the former "FMP convention"); (b) withhold every untagged Q4 EPS; (c) rebuild it from Q4 net income over a Q4 share count backed out of the day-weighted identity FY shares × FY days = Σ quarter shares × quarter days.
+- **Choice**: (c) when the annual and all three earlier quarterly weighted counts are tagged, else (b). The backed-out count is used only for the ratio and never reported as a share fact.
+- **Why**: the identity is exact for weighted averages over contiguous periods, so the result matches the issuer's own Q4 EPS up to rounding (NVDA Q4 FY2025 0.894 → $0.89; Q4 FY2026 1.758 → $1.76).
+- **Disclosure**: field provenance `derivation: "fy-share-identity"` and a statement note naming the backed-out count; a withheld figure carries a note saying why.
+
 ## D-59 (NVDA report 34 audit, WP4 + WP6, 2026-10-15) Make the peer and executive gates reachable and stop the verifier's false contradictions
 
 - **Evidence**: report 34 (docs/audit/2026-10-15-nvda-report-34-audit.md) showed gates that could never pass. `PeerCandidate.economicEvidence` and `subjectEconomicEvidence` were read but never populated, so every peer of every issuer was excluded; one symbol's HTTP 402 (AVGO) stopped collection, so 2 of 10 candidates were evaluated. `assessExecutiveEvidence` required a `verified` log outcome that the verify pass never assigns to prose, so every executive was "not-assessed". The headline "0/90 validated; 1 contradicted" came from a year-set period rule ("ended 2026-07-26" against "ttm: 2025-07-27 to 2026-07-26"), a symmetric label match against internal key paths ("debt Bridge total Debt Including Leases"), and 60 figure-free claims counted as "unchecked". The earnings reconciliation was "unavailable" because FMP quarters carry no SEC start date.
