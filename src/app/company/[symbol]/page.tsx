@@ -1,7 +1,8 @@
 /**
- * /company/[symbol] — the Phase 1 THIN SLICE.
+ * /company/[symbol] — saved research first, live analysis on request.
  *
- * Server component. Runs the real pipeline end to end for one ticker:
+ * Existing readable reports are served from the database without provider work.
+ * A new ticker or explicit ?view=live runs the real pipeline for one ticker:
  *   buildDataBundle → validateBundle → runStageB
  * then renders a dense, terminal-grade research surface with the ui.tsx
  * primitives. Every rendered figure carries an <AsOf> stamp where provenance
@@ -894,10 +895,41 @@ function UnknownTicker({ symbol, gap }: { symbol: string; gap: ManifestEntry | n
 // Page
 // ---------------------------------------------------------------------------
 
-export default async function CompanyPage({ params }: { params: Promise<{ symbol: string }> }) {
+export default async function CompanyPage({ params, searchParams }: {
+  params: Promise<{ symbol: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { symbol: routeSymbol } = await params;
   const symbol = normalizeRouteSymbol(routeSymbol);
   if (symbol === null) notFound();
+  const liveRequested = (await searchParams)?.view === "live";
+  // Opening saved research is a DB read. Do not construct the live pipeline,
+  // including as a hidden tab or prefetch, until the reader requests it.
+  let saved: LatestReport | null = null;
+  if (!liveRequested) {
+    try { saved = getLatestDoneReport(symbol); } catch { /* Existing live fallback remains available. */ }
+  }
+  if (saved?.report) {
+    return (
+      <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} />}>
+        <div className="flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-3">
+            <div>
+              <h1 className="mono text-[15px] font-semibold">{symbol} · {saved.report.meta.companyName}</h1>
+              <p className="text-[11px] text-muted">Saved report #{saved.reportId} · {saved.createdAt.slice(0, 10)}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ExportButtons reportId={saved.reportId} symbol={symbol} />
+              <Link href={`/company/${encodeURIComponent(symbol)}/history`} prefetch={false} className="mono text-[11px] text-accent hover:underline">history</Link>
+              <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false} className="mono border border-edge-strong px-3 py-1.5 text-[11px] text-accent hover:border-accent">live analysis</Link>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted">Showing saved research. Open live analysis to refresh market data or generate a new report.</p>
+          <PersistedReportView report={saved.report} />
+        </div>
+      </AppShell>
+    );
+  }
 
   // Render the shell + sidebar immediately and STREAM the heavy pipeline body in
   // behind a Suspense boundary, so navigating to a ticker paints instantly
@@ -912,7 +944,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
       }
     >
       <Suspense fallback={<CompanyBodySkeleton symbol={symbol} />}>
-        <CompanyBody symbol={symbol} />
+        <CompanyBody symbol={symbol} liveRequested={liveRequested} />
       </Suspense>
     </AppShell>
   );
@@ -924,7 +956,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
  * Rendered inside CompanyPage's <Suspense> boundary so its await streams instead
  * of blocking the whole route — the fix for the "rendering…" stall.
  */
-export async function CompanyBody({ symbol }: { symbol: string }) {
+export async function CompanyBody({ symbol, liveRequested = false }: { symbol: string; liveRequested?: boolean }) {
   let data: PageData | null;
   try {
     data = await coordinatedCompanyLoad(symbol);
@@ -1025,6 +1057,7 @@ export async function CompanyBody({ symbol }: { symbol: string }) {
 
         {hasReport && data.latestReport ? (
           <ReportTabs
+            initialTab={liveRequested ? "analysis" : "report"}
             reportMeta={`#${data.latestReport.reportId} · ${data.latestReport.createdAt.slice(0, 10)}`}
             report={
               <PersistedReportView

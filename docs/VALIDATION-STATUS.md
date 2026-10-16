@@ -2,6 +2,18 @@
 
 Updated 2026-10-16 for report 1.19.4 / payload 1.24.2.
 
+D-77 separates saved research from live acquisition. A readable saved company
+report opens directly from the database; live analysis is an explicit,
+non-prefetched navigation. Watchlist views read eligible cached responses only,
+including on historical report pages. Cached quotes retain their dates and
+stale labels. Missing grade labels explain the existing evidence floor without
+changing scores, weights or stored reports. FMP quota failures establish a
+bounded credential/provider cooldown while successful cached data remains
+available. Failing-first regressions cover the no-network navigation boundary,
+cache admission, explicit live links, and quota behavior; full gate and release
+CI outcomes are recorded in the associated release PR and local manifest.
+Report, payload and Stage B conventions are unchanged.
+
 D-76 distinguishes an explicitly printed cash-dividend total from its per-share
 restatement, preserving conservative unit and source ambiguity checks. Output
 guards withhold unsupported internally derived historical EV against same-date

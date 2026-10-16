@@ -68,7 +68,8 @@ export default async function RunReportPage({
                 ← {symbol} history
               </Link>
               <Link
-                href={`/company/${encodeURIComponent(symbol)}`}
+                href={`/company/${encodeURIComponent(symbol)}?view=live`}
+                prefetch={false}
                 className="text-accent hover:underline"
               >
                 {symbol} (live) →
@@ -126,7 +127,8 @@ export default async function RunReportPage({
               history
             </Link>
             <Link
-              href={`/company/${encodeURIComponent(symbol)}`}
+              href={`/company/${encodeURIComponent(symbol)}?view=live`}
+              prefetch={false}
               className="mono border border-edge-strong px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-muted transition-colors hover:border-accent hover:text-accent"
               title="company page · latest saved report + current live analysis"
             >

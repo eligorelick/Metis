@@ -53,7 +53,7 @@ vi.mock("@/components/watchlist/Sidebar", () => ({
   WatchlistSidebar: () => null,
 }));
 
-import { CompanyBody } from "@/app/company/[symbol]/page";
+import CompanyPage, { CompanyBody } from "@/app/company/[symbol]/page";
 import { ReportTabs } from "@/app/company/[symbol]/ReportTabs";
 import SavedReportPage from "@/app/company/[symbol]/report/[reportId]/page";
 import PrintReportPage from "@/app/company/[symbol]/report/[reportId]/print/page";
@@ -229,6 +229,45 @@ describe("persisted report presentation", () => {
     });
   });
 
+  it("opens an existing ticker report without starting live data or calculations", async () => {
+    const before = JSON.stringify(report);
+    const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
+    const persisted = elementsWithin(tree).find((element) => element.props.report === report);
+    expect(persisted).toBeDefined();
+    expect(elementsWithin(tree).some((element) => element.type === CompanyBody)).toBe(false);
+    expect(harness.buildDataBundle).not.toHaveBeenCalled();
+    expect(harness.runStageB).not.toHaveBeenCalled();
+    const liveLink = elementsWithin(tree).find((element) => element.props.href === "/company/DEMO?view=live");
+    expect(liveLink).toBeDefined();
+    expect(liveLink!.props.prefetch).toBe(false);
+    expect(JSON.stringify(report)).toBe(before);
+  });
+
+  it("loads live analysis only when explicitly requested", async () => {
+    const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }), searchParams: Promise.resolve({ view: "live" }) });
+    const live = elementsWithin(tree).find((element) => element.type === CompanyBody);
+    expect(live).toBeDefined();
+    expect(live!.props.liveRequested).toBe(true);
+    expect(harness.buildDataBundle).not.toHaveBeenCalled();
+    const body = await CompanyBody(live!.props as { symbol: string; liveRequested: boolean });
+    expect(harness.buildDataBundle).toHaveBeenCalledOnce();
+    const tabs = elementsWithin(body).find((element) => element.type === ReportTabs);
+    expect(tabs!.props.initialTab).toBe("analysis");
+  });
+
+  it.each([{ view: undefined }, { view: ["live", "report"] }, { view: "other" }])("keeps ambiguous or absent view $view on saved research", async ({ view }) => {
+    const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }), searchParams: Promise.resolve({ view }) });
+    expect(elementsWithin(tree).some((element) => element.props.report === report)).toBe(true);
+    expect(elementsWithin(tree).some((element) => element.type === CompanyBody)).toBe(false);
+    expect(harness.buildDataBundle).not.toHaveBeenCalled();
+  });
+
+  it.each([null, { reportId: 42, report: null }])("retains the existing live flow when no usable saved report exists", async (latest) => {
+    harness.getLatestDoneReport.mockReturnValue(latest);
+    const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
+    expect(elementsWithin(tree).some((element) => element.type === CompanyBody)).toBe(true);
+  });
+
   it("delegates both persisted routes to one exact report-only boundary", async () => {
     expectTypeOf<PersistedReportViewExport>()
       .parameter(0)
@@ -264,6 +303,14 @@ describe("persisted report presentation", () => {
     expect(Object.keys(reportNode.props)).toEqual(["report"]);
     expect(elementsWithin(reportNode).some((element) => element.type === TechnicalsChartPanel)).toBe(false);
     expect(elementsWithin(reportNode).some((element) => element.type === FundamentalsChartGrid)).toBe(false);
+  });
+
+  it("keeps the saved-run live link explicit and disables provider-triggering prefetch", async () => {
+    const tree = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
+    const live = elementsWithin(tree).find((element) => structuralText(element.props.children) === "live →");
+    expect(live).toBeDefined();
+    expect(live!.props.href).toBe("/company/DEMO?view=live");
+    expect(live!.props.prefetch).toBe(false);
   });
 
   it("owns the current bundle timestamp only inside live analysis", async () => {

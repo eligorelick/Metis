@@ -190,13 +190,13 @@ export function computeBackoffMs(
 }
 
 /** Parse a Retry-After header (delta-seconds or HTTP-date) into ms, capped. */
-export function parseRetryAfterMs(headerValue: string | null, capMs = 30_000): number | null {
+export function parseRetryAfterMs(headerValue: string | null, capMs = 30_000, now = Date.now()): number | null {
   if (!headerValue) return null;
   const secs = Number(headerValue);
   if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, capMs);
   const dateMs = Date.parse(headerValue);
   if (!Number.isNaN(dateMs)) {
-    const delta = dateMs - Date.now();
+    const delta = dateMs - now;
     return delta > 0 ? Math.min(delta, capMs) : 0;
   }
   return null;
@@ -217,6 +217,10 @@ export interface FetchPolicy {
   maxRetries?: number;
   /** Base delay for exponential backoff. Default 500 ms. */
   retryBaseDelayMs?: number;
+  /** Return the first 429 when the caller manages its own quota cooldown. Default true. */
+  retryOn429?: boolean;
+  /** Recheck caller policy after every limiter wait, before any request is sent. Errors are not retried. */
+  beforeAttempt?: () => void;
   /** Override the shared provider limiter (tests / special flows). */
   limiter?: TokenBucketLimiter;
   /** Injectable fetch (tests). Defaults to global fetch. */
@@ -420,6 +424,8 @@ export async function fetchWithPolicy(
     signal: policySignal,
     maxRetries = 3,
     retryBaseDelayMs = 500,
+    retryOn429 = true,
+    beforeAttempt,
     limiter = getProviderLimiter(provider),
     fetchImpl = fetch,
     onBytes,
@@ -439,6 +445,7 @@ export async function fetchWithPolicy(
     throwIfExternallyAborted(externalSignal, url, provider, attempts);
     await limiter.take(1);
     throwIfExternallyAborted(externalSignal, url, provider, attempts);
+    beforeAttempt?.();
     attempts++;
 
     const timeoutController = new AbortController();
@@ -483,7 +490,7 @@ export async function fetchWithPolicy(
         attempts,
       };
 
-      if (!isRetriableStatus(response.status)) return result;
+      if (!isRetriableStatus(response.status) || (response.status === 429 && !retryOn429)) return result;
 
       lastResult = result;
       if (attempt < maxRetries) {

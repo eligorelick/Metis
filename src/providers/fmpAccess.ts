@@ -2,10 +2,12 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { parseRetryAfterMs } from "@/providers/http";
 
 export const FMP_ACCESS_TTL_MS = 15 * 60_000;
 const MAX_OBSERVATIONS = 2_048;
 const MAX_PROBES = 256;
+const QUOTA_COOLDOWN_MS = 15 * 60_000;
 
 export type FmpRestrictionScope = "endpoint" | "symbol";
 
@@ -32,6 +34,47 @@ export class FmpAccessError extends Error {
   }
 }
 
+/** Quota observations are credential-wide and independent of subscription restrictions. */
+export class FmpQuotaError extends Error {
+  constructor(
+    readonly status: number,
+    readonly observedAt: number,
+    readonly expiresAt: number,
+    reason: string,
+  ) {
+    super(`FMP quota/rate limit (HTTP ${status}): ${reason}. Live requests paused until ${new Date(expiresAt).toISOString()}.`);
+    this.name = "FmpQuotaError";
+  }
+}
+
+/**
+ * Only HTTP 429 or an explicit quota error establishes a cooldown. Match the
+ * vendor's quota phrase, never arbitrary body text: error tails may echo a key
+ * or include an upgrade URL, and financial rows may legitimately contain text.
+ */
+export function fmpQuotaError(status: number, bodyText: string, retryAfter: string | null, now: number): FmpQuotaError | null {
+  if (![200, 402, 403, 429].includes(status)) return null;
+  let message = bodyText;
+  if (/^\s*\{/.test(bodyText)) {
+    try {
+      const body: unknown = JSON.parse(bodyText);
+      message = typeof body === "object" && body !== null && !Array.isArray(body) && "Error Message" in body
+        && typeof body["Error Message"] === "string" ? body["Error Message"] : "";
+    } catch {
+      // A malformed object cannot establish an explicit quota phrase.
+      message = "";
+    }
+  }
+  const phrase = /^\s*(Limit Reach(?:ed)?|(?:(?:daily|monthly|hourly)\s+)?(?:request|API calls?)\s+limit\s+(?:reached|exceeded))\b/i.exec(message)?.[1];
+  if (status !== 429 && phrase === undefined) return null;
+  const observedAt = Number.isFinite(now) ? now : Date.now();
+  // Negative numeric values are invalid, rather than permissively parsed as dates.
+  const duration = retryAfter !== null && Number(retryAfter) < 0
+    ? null : parseRetryAfterMs(retryAfter, QUOTA_COOLDOWN_MS, observedAt);
+  const expiresAt = observedAt + Math.max(1_000, duration ?? QUOTA_COOLDOWN_MS);
+  return new FmpQuotaError(status, observedAt, expiresAt, phrase?.replace(/\s+/g, " ") ?? "Too many requests");
+}
+
 interface Observation {
   /** Absent after an admitted response: endpoint discovery has completed. */
   refusal?: FmpAccessError;
@@ -40,6 +83,7 @@ interface Observation {
 
 const observations = new Map<string, Observation>();
 const probes = new Map<string, Promise<void>>();
+const quotaCooldowns = new Map<string, FmpQuotaError>();
 
 /** Credentials never appear in map keys, cache keys, or user-facing gaps. */
 export function fmpAccessKey(apiKey: string, baseUrl: string): string {
@@ -49,6 +93,35 @@ export function fmpAccessKey(apiKey: string, baseUrl: string): string {
 export function resetFmpAccess(): void {
   observations.clear();
   probes.clear();
+  quotaCooldowns.clear();
+}
+
+/** Also called after limiter waits, so queued requests cannot bypass a learned quota. */
+export function assertFmpQuotaAvailable(key: string, now: number): void {
+  const quota = quotaCooldowns.get(key);
+  if (quota === undefined) return;
+  if (!Number.isFinite(now) || now < quota.observedAt || now >= quota.expiresAt) {
+    quotaCooldowns.delete(key);
+    return;
+  }
+  throw quota;
+}
+
+function rememberQuota(key: string, quota: FmpQuotaError): void {
+  for (const [storedKey, value] of quotaCooldowns) {
+    if (value.expiresAt <= quota.observedAt) quotaCooldowns.delete(storedKey);
+  }
+  const existing = quotaCooldowns.get(key);
+  // A response already in flight may teach a longer wait. A blocked request
+  // throws the original observation and must never restart its TTL.
+  if (existing !== undefined && existing.expiresAt >= quota.expiresAt) return;
+  quotaCooldowns.delete(key);
+  while (quotaCooldowns.size >= MAX_OBSERVATIONS) {
+    const oldest = quotaCooldowns.keys().next().value;
+    if (oldest === undefined) break;
+    quotaCooldowns.delete(oldest);
+  }
+  quotaCooldowns.set(key, quota);
 }
 
 function read(key: string, now: number): Observation | undefined {
@@ -117,6 +190,7 @@ export async function withFmpAccess<T>(request: AccessRequest, loader: () => Pro
   for (;;) {
     request.signal?.throwIfAborted();
     const now = request.now();
+    assertFmpQuotaAvailable(request.key, now);
     const endpoint = read(endpointKey, now);
     const refusal = endpoint?.refusal ?? (symbolKey === undefined ? undefined : read(symbolKey, now)?.refusal);
     if (refusal !== undefined) throw refusal;
@@ -140,6 +214,7 @@ export async function withFmpAccess<T>(request: AccessRequest, loader: () => Pro
       if (symbolKey !== undefined) observations.delete(symbolKey);
       return value;
     } catch (err) {
+      if (err instanceof FmpQuotaError) rememberQuota(request.key, err);
       if (err instanceof FmpAccessError) {
         if (err.scope === "endpoint") remember(endpointKey, err, request.now());
         else if (symbolKey !== undefined) remember(symbolKey, err, request.now());

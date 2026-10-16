@@ -38,7 +38,7 @@ the record. The launcher does not install dependencies or build the app.
 | --- | --- |
 | `/` | Watchlist and research entry point. |
 | `/settings` | Provider capability flags, Claude model/effort, AI connections, appearance, and a queue-resume control when startup is held. |
-| `/company/[symbol]` | Fetches a current data bundle and computes live analysis. When a saved report exists, tabs expose that report and live analysis separately. |
+| `/company/[symbol]` | Opens a usable saved report directly from the database. If none exists, loads live analysis. `?view=live` explicitly requests current data and the existing live analysis/new-report controls. |
 | `/company/[symbol]/history` | Saved runs for the issuer and selection of reports to compare. |
 | `/company/[symbol]/history/diff?a=1&b=2` | Compares two saved reports belonging to the route issuer; orders them older to newer and discloses version differences. |
 | `/company/[symbol]/report/[reportId]` | Loads a specific saved report under the requested issuer identity. |

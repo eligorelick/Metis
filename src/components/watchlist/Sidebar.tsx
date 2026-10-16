@@ -22,7 +22,7 @@ import Link from "next/link";
 import { GradeChip } from "@/components/ui";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 import type { Grade } from "@/types/core";
-import { getWatchlistView, type WatchlistRowView, type WatchlistGrades } from "@/watchlist/watchlist";
+import { getWatchlistView, type WatchlistRowView, type WatchlistGrades, type WatchlistGradeLabels } from "@/watchlist/watchlist";
 
 import { AddTicker } from "./AddTicker";
 import { RemoveButton } from "./RemoveButton";
@@ -142,8 +142,14 @@ function WatchRow({ row, active }: { row: WatchlistRowView; active: boolean }) {
           <span className={`mono text-[11px] ${changeTone}`}>
             {change === null ? "" : fmtSignedPct(change)}
           </span>
-          <GradeStrip grades={row.grades ?? null} />
+          <GradeStrip grades={row.grades ?? null} labels={row.gradeLabels} />
         </div>
+
+        {price !== null && row.asOf ? (
+          <div className="mono mt-1 text-[9px] text-faint">
+            {`cached quote · ${row.asOf.slice(0, 10)}${row.priceStale ? " · stale" : ""}`}
+          </div>
+        ) : null}
 
         {/* last report / next earnings */}
         <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-faint">
@@ -168,7 +174,7 @@ function WatchRow({ row, active }: { row: WatchlistRowView; active: boolean }) {
 }
 
 /** Compact grade strip; a plain "n/a" placeholder when no report exists. */
-function GradeStrip({ grades }: { grades: WatchlistGrades | null }) {
+function GradeStrip({ grades, labels }: { grades: WatchlistGrades | null; labels?: WatchlistGradeLabels }) {
   if (grades === null) {
     return <span className="mono text-[10px] text-faint">grades n/a</span>;
   }
@@ -178,7 +184,7 @@ function GradeStrip({ grades }: { grades: WatchlistGrades | null }) {
         const grade = grades[descriptor.key];
         return grade === undefined
           ? null
-          : <MiniGrade key={descriptor.id} label={descriptor.shortLabel} grade={grade} />;
+          : <MiniGrade key={descriptor.id} label={descriptor.shortLabel} grade={grade} explanation={labels?.[descriptor.key]} />;
       })}
     </div>
   );
@@ -189,9 +195,10 @@ function GradeStrip({ grades }: { grades: WatchlistGrades | null }) {
  * Reuses GradeChip's --grade-* coloring for the letter; the section label keeps
  * the strip legible in the narrow rail.
  */
-function MiniGrade({ label, grade }: { label: string; grade: Grade | null }) {
+function MiniGrade({ label, grade, explanation }: { label: string; grade: Grade | null; explanation?: string }) {
+  const description = `${label}: ${explanation ?? grade ?? "not assessed"}`;
   return (
-    <span className="flex flex-col items-center gap-px" title={`${label}: ${grade ?? "not assessed"}`}>
+    <span className="flex flex-col items-center gap-px" title={description} aria-label={description}>
       <span className="text-[7px] leading-none text-faint">{label}</span>
       <GradeChip grade={grade} />
     </span>

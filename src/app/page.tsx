@@ -9,12 +9,13 @@ import {
   getWatchlistView,
   type WatchlistRowView,
   type WatchlistGrades,
+  type WatchlistGradeLabels,
 } from "@/watchlist/watchlist";
 import { AddTicker } from "@/components/watchlist/AddTicker";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 
 // Key presence is read from process.env at request time — never bake it into
-// the build output. The dashboard also loads the watchlist view (DB + network).
+// the build output. The dashboard watchlist only reads saved DB/cache data.
 export const dynamic = "force-dynamic";
 
 function KeyRow({
@@ -65,7 +66,7 @@ function fmtPrice(v: number): string {
   });
 }
 
-function HomeGradeStrip({ grades }: { grades: WatchlistGrades | null | undefined }) {
+function HomeGradeStrip({ grades, labels }: { grades: WatchlistGrades | null | undefined; labels?: WatchlistGradeLabels }) {
   if (!grades) {
     return <span className="mono text-[10px] text-faint">no report</span>;
   }
@@ -73,8 +74,9 @@ function HomeGradeStrip({ grades }: { grades: WatchlistGrades | null | undefined
     <div className="flex items-center gap-1" aria-label="section grades">
       {GRADE_SURFACES.map((descriptor) => {
         const grade = grades[descriptor.key];
+        const description = `${descriptor.shortLabel}: ${labels?.[descriptor.key] ?? grade ?? "not assessed"}`;
         return grade === undefined ? null : (
-          <span key={descriptor.id} className="flex flex-col items-center gap-px" title={`${descriptor.shortLabel}: ${grade ?? "not assessed"}`}>
+          <span key={descriptor.id} className="flex flex-col items-center gap-px" title={description} aria-label={description}>
             <span className="text-[7px] leading-none text-faint">{descriptor.shortLabel}</span>
             <GradeChip grade={grade} />
           </span>
@@ -103,7 +105,7 @@ function HomeWatchRow({ row }: { row: WatchlistRowView }) {
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <HomeGradeStrip grades={row.grades} />
+        <HomeGradeStrip grades={row.grades} labels={row.gradeLabels} />
         <div className="flex flex-col items-end">
           <span className="mono text-[12px] text-fg">
             {price === null ? "—" : fmtPrice(price)}
@@ -112,6 +114,11 @@ function HomeWatchRow({ row }: { row: WatchlistRowView }) {
             <span className={`mono text-[10px] ${changeTone}`}>
               {change >= 0 ? "+" : ""}
               {change.toFixed(2)}%
+            </span>
+          ) : null}
+          {price !== null && row.asOf ? (
+            <span className="mono text-[9px] text-faint">
+              {`cached quote · ${row.asOf.slice(0, 10)}${row.priceStale ? " · stale" : ""}`}
             </span>
           ) : null}
         </div>
@@ -185,10 +192,11 @@ export default async function Home() {
             <span className="mono font-semibold uppercase tracking-[0.08em]">
               synthetic fixture mode
             </span>{" "}
-            — no FMP_API_KEY configured. FMP-backed fields (watchlist quotes,
-            earnings dates, analyst data) are disclosed gaps, and this page shows
-            no current market data; real US filers are still served live from SEC
-            EDGAR and Yahoo on their company pages once EDGAR_CONTACT is set. The
+            — no FMP_API_KEY configured. No current market data is fetched by
+            watchlist navigation. Quotes and earnings dates use
+            eligible saved data or disclosed gaps; cached quotes show their date.
+            Real US filers are still served live from SEC
+            EDGAR and Yahoo through live analysis once EDGAR_CONTACT is set. The
             fictional general-company ticker{" "}
             <Link href="/company/DEMO" className="font-semibold underline">
               DEMO
