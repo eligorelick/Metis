@@ -96,7 +96,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // Earlier reports retain their saved conventions and are not like-for-like.
 // 1.19.1 (D-72): exhibit-bound disclosures, restatement/currency selection,
 // conservative missing-interest EPS, acquisition cash and segment provenance.
-export const REPORT_SPEC_VERSION = "1.19.1" as const;
+// 1.19.2 (D-73): withhold incomplete debt carrying values and dependent metrics.
+export const REPORT_SPEC_VERSION = "1.19.2" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2260,6 +2261,8 @@ export const MarketDataSchema = z
     }).strict().nullable(),
     shares: z.object({
       outstanding: NullableNumber, float: NullableNumber, freeFloatPct: NullableNumber, asOf: z.string().nullable(),
+      /** The float measurement can predate the separately reported outstanding count. */
+      floatAsOf: z.string().nullable().optional(),
     }).strict().nullable(),
     enterpriseValue: z.object({
       value: z.number(), periodEnd: IsoDaySchema, marketCap: NullableNumber, totalDebt: NullableNumber, cash: NullableNumber,

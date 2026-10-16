@@ -556,9 +556,10 @@ describe("public release contract", () => {
       read("tests/currentReports.test.ts"),
       // D-66: extracted annual notes, interim statements/Item 2/Item 5 and governance/commentary samples.
       read("tests/edgar.filingFacts.test.ts"),
+      read("tests/edgar.debtPresentation.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(40);
+    expect(edgarFixtures).toHaveLength(41);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

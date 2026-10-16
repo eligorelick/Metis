@@ -669,6 +669,17 @@ function perShareOrTotal(value: number, currency: string | null, perShare: boole
   return money(value, currency, perShare);
 }
 
+type FloatData = NonNullable<Report["marketData"]>["shares"] | undefined;
+function comparableFloatDate(shares: FloatData): boolean {
+  return shares !== null && shares !== undefined &&
+    (shares.floatAsOf === undefined || (shares.floatAsOf !== null && shares.floatAsOf === shares.asOf));
+}
+function comparableFloatShares(shares: FloatData): number | null {
+  if (!comparableFloatDate(shares) || shares?.float == null || !Number.isFinite(shares.float) || shares.float < 0) return null;
+  if (shares.outstanding !== null && shares.float > shares.outstanding) return null;
+  return shares.float;
+}
+
 /**
  * The page-1 key-data box (audit P1-12), built ONLY from values already in
  * the report: the provider market data block (D-62) when present, else the
@@ -709,7 +720,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
   const outstanding = md?.shares?.outstanding ?? null;
   if (outstanding !== null && outstanding > 0) {
-    rows.push({ label: "Shares outstanding", value: formatLargeNumber(outstanding), note: md?.shares?.freeFloatPct != null ? `${formatPct(md.shares.freeFloatPct, 1)} free float` : undefined });
+    const freeFloat = md?.shares?.freeFloatPct;
+    rows.push({ label: "Shares outstanding", value: formatLargeNumber(outstanding), note: comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
   } else if (dilutedShares !== null && dilutedShares > 0) {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
@@ -776,7 +788,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
 
   const si = md?.shortInterest;
   if (si) {
-    const float = md?.shares?.float ?? null;
+    const float = comparableFloatShares(md?.shares);
     const ofFloat = float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float` : null;
     rows.push({
       label: "Short interest",
@@ -852,7 +864,7 @@ export function consensusTables(report: Report): BodyTable[] {
   }
   if (md.shortInterest) {
     const si = md.shortInterest;
-    const float = md.shares?.float ?? null;
+    const float = comparableFloatShares(md.shares);
     rows.push(["Short interest", [
       `${formatLargeNumber(si.shares)} shares at settlement ${si.settlementDate}`,
       float !== null && float > 0 ? `${formatPct((si.shares / float) * 100, 2)} of float` : null,
@@ -861,7 +873,7 @@ export function consensusTables(report: Report): BodyTable[] {
     ].filter(Boolean).join("; ")]);
   }
   if (md.quote?.marketCap != null) rows.push(["Market cap (quote)", `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
-  if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float ${formatLargeNumber(md.shares.float)}` : ""}`]);
+  if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   // D-65: the vendor's own EV definition at its own date, not this report's market EV.
   if (md.enterpriseValue) rows.push(["Provider enterprise value (vendor definition, period end)", `${money(md.enterpriseValue.value, md.currency)} at ${md.enterpriseValue.periodEnd} (that date's market cap + debt − cash and equivalents; not the report's market EV, which uses the quote and nets short-term investments)`]);
   if (rows.length > 0) tables.push({ heading: "Market data and positioning", headers: ["Item", "Value"], rows });

@@ -285,6 +285,10 @@ export const LINE_ITEM_TAGS = {
   /** The current portion of long-term debt; the maturity-schedule figure stands in only when both miss. */
   currentMaturitiesOfLongTermDebt: entry(["LongTermDebtCurrent", COMBINED_CURRENT_DEBT_TAG], [MATURITIES_STAND_IN]),
   longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt"]),
+  /** Completeness evidence only: this aggregate can be gross principal, not carrying debt. */
+  debtInstrumentAggregate: entry(["DebtInstrumentCarryingAmount"]),
+  /** Scope evidence for a fiscal maturity schedule; never a carrying-debt stand-in. */
+  debtMaturitiesFiscalRemainder: entry(["LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear"]),
   totalCurrentLiabilities: entry(["LiabilitiesCurrent"]),
   totalLiabilities: entry(["Liabilities"]),
   deferredRevenue: entry(["ContractWithCustomerLiabilityCurrent", "DeferredRevenueCurrent"]),

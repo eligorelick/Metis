@@ -30,7 +30,9 @@ import type { ManifestEntry } from "@/types/core";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
-import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
+import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
+import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
@@ -371,7 +373,9 @@ export interface ContextPayload {
 // typed filing facts and governance disclosures, bounded verifier matching,
 // and corrected forensic notes. Prior analyst/judge artifacts cannot resume.
 // 1.24.1 (D-72): revised financial evidence and source-bound filing facts.
-export const PAYLOAD_VERSION = "1.24.1" as const;
+// 1.24.2 (D-73): incomplete debt is withheld, including downstream valuation
+// context. Analysts from earlier conventions cannot resume as equivalent.
+export const PAYLOAD_VERSION = "1.24.2" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1354,7 +1358,7 @@ function extractStatement<TRow extends FmpRawRow>(
         ...(periodContext === undefined ? {} : { periodContext }),
         ...(cellSource === source ? {} : { source: cellSource }),
         ...(fiscalLabels[i] === null ? {} : { fiscalPeriod: fiscalLabels[i] }),
-        value: numOrNull(r[li.key]),
+        value: (r as FmpStatementRow).fieldConflicts?.[String(li.key)]?.usable === false ? null : numOrNull(r[li.key]),
         currency: isoCurrency(r.reportedCurrency),
         asOf,
       };
@@ -1367,6 +1371,12 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const currencyEvidence = statementCurrencyEvidence(bundle);
+  // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
+  // admission before raw statement cells can enter the analyst or verifier registry.
+  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
+    admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
   const push = (b: StatementExtractBlock | null): void => {
     if (b) blocks.push(b);
   };
@@ -1376,8 +1386,8 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
     statementSourceTag(statement.ok ? statement.value.source : undefined, name);
   push(extractStatement("Income statement — annual", rowsOf(bundle.statements.incomeAnnual), A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")));
   push(extractStatement("Income statement — quarterly", rowsOf(bundle.statements.incomeQuarterly), Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")));
-  push(extractStatement("Balance sheet — annual", rowsOf(bundle.statements.balanceAnnual), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"));
-  push(extractStatement("Balance sheet — quarterly", rowsOf(bundle.statements.balanceQuarterly), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"));
+  push(extractStatement("Balance sheet — annual", balances(rowsOf(bundle.statements.balanceAnnual)), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant"));
+  push(extractStatement("Balance sheet — quarterly", balances(rowsOf(bundle.statements.balanceQuarterly)), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant"));
   push(extractStatement("Cash flow — annual", rowsOf(bundle.statements.cashflowAnnual), A, statementAsOf(bundle.statements.cashflowAnnual), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")));
   push(extractStatement("Cash flow — quarterly", rowsOf(bundle.statements.cashflowQuarterly), Q, statementAsOf(bundle.statements.cashflowQuarterly), CASHFLOW_LINE_ITEMS, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")));
   return blocks;

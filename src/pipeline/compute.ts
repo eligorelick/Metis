@@ -127,6 +127,8 @@ import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
+import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import {
   normalizeQuarterRows,
   quarterWindowViolation,
@@ -1565,6 +1567,10 @@ function totalDebtSnapshot(
     (row): row is FmpBalanceSheetRow => row !== undefined,
   );
   const currency = establishedRowsCurrency(used, currencyEvidence);
+  const newestBalance = [balancesQuarterly[0], balancesAnnual[0]].filter((row): row is FmpBalanceSheetRow => row !== undefined)
+    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
+  const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
+  if (refused !== undefined) return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency };
   // Invalid supplied balances are not missing observations that the other
   // year may replace. Preserve the raw negative sentinel before lease guards
   // null the adjusted values, and reject contradictory lease compositions.
@@ -1613,7 +1619,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // D-60: marketable equity securities the filing places inside cash and
   // short-term investments travel on the balance row, so every net-debt
   // consumer can keep them out of cash.
-  const companyFacts = bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null;
+  const companyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];
@@ -1694,9 +1700,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly: rowsInModelCurrency("balanceQuarterly", balanceQuarterlyReported, currencies.model, currencyEvidence),
   };
   const incomeAnnual = compatible.incomeAnnual.rows;
-  const balanceAnnual = compatible.balanceAnnual.rows;
+  const admitBalance = (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+    if (companyFacts === null) return row;
+    const admitted = admitDebtFields(row, companyFacts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar));
+    ttmGaps.push(...admitted.gaps);
+    return admitted.row;
+  };
+  const balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance);
   const cashflowAnnual = compatible.cashflowAnnual.rows;
-  const balanceQuarterly = compatible.balanceQuarterly.rows;
+  const balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance);
   for (const family of Object.values(compatible)) if (family.gap !== null) ttmGaps.push(family.gap);
 
   const routingCashflowTtm: RoutingCashflowRow | null = ttmCf
@@ -3402,6 +3414,8 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   const older: TRow | null = newer === quarterly ? annual : quarterly;
   if (newer === null) return { row: null, basis: undefined, fallback: null };
   const basisOf = (r: TRow): "quarter" | "annual" => (r === quarterly ? "quarter" : "annual");
+  const refusedDebt = (newer as { fieldConflicts?: Record<string, { usable?: boolean }> }).fieldConflicts?.totalDebt?.usable === false;
+  if (refusedDebt) return { row: newer, basis: basisOf(newer), fallback: null };
   const lacking = missing(newer);
   if (older !== null && lacking.length > 0 && missing(older).length === 0) {
     const list = lacking.length === 1 ? lacking[0] : `${lacking.slice(0, -1).join(", ")} and ${lacking[lacking.length - 1]}`;

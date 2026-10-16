@@ -46,6 +46,7 @@
 
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
+import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
@@ -992,6 +993,9 @@ const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
     for (const spec of Object.values(table)) collectTags(spec, tags);
   }
   collectTags(BANK_REVENUE_SPEC, tags);
+  // Completeness/scope evidence only, never carrying-value stand-ins.
+  tags.add("DebtInstrumentCarryingAmount");
+  tags.add("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
   return tags;
 })();
 
@@ -1872,6 +1876,15 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `totalDebt ${ctx}`,
   );
+  const refusedCurrent = notes.withheld.find((held) => held.field === "shortTermDebt" && held.periods.includes(ctx));
+  const incomplete = refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
+    : incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount"));
+  if (incomplete !== null) {
+    v.totalDebt = null;
+    v.netDebt = null;
+    for (const field of ["totalDebt", "netDebt"]) notes.withhold(field, ctx, incomplete);
+    notes.add(`totalDebt ${ctx}: ${incomplete}`);
+  }
   v.netDebt ??= sub(v.totalDebt ?? null, v.cashAndCashEquivalents ?? null);
   // WS6 review (BLOCKER 1): the OPERATING slice of the lease liability, on its
   // own. Under ASC 842 operating-lease cost sits in operating expenses, so EBIT
@@ -1947,7 +1960,13 @@ function resolveDebtOverlaps(
   // reader has to see the figure the filer disclosed either way.
   const maturitiesStand = shortTermTags.includes(MATURITIES_NEXT_YEAR_TAG);
   const maturities = cc.money(MATURITIES_NEXT_YEAR_TAG);
-  if (maturitiesStand) {
+  const fiscalRemainder = cc.money("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
+  const scopeReason = maturitiesStand ? fiscalMaturityScopeReason(maturities, fiscalRemainder) : null;
+  if (scopeReason !== null) {
+    v.shortTermDebt = null;
+    notes.withhold("shortTermDebt", ctx, scopeReason);
+    notes.add(`shortTermDebt ${ctx}: ${scopeReason}`);
+  } else if (maturitiesStand) {
     notes.add(
       `shortTermDebt ${ctx}: current maturities taken from the debt maturity schedule (${MATURITIES_NEXT_YEAR_TAG} ${maturities}) — no balance-sheet current-maturities tag was filed for the period; the figure is CURRENT MATURITIES ONLY (any short-term borrowings and commercial paper the filer tagged are added beside it) and, being a note disclosure rather than a balance-sheet line, is often filed annually only, so quarterly rows can lack it`,
     );
@@ -1963,8 +1982,13 @@ function resolveDebtOverlaps(
   const longTermTags = tagsOf("longTermDebt");
   // Case 2.
   if (longTermTags.includes("LongTermDebt") && v.longTermDebt != null) {
-    const current = cc.money("LongTermDebtCurrent") ?? (maturitiesStand ? maturities : null);
-    if (current !== null) {
+    const current = cc.money("LongTermDebtCurrent") ?? (maturitiesStand && scopeReason === null ? maturities : null);
+    if (scopeReason !== null && current === null) {
+      const reason = "noncurrent carrying debt allocation unavailable: LongTermDebt includes current maturities, but the fiscal maturity bucket was rejected as current carrying debt";
+      v.longTermDebt = null;
+      notes.withhold("longTermDebt", ctx, reason);
+      notes.add(`longTermDebt ${ctx}: ${reason}`);
+    } else if (current !== null) {
       v.longTermDebt = tidy(v.longTermDebt - current, MONEY_DECIMALS);
       notes.add(
         `longTermDebt ${ctx}: LongTermDebt less current maturities (${cc.money("LongTermDebtCurrent") !== null ? "LongTermDebtCurrent" : MATURITIES_NEXT_YEAR_TAG} ${current})`,
@@ -2217,6 +2241,11 @@ function buildStatementRows<TRow>(
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
     }
     row.fieldProvenance = fieldProvenance;
+    if (def.statement === "balance") {
+      const refused = notes.withheld.filter((held) => ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
+      if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
+        { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
+    }
 
     // The superseded figure of every field a later filing changed, kept beside
     // the value the row carries; a MATERIAL line that moved by more than

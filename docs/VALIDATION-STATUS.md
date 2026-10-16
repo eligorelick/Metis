@@ -1,10 +1,11 @@
 # Research validation status
 
-Updated 2026-10-16 for report 1.19.1 / payload 1.24.1.
+Updated 2026-10-16 for report 1.19.2 / payload 1.24.2.
 
 The NVDA audit recovery (D-65 through D-72) changes consensus calendarization,
-the non-operating investment bridge and valuation date, so Stage B now stamps
-`STAGE_B_2026_10_NVDA_AUDIT_3`. Older snapshots require their original engine;
+the non-operating investment bridge and valuation date. The subsequent debt
+completeness correction (D-73) stamps Stage B
+`STAGE_B_2026_10_DEBT_COMPLETENESS_1`. Older snapshots require their original engine;
 saved reports retain their original conventions. The recovery also adds typed
 filing and governance disclosures and conservative numeric-claim matching.
 These changes have implementation and frozen-input regression evidence; they
@@ -17,10 +18,17 @@ collection, whole-row quarterly selection, current reporting-currency evidence,
 and guards against unsupported EPS, acquisition double counting, segment-history
 relabeling and incomplete analyst distributions. Source `47a43dd` passed its fresh
 complete local gate: 6,256 product tests, four database tests, coverage floors,
-build and zero-vulnerability security audit. Fresh required remote CI remains
-pending; preceding CI passes apply to the source identified in D-71. An earlier
-push-triggered Windows CLI test hit a mismatched
-outer timeout; its bounded child-process deadlines are now reflected in the test.
+build and zero-vulnerability security audit. PR #20 merged after required full
+and Windows CI passed. A post-merge Windows export I/O test exceeded its implicit
+five-second deadline; PR #21 then aligned the direct I/O cases to explicit
+15-second deadlines and merged after both push and PR full/Windows checks passed.
+
+D-73 follows source-data preflight with conservative debt completeness and
+filing-presentation reconciliation. Its changed context cannot resume earlier
+analyst artifacts as equivalent. Cross-date or impossible free-float percentages
+are withheld while the float measurement retains its own date; valuation share
+counts are unchanged. Combined local verification, independent review and fresh
+required remote CI remain gates for this follow-up.
 
 The fresh NVDA output and its explicitly labeled corrected replay are recorded
 in D-71. Independent arithmetic reconciled the valuation and score; the source
