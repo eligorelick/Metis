@@ -747,14 +747,15 @@ describe("payload determinism + provenance", () => {
       // the computed quarterly-trend section (509 -> 524); the D-59 current-capital
       // labels set the figure-label hash; prompt bytes add the WP3 issuer-filing
       // bullets; financeHash moves with the combined DCF and peer coverage.
-      fingerprint: "1.23.0:1ae68d76",
-      promptBytes: 127_409,
-      provenanceCount: 524,
-      provenanceHash: "fe8c84e7",
-      provenanceIdsHash: "145e22a3",
+      // D-60: the vendor cash-only "net debt" statement rows leave the extracts and the reverse-DCF context rows join (524 -> 520); the DCF, scenario, WACC and EPS text and values move financeHash and prompt bytes.
+      fingerprint: "1.23.0:50f08d15",
+      promptBytes: 129_001,
+      provenanceCount: 520,
+      provenanceHash: "1daf3d9e",
+      provenanceIdsHash: "d3bd654e",
       citationCount: 60,
       citationHash: "0fa208f0",
-      computedFigureLabelHash: "0a7b6733",
+      computedFigureLabelHash: "527bb223",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -768,7 +769,7 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "a442e5d3",
+      financeHash: "9d399179",
     });
   });
 
@@ -2165,11 +2166,8 @@ describe("final assembled report verification", () => {
     const triggers = result.verifiedReport.thesisTriggers ?? [];
     const reverse = triggers.find((trigger) => trigger.id === `reverse-${method}`);
     expect(reverse?.threshold).toMatchObject({ value: method === "growth" ? 12.5 : 27.25, verified: true, asOf: "2026-07-06" });
-    for (const metric of ["revenue", "operatingMargin"]) {
-      const milestone = triggers.find((trigger) => trigger.id === `projection-${metric}`);
-      const first = computed.projections.series.find((series) => series.metric === metric)!.base[0];
-      expect(milestone?.threshold).toMatchObject({ source: projectionProvenanceId(metric, "base", first.period), period: first.period, verified: true });
-    }
+    // Re-pinned for D-60: first-year projection milestones restated the base path and are no longer emitted.
+    expect(triggers.some((trigger) => trigger.id.startsWith("projection-"))).toBe(false);
   });
   it("declares and awaits durable launch authority before deterministic verify executes", async () => {
     const bundle = fixtureBundle();
@@ -2256,7 +2254,8 @@ describe("final assembled report verification", () => {
     }
     const projectionPayload = payload.computed.find((section) => section.title.startsWith("Weighted projections"));
     expect(projectionPayload?.figures.some((figure) => figure.label.includes("flat-share EPS"))).toBe(true);
-    expect(projectionPayload?.notes.join(" ")).toContain("hypothetical, unfunded");
+    // Re-pinned for D-60: the capital-return text names the authorization instead of claiming none exists.
+    expect(projectionPayload?.notes.join(" ")).toContain("hypothetical and does not deduct repurchase cash");
     // No PIPELINE-computed number may be left unverified — the only unverified
     // numbers are the judge's deliberately-untraceable "analyst memory" fixtures.
     const unverified = numbers.filter((number) => number.verified !== true);
@@ -2475,20 +2474,22 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     computed.valuation.assumptions.ebitMarginPath.value = [20, 22, 24];
     const report = assemble(computed, judgeOutput());
     const bull = report.valuation.scenarios[0];
-    expect(bull.assumptions.join(" ")).toContain("Revenue growth shift versus base: -8 percentage points");
-    expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, -2, -6");
-    expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 25, 27");
+    // Re-pinned for D-60: shocks are year-one shifts that decay (weights 1, 0.44, 0 over this three-year path).
+    expect(bull.assumptions.join(" ")).toContain("Year-one shift versus base: revenue growth -8 percentage points, operating margin 3 percentage points");
+    expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, 2.46, 2");
+    expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 23.33, 24");
     expect(bull.qualitativeCommentary).toEqual(["strong cycle"]);
   });
   it("uses the same fixed display weights as the projection fan and separates model commentary", () => {
     const { computed } = buildInputs();
     computed.scenarioTargets = availableTargets();
     const report = assemble(computed, judgeOutput());
-    expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([0.25, 0.5, 0.25]);
+    // Re-pinned for D-60: price targets carry no weight; the fixed prior applies to the projections only.
+    expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
     const base = report.valuation.scenarios[1];
     expect(base.assumptions).not.toContain("steady");
     expect(base.qualitativeCommentary).toEqual(["steady"]);
-    expect(report.scenarioPresentation?.weightBasis).toMatch(/fixed.*uncalibrated/i);
+    expect(report.scenarioPresentation?.weightBasis).toMatch(/carry no weight.*not a calibrated probability/i);
   });
 
   it("derives sensitivity classification from available WACC-by-growth cells, ignoring null cells", () => {

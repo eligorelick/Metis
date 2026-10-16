@@ -24,16 +24,6 @@ describe("model-derived thesis revision triggers", () => {
     expect(trigger.horizon).not.toContain("no fade");
   });
 
-  it.each(["12M ending 2027-06-30", "FY2027 ending 2027-06-30"])("retains an annual milestone with its exact model window: %s", (label) => {
-    const trace = { value: 125, unit: "USD", source: "computed.projections.revenue.base", asOf: "2026-10-13" };
-    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", base: [{ period: label, periodStart: "2026-07-01", periodEnd: "2027-06-30", value: trace }] }] } });
-    const trigger = buildThesisTriggers(data).find((t) => t.id === "projection-revenue");
-    expect(trigger?.horizon).toContain("2026-07-01 through 2027-06-30");
-    expect(trigger?.threshold.value).toBe(125);
-    data.projections.series[0].base[0].periodEnd = "2027-07-01";
-    expect(buildThesisTriggers(data).some(t => t.id === "projection-revenue")).toBe(false);
-  });
-
   it("states the actual constant-growth reverse-DCF horizon and fixed assumptions", () => {
     const [trigger] = buildThesisTriggers(computed());
     expect(trigger.id).toBe("reverse-growth");
@@ -79,18 +69,6 @@ describe("model-derived thesis revision triggers", () => {
     expect(buildThesisTriggers(computed({ valuation: { kind: "pre-revenue" } }))).toEqual([]);
   });
 
-  it("copies first-year operating milestones with their exact source, date and currency", () => {
-    const trace = { value: 125000000, unit: "USD", currency: "USD", source: "computed.projections.revenue.base", asOf: "2026-10-13", period: "2027", verified: true };
-    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", base: [{ period: "2027", periodStart: "2026-04-01", periodEnd: "2027-03-31", value: trace }] }] } });
-    const trigger = buildThesisTriggers(data).find((t) => t.id === "projection-revenue");
-    expect(trigger?.threshold).toEqual(trace);
-    expect(trigger?.threshold).not.toBe(trace);
-    expect(trigger?.horizon).toContain("2027");
-    expect(trigger?.horizon).toContain("2026-04-01 through 2027-03-31");
-    expect(trigger?.consequence).toMatch(/forecast/i);
-    expect(trigger?.consequence).toMatch(/review/i);
-  });
-
   it("suppresses monetary milestones without established currency and suppressed projections", () => {
     const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", base: [{ period: "2027", value: { value: 125, unit: "currency", source: "x", asOf: null } }] }] } });
     expect(buildThesisTriggers(data).map((t) => t.id)).toEqual(["reverse-growth"]);
@@ -98,19 +76,31 @@ describe("model-derived thesis revision triggers", () => {
     expect(buildThesisTriggers(data).map((t) => t.id)).toEqual(["reverse-growth"]);
   });
 
-  it("uses the earliest valid first projection period and does not mutate inputs", () => {
-    const trace = (value: number) => ({ value, unit: "%", source: "computed.projections.operatingMargin.base", asOf: null });
-    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "operatingMargin", base: [{ period: "2028", value: trace(30) }, { period: "2027", value: trace(20) }] }] } });
-    const before = JSON.stringify(data);
-    const trigger = buildThesisTriggers(data).find((t) => t.id === "projection-operatingMargin");
-    expect(trigger?.threshold.value).toBe(20);
-    expect(JSON.stringify(data)).toBe(before);
+  // Re-pinned for D-60: the first-year projection milestones restated the base path, so they are dropped.
+  it("drops projection milestones that only restate the base path", () => {
+    const trace = { value: 125000000, unit: "USD", currency: "USD", source: "computed.projections.revenue.base", asOf: "2026-10-13" };
+    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", unit: "USD", base: [{ period: "12M ending 2027-06-30", periodStart: "2026-07-01", periodEnd: "2027-06-30", value: trace }] }] } });
+    expect(buildThesisTriggers(data).map((t) => t.id)).toEqual(["reverse-growth"]);
   });
 
-  it("accepts the production FY labels and currency carried by the unit", () => {
-    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", base: [{ period: "FY2027", value: { value: 125000000, unit: "USD", source: "computed.projections.revenue.base", asOf: "2026-10-13" } }] }] } });
-    const trigger = buildThesisTriggers(data).find((t) => t.id === "projection-revenue");
-    expect(trigger?.threshold.value).toBe(125000000);
-    expect(trigger?.horizon).toContain("FY2027");
+  it("adds observable checkpoints: the revenue the price implies and the guided quarter's low end", () => {
+    const data = computed({ projections: { notApplicableReason: null, series: [{ metric: "revenue", unit: "USD", base: [] }] } });
+    if (data.valuation.kind !== "dcf" || !data.valuation.assumptions) throw new Error("fixture");
+    Object.assign(data.valuation.assumptions, {
+      startRevenue: { value: 302.97e9, basis: "TTM" },
+      forecastPeriod: { basis: "rolling-12-month", anchorEndDate: "2026-07-26", anchorStartDate: "2025-07-27" },
+      revenueAnchor: { source: "consensus", yearOneRevenue: 551.81e9, yearOneGrowthPct: 82.1, yearTwoGrowthPct: 46.9, runRate: null, clampedFrom: null, basis: "",
+        evidence: { guidedRunRate: 432e9, guidedPacePct: 58.7, consensusYearOne: 551.81e9, consensusYearTwo: 810.45e9, nearTermRateUsed: false,
+          guidedQuarter: { periodEnd: "2026-10-25", revenueLow: 105.84e9, revenueMid: 108e9, grossMarginLowPct: 73.5, source: "sec:8-K EX-99.1 0001045810-26-000073", asOf: "2026-08-26" } } },
+    });
+    const triggers = buildThesisTriggers(data);
+    const reverse = triggers.find((t) => t.id === "reverse-growth")!;
+    // 302.97B × 1.0725: the first modeled year's revenue today's price requires.
+    expect(reverse.horizon).toMatch(/equivalent to revenue of \$324\.94B for 12M ending 2027-07-26/);
+    expect(reverse.horizon).toMatch(/consensus \$551\.81B/);
+    const revenue = triggers.find((t) => t.id === "guided-quarter-revenue")!;
+    expect(revenue.threshold).toMatchObject({ value: 105.84e9, unit: "USD", source: "sec:8-K EX-99.1 0001045810-26-000073" });
+    expect(revenue.metric).toContain("2026-10-25");
+    expect(triggers.find((t) => t.id === "guided-quarter-gross-margin")?.threshold).toMatchObject({ value: 73.5, unit: "%" });
   });
 });

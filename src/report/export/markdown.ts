@@ -795,8 +795,10 @@ function renderScenario(sc: Scenario, computedWeights = false): string {
   const probability = sc.probability === null
     ? "n/a"
     : `${(sc.probability * 100).toFixed(0)}%`;
+  // D-60: computed targets carry no weight; a stored report that recorded one still shows it.
+  const weight = computedWeights && sc.probability === null ? "" : `${computedWeights ? "Display weight" : "p"} = ${probability}, `;
   lines.push(
-    `#### ${capitalize(sc.name)} — target ${target} (${computedWeights ? "Display weight" : "p"} = ${probability}, ${markdownHeading(sc.horizon)})${targetAsOf}`,
+    `#### ${capitalize(sc.name)} — target ${target} (${weight}${markdownHeading(sc.horizon)})${targetAsOf}`,
   );
   lines.push("");
   lines.push("Assumptions:");

@@ -147,7 +147,10 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       } else if (id === "dcfUpside") {
         operand("DCF per share", i.valuation.dcf?.perShare, "computed.valuation.dcf.perShare", day(a?.asOf.statements));
         operand("current quote", i.currentPrice, "computed.currentPrice", quoteDate);
-        result.period = `Quote observation ${quoteDate ?? "unavailable"}; DCF revenue anchor ${day(a?.asOf.statements) ?? "unavailable"}`;
+        // D-60: the statement date is the DCF's start (TTM end), not its revenue
+        // anchor, which since D-58 is guidance, consensus or the run-rate.
+        result.period = `Quote observation ${quoteDate ?? "unavailable"}; DCF statement start ${day(a?.asOf.statements) ?? "unavailable"}` +
+          `${a?.revenueAnchor ? `, year-one revenue from ${a.revenueAnchor.source}` : ""}`;
       }
     }
   } else if (aspect === "technicals") {

@@ -333,9 +333,11 @@ describe("filing disclosures through the payload and the report tables", () => {
     });
 
     // The DCF receives the same outlook as its D-58 guidance anchor, only in the model currency.
+    // Re-pinned for D-60: the range low end, the guided gross-margin low end and the FY2027 tax guidance travel too.
     expect(dcfGuidance(bundle, "USD")).toEqual({
       revenue: 108e9, periodEnd: "2026-10-25", asOf: "2026-08-26",
       source: "sec:8-K EX-99.1 0001045810-26-000073", operatingMarginPct: 65.48,
+      revenueLow: 105.84e9, grossMarginLowPct: 73.5, taxRatePct: 17, taxRatePeriod: "FY2027",
     });
     expect(dcfGuidance(bundle, "EUR")).toBeNull();
 

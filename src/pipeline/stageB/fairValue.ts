@@ -215,6 +215,10 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
     { name: "sales-to-capital", value: num2(a.salesToCapital.value), basis: a.salesToCapital.basis },
     { name: "terminal growth", value: pct1(a.terminal.gTermPct.value), basis: a.terminal.gTermPct.basis },
     { name: "terminal ROIC", value: pct1(a.terminal.roicTermPct.value), basis: a.terminal.roicTermPct.basis },
+    // D-60: the terminal reinvestment and the discounting convention are
+    // assumptions the value depends on, so they are rows, not footnotes.
+    { name: "terminal reinvestment (terminal growth / terminal ROIC)", value: pct1(a.terminal.reinvestmentRate.value * 100), basis: a.terminal.reinvestmentRate.basis },
+    { name: "discounting convention", value: a.midYear.value ? "mid-year (terminal value at N − 0.5)" : "year-end", basis: a.midYear.basis },
     {
       name: "free cash flow, SBC treatment",
       value:
@@ -234,8 +238,9 @@ export interface DcfDisplay {
   bridge?: {
     enterpriseValue: number | null; netDebt: number | null; minorityInterest: number | null; preferredEquity: number | null;
     equityValue: number | null; dilutedShares: number | null; presentValueExplicit: number | null; presentValueTerminal: number | null;
-    currency: string | null; asOf: string | null;
+    currency: string | null; asOf: string | null; nonOperatingAssets?: number;
   };
+  growthMarginGrid?: { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][]; notes: string[] };
   forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
     revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
 }
@@ -261,10 +266,15 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ...(r.period ? { periodStart: r.period.startDate, periodEnd: r.period.endDate, periodBasis: r.period.basis } : {}),
     revenue: r.revenue, growthPct: r.growthPct, ebitMarginPct: r.ebitMarginPct, taxRatePct: r.taxRatePct,
     nopat: r.nopat, reinvestment: r.reinvestment, fcff: r.fcff, presentValue: r.pv });
-  return { assumptions, sensitivityGrid, bridge: {
+  const growthMarginGrid = valuation.growthMarginGrid
+    ? { growthMarginGrid: { growthShiftsPp: [...valuation.growthMarginGrid.growthShiftsPp], marginShiftsPp: [...valuation.growthMarginGrid.marginShiftsPp],
+        perShare: valuation.growthMarginGrid.perShare.map((row) => [...row]), notes: [...valuation.growthMarginGrid.notes] } }
+    : {};
+  return { assumptions, sensitivityGrid, ...growthMarginGrid, bridge: {
     enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
     asOf: valuation.assumptions.asOf.statements,
+    ...(dcf.bridge.nonOperatingAssets !== undefined ? { nonOperatingAssets: dcf.bridge.nonOperatingAssets } : {}),
   }, forecastRows: dcf.yearRows.map(mapRow) };
 }

@@ -216,6 +216,14 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalInvestments?: number;
   totalDebt?: number;
   netDebt?: number;
+  /**
+   * D-60: filed fair value of marketable equity securities INSIDE
+   * cashAndShortTermInvestments. Never served by FMP; Stage B attaches it from
+   * EDGAR companyfacts only when the filing's components reconcile to the total.
+   */
+  marketableEquitySecurities?: number;
+  /** D-60: the reconciliation sentence behind `marketableEquitySecurities`. */
+  marketableEquityBasis?: string;
 }
 
 export interface FmpCashFlowRow extends FmpStatementRow {

@@ -67,22 +67,34 @@ describe("year-one revenue anchor (D-58)", () => {
     expect(anchor.basis).toMatch(/seasonally neutral run-rate 384\.88B/);
   });
 
-  it("takes guidance, then consensus, and bounds either to [-10%, +25%] of the run-rate", () => {
+  // Re-pinned for D-60: consensus levels lead when consistent with guidance, guidance carries at its own pace, and the guard widens to the evidenced pace.
+  it("takes consensus levels when consistent with guidance, else guidance at its guided pace, bounded by the evidenced pace", () => {
     const estimates = [{ date: "2027-01-31", revenueAvg: 412 * B }, { date: "2028-01-30", revenueAvg: 692 * B }];
     // Consensus calendarized to the 12 months ending 2027-07-26 (412 × 189/365
-    // + 692 × 176/364 days) is 547.9B, +42.4% on the run-rate: the house clamp
-    // holds it to 1.25 × 384.88B.
+    // + 692 × 176/364 days) is 547.9B, +42.4% on the run-rate: inside the
+    // guard, which widens to the latest quarter's +105.85% year-over-year growth.
     const consensus = buildDcfAssumptions(nvda({ analystEstimates: estimates })).assumptions!;
-    expect(consensus.revenueAnchor).toMatchObject({ source: "consensus", yearTwoGrowthPct: null });
-    expect(consensus.revenueAnchor!.clampedFrom).toBeCloseTo(547.93 * B, -8);
-    expect(yearOneRevenue(nvda({ analystEstimates: estimates }))).toBeCloseTo(1.25 * 384.88 * B, -8);
-    // Q3 FY2027 guidance $108.0B is the company's own next-quarter level and
-    // outranks consensus; it sits inside the clamp (432B × 1.25^0.375 = 469.7B).
+    expect(consensus.revenueAnchor).toMatchObject({ source: "consensus", yearTwoGrowthPct: null, clampedFrom: null });
+    expect(yearOneRevenue(nvda({ analystEstimates: estimates }))).toBeCloseTo(547.93 * B, -8);
+    // Q3 FY2027 guidance $108.0B: consensus sits above the guided run-rate
+    // (432B), so it is consistent with the outlook and sets year one.
     const guidance = { revenue: 108 * B, periodEnd: "2026-10-25", asOf: "2026-08-26", source: "8-K EX-99.1", operatingMarginPct: 65.5 };
-    const guided = buildDcfAssumptions(nvda({ analystEstimates: estimates, guidance })).assumptions!;
+    const both = buildDcfAssumptions(nvda({ analystEstimates: estimates, guidance })).assumptions!;
+    expect(both.revenueAnchor).toMatchObject({ source: "consensus", clampedFrom: null });
+    expect(both.revenueAnchor!.evidence).toMatchObject({ guidedRunRate: 432 * B, consensusYearOne: expect.any(Number) });
+    expect(both.ebitMarginPath.value[0]).toBe(65.5);
+    // Guidance alone carries at its own sequential pace, (108 / 96.22)^4 − 1 =
+    // 58.7% a year, not the clamped near-term rate: 432B × 1.587^0.375 = 513.7B.
+    const guided = buildDcfAssumptions(nvda({ guidance })).assumptions!;
     expect(guided.revenueAnchor).toMatchObject({ source: "guidance", clampedFrom: null });
-    expect(yearOneRevenue(nvda({ analystEstimates: estimates, guidance }))).toBeCloseTo(469.69 * B, -8);
-    expect(guided.ebitMarginPath.value[0]).toBe(65.5);
+    expect(guided.revenueAnchor!.evidence!.guidedPacePct).toBeCloseTo(58.72, 2);
+    expect(yearOneRevenue(nvda({ guidance }))).toBeCloseTo(513.71 * B, -8);
+    expect(guided.growthAnchor.basis).toMatch(/does not set year one/);
+    // A consensus below the guided run-rate predates or contradicts the outlook.
+    const stale = [{ date: "2027-01-31", revenueAvg: 300 * B }, { date: "2028-01-30", revenueAvg: 420 * B }];
+    const contradicted = buildDcfAssumptions(nvda({ analystEstimates: stale, guidance })).assumptions!;
+    expect(contradicted.revenueAnchor!.source).toBe("guidance");
+    expect(contradicted.revenueAnchor!.basis).toMatch(/below the guided run-rate/);
     // Guidance for some other quarter is not a next-quarter level.
     expect(buildDcfAssumptions(nvda({ guidance: { ...guidance, periodEnd: "2027-01-31" } })).assumptions!.revenueAnchor!.source).toBe("run-rate");
   });
@@ -106,11 +118,12 @@ describe("convergent fade (D-58)", () => {
   it("lets a high year-one anchor decay instead of holding growth above 50% for years", () => {
     const estimates = [{ date: "2027-01-31", revenueAvg: 412 * B }, { date: "2028-01-30", revenueAvg: 692 * B }];
     const g = buildDcfAssumptions(nvda({ analystEstimates: estimates })).assumptions!.growthPath.value;
-    // Year one is +58.8%; a linear fade from it would still be +46% in year
-    // four. The gap to terminal halves every three years instead.
-    expect(g[0]).toBeCloseTo(58.79, 1);
-    expect(g.slice(1).every((x) => x < 50)).toBe(true);
-    expect(g[3]).toBeCloseTo(26.6, 0);
+    // Re-pinned for D-60 (consensus no longer clamped to 1.25 × run-rate): year
+    // one is +80.9%; a linear fade from it would still be +57% in year four.
+    // The gap to terminal decays on a 3-year half-life instead.
+    expect(g[0]).toBeCloseTo(80.85, 1);
+    expect(g.slice(2).every((x) => x < 50)).toBe(true);
+    expect(g[3]).toBeCloseTo(36.1, 0);
     for (let i = 1; i < g.length; i++) expect(g[i]).toBeLessThan(g[i - 1]);
     expect(g[9]).toBe(2.5);
   });

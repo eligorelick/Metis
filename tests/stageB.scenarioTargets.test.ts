@@ -238,15 +238,17 @@ function buildDcfWithNetDebt(netDebt: number): { assumptions: DcfAssumptions; dc
 }
 
 // Anti-correlated history: high-growth years carry LOW margins and vice-versa, so
-// the growth/margin correlation is strongly negative and the margin shock (σ≈6.3pp)
-// dominates the growth shock (σ≈2.3pp). Under the RAW ±σ construction the +growth
-// run (lower margin) lands BELOW the −growth run (higher margin), i.e. bull < bear.
+// the growth/margin correlation is strongly negative and the margin shock (σ capped
+// at 12pp) dominates the growth shock (σ≈1.2pp). Under the RAW ±σ construction the
+// +growth run (lower margin) lands BELOW the −growth run (higher margin), i.e. bull < bear.
+// Re-pinned for D-60: decaying shocks leave a revenue LEVEL shift but no lasting
+// margin shift, so the margin side needs more dispersion than before to dominate.
 const ANTI_CORRELATED_HISTORY: ProjectionIncomeRow[] = [
-  { date: "2021-12-31", revenue: 1000, ebit: 400, netIncome: 200, epsDiluted: 2.0 }, // margin 40%
-  { date: "2022-12-31", revenue: 1120, ebit: 268.8, netIncome: 130, epsDiluted: 1.3 }, // g 12%,  margin 24%
-  { date: "2023-12-31", revenue: 1210, ebit: 387.2, netIncome: 190, epsDiluted: 1.9 }, // g 8.0%, margin 32%
-  { date: "2024-12-31", revenue: 1330, ebit: 372.4, netIncome: 180, epsDiluted: 1.8 }, // g 9.9%, margin 28%
-  { date: "2025-12-31", revenue: 1420, ebit: 511.2, netIncome: 250, epsDiluted: 2.5 }, // g 6.8%, margin 36%
+  { date: "2021-12-31", revenue: 1000, ebit: 300, netIncome: 200, epsDiluted: 2.0 }, // margin 30%
+  { date: "2022-12-31", revenue: 1100, ebit: 165, netIncome: 130, epsDiluted: 1.3 }, // g 10%,  margin 15%
+  { date: "2023-12-31", revenue: 1188, ebit: 534.6, netIncome: 190, epsDiluted: 1.9 }, // g 8.0%, margin 45%
+  { date: "2024-12-31", revenue: 1300.86, ebit: 260.172, netIncome: 180, epsDiluted: 1.8 }, // g 9.5%, margin 20%
+  { date: "2025-12-31", revenue: 1398.42, ebit: 699.21, netIncome: 250, epsDiluted: 2.5 }, // g 7.5%, margin 50%
 ];
 
 // Perfectly geometric revenue (constant 10%/yr) and constant 30% margin — margin
@@ -273,7 +275,7 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
     const bull = targetFor(r, "bull").perShare!.value;
     const base = targetFor(r, "base").perShare!.value;
     const bear = targetFor(r, "bear").perShare!.value;
-    // Enforced invariant (pre-fix this fixture produced bull ≈ 38.95 < bear ≈ 47.56).
+    // Enforced invariant (the raw construction gives the +growth run 37.53 < the −growth run 42.26).
     expect(bull).toBeGreaterThanOrEqual(base);
     expect(base).toBeGreaterThanOrEqual(bear);
     expect(bull).toBeGreaterThan(bear); // a real, non-degenerate spread
@@ -291,10 +293,10 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
   });
 
   it("floors a negative bear per-share at 0 and caps upside at −100%, disclosed", () => {
-    // netDebt 3800 sits between the −σ (bear) enterprise value and the base EV
-    // (3,995 under the D-58 convergent fade; 4,200 sat there under the linear
-    // fade), so the raw bear equity bridge is negative.
-    const { assumptions, dcf } = buildDcfWithNetDebt(3800);
+    // netDebt 3950 sits between the −σ (bear) enterprise value (3,882 under the
+    // D-60 decaying shocks) and the base EV (3,995), so the raw bear equity
+    // bridge is negative. Re-pinned for D-60: decaying shocks narrow the band.
+    const { assumptions, dcf } = buildDcfWithNetDebt(3950);
     const valuation: ValuationResult = {
       kind: "dcf", route: "general", assumptions, dcf, sensitivity: null, reverseDcf: null,
       multiples: { multiples: [], enterpriseValue: { value: null, excludingLeases: null, includingLeases: null, leaseLiability: null, includeLeases: false, basis: "test" }, sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },

@@ -729,10 +729,14 @@ describe("runStageB wiring — WS6 review disclosures", () => {
     if (computed.valuation.kind !== "dcf" || computed.valuation.assumptions === null) {
       throw new Error("expected the DCF route");
     }
-    expect(computed.valuation.assumptions.sbc.value.asOf).toBe(lastFcfDate);
+    // Re-pinned for D-60: a complete TTM cash bridge now supplies the SBC row (the DCF starts from the TTM), dated by the TTM window's end.
+    expect(computed.capital.current?.basis).toBe("ttm");
+    expect(computed.valuation.assumptions.sbc.value.asOf).toBe(computed.capital.current?.asOf);
+    expect(computed.valuation.assumptions.sbc.value.basis).toMatch(/^TTM /);
   });
 
-  it("N8: says when the current WACC's risk-free rate comes from a different SERIES than the per-year history", () => {
+  // Re-pinned for D-60: the current WACC now takes FRED DGS10 first, so it shares the per-year series and no source caveat is owed.
+  it("N8 (D-60): the current WACC's risk-free rate comes from the same FRED series as the per-year history", () => {
     const bundle = wiringBundle();
     // Current rf comes from the vendor treasury endpoint (year10 4.0); the
     // per-year WACCs are recomputed from FRED DGS10. Give the history real
@@ -750,9 +754,11 @@ describe("runStageB wiring — WS6 review disclosures", () => {
 
     const computed = runStageB(bundle);
     expect(computed.returns.waccHistory.points.length).toBeGreaterThan(0);
+    expect(computed.returns.wacc.riskFreeSeriesId).toBe("fred:DGS10");
+    expect(computed.returns.wacc.riskFreePct).toBe(4.4);
     expect(
       computed.returns.notes.some((n) => n.includes("Risk-free SOURCE differs between the current WACC and its history")),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("N3: the dilution overhang reaches a reader in both states", () => {

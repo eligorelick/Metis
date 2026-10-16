@@ -90,7 +90,14 @@ export const MARGIN_WARN_BAND_PP: readonly [number, number] = [0, 35];
 export const MARGIN_FADE_YEARS = 5;
 /** Dated margin slope needed to classify a clear improving/declining regime. */
 export const MARGIN_TREND_THRESHOLD_PP_PER_YEAR = 0.5;
+/** Terminal-growth axis of the sensitivity grid (pp around the base terminal growth). */
 export const SENSITIVITY_STEPS_PP: readonly number[] = [-1, -0.5, 0, 0.5, 1];
+/**
+ * D-60: WACC axis of the sensitivity grid, ±200bp in 100bp steps. A ±100bp
+ * axis spanned less than the uncertainty in a single regression beta (NVDA:
+ * each 100bp of WACC moved the value by $20-40 a share).
+ */
+export const SENSITIVITY_WACC_STEPS_PP: readonly number[] = [-2, -1, 0, 1, 2];
 export const REVERSE_GROWTH_RANGE_PCT: readonly [number, number] = [-20, 60];
 export const REVERSE_MARGIN_RANGE_PCT: readonly [number, number] = [0, 60];
 export const REVERSE_PRESCAN_POINTS = 17;
@@ -365,6 +372,8 @@ export interface DcfIncomeRow {
   basis?: "ttm" | "annual";
   revenue: number | null;
   operatingIncome: number | null;
+  /** D-60: gross profit, for the scenario operating-margin ceiling; absent or null leaves the ceiling unavailable. */
+  grossProfit?: number | null;
   incomeBeforeTax?: number | null;
   incomeTaxExpense?: number | null;
 }
@@ -376,6 +385,8 @@ export interface DcfBalanceRow {
   totalDebt: number | null;
   totalStockholdersEquity: number | null;
   cashAndShortTermInvestments: number | null;
+  /** D-60: non-operating long-term investments, removed from the sales-to-capital denominator when reported. */
+  longTermInvestments?: number | null;
 }
 
 /** WS6 (D-19): SBC treatment, with the reported FCF before and after it. */
@@ -489,6 +500,13 @@ export interface DcfGuidance {
   source: string;
   /** Guided operating (EBIT) margin, percent, when the outlook implies one. */
   operatingMarginPct?: number | null;
+  /** D-60: low end of the guided revenue range, when the outlook gives one. */
+  revenueLow?: number | null;
+  /** D-60: guided GAAP effective tax rate (percent) and the period it covers, when the same release gives one. */
+  taxRatePct?: number | null;
+  taxRatePeriod?: string | null;
+  /** D-60: low end of the guided GAAP gross margin, percent. */
+  grossMarginLowPct?: number | null;
 }
 
 /** D-58: the seasonally neutral annualized revenue run-rate at the latest quarter. */
@@ -515,6 +533,23 @@ export interface RevenueAnchor {
   /** The unclamped year-one revenue when the house clamp moved it; null otherwise. */
   clampedFrom: number | null;
   basis: string;
+  /**
+   * D-60 evidence beside the level actually used, so the reverse DCF and the
+   * report can set the price against it. Absent on assumptions built before D-60.
+   */
+  evidence?: {
+    /** Next-quarter guidance × 4 (the guided run-rate). */
+    guidedRunRate: number | null;
+    /** Guided quarter over the latest reported quarter, annualized, percent. */
+    guidedPacePct: number | null;
+    /** Calendarized consensus for the year-one and year-two windows. */
+    consensusYearOne: number | null;
+    consensusYearTwo: number | null;
+    /** Whether the near-term growth rate (median of methods, clamped) set any year-one level. */
+    nearTermRateUsed: boolean;
+    /** The guided quarter itself, for observable checkpoints. */
+    guidedQuarter?: { periodEnd: string; revenueLow: number; revenueMid: number; grossMarginLowPct: number | null; source: string; asOf: string } | null;
+  };
 }
 
 export interface DcfRoicYear {
@@ -717,8 +752,29 @@ export interface DcfAssumptions {
     reinvestmentRate: Assumption<number>;
   };
   midYear: Assumption<boolean>;
+  /**
+   * D-60: the highest operating margin a bull/bear scenario may reach. Null
+   * when gross profit is not on record; absent on assumptions built before D-60.
+   */
+  scenarioMarginCeiling?: ScenarioMarginCeiling | null;
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
+}
+
+/**
+ * D-60: operating margin = gross margin − operating-expense ratio, so no
+ * scenario can earn more than today's gross margin less the leanest
+ * operating-expense ratio the issuer has actually run.
+ */
+export interface ScenarioMarginCeiling {
+  pct: number;
+  grossMarginPct: number;
+  /** The period the gross margin is measured over (TTM, else the latest fiscal year). */
+  grossMarginPeriod: string;
+  minOpexRatioPct: number;
+  /** The period with the leanest operating-expense ratio among the TTM and the last five fiscal years. */
+  minOpexRatioPeriod: string;
+  basis: string;
 }
 
 export interface BuildDcfAssumptionsResult {
@@ -799,14 +855,29 @@ function nextQuarterGuidance(guidance: DcfGuidance | null | undefined, ttmEnd: s
 }
 
 /**
- * D-58: the year-one revenue level, and year two's growth when consensus
- * covers it. In order of evidence: management guidance for the next quarter
- * (annualized, carried to the year-one midpoint at the near-term growth rate), the
- * calendarized consensus for the year-one window, else the run-rate (or the
- * TTM when no year-ago quarter is on record) carried forward at the
- * near-term growth rate. The near-term growth clamp bounds the year-one level
- * relative to the run-rate — the latest evidenced level — not the TTM, which
- * for a fast grower is already a quarter or more behind.
+ * D-58/D-60: the year-one revenue level, and year two's.
+ *
+ * D-60 order of evidence:
+ *  1. Calendarized consensus LEVELS for years one and two, when consensus
+ *     covers year one and is consistent with guidance (no guidance, or a
+ *     year-one consensus at or above the guided quarter's low end × 4: the
+ *     window opens with the guided quarter, so a lower consensus predates or
+ *     contradicts the outlook). Consensus covers all four quarters of the
+ *     window; guidance covers one, and an issuer that beats its range each
+ *     quarter makes the guided run-rate a floor rather than a central case.
+ *     D-58 grew consensus year-two growth from a guidance year one, which put
+ *     both years ~15% below the consensus levels without saying so.
+ *  2. Next-quarter guidance × 4, carried to the year-one midpoint at the
+ *     GUIDED sequential pace (guided quarter over the latest reported quarter,
+ *     annualized) — D-58 carried it at the clamped near-term rate, which is a
+ *     statement about history, not about the guided trajectory. Year two then
+ *     takes consensus growth when covered, with the gap to the consensus
+ *     level stated.
+ *  3. The run-rate (or the TTM) carried at the near-term growth rate.
+ * The house clamp bounds the result relative to the run-rate as a
+ * broken-input guard. Its range is [−10%, +25%] widened to the evidenced pace
+ * (the guided sequential pace and the latest quarter's year-over-year
+ * growth), so it cannot overrule the issuer's own reported trajectory.
  */
 function buildRevenueAnchor(args: {
   inputs: DcfAssumptionInputs;
@@ -816,7 +887,6 @@ function buildRevenueAnchor(args: {
   notes: string[];
 }): RevenueAnchor {
   const { inputs, startRev, periodBasis, gMid, notes } = args;
-  const [lo, hi] = NEAR_TERM_GROWTH_CLAMP_PP;
   const ttm = inputs.incomeTtm;
   const ttmEnd = ttm?.date ?? null;
   const windowBasis = ttm?.basis === "annual" ? "fiscal-year" : "rolling-12-month";
@@ -831,25 +901,49 @@ function buildRevenueAnchor(args: {
   const ntm1 = window1 === null ? null : calendarizedConsensus(inputs.analystEstimates, window1);
   const ntm2 = window2 === null ? null : calendarizedConsensus(inputs.analystEstimates, window2);
   const guide = nextQuarterGuidance(inputs.guidance, ttmEnd);
-  const carry = (from: number, years: number): number => from * Math.pow(1 + gMid / 100, years);
+  const carry = (from: number, years: number, ratePct: number): number => from * Math.pow(1 + ratePct / 100, years);
+
+  // D-60: the guided sequential pace, annualized.
+  const latestQuarter = inputs.quarterRevenue?.latest.date === ttmEnd ? posOrNull(inputs.quarterRevenue?.latest.revenue) : null;
+  const guidedPacePct = guide !== null && latestQuarter !== null ? (Math.pow(guide.revenue / latestQuarter, 4) - 1) * 100 : null;
+  const guidedRunRate = guide === null ? null : 4 * guide.revenue;
+  const guidedFloor = guide === null ? null : 4 * (posOrNull(guide.revenueLow) ?? guide.revenue);
+  const consensusConsistent = ntm1 !== null && (guidedFloor === null || ntm1 >= guidedFloor);
+
+  // Broken-input guard, widened to the evidenced pace.
+  const pace = [guidedPacePct, runRate?.yoyPct ?? null].filter((v): v is number => isNum(v));
+  const lo = Math.min(NEAR_TERM_GROWTH_CLAMP_PP[0], ...pace);
+  const hi = Math.max(NEAR_TERM_GROWTH_CLAMP_PP[1], ...pace);
+  const rangeText = lo === NEAR_TERM_GROWTH_CLAMP_PP[0] && hi === NEAR_TERM_GROWTH_CLAMP_PP[1]
+    ? `[${lo}%, +${hi}%]`
+    : `[${fmtNum(lo)}%, +${fmtNum(hi)}%] (the house [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, +${NEAR_TERM_GROWTH_CLAMP_PP[1]}%] widened to the evidenced pace)`;
 
   let source: RevenueAnchor["source"];
   let raw: number;
   let rawText: string;
-  if (guide !== null) {
-    source = "guidance";
-    raw = carry(4 * guide.revenue, GUIDED_QUARTER_TO_YEAR_ONE_YEARS);
-    rawText =
-      `management guidance ${fmtMoney(guide.revenue)} for the quarter ending ${guide.periodEnd} (${guide.source}, ${guide.asOf}) × 4 = ${fmtMoney(4 * guide.revenue)}, ` +
-      `carried 4.5 months to the year-one midpoint at the near-term growth rate ${fmtNum(gMid)}%`;
-  } else if (ntm1 !== null && window1 !== null) {
+  let nearTermRateUsed = false;
+  const guidanceText = guide === null ? "" :
+    `management guidance ${fmtMoney(guide.revenue)} for the quarter ending ${guide.periodEnd} (${guide.source}, ${guide.asOf}) × 4 = ${fmtMoney(4 * guide.revenue)}`;
+  if (ntm1 !== null && window1 !== null && consensusConsistent) {
     source = "consensus";
     raw = ntm1;
-    rawText = `analyst consensus calendarized to ${window1.label} (fiscal-year estimates weighted by day overlap)`;
+    rawText = `analyst consensus calendarized to ${window1.label} (fiscal-year estimates weighted by day overlap)` +
+      (guide === null ? "" : `, at or above the guided run-rate (${guidanceText}${guidedFloor !== guidedRunRate ? `; low end × 4 = ${fmtMoney(guidedFloor as number)}` : ""}), so consistent with the outlook`);
+  } else if (guide !== null) {
+    source = "guidance";
+    const rate = guidedPacePct ?? gMid;
+    nearTermRateUsed = guidedPacePct === null;
+    raw = carry(4 * guide.revenue, GUIDED_QUARTER_TO_YEAR_ONE_YEARS, rate);
+    rawText = `${guidanceText}, carried 4.5 months to the year-one midpoint at ` +
+      (guidedPacePct === null
+        ? `the near-term growth rate ${fmtNum(gMid)}% (no latest reported quarter to measure the guided pace against)`
+        : `the guided sequential pace ${fmtNum(guidedPacePct)}%/yr (guided quarter over the quarter ending ${ttmEnd}, ${fmtMoney(latestQuarter as number)}, annualized)`) +
+      (ntm1 === null ? "" : `; consensus ${fmtMoney(ntm1)} for the window sits below the guided run-rate and is not used for year one`);
   } else {
     source = runRate === null ? "ttm" : "run-rate";
+    nearTermRateUsed = true;
     const years = runRate === null ? 1 : LATEST_QUARTER_TO_YEAR_ONE_YEARS;
-    raw = carry(level, years);
+    raw = carry(level, years, gMid);
     rawText = runRate === null
       ? `${periodBasis} revenue grown one year at the near-term growth rate ${fmtNum(gMid)}%`
       : `the run-rate carried 7.5 months to the year-one midpoint at the near-term growth rate ${fmtNum(gMid)}%`;
@@ -860,32 +954,97 @@ function buildRevenueAnchor(args: {
   const clampedFrom = yearOneRevenue === raw ? null : raw;
   const clampText = clampedFrom === null
     ? ""
-    : `; CLAMPED from ${fmtMoney(raw)} to ${fmtMoney(yearOneRevenue)}: the near-term growth house rule bounds year-one revenue to [${lo}%, +${hi}%] of ${runRate === null ? `${periodBasis} revenue` : "the run-rate"}`;
+    : `; CLAMPED from ${fmtMoney(raw)} to ${fmtMoney(yearOneRevenue)}: the house guard bounds year-one revenue to ${rangeText} of ${runRate === null ? `${periodBasis} revenue` : "the run-rate"}`;
   if (clampedFrom !== null) {
-    notes.push(`year-one revenue (${source}) clamped ${fmtMoney(raw)} -> ${fmtMoney(yearOneRevenue)} (house rule range [${lo}%, +${hi}%] of ${fmtMoney(level)})`);
+    notes.push(`year-one revenue (${source}) clamped ${fmtMoney(raw)} -> ${fmtMoney(yearOneRevenue)} (house guard ${rangeText} of ${fmtMoney(level)})`);
   }
   // Without a run-rate, guidance or consensus this is the pre-D-58 rule
   // exactly: TTM grown one year at the clamped rate.
   const yearOneGrowthPct = source === "ttm" && clampedFrom === null ? gMid : (yearOneRevenue / startRev - 1) * 100;
-  // Year two takes consensus growth (applied to the year-one level actually
-  // used) when the estimates cover it. It may not fall below the house floor
-  // or re-accelerate past both the house ceiling and year one's growth.
+  // Year two: the consensus level when consensus set year one (growth
+  // C2/C1), else consensus growth applied to the year-one level actually used,
+  // with the gap to the consensus level stated. It may not fall below the
+  // house floor or re-accelerate past both the house ceiling and year one.
   let yearTwoGrowthPct: number | null = null;
   let yearTwoText = "";
   if (ntm1 !== null && ntm2 !== null && window2 !== null) {
     const rawG2 = (ntm2 / ntm1 - 1) * 100;
-    const g2Hi = Math.max(hi, yearOneGrowthPct);
-    yearTwoGrowthPct = clampWithNote(rawG2, lo, g2Hi, "consensus year-two growth (pct)", notes);
+    const g2Hi = Math.max(NEAR_TERM_GROWTH_CLAMP_PP[1], yearOneGrowthPct);
+    yearTwoGrowthPct = clampWithNote(rawG2, NEAR_TERM_GROWTH_CLAMP_PP[0], g2Hi, "consensus year-two growth (pct)", notes);
+    const yearTwoRevenue = yearOneRevenue * (1 + yearTwoGrowthPct / 100);
+    const gap = (yearTwoRevenue / ntm2 - 1) * 100;
     yearTwoText =
       `; year two grows ${fmtNum(yearTwoGrowthPct)}% on consensus (${window2.label} ${fmtMoney(ntm2)} over ${fmtMoney(ntm1)}` +
-      `${yearTwoGrowthPct === rawG2 ? "" : `, ${fmtNum(rawG2)}% clamped to [${lo}%, ${fmtNum(g2Hi)}%] = [house floor, max(house ceiling ${hi}%, year-one growth)]`})`;
+      `${yearTwoGrowthPct === rawG2 ? "" : `, ${fmtNum(rawG2)}% clamped to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${fmtNum(g2Hi)}%] = [house floor, max(house ceiling ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year-one growth)]`})` +
+      (Math.abs(gap) < 0.05 ? "" : `, so year two ${fmtMoney(yearTwoRevenue)} is ${fmtNum(Math.abs(gap))}% ${gap < 0 ? "below" : "above"} the consensus level`);
   }
+  const yearOneGap = ntm1 === null || source === "consensus" ? null : (yearOneRevenue / ntm1 - 1) * 100;
+  const yearOneGapText = yearOneGap === null || Math.abs(yearOneGap) < 0.05 ? "" :
+    `; year one is ${fmtNum(Math.abs(yearOneGap))}% ${yearOneGap < 0 ? "below" : "above"} the consensus ${fmtMoney(ntm1 as number)}`;
   const basis =
     `year-one revenue ${fmtMoney(yearOneRevenue)} (${fmtNum(yearOneGrowthPct)}% over ${periodBasis} ${fmtMoney(startRev)}) from ${rawText}` +
-    `${clampText}; measured against ${levelText}${yearTwoText} (house rule D-58: guidance, then consensus, then the run-rate)`;
+    `${clampText}${yearOneGapText}; measured against ${levelText}${yearTwoText} (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate)`;
   notes.push(`Year-one revenue anchor: ${basis}`);
-  return { source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis };
+  return {
+    source, yearOneRevenue, yearOneGrowthPct, yearTwoGrowthPct, runRate, clampedFrom, basis,
+    evidence: { guidedRunRate, guidedPacePct, consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
+      guidedQuarter: guide === null ? null : { periodEnd: guide.periodEnd, revenueLow: posOrNull(guide.revenueLow) ?? guide.revenue, revenueMid: guide.revenue,
+        grossMarginLowPct: isNum(guide.grossMarginLowPct) ? guide.grossMarginLowPct : null, source: guide.source, asOf: guide.asOf } },
+  };
 }
+
+/**
+ * D-60: the scenario operating-margin ceiling. The gross margin is the TTM's
+ * (the latest fiscal year's when no TTM gross profit exists); the
+ * operating-expense ratio, (gross profit − operating income) / revenue, is the
+ * lowest among the TTM and the last five fiscal years. A row whose operating
+ * income exceeds its gross profit, or whose gross margin is outside (0, 100],
+ * is a broken row and is skipped.
+ */
+export function scenarioMarginCeiling(ttm: DcfIncomeRow | null, history: DcfIncomeRow[]): ScenarioMarginCeiling | null {
+  const ratios = (row: DcfIncomeRow, period: string) => {
+    const revenue = posOrNull(zeroAsNull(row.revenue));
+    if (revenue === null || !isNum(row.grossProfit) || !isNum(row.operatingIncome)) return [];
+    const gross = (row.grossProfit / revenue) * 100;
+    const opex = ((row.grossProfit - row.operatingIncome) / revenue) * 100;
+    return gross > 0 && gross <= 100 && opex >= 0 ? [{ gross, opex, period }] : [];
+  };
+  const current = ttm === null ? [] : ratios(ttm, ttm.basis === "annual" ? `FY ${ttm.date}` : `TTM ending ${ttm.date}`);
+  const annual = history
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+    .flatMap((row) => ratios(row, `FY ${row.date}`));
+  const latest = current[0] ?? annual[0];
+  if (latest === undefined) return null;
+  const leanest = [...current, ...annual].reduce((best, p) => (p.opex < best.opex ? p : best));
+  const pct = latest.gross - leanest.opex;
+  return {
+    pct,
+    grossMarginPct: latest.gross,
+    grossMarginPeriod: latest.period,
+    minOpexRatioPct: leanest.opex,
+    minOpexRatioPeriod: leanest.period,
+    basis:
+      `scenario operating margins are capped at ${fmtNum(pct)}% = gross margin ${fmtNum(latest.gross)}% (${latest.period}) ` +
+      `less the leanest operating-expense ratio on record, ${fmtNum(leanest.opex)}% (${leanest.period}, among the TTM and the last five fiscal years); ` +
+      "the cap never pulls a scenario below the base path (house rule D-60)",
+  };
+}
+
+/**
+ * D-60: the discounting convention, stated where the reader sees the
+ * assumptions. The Gordon terminal value is FCFF_(N+1) / (WACC − g): the value
+ * at the end of year N of flows that, like the explicit ones, arrive through
+ * each year. Discounting it at N − 0.5 keeps that timing; at N it would treat
+ * explicit flows as mid-year and perpetuity flows as year-end.
+ */
+export const MID_YEAR_DISCOUNTING_BASIS =
+  "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 " +
+  "because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal " +
+  "values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year " +
+  "adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of " +
+  "(1 + WACC)^0.5 (house rule D-60)";
 
 /**
  * Build the base-case DCF assumption block. Every assumption carries
@@ -1012,9 +1171,16 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     notes,
   );
   const clampFired = gMid !== point;
-  const clampSentence = clampFired
-    ? ` CLAMPED to ${fmtNum(gMid)}%: the near-term growth house rule bounds the rate to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%], and year-one revenue is built from the clamped value, not the median.`
-    : "";
+  // D-60: build the year-one level first, so the clamp sentence says whether
+  // the clamped rate set it. Under guidance or consensus it does not, and
+  // D-58's "year-one revenue is built from the clamped value" was false.
+  const revenueAnchor = buildRevenueAnchor({ inputs, startRev, periodBasis, gMid, notes });
+  const rateSetsYearOne = revenueAnchor.evidence?.nearTermRateUsed ?? true;
+  const clampSentence = !clampFired
+    ? (rateSetsYearOne ? "" : ` It does not set year one, which comes from ${revenueAnchor.source}.`)
+    : rateSetsYearOne
+      ? ` CLAMPED to ${fmtNum(gMid)}%: the near-term growth house rule bounds the rate to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%], and year-one revenue is built from the clamped value, not the median.`
+      : ` CLAMPED to ${fmtNum(gMid)}% by the near-term growth house rule [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%]; it does not set year one, which comes from ${revenueAnchor.source}, and is shown as a cross-check only.`;
   const anchorBasis =
     `median of ${available.length} available growth method${available.length === 1 ? "" : "s"} = ${fmtNum(point)}%` +
     `${rangePct === null ? " (single method; no range)" : `, range ${fmtNum(lo)}% to ${fmtNum(hi)}%`}` +
@@ -1057,7 +1223,6 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // have kept growth above 50% for four years. The anchored years now come
   // from guidance, consensus or the run-rate; every later year closes the
   // gap to the terminal rate geometrically from the last anchored year.
-  const revenueAnchor = buildRevenueAnchor({ inputs, startRev, periodBasis, gMid, notes });
   const anchoredGrowth = [
     revenueAnchor.yearOneGrowthPct,
     ...(revenueAnchor.yearTwoGrowthPct !== null && years > 2 ? [revenueAnchor.yearTwoGrowthPct] : []),
@@ -1117,14 +1282,25 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // terminal year — not year one. Capping year one forced NVDA from its 65.2%
   // TTM margin to 62.4% with nothing in the evidence behind the step-down;
   // the current margin may set year one unless it is impossible (above 100%).
-  const observedPoints = histMarginPoints.filter((p) => isNum(p.marginPct));
-  const observedTop = observedPoints.reduce<{ date: string; marginPct: number } | null>(
+  // D-60: a full four-quarter TTM is as demonstrated as a fiscal year, so it
+  // counts as an earned margin too. NVDA ran 63.2-66.2% in each of the last
+  // four quarters (TTM 65.21%) while the cap stayed at FY2025's 62.42%, so the
+  // path faded to a margin below every recent quarter with nothing in the
+  // evidence behind the step-down. A single quarter does not count.
+  const ttmMarginPoint = ttm?.basis !== "annual" && ttmMarginRaw !== null && ttmMarginRaw <= 1 && ttm?.date
+    ? [{ date: ttm.date, marginPct: ttmMarginRaw * 100, ttm: true }]
+    : [];
+  const observedPoints: { date: string; marginPct: number; ttm?: boolean }[] = [
+    ...histMarginPoints.filter((p) => isNum(p.marginPct)),
+    ...ttmMarginPoint,
+  ];
+  const observedTop = observedPoints.reduce<{ date: string; marginPct: number; ttm?: boolean } | null>(
     (best, p) => (best === null || p.marginPct > best.marginPct ? p : best),
     null,
   );
   const marginCeiling = Math.max(MARGIN_CLAMP_PP[1], observedTop?.marginPct ?? MARGIN_CLAMP_PP[1]);
   const ceilingText = observedTop !== null && observedTop.marginPct > MARGIN_CLAMP_PP[1]
-    ? `the issuer's highest annual margin in the last five years, ${fmtNum(marginCeiling)}% (FY ${observedTop.date})`
+    ? `the issuer's highest sustained margin (the last five fiscal years and the TTM), ${fmtNum(marginCeiling)}% (${observedTop.ttm ? `TTM ending ${observedTop.date}` : `FY ${observedTop.date}`})`
     : `the house ceiling ${MARGIN_CLAMP_PP[1]}%`;
   const yearOneCeiling = m0 <= 100 ? Math.max(marginCeiling, m0) : marginCeiling;
   const m0Raw = m0;
@@ -1228,8 +1404,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     ? `the ${companyTaxText} ${fmtNum(companyTax)}% floored at ${fmtNum(taxTerminal)}% = ${taxFloorText} (house rule D-58: the terminal rate converges toward the marginal rate)`
     : `the ${companyTaxText} ${fmtNum(taxTerminal)}%, at or above the ${fmtNum(taxFloor)}% floor = ${taxFloorText}`;
   if (taxTerminal > companyTax) notes.push(`terminal tax rate floored: ${terminalTaxText}`);
-  const tEff = currentTaxRate ?? taxTerminal;
-  if (currentTaxRate === null) {
+  // D-60: management's effective-tax-rate guidance, when the same release
+  // gives one, sets year one (NVDA guided 16-18% for FY2027 against a 16.05%
+  // TTM rate); the path still fades to the terminal rate.
+  const guidedTax =
+    guide !== null && isNum(guide.taxRatePct) && guide.taxRatePct >= 0 && guide.taxRatePct <= 50 ? guide.taxRatePct : null;
+  const tEff = guidedTax ?? currentTaxRate ?? taxTerminal;
+  if (currentTaxRate === null && guidedTax === null) {
     // The substitution is a note and a gap, as the margin fallback's is, and
     // the basis says no current rate was observed: it used to print "TTM
     // effective rate 22%" for an issuer with a pre-tax loss.
@@ -1245,7 +1426,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
   }
   const taxBasis =
-    currentTaxRate === null
+    guidedTax !== null
+      ? `guided GAAP effective rate ${fmtNum(guidedTax)}% (${guide?.taxRatePeriod ?? "guided period"}, ${guide?.source ?? "earnings release"})` +
+        `${currentTaxRate === null ? "" : ` against the ${periodBasis} observed ${fmtNum(currentTaxRate)}%`}` +
+        `${tEff === taxTerminal ? ` held flat: terminal rate is ${terminalTaxText}` : ` fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`} (house rule D-60: tax guidance sets year one)`
+      : currentTaxRate === null
       ? `${periodBasis} effective rate not computable (pre-tax income ≤ 0 or tax expense missing) — held at ${terminalTaxText} for all ${years} years`
       : tEff === taxTerminal
         ? `${periodBasis} effective rate ${fmtNum(tEff)}% held flat: terminal rate is ${terminalTaxText}`
@@ -1268,8 +1453,18 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
     return { assumptions: null, notes, gaps };
   }
-  const s2c = clampWithNote(startRev / ic, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
-  const s2cBasis = `${periodBasis} revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date})`;
+  // D-60: long-term investments (strategic and non-marketable stakes, long
+  // marketable securities) are non-operating: their income is below the EBIT
+  // this DCF projects, so they are not capital the operating path earns on.
+  // NVDA's $51.2B of them cut sales-to-capital from 2.58 to 1.80. When
+  // removing them would leave no operating capital the D-58 basis stands.
+  const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
+  const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
+  const s2c = clampWithNote(startRev / (operatingIc ?? ic), S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
+  const s2cBasis = operatingIc !== null
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; long-term investments are non-operating, house rule D-60)`
+    : `${periodBasis} revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}` +
+      `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
 
   // --- Terminal economics ----------------------------------------------------
   const terminal = terminalRoic(inputs.waccPct, inputs.roicHistory ?? null);
@@ -1300,6 +1495,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         : `Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of ${sbcInfo.asOf ?? "?"}: ${fmtNum(sbcInfo.beforeSbc)} before SBC → ${fmtNum(sbcInfo.afterSbc as number)} after subtracting SBC of ${fmtNum(sbcInfo.sbc)}.`;
   notes.push(sbcBasis);
 
+  // D-60: the ceiling the bull/bear margin shocks may not cross. The scenario
+  // construction text states it; it does not bind the base path.
+  const scenarioCeiling = scenarioMarginCeiling(ttm, inputs.incomeHistory);
+
   const assumptions: DcfAssumptions = {
     ...(ttm?.date ? { forecastPeriod: {
       basis: ttm.basis === "annual" ? "fiscal-year" as const : "rolling-12-month" as const,
@@ -1327,11 +1526,15 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     growthPath: {
       value: growthPath,
       basis:
-        `year one ${fmtNum(growthPath[0])}% from the revenue anchor (${revenueAnchor.source})` +
+        `year one ${fmtNum(growthPath[0])}% from the revenue anchor (${revenueAnchor.source === "consensus" ? "analyst consensus" : revenueAnchor.source})` +
         `${anchoredGrowth.length === 2 ? `, year two ${fmtNum(growthPath[1])}% on consensus` : ""}; ` +
-        `later years follow a convergent fade from year ${anchoredGrowth.length}'s ${fmtNum(lastAnchored)}% to the terminal rate ${fmtNum(gTerm)}% in year ${years}, ` +
-        `the gap halving every ${GROWTH_FADE_HALF_LIFE_YEARS} years (house rule D-58; the linear fade is retired); ` +
-        `near-term growth rate ${fmtNum(gMid)}% = ${gMidBasis}; ${revenueAnchor.basis}; ${anchorBasis}`,
+        `later years follow a convergent fade from year ${anchoredGrowth.length}'s ${fmtNum(lastAnchored)}% to the terminal rate ${fmtNum(gTerm)}% in year ${years}: ` +
+        `the excess over the terminal rate decays geometrically with a ${GROWTH_FADE_HALF_LIFE_YEARS}-year half-life, rescaled so it closes exactly in year ${years}, ` +
+        `so it falls somewhat faster than halving every ${GROWTH_FADE_HALF_LIFE_YEARS} years (house rule D-58; the linear fade is retired). ` +
+        (rateSetsYearOne
+          ? `Year one carries the near-term growth rate ${fmtNum(gMid)}% = ${gMidBasis}. `
+          : "") +
+        "The year-one revenue anchor and the near-term growth rows state their own bases.",
     },
     ebitMarginPath: { value: marginPath, basis: marginBasis },
     taxRatePath: { value: taxRatePath, basis: taxBasis },
@@ -1347,7 +1550,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         basis: "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule)",
       },
     },
-    midYear: { value: true, basis: "mid-year discounting convention ON by default (cash flows arrive through the year)" },
+    midYear: { value: true, basis: MID_YEAR_DISCOUNTING_BASIS },
+    scenarioMarginCeiling: scenarioCeiling,
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
   };
@@ -1371,6 +1575,12 @@ export interface DcfRunOptions {
   minorityInterest?: number | null;
   /** Preferred equity — same treatment as minority interest above. */
   preferred?: number | null;
+  /**
+   * D-60: non-operating assets ADDED to equity value, at a sourced fair value
+   * (marketable equity securities excluded from cash). Their returns are below
+   * EBIT, so the FCFF path does not value them. Omit/null ⇒ none.
+   */
+  nonOperatingAssets?: number | null;
 }
 
 export interface DcfYearRow {
@@ -1425,6 +1635,8 @@ export interface DcfBridge {
   dilutedShares: number | null;
   minorityInterest: number | null;
   preferred: number | null;
+  /** D-60: present only when the bridge added a sourced non-operating asset. */
+  nonOperatingAssets?: number;
 }
 
 export interface DcfResult {
@@ -1624,6 +1836,7 @@ function bridgeToPerShare(
   gaps: ManifestEntry[],
   minorityInterest: number | null = null,
   preferred: number | null = null,
+  nonOperatingAssets: number | null = null,
 ): { equityValue: number | null; perShare: number | null } {
   if (!isNum(netDebt)) {
     gaps.push(
@@ -1632,7 +1845,8 @@ function bridgeToPerShare(
     return { equityValue: null, perShare: null };
   }
   const equityValue =
-    enterpriseValue - netDebt - (isNum(minorityInterest) ? minorityInterest : 0) - (isNum(preferred) ? preferred : 0);
+    enterpriseValue - netDebt - (isNum(minorityInterest) ? minorityInterest : 0) - (isNum(preferred) ? preferred : 0) +
+    (isNum(nonOperatingAssets) ? nonOperatingAssets : 0);
   const shares = posOrNull(dilutedShares);
   if (shares === null) {
     gaps.push(
@@ -1654,6 +1868,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     dilutedShares: opts.dilutedShares,
     minorityInterest: opts.minorityInterest ?? null,
     preferred: opts.preferred ?? null,
+    ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 ? { nonOperatingAssets: opts.nonOperatingAssets } : {}),
   };
   const core = dcfCore(assumptions, opts.waccPct, { guardMode: "clamp" });
   if (core === null) {
@@ -1680,6 +1895,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     gaps,
     opts.minorityInterest ?? null,
     opts.preferred ?? null,
+    opts.nonOperatingAssets ?? null,
   );
   const notes = [...core.notes];
   if ((isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || (isNum(opts.preferred) && opts.preferred !== 0)) {
@@ -1706,7 +1922,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
 // ---------------------------------------------------------------------------
 
 export interface SensitivityGrid {
-  /** Row axis: WACC values (pct), base +/- 1 in 0.5 steps. */
+  /** Row axis: WACC values (pct), base +/- 2 in 1pp steps (D-60). */
   waccPcts: number[];
   /** Column axis: terminal growth values (pct), base +/- 1 in 0.5 steps. */
   gTermPcts: number[];
@@ -1717,7 +1933,7 @@ export interface SensitivityGrid {
 }
 
 /**
- * 5x5 per-share sensitivity: WACC +/-1pp x gTerm +/-1pp in 0.5 steps. The
+ * 5x5 per-share sensitivity: WACC +/-2pp in 1pp steps (D-60) x gTerm +/-1pp in 0.5 steps. The
  * cash-flow path is held fixed; only discounting + terminal are recomputed.
  * Cells violating the grid TV guard (WACC - g < 1.5pp) are null, never
  * a huge number — a looser bound than the 2.0pp base-case guard on purpose.
@@ -1727,7 +1943,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
     `grid cells with WACC - gTerm < ${GRID_TV_GUARD_PP}pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
   ];
   const gaps: ManifestEntry[] = [];
-  const waccPcts = SENSITIVITY_STEPS_PP.map((s) => base.waccPct + s);
+  const waccPcts = SENSITIVITY_WACC_STEPS_PP.map((s) => base.waccPct + s);
   const gTermPcts = SENSITIVITY_STEPS_PP.map((s) => assumptions.terminal.gTermPct.value + s);
   if (!isNum(base.netDebt) || posOrNull(base.dilutedShares) === null) {
     gaps.push(
@@ -1773,11 +1989,59 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
         [],
         base.minorityInterest ?? null,
         base.preferred ?? null,
+        base.nonOperatingAssets ?? null,
       );
       return bridged.perShare;
     });
   });
   return { waccPcts, gTermPcts, perShare, notes, gaps };
+}
+
+/** D-60: year-one revenue growth shifts (pp) of the growth × margin grid; each decays on the convergent weights. */
+export const GROWTH_GRID_STEPS_PP: readonly number[] = [-20, -10, 0, 10, 20];
+/** D-60: sustained operating-margin shifts (pp) of the growth × margin grid, applied to every year and the terminal value. */
+export const MARGIN_GRID_STEPS_PP: readonly number[] = [-10, -5, 0, 5, 10];
+
+export interface GrowthMarginGrid {
+  growthShiftsPp: number[];
+  marginShiftsPp: number[];
+  /** perShare[i][j] for growthShiftsPp[i] × marginShiftsPp[j]; null above the scenario margin ceiling or without a bridge. */
+  perShare: (number | null)[][];
+  notes: string[];
+}
+
+/**
+ * D-60: the two inputs that decide the value. The WACC × g grid varies the two
+ * least decisive inputs (NVDA report #34); this one varies year-one growth (the
+ * reverse DCF's convergent-shift family, so the shift is gone by the final
+ * explicit year) against a sustained operating-margin shift. A cell whose
+ * margin would exceed the scenario ceiling (gross margin less the leanest
+ * operating-expense ratio on record) above the base path is null, not priced.
+ */
+export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOptions): GrowthMarginGrid {
+  const growthShiftsPp = [...GROWTH_GRID_STEPS_PP];
+  const marginShiftsPp = [...MARGIN_GRID_STEPS_PP];
+  const ceiling = assumptions.scenarioMarginCeiling?.pct ?? null;
+  const weights = convergentFadeWeights(assumptions.growthPath.value.length);
+  const notes = [
+    `rows shift year-one revenue growth by ${growthShiftsPp.join("/")}pp, decaying on the convergent weights to zero by year ${assumptions.years}; ` +
+      `columns shift the operating margin by ${marginShiftsPp.join("/")}pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base`,
+    ceiling === null
+      ? "no gross profit on record, so no cell is withheld for exceeding gross margin"
+      : `cells whose margin would exceed ${fmtNum(ceiling)}% (gross margin less the leanest operating-expense ratio) above the base path are withheld`,
+  ];
+  const perShare = growthShiftsPp.map((dg) =>
+    marginShiftsPp.map((dm) => {
+      const margins = assumptions.ebitMarginPath.value.map((m) => m + dm);
+      if (ceiling !== null && dm > 0 && margins.some((m, i) => m > Math.max(assumptions.ebitMarginPath.value[i], ceiling) + 1e-9)) return null;
+      const growth = assumptions.growthPath.value.map((g, i) => g + dg * (weights[i] ?? 0));
+      const core = dcfCore(assumptions, base.waccPct, { growthPathPct: growth, ebitMarginPathPct: margins, guardMode: "clamp" });
+      if (core === null) return null;
+      return bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
+        base.preferred ?? null, base.nonOperatingAssets ?? null).perShare;
+    }),
+  );
+  return { growthShiftsPp, marginShiftsPp, perShare, notes };
 }
 
 // ---------------------------------------------------------------------------
@@ -1932,6 +2196,7 @@ export function reverseDcf(
       [],
       opts.minorityInterest ?? null,
       opts.preferred ?? null,
+      opts.nonOperatingAssets ?? null,
     ).perShare;
   };
 
@@ -3913,6 +4178,12 @@ export interface ValuationBundleInputs {
   operatingLeaseLiability?: number | null;
   /** WS6 (D-19): THESIS_EV_INCLUDE_LEASES — keep leases in the EV bridge. */
   includeLeasesInEv?: boolean;
+  /**
+   * D-60: marketable equity securities the house net debt excluded from cash,
+   * at their filed fair value. The DCF bridge adds them back as a separately
+   * disclosed non-operating asset. Null ⇒ none identified.
+   */
+  nonOperatingAssets?: { value: number; basis: string } | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
   multiples: MultiplesFrameworkInputs;
@@ -3929,6 +4200,8 @@ export type ValuationResult =
       assumptions: DcfAssumptions | null;
       dcf: DcfResult | null;
       sensitivity: SensitivityGrid | null;
+      /** D-60: year-one growth × sustained margin grid; absent on results built before D-60. */
+      growthMarginGrid?: GrowthMarginGrid | null;
       reverseDcf: ReverseDcfResult | null;
       multiples: MultiplesResult;
       notes: string[];
@@ -4192,6 +4465,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   let assumptions: DcfAssumptions | null = null;
   let dcf: DcfResult | null = null;
   let sensitivity: SensitivityGrid | null = null;
+  let growthMargin: GrowthMarginGrid | null = null;
   let reverse: ReverseDcfResult | null = null;
   // ADR currency guard (2026-07-09 audit H3): the per-share DCF value is in the
   // statements' reportedCurrency while the price it is graded against is in the
@@ -4281,15 +4555,66 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
                 "Operating-lease cost is inside the EBIT this DCF projects (ASC 842), so its liability is not debt here; finance-lease right-of-use amortisation is inside EBIT, while its interest is below EBIT, and its liability remains financing debt."),
         );
       }
+      // D-60: equity securities left out of cash return as a non-operating
+      // asset at their filed fair value, only when net debt itself bridges.
+      const nonOperating =
+        isNum(netDebtForBridge) && inputs.nonOperatingAssets && isNum(inputs.nonOperatingAssets.value) && inputs.nonOperatingAssets.value > 0
+          ? inputs.nonOperatingAssets
+          : null;
+      if (nonOperating !== null) {
+        notes.push(
+          `DCF equity bridge adds non-operating assets of ${fmtNum(nonOperating.value)}: ${nonOperating.basis}. ` +
+            "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount is estimated.",
+        );
+      }
       const runOpts: DcfRunOptions = {
         waccPct: inputs.waccPct,
         netDebt: netDebtForBridge,
         dilutedShares: inputs.dilutedShares,
         minorityInterest: inputs.minorityInterest ?? null,
         preferred: inputs.preferred ?? null,
+        ...(nonOperating !== null ? { nonOperatingAssets: nonOperating.value } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
       sensitivity = sensitivityGrid(assumptions, runOpts);
+      growthMargin = growthMarginGrid(assumptions, runOpts);
+      // D-60: the terminal transition, stated. The explicit years reinvest
+      // revenue growth / sales-to-capital; the Gordon year reinvests g / RONIC.
+      // Where the two conventions disagree FCFF steps at year N+1, and the
+      // reader should see that it is a convention meeting, not a forecast.
+      const lastRow = dcf.yearRows.at(-1);
+      if (lastRow && lastRow.nopat > 0) {
+        const wTerm = (assumptions.wacc.value - dcf.gTermUsedPct) / 100;
+        const fcffNext = dcf.terminalValue * wTerm;
+        const roicTerm = assumptions.terminal.roicTermPct.value;
+        const termReinvest = roicTerm > 0 ? Math.min(1, dcf.gTermUsedPct / roicTerm) : 0;
+        const lastReinvest = lastRow.reinvestment / lastRow.nopat;
+        const impliedRonic = (lastRow.nopat / lastRow.revenue) * assumptions.salesToCapital.value * 100;
+        const step = lastRow.fcff !== 0 ? (fcffNext / lastRow.fcff - 1) * 100 : null;
+        const text =
+          `terminal transition: FCFF ${fmtMoney(lastRow.fcff)} in year ${lastRow.year} becomes ${fmtMoney(fcffNext)} in year ${lastRow.year + 1}` +
+          `${step === null ? "" : ` (${step >= 0 ? "+" : ""}${fmtNum(step)}%)`}: reinvestment moves from ${fmtNum(lastReinvest * 100)}% of NOPAT ` +
+          `(revenue growth / sales-to-capital, an implied return on new capital of ${fmtNum(impliedRonic)}%) to ${fmtNum(termReinvest * 100)}% ` +
+          `(terminal growth ${fmtNum(dcf.gTermUsedPct)}% / terminal ROIC ${fmtNum(roicTerm)}%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)`;
+        assumptions.terminal.reinvestmentRate = { ...assumptions.terminal.reinvestmentRate, basis: `${assumptions.terminal.reinvestmentRate.basis}; ${text}` };
+        notes.push(`DCF ${text}.`);
+      }
+      // D-60: say which share count divides the equity value. The weighted
+      // diluted count includes option and RSU dilution; a quote's market cap
+      // divides by basic shares outstanding at the quote date.
+      const quotePrice = inputs.multiples.quote.price;
+      const quoteCap = inputs.multiples.quote.marketCap;
+      if (isNum(inputs.dilutedShares) && inputs.dilutedShares > 0 && isNum(quotePrice) && quotePrice > 0 && isNum(quoteCap) && quoteCap > 0) {
+        const implied = quoteCap / quotePrice;
+        const diff = (inputs.dilutedShares / implied - 1) * 100;
+        if (Math.abs(diff) >= 0.1) {
+          notes.push(
+            `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(inputs.dilutedShares)}; the quoted market cap implies ${fmtMoney(implied)} shares ` +
+              `outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. The gap is option and RSU dilution plus repurchases or issuance since the quarter; ` +
+              "the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).",
+          );
+        }
+      }
       // The reverse DCF solves for the growth the market cap implies, so it
       // needs the quote and the model in one known currency; the DCF and its
       // grid are price-free and stand either way.
@@ -4311,5 +4636,5 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       gaps.push(...dcf.gaps, ...(reverse?.gaps ?? []));
     }
   }
-  return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity, reverseDcf: reverse, multiples, notes, gaps };
+  return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity, growthMarginGrid: growthMargin, reverseDcf: reverse, multiples, notes, gaps };
 }
