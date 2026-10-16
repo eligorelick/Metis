@@ -10,11 +10,20 @@ correction disclosure. Original stored reports, model output, usage and analysis
 conventions remain preserved; no paid analyst or judge rerun is involved. The
 actual frozen CRWV analyst payload is byte-identical (fingerprint
 `1.24.2:71b55ac7`; exact SHA-256 recorded in D-74), so only the report convention
-stamp changes. The complete local `npm run verify` passed: 6,370 product tests
-(three skipped), four database integration tests, both configured coverage
+stamp changes.
+
+D-75 additionally binds plain table scales immediately preceding explicit date
+columns. Conflicting declarations and unsupported qualifiers remain unchecked.
+Frozen CRWV replay corrects only `balanceSheet.coverage.numbers[2]` and
+`balanceSheet.coverage.commentary[2]`; commentary remains numeric-only support.
+The original report, snapshot, computation and analyst payload are unchanged,
+with no paid rerun. Corrected exports preserve the original report 1.19.2
+convention; new reports use 1.19.3, while payload and Stage B remain unchanged.
+The complete combined D-74/D-75 local `npm run verify` passed: 6,377 product
+tests (three skipped), four database integration tests, both configured coverage
 gates, production build and zero-vulnerability security audit. Independent source
-review found no remaining reviewed blocker. Fresh required CI for D-74 remains
-pending; these checks do not establish forecast accuracy or calibrated grades.
+review found no remaining reviewed blocker. Fresh required CI remains pending;
+these checks do not establish forecast accuracy or calibrated grades.
 
 The NVDA audit recovery (D-65 through D-72) changes consensus calendarization,
 the non-operating investment bridge and valuation date. The subsequent debt

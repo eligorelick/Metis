@@ -97,7 +97,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.19.1 (D-72): exhibit-bound disclosures, restatement/currency selection,
 // conservative missing-interest EPS, acquisition cash and segment provenance.
 // 1.19.2 (D-73): withhold incomplete debt carrying values and dependent metrics.
-// 1.19.3: source-scoped principal summaries and immutable legacy presentation corrections.
+// 1.19.3 (D-74, D-75): source-scoped principal summaries, immutable legacy
+// presentation corrections and source-bound preceding-table scale verification.
 export const REPORT_SPEC_VERSION = "1.19.3" as const;
 
 /* ------------------------------------------------------------------------ *
