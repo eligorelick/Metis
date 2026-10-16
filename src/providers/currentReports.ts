@@ -267,17 +267,27 @@ function earningsExhibitRole(type: string): "release" | "commentary" | null {
 }
 
 function earningsFilings(filings: readonly EdgarFiling[], today: string, notes: string[]): EdgarFiling[] {
-  const candidates = recentEightKs(filings, today, RELEASE_WINDOW_DAYS, (f) => itemsOf(f.items).includes("2.02"));
-  // A shared nonempty SEC reportDate establishes the amended event. Do this
-  // before document reads: an unreadable amendment must not revive stale data.
-  // Do not infer amendment linkage from proximity or fiscal quarter alone.
-  return candidates.filter((filing, i) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(filing.reportDate)) return true;
-    const amendment = candidates.slice(0, i).find((newer) => newer.form === "8-K/A" && newer.reportDate === filing.reportDate);
-    if (!amendment) return true;
-    notes.push(`${filing.form} ${filing.accessionNumber} (${filing.filingDate}) superseded for earnings by 8-K/A ${amendment.accessionNumber} (${amendment.filingDate}); original values are not substituted for unreadable amended evidence.`);
-    return false;
-  }).slice(0, MAX_EARNINGS_RELEASES);
+  const recent = recentEightKs(filings, today, RELEASE_WINDOW_DAYS, () => true);
+  const candidates = recent.filter((filing, i) => itemsOf(filing.items).includes("2.02") ||
+    (filing.form === "8-K/A" && itemsOf(filing.items).includes("9.01") && /^\d{4}-\d{2}-\d{2}$/.test(filing.reportDate) &&
+      recent.slice(i + 1).some((earlier) => itemsOf(earlier.items).includes("2.02") && earlier.reportDate === filing.reportDate)));
+  // Reserve bounded inspection capacity for linked exhibit amendments. They
+  // are candidates, not admitted earnings records, until their text is read.
+  if (candidates.length > MAX_EARNINGS_RELEASES * 2) notes.push(`Earnings inspection limited to ${MAX_EARNINGS_RELEASES * 2} candidate filings including linked amendments; older candidates omitted.`);
+  return candidates.slice(0, MAX_EARNINGS_RELEASES * 2);
+}
+
+/** Reporting-period order, with filing/acceptance order only breaking ties. */
+export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
+  const fiscalOrder = (record: EarningsReleaseRecord): number | null => record.reported.fiscal === null ? null
+    : record.reported.fiscal.fiscalYear * 4 + (record.reported.fiscal.fiscalQuarter ?? 4);
+  return [...records].sort((a, b) => {
+    if (a.reported.periodEnd !== null && b.reported.periodEnd !== null && a.reported.periodEnd !== b.reported.periodEnd) return b.reported.periodEnd.localeCompare(a.reported.periodEnd);
+    const af = fiscalOrder(a), bf = fiscalOrder(b);
+    if (af !== null && bf !== null && af !== bf) return bf - af;
+    if ((af !== null) !== (bf !== null)) return af === null ? 1 : -1;
+    return b.filingDate.localeCompare(a.filingDate) || (b.acceptedAt ?? "").localeCompare(a.acceptedAt ?? "") || b.accession.localeCompare(a.accession);
+  });
 }
 
 export async function collectCurrentReports(
@@ -292,9 +302,20 @@ export async function collectCurrentReports(
   const events: MaterialEventFiling[] = [];
   let fetchedAt: string | null = null;
   let attempted = 0;
+  const amendedEvents = new Map<string, EdgarFiling>();
 
   const earnings = earningsFilings(filings, today, notes);
-  for (const [position, filing] of earnings.entries()) {
+  for (const filing of earnings) {
+    const event = /^\d{4}-\d{2}-\d{2}$/.test(filing.reportDate) ? filing.reportDate : null;
+    const amendment = event === null ? undefined : amendedEvents.get(event);
+    if (amendment) {
+      notes.push(`${filing.form} ${filing.accessionNumber} (${filing.filingDate}) superseded for earnings by 8-K/A ${amendment.accessionNumber} (${amendment.filingDate}); original values are not substituted for unreadable amended evidence.`);
+      continue;
+    }
+    const linkedExhibitAmendment = !itemsOf(filing.items).includes("2.02");
+    // Withhold the original while linked amendment scope is unknown. Only a
+    // readable, unrelated primary/exhibit permits restoring that original.
+    if (filing.form === "8-K/A" && event !== null) amendedEvents.set(event, filing);
     attempted += 1;
     const problem = filingProblem(edgar, cik, filing);
     if (problem !== null) {
@@ -306,10 +327,18 @@ export async function collectCurrentReports(
       notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): exhibit index unreadable (${index})`);
       continue;
     }
+    const primary = linkedExhibitAmendment ? await fetchText(edgar, cik, filing, filing.primaryDocument) : null;
+    const primaryText = primary !== null && typeof primary !== "string" ? plain(primary.text) : null;
+    const primaryEarnings = primaryText !== null && /\bItem\s+2\.02\b|\b(?:earnings release|financial results|results of operations)\b/i.test(primaryText);
     const releaseDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "release") ??
       findDocumentByType({ ...index, documents: index.documents.filter((d) => earningsExhibitRole(d.type) !== "commentary") }, "EX-99");
     const commentaryDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "commentary") ?? null;
     if (!releaseDoc && !commentaryDoc) {
+      if (linkedExhibitAmendment && primaryText !== null && !primaryEarnings && event !== null) {
+        amendedEvents.delete(event);
+        notes.push(`8-K/A ${filing.accessionNumber}: linked Item 9.01 amendment supplies no earnings scope or EX-99 exhibit; original earnings evidence retained.`);
+        continue;
+      }
       notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): Item 2.02 filing furnishes no EX-99 exhibit`);
       continue;
     }
@@ -328,6 +357,18 @@ export async function collectCurrentReports(
       else { commentaryText = plain(commentary.text); commentaryUrl = commentary.url; fetchedAt ??= commentary.fetchedAt; }
     }
     if (releaseUrl === null && commentaryUrl === null) continue;
+    if (linkedExhibitAmendment) {
+      const exhibits = [releaseText, commentaryText ?? ""];
+      const exhibitEarnings = exhibits.some((text) => parseReportedPeriod(text).fiscal !== null && /\b(?:financial results|earnings|CFO commentary)\b/i.test(text.slice(0, 6_000)));
+      if (!primaryEarnings && !exhibitEarnings) {
+        const allRead = (releaseDoc === null || releaseDoc === undefined || releaseUrl !== null) && (commentaryDoc === null || commentaryUrl !== null);
+        if (primaryText !== null && allRead && event !== null) {
+          amendedEvents.delete(event);
+          notes.push(`8-K/A ${filing.accessionNumber}: readable linked Item 9.01 primary/exhibits contain no earnings scope; original earnings evidence retained.`);
+        } else notes.push(`8-K/A ${filing.accessionNumber}: linked Item 9.01 earnings scope remains unestablished; corresponding original withheld.`);
+        continue;
+      }
+    }
     const record = buildEarningsReleaseRecord({
       filing,
       releaseUrl,
@@ -336,7 +377,7 @@ export async function collectCurrentReports(
       commentaryExhibit: commentaryDoc?.type.trim() ?? null,
       releaseText,
       commentaryText,
-      includeNarrative: position === 0,
+      includeNarrative: true,
     });
     const guidance = record.guidance;
     if (guidance === null) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): no outlook section was found in the release or commentary`);
@@ -344,6 +385,8 @@ export async function collectCurrentReports(
     for (const sentence of guidance?.unparsed ?? []) notes.push(`8-K ${filing.accessionNumber}: outlook sentence not read as guidance: "${sentence}"`);
     releases.push(record);
   }
+  const ordered = orderedEarningsReleases(releases).slice(0, MAX_EARNINGS_RELEASES);
+  releases.splice(0, releases.length, ...ordered.map((record, i) => i === 0 ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
   const eventFilings = recentEightKs(filings, today, EVENT_WINDOW_DAYS, (f) => hasMaterialEventItem(f.items)).slice(0, MAX_EVENT_FILINGS);

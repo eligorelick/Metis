@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildEarningsReleaseRecord, collectCurrentReports, CURRENT_REPORTS_VERSION, type CurrentReports, type EarningsReleaseRecord } from "@/providers/currentReports";
 import type { EdgarClient, EdgarFiling } from "@/providers/edgar";
-import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { runStageB } from "@/pipeline/compute";
 import { FilingDisclosuresSchema } from "@/report/schema";
@@ -43,6 +43,63 @@ function clientFor(documents: Record<string, Array<{ type: string; filename: str
 }
 
 describe("earnings exhibit provenance review", () => {
+  it("inspects a linked Item 9.01 amendment whose exhibit corrects the earnings release", async () => {
+    const { client, requested } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [{ type: "EX-99.1", filename: "fixed.htm", text: release.replace("21,341", "22,341") }] });
+    const result = await collectCurrentReports(client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+    expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["amended"]);
+    expect(requested).toContain("index:amended");
+    if (!result.ok) return;
+    expect(result.value.data.releases[0]!.freeCashFlow.find((f) => f.periodEnd === "2026-07-26" && f.months === 3)).toMatchObject({ value: 22_341e6, source: { form: "8-K/A", accession: "amended" } });
+  });
+
+  it("leaves the original intact when a linked Item 9.01 amendment is clearly unrelated to earnings", async () => {
+    const { client } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [{ type: "8-K/A", filename: "amended.htm", text: "Item 9.01 Financial Statements and Exhibits. This amendment adds the supplier agreement exhibit only." }, { type: "EX-99.1", filename: "other.htm", text: "NVIDIA announces a supplier agreement and product exhibition." }] });
+    const result = await collectCurrentReports(client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+    expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["original"]);
+  });
+
+  it("withholds an original when its linked Item 9.01 amendment cannot establish whether earnings were corrected", async () => {
+    const { client, requested } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }] });
+    const result = await collectCurrentReports(client, "1", [original, { ...amended, items: "9.01" }], "2026-08-28", "submissions");
+    expect(result.ok).toBe(false);
+    expect(requested).toContain("index:amended");
+    expect(requested).not.toContain("index:original");
+  });
+
+  it("does not inspect unrelated-event, undated or ordinary Item 9.01 filings as earnings amendments", async () => {
+    for (const candidate of [{ ...amended, reportDate: "2026-08-27", items: "9.01" }, { ...amended, reportDate: "", items: "9.01" }, { ...amended, form: "8-K", items: "9.01" }]) {
+      const { client, requested } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [{ type: "EX-99.1", filename: "other.htm", text: release.replace("21,341", "22,341") }] });
+      const result = await collectCurrentReports(client, "1", [original, candidate], "2026-08-28", "submissions");
+      expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["original"]);
+      expect(requested).not.toContain("index:amended");
+    }
+  });
+
+  it("keeps the latest reported quarter current when a later filing amends an older quarter", async () => {
+    const q1 = readFileSync("fixtures/edgar/nvda-current-reports/q1fy27-ex99-1.txt", "utf8");
+    const older: EdgarFiling = { ...original, accessionNumber: "older", filingDate: "2026-05-20", reportDate: "2026-05-20" };
+    const late = { ...amended, filingDate: "2026-09-01", reportDate: older.reportDate };
+    const { client } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], older: [{ type: "EX-99.1", filename: "q1.htm", text: q1 }], amended: [{ type: "EX-99.1", filename: "q1fixed.htm", text: q1 }] });
+    const result = await collectCurrentReports(client, "1", [original, older, late], "2026-09-01", "submissions");
+    expect(result.ok && result.value.data.releases.map((r) => [r.accession, r.reported.periodEnd])).toEqual([["original", "2026-07-26"], ["amended", "2026-04-26"]]);
+    if (!result.ok) return;
+    expect(result.value.data.releases[0]!.releaseNarrative).toContain("Second Quarter Fiscal 2027");
+    expect(result.value.data.releases[1]!.releaseNarrative).toBeNull();
+    const bundle = withRelease(result.value.data.releases[0]!);
+    const reports = bundle.edgar.currentReports;
+    if (!reports?.ok) throw new Error("missing fixture reports");
+    reports.value.data = result.value.data;
+    expect(nextPeriodRevenueGuidance(bundle)).toMatchObject({ periodLabel: "Q3 FY2027", mid: 108e9, accession: "original" });
+    expect(buildFilingDisclosures(bundle)!.freeCashFlow[0]!.source.accession).toBe("original");
+    // Legacy saved arrays can still be filing-date ordered. Selection must
+    // not revive the older quarter's already-reported Q2 outlook.
+    reports.value.data.releases.reverse();
+    expect(nextPeriodRevenueGuidance(bundle)).toMatchObject({ periodLabel: "Q3 FY2027", mid: 108e9 });
+    reports.value.data.releases.find((r) => r.accession === "original")!.guidance = null;
+    expect(nextPeriodRevenueGuidance(bundle)).toBeNull();
+    expect(buildFilingDisclosures(bundle)!.guidance?.rows.some((r) => r.period === "Q2 FY2027")).not.toBe(true);
+  });
+
   it("keeps commentary-only FCF and reconciliation provenance through the report and payload", () => {
     const record = buildEarningsReleaseRecord({ filing: original, releaseUrl: "https://www.sec.gov/release", commentaryUrl: "https://www.sec.gov/commentary", releaseText: "NVIDIA Announces Financial Results for Second Quarter Fiscal 2027. Quarter ended July 26, 2026.", commentaryText: commentary, includeNarrative: true });
     expect(record.freeCashFlow.length).toBeGreaterThan(0);
@@ -127,9 +184,9 @@ describe("earnings exhibit provenance review", () => {
     const unrelated = { ...amended, reportDate: "2026-08-27" };
     const { client } = clientFor({ original: [{ type: "EX-99.1", filename: "pr.htm", text: release }], amended: [{ type: "EX-99.1", filename: "other.htm", text: release.replaceAll("Second Quarter Fiscal 2027", "First Quarter Fiscal 2027").replaceAll("July 26, 2026", "April 26, 2026") }] });
     const result = await collectCurrentReports(client, "1", [original, unrelated], "2026-08-28", "submissions");
-    expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["amended", "original"]);
+    expect(result.ok && result.value.data.releases.map((r) => r.accession)).toEqual(["original", "amended"]);
     const blankDates = await collectCurrentReports(client, "1", [{ ...original, reportDate: "" }, { ...amended, reportDate: "" }], "2026-08-28", "submissions");
-    expect(blankDates.ok && blankDates.value.data.releases.map((r) => r.accession)).toEqual(["amended", "original"]);
+    expect(blankDates.ok && blankDates.value.data.releases.map((r) => r.accession)).toEqual(["original", "amended"]);
     const future = await collectCurrentReports(client, "1", [original, { ...amended, filingDate: "2026-08-29" }], "2026-08-28", "submissions");
     expect(future.ok && future.value.data.releases.map((r) => r.accession)).toEqual(["original"]);
   });

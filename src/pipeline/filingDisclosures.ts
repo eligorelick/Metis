@@ -19,6 +19,7 @@ import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/provide
 import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "@/providers/currentReports";
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { orderedEarningsReleases } from "@/providers/currentReports";
 import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import {
   parseBusinessCombinationFacts,
@@ -177,9 +178,10 @@ function guidedQuarterEnd(base: string | null): Pick<RevenueGuidanceAnchor, "per
 
 export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAnchor | null {
   const reports = currentReportsOf(bundle);
-  const release = reports?.releases.find((r) => (r.guidance?.items.length ?? 0) > 0);
+  const releases = orderedEarningsReleases(reports?.releases ?? []);
+  const release = releases.find((r) => r.guidance?.items.some((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && forwardGuidance(i, releases)));
   if (!release || !release.guidance) return null;
-  const item = release.guidance.items.find((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && i.basis !== "non-gaap");
+  const item = release.guidance.items.find((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && i.basis !== "non-gaap" && forwardGuidance(i, releases));
   if (!item || item.period.fiscalQuarter === null) return null;
   const sourceCurrency = releaseReportingCurrency(bundle, release);
   const currency = symbolCurrency(item.symbol, sourceCurrency);
@@ -211,6 +213,13 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
 }
 
 type GuidanceRows = NonNullable<FilingDisclosures["guidance"]>["rows"];
+
+function forwardGuidance(item: GuidanceItem, releases: readonly EarningsReleaseRecord[]): boolean {
+  const latest = releases.find((release) => release.reported.fiscal !== null)?.reported.fiscal;
+  if (!latest) return true;
+  return item.period.fiscalQuarter === null ? item.period.fiscalYear >= latest.fiscalYear
+    : item.period.fiscalYear * 4 + item.period.fiscalQuarter > latest.fiscalYear * 4 + (latest.fiscalQuarter ?? 4);
+}
 
 function guidanceRows(items: readonly GuidanceItem[], currency: string | null, sourceCurrency: string | null, notes: string[]): GuidanceRows {
   const rows: GuidanceRows = [];
@@ -368,7 +377,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const segmentsRes = bundle.edgar?.quarterlySegments;
   const segments = segmentsRes?.ok ? segmentsRes.value.data : null;
   const currency = statementReportingCurrency(bundle);
-  const releases = reports?.releases ?? [];
+  const releases = orderedEarningsReleases(reports?.releases ?? []);
   const notes: string[] = [];
   const trend = quarterlyTrend(bundle, releases, currency, notes);
   const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases, notes);
@@ -382,13 +391,13 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     if (sourceCurrency === null || sourceCurrency !== currency) notes.push(`Implicit-dollar amounts from 8-K ${release.accession} (reported period ${release.reported.periodEnd ?? "unknown"}) are left out: that period's statement currency is ${sourceCurrency ?? "unestablished"}, rather than current ${currency ?? "unestablished"}. Explicit currency labels are checked separately.`);
   }
 
-  const guided = releases.find((r) => (r.guidance?.items.length ?? 0) > 0);
+  const guided = releases.find((r) => r.guidance?.items.some((i) => forwardGuidance(i, releases)));
   const guidance: FilingDisclosures["guidance"] = guided && guided.guidance
     ? {
         source: releaseRef(guided, guided.guidanceExhibit),
         reportedPeriod: guided.reported.fiscal?.label ?? null,
         reportedPeriodEnd: guided.reported.periodEnd,
-        rows: guidanceRows(guided.guidance.items, currency, releaseReportingCurrency(bundle, guided), notes),
+        rows: guidanceRows(guided.guidance.items.filter((i) => forwardGuidance(i, releases)), currency, releaseReportingCurrency(bundle, guided), notes),
         qualifiers: guided.guidance.qualifiers.map((q) => safeText(q, "An issuer outlook caveat is withheld from display by the rating-language filter; see the release.")),
       }
     : null;
