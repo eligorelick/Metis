@@ -11,6 +11,13 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-73 (debt completeness, 2026-10-16) Withhold partial debt instead of publishing an understated enterprise value
+
+- **Evidence:** A current quarterly EDGAR balance selected a maturity-schedule amount as short-term debt while long-term carrying debt was absent. Adding leases produced a partial total that understated financing debt. The filing's debt note and aggregate XBRL debt evidence conflicted with that construction. Gross principal, maturity schedules and carrying values are different measures and cannot substitute for one another without reconciliation.
+- **Choice:** Preserve a refusal when the available debt components do not establish a complete carrying-value balance. Do not fill the refused amount from a partial vendor row or an older balance sheet. Withhold dependent metrics through the existing missing-data path. Complete balances and evidenced zero debt remain eligible. Extension-tag carrying-value extraction is outside this bounded correction; missing data remains visible.
+- **Versions and preservation:** Report `1.19.2`, payload `1.24.2`, Stage B `STAGE_B_2026_10_DEBT_COMPLETENESS_1`. Prior saved reports, snapshots and analyst artifacts retain their original meaning and cannot resume as equivalent. The complete-debt DEMO projection changes only its report-version leaf; all financial values remain pinned. Original analysis and recovery artifacts are retained. New paid analyses require the corrected input context, rather than relabeling old-context work.
+- **Release gates:** Focused debt/refusal regressions, complete and zero-debt controls, the combined local verify gate, independent review and fresh required remote CI remain gates. The preceding Windows export-test follow-up changes only explicit I/O test deadlines, preserving assertions and application source.
+
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
 ## D-72 (PR review, 2026-10-16) Preserve the source and withhold unsupported financial history

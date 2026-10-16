@@ -371,7 +371,9 @@ export interface ContextPayload {
 // typed filing facts and governance disclosures, bounded verifier matching,
 // and corrected forensic notes. Prior analyst/judge artifacts cannot resume.
 // 1.24.1 (D-72): revised financial evidence and source-bound filing facts.
-export const PAYLOAD_VERSION = "1.24.1" as const;
+// 1.24.2 (D-73): incomplete debt is withheld, including downstream valuation
+// context. Analysts from earlier conventions cannot resume as equivalent.
+export const PAYLOAD_VERSION = "1.24.2" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

@@ -9480,11 +9480,18 @@
             ],
             "notes": []
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "d73-debt-completeness",
+      "decisions": ["D-73"],
+      "reason": "D-73: report 1.19.2 withholds incomplete debt carrying values and dependent metrics rather than substituting maturity amounts, partial totals or older balance sheets. This complete-debt DEMO fixture changes only its report convention stamp; every financial value remains pinned. Saved historical reports retain their original conventions.",
+      "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.19.1"
+          "after": "1.19.2"
         }
       ]
     }
