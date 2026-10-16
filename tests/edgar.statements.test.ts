@@ -378,7 +378,8 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
 
   it("rebuilds a fourth-quarter EPS from net income and the day-weighted share identity, not FY − nine-month EPS", () => {
     const base = appleLike();
-    const shares = base.facts["us-gaap"]!.WeightedAverageNumberOfDilutedSharesOutstanding!.units.shares!;
+    const concept = base.facts["us-gaap"]!.WeightedAverageNumberOfDilutedSharesOutstanding as { units: { shares: object[] } };
+    const shares = concept.units.shares;
     // Q1 and Q2 three-month counts (Q3 = 14,900 and FY = 15,000 are already tagged).
     shares.push(
       { start: "2024-09-29", end: "2024-12-28", val: 15_100, accn: "q1-shares", fy: 2025, fp: "Q1", form: "10-Q", filed: "2025-01-31" },
