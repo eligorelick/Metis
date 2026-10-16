@@ -1982,8 +1982,13 @@ function resolveDebtOverlaps(
   const longTermTags = tagsOf("longTermDebt");
   // Case 2.
   if (longTermTags.includes("LongTermDebt") && v.longTermDebt != null) {
-    const current = cc.money("LongTermDebtCurrent") ?? (maturitiesStand ? maturities : null);
-    if (current !== null) {
+    const current = cc.money("LongTermDebtCurrent") ?? (maturitiesStand && scopeReason === null ? maturities : null);
+    if (scopeReason !== null && current === null) {
+      const reason = "noncurrent carrying debt allocation unavailable: LongTermDebt includes current maturities, but the fiscal maturity bucket was rejected as current carrying debt";
+      v.longTermDebt = null;
+      notes.withhold("longTermDebt", ctx, reason);
+      notes.add(`longTermDebt ${ctx}: ${reason}`);
+    } else if (current !== null) {
       v.longTermDebt = tidy(v.longTermDebt - current, MONEY_DECIMALS);
       notes.add(
         `longTermDebt ${ctx}: LongTermDebt less current maturities (${cc.money("LongTermDebtCurrent") !== null ? "LongTermDebtCurrent" : MATURITIES_NEXT_YEAR_TAG} ${current})`,
@@ -2237,7 +2242,7 @@ function buildStatementRows<TRow>(
     }
     row.fieldProvenance = fieldProvenance;
     if (def.statement === "balance") {
-      const refused = notes.withheld.filter((held) => ["shortTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
+      const refused = notes.withheld.filter((held) => ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
       if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
         { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
     }

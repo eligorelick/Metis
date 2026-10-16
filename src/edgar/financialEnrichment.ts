@@ -64,6 +64,12 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const gaps: ManifestEntry[] = [];
   if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps };
   let out = row;
+  // Preserve raw observations for audit, but an explicitly rejected financing
+  // or lease component cannot establish any aggregate's carrying-value basis.
+  const refusedComponent = ["shortTermDebt", "longTermDebt", "financeLeaseLiability", "capitalLeaseObligations", "operatingLeaseLiability"]
+    .find((field) => row.fieldConflicts?.[field]?.usable === false);
+  const componentReason = refusedComponent === undefined ? null
+    : `incomplete debt carrying value: ${refusedComponent} is unavailable (${row.fieldConflicts![refusedComponent]!.reason})`;
   let presentationReason: string | null = null;
   const longTerm = out.fieldProvenance?.longTermDebt;
   const tagged = longTerm?.tags.includes("us-gaap/LongTermDebt") && longTerm.unit === currency && longTerm.periodEnd === row.date
@@ -71,7 +77,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const tagFiling = tagged?.evidence.filings[0];
   const source = tagFiling && longTerm?.filings.some((filing) => filing.accn === tagFiling.accn && filing.filed === tagFiling.filed)
     ? presentations.find((section) => section.accession === tagFiling.accn && section.form === tagFiling.form && section.filingDate === tagFiling.filed && section.filingDate <= observedAt.slice(0, 10)) : undefined;
-  if (source && tagged && tagFiling) {
+  if (componentReason === null && source && tagged && tagFiling) {
     const maturities = instant(facts, "LongTermDebtCurrent", currency, row.date, observedAt);
     const maturityFiling = maturities?.evidence.filings[0];
     const currentMaturities = maturityFiling?.accn === tagFiling.accn && maturityFiling.filed === tagFiling.filed ? maturities!.value : null;
@@ -119,7 +125,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     gaps.push({ field: `statements.balance.${row.date}.shortTermDebt`, reason: scopeReason, severity: "warn" });
   }
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
-  const reason = presentationReason ?? (scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
+  const reason = componentReason ?? presentationReason ?? (scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
     longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null));
   for (const field of ["totalDebt", "netDebt"] as const) {
     const prior = out.fieldConflicts?.[field];
