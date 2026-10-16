@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { createHash } from "node:crypto";
 
 import Database from "better-sqlite3";
 
@@ -12,6 +13,7 @@ import {
   validateStoredReportInReadMode,
 } from "@/report/legacyEntitySafety";
 import type { Report } from "@/report/schema";
+import { PRINCIPAL_CORRECTION_NOTE, principalSummaryCorrections } from "@/report/principalAggregationSafety";
 import { normalizeSymbol, sameEntitySymbol } from "@/symbol";
 
 export interface CorrectedCliArguments {
@@ -27,9 +29,11 @@ export interface CorrectedCliSummary extends CorrectedCliArguments {
   provenanceCoverage: Report["meta"]["provenanceCoverage"];
   dataCompleteness: Report["meta"]["dataCompleteness"];
   execution: Report["meta"]["execution"];
+  /** Present only when this export includes a deterministic principal-summary correction. */
+  principalCorrectionAudit?: string;
 }
 
-/** Reserve both new files before writing; never truncate user data or aliases. */
+/** Reserve all new files before writing; never truncate user data or aliases. */
 function writeNewExportFiles(files: readonly { path: string; content: string }[]): void {
   const opened: { path: string; fd: number }[] = [];
   try {
@@ -115,6 +119,8 @@ export function runCorrectedExport({
     if (safety === null) {
       throw new Error(`Report ${reportId} does not match a supported report schema`);
     }
+    const originalReport = JSON.parse(row.reportJson) as Report;
+    const principalCorrections = principalSummaryCorrections(originalReport);
     const report: Report = safety.report;
     if (
       normalizeSymbol(row.symbol) === null ||
@@ -237,15 +243,35 @@ export function runCorrectedExport({
     const outputJson = /\.html?$/i.test(outputHtml)
       ? outputHtml.replace(/\.html?$/i, ".json")
       : `${outputHtml}.json`;
+    const jsonContent = `${JSON.stringify(validated, null, 2)}\n`;
+    const principalCorrectionAudit = principalCorrections.length > 0 ? `${outputJson}.principal-correction.json` : undefined;
+    const correctionFiles = principalCorrectionAudit === undefined ? [] : [{
+      path: principalCorrectionAudit,
+      content: `${JSON.stringify({
+        kind: "deterministic-principal-summary-correction",
+        correctionVersion: "principal-summary-1",
+        originalReportId: reportId,
+        beforeReportSha256: createHash("sha256").update(row.reportJson).digest("hex"),
+        correctedReportSha256: createHash("sha256").update(jsonContent).digest("hex"),
+        originalMeta: originalReport.meta,
+        analystRerun: false,
+        judgeRerun: false,
+        originalStoredDataChanged: false,
+        disclosure: PRINCIPAL_CORRECTION_NOTE,
+        changes: principalCorrections,
+      }, null, 2)}\n`,
+    }];
     writeNewExportFiles([
       { path: outputHtml, content: reportToPrintHtml(validated) },
-      { path: outputJson, content: `${JSON.stringify(validated, null, 2)}\n` },
+      { path: outputJson, content: jsonContent },
+      ...correctionFiles,
     ]);
     return {
       dbFile,
       reportId,
       outputHtml,
       outputJson,
+      ...(principalCorrectionAudit === undefined ? {} : { principalCorrectionAudit }),
       withheldEntityStatements: safety.withheldCount,
       verificationRate: validated.meta.verificationRate,
       provenanceCoverage: validated.meta.provenanceCoverage,

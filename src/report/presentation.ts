@@ -12,6 +12,7 @@
  */
 
 import { parseSubscriptionModel } from "@/ai/contracts";
+import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -1377,7 +1378,7 @@ export function dataGapTables(c: Pick<ReportCompletenessPresentation, "classific
  * every table: what the grades, targets, weights, projections, citations and
  * forensic screens are and are not.
  */
-export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta">): string[] {
+export function methodologyNotes(report: Pick<Report, "scores" | "projections" | "valuation" | "meta"> & Partial<Pick<Report, "appendix">>): string[] {
   const notes = [
     "Grades and the composite score are deterministic house rules (bands, weights and signal transforms published in docs/METHODOLOGY.md). They have not been backtested against outcomes; a grade is a summary of the evidence shown, not a forecast.",
     "Intrinsic value, scenario values and projections are model ESTIMATEs computed from the disclosed inputs. They are not analyst price targets, guidance or predictions; the scenario display weights are a fixed prior, not probabilities.",
@@ -1389,6 +1390,7 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
   if (report.meta.judgeProtocol?.sharedModelFamily.shared) {
     notes.push("The judge pass ran on the same model family that wrote the bull and bear cases, so the adjudication is not an independent second opinion.");
   }
+  for (const gap of report.appendix?.missingData ?? []) if (gap.field === PRINCIPAL_CORRECTION_FIELD) notes.push(gap.reason);
   return notes;
 }
 

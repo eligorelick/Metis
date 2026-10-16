@@ -97,7 +97,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.19.1 (D-72): exhibit-bound disclosures, restatement/currency selection,
 // conservative missing-interest EPS, acquisition cash and segment provenance.
 // 1.19.2 (D-73): withhold incomplete debt carrying values and dependent metrics.
-export const REPORT_SPEC_VERSION = "1.19.2" as const;
+// 1.19.3: source-scoped principal summaries and immutable legacy presentation corrections.
+export const REPORT_SPEC_VERSION = "1.19.3" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2085,6 +2086,7 @@ export const FilingDisclosuresSchema = z
           form: z.string(),
           items: z.array(z.string()),
           summary: z.string(),
+          summaryCorrection: z.enum(["legacy-principal-total-withheld", "source-principal-summary-rederived"]).optional(),
           url: z.string(),
         })
         .strict(),

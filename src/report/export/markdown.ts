@@ -20,6 +20,7 @@
  */
 
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -890,6 +891,7 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report): string {
+  report = withPrincipalSummarySafety(report);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,

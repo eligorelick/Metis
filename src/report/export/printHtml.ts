@@ -1,4 +1,5 @@
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
+import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -691,6 +692,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report): string {
+  report = withPrincipalSummarySafety(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData);
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,

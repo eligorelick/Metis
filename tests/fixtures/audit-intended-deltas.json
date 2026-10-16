@@ -9481,11 +9481,18 @@
             },
             "shortInterest": null
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "principal-summary-safety",
+      "decisions": ["D-74"],
+      "reason": "D-74: report 1.19.3 scopes generated principal sums to proven distinct named issuance tranches and corrects legacy presentation copies immutably. This fixture has no affected principal annotation: only the report convention stamp changes; all financial leaves, grades and weights remain pinned. Saved reports retain their original conventions.",
+      "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.19.2"
+          "after": "1.19.3"
         }
       ]
     }
