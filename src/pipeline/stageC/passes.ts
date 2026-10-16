@@ -48,6 +48,7 @@ import { guardEarningsReferences } from "@/report/earningsReferences";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildMarketData } from "@/pipeline/marketData";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
@@ -3577,6 +3578,11 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // pipeline-filled from the bundle like the blocks above.
   const filingDisclosures = buildFilingDisclosures(args.bundle);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
+  // D-62: provider market and consensus data (quote, shares, EV, FY+1/FY+2
+  // consensus, price targets, grade counts, short interest) for the page-1
+  // key-data box. Copied as served; the payload the model saw is unchanged.
+  const marketData = buildMarketData(args.bundle, { isAdr: args.computed.route?.overlays?.includes("adr") === true });
+  if (marketData) candidate.marketData = marketData;
 
   // A failed verification pass still persists final assembly. Establish the
   // rendered destination here as well; provisional assembly retains the raw

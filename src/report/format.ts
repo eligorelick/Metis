@@ -31,9 +31,25 @@ export function normalizeFinancialUnit(unit: string): CanonicalFinancialUnit | n
   return normalized && CanonicalFinancialUnitSchema.safeParse(normalized).success ? normalized : null;
 }
 
+/**
+ * Round half away from zero on the DECIMAL value a figure stands for (D-62).
+ * `toFixed` rounds the binary double, so 81,615,000,000 / 1e9 (stored as
+ * 81.61499…) printed "81.61" in one table while a recast 81,616 printed
+ * "81.62" in the next. Cleaning to 15 significant digits first recovers the
+ * decimal the source printed.
+ */
+export function decimalRound(value: number, digits: number): number {
+  if (!Number.isFinite(value) || digits < 0) return value;
+  const sign = value < 0 ? -1 : 1;
+  const cleaned = Number(Math.abs(value).toPrecision(15));
+  const text = String(cleaned);
+  const shifted = text.includes("e") ? Math.round(cleaned * 10 ** digits) : Math.round(Number(`${text}e${digits}`));
+  return (sign * shifted) / 10 ** digits;
+}
+
 export function formatNumber(value: number | null | undefined, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return "n/a";
-  return value.toLocaleString("en-US", {
+  return decimalRound(value, digits).toLocaleString("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
@@ -52,7 +68,7 @@ export function formatCurrency(value: number | null | undefined, digits = 2): st
 
 export function formatPct(value: number | null | undefined, digits = 1, signed = false): string {
   if (value == null || !Number.isFinite(value)) return "n/a";
-  return `${signed && value >= 0 ? "+" : ""}${value.toFixed(digits)}%`;
+  return `${signed && value >= 0 ? "+" : ""}${decimalRound(value, digits).toFixed(digits)}%`;
 }
 
 const LARGE_NUMBER_SCALES: readonly [scale: number, suffix: string, digits: number][] = [
@@ -72,15 +88,15 @@ export function formatLargeNumber(value: number | null | undefined): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
   for (const [scale, suffix, digits] of LARGE_NUMBER_SCALES) {
-    const mantissa = (abs / scale).toFixed(digits);
+    const mantissa = decimalRound(abs / scale, digits).toFixed(digits);
     if (Number(mantissa) >= 1) return `${sign}${mantissa}${suffix}`;
   }
-  return `${sign}${abs.toFixed(2)}`;
+  return `${sign}${decimalRound(abs, 2).toFixed(2)}`;
 }
 
 export function formatMultiple(value: number | null | undefined, digits = 1): string {
   if (value == null || !Number.isFinite(value)) return "n/m";
-  return `${value.toFixed(digits)}×`;
+  return `${decimalRound(value, digits).toFixed(digits)}×`;
 }
 
 /**
@@ -103,11 +119,18 @@ function formatMoney(value: number, currency: string | null, large: boolean): st
   return withCurrency(large ? formatLargeNumber(value) : formatNumber(value, 2), currency);
 }
 
+/**
+ * D-62: a negative amount leads with a true minus sign before the currency
+ * ("−$7.35B", "−7.35B TWD"); "$-7.35B" put the sign inside the amount.
+ */
 function withCurrency(magnitude: string, currency: string | null): string {
   const code = (currency ?? "").trim().toUpperCase();
-  if (code === "USD") return `$${magnitude}`;
-  if (!ISO_CODE.test(code)) return `${magnitude} (currency unknown)`;
-  return `${magnitude} ${code}`;
+  const negative = magnitude.startsWith("-");
+  const sign = negative ? "−" : "";
+  const body = negative ? magnitude.slice(1) : magnitude;
+  if (code === "USD") return `${sign}$${body}`;
+  if (!ISO_CODE.test(code)) return `${sign}${body} (currency unknown)`;
+  return `${sign}${body} ${code}`;
 }
 
 const ISO_CODE = /^[A-Z]{3}$/;
@@ -173,13 +196,68 @@ function formatPipelineUnit(value: number, unit: string): string | null {
     case "days":
     case "quarters":
     case "rank":
-    case "score":
-    case "rsi":
     case "pctile":
       return `${formatNumber(value, Number.isInteger(value) ? 0 : 1)} ${unit.trim().toLowerCase()}`;
+    // D-62: a score, an index reading (RSI, MACD) and a 0-100 score carry no
+    // unit word a reader needs ("-1.1 score", "40.25 index", "95.00 0-100").
+    case "score":
+    case "index":
+    case "rsi":
+      return formatNumber(value, Math.abs(value) >= 10 ? 1 : 2);
+    case "0-100":
+      return `${formatNumber(value, 0)}/100`;
     default:
       return null;
   }
+}
+
+const SCALE_MULTIPLIER: Record<string, number> = {
+  thousand: 1e3, thousands: 1e3,
+  million: 1e6, millions: 1e6,
+  billion: 1e9, billions: 1e9,
+  trillion: 1e12, trillions: 1e12,
+};
+const SCALED_MONEY_UNIT = /^(currency|[A-Z]{3})\s+(thousands?|millions?|billions?|trillions?)\s*:(.*)$/s;
+
+/**
+ * The label an explicit excerpt unit carries after its scale ("USD millions:
+ * Free cash flow" → "Free cash flow"), or after a leading percent sign ("%
+ * Gross margin" → "Gross margin"). Null for an ordinary unit.
+ */
+export function unitLabel(unit: string): string | null {
+  const scaled = SCALED_MONEY_UNIT.exec(unit.trim());
+  if (scaled) return scaled[3].trim() || null;
+  const percent = /^%\s+(\S.*)$/s.exec(unit.trim());
+  return percent ? percent[1].trim() : null;
+}
+
+/**
+ * A value without the label its unit carries — for a table whose metric
+ * column already names it (D-62). Identical to {@link formatFinancialValue}
+ * for every unit that carries no label.
+ */
+export function formatFinancialAmount(value: number, unit: string, currency?: string | null): string {
+  const scaled = SCALED_MONEY_UNIT.exec(unit.trim());
+  if (scaled) return scaledMoneyAmount(value, scaled[1], scaled[2], currency);
+  if (/^%\s+\S/.test(unit.trim())) return formatPct(value);
+  return formatFinancialValue(value, unit, currency);
+}
+
+/**
+ * An excerpt figure printed at a declared scale ("11,063 millions") shown as
+ * the compact amount it states ("$11.06B"): D-62 replaced the
+ * "$11,063.00 millions" spelling. The stored mantissa is unchanged; a
+ * nonzero amount too small for two decimals keeps three significant digits
+ * rather than reading as zero.
+ */
+function scaledMoneyAmount(value: number, code: string, scale: string, currency?: string | null): string {
+  if (!Number.isFinite(value)) return "n/a";
+  const amount = value * (SCALE_MULTIPLIER[scale.toLowerCase()] ?? 1);
+  const established = establishedCurrency(code, currency);
+  if (amount !== 0 && Math.abs(amount) < 0.005) {
+    return withCurrency(`${amount < 0 ? "-" : ""}${Math.abs(amount).toPrecision(3)}`, established);
+  }
+  return formatMoney(amount, established, Math.abs(amount) >= 1e6);
 }
 
 export function formatFinancialValue(
@@ -187,16 +265,15 @@ export function formatFinancialValue(
   unit: string,
   currency?: string | null,
 ): string {
-  // Explicit excerpt units store the printed mantissa, not base currency units.
-  // Keep that scale visible; compacting or multiplying here would change it.
-  const scaledMoney = /^(currency|[A-Z]{3})\s+(thousands?|millions?|billions?|trillions?)\s*:(.*)$/s.exec(unit.trim());
+  // Explicit excerpt units store the printed mantissa at a declared scale.
+  // D-62: shown as the compact amount it states, with the label it carries.
+  const scaledMoney = SCALED_MONEY_UNIT.exec(unit.trim());
   if (scaledMoney) {
-    // A fixed decimal limit can erase a nonzero amount at this printed scale.
-    const magnitude = value.toLocaleString("en-US", { maximumSignificantDigits: 21 });
-    const [whole, fraction = ""] = magnitude.split(".");
-    const preciseMagnitude = Number.isFinite(value) ? `${whole}.${fraction.padEnd(2, "0")}` : "n/a";
-    return `${withCurrency(preciseMagnitude, establishedCurrency(scaledMoney[1], currency))} ${scaledMoney[2]}:${scaledMoney[3]}`;
+    const label = scaledMoney[3].trim();
+    return `${scaledMoneyAmount(value, scaledMoney[1], scaledMoney[2], currency)}${label ? ` (${label})` : ""}`;
   }
+  const percentLabel = /^%\s+(\S.*)$/s.exec(unit.trim());
+  if (percentLabel) return `${formatPct(value)} (${percentLabel[1].trim()})`;
   const canonical = normalizeFinancialUnit(unit);
   switch (canonical) {
     case "percent": return formatPct(value);
@@ -221,6 +298,10 @@ export function formatFinancialValue(
  * of a peer table. Keying by the metric's own provenance fixes the alignment.
  */
 export function peerMetricKey(metric: TracedNumber): string {
+  // D-62: a peer's market-cap figure is registered under the PEER's own slug
+  // (payload.peers.<symbol>-<name>), so keying by the trailing segment gave
+  // every peer its own column — a diagonal table of dashes.
+  if (/^payload\.peers\.[^.]+$/.test(metric.source)) return "Market cap";
   const tail = metric.source.split(/[.:/]/).filter(Boolean).pop();
   return tail && tail.length > 0 ? tail : metric.unit;
 }

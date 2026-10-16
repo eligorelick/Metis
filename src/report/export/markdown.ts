@@ -1,30 +1,30 @@
 /**
- * reportToMarkdown — a clean, complete, DETERMINISTIC Markdown rendering of a
- * full {@link Report} (report sections 1–13 + appendix). This is the
- * shareable artifact behind the "Export MD" button.
+ * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
+ * {@link Report} (report sections 1–13 + appendix) for an institutional
+ * reader. This is the shareable artifact behind the "Export MD" button.
  *
  * Design goals (mirror the on-screen ReportView, plain-text edition):
- *   - Every section header is present, numbered as on screen.
- *   - Every figure carries its as-of date and its FACT/ESTIMATE/JUDGMENT label
- *     (rules #2 and #5 are structural in the schema — we surface them).
- *   - Tables render as GitHub-flavored Markdown tables.
+ *   - Page 1 carries the call: a short run header, the key-data box, the
+ *     verdict, the grades and the bull/bear disagreements.
+ *   - Every claim carries its FACT/ESTIMATE/JUDGMENT label and ONE source
+ *     marker with its as-of date; every figure carries a reader label, a
+ *     rounded value and its as-of date (rules #2 and #5).
+ *   - Audit material — registry ids, raw values, the verification log, the
+ *     deterministic checks, the full missing-data manifest, the projection
+ *     series and the execution record — lives in the separate audit export
+ *     (src/report/export/auditMarkdown.ts, D-62).
  *   - The mandatory disclaimer and the FRED attribution appear verbatim.
- *   - DETERMINISTIC: same input → byte-identical output. No `Date.now()`, no
- *     locale-dependent formatting, no Map/Set iteration-order surprises; the
- *     `asOfMap` (a record) is rendered with sorted keys.
+ *   - DETERMINISTIC: same input → byte-identical output.
  *
- * Pure and dependency-free — safe to call from a route handler or a test. No
- * server-only imports (no db/providers), so it can also be unit-tested directly.
+ * Pure and dependency-free — safe to call from a route handler or a test.
  */
 
-import { formatExecutionMetadata } from "@/report/execution";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText } from "@/report/auditTables";
+import { valuationAuditTables, projectionAuditTables } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
-import { evidenceTimingRows, EVIDENCE_TIMING_NOTE, type EvidenceTimingRow } from "@/report/evidenceTiming";
 import type {
   Appendix,
   BalanceSheet,
@@ -38,9 +38,6 @@ import type {
   Macro,
   MetricRow,
   Projections,
-  ProvenanceCoverage,
-  CheckRate,
-  ConsistencyChecks,
   Quality,
   Report,
   RouteMetrics,
@@ -59,48 +56,70 @@ import {
   type ReportCompletenessPresentation,
 } from "@/report/completeness";
 import {
-  formatCostUsd,
+  formatFinancialAmount,
   formatFinancialValue,
-  numericCitationTraceLabel,
   tracedPeriodLabel,
   formatMoneyAmount,
   establishedCurrency,
   peerColumnKeys,
-  roundedDisplayedCostTotal,
 } from "@/report/format";
+import {
+  actionableGapTable,
+  annualSegmentHeading,
+  assessmentLine,
+  auditExportPath,
+  citedMark,
+  claimCitation,
+  compactLongIntegers,
+  consensusTables,
+  humanizeInlineCitations,
+  metricRowsWithoutTabled,
+  seeAlsoText,
+  withoutTabled,
+  dataStateText,
+  factorExposureTable,
+  figureRows,
+  gapCountText,
+  gapSummary,
+  geographyLabel,
+  indicatorLabel,
+  keyDataRows,
+  methodologyNotes,
+  moatHeading,
+  passLine,
+  priceTiming,
+  pruneTable,
+  reverseDcfValueText,
+  runSummary,
+  scoreDriverTable,
+  scorecardTable,
+  sourceLabel,
+  splitCommonLines,
+  trustHeadline,
+  trustRows,
+  usageSummary,
+  type BodyTable,
+  type FigureRow,
+} from "@/report/presentation";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
   markdownBlockquote,
   markdownHeading,
   markdownListItem,
   markdownProse,
-  markdownSourceLabel,
   markdownTable as table,
 } from "@/report/export/markdownEscape";
 import {
-  ASPECT_SCORE_FIELDS,
-  AS_OF_MAP_FIELDS,
-  COMPOSITE_SCORE_FIELDS,
   EXECUTIVE_EVIDENCE_GROUPS,
-  MANIFEST_ENTRY_FIELDS,
   PROJECTION_METRIC_BY_KEY,
   PROJECTION_PATHS,
-  PROJECTION_POINT_FIELD_BY_KEY,
-  PROJECTION_ROOT_FIELDS,
-  PROJECTION_SCENARIO_WEIGHTS,
-  PROJECTION_SERIES_FIELD_BY_KEY,
-  PROJECTION_DISCLOSURE_FIELDS,
-  SCORE_WEIGHTS,
-  SCORE_SURFACES,
   SOURCE_ENTRY_FIELDS,
-  TRACED_NUMBER_FIELDS,
-  VERIFICATION_LOG_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
-import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT, verificationEntryOutcomeLabel } from "@/report/schema";
+import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { gradeDisplayLabel } from "@/report/assessment";
 
 /* ======================================================================== *
@@ -111,71 +130,11 @@ const DASH = "—";
 
 /**
  * A section heading numbered from the shared section manifest — the same
- * index and title the print export and the live view use, so "section 13"
- * names the same section in every artifact. Hard-coded numbers here had
- * drifted (Macro 12 / Appendix 13 against the manifest's 13 / 14).
+ * index and title the print export and the live view use.
  */
 function sectionHeading(key: ReportSectionKey): string {
   const section = reportSection(key);
   return `## ${section.index}. ${section.printTitle}`;
-}
-
-function coverageCell(supported: number, total: number, rate: number | null): string {
-  return `${supported}/${total} (${
-    rate === null ? "n/a — no items" : `${(rate * 100).toFixed(0)}%`
-  })`;
-}
-
-function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
-  return (factualValidationText(coverage) ?? "") + "\n\n" + table(
-    ["Evidence class", "Supported / total"],
-    [
-      [
-        "Numeric provenance",
-        coverageCell(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate),
-      ],
-      [
-        "Factual-claim citations",
-        coverageCell(
-          coverage.factualClaims.supported,
-          coverage.factualClaims.total,
-          coverage.factualClaims.rate,
-        ),
-      ],
-      [
-        "Judgment citations",
-        coverageCell(
-          coverage.judgments.cited,
-          coverage.judgments.total,
-          coverage.judgments.rate,
-        ),
-      ],
-    ],
-  );
-}
-
-// WS7 (D-20): CHECKED, printed beside CITED and never folded into it. A rate on
-// its own would hide how few pairs were eligible, so the row shows passed of
-// checked; "0/0" means the check found nothing it could evaluate, which is a
-// fact about the report, not a pass.
-const CONSISTENCY_CHECK_LABELS: readonly [keyof ConsistencyChecks, string][] = [
-  ["direction", "Direction word vs the sign of the cited change"],
-  ["period", "Period phrase vs the cited figure's period"],
-  ["unit", "Unit word vs the cited figure's registry unit"],
-  ["namedIndividual", "Claims naming a person: filings/transcripts only"],
-];
-
-function checkCell(rate: CheckRate): string {
-  return `${rate.passed}/${rate.checked} (${
-    rate.rate === null ? "n/a — nothing eligible" : `${(rate.rate * 100).toFixed(0)}%`
-  })`;
-}
-
-function consistencyChecksTable(checks: ConsistencyChecks): string {
-  return table(
-    ["Deterministic check", "Passed / checked"],
-    CONSISTENCY_CHECK_LABELS.map(([key, label]) => [label, checkCell(checks[key])]),
-  );
 }
 
 /** Fixed-decimal number, or an em dash for null/non-finite. */
@@ -184,17 +143,7 @@ function num(v: number | null | undefined, digits = 2): string {
   return v.toFixed(digits);
 }
 
-/**
- * Render a {@link TracedNumber}'s value per its declared `unit`, mirroring the
- * on-screen `formatTracedValue`. Unit strings are as-reported free-text.
- */
 function tracedValue(n: TracedNumber): string {
-  // Delegate to the single canonical formatter the on-screen and print surfaces
-  // use. The previous hand-rolled table drifted from it: it had no "currency"
-  // alias (so those figures rendered as a bare number with the word "currency"
-  // appended) and rendered plain "usd" without magnitude scaling, so the same
-  // value printed as $13,500,000,000.00 in Markdown and $13.50B everywhere
-  // else.
   return formatFinancialValue(n.value, n.unit, n.currency);
 }
 
@@ -209,28 +158,13 @@ function asOfSuffix(asOf: string | null): string {
   return asOf ? ` _(as of ${markdownProse(asOf)})_` : "";
 }
 
-/**
- * The citation-coverage marker for a traced number (PROVENANCE, not correctness
- * — audit 2026-07-11 finding #2): ✓ when traced to a citation/payload value,
- * "untraced" when not, - when the pass has not run. Never claims "verified".
- */
-function verifiedMark(n: TracedNumber): string {
-  if (n.verified === true) return "✓";
-  if (n.verified === false) return numericCitationTraceLabel(n.verified);
-  return DASH;
+/** Stored prose with registry-id citations shown under reader labels (D-62). */
+function prose(text: string): string {
+  return markdownProse(humanizeInlineCitations(text));
 }
 
-function auditValue(value: unknown): string {
-  if (value === null || value === undefined) return "n/a";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function tracedAuditCells(trace: TracedNumber): string[] {
-  return TRACED_NUMBER_FIELDS.map((field) => {
-    if (field.key === "verified") return numericCitationTraceLabel(trace.verified);
-    return auditValue(trace[field.key]);
-  });
+function item(text: string): string {
+  return markdownListItem(humanizeInlineCitations(text));
 }
 
 /** One generated blockquote line; the template marker remains trusted syntax. */
@@ -238,93 +172,149 @@ function blockquote(text: string): string {
   return `> ${markdownBlockquote(text)}`;
 }
 
+/**
+ * A body table (D-62): columns that are empty in every row are dropped, and a
+ * table with no content is not printed at all. Returns "" when hidden.
+ */
+function bodyTable(headers: readonly string[], rows: readonly (readonly string[])[], keep: readonly string[] = []): string {
+  const pruned = pruneTable(headers, rows, keep);
+  return pruned === null ? "" : table(pruned.headers, pruned.rows);
+}
+
+/** A subsection: heading + body, or nothing when the body is empty. */
+function subsection(heading: string, body: string): string[] {
+  return body.length === 0 ? [] : [heading, "", body, ""];
+}
+
 /* ======================================================================== *
  * Shared block renderers
  * ======================================================================== */
 
-/** A bullet list of sourced claims, each with its label + as-of. */
+/** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[]): string {
-  if (claims.length === 0) return `- ${DASH}`;
   return claims
-    .map((c) =>
-      `- **[${markdownListItem(c.label)}]** ${markdownListItem(c.text)}${asOfSuffix(c.asOf)} ` +
-      `${markdownSourceLabel(`source id: ${c.sourceId ?? "n/a"}`)} ` +
-      markdownSourceLabel(`src: ${c.source}`))
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(c.text)} _(${markdownProse(claimCitation(c))})_`)
     .join("\n");
 }
 
-/** The full reasoning behind a grade: header line + one-liner + claims + key numbers. */
-function gradeBlock(title: string, block: GradeBlock): string {
-  const lines: string[] = [];
-  lines.push(
-    `**${title} — Grade ${gradeDisplayLabel(block)}** (confidence: ${block.confidence})`,
+function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): string {
+  return bodyTable(
+    [metricHeader, "Value", "Period", "As of", "Cited"],
+    rows.map((r) => [r.label, r.value, r.period ?? DASH, r.asOf ?? DASH, r.cited]),
+    ["Cited"],
   );
-  lines.push("");
-  lines.push(`_${markdownProse(block.oneLineWhy)}_`);
-  if (block.interpretation) {
-    lines.push("");
-    lines.push(markdownProse(block.interpretation));
-  }
-  if (block.reasoning.length > 0) {
-    lines.push("");
-    lines.push("Reasoning:");
-    lines.push("");
-    lines.push(claimList(block.reasoning));
-  }
-  if (block.keyNumbers.length > 0) {
-    lines.push("");
-    lines.push("Key numbers:");
-    lines.push("");
-    lines.push(
-      table(
-        ["Metric", "Value", "Measurement period", "As of", "Cited"],
-        block.keyNumbers.map((n) => [
-          n.source,
-          tracedValue(n),
-          tracedPeriodLabel(n.period, n.periodContext),
-          n.asOf ?? DASH,
-          verifiedMark(n),
-        ]),
-      ),
-    );
-  }
+}
+
+/** The reasoning behind a grade: header line + one-liner + claims + key numbers (deduplicated within the section). */
+function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}): string {
+  const lines: string[] = [
+    `**${title} — Grade ${gradeDisplayLabel(block)}** (confidence: ${block.confidence})`,
+    "",
+    `_${prose(block.oneLineWhy)}_`,
+  ];
+  if (block.interpretation) lines.push("", prose(block.interpretation));
+  if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning));
+  const { kept, homes } = withoutTabled(report, block.keyNumbers);
+  const numbers = figureTable(figureRows(kept, seen));
+  if (numbers) lines.push("", "Key numbers:", "", numbers);
+  const also = seeAlsoText(homes);
+  if (also) lines.push("", `_${markdownProse(also)}_`);
   return lines.join("\n");
 }
 
-/** A MetricRow group (growth/margins/returns/fcf) as a period → value table. */
+/**
+ * A MetricRow group as a period → value table. The measurement window joins
+ * the period cell only when it adds information the period label lacks.
+ */
 function metricRowsTable(rows: readonly MetricRow[]): string {
   const body: string[][] = [];
   for (const row of rows) {
     for (const v of row.values) {
+      const window = tracedPeriodLabel(v.value.period, v.value.periodContext);
+      const periodCell = window === "not supplied" || v.period.includes(window) ? v.period : window.includes(v.period) ? window : `${v.period} (${window})`;
       body.push([
         row.label,
-        v.period,
-        tracedValue(v.value),
-        tracedPeriodLabel(v.value.period, v.value.periodContext),
+        periodCell,
+        formatFinancialAmount(v.value.value, v.value.unit, v.value.currency),
         v.value.asOf ?? DASH,
-        numericCitationTraceLabel(v.value.verified),
+        citedMark(v.value.verified),
       ]);
     }
   }
-  return table(["Metric", "Period", "Value", "Measurement period", "As of", "Citation traced"], body);
+  return bodyTable(["Metric", "Period", "Value", "As of", "Cited"], body, ["Cited"]);
 }
 
-/** Segment rows (product/geographic) as name / revenue / share table. */
-function segmentTable(rows: readonly SegmentRow[]): string {
-  return table(
-    ["Segment", "Revenue", "Share", "As of"],
+/** Segment rows (product/geographic) as name / revenue / share. */
+function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
+  return bodyTable(
+    ["Segment", "Revenue", "Share"],
     rows.map((s) => [
-      s.name,
-      tracedValue(s.revenue),
+      geographic ? geographyLabel(s.name) : s.name,
+      formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency),
       s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`,
-      s.revenue.asOf ?? DASH,
     ]),
   );
 }
 
+/** Deterministic pipeline tables (filing disclosures, scores), one heading each; empty tables are hidden. */
+function auditTableBlocks(tables: readonly ReportAuditTable[], level = "###"): string[] {
+  return tables.flatMap((block) => {
+    const body = bodyTable(block.headers, block.rows);
+    if (!body) return [];
+    return [`${level} ${markdownHeading(block.heading)}`, "", body, "", ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : [])];
+  });
+}
+
 /* ======================================================================== *
- * Section renderers (sections 1–13)
+ * Header, key data, verdict
  * ======================================================================== */
+
+function renderHeader(report: Report, completeness: ReportCompletenessPresentation): string {
+  const m = report.meta;
+  const lines: string[] = [
+    `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Research Report`,
+    "",
+    "*Metis · Equity research*",
+    "",
+    table(
+      ["Report", "Detail"],
+      [
+        ["Generated", m.generatedAt],
+        // D-62: one line; the judge protocol and the per-pass record are in the appendix and the audit export.
+        ["Model", runSummary(report)],
+        ["Usage", usageSummary(report)],
+        ["Data completeness", dataStateText(completeness)],
+        ["Verification", trustHeadline(m.provenanceCoverage) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+        ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
+      ],
+    ),
+    "",
+    // Mandatory disclaimer, verbatim.
+    `> ${markdownBlockquote(m.disclaimer)}`,
+  ];
+  return lines.join("\n");
+}
+
+/** The page-1 key-data box (audit P1-12); rows without inputs are omitted. */
+function renderKeyData(report: Report): string {
+  const rows = keyDataRows(report);
+  if (rows.length === 0) return "";
+  return ["### Key data", "", bodyTable(["Key data", "Value", "Basis"], rows.map((row) => [row.label, row.value, row.note ?? DASH]))].join("\n");
+}
+
+function renderDisagreements(disagreements: readonly Disagreement[]): string[] {
+  if (disagreements.length === 0) return [];
+  const lines: string[] = ["### Bull/bear disagreements", ""];
+  for (const d of disagreements) {
+    lines.push(
+      `- **${markdownListItem(d.topic)}** (${markdownListItem(d.kind)})`,
+      `  - Bull: ${item(d.bullView)}`,
+      `  - Bear: ${item(d.bearView)}`,
+      `  - Judge: ${item(d.judgeResolution)}`,
+    );
+  }
+  return [...lines, ""];
+}
 
 function renderVerdict(report: Report): string {
   const v = report.verdict;
@@ -333,297 +323,106 @@ function renderVerdict(report: Report): string {
     gradeSurfaceEntries(v.gradeStrip).map(({ descriptor, block }) => [
       descriptor.label,
       gradeDisplayLabel(block),
-      block.oneLineWhy,
+      humanizeInlineCitations(block.oneLineWhy),
     ]),
   );
-  const lines: string[] = [sectionHeading("verdict"), "", markdownProse(v.synthesis), ""];
+  const lines: string[] = [sectionHeading("verdict"), "", prose(v.synthesis), ""];
   if (v.executiveSummary && v.executiveSummary.length > 0) {
     lines.push("### Executive summary", "", claimList(v.executiveSummary), "");
   }
-  lines.push("### Grade strip", "", strip);
-  return lines.join("\n");
+  lines.push("### Grade strip", "", strip, "");
+  // D-62: the debate belongs with the verdict it informs, not under Macro.
+  lines.push(...renderDisagreements(report.disagreements));
+  return lines.join("\n").trimEnd();
 }
 
 function renderScores(scores: Scoring): string {
   const c = scores.composite;
-  const aspectDescriptors = SCORE_SURFACES.filter((descriptor) => descriptor.kind === "aspect");
-  const compositeFields = COMPOSITE_SCORE_FIELDS.filter((field) => field.key !== "weights");
-  const aspectFields = ASPECT_SCORE_FIELDS.filter((field) => field.key !== "drivers" && field.key !== "signals");
+  const card = scorecardTable(scores);
+  const drivers = scoreDriverTable(scores);
+  const exposure = factorExposureTable(scores);
+  const assessment = assessmentLine(scores);
   return [
-    // A sub-heading of the verdict, as on the print surface: the manifest has
-    // no separate scorecard section, so it takes no number of its own.
+    // A sub-heading of the verdict, as on the print surface.
     "### Scorecard (deterministic)",
     "",
     `**Composite: ${c.score === null ? DASH : Math.round(c.score)} / 100 (${c.band ?? DASH})**`,
+    ...(assessment ? ["", markdownProse(assessment)] : []),
     "",
-    table(
-      ["Aspect", "Score", "Band", "Completeness", "Note"],
-      aspectDescriptors.map((descriptor) => {
-        const aspect = scores.aspects[descriptor.key];
-        return [
-          descriptor.label,
-          aspect.score === null ? DASH : String(Math.round(aspect.score)),
-          aspect.band ?? DASH,
-          `${Math.round(aspect.dataCompleteness * 100)}%`,
-          aspect.notApplicableReason ?? aspect.note,
-        ];
-      }),
-    ),
+    table(card.headers, card.rows),
     "",
-    table(
-      ["Score identity", ...compositeFields.map((field) => field.label)],
-      [[
-        SCORE_SURFACES[0].label,
-        ...compositeFields.map((field) => {
-          if (field.key === "score") return auditValue(c.score);
-          if (field.key === "band") return auditValue(c.band);
-          return c.methodology;
-        }),
-      ]],
-    ),
-    "",
-    "### Composite weights",
-    "",
-    table(
-      ["Aspect", "Weight"],
-      SCORE_WEIGHTS.map((descriptor) => [
-        descriptor.label,
-        String(c.weights[descriptor.aspect]),
-      ]),
-    ),
-    "",
-    "### Aspect scores",
-    "",
-    table(
-      ["Aspect", ...aspectFields.map((field) => field.label)],
-      aspectDescriptors.map((descriptor) => {
-        const aspect = scores.aspects[descriptor.key];
-        return [
-          descriptor.label,
-          ...aspectFields.map((field) => {
-            if (field.key === "dataCompleteness") {
-              return String(aspect.dataCompleteness);
-            }
-            return auditValue(aspect[field.key]);
-          }),
-        ];
-      }),
-    ),
-    "",
-    "### Score drivers",
-    "",
-    table(
-      ["Aspect", ...TRACED_NUMBER_FIELDS.map((field) => field.label)],
-      aspectDescriptors.flatMap((descriptor) =>
-        scores.aspects[descriptor.key].drivers.map((driver) => [
-          descriptor.label,
-          ...tracedAuditCells(driver),
-        ])),
-    ),
-    "",
-    ...scoreAuditTables(scores).flatMap(t=>["",`### ${t.heading}`,"",table(t.headers,t.rows),t.note ?? ""]),
-    `_${markdownProse(c.methodology)}_`,
-    "",
-    `_Band table: ${markdownProse(scores.bandsVersion)}._`,
+    ...(drivers ? auditTableBlocks([drivers]) : []),
+    ...(exposure ? auditTableBlocks([exposure]) : []),
+    `_${markdownProse(c.methodology)}_ _(bands ${markdownProse(scores.bandsVersion)})_`,
   ].join("\n");
 }
 
-function renderProjections(p: Projections): string {
-  const series = orderedProjectionSeries(p.series);
-  const lines: string[] = [
-    sectionHeading("projections"),
-    "",
-    `Horizon ${p.horizonYears}y · unbacktested display prior weights ${p.scenarioWeights.bull}/${p.scenarioWeights.base}/${p.scenarioWeights.bear} (bull/base/bear). Forward figures are ESTIMATEs, not facts or empirically calibrated odds.`,
-    "",
-  ];
-  lines.push(...projectionAuditTables(p).flatMap(t=>["",`### ${t.heading}`,"",table(t.headers,t.rows),t.note ?? ""]));
-  if (series.length === 0) {
-    lines.push(
-      `_Not applicable${p.notApplicableReason ? `: ${markdownProse(p.notApplicableReason)}` : "."}_`,
-      "",
-    );
-  }
-  const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
-  for (const s of series) {
-    lines.push(
-      `### ${PROJECTION_METRIC_BY_KEY[s.metric].label} (${markdownHeading(s.unit)})`,
-      "",
-    );
-    const rows = projectionPeriodRows(s).flatMap((row) => {
-      const points = forwardPaths.map((descriptor) =>
-        projectionCellPoint(row, descriptor.key, s.unit));
-      if (points.every((point) => point === null)) return [];
-      return [[
-        row.period,
-        ...points.map((point) => point === null ? DASH : tracedValue(point.value)),
-      ]];
-    });
-    lines.push(table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows), "");
-    if (s.assumptions.length > 0) {
-      lines.push(
-        "Assumptions:",
-        "",
-        s.assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"),
-        "",
-      );
-    }
-  }
+/* ======================================================================== *
+ * Section renderers (sections 2–13)
+ * ======================================================================== */
 
-  lines.push("### Projection audit trail", "");
-  lines.push(
-    table(
-      ["Field", "Value"],
-      PROJECTION_ROOT_FIELDS.flatMap((field) => {
-        if (field.key === "scenarioWeights") {
-          return PROJECTION_SCENARIO_WEIGHTS.map((descriptor) => [
-            `${descriptor.label} scenario weight`,
-            String(p.scenarioWeights[descriptor.key]),
-          ]);
-        }
-        if (field.key === "horizonYears") return [[field.label, String(p.horizonYears)]];
-        if (field.key === "weightsVersion") return [[field.label, p.weightsVersion]];
-        if (field.key === "series") return [[field.label, String(p.series.length)]];
-        return [[field.label, auditValue(p[field.key])]];
-      }),
-    ),
-    "",
-  );
-  for (const s of series) {
-    const metric = PROJECTION_METRIC_BY_KEY[s.metric];
-    lines.push(`#### ${metric.label} projection series`, "");
-    lines.push(
-      table(
-        [
-          PROJECTION_SERIES_FIELD_BY_KEY.metric.label,
-          "Path",
-          PROJECTION_POINT_FIELD_BY_KEY.period.label,
-          PROJECTION_POINT_FIELD_BY_KEY.periodStart.label, PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label, PROJECTION_POINT_FIELD_BY_KEY.periodBasis.label,
-          "Series unit",
-          ...TRACED_NUMBER_FIELDS.map((field) => field.label),
-        ],
-        PROJECTION_PATHS.flatMap((path) =>
-          s[path.key].map((point) => [
-            metric.label,
-            path.label,
-            point.period,
-            auditValue(point.periodStart), auditValue(point.periodEnd), auditValue(point.periodBasis),
-            s.unit,
-            ...tracedAuditCells(point.value),
-          ])),
-      ),
-      "",
-      table(
-        [PROJECTION_SERIES_FIELD_BY_KEY.assumptions.label],
-        s.assumptions.map((assumption) => [assumption]),
-      ),
-      "",
-      table(
-        PROJECTION_DISCLOSURE_FIELDS.map((field) => field.label),
-        s.disclosures.map((disclosure) =>
-          PROJECTION_DISCLOSURE_FIELDS.map((field) => {
-            if (field.key === "attemptedSources") {
-              return disclosure.attemptedSources?.join(", ") ?? "n/a";
-            }
-            if (field.key === "expected") {
-              return disclosure.expected === undefined
-                ? "unknown"
-                : disclosure.expected ? "yes" : "no";
-            }
-            return disclosure[field.key];
-          })),
-      ),
-      "",
-    );
-  }
+function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): string {
+  const quarterly = auditTableBlocks(extra);
+  const lines: string[] = [sectionHeading("business"), ""];
+  lines.push(...subsection("### What they sell", claimList(b.whatTheySell)));
+  lines.push(...quarterly);
+  const shown = quarterly.length > 0;
+  lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, shown)}`, segmentTable(b.segments.product)));
+  lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, shown)}`, segmentTable(b.segments.geographic, true)));
+  lines.push(...subsection("### Concentration risks", claimList(b.concentrationRisks)));
   return lines.join("\n").trimEnd();
 }
 
-/** Deterministic pipeline tables (filing disclosures), one heading each. */
-function auditTableBlocks(tables: readonly ReportAuditTable[]): string[] {
-  return tables.flatMap((block) => [
-    `### ${markdownHeading(block.heading)}`,
-    "",
-    table(block.headers, block.rows),
-    "",
-    ...(block.note ? [`_${markdownProse(block.note)}_`, ""] : []),
-  ]);
-}
-
-function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): string {
-  const lines: string[] = [sectionHeading("business"), ""];
-  lines.push("### What they sell", "", claimList(b.whatTheySell), "");
-  lines.push("### Product segments", "", segmentTable(b.segments.product), "");
-  lines.push(
-    "### Geographic segments",
-    "",
-    segmentTable(b.segments.geographic),
-    "",
-  );
-  lines.push(...auditTableBlocks(extra));
-  lines.push("### Concentration risks", "", claimList(b.concentrationRisks));
-  return lines.join("\n");
-}
-
-function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra: readonly ReportAuditTable[] = []): string {
+function renderFundamentals(f: Fundamentals, summary?: SourceFactSummary, extra: readonly ReportAuditTable[] = [], report: Pick<Report, "filingDisclosures"> = {}): string {
+  const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("fundamentals"), ""];
-  lines.push(gradeBlock("Fundamentals", f.graded), "");
-  lines.push("### Growth", "", metricRowsTable(f.growthTable), "");
-  lines.push("### Margin trend", "", metricRowsTable(f.marginTrend), "");
-  lines.push("### Returns", "", metricRowsTable(f.returns), "");
-  lines.push("### Free cash flow", "", metricRowsTable(f.fcf), "");
+  lines.push(gradeBlock("Fundamentals", f.graded, seen, report), "");
+  // D-62: figures a deterministic filing table shows are left to that table.
+  const homes: string[] = [];
+  const metricGroup = (heading: string, rows: readonly MetricRow[]): void => {
+    const split = metricRowsWithoutTabled(report, rows);
+    for (const home of split.homes) if (!homes.includes(home)) homes.push(home);
+    lines.push(...subsection(heading, metricRowsTable(split.kept)));
+  };
+  metricGroup("### Growth", f.growthTable);
+  metricGroup("### Margin trend", f.marginTrend);
+  metricGroup("### Returns", f.returns);
+  metricGroup("### Free cash flow", f.fcf);
+  const also = seeAlsoText(homes);
+  if (also) lines.push(`_${markdownProse(also)}_`, "");
   lines.push(...auditTableBlocks(extra));
-  if (f.commentary.length > 0) {
-    lines.push("### Commentary", "", claimList(f.commentary));
-  }
-  for (const block of sourceFactAuditTables(summary)) lines.push("", `### ${block.heading}`, "", table(block.headers,block.rows), "", block.note ?? "");
-  return lines.join("\n");
+  lines.push(...subsection("### Commentary", claimList(f.commentary)));
+  lines.push(...auditTableBlocks(sourceFactAuditTables(summary)));
+  return lines.join("\n").trimEnd();
 }
 
-function renderBalanceSheet(bs: BalanceSheet): string {
+function renderBalanceSheet(bs: BalanceSheet, report: Pick<Report, "filingDisclosures"> = {}): string {
+  const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("balanceSheet"), ""];
-  if (bs.graded) {
-    lines.push(gradeBlock("Balance Sheet & Capital", bs.graded), "");
-  }
-  const group = (
-    title: string,
-    g: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] },
-  ): void => {
-    lines.push(`### ${title}`, "", claimList(g.commentary), "");
-    if (g.numbers.length > 0) {
-      lines.push(
-        table(
-          ["Metric", "Value", "Measurement period", "As of", "Cited"],
-          g.numbers.map((n) => [
-            n.source,
-            tracedValue(n),
-            tracedPeriodLabel(n.period, n.periodContext),
-            n.asOf ?? DASH,
-            verifiedMark(n),
-          ]),
-        ),
-        "",
-      );
-    }
+  if (bs.graded) lines.push(gradeBlock("Balance Sheet & Capital", bs.graded, seen, report), "");
+  const group = (title: string, g: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] }): void => {
+    const claims = claimList(g.commentary);
+    const numbers = figureTable(figureRows(withoutTabled(report, g.numbers).kept, seen));
+    if (!claims && !numbers) return;
+    lines.push(`### ${title}`, "");
+    if (claims) lines.push(claims, "");
+    if (numbers) lines.push(numbers, "");
   };
   group("Debt profile", bs.debtProfile);
   group("Coverage", bs.coverage);
   group("Capex trajectory", bs.capexTrajectory);
-  lines.push("### Capital allocation", "", claimList(bs.capitalAllocation));
-  return lines.join("\n");
+  // D-63 commitments and guarantees, in their home section.
+  lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "balanceSheet")));
+  lines.push(...subsection("### Capital allocation", claimList(bs.capitalAllocation)));
+  return lines.join("\n").trimEnd();
 }
 
 /**
  * WS5 (D-17): the route metrics a bank, insurer or mortgage REIT leads with.
- *
- * `withheldReason` is the load-bearing column: a blank cell with no reason
- * reads as a fetch that failed, when in fact the figure was REFUSED because the
- * filer's tags cannot satisfy the metric's definition. `proxy` marks a labeled
- * stand-in, which is always published under its own name.
+ * `withheldReason` is the load-bearing column: a blank reads as a failed fetch
+ * when the figure was REFUSED. `proxy` marks a labeled stand-in.
  */
 function renderRouteMetrics(rm: RouteMetrics): string {
-  // Raw cells: `table` serialises each one exactly once at the table boundary
-  // (markdownEscape is deliberately not idempotent). Pre-escaping here doubled
-  // every backslash and turned the stand-in marker into literal underscores.
   const rows = rm.metrics.map((m) => [
     m.label + (m.proxy ? " (stand-in)" : ""),
     m.value === null ? "withheld" : formatFinancialValue(m.value, m.unit, m.currency ?? null),
@@ -644,132 +443,87 @@ function renderValuation(
   scenarioTargets?: ScenarioTargets,
   fairValue?: FairValue,
   routeMetrics?: RouteMetrics,
-  review: ValuationReviewInputs = {},
-  timing: readonly EvidenceTimingRow[] = [],
+  review: ValuationReviewInputs & { report?: Report } = {},
 ): string {
+  const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("valuation"), ""];
-  if (timing.length) lines.push("### Evidence timing", "", table(["Event", "Established timing"], timing.map((row) => [row.label, row.value])), "", markdownProse(EVIDENCE_TIMING_NOTE), "");
-  lines.push(gradeBlock("Valuation", v.graded), "");
+  lines.push(gradeBlock("Valuation", v.graded, seen, review.report ?? {}), "");
 
-  // DCF — perShare is null when the deterministic fair value was suppressed
-  // (no per-share model for the route, or insufficient inputs). Show "unavailable",
-  // never a fabricated number.
+  // perShare is null when the deterministic fair value was suppressed — show
+  // "unavailable", never a fabricated number.
   const dcfPs = v.dcf.perShare;
   lines.push(
     "### DCF",
     "",
     dcfPs
       ? `Intrinsic value per share: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
-      : "Intrinsic value per share: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see missing-data appendix).",
-    // Honest disclosure of how the intrinsic value was derived (computed-derived,
-    // route-appropriate method), or why suppressed.
+      : "Intrinsic value per share: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).",
     ...(fairValue
       ? [
           fairValue.status === "available"
             ? `_${markdownProse(fairValue.basis.join(" "))}_`
             : `_Intrinsic value per share suppressed — ${markdownProse(
-                fairValue.reasons.map((r) => r.reason).join("; ")
-                  || fairValue.basis.join(" "),
+                fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" "),
               )}_`,
         ]
       : []),
     "",
-    "Assumptions:",
-    "",
-    table(
-      ["Assumption", "Value", "Basis"],
-      v.dcf.assumptions.map((a) => [a.name, a.value, a.basis]),
-    ),
-    "",
   );
+  lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, compactLongIntegers(a.basis)]))));
+  lines.push(...auditTableBlocks(valuationAuditTables(v.dcf)));
 
-  lines.push(...valuationAuditTables(v.dcf).flatMap(t=>["",`### ${t.heading}`,"",table(t.headers,t.rows),t.note ?? ""]));
   // Sensitivity grid (WACC × terminal growth), rendered as a pivot table.
   const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
   const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
   if (waccs.length > 0 && gterms.length > 0) {
     const lookup = new Map<string, number | null>();
-    for (const c of v.dcf.sensitivityGrid) {
-      lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
-    }
+    for (const c of v.dcf.sensitivityGrid) lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
     const headers = ["WACC \\ g", ...gterms.map((g) => `${g.toFixed(1)}%`)];
     const rows = waccs.map((w) => [
       `${w.toFixed(1)}%`,
       ...gterms.map((g) => {
         const ps = lookup.get(`${w}|${g}`);
-        // The grid is in the currency of the per-share value beside it: a
-        // TWD/share DCF over a "$" grid was a 30× disagreement to the reader.
+        // The grid is in the currency of the per-share value beside it.
         return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
       }),
     ]);
-    lines.push(
-      "### Sensitivity (per share — rows = WACC, cols = terminal g)",
-      "",
-      table(headers, rows),
-      "",
-    );
+    lines.push("### Sensitivity (per share — rows = WACC, cols = terminal g)", "", table(headers, rows), "");
   }
 
-  // Reverse DCF
   lines.push(
     "### Reverse DCF",
     "",
-    `Implied ${markdownProse(v.reverseDcf.impliedMetric)}: **${
-      v.reverseDcf.impliedValue === null
+    `Implied ${markdownProse(v.reverseDcf.impliedMetric)}: **${reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue)}**`,
+    "",
+    prose(v.reverseDcf.narrative),
+    "",
+  );
+
+  lines.push(...subsection("### Multiples", bodyTable(
+    // WS6 (D-19): a rank among N quarters of the issuer's own history, not a percentile.
+    ["Multiple", "Current", "Peer median", "Own-history rank", "Sector-appropriate"],
+    v.multiples.map((m) => [
+      m.name,
+      m.current === null ? DASH : `${num(m.current, 1)}×`,
+      m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
+      m.own5yPercentile === null
         ? DASH
-        : `${v.reverseDcf.impliedValue.toFixed(1)}`
-    }**`,
-    "",
-    markdownProse(v.reverseDcf.narrative),
-    "",
-  );
+        : `rank ${m.own5yPercentile.toFixed(0)}/100${typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""}`,
+      m.sectorAppropriate ? "yes" : "no",
+    ]),
+  )));
 
-  // Multiples
-  lines.push(
-    "### Multiples",
-    "",
-    table(
-      // WS6 (D-19): a rank among N quarters of the issuer's own history, not a
-      // percentile of a distribution.
-      ["Multiple", "Current", "Peer median", "Own-history rank", "Sector-appropriate"],
-      v.multiples.map((m) => [
-        m.name,
-        m.current === null ? DASH : num(m.current, 1),
-        `${m.peerMedian === null ? DASH : num(m.peerMedian, 1)}${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
-        m.own5yPercentile === null
-          ? DASH
-          : `rank ${m.own5yPercentile.toFixed(0)}/100${
-              typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""
-            }`,
-        m.sectorAppropriate ? "yes" : "no",
-      ]),
-    ),
-    "",
-  );
+  // D-62: consensus and market data, shown once, beside the multiples.
+  if (review.report) lines.push(...auditTableBlocks(consensusTables(review.report)));
 
-  // Scenarios
-  lines.push(
-    "### Scenarios",
-    "",
-    `_${markdownProse(review.scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable.")}_`,
-    "",
-  );
-  // Honest disclosure of how the headline targets were derived (or why suppressed):
-  // computed-derived DCF sensitivity, NOT source-verified analyst targets.
+  lines.push("### Scenarios", "");
+  if (review.scenarioPresentation?.weightBasis) lines.push(`_${markdownProse(review.scenarioPresentation.weightBasis)}_`, "");
   if (scenarioTargets) {
     if (scenarioTargets.status === "available") {
-      lines.push(
-        `_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${markdownProse(scenarioTargets.basis.join(" "))}_`,
-        "",
-      );
+      lines.push(`_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${markdownProse(scenarioTargets.basis.join(" "))}_`, "");
     } else {
       const reasons = scenarioTargets.missingReasons.map((m) => m.reason).join("; ");
-      lines.push(
-        `_Scenario price targets suppressed — ${markdownProse(
-          reasons || scenarioTargets.basis.join(" "),
-        )}_`,
-        "",
-      );
+      lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
     }
   }
   for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
@@ -778,177 +532,125 @@ function renderValuation(
       lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [markdownProse(p), ""]));
     }
   }
-  for (const sc of v.scenarios) {
-    lines.push(renderScenario(sc, review.scenarioPresentation !== undefined), "");
+  // D-62: the assumption lines every scenario shares are stated once.
+  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map(compactLongIntegers)));
+  if (common.length > 0) {
+    lines.push("**Assumptions common to every scenario:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
   }
+  v.scenarios.forEach((sc, index) => {
+    lines.push(renderScenario(sc, specific[index] ?? [], review.scenarioPresentation !== undefined), "");
+  });
   if (routeMetrics) lines.push(renderRouteMetrics(routeMetrics), "");
   return lines.join("\n").trimEnd();
 }
 
-function renderScenario(sc: Scenario, computedWeights = false): string {
+function renderScenario(sc: Scenario, assumptions: readonly string[], computedWeights = false): string {
   const lines: string[] = [];
-  // priceTarget is null when the deterministic computation suppressed it
-  // (insufficient valuation inputs) — show "unavailable", never a fabricated value.
+  // priceTarget is null when the deterministic computation suppressed it —
+  // show "unavailable", never a fabricated value.
   const pt = sc.priceTarget;
   const target = pt ? markdownHeading(tracedValue(pt)) : "unavailable";
   const targetAsOf = pt ? asOfSuffix(pt.asOf) : "";
-  const probability = sc.probability === null
-    ? "n/a"
-    : `${(sc.probability * 100).toFixed(0)}%`;
+  const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
   // D-60: computed targets carry no weight; a stored report that recorded one still shows it.
-  const weight = computedWeights && sc.probability === null ? "" : `${computedWeights ? "Display weight" : "p"} = ${probability}, `;
+  const weight = computedWeights && sc.probability === null ? "" : `${computedWeights ? "display weight" : "p"} ${probability}, `;
   lines.push(
-    `#### ${capitalize(sc.name)} — target ${target} (${weight}${markdownHeading(sc.horizon)})${targetAsOf}`,
+    `#### ${capitalize(sc.name)} — ${target} (${weight}${markdownHeading(sc.horizon)})${targetAsOf}`,
   );
-  lines.push("");
-  lines.push("Assumptions:");
-  lines.push("");
-  lines.push(
-    sc.assumptions.length > 0
-      ? sc.assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n")
-      : `- ${DASH}`,
-  );
-  lines.push("");
-  lines.push("What would have to be true:");
-  lines.push("");
-  lines.push(
-    sc.whatWouldHaveToBeTrue.length > 0
-      ? sc.whatWouldHaveToBeTrue.map((condition) =>
-          `- ${markdownListItem(condition)}`).join("\n")
-      : `- ${DASH}`,
-  );
+  if (assumptions.length > 0) {
+    lines.push("", "Assumptions:", "", assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"));
+  }
+  if (sc.whatWouldHaveToBeTrue.length > 0) {
+    lines.push("", "What would have to be true:", "", sc.whatWouldHaveToBeTrue.map((condition) => `- ${item(condition)}`).join("\n"));
+  }
   if (sc.qualitativeCommentary?.length) {
-    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${markdownListItem(text)}`));
+    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${item(text)}`));
   }
   return lines.join("\n");
 }
 
 function renderQuality(q: Quality): string {
   const lines: string[] = [sectionHeading("quality"), ""];
-  lines.push(gradeBlock("Quality", q.graded), "");
+  lines.push(gradeBlock("Quality", q.graded, new Map()), "");
   const fs = q.forensicScores;
-  lines.push(
-    "### Forensic scores",
-    "",
-    // The "Not applicable" column carries the reason a battery was skipped for
-    // this route (Altman and Beneish are suppressed for financials, for
-    // example). The on-screen report shows it; without the column an export
-    // reader saw only a bare dash and no explanation.
-    table(
-      ["Battery", "Variant", "Score", "Zone", "Not applicable"],
-      [
-        ["Altman Z", fs.altman, num(fs.altman.score, 2)] as const,
-        ["Beneish M", fs.beneish, num(fs.beneish.score, 2)] as const,
-        ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)] as const,
-        ["Accruals", fs.accruals, num(fs.accruals.score, 2)] as const,
-      ].map(([label, entry, score]) => [
-        label,
-        entry.variant,
-        score,
-        entry.zone ?? DASH,
-        entry.notApplicableReason ?? DASH,
-      ]),
-    ),
-    "",
-  );
+  // "Not applicable" carries the reason a battery was skipped for this route;
+  // the column is dropped when no battery was skipped.
+  lines.push(...subsection("### Forensic scores", bodyTable(
+    ["Battery", "Variant", "Score", "Zone", "Not applicable"],
+    [
+      ["Altman Z", fs.altman, num(fs.altman.score, 2)] as const,
+      ["Beneish M", fs.beneish, num(fs.beneish.score, 2)] as const,
+      ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)] as const,
+      ["Accruals", fs.accruals, num(fs.accruals.score, 2)] as const,
+    ].map(([label, entry, score]) => [label, entry.variant, score, entry.zone ?? DASH, entry.notApplicableReason ?? DASH]),
+  )));
   lines.push(
     "### Flags",
     "",
-    q.flags.length > 0
-      ? table(
-          ["Severity", "Flag", "Source"],
-          q.flags.map((f) => [f.severity, f.text, f.source]),
-        )
-      : `_No forensic flags raised._`,
+    q.flags.length > 0 ? table(["Severity", "Flag", "Source"], q.flags.map((f) => [f.severity, humanizeInlineCitations(f.text), sourceLabel(f.source)])) : "_No forensic flags raised._",
   );
   return lines.join("\n");
 }
 
-function renderTechnicals(t: Technicals): string {
+function renderTechnicals(report: Report): string {
+  const t: Technicals = report.technicals;
+  const timing = priceTiming(report);
+  const seen = new Map<string, FigureRow>();
   const lines: string[] = [sectionHeading("technicals"), ""];
-  lines.push(gradeBlock("Technicals", t.graded), "");
+  lines.push(gradeBlock("Technicals", t.graded, seen), "");
   lines.push(
     "### Structured read",
     "",
-    `- **Trend:** ${markdownListItem(t.read.trend)}`,
-    `- **Momentum:** ${markdownListItem(t.read.momentum)}`,
-    `- **Key levels:** ${markdownListItem(t.read.keyLevels)}`,
-    `- **Relative strength:** ${markdownListItem(t.read.relativeStrength)}`,
+    `- **Trend:** ${item(t.read.trend)}`,
+    `- **Momentum:** ${item(t.read.momentum)}`,
+    `- **Key levels:** ${item(t.read.keyLevels)}`,
+    `- **Relative strength:** ${item(t.read.relativeStrength)}`,
     "",
   );
-  if (t.indicators.length > 0) {
-    lines.push(
-      "### Indicators",
-      "",
-      table(
-        ["Indicator", "Value", "Measurement period", "As of", "Cited"],
-        t.indicators.map((n) => [
-          n.source,
-          tracedValue(n),
-          tracedPeriodLabel(n.period, n.periodContext),
-          n.asOf ?? DASH,
-          verifiedMark(n),
-        ]),
-      ),
-      "",
-    );
-  }
+  const indicators = figureTable(figureRows(t.indicators.map((n) => n), seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, timing) })), "Indicator");
+  lines.push(...subsection("### Indicators", indicators));
   if (t.flags.length > 0) {
-    lines.push(
-      "### Flags",
-      "",
-      table(
-        ["Severity", "Flag", "Source"],
-        t.flags.map((f) => [f.severity, f.text, f.source]),
-      ),
-    );
+    lines.push("### Flags", "", table(["Severity", "Flag", "Source"], t.flags.map((f) => [f.severity, humanizeInlineCitations(f.text), sourceLabel(f.source)])));
   }
   return lines.join("\n").trimEnd();
 }
 
-function renderLeadership(l: Leadership): string {
+function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures"> = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
-  lines.push(gradeBlock("Leadership", l.graded), "");
+  lines.push(gradeBlock("Leadership", l.graded, new Map(), report), "");
   lines.push("### Executives", "");
   for (const e of l.executives) {
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
       "",
-      `Grade **${e.grade}** · credibility **${e.credibilityGrade}**${
-        e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`
-      }`,
-      "",
-      claimList(e.reasoning),
-      "",
-      e.assessmentReason ? markdownProse(e.assessmentReason) : "",
+      `Grade **${e.grade}** · credibility **${e.credibilityGrade}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
       "",
     );
+    if (e.reasoning.length > 0) lines.push(claimList(e.reasoning), "");
+    if (e.assessmentReason) lines.push(markdownProse(e.assessmentReason), "");
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
       const claims = e.evidence[descriptor.key];
       if (!claims || claims.length === 0) continue;
       lines.push(`##### ${descriptor.label}`, "", claimList(claims), "");
     }
   }
-  lines.push("### Insider activity", "", claimList(l.insiderSummary), "");
-  lines.push("### Governance", "", claimList(l.governanceNotes));
-  return lines.join("\n");
+  lines.push(...subsection("### Insider activity", claimList(l.insiderSummary)));
+  lines.push(...subsection("### Governance", claimList(l.governanceNotes)));
+  return lines.join("\n").trimEnd();
 }
 
 function renderCompetitive(c: Competitive): string {
   const lines: string[] = [sectionHeading("competitive"), ""];
-  lines.push(gradeBlock("Moat", c.moatGraded), "");
+  lines.push(gradeBlock("Moat", c.moatGraded, new Map()), "");
   lines.push("### Peer table", "");
   if (c.peerTable.length > 0) {
-    // Peers carry a free-form metrics list; render name + symbol + each metric.
-    // Columns are keyed by the metric, not by position: a peer reporting only
-    // EV/EBITDA must not have it rendered under another peer's P/E header.
+    // Columns keyed by the metric, not by position (peerMetricKey).
     const metricKeys: string[] = [];
     for (const p of c.peerTable) {
       for (const key of peerColumnKeys(p.metrics)) {
         if (!metricKeys.includes(key)) metricKeys.push(key);
       }
     }
-    const headers = ["Peer", "Symbol", ...metricKeys];
     const rows = c.peerTable.map((p) => {
       const rowKeys = peerColumnKeys(p.metrics);
       const byKey = new Map(p.metrics.map((metric, i) => [rowKeys[i], metric]));
@@ -957,89 +659,91 @@ function renderCompetitive(c: Competitive): string {
         p.symbol ?? DASH,
         ...metricKeys.map((key) => {
           const metric = byKey.get(key);
-          return metric ? tracedValue(metric) : DASH;
+          return metric ? formatFinancialAmount(metric.value, metric.unit, metric.currency) : DASH;
         }),
       ];
     });
-    lines.push(table(headers, rows), "");
+    lines.push(table(["Peer", "Symbol", ...metricKeys], rows), "");
   } else {
-    lines.push(`_No peer data._`, "");
+    lines.push("_No peer data._", "");
   }
-  lines.push("### Moat assessment", "");
-  for (const m of c.moatAssessment) {
-    // Route the reasoning through the shared claim renderer instead of
-    // flattening it to prose. Moat reasoning is a model JUDGMENT; joining the
-    // claim texts dropped every label, as-of date and citation, so it read as a
-    // sourced fact — the one thing this report is built not to do.
-    lines.push(`#### ${markdownListItem(m.source)} (${markdownListItem(m.strength)})`, "");
-    lines.push(claimList(m.reasoning), "");
+  if (c.moatAssessment.length > 0) {
+    lines.push("### Moat assessment", "");
+    for (const m of c.moatAssessment) {
+      // D-62: "Scale — narrow", not the raw enums "scale (narrow)".
+      lines.push(`#### ${markdownHeading(moatHeading(m))}`, "", claimList(m.reasoning), "");
+    }
   }
-  lines.push(
-    "",
-    "### Market-share direction",
-    "",
-    markdownProse(c.marketShareDirection),
-  );
+  lines.push("### Market-share direction", "", prose(c.marketShareDirection));
   return lines.join("\n");
 }
 
 function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: readonly ReportAuditTable[] = []): string {
   const lines: string[] = [sectionHeading("catalystsRisks"), ""];
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
-  lines.push(
-    "### Catalysts",
-    "",
-    table(
-      ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-      cr.catalysts.map((c) => [
-        c.title,
-        c.expectedDate ?? DASH,
-        c.direction,
-        c.significance,
-        c.reasoning.text,
-      ]),
-    ),
-    "",
-  );
-  lines.push(
-    "### Risks",
-    "",
-    table(
-      ["Risk", "Severity", "Probability", "Source", "Note"],
-      cr.risks.map((r) => [
-        r.title,
-        r.severity,
-        r.probability,
-        r.source,
-        r.reasoning.text,
-      ]),
-    ),
-  );
-  if (extra.length === 0) return lines.join("\n");
-  lines.push("", ...auditTableBlocks(extra));
+  lines.push(...subsection("### Catalysts", bodyTable(
+    ["Catalyst", "Expected", "Direction", "Significance", "Note"],
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, humanizeInlineCitations(c.reasoning.text)]),
+  )));
+  lines.push(...subsection("### Risks", bodyTable(
+    ["Risk", "Severity", "Probability", "Source", "Note"],
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), humanizeInlineCitations(r.reasoning.text)]),
+  )));
+  lines.push(...auditTableBlocks(extra));
   return lines.join("\n").trimEnd();
 }
 
 function renderOutlook(report: Report): string {
   const o = report.outlook;
   const lines: string[] = [sectionHeading("outlook"), ""];
-  lines.push("### Segment trajectories", "", claimList(o.segmentTrajectories), "");
-  if (o.tam && o.tam.length > 0) {
-    lines.push("### TAM", "", claimList(o.tam), "");
-  }
-  lines.push(
-    "### Estimate-revision trend",
-    "",
-    claimList(o.estimateRevisionTrend),
-    "",
-  );
-  lines.push("### Guidance credibility", "", claimList(o.guidanceCredibility), "");
+  lines.push(...subsection("### Segment trajectories", claimList(o.segmentTrajectories)));
+  if (o.tam && o.tam.length > 0) lines.push(...subsection("### TAM", claimList(o.tam)));
+  lines.push(...subsection("### Estimate-revision trend", claimList(o.estimateRevisionTrend)));
+  lines.push(...subsection("### Guidance credibility", claimList(o.guidanceCredibility)));
   lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "outlook")));
-  lines.push("### Scenario narratives", "");
-  lines.push("", "**1-year**", "", claimList(o.scenarioNarratives.y1), "");
-  lines.push("**3-year**", "", claimList(o.scenarioNarratives.y3), "");
-  lines.push("**5-year**", "", claimList(o.scenarioNarratives.y5));
-  return lines.join("\n");
+  const horizons: Array<[string, readonly SourcedClaim[]]> = [
+    ["1-year", o.scenarioNarratives.y1],
+    ["3-year", o.scenarioNarratives.y3],
+    ["5-year", o.scenarioNarratives.y5],
+  ];
+  if (horizons.some(([, claims]) => claims.length > 0)) {
+    lines.push("### Scenario narratives", "");
+    for (const [label, claims] of horizons) lines.push(...subsection(`**${label}**`, claimList(claims)));
+  }
+  return lines.join("\n").trimEnd();
+}
+
+function renderProjections(p: Projections): string {
+  const series = orderedProjectionSeries(p.series);
+  const pct = (w: number) => `${Math.round(w * 100)}%`;
+  const lines: string[] = [
+    sectionHeading("projections"),
+    "",
+    `Horizon ${p.horizonYears}y · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear).`,
+    "",
+  ];
+  lines.push(...auditTableBlocks(projectionAuditTables(p)));
+  if (series.length === 0) {
+    lines.push(`_Not applicable${p.notApplicableReason ? `: ${markdownProse(p.notApplicableReason)}` : "."}_`, "");
+  }
+  // D-62: the assumption block every series repeats is stated once.
+  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions));
+  if (common.length > 0) {
+    lines.push("**Assumptions common to every series:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
+  }
+  const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
+  series.forEach((s, index) => {
+    lines.push(`### ${PROJECTION_METRIC_BY_KEY[s.metric].label} (${markdownHeading(s.unit)})`, "");
+    const rows = projectionPeriodRows(s).flatMap((row) => {
+      const points = forwardPaths.map((descriptor) => projectionCellPoint(row, descriptor.key, s.unit));
+      if (points.every((point) => point === null)) return [];
+      return [[row.period, ...points.map((point) => (point === null ? DASH : tracedValue(point.value)))]];
+    });
+    lines.push(table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows), "");
+    const own = specific[index] ?? [];
+    if (own.length > 0) lines.push("Assumptions:", "", own.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"), "");
+  });
+  return lines.join("\n").trimEnd();
 }
 
 function renderMacro(m: Macro): string {
@@ -1047,219 +751,80 @@ function renderMacro(m: Macro): string {
   lines.push(
     table(
       ["Series", "Name", "Latest", "As of", "Relevance"],
-      m.relevantSeries.map((s) => [
-        s.seriesId,
-        s.name,
-        tracedValue(s.latest),
-        s.latest.asOf ?? DASH,
-        s.relevance,
-      ]),
+      m.relevantSeries.map((s) => [s.seriesId, s.name, tracedValue(s.latest), s.latest.asOf ?? DASH, humanizeInlineCitations(s.relevance)]),
     ),
     "",
   );
-  if (m.sensitivityNotes.length > 0) {
-    lines.push("### Sensitivity notes", "", claimList(m.sensitivityNotes), "");
-  }
+  lines.push(...subsection("### Sensitivity notes", claimList(m.sensitivityNotes)));
   // Mandatory FRED attribution, verbatim.
   lines.push(`> ${markdownBlockquote(m.fredAttribution)}`);
   return lines.join("\n");
 }
 
-function renderDisagreements(disagreements: readonly Disagreement[]): string {
-  if (disagreements.length === 0) return "";
-  const lines: string[] = ["### Bull/bear disagreements", ""];
-  for (const d of disagreements) {
-    lines.push(
-      `- **${markdownListItem(d.topic)}** (${markdownListItem(d.kind)})`,
-      `  - Bull: ${markdownListItem(d.bullView)}`,
-      `  - Bear: ${markdownListItem(d.bearView)}`,
-      `  - Judge: ${markdownListItem(d.judgeResolution)}`,
-    );
-  }
-  return lines.join("\n");
-}
+/* ======================================================================== *
+ * Appendix
+ * ======================================================================== */
 
-function renderAppendix(
-  a: Appendix,
-  completeness: ReportCompletenessPresentation,
-): string {
+function renderAppendix(report: Report, completeness: ReportCompletenessPresentation): string {
+  const a: Appendix = report.appendix;
+  const m = report.meta;
   const lines: string[] = [sectionHeading("appendix"), ""];
+
+  // D-62: the standard limitations, stated once.
+  lines.push("### Methodology and limitations", "", ...methodologyNotes(report).map((note) => `- ${markdownListItem(note)}`), "");
+
+  const runRows: string[][] = [
+    ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry)]),
+    ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
+    ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
+    ["Usage", usageSummary(report)],
+    ["Spec version", m.specVersion],
+    ["Pipeline version", m.pipelineVersion],
+    ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
+  ];
+  lines.push("### Run details", "", table(["Item", "Detail"], runRows), "");
+
+  lines.push("### Verification", "");
+  if (a.missingData.some((gap) => gap.field === "analysis.llm")) {
+    lines.push("No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.", "");
+  } else {
+    const rows = trustRows(a.provenanceCoverage ?? m.provenanceCoverage);
+    if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
+  }
+  lines.push(
+    `Citation coverage: **${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(0)}%`}** of report figures trace to a citation or payload value (provenance, not correctness).`,
+    "",
+  );
+  if (a.consistencyChecks) {
+    const c = a.consistencyChecks;
+    const failed = c.direction.failed + c.period.failed + c.unit.failed + c.namedIndividual.failed;
+    const checked = c.direction.checked + c.period.checked + c.unit.checked + c.namedIndividual.checked;
+    lines.push(`Deterministic consistency checks: ${checked - failed}/${checked} passed (direction, period, unit and named-person checks; the log is in the audit export).`, "");
+  }
+
+  lines.push("### Data gaps", "", markdownProse(`${gapCountText(a.missingData)} ${dataStateText(completeness)}`), "");
+  lines.push(...auditTableBlocks([actionableGapTable(a.missingData)].filter((t): t is BodyTable => t !== null), "####"));
+  const families = gapSummary(a.missingData);
+  if (families.length > 0) lines.push(table(["Gap family", "Entries", "Highest severity"], families.map((row) => [row.family, String(row.entries), row.highest])), "");
+
   lines.push(
     "### Sources",
     "",
     table(
       SOURCE_ENTRY_FIELDS.map((field) => field.label),
       a.sources.map((source) =>
-        SOURCE_ENTRY_FIELDS.map((field) => {
-          if (field.key === "stale") {
-            return source.stale === undefined ? "unknown" : source.stale ? "yes" : "no";
-          }
-          return source[field.key];
-        })),
+        SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : source[field.key]))),
     ),
     "",
   );
+
+  const path = auditExportPath(report);
   lines.push(
-    "### Missing-data manifest",
+    "### Audit trail",
     "",
-    a.missingData.length > 0
-      ? table(
-          MANIFEST_ENTRY_FIELDS.map((field) => field.label),
-          a.missingData.map((gap) =>
-            MANIFEST_ENTRY_FIELDS.map((field) => {
-              if (field.key === "attemptedSources") {
-                return gap.attemptedSources?.join(", ") ?? "n/a";
-              }
-              if (field.key === "expected") {
-                return gap.expected === undefined ? "unknown" : gap.expected ? "yes" : "no";
-              }
-              return gap[field.key];
-            })),
-        )
-      : `_${markdownProse(completeness.manifestText)}_`,
-    "",
-  );
-  lines.push(
-    "### Citation coverage",
-    "",
-    `Citation coverage: **${
-      a.verificationRate === null
-        ? DASH
-        : `${(a.verificationRate * 100).toFixed(0)}%`
-    }** — share of report figures traceable to a citation or payload value; a provenance check, not a correctness/accuracy check.`,
-    "",
-  );
-  if (a.missingData.some((gap) => gap.field === "analysis.llm")) {
-    lines.push("No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.", "");
-  } else if (a.provenanceCoverage) {
-    lines.push(provenanceCoverageTable(a.provenanceCoverage), "");
-  }
-  // WS7 (D-20): what was CHECKED, in its own subsection so it is never read as
-  // part of the coverage number above it.
-  if (a.consistencyChecks) {
-    lines.push(
-      "### Deterministic checks",
-      "",
-      markdownProse(
-        "No model call. Each check evaluates only the claim/figure pairs it can locate, so a low " +
-          "\"checked\" count means little could be checked — not that everything passed. Failures " +
-          "appear in the verification log with the sentence, the cited figure and the reason.",
-      ),
-      "",
-      consistencyChecksTable(a.consistencyChecks),
-      "",
-    );
-  }
-  if (a.verificationLog && a.verificationLog.length > 0) {
-    lines.push(
-      table(
-        VERIFICATION_LOG_FIELDS.map((field) => field.label),
-        a.verificationLog.map((entry) =>
-          VERIFICATION_LOG_FIELDS.map((field) => {
-            if (field.key === "outcome") return verificationEntryOutcomeLabel(entry);
-            return auditValue(entry[field.key]);
-          })),
-      ),
-      "",
-    );
-  }
-  // Use the shared cost formatter and the shared total, which sums the ROUNDED
-  // row values. Rendering rows at four decimals and totalling the unrounded
-  // ones printed sub-cent steps as $0.0000 and let the Total disagree with the
-  // rows beside it — on a ledger the reader is expected to be able to add up.
-  const totalCost = roundedDisplayedCostTotal(a.costBreakdown.map((e) => e.costUsd));
-  lines.push(
-    "### Cost breakdown",
-    "",
-    table(
-      ["Step", "Model", "Cost (USD)"],
-      a.costBreakdown.map((e) => [e.step, e.model, formatCostUsd(e.costUsd)]),
-    ),
-    "",
-    `Total: **${formatCostUsd(totalCost)}**`,
+    markdownProse(`The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (${path})` : ""}.`),
   );
   return lines.join("\n");
-}
-
-/* ======================================================================== *
- * Header / meta
- * ======================================================================== */
-
-function renderHeader(
-  report: Report,
-  completeness: ReportCompletenessPresentation,
-): string {
-  const m = report.meta;
-  // The same figure the appendix totals and the print/live headers show: the
-  // sum of the displayed rows. `meta.costUsd` is stored at four decimals while
-  // the rows are settled at micro-USD, so the header and its own appendix
-  // Total disagreed in the sixth decimal.
-  const displayedCost = roundedDisplayedCostTotal(
-    report.appendix.costBreakdown.map((entry) => entry.costUsd),
-  );
-  const lines: string[] = [];
-  lines.push(
-    `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Research Report`,
-  );
-  lines.push("", "*Metis · Equity research*", "");
-  lines.push(
-    table(
-      ["Field", "Value"],
-      [
-        ["Generated", m.generatedAt],
-        ["Model", m.model],
-        // WS7 (D-20): the sentence a reader sees — which case the judge read
-        // first, both case lengths, both self-assessments, and whether the judge
-        // shared a model family with the analysts.
-        ...(m.judgeProtocol !== undefined
-          ? [["Judgement protocol", m.judgeProtocol.note]]
-          : []),
-        // Requested versus effective model/effort per pass, with the
-        // adjustments (judge floor, effort stripped, fallback, model
-        // rejected) — the same row the print export carries. A shared
-        // Markdown that said only "Model: claude-haiku-4-5" hid that the judge
-        // ran on Sonnet.
-        ...(m.execution
-          ? [[
-              "Pass execution",
-              m.execution.map(formatExecutionMetadata).join(" | "),
-            ]]
-          : []),
-        // Legacy reports carry a verifyModel label (removed setting) — keep it.
-        ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
-        ["Spec version", m.specVersion],
-        ["Pipeline version", m.pipelineVersion],
-        ["Cost (USD)", formatCostUsd(displayedCost)],
-        ["Data completeness", completeness.statusText],
-        ["Factual validation", factualValidationText(m.provenanceCoverage) ?? "Not recorded; citation coverage alone is not factual validation."],
-        ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
-        [
-          "Citation coverage",
-          m.verificationRate === null
-            ? DASH
-            : `${(m.verificationRate * 100).toFixed(0)}%`,
-        ],
-      ],
-    ),
-  );
-  lines.push("");
-  // Mandatory disclaimer, verbatim.
-  lines.push(`> ${markdownBlockquote(m.disclaimer)}`);
-  return lines.join("\n");
-}
-
-/** As-of map, rendered with SORTED keys for deterministic output. */
-function renderAsOfMap(asOfMap: Record<string, string>): string {
-  const keys = Object.keys(asOfMap).sort();
-  if (keys.length === 0) return "";
-  return [
-    "### As-of map",
-    "",
-    table(
-      AS_OF_MAP_FIELDS.map((field) => field.label),
-      keys.map((k) => [k, asOfMap[k]]),
-    ),
-  ].join("\n");
 }
 
 /* ======================================================================== *
@@ -1279,9 +844,9 @@ function capitalize(s: string): string {
  * ======================================================================== */
 
 /**
- * Render a full {@link Report} to a complete, deterministic Markdown document.
- * Every report section, the appendix, the disclaimer, and the FRED attribution
- * are present; every figure carries its as-of and verification state.
+ * Render a full {@link Report} to a deterministic Markdown document. Every
+ * report section, the appendix, the disclaimer and the FRED attribution are
+ * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report): string {
   const completeness = deriveReportCompletenessPresentation(
@@ -1291,29 +856,30 @@ export function reportToMarkdown(report: Report): string {
   const blocks: string[] = [
     renderHeader(report, completeness),
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
+    renderKeyData(report),
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
     renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
-    renderFundamentals(report.fundamentals,report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals")),
-    renderBalanceSheet(report.balanceSheet),
-    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, evidenceTimingRows(report)),
+    renderFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report),
+    renderBalanceSheet(report.balanceSheet, report),
+    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }),
     renderQuality(report.quality),
-    renderTechnicals(report.technicals),
-    renderLeadership(report.leadership),
+    renderTechnicals(report),
+    renderLeadership(report.leadership, report),
     renderCompetitive(report.competitive),
     renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     renderOutlook(report),
     report.projections ? renderProjections(report.projections) : "",
     renderMacro(report.macro),
-    renderDisagreements(report.disagreements),
-    renderAppendix(report.appendix, completeness),
-    renderAsOfMap(report.meta.asOfMap),
+    renderAppendix(report, completeness),
   ].filter((b) => b.length > 0);
 
   // Join sections with a blank-line-separated horizontal rule for readability;
   // ensure a single trailing newline for a clean file.
   return blocks.join("\n\n---\n\n") + "\n";
 }
+
+export { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 
 /** Constants re-exported so callers/tests can assert on them without a second import. */
 export { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT };

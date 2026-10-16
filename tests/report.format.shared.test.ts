@@ -82,7 +82,8 @@ describe("shared report formatting", () => {
     [15_204_000_000, "shares", "15.20B shares"],
     [3.2, "pp", "3.2 pp"],
     [-0.75, "pp/yr", "-0.8 pp/yr"],
-    [55, "rsi", "55 rsi"],
+    // D-62: an index reading carries no unit word ("40.25 index" read oddly).
+    [55, "rsi", "55.0"],
     [62, "rank", "62 rank"],
     [0.65, "fraction", "65.0%"],
     [1.87, "z", "1.87 z"],
@@ -97,7 +98,8 @@ describe("shared report formatting", () => {
     // Not established: never dollars.
     expect(formatMoneyAmount(1234.5, null, 0)).toBe("1,235 (currency unknown)");
     expect(formatMoneyAmount(1234.5, "TWD", 0)).toBe("1,235 TWD");
-    expect(formatMoneyAmount(-12.345, "chf", 2)).toBe("-12.35 CHF");
+    // D-62: decimal-safe rounding (12.345 → 12.35) and a leading minus sign.
+    expect(formatMoneyAmount(-12.345, "chf", 2)).toBe("−12.35 CHF");
   });
 
   it("makes displayed step costs add exactly to the displayed total", () => {

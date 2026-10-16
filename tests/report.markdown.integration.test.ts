@@ -15,6 +15,13 @@ import { reports } from "@/db/schema";
 import { buildDataCompleteness } from "@/report/completeness";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
+
+/** D-62: the Markdown export set — the report and its separate audit trail. */
+function markdownExports(report: Report): string {
+  return `${reportToMarkdown(report)}
+${reportToAuditMarkdown(report)}`;
+}
 import {
   DisagreementSchema,
   MoatAssessmentSchema,
@@ -581,8 +588,10 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
   });
 
   it("neutralizes active HTML, links, images, autolinks, and injected block grammar while keeping text visible", () => {
-    const safe = reportToMarkdown(consumerReport(false));
-    const markdown = reportToMarkdown(consumerReport(true));
+    // D-62: the Markdown export is two files — the report and its audit
+    // trail — and the guarantees hold for both.
+    const safe = markdownExports(consumerReport(false));
+    const markdown = markdownExports(consumerReport(true));
     const outsideCode = maskCodeSpans(markdown);
 
     for (const entry of POISON_REGISTRY) {
@@ -604,10 +613,9 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     expect(markdown).toContain(String.raw`\# P30INJECTEDHEADING`);
     expect(markdown).toContain("P30INJECTEDLIST");
     expect(markdown).toContain("P30INJECTEDQUOTE");
-    expect(markdown).toContain(
-      "````source id: P30CODE one`tick ``two``` [P30CODELINK](javascript:alert(30)) "
-        + "<img data-p30=code src=x>````",
-    );
+    // D-62: a claim's registry id is part of its one source marker, escaped as
+    // prose (it used to be a separate code span).
+    expect(markdown).toContain(String.raw`id P30CODE one\`tick \`\`two\`\`\` \[P30CODELINK\](javascript\:alert(30)) \<img data-p30=code src=x\>`);
   });
 
   it("serializes Task 28 table leaves and a dual-context completeness reason exactly once", () => {
@@ -620,8 +628,8 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
       "appendix.sources[0].endpoint",
       "appendix.missingData[0].reason",
     ];
-    const safe = reportToMarkdown(consumerReport(false, tablePaths));
-    const markdown = reportToMarkdown(consumerReport(true, tablePaths));
+    const safe = markdownExports(consumerReport(false, tablePaths));
+    const markdown = markdownExports(consumerReport(true, tablePaths));
     const reason = String.raw`P30COMPLETE \<script data-p30=completeness\>bad\</script\> \# P30COMPLETEHEADING`;
 
     expect(tablePipeSignature(markdown)).toEqual(tablePipeSignature(safe));
@@ -637,7 +645,7 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
 
   it("serializes one Task 28 projection assumption once in its list and once in its audit table", () => {
     const path = "projections.series[0].assumptions[0]";
-    const markdown = reportToMarkdown(consumerReport(true, [path]));
+    const markdown = markdownExports(consumerReport(true, [path]));
     const listLine = String.raw`- P30PROJASSUME \<script data-p30=projection-assumption\>bad\</script\> | ASSUMPTIONPIPE`;
     const tableLine = String.raw`| P30PROJASSUME \<script data-p30=projection-assumption\>bad\</script\> \| ASSUMPTIONPIPE |`;
 
@@ -651,7 +659,7 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     report.projections!.series = [];
     const parsed = ReportSchema.parse(report);
     const before = JSON.stringify(parsed);
-    const markdown = reportToMarkdown(parsed);
+    const markdown = markdownExports(parsed);
 
     expect(markdown).toContain(
       String.raw`_Not applicable: P30PROJECTIONNA \<script data-p30=projection-na\>bad\</script\> \\| PROJECTIONNAPIPE_`,
@@ -760,16 +768,18 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     const parsed = ReportSchema.parse(report);
     const markdown = reportToMarkdown(parsed);
 
+    // D-62: one source marker — the citation, the registry id where it
+    // differs, and the as-of date — instead of the "source id" / "src" pair.
     expect(markdown).toContain(
-      "- **[FACT]** P30CONTROLLEDCLAIM _(as of 2099-12-31)_ "
-        + "`source id: P30CONTROLLEDID` `src: P30CONTROLLEDSOURCE`",
+      "- **[FACT]** P30CONTROLLEDCLAIM _(P30CONTROLLEDSOURCE · id P30CONTROLLEDID · 2099-12-31)_",
     );
     // CONTRACT CHANGED 2026-08-31. Moat reasoning used to be flattened to
     // `- **networkEffects** (wide): <joined claim texts>`, which stripped every
     // label, as-of date and citation from what is a model JUDGMENT — so it read
     // as a sourced fact. It now goes through the same claim renderer as
-    // whatTheySell above, under a heading naming the source and strength.
-    expect(markdown).toContain("#### networkEffects (wide)");
+    // whatTheySell above, under a heading naming the source and strength
+    // (D-62: "Network effects — wide", not the raw enums).
+    expect(markdown).toContain("#### Network effects — wide");
     expect(markdown).toContain("P30CONTROLLEDMOAT");
     expect(markdown).not.toContain("- **networkEffects** (wide): P30CONTROLLEDMOAT");
     expect(markdown).toContain("- **P30CONTROLLEDTOPIC** (entity)");
@@ -846,13 +856,12 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     expect(html).not.toMatch(/<a\b[^>]*\bhref=[^>]*(?:javascript:|p30\.invalid)/i);
     expect(html).not.toMatch(/<(?:img|iframe|script)\b[^>]*\bsrc=[^>]*(?:javascript:|p30\.invalid)/i);
     expect(html).not.toMatch(/<[A-Za-z][^>]*\bstyle=[^>]*(?:javascript:|p30)/i);
+    // D-62: driver notes, projection disclosures and manifest reasons are
+    // audit-export leaves; these body leaves stay on the HTML surfaces.
     for (const entry of POISON_REGISTRY.filter((item) => [
       "verdict.synthesis",
-      "scores.aspects.fundamentals.drivers[0].verificationNote",
-      "projections.series[0].disclosures[0].reason",
       "leadership.executives[0].evidence.guidanceVsActuals[0].text",
       "appendix.sources[0].endpoint",
-      "appendix.missingData[0].reason",
     ].includes(item.path))) {
       expect(html, entry.path).toContain(escapeHtml(entry.poison));
     }
@@ -870,13 +879,12 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     expect(html).not.toMatch(/<a\b[^>]*\bhref=[^>]*(?:javascript:|p30\.invalid)/i);
     expect(html).not.toMatch(/<(?:img|iframe|script)\b[^>]*\bsrc=[^>]*(?:javascript:|p30\.invalid)/i);
     expect(html).not.toMatch(/<[A-Za-z][^>]*\bstyle=[^>]*(?:javascript:|p30)/i);
+    // D-62: driver notes, projection disclosures and manifest reasons are
+    // audit-export leaves; these body leaves stay on the HTML surfaces.
     for (const entry of POISON_REGISTRY.filter((item) => [
       "verdict.synthesis",
-      "scores.aspects.fundamentals.drivers[0].verificationNote",
-      "projections.series[0].disclosures[0].reason",
       "leadership.executives[0].evidence.guidanceVsActuals[0].text",
       "appendix.sources[0].endpoint",
-      "appendix.missingData[0].reason",
     ].includes(item.path))) {
       expect(html, entry.path).toContain(escapeHtml(entry.poison));
     }

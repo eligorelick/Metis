@@ -1,5 +1,5 @@
 import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
-import { formatFinancialValue } from "./format";
+import { formatFinancialValue, formatLargeNumber } from "./format";
 
 export interface ReportAuditTable { heading: string; headers: string[]; rows: string[][]; note?: string }
 const n = (value: number | null | undefined, digits = 2) => typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "unavailable";
@@ -29,9 +29,9 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
       ["Enterprise value",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
       ["Less minority interest",money(b.minorityInterest)],["Less preferred equity",money(b.preferredEquity)],
       ...(b.nonOperatingAssets === undefined ? [] : [["Plus non-operating marketable equity securities (filed fair value, not cash)",money(b.nonOperatingAssets)]]),
-      ["Common equity value",money(b.equityValue)],["Diluted share denominator",n(b.dilutedShares,0)],
+      ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
       ["Valuation as of",b.asOf ?? "unavailable"],
-    ],note:"Computed model values. Per-share value uses the disclosed equity bridge and current diluted share denominator; valuation assumptions do not constitute independently verified price forecasts."});
+    ],note:"Per-share value = common equity value ÷ diluted share denominator."});
   }
   const gm = dcf.growthMarginGrid;
   const shift = (v: number) => `${v > 0 ? "+" : ""}${v}pp`;

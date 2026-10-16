@@ -26,12 +26,15 @@ import { Badge, GradeChip, type Tone } from "@/components/ui";
 import { gradeForDisplay } from "@/report/assessment";
 import type {
   GradeBlock,
+  Report,
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
+import { figureRows, seeAlsoText, withoutTabled } from "@/report/presentation";
 import {
+  formatFinancialAmount,
   formatNumber,
-  formatTracedValue,
+  unitLabel,
   numericCitationTraceLabel,
   tracedPeriodLabel,
 } from "@/report/format";
@@ -173,12 +176,17 @@ export function TracedFigure({
   return (
     <span
       className={`inline-flex items-center gap-1 ${className ?? ""}`}
-      title={`${n.source}${n.asOf ? ` · as of ${n.asOf}` : ""}`}
+      title={`${unitLabel(n.unit) ? `${unitLabel(n.unit)} · ` : ""}${n.source}${n.asOf ? ` · as of ${n.asOf}` : ""}`}
     >
-      <span className={`mono ${toneClass[tone]}`}>{formatTracedValue(n)}</span>
+      <span className={`mono ${toneClass[tone]}`}>{formatFinancialAmount(n.value, n.unit, n.currency)}</span>
       <VerificationDot n={n} />
       {showProvenance && (
-        <span className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period, n.periodContext)}; as of {n.asOf ?? "not supplied"}</span>
+        <span className="mono text-[9px] text-faint">
+          {[
+            tracedPeriodLabel(n.period, n.periodContext) === "not supplied" ? null : `period ${tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "")}`,
+            n.asOf ? `as of ${n.asOf}` : null,
+          ].filter(Boolean).join("; ")}
+        </span>
       )}
     </span>
   );
@@ -205,7 +213,9 @@ export function TracedStat({
         {label}
       </div>
       <TracedFigure n={n} tone={tone} className="text-[13px]" />
-      <div className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period, n.periodContext)}</div>
+      {tracedPeriodLabel(n.period, n.periodContext) !== "not supplied" && (
+        <div className="mono text-[9px] text-faint">period {tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "")}</div>
+      )}
       {n.asOf && (
         <div className="mono text-[9px] text-faint">as of {n.asOf}</div>
       )}
@@ -237,11 +247,17 @@ export function GradeReasoning({
   title,
   block,
   defaultOpen = false,
+  report = {},
 }: {
   title: ReactNode;
   block: GradeBlock;
   defaultOpen?: boolean;
+  /** D-62: figures a deterministic filing table shows are left to that table. */
+  report?: Pick<Report, "filingDisclosures">;
 }) {
+  const { kept, homes } = withoutTabled(report, block.keyNumbers);
+  const rows = figureRows(kept);
+  const also = seeAlsoText(homes);
   return (
     <div className="border border-edge-strong bg-raised">
       <div className="flex items-center gap-2 border-b border-edge px-2.5 py-1.5">
@@ -277,7 +293,7 @@ export function GradeReasoning({
             trigger={
               <span className="mono text-[10px] uppercase tracking-[0.1em] text-faint hover:text-accent">
                 reasoning ({block.reasoning.length}) · key numbers (
-                {block.keyNumbers.length})
+                {rows.length})
               </span>
             }
           >
@@ -287,13 +303,14 @@ export function GradeReasoning({
                   <ClaimList claims={block.reasoning} />
                 </div>
               )}
-              {block.keyNumbers.length > 0 && (
+              {rows.length > 0 && (
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
-                  {block.keyNumbers.map((n, i) => (
-                    <TracedStat key={i} label={n.source.split(/[.:/]/).pop() ?? "value"} n={n} showSourceDetails />
+                  {rows.map((row, i) => (
+                    <TracedStat key={i} label={row.label} n={row.trace} showSourceDetails />
                   ))}
                 </div>
               )}
+              {also && <p className="text-[10px] text-faint">{also}</p>}
             </div>
           </Disclosure>
         </div>

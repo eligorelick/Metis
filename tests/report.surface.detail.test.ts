@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import type { Report, TracedNumber } from "@/report/schema";
 import {
@@ -72,17 +73,26 @@ function htmlEscaped(text: string): string {
     .replace(/'/g, "&#x27;");
 }
 
-function values(surfaces: Surfaces): string[] {
-  return [surfaces.live, surfaces.markdown, surfaces.print];
+function values(surfaces: Partial<Surfaces>): string[] {
+  return entries(surfaces).map(([, output]) => output);
 }
 
-function entries(surfaces: Surfaces): Array<[keyof Surfaces, string]> {
-  return [
-    ["live", surfaces.live],
-    ["markdown", surfaces.markdown],
-    ["print", surfaces.print],
-  ];
+function entries(surfaces: Partial<Surfaces>): Array<[keyof Surfaces, string]> {
+  return (["live", "markdown", "print"] as const).flatMap((key) =>
+    surfaces[key] === undefined ? [] : [[key, surfaces[key]!] as [keyof Surfaces, string]]);
 }
+
+/**
+ * D-62: the raw leaves (registry ids, full-precision values, the verification
+ * log, the manifest, projection series) moved out of the report body into the
+ * separate audit export, a Markdown file. Raw-leaf assertions read it.
+ */
+function auditSurface(report: Report): Partial<Surfaces> {
+  return { markdown: reportToAuditMarkdown(report) };
+}
+
+/** In the audit export the projection audit trail is followed by the manifest. */
+const AFTER_PROJECTION_AUDIT = "Missing-data manifest";
 
 function occurrenceCount(value: string, needle: string): number {
   return value.split(needle).length - 1;
@@ -148,7 +158,7 @@ function citationLabel(value: TracedNumber["verified"]): string {
 }
 
 function assertTracedRow(
-  surfaces: Surfaces,
+  surfaces: Partial<Surfaces>,
   trace: TracedNumber,
   rowNeedle: string,
   outerPeriod?: string,
@@ -200,7 +210,14 @@ describe("Task 28 complete report surfaces", () => {
   it("renders composite methodology, all aspect fields, independent weights, and every raw driver trace", () => {
     const report = task28SentinelReport();
     const before = JSON.stringify(report);
-    const surfaces = renderSurfaces(report);
+    // The body keeps the methodology, the band table and the scorecard; the raw
+    // weights, aspect fields and driver traces are in the audit export (D-62).
+    for (const output of values(renderSurfaces(report))) {
+      expect(output).toContain("TASK28:composite:methodology");
+      expect(output).toContain("TASK28:BANDS:VERSION");
+      expect(output).not.toContain("TASK28:fundamentals:driver:0:source-display");
+    }
+    const surfaces = auditSurface(report);
 
     for (const output of values(surfaces)) {
       expect(output).toContain("TASK28:composite:methodology");
@@ -318,7 +335,8 @@ describe("Task 28 complete report surfaces", () => {
         expect(firstScope).toContain(claim.label);
         expect(firstScope).toContain(claim.sourceId!);
         expect(firstScope).toContain(claim.source);
-        expect(firstScope).toContain(claim.asOf ?? "n/a");
+        // D-62: one source marker per claim; an absent as-of is omitted, not printed as n/a.
+        if (claim.asOf) expect(firstScope).toContain(claim.asOf);
         expect(secondScope).not.toContain(claim.text);
       }
       const secondClaim = report.leadership.executives[1]!.evidence.compensation![0]!;
@@ -339,13 +357,16 @@ describe("Task 28 complete report surfaces", () => {
   it("renders all 4 metrics x 5 paths as raw provenance rows plus every root and series field", () => {
     const report = task28SentinelReport();
     const before = JSON.stringify(report);
-    const surfaces = renderSurfaces(report);
+    const surfaces = auditSurface(report); // D-62: raw leaves are in the audit export
     const projections = report.projections!;
+    for (const output of values(renderSurfaces(report))) {
+      expect(output).toContain("unbacktested display prior");
+      expect(output).not.toContain("Projection audit trail");
+    }
 
     for (const [surface, output] of entries(surfaces)) {
-      expect(output).toContain("unbacktested display prior");
       expect(output).toContain("Projection audit trail");
-      const projectionAudit = sectionBetween(output, "Projection audit trail", "Macro");
+      const projectionAudit = sectionBetween(output, "Projection audit trail", AFTER_PROJECTION_AUDIT);
       expectTableCell(
         rowWithin(projectionAudit, "Horizon years", surface === "markdown"),
         String(projections.horizonYears),
@@ -378,7 +399,7 @@ describe("Task 28 complete report surfaces", () => {
     for (const [metricIndex, metric] of METRICS.entries()) {
       const series = projections.series.find((candidate) => candidate.metric === metric)!;
       for (const [surface, output] of entries(surfaces)) {
-        const projectionAudit = sectionBetween(output, "Projection audit trail", "Macro");
+        const projectionAudit = sectionBetween(output, "Projection audit trail", AFTER_PROJECTION_AUDIT);
         const metricStart = projectionAudit.indexOf(METRIC_LABELS[metricIndex]!);
         const nextMetric = METRIC_LABELS[metricIndex + 1];
         const metricEnd = nextMetric === undefined
@@ -421,7 +442,7 @@ describe("Task 28 complete report surfaces", () => {
   it("renders full source, manifest, verification-log, and as-of-map leaves verbatim", () => {
     const report = task28SentinelReport();
     const before = JSON.stringify(report);
-    const surfaces = renderSurfaces(report);
+    const surfaces = auditSurface(report); // D-62: raw leaves are in the audit export
 
     for (const [surface, output] of entries(surfaces)) {
       for (const source of report.appendix.sources) {
@@ -469,13 +490,13 @@ describe("Task 28 complete report surfaces", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
       reactErrors.push(args.map(String).join(" "));
     });
-    let surfaces: Surfaces;
     try {
-      surfaces = renderSurfaces(report);
+      renderSurfaces(report);
     } finally {
       errorSpy.mockRestore();
     }
     expect(reactErrors.join("\n")).not.toMatch(/unique ["']key["']|same key/i);
+    const surfaces = auditSurface(report); // D-62: raw projection rows are in the audit export
 
     for (const output of values(surfaces)) {
       assertOrder(output, [
@@ -522,14 +543,14 @@ describe("Task 28 complete report surfaces", () => {
   it("keeps absent EPS absent and renders the Task 13 share-trend disclosure once", () => {
     const report = task28MissingEpsReport();
     const before = JSON.stringify(report);
-    const surfaces = renderSurfaces(report);
+    const surfaces = auditSurface(report); // D-62: raw leaves are in the audit export
     expect(report.projections!.series.map((series) => series.metric)).toEqual([
       "revenue",
       "operatingMargin",
       "fcf",
     ]);
     for (const output of values(surfaces)) {
-      const projectionAudit = sectionBetween(output, "Projection audit trail", "Macro");
+      const projectionAudit = sectionBetween(output, "Projection audit trail", AFTER_PROJECTION_AUDIT);
       expect(occurrenceCount(output, "projections.eps.shareCountTrend")).toBe(1);
       expect(output).toContain("TASK28:missing-EPS:share-trend-disclosure");
       expect(projectionAudit).not.toContain("TASK28:epsDiluted:historical:0:source-display");
@@ -543,10 +564,10 @@ describe("Task 28 complete report surfaces", () => {
     report.projections!.series = [];
     report.projections!.notApplicableReason = "TASK28:empty-series:not-applicable";
     const before = JSON.stringify(report);
-    const surfaces = renderSurfaces(report);
+    const surfaces = auditSurface(report); // D-62: raw leaves are in the audit export
 
     for (const [surface, output] of entries(surfaces)) {
-      const audit = sectionBetween(output, "Projection audit trail", "Macro");
+      const audit = sectionBetween(output, "Projection audit trail", AFTER_PROJECTION_AUDIT);
       for (const [label, expected] of [
         ["Horizon years", String(report.projections!.horizonYears)],
         ["Bull scenario weight", String(report.projections!.scenarioWeights.bull)],
@@ -570,7 +591,7 @@ describe("Task 28 complete report surfaces", () => {
   it("does not fabricate nested optional provenance for legacy traces and claims", () => {
     const report = task28LegacyOptionalReport();
     const before = JSON.stringify(report);
-    const surfaces = renderSurfaces(report);
+    const surfaces = auditSurface(report); // D-62: raw leaves are in the audit export
     const driver = report.scores!.aspects.fundamentals.drivers[0]!;
     const point = report.projections!.series.find((series) => series.metric === "revenue")!.historical[0]!;
     const claim = report.leadership.executives[0]!.evidence.guidanceVsActuals![0]!;
@@ -581,13 +602,6 @@ describe("Task 28 complete report surfaces", () => {
       const pointRow = rowWithin(output, point.value.source, surface === "markdown");
       expect(pointRow).toContain(point.value.source);
       expect(occurrenceCount(pointRow, "n/a")).toBeGreaterThanOrEqual(4);
-      const claimStart = output.indexOf(claim.text);
-      expect(claimStart).toBeGreaterThanOrEqual(0);
-      const claimEnd = output.indexOf("Capital allocation", claimStart);
-      expect(claimEnd).toBeGreaterThan(claimStart);
-      const claimScope = output.slice(claimStart, claimEnd);
-      expect(claimScope).toContain(claim.source);
-      expect(claimScope).toContain("n/a");
       const scoreStart = output.includes("composite scorecard")
         ? "composite scorecard"
         : "Scorecard (deterministic)";
@@ -613,6 +627,17 @@ describe("Task 28 complete report surfaces", () => {
       expect(logRow).toContain("uncited");
       expect(tableCells(logRow, surface === "markdown").filter((cell) => cell === "n/a").length)
         .toBeGreaterThanOrEqual(6);
+      expect(output).not.toContain("undefined");
+    }
+    // The body shows the claim with its one source marker and no fabricated id.
+    for (const output of values(renderSurfaces(report))) {
+      const claimStart = output.indexOf(claim.text);
+      expect(claimStart).toBeGreaterThanOrEqual(0);
+      const claimEnd = output.indexOf("Capital allocation", claimStart);
+      expect(claimEnd).toBeGreaterThan(claimStart);
+      const claimScope = output.slice(claimStart, claimEnd);
+      expect(claimScope).toContain(claim.source);
+      expect(claimScope).not.toContain("source id");
       expect(output).not.toContain("undefined");
     }
     expect(JSON.stringify(report)).toBe(before);
@@ -651,17 +676,23 @@ describe("Task 28 complete report surfaces", () => {
     report.meta.asOfMap = { [poisons.asOfMap]: "2026-08-08T01:02:03.456Z" };
     const before = JSON.stringify(report);
     const surfaces = renderSurfaces(report);
+    // D-62: the driver trace, projection disclosure, log note and as-of map are
+    // audit-export leaves; the claim, assumption and source endpoint stay in the body.
+    const bodyLeaves = new Set([poisons.evidence, poisons.assumption, poisons.source]);
     for (const poison of Object.values(poisons)) {
       const escaped = poison
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
-      expect(surfaces.live).toContain(escaped);
+      if (bodyLeaves.has(poison)) {
+        expect(surfaces.live).toContain(escaped);
+        expect(surfaces.print).toContain(escaped);
+      }
       expect(surfaces.live).not.toContain(poison);
-      expect(surfaces.print).toContain(escaped);
       expect(surfaces.print).not.toContain(poison);
     }
+    const audit = reportToAuditMarkdown(report);
     for (const expected of [
       String.raw`\<script data-task28="driver"\>alert(28)\</script\> \| driver`,
       String.raw`\<script data-task28="disclosure"\>alert(28)\</script\> \| disclosure`,
@@ -669,8 +700,9 @@ describe("Task 28 complete report surfaces", () => {
       String.raw`\<script data-task28="log"\>alert(28)\</script\> \| log`,
       String.raw`\<script data-task28="asof"\>alert(28)\</script\> \| asof`,
     ]) {
-      expect(surfaces.markdown).toContain(expected);
+      expect(audit).toContain(expected);
     }
+    expect(surfaces.markdown).toContain(String.raw`\<script data-task28="source"\>alert(28)\</script\> \| source`);
     expect(JSON.stringify(report)).toBe(before);
   });
 });

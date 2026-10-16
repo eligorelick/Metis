@@ -42,6 +42,7 @@ import {
 } from "@/report/schema";
 import {
   reportToMarkdown,
+  reportToAuditMarkdown,
   DISCLAIMER_TEXT,
   FRED_ATTRIBUTION_TEXT,
 } from "@/report/export/markdown";
@@ -248,8 +249,7 @@ describe("reportToMarkdown", () => {
 
     const renderedReact = renderToStaticMarkup(
       createElement(AppendixSection, {
-        appendix: r.appendix,
-        disagreements: [],
+        report: r,
         index: 13,
       }),
     );
@@ -322,24 +322,28 @@ describe("reportToMarkdown", () => {
         note: "synthesize: raised from claude-haiku-4-5 to claude-sonnet-5 (model-floor).",
       },
     ];
+    // D-62: the header carries one line; the appendix carries each pass in a
+    // line and the audit export carries the full execution record.
     const md = reportToMarkdown(r);
-    expect(md).toContain(
-      "| Pass execution | synthesize: requested claude-haiku-4-5/high; effective claude-sonnet-5/high (model-floor). synthesize: raised from claude-haiku-4-5 to claude-sonnet-5 (model-floor). |",
+    expect(md).toContain("| Model | judge on claude-sonnet-5 (high effort); adjusted — judge: model-floor |");
+    expect(md).toContain("| Passes | judge: claude-sonnet-5 (requested claude-haiku-4-5), high effort; model-floor |");
+    expect(reportToAuditMarkdown(r)).toContain(
+      "- synthesize: requested claude-haiku-4-5/high; effective claude-sonnet-5/high (model-floor). synthesize: raised from claude-haiku-4-5 to claude-sonnet-5 (model-floor).",
     );
   });
 
   it("includes each scenario name and its probability", () => {
     // bull 25% / base 50% / bear 25% from the fixture.
-    expect(md).toMatch(/Bull — target .* \(p = 25%/);
-    expect(md).toMatch(/Base — target .* \(p = 50%/);
-    expect(md).toMatch(/Bear — target .* \(p = 25%/);
+    expect(md).toMatch(/#### Bull — .* \(p 25%/);
+    expect(md).toMatch(/#### Base — .* \(p 50%/);
+    expect(md).toMatch(/#### Bear — .* \(p 25%/);
   });
 
   it("renders 'unavailable' for a scenario whose deterministic target is suppressed (null) — no crash / NaN", () => {
     const r = clone(report);
     for (const s of r.valuation.scenarios) s.priceTarget = null;
     const out = reportToMarkdown(ReportSchema.parse(r));
-    expect(out).toMatch(/Base — target unavailable/i);
+    expect(out).toMatch(/#### Base — unavailable/i);
     expect(out).not.toContain("undefined");
     expect(out).not.toContain("NaN");
   });
@@ -382,8 +386,9 @@ describe("reportToMarkdown", () => {
     const out = reportToMarkdown(ReportSchema.parse(r));
     expect(out).not.toContain("undefined");
     expect(out).not.toContain("NaN");
-    // The assumptions block still renders (empty table); no fabricated grid rows.
-    expect(out).toContain("Assumptions:");
+    // D-62: an empty assumptions table is hidden, and no grid rows are fabricated.
+    expect(out).not.toContain("| Assumption | Value | Basis |");
+    expect(out).not.toContain("### Sensitivity (per share");
   });
 
   it("renders the deterministic DCF assumptions with their computed basis", () => {
@@ -443,13 +448,19 @@ describe("reportToMarkdown", () => {
     };
     r.meta.provenanceCoverage = coverage;
     r.appendix.provenanceCoverage = coverage;
-    const out = reportToMarkdown(ReportSchema.parse(r));
-    expect(out).toContain("Numeric provenance");
-    expect(out).toContain("8/10 (80%)");
-    expect(out).toContain("Factual-claim citations");
-    expect(out).toContain("3/4 (75%)");
-    expect(out).toContain("Judgment citations");
-    expect(out).toContain("0/0 (n/a — no items)");
+    const parsed = ReportSchema.parse(r);
+    // D-62: the report states each kind of check by name; the audit export
+    // keeps the denominator table, including the honest zero-item rate.
+    const out = reportToMarkdown(parsed);
+    expect(out).toContain("| Figures traced to a cited source | 8/10 (80%) |");
+    expect(out).toContain("| Factual claims carrying a citation | 3/4 (75%) |");
+    const audit = reportToAuditMarkdown(parsed);
+    expect(audit).toContain("Numeric provenance");
+    expect(audit).toContain("8/10 (80%)");
+    expect(audit).toContain("Factual-claim citations");
+    expect(audit).toContain("3/4 (75%)");
+    expect(audit).toContain("Judgment citations");
+    expect(audit).toContain("0/0 (n/a — no items)");
   });
 
   it("marks untraced numbers with a bare 'untraced' cell, never 'unverified' (audit #2)", () => {
@@ -486,7 +497,9 @@ describe("reportToMarkdown", () => {
   it("renders the as-of map with SORTED keys (deterministic)", () => {
     // Scope the ordering check to the "As-of map" section (these dot-paths also
     // appear earlier as claim sources), then assert the three keys are sorted.
-    const section = md.slice(md.indexOf("### As-of map"));
+    // D-62: the as-of map is in the audit export.
+    const audit = reportToAuditMarkdown(report);
+    const section = audit.slice(audit.indexOf("### As-of map"));
     const idx = (k: string) => section.indexOf(k);
     // fixture asOfMap keys sort to: computed… < quote… < valuation…
     expect(idx("computed.growth.revenueCagr5y")).toBeGreaterThan(-1);

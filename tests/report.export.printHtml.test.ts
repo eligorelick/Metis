@@ -31,6 +31,7 @@ import {
   reportToPrintHtml,
 } from "@/report/export/printHtml";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 
 const FIXTURE_PATH = path.join(
   process.cwd(),
@@ -208,11 +209,16 @@ describe("reportToPrintHtml — full schema-valid report", () => {
     expect(rendered).toContain(">yes</td>");
   });
 
-  it("renders the missing-data manifest entries verbatim", () => {
+  // D-62: the body states the data gaps as counts by family (warnings and
+  // critical gaps by name); the full manifest is in the audit export.
+  it("summarizes the data gaps and keeps every manifest entry in the audit export", () => {
     expect(report.appendix.missingData.length).toBeGreaterThan(0);
+    expect(body).toContain("<h3>Data gaps</h3>");
+    expect(body).toContain("<th>Gap family</th>");
+    const audit = reportToAuditMarkdown(report);
     for (const gap of report.appendix.missingData) {
-      expect(body).toContain(esc(gap.field));
-      expect(body).toContain(esc(gap.reason));
+      expect(audit).toContain(gap.field);
+      if (gap.severity !== "info" && gap.expected !== true) expect(body).toContain(esc(gap.field));
     }
     // The "no gaps" fallback must NOT appear when gaps exist.
     expect(body).not.toContain("full data coverage");
@@ -268,7 +274,8 @@ describe("reportToPrintBody — optional sections absent", () => {
     const body = reportToPrintBody(loadReport());
     expect(body).not.toContain('title="unverified"');
     expect(body).not.toContain('title="verified"');
-    expect(body).toContain("not traced to a citation or payload figure");
+    expect(body).not.toContain(">unverified<");
+    expect(body).toContain("<td>untraced</td>");
   });
 
   it("labels the traced-number column 'Cited' (citation coverage), never 'Verified'", () => {
@@ -287,13 +294,16 @@ describe("reportToPrintBody — optional sections absent", () => {
     };
     report.meta.provenanceCoverage = coverage;
     report.appendix.provenanceCoverage = coverage;
-    const body = reportToPrintBody(ReportSchema.parse(report));
-    expect(body).toContain("Numeric provenance");
-    expect(body).toContain("8/10 (80%)");
-    expect(body).toContain("Factual-claim citations");
-    expect(body).toContain("3/4 (75%)");
-    expect(body).toContain("Judgment citations");
-    expect(body).toContain("0/0 (n/a &mdash; no items)");
+    const parsed = ReportSchema.parse(report);
+    const body = reportToPrintBody(parsed);
+    // D-62: each check by name in the body; the denominator table, with its
+    // honest zero-item rate, in the audit export.
+    expect(body).toContain("<td>Figures traced to a cited source</td><td>8/10 (80%)</td>");
+    expect(body).toContain("<td>Factual claims carrying a citation</td><td>3/4 (75%)</td>");
+    const audit = reportToAuditMarkdown(parsed);
+    expect(audit).toContain("Numeric provenance");
+    expect(audit).toContain("Judgment citations");
+    expect(audit).toContain("0/0 (n/a — no items)");
   });
 
   it("renders empty DCF assumptions + no sensitivity grid honestly when the route has no FCFF DCF", () => {

@@ -554,7 +554,7 @@ export function parseCommitmentTables(rawText: string): CommitmentTable[] {
 
 export interface CapitalReturnFacts {
   /** "$26.0 billion" returned via repurchases + dividends, with the period phrase it was stated for. */
-  returned: { value: number; symbol: string; periodText: string | null } | null;
+  returned: { value: number; symbol: string; periodText: string | null; approximate?: boolean } | null;
   authorizationRemaining: { value: number; symbol: string } | null;
   authorizationAdded: { value: number; symbol: string } | null;
   dividendPerShare: { value: number; symbol: string; payDate: string | null; recordDate: string | null } | null;
@@ -572,7 +572,8 @@ export function parseCapitalReturn(rawText: string): CapitalReturnFacts {
     if (returned && out.returned === null) {
       const money = moneyMentions(returned[1]!)[0];
       const during = /\b(?:During|In|For) ((?:the )?(?:first|second|third|fourth) quarter of fiscal \d{4}|fiscal \d{4}|(?:the )?(?:first|second|third|fourth) quarter)\b/i.exec(sentence);
-      if (money) { out.returned = { value: money.value, symbol: money.symbol, periodText: during ? during[1]! : null }; used = true; }
+      const approximate = /\b(?:approximately|about|around|roughly|nearly)\b/i.test(returned[0].slice(0, returned[0].indexOf(returned[1]!)));
+      if (money) { out.returned = { value: money.value, symbol: money.symbol, periodText: during ? during[1]! : null, ...(approximate ? { approximate: true } : {}) }; used = true; }
     }
     const remaining = /((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) remaining under (?:its|the|our) (?:share |stock )?repurchase (?:authorization|program)/i.exec(sentence);
     if (remaining && out.authorizationRemaining === null) {
