@@ -69,6 +69,7 @@ function segmentWords(segment: string): string[] {
       if (/^q[1-4]$/.test(lower)) return lower.toUpperCase();
       if (/^fy\d{2,4}$/.test(lower)) return `FY${lower.slice(2)}`;
       if (/^\d+w$/.test(lower)) return `${lower.slice(0, -1)}-week`;
+      if (/^\d+m$/.test(lower)) return lower.toUpperCase();
       if (/^sma\d+$/.test(lower)) return `SMA ${lower.slice(3)}`;
       if (/^[A-Z0-9]{2,}$/.test(word)) return word;
       return lower;
@@ -162,8 +163,12 @@ export function signalLabel(id: string): string {
     altmanZOriginalScale: "Altman Z (original scale)", accrualsRatioAbs: "Accruals ratio (absolute)",
     beneishM: "Beneish M-score", netDebtToEbitda: "Net debt / EBITDA", interestCoverage: "Interest coverage",
     fcfConversionBeforeSbc: "FCF conversion before SBC", sbcPctOfFcf: "SBC as % of FCF", roicLevel: "ROIC level",
+    // D-61 signals; the retired ids stay readable for reports stored before it.
+    roicFloor: "ROIC floor (worst year in window)", roteFloor: "ROTE floor (worst year in window)",
+    buybackTiming: "Buyback timing (price paid vs the year's average)",
+    beneishMSgiNeutral: "Beneish M-score (sales growth neutral)",
     roicStability: "ROIC stability (std. dev.)", grossMarginLevel: "Gross-margin level",
-    buybackDiscipline: "Buyback discipline", capitalDeployment: "Capital deployment (ROIC − WACC)",
+    buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
     shareCountTrend: "Share-count trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
     pctFromHigh52w: "Distance from 52-week high", smaGap: "SMA 50 / SMA 200 gap",
   };
