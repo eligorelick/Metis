@@ -437,13 +437,9 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
       expect(n.verified === true || n.verified === null).toBe(true);
       expect(Number.isFinite(n.value)).toBe(true);
     }
-    // These are deterministic display weights, never model-authored odds.
-    expect(report.valuation.scenarios.map((scenario) => scenario.probability)).toEqual([
-      0.25,
-      0.5,
-      0.25,
-    ]);
-    expect(report.scenarioPresentation?.weightBasis).toMatch(/uncalibrated/);
+    // Re-pinned for D-60: price targets carry no weight; the display prior stays on the projections.
+    expect(report.valuation.scenarios.map((scenario) => scenario.probability)).toEqual([null, null, null]);
+    expect(report.scenarioPresentation?.weightBasis).toMatch(/not a calibrated probability/);
     expect(report.valuation.scenarios.every((s) => s.qualitativeCommentary?.length === 0)).toBe(true);
     // Pipeline ownership is not an independently checked factual citation.
     expect(report.meta.provenanceCoverage).toBeUndefined();

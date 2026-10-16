@@ -8861,6 +8861,227 @@
           ]
         }
       ]
+    },
+    {
+      "name": "valuation-d60-2026-10-15",
+      "decisions": [
+        "D-60"
+      ],
+      "reason": "D-60 valuation corrections from the NVDA report #34 audit (P0-5, P0-9, P2-0, P2-8, P2-9) and the follow-up review (year-one anchor, EPS, margin cap, sales-to-capital, triggers). On the DEMO fixture: consensus now sets year one as a level (revenueAnchor source consensus), long-term investments leave the sales-to-capital denominator (2.66 -> 2.98), the WACC debt weight uses the latest balance (9.2545% -> 9.2572%, which also moves the ROIC-WACC spread and terminal ROIC), the WACC axis of the sensitivity grid widens to +/-200bp (waccPcts and every cell), a growth x margin grid is added, and the WACC basis names the beta source and the bundle-price regression. DCF per share 143.45 -> 144.44. With the higher sales-to-capital the price sits below the value even at a 0% terminal margin, so the reverse DCF reports no root (method none) and no reverse trigger is emitted; the first-year projection milestones are no longer triggers. Scenario targets carry no weight (scenarioPresentation basis), scenario shocks decay (method versions *_D60), the mid-year basis and terminal-transition sentences are new assumption rows, and the valuation driver period names the DCF statement start instead of a revenue anchor date.",
+      "deltas": [
+        {
+          "path": "report.valuation.dcf.assumptions.11",
+          "beforeMissing": true,
+          "after": {
+            "name": "discounting convention",
+            "value": "mid-year (terminal value at N − 0.5)",
+            "basis": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+          }
+        },
+        {
+          "path": "report.valuation.dcf.assumptions.12",
+          "beforeMissing": true,
+          "after": {
+            "name": "free cash flow, SBC treatment",
+            "value": "1.80B → 1.55B",
+            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
+          }
+        },
+        {
+          "path": "report.valuation.dcf.growthMarginGrid",
+          "beforeMissing": true,
+          "after": {
+            "growthShiftsPp": [
+              -20,
+              -10,
+              0,
+              10,
+              20
+            ],
+            "marginShiftsPp": [
+              -10,
+              -5,
+              0,
+              5,
+              10
+            ],
+            "perShare": [
+              [
+                45.57389281388363,
+                65.42863602729598,
+                85.28337924070833,
+                null,
+                null
+              ],
+              [
+                58.98094796905904,
+                86.17345425070951,
+                113.36596053236,
+                null,
+                null
+              ],
+              [
+                71.06322644450282,
+                107.75088504755176,
+                144.43854365060076,
+                null,
+                null
+              ],
+              [
+                86.03196311131143,
+                134.87441195916193,
+                183.7168608070124,
+                null,
+                null
+              ],
+              [
+                105.00828137993581,
+                169.25612799142638,
+                233.50397460291703,
+                null,
+                null
+              ]
+            ],
+            "notes": [
+              "rows shift year-one revenue growth by -20/-10/0/10/20pp, decaying on the convergent weights to zero by year 10; columns shift the operating margin by -10/-5/0/5/10pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base",
+              "cells whose margin would exceed 20% (gross margin less the leanest operating-expense ratio) above the base path are withheld"
+            ]
+          }
+        },
+        {
+          "path": "stageB.returns.wacc.betaRegression",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.returns.wacc.betaRegressionUnavailable",
+          "beforeMissing": true,
+          "after": "only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close"
+        },
+        {
+          "path": "stageB.returns.wacc.betaSource",
+          "beforeMissing": true,
+          "after": "vendor profile beta; the vendor publishes no regression window or fit"
+        },
+        {
+          "path": "stageB.returns.wacc.debtWeightBasis",
+          "beforeMissing": true,
+          "after": "book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets"
+        },
+        {
+          "path": "stageB.returns.wacc.weightDebt",
+          "before": 0.13513513513513514,
+          "after": 0.13043478260869565
+        },
+        {
+          "path": "stageB.returns.wacc.weightEquity",
+          "before": 0.8648648648648649,
+          "after": 0.8695652173913043
+        },
+        {
+          "path": "stageB.valuation.assumptions.midYear.basis",
+          "before": "mid-year discounting convention ON by default (cash flows arrive through the year)",
+          "after": "mid-year convention: explicit-year FCFF is discounted at t − 0.5 years, and the Gordon terminal value is discounted at N − 0.5 because its perpetuity flows also arrive through each year (Rosenbaum & Pearl, Investment Banking, ch. 3: perpetuity-growth terminal values take the mid-year factor, exit-multiple values the year-end factor; Koller, Goedhart & Wessels, Valuation, apply the half-year adjustment to the whole value including continuing value). Discounting the terminal value at N instead lowers it by a factor of (1 + WACC)^0.5 (house rule D-60)"
+        },
+        {
+          "path": "stageB.valuation.assumptions.salesToCapital.value",
+          "before": 2.6595744680851063,
+          "after": 2.9761904761904763
+        },
+        {
+          "path": "stageB.valuation.assumptions.scenarioMarginCeiling",
+          "beforeMissing": true,
+          "after": {
+            "pct": 20,
+            "grossMarginPct": 60,
+            "grossMarginPeriod": "FY 2025-12-31",
+            "minOpexRatioPct": 40,
+            "minOpexRatioPeriod": "FY 2025-12-31",
+            "basis": "scenario operating margins are capped at 20% = gross margin 60% (FY 2025-12-31) less the leanest operating-expense ratio on record, 40% (FY 2025-12-31, among the TTM and the last five fiscal years); the cap never pulls a scenario below the base path (house rule D-60)"
+          }
+        },
+        {
+          "path": "stageB.valuation.assumptions.terminal.reinvestmentRate.basis",
+          "before": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule)",
+          "after": "terminal reinvestment = gTerm / ROICterm (Damodaran consistency rule); terminal transition: FCFF 2.76B in year 10 becomes 2.19B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)"
+        },
+        {
+          "path": "stageB.valuation.growthMarginGrid",
+          "beforeMissing": true,
+          "after": {
+            "growthShiftsPp": [
+              -20,
+              -10,
+              0,
+              10,
+              20
+            ],
+            "marginShiftsPp": [
+              -10,
+              -5,
+              0,
+              5,
+              10
+            ],
+            "perShare": [
+              [
+                45.57389281388363,
+                65.42863602729598,
+                85.28337924070833,
+                null,
+                null
+              ],
+              [
+                58.98094796905904,
+                86.17345425070951,
+                113.36596053236,
+                null,
+                null
+              ],
+              [
+                71.06322644450282,
+                107.75088504755176,
+                144.43854365060076,
+                null,
+                null
+              ],
+              [
+                86.03196311131143,
+                134.87441195916193,
+                183.7168608070124,
+                null,
+                null
+              ],
+              [
+                105.00828137993581,
+                169.25612799142638,
+                233.50397460291703,
+                null,
+                null
+              ]
+            ],
+            "notes": [
+              "rows shift year-one revenue growth by -20/-10/0/10/20pp, decaying on the convergent weights to zero by year 10; columns shift the operating margin by -10/-5/0/5/10pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base",
+              "cells whose margin would exceed 20% (gross margin less the leanest operating-expense ratio) above the base path are withheld"
+            ]
+          }
+        },
+        {
+          "path": "stageB.valuation.notes.8",
+          "beforeMissing": true,
+          "after": "Per-share values divide by the latest weighted-average diluted share count, 205M; the quoted market cap implies 200M shares outstanding at the quote, 2.5% fewer. The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
+        },
+        {
+          "path": "stageB.valuation.notes.9",
+          "beforeMissing": true,
+          "after": "NET_DEBT_V3: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.notes.3",
+          "beforeMissing": true,
+          "after": "reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]"
+        }
+      ]
     }
   ]
 }

@@ -15,7 +15,7 @@ import { validateBundle, type ValidationReport, type ValidatableBundle } from "@
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
-import { nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -122,6 +122,9 @@ import { computeProjections, type ProjectionIncomeRow } from "@/pipeline/stageB/
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { marketableEquityInCash } from "@/pipeline/stageB/marketableEquity";
+import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
+import type { CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import {
   normalizeQuarterRows,
@@ -502,6 +505,7 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
+    ...(num(r.marketableEquitySecurities) !== null ? { marketableEquitySecurities: num(r.marketableEquitySecurities) } : {}),
   };
 }
 
@@ -604,6 +608,8 @@ export interface TtmIncome {
   interestExpense: number | null;
   incomeBeforeTax: number | null;
   incomeTaxExpense: number | null;
+  /** D-60: four-quarter gross profit, or null unless all four quarters report it. */
+  grossProfit?: number | null;
 }
 
 interface NormalizedQuarterSet<T> {
@@ -1080,6 +1086,9 @@ function ttmIncomeFromNormalized(
     interestExpense: gateComplete("interestExpense"),
     incomeBeforeTax,
     incomeTaxExpense,
+    // D-60: only the scenario margin ceiling reads it, and it falls back to the
+    // latest fiscal year, so a partial window is simply not a TTM figure.
+    grossProfit: countField(q, "grossProfit") === 4 ? sumField(q, "grossProfit") : null,
   };
 }
 
@@ -1291,25 +1300,26 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
 
 const SPREAD_DAYS = 24 * 3600 * 1000;
 
-/** Latest risk-free rate (10y): FMP treasury.year10 (pct) → FRED DGS10 (pct). */
+/**
+ * Latest risk-free rate (10y): FRED DGS10 (pct) → FMP treasury.year10 (pct).
+ * D-60: DGS10 first, because every per-fiscal-year WACC is recomputed from
+ * DGS10; the vendor endpoint is only the fallback, and the returns notes say so
+ * when it is used.
+ */
 // WS6: the series the rate came from travels with it, so the WACC disclosure
 // can name it instead of printing an unattributed percentage.
-function riskFreePct(
-  bundle: DataBundle,
+export function riskFreePct(
+  bundle: Pick<DataBundle, "treasury" | "macro">,
 ): { pct: number | null; asOf: string | null; seriesId: string | null } {
-  const treasuryRows = rowsOf(bundle.treasury);
-  const t = treasuryRows[0];
+  const dgs10 = bundle.macro.core["DGS10"];
+  if (dgs10 && dgs10.ok) {
+    const last = dgs10.value.data.filter((o) => Number.isFinite(o.value)).at(-1);
+    if (last) return { pct: last.value, asOf: last.date, seriesId: "fred:DGS10" };
+  }
+  const t = rowsOf(bundle.treasury)[0];
   const fromTreasury = t ? num(t.year10) : null;
   if (fromTreasury !== null) {
     return { pct: fromTreasury, asOf: isoDay(t?.date), seriesId: "fmp:treasury-rates.year10" };
-  }
-  const dgs10 = bundle.macro.core["DGS10"];
-  if (dgs10 && dgs10.ok) {
-    const obs = dgs10.value.data;
-    const last = obs[obs.length - 1];
-    if (last && Number.isFinite(last.value)) {
-      return { pct: last.value, asOf: last.date, seriesId: "fred:DGS10" };
-    }
   }
   return { pct: null, asOf: null, seriesId: null };
 }
@@ -1317,11 +1327,47 @@ function riskFreePct(
 // WS6: the full FRED DGS10 observation history the bundle fetched (five years
 // back), so a WACC can be recomputed at each fiscal year end.
 /**
- * The series every PER-YEAR WACC is recomputed from. The CURRENT WACC's
- * risk-free rate prefers the vendor's treasury endpoint (see `riskFreePct`), so
- * the two can be different sources; when they are, the returns notes say so (N8).
+ * The series every PER-YEAR WACC is recomputed from. Since D-60 the CURRENT
+ * WACC's risk-free rate is the same series (see `riskFreePct`); only when DGS10
+ * is unavailable does it fall back to the vendor's treasury endpoint, and the
+ * returns notes then say the two sources differ (N8).
  */
 const WACC_HISTORY_RF_SERIES_ID = "fred:DGS10";
+
+/**
+ * D-60: attach the filed fair value of marketable equity securities held
+ * inside cash and short-term investments (marketableEquity.ts), with its SEC
+ * provenance. Rows the filing does not reconcile are returned unchanged.
+ */
+function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | null, observedAt: string): FmpBalanceSheetRow[] {
+  if (facts === null) return rows;
+  return rows.map((row) => {
+    const resolved = marketableEquityInCash(facts, {
+      date: isoDay(row.date), reportedCurrency: str(row.reportedCurrency),
+      cashAndCashEquivalents: num(row.cashAndCashEquivalents), shortTermInvestments: num(row.shortTermInvestments),
+      cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
+    }, observedAt);
+    if (resolved === null) return row;
+    return {
+      ...row,
+      marketableEquitySecurities: resolved.value,
+      marketableEquityBasis: resolved.basis,
+      fieldProvenance: { ...row.fieldProvenance, marketableEquitySecurities: {
+        source: "edgar" as const, unit: str(row.reportedCurrency) ?? "", periodStart: null, periodEnd: isoDay(row.date) ?? "",
+        observedAt, tags: resolved.tags, filings: resolved.filings,
+      } },
+    };
+  });
+}
+
+/** Daily bars for the D-60 beta regression; the dividend-adjusted close travels when the source has one. */
+function betaClosePoints(rows: readonly FmpRawRow[]): ClosePoint[] {
+  return rows.flatMap((row) => {
+    const day = isoDay(row.date);
+    const close = num(row.close);
+    return day === null || close === null ? [] : [{ date: day, close, adjClose: num(row.adjClose) }];
+  });
+}
 
 function riskFreeObservations(bundle: DataBundle): { date: string; value: number }[] {
   const dgs10 = bundle.macro.core["DGS10"];
@@ -1423,6 +1469,9 @@ function totalDebtSnapshot(
   basis: string;
   /** The one currency the balances averaged are established in; null when not established. */
   currency: string | null;
+  /** D-60: the newer balance of the pair on the same lease basis, and what it is. */
+  latest?: number | null;
+  latestBasis?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
   const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
@@ -1474,10 +1523,20 @@ function totalDebtSnapshot(
     return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency };
   }
   if (a.value === null && b.value === null) return { average: null, negativeObservation: null, basis, currency };
+  // D-60: the newest balance sheet (quarterly or annual, whichever is newer),
+  // in the same established currency as the averaged pair.
+  const newestRow = [balancesQuarterly[0], balancesAnnual[0]]
+    .filter((row): row is FmpBalanceSheetRow => row !== undefined)
+    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
+  const newestDebt = newestRow === undefined ? null : bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).value;
+  const newestCurrency = newestRow === undefined ? null : establishedRowsCurrency([newestRow], currencyEvidence);
+  const latest = newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
+    ? { latest: newestDebt, latestBasis: `${leaseText}, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets` }
+    : {};
   if (a.value !== null && b.value !== null) {
-    return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency };
+    return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency, ...latest };
   }
-  return { average: a.value ?? b.value, negativeObservation: null, basis, currency };
+  return { average: a.value ?? b.value, negativeObservation: null, basis, currency, ...latest };
 }
 
 export interface StageBReplayConfig { evIncludeLeases: boolean }
@@ -1499,7 +1558,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // The statements AS REPORTED. Calculations that combine rows read the
   // currency-compatible subsets below (rowsInModelCurrency) instead.
   const incomeAnnualReported = rowsOf(bundle.statements.incomeAnnual);
-  const balanceAnnualReported = rowsOf(bundle.statements.balanceAnnual);
+  // D-60: marketable equity securities the filing places inside cash and
+  // short-term investments travel on the balance row, so every net-debt
+  // consumer can keep them out of cash.
+  const companyFacts = bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null;
+  const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];
   const incomeQuarterSet = normalizeStatementQuarters(
@@ -1508,7 +1571,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ttmGaps,
   );
   const balanceQuarterSet = normalizeStatementQuarters(
-    rowsOf(bundle.statements.balanceQuarterly),
+    withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt),
     "balance",
     ttmGaps,
   );
@@ -1980,6 +2043,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       ebit: num(r.operatingIncome),
       netIncome: num(r.netIncome),
       epsDiluted: num(r.epsDiluted),
+      interestExpense: num(r.interestExpense),
     }),
   );
   // Never default a currency. This used to be `?? "USD"`, and the value becomes
@@ -2005,6 +2069,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
     currency: projectionCurrency,
     asOf: asOfDay,
+    // D-60: the remaining repurchase authorization for the EPS capital-return disclosure.
+    capitalReturn: (() => {
+      const capitalReturn = buildFilingDisclosures(bundle)?.capitalReturn ?? null;
+      return capitalReturn === null ? null : {
+        authorizationRemaining: capitalReturn.authorizationRemaining,
+        source: `8-K ${capitalReturn.source.accession}, filed ${capitalReturn.source.filingDate}`,
+        currentPrice: num(firstRow(bundle.quote)?.price),
+      };
+    })(),
   });
 
   // Deterministic bull/base/bear price targets (2026-07-11 scenario-credibility
@@ -2337,6 +2410,17 @@ function computeReturns(
   }
   const debtSnapshot = totalDebtSnapshot(balanceAnnual, balanceQuarterly, interestBasis, includeOperatingLeases, statementEvidence);
 
+  // D-60: the beta's regression window, frequency and fit. A vendor beta
+  // publishes none, so the same 60-month OLS the keyless route uses runs on the
+  // bundle's own daily prices (bars before the analysis day only) and is
+  // disclosed beside it; the WACC keeps the beta it already used.
+  const betaFit = estimateBeta(
+    betaClosePoints(rowsOf(bundle.eodPrices)),
+    betaClosePoints(bundle.benchmarkPrices ? rowsOf(bundle.benchmarkPrices.spy) : []),
+    { asOf: isoDay(bundle.builtAt) ?? undefined },
+  );
+  const keylessBeta = profile !== null && num(profile.betaMonths) !== null;
+
   const wacc = computeWacc({
     beta: num(profile?.beta),
     riskFreePct: rf.pct,
@@ -2361,6 +2445,8 @@ function computeReturns(
         : null,
     totalDebtAvg: debtSnapshot.average,
     totalDebtBasis: debtSnapshot.basis,
+    totalDebtLatest: debtSnapshot.latest ?? null,
+    totalDebtLatestBasis: debtSnapshot.latestBasis ?? null,
     currentCoverageBasis: coverageBasis,
     negativeTotalDebtObservation: debtSnapshot.negativeObservation,
     marketCap: num(quote?.marketCap ?? profile?.marketCap),
@@ -2382,6 +2468,14 @@ function computeReturns(
             : null,
     riskFreeSeriesId: rf.seriesId,
     erpAsOf: sourcedOf(bundle.marketRiskPremium)?.asOf ?? null,
+    betaSource: keylessBeta
+      ? "keyless profile regression on monthly returns"
+      : "vendor profile beta; the vendor publishes no regression window or fit",
+    betaRegression: betaFit.beta === null ? null : {
+      beta: betaFit.beta, months: betaFit.months, windowStart: betaFit.windowStart, windowEnd: betaFit.windowEnd,
+      rSquared: betaFit.rSquared, standardError: betaFit.standardError, basis: betaFit.basis, benchmark: "SPY",
+    },
+    betaRegressionUnavailable: betaFit.beta === null ? (betaFit.gap?.reason ?? betaFit.note) : null,
     ebitTtm: ebitForWacc,
     analysisDate: isoDay(bundle.builtAt) ?? undefined,
     isFinancial,
@@ -2428,8 +2522,8 @@ function computeReturns(
   const waccInputs = waccDisclosure(wacc);
   notes.push(waccInputs.summary);
   notes.push(...waccHistory.notes);
-  // N8: the CURRENT WACC's risk-free rate is the vendor's treasury endpoint when
-  // one is available and FRED DGS10 only as the fallback, while every per-year
+  // N8: the CURRENT WACC's risk-free rate is FRED DGS10 when available (D-60)
+  // and the vendor's treasury endpoint only as the fallback, while every per-year
   // WACC is recomputed from DGS10. When the two differ, the newest fiscal year's
   // own WACC can differ from the current one by SOURCE rather than by time, and
   // saying so is the difference between a disclosed basis and a puzzling one.
@@ -2506,6 +2600,10 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
     asOf: outlook.filingDate,
     source: `sec:8-K EX-99.1 ${outlook.accession}`,
     operatingMarginPct: outlook.impliedOperatingMarginPct,
+    revenueLow: outlook.low,
+    taxRatePct: outlook.taxRatePct ?? null,
+    taxRatePeriod: outlook.taxRatePeriod ?? null,
+    grossMarginLowPct: outlook.grossMarginLowPct ?? null,
   };
 }
 
@@ -2601,6 +2699,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         basis: "ttm",
         revenue: ttmInc.revenue,
         operatingIncome: ttmInc.operatingIncome,
+        grossProfit: ttmInc.grossProfit ?? null,
         incomeBeforeTax: ttmInc.incomeBeforeTax,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
       }
@@ -2610,6 +2709,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           basis: "annual",
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),
+          grossProfit: num(inc0.grossProfit),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
         }
@@ -2622,6 +2722,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
     operatingIncome: num(r.operatingIncome),
+    grossProfit: num(r.grossProfit),
     incomeBeforeTax: num(r.incomeBeforeTax),
     incomeTaxExpense: num(r.incomeTaxExpense),
   }));
@@ -2633,6 +2734,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         totalDebt: num(balPoint.totalDebt),
         totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
+        longTermInvestments: num(balPoint.longTermInvestments),
       }
     : null;
 
@@ -2675,18 +2777,30 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // WS6 (D-19): every WACC input named in the assumption block.
           waccBasis: ctx.waccInputs.summary,
           // WS6 (D-19): the reported FCF before and after the SBC deduction.
-          fcfSbc: {
-            beforeSbc: ctx.capital.fcf.latestFcfBeforeSbc,
-            afterSbc: ctx.capital.fcf.latestFcf,
-            sbc: ctx.capital.fcf.latestSbc,
-            // N2: the FCF row's OWN fiscal year end, not the capital block's
-            // as-of (which falls back to the income or balance statement). The
-            // assumption block printed a date that was not the year the figure
-            // came from whenever those statements ended on different days.
-            asOf:
-              ctx.capital.fcf.series[ctx.capital.fcf.series.length - 1]?.date ?? ctx.capital.asOf,
-            basis: ctx.capital.fcf.basis,
-          },
+          // D-60: the trailing twelve months when the current-capital cash
+          // bridge has a complete TTM window (the DCF starts from the TTM), else
+          // the latest fiscal year. NVDA's row showed FY2026 $96.68B beside a
+          // TTM start revenue.
+          fcfSbc: ctx.capital.current?.basis === "ttm" && ctx.capital.current.cashBridge.standardizedFcf !== null
+            ? {
+                beforeSbc: ctx.capital.current.cashBridge.standardizedFcf,
+                afterSbc: ctx.capital.current.cashBridge.afterSbcStandardizedFcf,
+                sbc: ctx.capital.current.cashBridge.stockBasedCompensation,
+                asOf: ctx.capital.current.asOf,
+                basis: `TTM ${ctx.capital.current.periodStart ?? "?"} to ${ctx.capital.current.asOf ?? "?"}: operating cash flow minus cash capital expenditure, before and after stock-based compensation`,
+              }
+            : {
+                beforeSbc: ctx.capital.fcf.latestFcfBeforeSbc,
+                afterSbc: ctx.capital.fcf.latestFcf,
+                sbc: ctx.capital.fcf.latestSbc,
+                // N2: the FCF row's OWN fiscal year end, not the capital block's
+                // as-of (which falls back to the income or balance statement). The
+                // assumption block printed a date that was not the year the figure
+                // came from whenever those statements ended on different days.
+                asOf:
+                  ctx.capital.fcf.series[ctx.capital.fcf.series.length - 1]?.date ?? ctx.capital.asOf,
+                basis: ctx.capital.fcf.basis,
+              },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
           incomeHistory: dcfIncomeHistory,
@@ -2817,11 +2931,27 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ctx.balanceQuarterly,
   );
 
-  const enterpriseValuesHistory: EnterpriseValuesRow[] = rowsOf(bundle.enterpriseValues).map((r) => ({
+  const vendorEnterpriseValues: EnterpriseValuesRow[] = rowsOf(bundle.enterpriseValues).map((r) => ({
     date: String(r.date ?? ""),
     marketCapitalization: num(r.marketCapitalization),
     enterpriseValue: num(r.enterpriseValue),
   }));
+  // D-60 (P1-K): the vendor's enterprise-values history stops at five
+  // quarters, so the own-history bands never reached their eight-quarter
+  // minimum for any issuer. The bundle already holds five years of daily market
+  // capitalization; it supplies the market cap at older quarter ends. Only the
+  // market cap is taken — the own-history EV is rebuilt from each quarter's
+  // own statement components either way — and a vendor row wins on its date.
+  const vendorEvDates = new Set(vendorEnterpriseValues.map((r) => r.date));
+  const enterpriseValuesHistory: EnterpriseValuesRow[] = [
+    ...vendorEnterpriseValues,
+    ...rowsOf(bundle.marketCapHistory).flatMap((r) => {
+      const date = isoDay(r.date);
+      const marketCapitalization = num(r.marketCap);
+      return date === null || marketCapitalization === null || marketCapitalization <= 0 || vendorEvDates.has(date)
+        ? [] : [{ date, marketCapitalization, enterpriseValue: null }];
+    }),
+  ];
 
   // WS5: FFO/AFFO per the NAREIT definition where the filer's tags allow (net
   // income + real-estate D&A − gains on property sales + impairments; AFFO less
@@ -2987,6 +3117,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     leaseLiability: balPoint ? num(balPoint.capitalLeaseObligations) : null,
     operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,
     includeLeasesInEv: evIncludeLeases,
+    // D-60: equity securities the house net debt left out of cash.
+    nonOperatingAssets: netDebtInfo.nonOperatingEquitySecurities !== undefined
+      ? { value: netDebtInfo.nonOperatingEquitySecurities, basis: str(balPoint?.marketableEquityBasis) ?? "marketable equity securities at filed fair value" }
+      : null,
     dcfInputs,
     multiples,
     excessReturn,
@@ -3029,7 +3163,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   } else if (!financialRoute && netDebtInfo.value !== null) {
     const c = netDebtInfo.components;
     result.notes.push(
-      `${netDebtInfo.version}: net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}`,
+      `${netDebtInfo.version}: net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}` +
+        (netDebtInfo.nonOperatingEquitySecurities !== undefined
+          ? `, less marketable equity securities ${netDebtInfo.nonOperatingEquitySecurities} that are not cash (${str(balPoint?.marketableEquityBasis) ?? "filed fair value"})`
+          : ""),
     );
   }
   if (excessReturn !== null) {
@@ -3072,6 +3209,7 @@ function netDebtFromBalance(
     cashAndCashEquivalents: bal ? num(bal.cashAndCashEquivalents) : null,
     shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,
     cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
+    marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
     vendorNetDebt: bal ? num(bal.netDebt) : null,
   });
 }

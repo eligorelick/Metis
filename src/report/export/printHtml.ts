@@ -701,7 +701,7 @@ function scenarioCard(sc: Scenario, computedWeights = false): string {
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
       <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "target unavailable"}</span>
-      <span class="prob">${computedWeights ? "Display weight" : "p"} = ${probability}</span>
+      ${computedWeights && sc.probability === null ? "" : `<span class="prob">${computedWeights ? "Display weight" : "p"} = ${probability}</span>`}
       <span class="asof">${esc(sc.horizon)}</span></div>
     <div class="scenariobody">
       <div><em>Assumptions</em>${list(sc.assumptions)}</div>

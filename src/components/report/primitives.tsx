@@ -366,6 +366,8 @@ export function ScenarioCard({
   qualitativeCommentary?: readonly string[];
 }) {
   const meta = SCENARIO_META[name];
+  // D-60: computed price targets carry no weight; only a stored weight is shown.
+  const unweighted = weightLabel !== "p" && probability === null;
   const borderColor =
     meta.tone === "pos"
       ? "border-pos/40"
@@ -376,9 +378,11 @@ export function ScenarioCard({
     <div className={`flex flex-col border ${borderColor} bg-panel`}>
       <div className="flex items-center justify-between gap-2 border-b border-edge px-2.5 py-1.5">
         <Badge tone={meta.tone}>{meta.label}</Badge>
-        <span className="mono text-[11px] text-muted">
-          {`${weightLabel} = ${probability === null ? "n/a" : `${(probability * 100).toFixed(0)}%`}`}
-        </span>
+        {unweighted ? null : (
+          <span className="mono text-[11px] text-muted">
+            {`${weightLabel} = ${probability === null ? "n/a" : `${(probability * 100).toFixed(0)}%`}`}
+          </span>
+        )}
       </div>
       <div className="flex items-baseline justify-between gap-2 border-b border-edge px-2.5 py-2">
         {priceTarget ? (
@@ -391,7 +395,7 @@ export function ScenarioCard({
         <span className="mono text-[10px] text-faint">{horizon}</span>
       </div>
       {priceTarget && <div className="border-b border-edge px-2.5 py-1.5"><TracedNumberSourceDetails n={priceTarget} label="Target provenance" /></div>}
-      {probability === null ? (
+      {unweighted ? null : probability === null ? (
         <div className="border-b border-edge px-2.5 py-1 text-[10px] text-faint">
           {weightLabel === "p" ? "scenario probability unavailable" : "display weight unavailable"}
         </div>

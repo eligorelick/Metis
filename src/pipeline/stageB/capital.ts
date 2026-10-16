@@ -85,6 +85,8 @@ export interface CapitalBalanceRow {
   cashAndCashEquivalents?: number | null;
   shortTermInvestments?: number | null;
   cashAndShortTermInvestments?: number | null;
+  /** D-60: marketable equity securities inside the combined cash field; excluded from net-debt cash. */
+  marketableEquitySecurities?: number | null;
 }
 
 /** One row of FMP /stable/historical-market-capitalization. */
@@ -647,6 +649,7 @@ export function computeCapital(
       cashAndCashEquivalents: latestBal?.cashAndCashEquivalents,
       shortTermInvestments: latestBal?.shortTermInvestments,
       cashAndShortTermInvestments: latestBal?.cashAndShortTermInvestments,
+      marketableEquitySecurities: latestBal?.marketableEquitySecurities,
       vendorNetDebt: latestBal?.netDebt,
     });
     const netDebt = resolution.value;

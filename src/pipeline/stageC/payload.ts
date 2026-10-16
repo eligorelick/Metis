@@ -607,7 +607,8 @@ function computedSections(
   }
   for (const c of g.fcfCagrs) {
     growthFigures.push({
-      label: `FCF CAGR ${c.windowYears}y`,
+      // D-60: the CAGR runs on the vendor before-SBC free cash flow, unlike the after-SBC FCF rows.
+      label: `FCF CAGR ${c.windowYears}y (before SBC)`,
       value: c.cagrPct,
       unit: "%",
       source: "computed.growth.fcfCagrs",
@@ -905,6 +906,21 @@ function computedSections(
       { label: "reverse-DCF implied revenue growth", value: val.reverseDcf?.impliedRevenueGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
       { label: "reverse-DCF implied terminal margin", value: val.reverseDcf?.impliedTerminalMarginPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
     );
+    // D-60 (P0-E): the price-implied year-one growth beside the evidence it
+    // must be read against, each as growth over the same TTM start revenue, so
+    // "demanding" or "undemanding" is a comparison, not an adjective.
+    const anchor = val.assumptions?.revenueAnchor;
+    const start = val.assumptions?.startRevenue.value ?? null;
+    const anchorAsOf = val.assumptions?.asOf.statements ?? null;
+    const overStart = (level: number | null | undefined): number | null =>
+      start !== null && start > 0 && typeof level === "number" && Number.isFinite(level) ? (level / start - 1) * 100 : null;
+    valFigures.push(...([
+      { label: "DCF base-case year-one revenue growth over TTM", value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf: anchorAsOf },
+      { label: "guided run-rate growth over TTM (next-quarter guidance × 4)", value: overStart(anchor?.evidence?.guidedRunRate), unit: "%", source: "computed.valuation.reverseDcfContext.guidedRunRate", asOf: anchorAsOf },
+      { label: "guided sequential pace, annualized", value: anchor?.evidence?.guidedPacePct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.guidedPace", asOf: anchorAsOf },
+      { label: "consensus year-one revenue growth over TTM", value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf: anchorAsOf },
+      { label: "latest-quarter revenue growth, year over year", value: anchor?.runRate?.yoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.latestQuarterYoy", asOf: anchorAsOf },
+    ] satisfies PayloadFigureInput[]).filter((figure) => figure.value !== null));
   } else if (val.kind === "excess-return") {
     // WS5 review (NIT 8): the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
@@ -956,6 +972,9 @@ function computedSections(
   }
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
+      ? ["Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures."]
+      : []),
     ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
   ] }));
 
@@ -1160,7 +1179,9 @@ const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: 
   { key: "totalLiabilities", label: "total liabilities", unit: "currency" },
   { key: "totalStockholdersEquity", label: "stockholders equity", unit: "currency" },
   { key: "totalDebt", label: "total debt", unit: "currency" },
-  { key: "netDebt", label: "net debt", unit: "currency" },
+  // D-60: the vendor netDebt field nets cash only (total debt − cash and
+  // equivalents) and contradicted the house net debt in prose (NVDA report 34:
+  // +$16.4B beside −$66.0B); the house figure is in the current-capital section.
   { key: "cashAndShortTermInvestments", label: "cash + STI", unit: "currency" },
 ];
 

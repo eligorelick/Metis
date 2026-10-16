@@ -114,6 +114,15 @@ export interface RevenueGuidanceAnchor {
    * same quarter in the statement currency.
    */
   impliedOperatingMarginPct: number | null;
+  /**
+   * D-60: guided GAAP (or unspecified-basis) effective tax rate midpoint from
+   * the same release — the guided quarter's when given, else the fiscal
+   * year's — with its period label; null when the release gives none.
+   */
+  taxRatePct?: number | null;
+  taxRatePeriod?: string | null;
+  /** D-60: low end of the guided GAAP gross margin for the same quarter, percent. */
+  grossMarginLowPct?: number | null;
 }
 
 function guidedQuarterEnd(base: string | null): Pick<RevenueGuidanceAnchor, "periodEnd" | "periodEndBasis"> {
@@ -140,6 +149,8 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const gm = sameQuarter("gross-margin");
   const opex = sameQuarter("operating-expenses");
   const opexOk = opex !== undefined && symbolCurrency(opex.symbol, currency) === currency;
+  const taxItems = release.guidance.items.filter((i) => i.metric === "tax-rate" && i.unit === "%" && (i.basis === "gaap" || i.basis === "unspecified"));
+  const tax = taxItems.find((i) => i.period.label === item.period.label) ?? taxItems.find((i) => i.period.fiscalQuarter === null);
   return {
     periodLabel: item.period.label,
     fiscalYear: item.period.fiscalYear,
@@ -153,6 +164,9 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
     basePeriodEnd: release.reported.periodEnd,
     ...guidedQuarterEnd(release.reported.periodEnd),
     impliedOperatingMarginPct: gm !== undefined && opexOk && item.mid > 0 ? round(gm.mid - (opex.mid / item.mid) * 100, 2) : null,
+    taxRatePct: tax?.mid ?? null,
+    taxRatePeriod: tax?.period.label ?? null,
+    grossMarginLowPct: gm?.low ?? null,
   };
 }
 

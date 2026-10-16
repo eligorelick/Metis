@@ -28,10 +28,17 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
       ["Explicit cash-flow present value",money(b.presentValueExplicit)],["Terminal present value",money(b.presentValueTerminal)],
       ["Enterprise value",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
       ["Less minority interest",money(b.minorityInterest)],["Less preferred equity",money(b.preferredEquity)],
+      ...(b.nonOperatingAssets === undefined ? [] : [["Plus non-operating marketable equity securities (filed fair value, not cash)",money(b.nonOperatingAssets)]]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",n(b.dilutedShares,0)],
       ["Valuation as of",b.asOf ?? "unavailable"],
     ],note:"Computed model values. Per-share value uses the disclosed equity bridge and current diluted share denominator; valuation assumptions do not constitute independently verified price forecasts."});
   }
+  const gm = dcf.growthMarginGrid;
+  const shift = (v: number) => `${v > 0 ? "+" : ""}${v}pp`;
+  if (gm && gm.perShare.length) result.push({heading:"Sensitivity (per share — rows = year-one revenue growth shift, cols = sustained operating-margin shift)",
+    headers:["Growth shift / margin shift",...gm.marginShiftsPp.map(shift)],
+    rows:gm.perShare.map((row,i)=>[shift(gm.growthShiftsPp[i] ?? 0),...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",b?.currency ?? null))]),
+    note:gm.notes.join("; ")});
   if (dcf.forecastRows?.length) result.push({heading:"DCF annual cash-flow path",headers:["Period","Revenue","Growth %","EBIT margin %","Tax %","NOPAT","Reinvestment","FCFF","Present value"],rows:dcf.forecastRows.map(r=>[r.period,...[r.revenue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null)),n(r.growthPct),n(r.ebitMarginPct),n(r.taxRatePct),...[r.nopat,r.reinvestment,r.fcff,r.presentValue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null))])});
   return result;
 }
@@ -40,14 +47,18 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   const a = p.scenarioAssumptions;
   if (a) {
-    tables.push({heading:"Scenario construction and terminal transition",headers:["Scenario","Growth shift (pp)","Margin shift (pp)"],rows:a.scenarios.map(s=>[s.name,n(s.growthDeltaPp),n(s.marginDeltaPp)]),note:`${a.terminalTransition} Shocks persist over the explicit horizon. These are model sensitivities with unbacktested display weights.`});
-    if (a.alternatives.length) tables.push({heading:"Illustrative sensitivity: growth shocks decay",headers:["Alternative","Bull value/share","Bear value/share","Basis"],rows:a.alternatives.map(s=>[s.name,n(s.bullPerShare),n(s.bearPerShare),s.basis])});
+    tables.push({heading:"Scenario construction and terminal transition",headers:["Scenario","Growth shift (pp)","Margin shift (pp)"],rows:a.scenarios.map(s=>[s.name,n(s.growthDeltaPp),n(s.marginDeltaPp)]),note:a.terminalTransition});
+    if (a.alternatives.length) tables.push({heading:"Illustrative sensitivity: alternative shock construction",headers:["Alternative","Bull value/share","Bear value/share","Basis"],rows:a.alternatives.map(s=>[s.name,n(s.bullPerShare),n(s.bearPerShare),s.basis])});
   }
   for (const s of p.series) {
     if (!s.capitalReturn) continue;
     tables.push({heading:"EPS capital-return assumptions",headers:["Assumption","Value"],rows:[
       ["Historical share trend",`${n(s.capitalReturn.shareCountAnnualizedPct)}% / year`],["Applied share trend",`${n(s.capitalReturn.appliedShareCountAnnualizedPct)}% / year`],
-      ["Funding policy",s.capitalReturn.policy],["Net income / EBIT conversion",n(s.capitalReturn.netIncomeToEbit,4)],
+      ["Funding policy",s.capitalReturn.policy],["Net income / EBIT, year one",n(s.capitalReturn.netIncomeToEbit,4)],
+      ...(s.capitalReturn.authorizationRemaining === undefined ? [] : [
+        ["Remaining repurchase authorization",formatFinancialValue(s.capitalReturn.authorizationRemaining,"currency",s.unit.replace(/\/share$/,""))],
+        ["Authorization spent evenly at the quote (hypothetical)",s.capitalReturn.authorizationAnnualizedPct == null ? "unavailable" : `${n(s.capitalReturn.authorizationAnnualizedPct)}% / year`],
+      ]),
     ],note:s.capitalReturn.basis});
     if (s.flatShare && s.shareTrend) tables.push({heading:"EPS share-count sensitivity",headers:["Period","Base EPS, flat shares","Historical-trend hypothetical EPS"],rows:s.base.map((point,index)=>[point.period,n(s.flatShare?.base[index]?.value.value),n(s.shareTrend?.base[index]?.value.value)]),note:"Historical-trend EPS is an unfunded hypothetical. A past share-count decline does not establish affordable future repurchases."});
   }

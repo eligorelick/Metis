@@ -251,7 +251,8 @@ describe("sensitivityGrid", () => {
 
   it("is a 5x5 grid with WACC and gTerm axes centered on base", () => {
     const g = sensitivityGrid(a, base);
-    expect(g.waccPcts).toEqual([9, 9.5, 10, 10.5, 11]);
+    // Re-pinned for D-60: the WACC axis spans ±200bp in 100bp steps.
+    expect(g.waccPcts).toEqual([8, 9, 10, 11, 12]);
     expect(g.gTermPcts).toEqual([1, 1.5, 2, 2.5, 3]);
     expect(g.perShare).toHaveLength(5);
     expect(g.perShare.every((row) => row.length === 5)).toBe(true);
@@ -2393,25 +2394,24 @@ describe("buildDcfAssumptions — the margin cap and the tax basis (audit 2026-0
     expect(built.notes.some((n) => /EBIT margin \(pct\) clamped/.test(n))).toBe(false);
   });
 
-  it("lets the TTM margin set year one and caps only the target, writing the basis after the cap (D-58)", () => {
-    // NVDA report #34: TTM 65.21% against a 62.42% best fiscal year printed
-    // "held flat at current 65.21%" beside a 62.42% path. Now the TTM sets
-    // year one, the path fades to the 67% history ceiling by year 5, and the
-    // basis names the value the path holds and the cap that bound.
+  // Re-pinned for D-60: a full four-quarter TTM counts as a demonstrated margin, like a fiscal year.
+  it("lets the TTM margin set year one and the cap count the TTM as earned, writing the basis after the cap (D-58, D-60)", () => {
+    // NVDA report #34: TTM 65.21% against a 62.42% best fiscal year. D-58 let
+    // the TTM set year one and capped the target at the best fiscal year; D-60
+    // counts the four-quarter TTM as earned too, so a sustained 90% holds.
     const built = buildDcfAssumptions(
       highMargin({ incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 900, incomeBeforeTax: 880, incomeTaxExpense: 176 } }),
     );
     const a = built.assumptions!;
     const m = a.ebitMarginPath.value;
     expect(m[0]).toBeCloseTo(90, 6);
-    expect(m[4]).toBeCloseTo(67, 6);
-    expect(m[9]).toBeCloseTo(67, 6);
-    expect(a.ebitMarginPath.basis).toMatch(/^fade current 90% \(TTM\) -> 67% by year 5 .*the target 90% is capped at the issuer's highest annual margin in the last five years, 67% \(FY 2025-12-31\)/);
-    expect(a.ebitMarginPath.basis).not.toMatch(/held flat/);
-    const clampNotes = built.notes.filter((n) => /EBIT margin target \(pct\) clamped/.test(n));
-    expect(clampNotes).toHaveLength(1);
-    expect(clampNotes[0]).toMatch(/ceiling raised from 45 to the issuer's own observed maximum margin/);
-    expect(clampNotes[0]).toMatch(/year one keeps the current 90%/);
+    expect(m[4]).toBeCloseTo(90, 6);
+    expect(m[9]).toBeCloseTo(90, 6);
+    expect(a.ebitMarginPath.basis).toMatch(/^held flat at current 90% \(TTM\)/);
+    expect(built.notes.filter((n) => /EBIT margin target \(pct\) clamped/.test(n))).toHaveLength(0);
+    // The best fiscal year still caps a target above everything the issuer earned.
+    const capped = buildDcfAssumptions(highMargin({ incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 600, incomeBeforeTax: 580, incomeTaxExpense: 116 } })).assumptions!;
+    expect(Math.max(...capped.ebitMarginPath.value)).toBeLessThanOrEqual(67 + 1e-9);
     // An impossible current margin (above 100%) stays capped in year one as well.
     const broken = buildDcfAssumptions(
       highMargin({ incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 1500, incomeBeforeTax: 1480, incomeTaxExpense: 296 } }),

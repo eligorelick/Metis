@@ -52,14 +52,18 @@ describe("report audit valuation regressions", () => {
   });
   it("uses the same countercyclical scenario identity in targets and projected revenue", () => {
     const { valuation, a } = fixture();
-    const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
+    // Re-pinned for D-60: decaying shocks need a margin-dominated history (growth σ ≈ 1.2pp, margin σ 12pp, corr ≈ −1) to invert.
+    const countercyclical = ([[1000, 30], [1100, 15], [1188, 45], [1300.86, 20], [1398.42, 50]] as const).map(([revenue, m], i) => ({
+      date: `${2021 + i}-12-31`, revenue, ebit: revenue * m / 100, netIncome: revenue * m / 100 * 0.75, epsDiluted: 1 }));
+    const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: countercyclical, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
     const bull = t.targets.find(t => t.name === "bull")!;
     expect(bull.growthDeltaPp).toBeLessThan(0);
-    const p = projections(valuation);
+    const p = computeProjections({ route, valuation, waccPct: 9, dilutedShares: 100, incomeHistory: countercyclical, fcfHistory: [], shareCountAnnualizedPct: -5, currency: "USD", asOf: "2026-10-13" });
     const revenue = p.series.find(s => s.metric === "revenue")!;
     expect(revenue.bull[0].value.value).toBeCloseTo(2000 * (1 + (a.growthPath.value[0] + bull.growthDeltaPp) / 100), 2);
     expect(p.scenarioAssumptions).toEqual(t.scenarioAssumptions);
-    expect(t.scenarioAssumptions?.alternatives[0].name).toBe("decaying-growth-shock");
+    // D-60: the decaying shock is the main construction, so no alternative is listed.
+    expect(t.scenarioAssumptions?.alternatives).toEqual([]);
     // The main-branch compatibility adapter must not invert the already-shared
     // labels again, including the flat-share and unfunded-share-trend paths.
     expect(alignProjectionScenarios(p, t)).toBe(p);

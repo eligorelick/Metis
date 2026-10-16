@@ -970,6 +970,13 @@ export const DcfSchema = z
       preferredEquity: z.number().nullable(), equityValue: z.number().nullable(), dilutedShares: z.number().nullable(),
       presentValueExplicit: z.number().nullable(), presentValueTerminal: z.number().nullable(),
       currency: z.string().nullable(), asOf: IsoDateSchema.nullable(),
+      /** D-60: marketable equity securities added as a non-operating asset (absent when none). */
+      nonOperatingAssets: z.number().optional(),
+    }).strict().optional(),
+    /** D-60: year-one growth × sustained margin per-share grid (null cells withheld). */
+    growthMarginGrid: z.object({
+      growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
+      perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
     }).strict().optional(),
     forecastRows: z.array(z.object({
       year: z.number().int().positive(), period: z.string(), revenue: z.number(), growthPct: z.number(),
@@ -1702,7 +1709,7 @@ export type ProjectionPoint = z.infer<typeof ProjectionPointSchema>;
 
 const ProjectionPathsSchema = z.object({ bull: z.array(ProjectionPointSchema), base: z.array(ProjectionPointSchema), bear: z.array(ProjectionPointSchema), weighted: z.array(ProjectionPointSchema) }).strict();
 export const ScenarioAssumptionsSchema = z.object({
-  methodVersion: z.string(), shockPersistence: z.literal("persistent-explicit-horizon"), terminalTransition: z.string(),
+  methodVersion: z.string(), shockPersistence: z.enum(["mean-reverting-convergent", "persistent-explicit-horizon"]), terminalTransition: z.string(),
   growthMarginCorrelation: z.number().min(-1).max(1).nullable(),
   scenarios: z.array(z.object({ name: z.enum(["bull", "base", "bear"]), growthDeltaPp: z.number(), marginDeltaPp: z.number() }).strict()),
   alternatives: z.array(z.object({ name: z.literal("decaying-growth-shock"), bullPerShare: z.number().nullable(), bearPerShare: z.number().nullable(), basis: z.string() }).strict()),
@@ -1725,6 +1732,8 @@ export const ProjectionSeriesSchema = z
     capitalReturn: z.object({
       shareCountAnnualizedPct: z.number().nullable(), appliedShareCountAnnualizedPct: z.number(),
       policy: z.enum(["flat-share-conservative", "dilution-trend"]), basis: z.string(), netIncomeToEbit: z.number(),
+      /** D-60: remaining repurchase authorization and the annual share change it would fund at the quote. */
+      authorizationRemaining: z.number().optional(), authorizationAnnualizedPct: z.number().nullable().optional(),
     }).strict().optional(),
     /** Human-readable basis lines (from DcfAssumptions.notes + dispersion). */
     assumptions: z.array(ratingSafeString()),
@@ -2144,7 +2153,7 @@ const JudgeOutputObjectSchema = z
     business: BusinessSchema,
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true }) }),
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,

@@ -6,7 +6,14 @@ import type { Scenario, ScenarioPresentation, SensitivityCell, Valuation } from 
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-const WEIGHT_BASIS = "Fixed, uncalibrated display prior shared with the operating projections; these weights are not estimated probabilities of future prices or outcomes.";
+/**
+ * D-60: price targets carry no weight. A 25/50/25 weight beside each target
+ * implied a weighted value (NVDA report #34: ≈$284, above the quote) that the
+ * report never showed and the grade contradicted. The display prior now
+ * belongs to the weighted operating projections alone, and this is the one
+ * place the report says it is not a calibrated probability.
+ */
+const WEIGHT_BASIS = "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability.";
 
 /** A statement about the tested grid only, never an error bar or confidence interval. */
 export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: number | null): ScenarioPresentation["sensitivity"] {
@@ -68,24 +75,24 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
   const known = (v: number | null) => v === null ? "not disclosed (engine convention applies)" : display(v);
   return [
     "Computed inputs are displayed rounded to two decimal places; valuation calculations retain full precision.",
-    `Revenue growth shift versus base: ${display(target.growthDeltaPp)} percentage points; operating-margin shift: ${display(target.marginDeltaPp)} percentage points.`,
+    `Year-one shift versus base: revenue growth ${display(target.growthDeltaPp)} percentage points, operating margin ${display(target.marginDeltaPp)} percentage points; both decay to zero by year ${a.years}.`,
     `Revenue growth path (% per year, in horizon order): ${path(a.growthPath.value)}.`,
     `Operating-margin path (% per year, in horizon order): ${path(a.ebitMarginPath.value)}.`,
     `Fixed base inputs: starting revenue ${display(a.startRevenue.value)} reporting-currency units; WACC ${display(a.wacc.value)}%; terminal growth actually used ${display(valuation.dcf.gTermUsedPct)}%; terminal ROIC ${display(a.terminal.roicTermPct.value)}%; sales-to-capital ${display(a.salesToCapital.value)}x; tax path (%): ${path(a.taxRatePath.value)}; mid-year discounting ${a.midYear.value ? "on" : "off"}.`,
-    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${known(bridge.minorityInterest)}, preferred equity ${known(bridge.preferred)} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}.`,
+    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${known(bridge.minorityInterest)}, preferred equity ${known(bridge.preferred)}` +
+      `${bridge.nonOperatingAssets === undefined ? "" : `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}.`,
     "Targets are labeled by per-share value; a negative perturbed equity value is floored at zero. No scenario is a future-price forecast.",
   ];
 }
 
 /** Apply after deterministic targets/horizons are injected, on both report paths. */
 export function applyScenarioPresentation(valuation: Valuation, computed: ComputedMetrics, preserveCommentary = true): Valuation {
-  const weights = computed.projections?.series?.length ? computed.projections.scenarioWeights : undefined;
-  const validWeights = weights && [weights.bull, weights.base, weights.bear].every((w) => finite(w) && w >= 0 && w <= 1) && Math.abs(weights.bull + weights.base + weights.bear - 1) <= 1e-8;
   return {
     ...valuation,
     scenarios: valuation.scenarios.map((scenario) => ({
       ...scenario,
-      probability: validWeights ? weights[scenario.name] : null,
+      // D-60: no weight on a price target (see WEIGHT_BASIS).
+      probability: null,
       assumptions: deterministicAssumptions(computed, scenario.name),
       qualitativeCommentary: preserveCommentary ? [...(scenario.qualitativeCommentary ?? scenario.assumptions)] : [],
     })),
