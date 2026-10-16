@@ -91,7 +91,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.18.0 (D-57, D-58): issuer-currency inheritance for single-currency provider
 // rows; the DCF year-one revenue anchor, convergent fade, year-one margin and
 // terminal tax floor. Saved reports keep their original conventions.
-export const REPORT_SPEC_VERSION = "1.18.0" as const;
+// 1.19.0 (D-65..D-68): consensus-covered forecast windows, quote-date DCF,
+// non-operating investments, consistent EV and effective scenario inputs.
+// Earlier reports retain their saved conventions and are not like-for-like.
+export const REPORT_SPEC_VERSION = "1.19.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

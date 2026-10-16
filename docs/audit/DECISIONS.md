@@ -13,6 +13,17 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-69 (NVDA recovery integration, 2026-10-15 PDT) Preserve interrupted work and separate calculation conventions
+
+- **Evidence:** Claude's original final-report audit and round-three assignments were recovered from its local session, then checked against the open "NVDA report audit and fixes" app. D-68 was already merged at `bcdeba7`; D-65 and D-67 survived uncommitted; D-66 had a committed verifier fix plus unfinished filing extraction.
+- **Choice:** Complete the recovered work in its existing worktrees, merge all four domains, and preserve the main checkout's unrelated staged transport/checkpoint changes. Do not reset or overwrite historical reports.
+- **Versions:** Report `1.19.0`, payload `1.24.0`, Stage B `STAGE_B_2026_10_NVDA_AUDIT_2`. Score bands stay unchanged. Older payload artifacts cannot resume as equivalent, older snapshots require their original engine, and report comparisons disclose the convention mismatch.
+- **Integration:** Keep both D-68 forensic notes and D-67 grade-context handling in print output. Re-pin the combined payload for D-65's financial changes, D-68's +80 label bytes and D-66's +15 technical-tag bytes: 132,882 prompt bytes, 531 numeric records, 74 citations. The version bump changes only its fingerprint afterward. Audited delta groups retain their individual rationales; this group's only financial-fixture leaf is the report version.
+- **Review correction:** Projected interest expense must use a quarter in the model's established currency and no later than the DCF statement anchor; otherwise retain the compatible annual fallback. Two rejected-quarter regression cases failed before the correction and passed afterward, with a valid USD TTM control retained.
+- **Frozen calculation:** The integrated engine reproduces base/bull/bear $217.04/$365.94/$120.49 on the original acquired inputs, versus $296.32/$501.15/$163.44 under `6e5367a`. This is a calculation comparison with fixed inputs, not a new forecast backdated to the original run.
+- **Limits:** Consensus breadth/dispersion and peer-size gates are disclosed house rules. Unreported fiscal revenue is calendarized evenly. Dimension-only locked-up equity is not guessed into the bridge. Same-family model review is disclosed; software tests and numeric matches establish bounded consistency, not forecast accuracy or institutional readiness.
+- **Release gates:** Full combined verification, a fresh live NVDA run, report/export review and fresh required CI are tracked in `docs/superpowers/plans/2026-10-15-nvda-round3-recovery.md`. The interrupted baseline run passed product/integration/core coverage and was stopped during risk coverage to validate the combined source instead; it is not claimed as a full gate pass.
+
 ## D-68 (NVDA final-report audit, forensics round 3, 2026-10-16) Name what is missing, what was bought, and what is a note
 
 - **Evidence** (final live run, report 1, run-input snapshot `041924526ebb…` captured 2026-10-16T04:20Z, a US evening):

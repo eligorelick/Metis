@@ -1,6 +1,16 @@
 # Research validation status
 
-Updated 2026-10-14 for report 1.12.0 / payload 1.17.0.
+Updated 2026-10-15 for report 1.19.0 / payload 1.24.0.
+
+The NVDA audit recovery (D-65 through D-68) changes consensus calendarization,
+the non-operating investment bridge and valuation date, so Stage B now stamps
+`STAGE_B_2026_10_NVDA_AUDIT_2`. Older snapshots require their original engine;
+saved reports retain their original conventions. The recovery also adds typed
+filing and governance disclosures and conservative numeric-claim matching.
+These changes have implementation and frozen-input regression evidence; they
+do not establish institutional readiness, forecast accuracy or an independent
+model-family review. Release verification and live-run results are recorded
+in the recovery plan and decisions log.
 
 The META audit repairs evidence handling, numerical consistency, period identity,
 and reproducibility. Passing implementation tests does not establish predictive

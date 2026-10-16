@@ -360,7 +360,10 @@ export interface ContextPayload {
 // material-event 8-K excerpts, XBRL segment revenue by quarter and the
 // eight-quarter trend. Passes built without that evidence cannot resume.
 // The combined 1.23.0 carries both sets of evidence (NVDA audit integration).
-export const PAYLOAD_VERSION = "1.23.0" as const;
+// 1.24.0 (D-65..D-68): consensus/calendarization and equity-bridge conventions,
+// typed filing facts and governance disclosures, bounded verifier matching,
+// and corrected forensic notes. Prior analyst/judge artifacts cannot resume.
+export const PAYLOAD_VERSION = "1.24.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

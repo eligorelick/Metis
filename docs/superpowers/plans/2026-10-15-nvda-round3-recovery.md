@@ -1,0 +1,40 @@
+# NVDA audit recovery implementation plan
+
+> **For agentic workers:** Execute recovered domain fixes in their existing isolated worktrees, then integrate and verify the complete branch.
+
+**Goal:** Finish the interrupted NVDA audit remediation, preserving unrelated work and requiring fresh evidence before release.
+
+**Architecture:** Recover D-65 valuation, D-66 evidence and D-67 presentation edits independently; integrate with the existing D-68 forensic work. Deterministic financial outputs and source-bound disclosure tables own figures; prose verification remains a bounded provenance and consistency check.
+
+**Tech Stack:** Next.js 16.3.8, TypeScript, Vitest, SQLite.
+
+**Spec:** User-provided final-report findings and `docs/audit/2026-10-15-nvda-report-34-audit.md`.
+
+## Constraints and review focus
+
+- Preserve the main checkout's pre-existing staged/unstaged edits.
+- Preserve financial applicability, currency, identity, provenance and production request guards.
+- Consensus anchors must respect the actual forecast periods, with deviations disclosed.
+- EV multiples and valuation bridges must use the same disclosed cash/debt convention.
+- A numeric match cannot validate a different metric, period, entity or sign.
+- Missing disclosure extraction remains a visible limitation, never an invented fact.
+- Recovered fixtures must reflect intended changes, not conceal unrelated regressions.
+
+## Tasks
+
+- [x] Recover and validate D-65 valuation changes; commit in valuation worktree.
+- [x] Recover and validate D-66 verifier and filing facts; commit in evidence worktree.
+- [x] Recover and validate D-67 presentation/completeness; commit in presentation worktree.
+- [x] Merge into `claude/nvda-audit-integration`, resolving shared surfaces without losing fixes.
+- [ ] Run the complete `npm run verify` gate and investigate failures.
+- [ ] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
+- [ ] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
+- [ ] Commit, push and integrate via GitHub with fresh required CI, if release gates pass.
+
+## Recovery evidence
+
+- Integration started at `bcdeba7`; 8-K coverage commit `a56c901` is already an ancestor.
+- D-65 and D-67 changes survived uncommitted in their original worktrees.
+- D-66 commit `8548e62` survived with additional uncommitted filing-disclosure work.
+- Main checkout is on `main` with unrelated staged pipeline checkpoint/transport changes; left untouched.
+- Baseline `npm run verify` started with output in ignored `tmp/resume-baseline-verify.log`.
