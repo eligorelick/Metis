@@ -157,6 +157,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageC/confidenceCeiling.ts",
   "src/edgar/financialEnrichment.ts",
   "src/edgar/debtCompleteness.ts",
+  "src/edgar/debtPresentation.ts",
   "src/providers/companyEvents.ts",
   "src/providers/companyIr.ts",
   "src/pipeline/runInputSnapshot.ts",
