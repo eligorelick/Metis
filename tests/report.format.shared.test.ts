@@ -173,7 +173,7 @@ describe("manifest-driven real report consumers", () => {
       ["Quality", 22.5],
       ["Balance Sheet", 33.75],
       ["Moat", 44.125],
-      ["Leadership", 55.5],
+      ["Leadership (capital stewardship)", 55.5],
       ["Technicals", 66.875],
     ] as const;
     expected.forEach(([, score], index) => {

@@ -276,17 +276,39 @@ net income, and leverage requires positive EBITDA. Maintenance capex
 `min(abs(capex), D&A)` and growth capex `max(0, abs(capex) − D&A)` are house
 heuristics, not a filed maintenance/development split.
 
-Buyback price discipline is a proxy: within each fiscal cash-flow window,
-average the available market-cap history and divide by basic weighted-average
-shares (diluted fallback disclosed). Negative repurchase cash flow is converted
-to positive dollars spent; implied shares bought equal spend / proxy price.
-The aggregate price is total covered spend / total implied shares. Its
-premium/discount is `(current price − proxy paid price) / proxy paid price`;
-positive means the current price exceeds the proxy paid price. Partial dollar
-coverage is disclosed. It is not the actual transaction-price record and is
-withheld for ADRs or unmatched/unknown quote/statement currencies.
+**Buyback price proxy.** Within each fiscal cash-flow window, the available
+market-cap history is averaged and divided by basic weighted-average shares
+(diluted fallback disclosed). That is the year's average price.
+- Negative repurchase cash flow is converted to positive dollars spent, and
+  implied shares bought equal spend ÷ proxy price.
+- The aggregate proxy price is total covered spend ÷ total implied shares.
+- Its premium/discount, `(current price − proxy paid price) / proxy paid
+  price`, is the price **appreciation since the repurchases**. It is shown
+  and not graded (D-61), because it rewards any stock that rose.
+- Partial dollar coverage is disclosed.
+- The proxy is withheld for ADRs and for unmatched or unknown quote/statement
+  currencies.
+
+**Repurchase timing** (D-61, `repurchaseExecutions.ts`) uses the price
+actually paid: the filer's tagged repurchase cost ÷ tagged shares for the
+fiscal year.
+- **Tags.** The share/value pairs are
+  `StockRepurchasedAndRetiredDuringPeriod*`,
+  `StockRepurchasedDuringPeriod*` and `TreasuryStockSharesAcquired` /
+  `TreasuryStockValueAcquiredCostMethod`. Both facts come from the latest
+  filing that tags both for that year.
+- **Share basis.** The count is put on the statements' share basis with the
+  split resolution. Without that resolution, nothing is computed.
+- **Measure.** Timing = (Σ shares bought × that year's average price) ÷
+  (Σ cost paid) − 1. Positive means the shares were bought below the same
+  year's average price (Dittmar & Field 2015).
+- **Exclusions.** A year whose paid price is more than 1.6× away from its
+  average price is excluded as a basis or tagging mismatch. Timing is
+  withheld below 50% coverage of repurchase dollars.
+
 See `tests/stageB.growth.returns.capital.test.ts`,
-`tests/stageB.returnsCurrencyAndIc.test.ts` and `tests/stageB.rote.test.ts`.
+`tests/stageB.forensicsD61.test.ts`, `tests/stageB.returnsCurrencyAndIc.test.ts`
+and `tests/stageB.rote.test.ts`.
 
 ## Growth anchor
 
@@ -1312,6 +1334,31 @@ SIC major group 65 (real-estate operators, agents and managers) is deliberately
 outside the exclusion band: those are ordinary operating companies with
 inventory, receivables and a working-capital cycle.
 
+#### Accrual definition, Beneish and Piotroski decompositions (D-61)
+
+**Accruals.** The cash-flow accrual ratio is financial-asset-adjusted
+(Richardson, Sloan, Soliman & Tuna 2005):
+- the numerator is NI − CFO − operating CFI, where operating CFI is investing
+  cash flow without purchases and sales/maturities of investments;
+- net operating assets exclude cash, short-term **and** long-term investments.
+
+Capex, acquisitions and investing flows the statement leaves unclassified
+remain operating investment. If the statements do not report the investment
+flows (FMP `purchasesOfInvestments`, `salesMaturitiesOfInvestments`) and
+long-term investments in both years, the ratio is operating accruals
+NI − CFO. Statements built from companyfacts always take this path. The
+result's `definition`, the forensic notes, the payload and the report's
+"Variant" cell name the construction used. Above 30% revenue growth a note
+gives revenue and NOA growth: accruals of a fast grower are mostly NOA growth
+(Fairfield, Whisenant & Yohn 2003). The note is not graded.
+
+**Beneish.** The report prints all eight indices and M with SGI at neutral
+1.0. When only SGI carries M over −1.78, the zone reads "flag (growth-led)"
+and the quality signal is graded on the SGI-neutral M.
+
+**Piotroski.** The zone names the failed signals, and the payload carries all
+nine outcomes.
+
 #### Piotroski F, on three scales
 
 The score is reported over the signals that remain, with its own denominator,
@@ -1555,7 +1602,8 @@ See `tests/stageB.projections.test.ts`, `tests/stageB.scenarioTargets.test.ts`,
 ## Numeric grades and completeness
 
 `src/pipeline/stageB/grading.ts` owns versioned house bands
-(`SCORE_BANDS_2026_10`). Each metric is mapped to 0–100 by piecewise-linear
+(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_AUDIT`; D-61 changed
+the durability and buyback bands without a stamp change, see D-61). Each metric is mapped to 0–100 by piecewise-linear
 interpolation between the source's named breakpoints and held at endpoint
 scores beyond them. A/B/C/D/F thresholds are 85/70/55/40; there is no E.
 These bands have not been outcome-backtested.
@@ -1566,8 +1614,8 @@ These bands have not been outcome-backtested.
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
 | Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
-| Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
-| Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, net share-count trend (scored only here, D-49); SBC/revenue is displayed, not scored |
+| Moat | 15 | 15 | 15 | Latest ROIC (0.45), durability as the lowest annual ROIC in the window (0.30, D-61) and gross margin (0.25); financials substitute ROTE level and floor |
+| Leadership (capital stewardship) | 10 | 7 | 10 | Repurchase timing, the price actually paid against the same year's average price (0.30, only when the company repurchased; D-61), and net share-count trend (0.25, scored only here, D-49). ROIC − WACC is scored once, under quality (D-61); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, distance below the 52-week high 0.35, SMA50/200 gap 0.20 (D-48); RSI-14, the six-month window and the 52-week range position are displayed, not scored |
 
 The financial vector covers banks, insurers and mortgage REITs. For insurers
@@ -1592,6 +1640,26 @@ shown when tagged and never graded, and no supervisory rating is used; the
 aspect note says all three. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
 Moat and leadership scores are quantitative proxies, not a finding about the
 company's competitive advantage or management competence.
+
+D-61 changed four signals:
+- **Moat durability** was the population standard deviation of the ROIC
+  series. That read a rising return as instability: NVDA's 23% → 198% scored
+  12. It is now the worst year's ROIC (ROTE on financial routes), banded on
+  the level band, because a moat is the persistence of returns above the cost
+  of capital, not their steadiness.
+- **Leadership** no longer re-scores the ROIC − WACC spread that quality
+  already scores (same number, same band). Its buyback signal is timing,
+  not the appreciation of today's quote over the proxy paid price. A company
+  that repurchased nothing has no timing signal, so the share-count trend is
+  its whole stewardship score. A company that repurchased without tagged
+  execution prices is missing that evidence, and its completeness shows it.
+  The score is labelled "Leadership (capital stewardship)". Management
+  quality, guidance execution and governance are not inputs; they belong to
+  the analyst grade alone.
+- **Beneish.** A Beneish flag that the sales-growth index alone carries over
+  −1.78 is graded on M with SGI at neutral 1.0 (`beneishMSgiNeutral`).
+- **Accruals** use the financial-asset-adjusted construction described under
+  "Forensic batteries by route".
 
 An aspect is the weighted mean of available, route-permitted signal scores.
 Its `dataCompleteness` is used signal weight / all intended signal weight,

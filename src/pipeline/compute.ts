@@ -84,6 +84,7 @@ import {
   type MarketCapPoint,
   type QuoteInput,
 } from "@/pipeline/stageB/capital";
+import { repurchaseExecutionsFromFacts } from "@/pipeline/stageB/repurchaseExecutions";
 import {
   runForensics,
   type ForensicsReport,
@@ -547,6 +548,8 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     totalEquity: num(r.totalEquity),
     minorityInterest: num(r.minorityInterest),
     totalDebt: num(r.totalDebt),
+    // D-61: financial assets leave net operating assets (Richardson et al. 2005).
+    longTermInvestments: num(r.longTermInvestments),
   };
 }
 
@@ -558,6 +561,10 @@ function toForensicsCashFlow(r: FmpCashFlowRow): ForensicsCashFlowRow {
     netCashProvidedByOperatingActivities: num(r.netCashProvidedByOperatingActivities),
     netCashProvidedByInvestingActivities: num(r.netCashProvidedByInvestingActivities),
     commonStockIssuance: num(r.commonStockIssuance),
+    // D-61: the financial-asset components of investing cash flow.
+    purchasesOfInvestments: num(r.purchasesOfInvestments),
+    salesMaturitiesOfInvestments: num(r.salesMaturitiesOfInvestments),
+    otherInvestingActivities: num(r.otherInvestingActivities),
   };
 }
 
@@ -1670,6 +1677,15 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   );
 
   // --- Capital ---------------------------------------------------------------
+  // D-61: the price actually paid for repurchased shares, from the filer's own
+  // equity-statement tags, on the statements' share basis.
+  const companyFactsResult = bundle.edgar?.companyFacts;
+  const repurchaseExecutions = repurchaseExecutionsFromFacts({
+    companyFacts: companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
+    shareBasis: bundle.edgar?.shareBasis ?? null,
+    fiscalYearEnds: cashflowAnnual.map((r) => String(r.date ?? "")).filter((d) => d.length > 0),
+    reportedCurrency: str(cashflowAnnual[0]?.reportedCurrency) ?? str(incomeAnnual[0]?.reportedCurrency),
+  });
   const annualCapital = computeCapital(
     incomeAnnual.map(toCapitalIncome),
     cashflowAnnual.map(toCapitalCashFlow),
@@ -1687,8 +1703,12 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       reportedCurrency: str(incomeAnnual[0]?.reportedCurrency),
       quoteCurrency: str(profile?.currency),
       isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
+      repurchaseExecutions: repurchaseExecutions.rows,
     },
   );
+  if (annualCapital.buybackPriceAnalysis.totalRepurchased > 0) {
+    for (const note of repurchaseExecutions.notes) annualCapital.notes.push(note);
+  }
 
   const sumCurrentFlow = (field: keyof FmpCashFlowRow): number | null => {
     if (!ttmCf || !currencies.ttmCashFlowUsable || cashflowQuarterly.length < 4) return null;

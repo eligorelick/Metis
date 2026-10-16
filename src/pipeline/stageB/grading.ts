@@ -309,14 +309,22 @@ const ROTE_LEVEL_BAND: readonly BandPoint[] = [
   [20, 88],
   [30, 96],
 ];
-// ROIC stability = stdev of the ROIC series (pp): lower = more durable moat.
-const ROIC_STABILITY_BAND: readonly BandPoint[] = [
-  [1, 90],
-  [3, 72],
-  [6, 52],
-  [12, 30],
-  [25, 12],
-];
+/*
+ * D-61: moat DURABILITY is the worst annual return in the window (ROIC, or
+ * ROTE on financial routes), banded on the same scale as the level. It
+ * replaced the population standard deviation of the series, which read a
+ * RISING return as instability: NVDA's 69 → 23 → 125 → 198 → 150% ROIC had an
+ * SD of 61pp and scored 12 although no year came near the cost of capital.
+ * A moat is the persistence of returns above the cost of capital (the
+ * profitability-persistence literature: Fama & French 2000), so the evidence
+ * of durability is how low returns fell, not how much they moved. The level
+ * band is reused because a floor IS a level — the lowest one observed.
+ */
+/** Smallest finite value; null below `minPoints` observations. */
+export function floorOf(values: number[], minPoints = 2): number | null {
+  const xs = values.filter((v) => Number.isFinite(v));
+  return xs.length >= minPoints ? Math.min(...xs) : null;
+}
 // Gross margin level (percent): pricing power proxy.
 const GROSS_MARGIN_BAND: readonly BandPoint[] = [
   [10, 30],
@@ -367,13 +375,22 @@ const SHARE_TREND_BAND: readonly BandPoint[] = [
   [3, 40],
   [10, 18],
 ];
-// Buyback price discipline: premium/discount to today (percent, positive = bought below today).
-const BUYBACK_DISCIPLINE_BAND: readonly BandPoint[] = [
-  [-40, 28],
-  [-15, 45],
-  [0, 58],
-  [20, 75],
-  [50, 90],
+/*
+ * D-61 buyback TIMING (percent): what the shares actually repurchased would
+ * have cost at each fiscal year's average price over what was paid, minus
+ * one. Positive = bought below the year's average. Neutral (50) at zero — no
+ * timing — and capped at 80/20 because annual execution prices are a coarse
+ * read. Dittmar & Field (2015) find repurchase prices a few percent below the
+ * same-period average on average, which sets the scale; the cut points are a
+ * house convention, not fitted. The appreciation of today's quote over the
+ * proxy paid price it replaced rewarded any stock that rose.
+ */
+const BUYBACK_TIMING_BAND: readonly BandPoint[] = [
+  [-15, 20],
+  [-5, 38],
+  [0, 50],
+  [5, 62],
+  [15, 80],
 ];
 // Piotroski F fraction (score/outOf).
 const PIOTROSKI_BAND: readonly BandPoint[] = [
@@ -846,7 +863,13 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       // policy could exclude it, so financials were graded on a meaningless
       // ratio.
       { name: "accrualsRatioAbs", raw: forensics.accruals && isNum(forensics.accruals.cashFlowAccrualRatio) ? Math.abs(forensics.accruals.cashFlowAccrualRatio) : null, unit: "frac", weight: 0.15, band: ACCRUALS_ABS_BAND, suppressedBy: "accrualsRatio" },
-      { name: "beneishM", raw: forensics.beneish?.score ?? null, unit: "m", weight: 0.12, band: BENEISH_M_BAND, suppressedBy: "beneishM" },
+      // D-61: when the sales-growth index alone carries M over the flag line,
+      // the signal is graded on M with SGI at neutral 1.0 — growth is the
+      // model's pressure proxy, not evidence of manipulation (Beneish 1999) —
+      // under its own name, so the driver table says which M was graded.
+      forensics.beneish?.growthLed === true && isNum(forensics.beneish.sgiNeutralScore)
+        ? { name: "beneishMSgiNeutral", raw: forensics.beneish.sgiNeutralScore, unit: "m", weight: 0.12, band: BENEISH_M_BAND, suppressedBy: "beneishM" }
+        : { name: "beneishM", raw: forensics.beneish?.score ?? null, unit: "m", weight: 0.12, band: BENEISH_M_BAND, suppressedBy: "beneishM" },
     ],
     weights.quality,
     inputs.asOf,
@@ -886,8 +909,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         policy,
       );
 
-  // --- Moat (durability proxy: ROIC level + stability + gross margin) ------
-  const roicStdev = stdev(roic.series.map((r) => r.roicPct).filter(isNum));
+  // --- Moat (durability proxy: ROIC level + floor + gross margin) ----------
+  // D-61: durability is the worst year's return (see floorOf), not the SD.
+  const roicFloor = floorOf(roic.series.map((r) => r.roicPct).filter(isNum));
   // Exactly ONE capital-return measure is scored, chosen by balance-sheet type,
   // and the two alternatives carry the SAME total weight (0.75) so the moat
   // aspect's completeness denominator is identical either way — adding a third
@@ -909,15 +933,15 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   // weight. A single year's ROTE carrying the whole 0.75 made the financial
   // moat a point-in-time profitability read with no durability dimension —
   // precisely what a moat proxy is supposed to measure.
-  const roteStdev = stdev(rote.series.map((y) => y.rotePct).filter(isNum));
+  const roteFloor = floorOf(rote.series.map((y) => y.rotePct).filter(isNum));
   const moatReturnSignals: Signal[] = scoresRote
     ? [
         { name: "roteLevel", raw: rote.latestRotePct, unit: "%", weight: 0.45, band: ROTE_LEVEL_BAND },
-        { name: "roteStability", raw: roteStdev, unit: "pp", weight: 0.3, band: ROIC_STABILITY_BAND },
+        { name: "roteFloor", raw: roteFloor, unit: "%", weight: 0.3, band: ROTE_LEVEL_BAND },
       ]
     : [
         { name: "roicLevel", raw: roic.latestRoicPct, unit: "%", weight: 0.45, band: ROIC_LEVEL_BAND },
-        { name: "roicStability", raw: roicStdev, unit: "pp", weight: 0.3, band: ROIC_STABILITY_BAND },
+        { name: "roicFloor", raw: roicFloor, unit: "%", weight: 0.3, band: ROIC_LEVEL_BAND },
       ];
   const moat = scoreAspect(
     "moat",
@@ -932,16 +956,30 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.moat,
     inputs.asOf,
-    "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+    "Quantitative moat proxy: the latest ROIC, its durability — the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) — and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
     policy,
   );
 
   // --- Leadership (deterministic capital-stewardship proxy) ----------------
+  // D-61: two signals that measure capital stewardship directly. The ROIC −
+  // WACC spread that used to sit here as "capitalDeployment" is the quality
+  // aspect's value-creation signal, same number, same band — it is scored
+  // once, there. The buyback signal is repurchase TIMING (price paid against
+  // the same year's average price); the old "discipline" figure was today's
+  // quote over the proxy paid price, i.e. appreciation since the buybacks.
+  // The aspect's weight in the composite is unchanged.
+  // A company that bought back nothing has no repurchase timing to measure:
+  // the signal is absent from its aspect (not missing evidence), so the
+  // share-count trend carries the aspect at full completeness. A company that
+  // did repurchase without tagged execution prices is MISSING the evidence,
+  // and its completeness says so.
+  const repurchased = capital.buybackPriceAnalysis.totalRepurchased > 0;
   const leadership = scoreAspect(
     "leadership",
     [
-      { name: "buybackDiscipline", raw: capital.buybackPriceAnalysis.premiumDiscountPct, unit: "%", weight: 0.3, band: BUYBACK_DISCIPLINE_BAND },
-      { name: "capitalDeployment", raw: roicVsWacc.spreadPctPts, unit: "pp", weight: 0.25, band: SPREAD_BAND, suppressedBy: "roicVsWacc" },
+      ...(repurchased
+        ? [{ name: "buybackTiming", raw: capital.buybackPriceAnalysis.timingPct ?? null, unit: "%", weight: 0.3, band: BUYBACK_TIMING_BAND }]
+        : []),
       { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.25, band: SHARE_TREND_BAND },
       // D-49: SBC % of revenue is no longer scored here. The SBC charge is
       // scored once (balance sheet, % of FCF) and the dilution it causes is
@@ -950,7 +988,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.leadership,
     inputs.asOf,
-    "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade.",
+    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
     policy,
   );
 

@@ -283,7 +283,8 @@ describe("shared report surface manifest", () => {
       { id: "score:quality", key: "quality", kind: "aspect", label: "Quality", sectionKey: "quality" },
       { id: "score:balanceSheet", key: "balanceSheet", kind: "aspect", label: "Balance Sheet", sectionKey: "balanceSheet" },
       { id: "score:moat", key: "moat", kind: "aspect", label: "Moat", sectionKey: "competitive" },
-      { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership", sectionKey: "leadership" },
+      // D-61: the deterministic score is a capital-stewardship proxy.
+      { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
       { id: "score:technicals", key: "technicals", kind: "aspect", label: "Technicals", sectionKey: "technicals" },
     ]);
     expect(SCORE_WEIGHTS).toEqual(

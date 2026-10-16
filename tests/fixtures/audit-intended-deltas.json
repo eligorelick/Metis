@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-15",
+  "generatedAt": "2026-10-16",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -1722,11 +1722,6 @@
           "after": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 — a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
         },
         {
-          "path": "stageB.capital.notes.3",
-          "beforeMissing": true,
-          "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
-        },
-        {
           "path": "stageB.capital.sbc.note",
           "before": {
             "$auditUndefined": true
@@ -1871,16 +1866,6 @@
           "path": "report.scores.aspects.fundamentals.score",
           "before": 67.9,
           "after": 67.13
-        },
-        {
-          "path": "report.scores.aspects.moat.note",
-          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
-          "after": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
-        },
-        {
-          "path": "report.scores.aspects.moat.score",
-          "before": 86.65,
-          "after": 87.25
         },
         {
           "path": "stageB.forensics.notes.0",
@@ -2051,16 +2036,6 @@
           "path": "stageB.scores.aspects.fundamentals.score",
           "before": 67.9,
           "after": 67.13
-        },
-        {
-          "path": "stageB.scores.aspects.moat.note",
-          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
-          "after": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
-        },
-        {
-          "path": "stageB.scores.aspects.moat.score",
-          "before": 86.65,
-          "after": 87.25
         },
         {
           "path": "stageB.technicals.gaps.1.reason",
@@ -2312,11 +2287,6 @@
           "after": "computed.scores.quality.altmanZOriginalScale"
         },
         {
-          "path": "report.scores.aspects.quality.score",
-          "before": 88.62,
-          "after": 88.24
-        },
-        {
           "path": "stageB.forensics.altman.asOf.marketCap",
           "before": "2025-12-31",
           "after": "2026-07-06"
@@ -2342,19 +2312,9 @@
           "after": "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
         },
         {
-          "path": "stageB.forensics.notes.7",
-          "beforeMissing": true,
-          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
-        },
-        {
           "path": "stageB.scores.aspects.quality.drivers.2.source",
           "before": "computed.scores.quality.altmanZ",
           "after": "computed.scores.quality.altmanZOriginalScale"
-        },
-        {
-          "path": "stageB.scores.aspects.quality.score",
-          "before": 88.62,
-          "after": 88.24
         }
       ]
     },
@@ -2932,16 +2892,6 @@
           "afterMissing": true
         },
         {
-          "path": "report.scores.aspects.leadership.note",
-          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
-          "after": "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade."
-        },
-        {
-          "path": "report.scores.aspects.leadership.score",
-          "before": 76.97,
-          "after": 77.88
-        },
-        {
           "path": "stageB.scores.aspects.balanceSheet.drivers.4",
           "before": {
             "value": -0.96,
@@ -2967,16 +2917,6 @@
             "verified": true
           },
           "afterMissing": true
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.note",
-          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
-          "after": "Capital-stewardship proxy (buyback discipline, capital deployment above cost where the route scores it, net share-count change after buybacks, which is scored here only). Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Qualitative leadership assessed in the analyst grade."
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.score",
-          "before": 76.97,
-          "after": 77.88
         }
       ]
     },
@@ -3053,25 +2993,6 @@
       ]
     },
     {
-      "name": "d-50-confidence-ceiling",
-      "decisions": [
-        "D-50"
-      ],
-      "reason": "D-50 caps each graded section's confidence label at a deterministic ceiling from Stage B data coverage (unscored -> low; dataCompleteness < 0.5 -> low, < 0.75 -> medium; valuation with a withheld fair value or a scenario fan suppressed on the DCF route -> medium); the model may go lower, never higher. DEMO's leadership aspect is scored on 0.63 of its intended weight (since D-49), so the judge's 'high' on the leadership section and its grade-strip twin is lowered to 'medium' and the new confidenceCap field records {from: high, to: medium, reason}. No other section's label was above its ceiling.",
-      "deltas": [
-        {
-          "path": "report.leadership.graded.confidence",
-          "before": "high",
-          "after": "medium"
-        },
-        {
-          "path": "report.verdict.gradeStrip.leadership.confidence",
-          "before": "high",
-          "after": "medium"
-        }
-      ]
-    },
-    {
       "name": "review-d46-d50",
       "decisions": [
         "D-48",
@@ -3079,15 +3000,6 @@
       ],
       "reason": "Review of D-48 and D-50 (2026-10-13). D-48: the 0.35-weight 52-week signal now scores proximity to the 52-week high, (close / high - 1) x 100 on HIGH_PROXIMITY_BAND, the measure George & Hwang (2004) rank on, instead of position in the high-low range, which ranks stocks differently. DEMO sits 1.06% below its high, so the driver becomes pctFromHigh52w -1.06 (was position52w 95.88) and technicals moves 83.92 -> 81.25 (72.24 at the audited commit); the note names the new signal; the composite moves 77.6 -> 77.53. D-50: every aspect gains applicableCompleteness, evidence present over the weight its route can support (dataCompleteness also counts route-suppressed signals as missing, which falsely capped fully observed banks). DEMO is a general company with no suppressed signal on any scored aspect, so each value equals its dataCompleteness and no ceiling moves; only the leadership cap reason is reworded to \"the inputs its route supports\".",
       "deltas": [
-        {
-          "path": "report.leadership.graded.confidenceCap",
-          "beforeMissing": true,
-          "after": {
-            "from": "high",
-            "to": "medium",
-            "reason": "the deterministic leadership score rests on under three quarters of the inputs its route supports"
-          }
-        },
         {
           "path": "report.scores.aspects.balanceSheet.applicableCompleteness",
           "beforeMissing": true,
@@ -3122,15 +3034,6 @@
           "path": "report.scores.aspects.technicals.score",
           "before": 72.24,
           "after": 81.25
-        },
-        {
-          "path": "report.verdict.gradeStrip.leadership.confidenceCap",
-          "beforeMissing": true,
-          "after": {
-            "from": "high",
-            "to": "medium",
-            "reason": "the deterministic leadership score rests on under three quarters of the inputs its route supports"
-          }
         },
         {
           "path": "stageB.scores.aspects.balanceSheet.applicableCompleteness",
@@ -3712,122 +3615,6 @@
           "after": 14
         },
         {
-          "path": "report.quality.flags.1",
-          "beforeMissing": true,
-          "after": {
-            "severity": "low",
-            "text": "Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.",
-            "source": "computed.forensics.accruals"
-          }
-        },
-        {
-          "path": "report.quality.flags.2",
-          "beforeMissing": true,
-          "after": {
-            "severity": "low",
-            "text": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
-            "source": "computed.forensics.accruals"
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.1",
-          "beforeMissing": true,
-          "after": {
-            "value": 0.03296703296703297,
-            "unit": "x",
-            "currency": null,
-            "period": "2025-12-31",
-            "sourceId": "computed.forensics.accruals.cashFlowAccrualRatio",
-            "source": "computed.forensics.accruals.cashFlowAccrualRatio",
-            "asOf": "2025-12-31",
-            "verified": true
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.2",
-          "beforeMissing": true,
-          "after": {
-            "value": 0.06593406593406594,
-            "unit": "x",
-            "currency": null,
-            "period": "2025-12-31",
-            "sourceId": "computed.forensics.accruals.balanceSheetAccrualRatio",
-            "source": "computed.forensics.accruals.balanceSheetAccrualRatio",
-            "asOf": "2025-12-31",
-            "verified": true
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.3",
-          "beforeMissing": true,
-          "after": {
-            "value": 150000000,
-            "unit": "currency",
-            "currency": "USD",
-            "period": "2025-12-31",
-            "sourceId": "computed.forensics.accruals.aggregateAccrualsCashFlow",
-            "source": "computed.forensics.accruals.aggregateAccrualsCashFlow",
-            "asOf": "2025-12-31",
-            "verified": true
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.4",
-          "beforeMissing": true,
-          "after": {
-            "value": 300000000,
-            "unit": "currency",
-            "currency": "USD",
-            "period": "2025-12-31",
-            "sourceId": "computed.forensics.accruals.aggregateAccrualsBalanceSheet",
-            "source": "computed.forensics.accruals.aggregateAccrualsBalanceSheet",
-            "asOf": "2025-12-31",
-            "verified": true
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.5",
-          "beforeMissing": true,
-          "after": {
-            "value": 4700000000,
-            "unit": "currency",
-            "currency": "USD",
-            "period": "2025-12-31",
-            "sourceId": "computed.forensics.accruals.noaCurrent",
-            "source": "computed.forensics.accruals.noaCurrent",
-            "asOf": "2025-12-31",
-            "verified": true
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.6",
-          "beforeMissing": true,
-          "after": {
-            "value": 4400000000,
-            "unit": "currency",
-            "currency": "USD",
-            "period": "2024-12-31",
-            "sourceId": "computed.forensics.accruals.noaPrior",
-            "source": "computed.forensics.accruals.noaPrior",
-            "asOf": "2024-12-31",
-            "verified": true
-          }
-        },
-        {
-          "path": "report.quality.graded.keyNumbers.7",
-          "beforeMissing": true,
-          "after": {
-            "value": 4550000000,
-            "unit": "currency",
-            "currency": "USD",
-            "period": "2025-12-31",
-            "sourceId": "computed.forensics.accruals.scalerValue",
-            "source": "computed.forensics.accruals.scalerValue",
-            "asOf": "2025-12-31",
-            "verified": true
-          }
-        },
-        {
           "path": "report.quality.graded.keyNumbers.8",
           "beforeMissing": true,
           "after": {
@@ -4298,112 +4085,9 @@
           ]
         },
         {
-          "path": "report.scores.aspects.leadership.applicableCompleteness",
-          "beforeMissing": true,
-          "after": 0.625
-        },
-        {
-          "path": "report.scores.aspects.leadership.dataCompleteness",
-          "before": 0.7,
-          "after": 0.625
-        },
-        {
           "path": "report.scores.aspects.leadership.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.leadership.drivers.0.period",
-          "beforeMissing": true,
-          "after": "ROIC period end 2025-12-31; WACC observation 2026-07-06"
-        },
-        {
-          "path": "report.scores.aspects.leadership.drivers.0.value",
-          "before": 27.2,
-          "after": 30.80959800554401
-        },
-        {
-          "path": "report.scores.aspects.leadership.drivers.1.asOf",
-          "before": "2026-07-06",
-          "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.leadership.drivers.1.period",
-          "beforeMissing": true,
-          "after": "2023-12-31 to 2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.leadership.drivers.1.value",
-          "before": -0.96,
-          "after": -0.9615607948540661
-        },
-        {
-          "path": "report.scores.aspects.leadership.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "capitalDeployment",
-              "raw": 30.80959800554401,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.125,
-              "contributionPoints": 1.3125,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "WACC",
-                  "value": 9.254504558558558,
-                  "source": "computed.returns.wacc.waccPct",
-                  "asOf": "2026-07-06"
-                }
-              ]
-            },
-            {
-              "id": "shareCountTrend",
-              "raw": -0.9615607948540661,
-              "unit": "%",
-              "transformedScore": 63.769364769124394,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.125,
-              "contributionPoints": 0.43029264903513736,
-              "family": "capital-return-policy",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "start shares",
-                  "value": 209000000,
-                  "source": "computed.capital.shareCount.startShares",
-                  "asOf": "2023-12-31"
-                },
-                {
-                  "name": "end shares",
-                  "value": 205000000,
-                  "source": "computed.capital.shareCount.endShares",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "report.scores.aspects.moat.drivers.0.asOf",
@@ -4426,16 +4110,6 @@
           "after": "2025-12-31"
         },
         {
-          "path": "report.scores.aspects.moat.drivers.1.period",
-          "beforeMissing": true,
-          "after": "Annual return observations 2024-12-31 to 2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.moat.drivers.1.value",
-          "before": 1.58,
-          "after": 1.8640911933594886
-        },
-        {
           "path": "report.scores.aspects.moat.drivers.2.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -4444,93 +4118,6 @@
           "path": "report.scores.aspects.moat.drivers.2.period",
           "beforeMissing": true,
           "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.moat.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "roicLevel",
-              "raw": 40.06410256410257,
-              "unit": "%",
-              "transformedScore": 95,
-              "signalWeight": 0.45,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 6.75,
-              "contributionPoints": 3.0375,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "2025-12-31",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "roicStability",
-              "raw": 1.8640911933594886,
-              "unit": "pp",
-              "transformedScore": 82.2231792597646,
-              "signalWeight": 0.3,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 4.5,
-              "contributionPoints": 1.4500430666894073,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "Annual return observations 2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "return at 2024-12-31",
-                  "value": 36.33592017738359,
-                  "source": "computed.returns.roic.series",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "return at 2025-12-31",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.series",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "grossMarginLevel",
-              "raw": 60,
-              "unit": "%",
-              "transformedScore": 79.33333333333333,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.75,
-              "contributionPoints": 1.0999999999999999,
-              "family": "profitability",
-              "asOf": "2025-12-31",
-              "period": "2025-12-31",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "gross margin",
-                  "value": 60,
-                  "source": "computed.growth.margins.gross.series",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "report.scores.aspects.quality.applicableCompleteness",
@@ -4593,11 +4180,6 @@
           "after": "2024-12-31 to 2025-12-31"
         },
         {
-          "path": "report.scores.aspects.quality.drivers.3.value",
-          "before": 0.03,
-          "after": 0.03296703296703297
-        },
-        {
           "path": "report.scores.aspects.quality.drivers.4.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -4611,149 +4193,6 @@
           "path": "report.scores.aspects.quality.drivers.4.value",
           "before": -2.68,
           "after": -2.6827912496211668
-        },
-        {
-          "path": "report.scores.aspects.quality.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "roicVsWaccSpread",
-              "raw": 30.80959800554401,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 5.25,
-              "contributionPoints": 2.205,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "WACC",
-                  "value": 9.254504558558558,
-                  "source": "computed.returns.wacc.waccPct",
-                  "asOf": "2026-07-06"
-                }
-              ]
-            },
-            {
-              "id": "piotroskiF",
-              "raw": 1,
-              "unit": "frac",
-              "transformedScore": 96,
-              "signalWeight": 0.22,
-              "evidenceFraction": 0.7777777777777778,
-              "effectiveCompositeWeightPct": 2.566666666666667,
-              "contributionPoints": 1.1806666666666668,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2.001368925393566,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "signals passed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.score",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "signals assessed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.outOf",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "altmanZOriginalScale",
-              "raw": 5.769922666666666,
-              "unit": "z",
-              "transformedScore": 92,
-              "signalWeight": 0.16,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.4,
-              "contributionPoints": 1.008,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "original variant Z score before grade-scale mapping",
-                  "value": 6.1338,
-                  "source": "computed.forensics.altman.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "accrualsRatioAbs",
-              "raw": 0.03296703296703297,
-              "unit": "frac",
-              "transformedScore": 78.1098901098901,
-              "signalWeight": 0.15,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.25,
-              "contributionPoints": 0.6324725274725274,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "cash-flow accrual ratio before absolute transform",
-                  "value": 0.03296703296703297,
-                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "beneishM",
-              "raw": -2.6827912496211668,
-              "unit": "m",
-              "transformedScore": 73.86644229797864,
-              "signalWeight": 0.12,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1.8,
-              "contributionPoints": 0.4295959613636155,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "Beneish M",
-                  "value": -2.6827912496211668,
-                  "source": "computed.forensics.beneish.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "report.scores.aspects.technicals.drivers.0.asOf",
@@ -4890,88 +4329,9 @@
           "after": 92
         },
         {
-          "path": "report.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.87,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 92,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.8126666666666666,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
           "path": "report.scores.bandsVersion",
           "before": "SCORE_BANDS_2026_07",
           "after": "SCORE_BANDS_2026_10_AUDIT"
-        },
-        {
-          "path": "report.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 81.27% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "report.scores.composite.score",
-          "before": 77.59,
-          "after": 75.12
-        },
-        {
-          "path": "report.scores.factorExposure",
-          "beforeMissing": true,
-          "after": [
-            {
-              "family": "capital-returns",
-              "weightPct": 19.625,
-              "aboveNeutralPoints": 8.005043066689407
-            },
-            {
-              "family": "growth",
-              "weightPct": 14.000000000000002,
-              "aboveNeutralPoints": 2.2271840043786124
-            },
-            {
-              "family": "financial-strength",
-              "weightPct": 12.352941176470589,
-              "aboveNeutralPoints": 4.245798319327731
-            },
-            {
-              "family": "profitability",
-              "weightPct": 9.75,
-              "aboveNeutralPoints": 2.299383843890901
-            },
-            {
-              "family": "accounting-integrity",
-              "weightPct": 9.016666666666667,
-              "aboveNeutralPoints": 3.2507351555028094
-            },
-            {
-              "family": "valuation",
-              "weightPct": 8,
-              "aboveNeutralPoints": 3.36
-            },
-            {
-              "family": "capital-return-policy",
-              "weightPct": 3.125,
-              "aboveNeutralPoints": 0.43029264903513736
-            },
-            {
-              "family": "momentum-and-trend",
-              "weightPct": 2.75,
-              "aboveNeutralPoints": 0.8595087850428587
-            },
-            {
-              "family": "equity-compensation",
-              "weightPct": 2.6470588235294117,
-              "aboveNeutralPoints": 0.44509803921568614
-            }
-          ]
         },
         {
           "path": "report.valuation.graded.assessmentStatus",
@@ -5060,11 +4420,6 @@
         },
         {
           "path": "stageB.capital.fcf.basis",
-          "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
-        },
-        {
-          "path": "stageB.capital.notes.2",
           "beforeMissing": true,
           "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
@@ -5815,112 +5170,9 @@
           ]
         },
         {
-          "path": "stageB.scores.aspects.leadership.applicableCompleteness",
-          "beforeMissing": true,
-          "after": 0.625
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.dataCompleteness",
-          "before": 0.7,
-          "after": 0.625
-        },
-        {
           "path": "stageB.scores.aspects.leadership.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.drivers.0.period",
-          "beforeMissing": true,
-          "after": "ROIC period end 2025-12-31; WACC observation 2026-07-06"
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.drivers.0.value",
-          "before": 27.2,
-          "after": 30.80959800554401
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.drivers.1.asOf",
-          "before": "2026-07-06",
-          "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.drivers.1.period",
-          "beforeMissing": true,
-          "after": "2023-12-31 to 2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.drivers.1.value",
-          "before": -0.96,
-          "after": -0.9615607948540661
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "capitalDeployment",
-              "raw": 30.80959800554401,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.125,
-              "contributionPoints": 1.3125,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "WACC",
-                  "value": 9.254504558558558,
-                  "source": "computed.returns.wacc.waccPct",
-                  "asOf": "2026-07-06"
-                }
-              ]
-            },
-            {
-              "id": "shareCountTrend",
-              "raw": -0.9615607948540661,
-              "unit": "%",
-              "transformedScore": 63.769364769124394,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.125,
-              "contributionPoints": 0.43029264903513736,
-              "family": "capital-return-policy",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "start shares",
-                  "value": 209000000,
-                  "source": "computed.capital.shareCount.startShares",
-                  "asOf": "2023-12-31"
-                },
-                {
-                  "name": "end shares",
-                  "value": 205000000,
-                  "source": "computed.capital.shareCount.endShares",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "stageB.scores.aspects.moat.drivers.0.asOf",
@@ -5943,16 +5195,6 @@
           "after": "2025-12-31"
         },
         {
-          "path": "stageB.scores.aspects.moat.drivers.1.period",
-          "beforeMissing": true,
-          "after": "Annual return observations 2024-12-31 to 2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.moat.drivers.1.value",
-          "before": 1.58,
-          "after": 1.8640911933594886
-        },
-        {
           "path": "stageB.scores.aspects.moat.drivers.2.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -5961,93 +5203,6 @@
           "path": "stageB.scores.aspects.moat.drivers.2.period",
           "beforeMissing": true,
           "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.moat.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "roicLevel",
-              "raw": 40.06410256410257,
-              "unit": "%",
-              "transformedScore": 95,
-              "signalWeight": 0.45,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 6.75,
-              "contributionPoints": 3.0375,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "2025-12-31",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "roicStability",
-              "raw": 1.8640911933594886,
-              "unit": "pp",
-              "transformedScore": 82.2231792597646,
-              "signalWeight": 0.3,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 4.5,
-              "contributionPoints": 1.4500430666894073,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "Annual return observations 2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "return at 2024-12-31",
-                  "value": 36.33592017738359,
-                  "source": "computed.returns.roic.series",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "return at 2025-12-31",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.series",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "grossMarginLevel",
-              "raw": 60,
-              "unit": "%",
-              "transformedScore": 79.33333333333333,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.75,
-              "contributionPoints": 1.0999999999999999,
-              "family": "profitability",
-              "asOf": "2025-12-31",
-              "period": "2025-12-31",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "gross margin",
-                  "value": 60,
-                  "source": "computed.growth.margins.gross.series",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "stageB.scores.aspects.quality.applicableCompleteness",
@@ -6110,11 +5265,6 @@
           "after": "2024-12-31 to 2025-12-31"
         },
         {
-          "path": "stageB.scores.aspects.quality.drivers.3.value",
-          "before": 0.03,
-          "after": 0.03296703296703297
-        },
-        {
           "path": "stageB.scores.aspects.quality.drivers.4.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -6128,149 +5278,6 @@
           "path": "stageB.scores.aspects.quality.drivers.4.value",
           "before": -2.68,
           "after": -2.6827912496211668
-        },
-        {
-          "path": "stageB.scores.aspects.quality.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "roicVsWaccSpread",
-              "raw": 30.80959800554401,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 5.25,
-              "contributionPoints": 2.205,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "WACC",
-                  "value": 9.254504558558558,
-                  "source": "computed.returns.wacc.waccPct",
-                  "asOf": "2026-07-06"
-                }
-              ]
-            },
-            {
-              "id": "piotroskiF",
-              "raw": 1,
-              "unit": "frac",
-              "transformedScore": 96,
-              "signalWeight": 0.22,
-              "evidenceFraction": 0.7777777777777778,
-              "effectiveCompositeWeightPct": 2.566666666666667,
-              "contributionPoints": 1.1806666666666668,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2.001368925393566,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "signals passed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.score",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "signals assessed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.outOf",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "altmanZOriginalScale",
-              "raw": 5.769922666666666,
-              "unit": "z",
-              "transformedScore": 92,
-              "signalWeight": 0.16,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.4,
-              "contributionPoints": 1.008,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "original variant Z score before grade-scale mapping",
-                  "value": 6.1338,
-                  "source": "computed.forensics.altman.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "accrualsRatioAbs",
-              "raw": 0.03296703296703297,
-              "unit": "frac",
-              "transformedScore": 78.1098901098901,
-              "signalWeight": 0.15,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.25,
-              "contributionPoints": 0.6324725274725274,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "cash-flow accrual ratio before absolute transform",
-                  "value": 0.03296703296703297,
-                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "beneishM",
-              "raw": -2.6827912496211668,
-              "unit": "m",
-              "transformedScore": 73.86644229797864,
-              "signalWeight": 0.12,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1.8,
-              "contributionPoints": 0.4295959613636155,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "Beneish M",
-                  "value": -2.6827912496211668,
-                  "source": "computed.forensics.beneish.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "stageB.scores.aspects.technicals.drivers.0.asOf",
@@ -6407,88 +5414,9 @@
           "after": 92
         },
         {
-          "path": "stageB.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.87,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 92,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.8126666666666666,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
           "path": "stageB.scores.bandsVersion",
           "before": "SCORE_BANDS_2026_07",
           "after": "SCORE_BANDS_2026_10_AUDIT"
-        },
-        {
-          "path": "stageB.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 81.27% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "stageB.scores.composite.score",
-          "before": 77.59,
-          "after": 75.12
-        },
-        {
-          "path": "stageB.scores.factorExposure",
-          "beforeMissing": true,
-          "after": [
-            {
-              "family": "capital-returns",
-              "weightPct": 19.625,
-              "aboveNeutralPoints": 8.005043066689407
-            },
-            {
-              "family": "growth",
-              "weightPct": 14.000000000000002,
-              "aboveNeutralPoints": 2.2271840043786124
-            },
-            {
-              "family": "financial-strength",
-              "weightPct": 12.352941176470589,
-              "aboveNeutralPoints": 4.245798319327731
-            },
-            {
-              "family": "profitability",
-              "weightPct": 9.75,
-              "aboveNeutralPoints": 2.299383843890901
-            },
-            {
-              "family": "accounting-integrity",
-              "weightPct": 9.016666666666667,
-              "aboveNeutralPoints": 3.2507351555028094
-            },
-            {
-              "family": "valuation",
-              "weightPct": 8,
-              "aboveNeutralPoints": 3.36
-            },
-            {
-              "family": "capital-return-policy",
-              "weightPct": 3.125,
-              "aboveNeutralPoints": 0.43029264903513736
-            },
-            {
-              "family": "momentum-and-trend",
-              "weightPct": 2.75,
-              "aboveNeutralPoints": 0.8595087850428587
-            },
-            {
-              "family": "equity-compensation",
-              "weightPct": 2.6470588235294117,
-              "aboveNeutralPoints": 0.44509803921568614
-            }
-          ]
         },
         {
           "path": "stageB.valuation.assumptions.forecastPeriod",
@@ -8687,6 +7615,1250 @@
             ],
             "comparisons": []
           }
+        }
+      ]
+    },
+    {
+      "name": "forensics-d61-2026-10-15",
+      "decisions": [
+        "D-61"
+      ],
+      "reason": "D-61 (NVDA report #34 audit, WP5: P0-6, P2-1 to P2-5). Accruals: DEMO's cash-flow statement separates purchases (-500M) and sales/maturities (+400M) of investments and its balance sheet reports long-term investments (500M / 450M), so the ratio is the Richardson et al. (2005) financial-asset-adjusted construction: operating CFI -700M, aggregate accruals 150M -> 50M, NOA 4.70B/4.40B -> 4.20B/3.95B, cash-flow ratio 0.033 -> 0.012 (band unchanged), balance-sheet ratio 0.066 -> 0.061; the definition, financial-asset flows, long-term investments and growth rates are new fields, the definition note leads the forensic notes and quality flags, the pipeline's accrual explanation flag names the adjusted construction instead of the broad NI - CFO - CFI screen, and the quality key numbers carry the accrual operands, now including the financial-asset (-100M) and operating (-700M) investing flows. Beneish: the SGI-neutral M (-2.76) and growth-led flag (false) are new fields, and the variant string prints all eight indices; the score is unchanged. Piotroski: the zone names the outcome ('7/7; every evaluable signal passed'). Moat: durability is the lowest annual ROIC (36.3%) instead of the population SD (1.58pp), moat 86.65 -> 90.13. Leadership: capitalDeployment (the ROIC - WACC spread already scored under quality) is dropped and the buyback signal is timing against the same year's average price, which DEMO cannot measure (no companyfacts, so no tagged execution prices): the aspect rests on the share-count trend alone, 76.97 -> 63.77 (B -> C), completeness 0.70 -> 0.45, which caps the leadership grade's confidence at low; the note says the aspect is a capital-stewardship proxy, not an assessment of executives, and the buyback note says the premium to today's quote is appreciation, not timing. Quality 88.62 -> 88.85; composite 77.59 -> 74.53. The scores block also gains the signal, assessment and factor-exposure metadata that the baseline predates.",
+      "deltas": [
+        {
+          "path": "report.leadership.graded.assessmentStatus",
+          "beforeMissing": true,
+          "after": "limited-evidence"
+        },
+        {
+          "path": "report.leadership.graded.confidence",
+          "before": "high",
+          "after": "low"
+        },
+        {
+          "path": "report.leadership.graded.confidenceCap",
+          "beforeMissing": true,
+          "after": {
+            "from": "high",
+            "to": "low",
+            "reason": "the deterministic leadership score rests on under half of the inputs its route supports"
+          }
+        },
+        {
+          "path": "report.quality.flags.1",
+          "beforeMissing": true,
+          "after": {
+            "severity": "low",
+            "text": "Cash-flow accruals = (net income − operating cash flow − operating investing cash flow) / average net operating assets, financial-asset-adjusted (Richardson et al. 2005): purchases and sales/maturities of investments are excluded from investing cash flow and long-term investments from net operating assets, so buying securities or strategic stakes is not an accrual. Capex and acquisitions remain. It measures growth in net operating assets and is not a manipulation finding.",
+            "source": "computed.forensics.accruals"
+          }
+        },
+        {
+          "path": "report.quality.flags.2",
+          "beforeMissing": true,
+          "after": {
+            "severity": "low",
+            "text": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions stay in as operating investment.",
+            "source": "computed.forensics.accruals"
+          }
+        },
+        {
+          "path": "report.quality.flags.3",
+          "beforeMissing": true,
+          "after": {
+            "severity": "low",
+            "text": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
+            "source": "computed.forensics.accruals"
+          }
+        },
+        {
+          "path": "report.quality.forensicScores.accruals.score",
+          "before": 0.03296703296703297,
+          "after": 0.012269938650306749
+        },
+        {
+          "path": "report.quality.forensicScores.accruals.variant",
+          "before": "cash-flow",
+          "after": "cash-flow, financial-asset-adjusted (Richardson et al. 2005)"
+        },
+        {
+          "path": "report.quality.forensicScores.beneish.variant",
+          "before": "m-score",
+          "after": "m-score: DSRI 1.03, GMI 0.98, AQI 0.95, SGI 1.09, DEPI 1.01, SGAI 0.99, TATA -0.065, LVGI 0.93; M with SGI at 1.0: -2.76"
+        },
+        {
+          "path": "report.quality.forensicScores.piotroski.zone",
+          "before": "7/7",
+          "after": "7/7; every evaluable signal passed"
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.1",
+          "beforeMissing": true,
+          "after": {
+            "value": 0.012269938650306749,
+            "unit": "x",
+            "currency": null,
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.cashFlowAccrualRatio",
+            "source": "computed.forensics.accruals.cashFlowAccrualRatio",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.2",
+          "beforeMissing": true,
+          "after": {
+            "value": 0.06134969325153374,
+            "unit": "x",
+            "currency": null,
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.balanceSheetAccrualRatio",
+            "source": "computed.forensics.accruals.balanceSheetAccrualRatio",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.3",
+          "beforeMissing": true,
+          "after": {
+            "value": 50000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.aggregateAccrualsCashFlow",
+            "source": "computed.forensics.accruals.aggregateAccrualsCashFlow",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.4",
+          "beforeMissing": true,
+          "after": {
+            "value": 250000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.aggregateAccrualsBalanceSheet",
+            "source": "computed.forensics.accruals.aggregateAccrualsBalanceSheet",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.5",
+          "beforeMissing": true,
+          "after": {
+            "value": 4200000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.noaCurrent",
+            "source": "computed.forensics.accruals.noaCurrent",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.6",
+          "beforeMissing": true,
+          "after": {
+            "value": 3950000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2024-12-31",
+            "sourceId": "computed.forensics.accruals.noaPrior",
+            "source": "computed.forensics.accruals.noaPrior",
+            "asOf": "2024-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.7",
+          "beforeMissing": true,
+          "after": {
+            "value": 4075000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.scalerValue",
+            "source": "computed.forensics.accruals.scalerValue",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.12",
+          "beforeMissing": true,
+          "after": {
+            "value": -100000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.financialAssetCashFlow",
+            "source": "computed.forensics.accruals.financialAssetCashFlow",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.quality.graded.keyNumbers.13",
+          "beforeMissing": true,
+          "after": {
+            "value": -700000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "computed.forensics.accruals.operatingInvestingCashFlow",
+            "source": "computed.forensics.accruals.operatingInvestingCashFlow",
+            "asOf": "2025-12-31",
+            "verified": true
+          }
+        },
+        {
+          "path": "report.scores.aspects.leadership.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.45454545454545453
+        },
+        {
+          "path": "report.scores.aspects.leadership.band",
+          "before": "B",
+          "after": "C"
+        },
+        {
+          "path": "report.scores.aspects.leadership.dataCompleteness",
+          "before": 0.7,
+          "after": 0.45454545454545453
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.0.period",
+          "beforeMissing": true,
+          "after": "2023-12-31 to 2025-12-31"
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.0.source",
+          "before": "computed.scores.leadership.capitalDeployment",
+          "after": "computed.scores.leadership.shareCountTrend"
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.0.unit",
+          "before": "pp",
+          "after": "%"
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.0.value",
+          "before": 27.2,
+          "after": -0.9615607948540661
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.1",
+          "before": {
+            "value": -0.96,
+            "unit": "%",
+            "source": "computed.scores.leadership.shareCountTrend",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "report.scores.aspects.leadership.note",
+          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
+          "after": "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade."
+        },
+        {
+          "path": "report.scores.aspects.leadership.score",
+          "before": 76.97,
+          "after": 63.77
+        },
+        {
+          "path": "report.scores.aspects.leadership.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "shareCountTrend",
+              "raw": -0.9615607948540661,
+              "unit": "%",
+              "transformedScore": 63.769364769124394,
+              "signalWeight": 0.25,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.545454545454545,
+              "contributionPoints": 0.6258802167783815,
+              "family": "capital-return-policy",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "start shares",
+                  "value": 209000000,
+                  "source": "computed.capital.shareCount.startShares",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "end shares",
+                  "value": 205000000,
+                  "source": "computed.capital.shareCount.endShares",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.aspects.moat.drivers.1.period",
+          "beforeMissing": true,
+          "after": "Lowest of the annual return observations 2024-12-31 to 2025-12-31"
+        },
+        {
+          "path": "report.scores.aspects.moat.drivers.1.source",
+          "before": "computed.scores.moat.roicStability",
+          "after": "computed.scores.moat.roicFloor"
+        },
+        {
+          "path": "report.scores.aspects.moat.drivers.1.unit",
+          "before": "pp",
+          "after": "%"
+        },
+        {
+          "path": "report.scores.aspects.moat.drivers.1.value",
+          "before": 1.58,
+          "after": 36.33592017738359
+        },
+        {
+          "path": "report.scores.aspects.moat.note",
+          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+          "after": "Quantitative moat proxy: the latest ROIC, its durability — the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) — and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+        },
+        {
+          "path": "report.scores.aspects.moat.score",
+          "before": 86.65,
+          "after": 90.13
+        },
+        {
+          "path": "report.scores.aspects.moat.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "roicLevel",
+              "raw": 40.06410256410257,
+              "unit": "%",
+              "transformedScore": 95,
+              "signalWeight": 0.45,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 6.75,
+              "contributionPoints": 3.0375,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "2025-12-31",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "ROIC",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.latestRoicPct",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "roicFloor",
+              "raw": 36.33592017738359,
+              "unit": "%",
+              "transformedScore": 91.82446415373245,
+              "signalWeight": 0.3,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.5,
+              "contributionPoints": 1.88210088691796,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "Lowest of the annual return observations 2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "return at 2024-12-31",
+                  "value": 36.33592017738359,
+                  "source": "computed.returns.roic.series",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "return at 2025-12-31",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.series",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "grossMarginLevel",
+              "raw": 60,
+              "unit": "%",
+              "transformedScore": 79.33333333333333,
+              "signalWeight": 0.25,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 3.75,
+              "contributionPoints": 1.0999999999999999,
+              "family": "profitability",
+              "asOf": "2025-12-31",
+              "period": "2025-12-31",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "gross margin",
+                  "value": 60,
+                  "source": "computed.growth.margins.gross.series",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.aspects.quality.drivers.3.value",
+          "before": 0.03,
+          "after": 0.012269938650306749
+        },
+        {
+          "path": "report.scores.aspects.quality.score",
+          "before": 88.62,
+          "after": 88.85
+        },
+        {
+          "path": "report.scores.aspects.quality.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "roicVsWaccSpread",
+              "raw": 30.80959800554401,
+              "unit": "pp",
+              "transformedScore": 92,
+              "signalWeight": 0.35,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 5.25,
+              "contributionPoints": 2.205,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "ROIC",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.latestRoicPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "WACC",
+                  "value": 9.254504558558558,
+                  "source": "computed.returns.wacc.waccPct",
+                  "asOf": "2026-07-06"
+                }
+              ]
+            },
+            {
+              "id": "piotroskiF",
+              "raw": 1,
+              "unit": "frac",
+              "transformedScore": 96,
+              "signalWeight": 0.22,
+              "evidenceFraction": 0.7777777777777778,
+              "effectiveCompositeWeightPct": 2.566666666666667,
+              "contributionPoints": 1.1806666666666668,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2.001368925393566,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "signals passed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.score",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "signals assessed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.outOf",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "altmanZOriginalScale",
+              "raw": 5.769922666666666,
+              "unit": "z",
+              "transformedScore": 92,
+              "signalWeight": 0.16,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.4,
+              "contributionPoints": 1.008,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "original variant Z score before grade-scale mapping",
+                  "value": 6.1338,
+                  "source": "computed.forensics.altman.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "accrualsRatioAbs",
+              "raw": 0.012269938650306749,
+              "unit": "frac",
+              "transformedScore": 82,
+              "signalWeight": 0.15,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.25,
+              "contributionPoints": 0.72,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "cash-flow accrual ratio before absolute transform",
+                  "value": 0.012269938650306749,
+                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "beneishM",
+              "raw": -2.6827912496211668,
+              "unit": "m",
+              "transformedScore": 73.86644229797864,
+              "signalWeight": 0.12,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 1.8,
+              "contributionPoints": 0.4295959613636155,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "Beneish M",
+                  "value": -2.6827912496211668,
+                  "source": "computed.forensics.beneish.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 92,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.7956212121212122,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "report.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 79.56% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "report.scores.composite.score",
+          "before": 77.59,
+          "after": 74.53
+        },
+        {
+          "path": "report.scores.factorExposure",
+          "beforeMissing": true,
+          "after": [
+            {
+              "family": "capital-returns",
+              "weightPct": 16.5,
+              "aboveNeutralPoints": 7.12460088691796
+            },
+            {
+              "family": "growth",
+              "weightPct": 14.000000000000002,
+              "aboveNeutralPoints": 2.2271840043786124
+            },
+            {
+              "family": "financial-strength",
+              "weightPct": 12.352941176470589,
+              "aboveNeutralPoints": 4.245798319327731
+            },
+            {
+              "family": "profitability",
+              "weightPct": 9.75,
+              "aboveNeutralPoints": 2.299383843890901
+            },
+            {
+              "family": "accounting-integrity",
+              "weightPct": 9.016666666666667,
+              "aboveNeutralPoints": 3.3382626280302823
+            },
+            {
+              "family": "valuation",
+              "weightPct": 8,
+              "aboveNeutralPoints": 3.36
+            },
+            {
+              "family": "capital-return-policy",
+              "weightPct": 4.545454545454545,
+              "aboveNeutralPoints": 0.6258802167783815
+            },
+            {
+              "family": "momentum-and-trend",
+              "weightPct": 2.75,
+              "aboveNeutralPoints": 0.8595087850428587
+            },
+            {
+              "family": "equity-compensation",
+              "weightPct": 2.6470588235294117,
+              "aboveNeutralPoints": 0.44509803921568614
+            }
+          ]
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.assessmentStatus",
+          "beforeMissing": true,
+          "after": "limited-evidence"
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.confidence",
+          "before": "high",
+          "after": "low"
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.confidenceCap",
+          "beforeMissing": true,
+          "after": {
+            "from": "high",
+            "to": "low",
+            "reason": "the deterministic leadership score rests on under half of the inputs its route supports"
+          }
+        },
+        {
+          "path": "stageB.capital.buybackPriceAnalysis.note",
+          "before": "HEURISTIC: assumes shares were repurchased at each fiscal year's average price proxy (average daily market cap ÷ weighted-average diluted shares); actual execution prices are not disclosed",
+          "after": "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent"
+        },
+        {
+          "path": "stageB.capital.buybackPriceAnalysis.timingCoveragePct",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.capital.buybackPriceAnalysis.timingPct",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.capital.notes.2",
+          "beforeMissing": true,
+          "after": "buyback timing not measured: no tagged repurchase share count and cost on a known share basis matches the fiscal years; the price actually paid against the year's average price is unknown, so timing is not graded"
+        },
+        {
+          "path": "stageB.capital.notes.3",
+          "beforeMissing": true,
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+        },
+        {
+          "path": "stageB.capital.notes.4",
+          "beforeMissing": true,
+          "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
+        },
+        {
+          "path": "stageB.capital.notes.5",
+          "beforeMissing": true,
+          "after": "No SEC companyfacts are available, so the price actually paid for repurchased shares is unknown."
+        },
+        {
+          "path": "stageB.forensics.accruals.aggregateAccrualsBalanceSheet",
+          "before": 300000000,
+          "after": 250000000
+        },
+        {
+          "path": "stageB.forensics.accruals.aggregateAccrualsCashFlow",
+          "before": 150000000,
+          "after": 50000000
+        },
+        {
+          "path": "stageB.forensics.accruals.balanceSheetAccrualRatio",
+          "before": 0.06593406593406594,
+          "after": 0.06134969325153374
+        },
+        {
+          "path": "stageB.forensics.accruals.cashFlowAccrualRatio",
+          "before": 0.03296703296703297,
+          "after": 0.012269938650306749
+        },
+        {
+          "path": "stageB.forensics.accruals.definition",
+          "beforeMissing": true,
+          "after": "financial-asset-adjusted"
+        },
+        {
+          "path": "stageB.forensics.accruals.financialAssetCashFlow",
+          "beforeMissing": true,
+          "after": -100000000
+        },
+        {
+          "path": "stageB.forensics.accruals.longTermInvestmentsCurrent",
+          "beforeMissing": true,
+          "after": 500000000
+        },
+        {
+          "path": "stageB.forensics.accruals.longTermInvestmentsPrior",
+          "beforeMissing": true,
+          "after": 450000000
+        },
+        {
+          "path": "stageB.forensics.accruals.noaCurrent",
+          "before": 4700000000,
+          "after": 4200000000
+        },
+        {
+          "path": "stageB.forensics.accruals.noaGrowthPct",
+          "beforeMissing": true,
+          "after": 6.329113924050622
+        },
+        {
+          "path": "stageB.forensics.accruals.noaPrior",
+          "before": 4400000000,
+          "after": 3950000000
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.0",
+          "before": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions stay in as operating investment."
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.1",
+          "beforeMissing": true,
+          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
+        },
+        {
+          "path": "stageB.forensics.accruals.operatingInvestingCashFlow",
+          "beforeMissing": true,
+          "after": -700000000
+        },
+        {
+          "path": "stageB.forensics.accruals.otherInvestingCashFlow",
+          "beforeMissing": true,
+          "after": 0
+        },
+        {
+          "path": "stageB.forensics.accruals.revenueGrowthPct",
+          "beforeMissing": true,
+          "after": 8.695652173913038
+        },
+        {
+          "path": "stageB.forensics.accruals.scalerValue",
+          "before": 4550000000,
+          "after": 4075000000
+        },
+        {
+          "path": "stageB.forensics.beneish.growthLed",
+          "beforeMissing": true,
+          "after": false
+        },
+        {
+          "path": "stageB.forensics.beneish.sgiNeutralScore",
+          "beforeMissing": true,
+          "after": -2.760356467012471
+        },
+        {
+          "path": "stageB.forensics.notes.7",
+          "beforeMissing": true,
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions stay in as operating investment."
+        },
+        {
+          "path": "stageB.forensics.notes.8",
+          "beforeMissing": true,
+          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.45454545454545453
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.band",
+          "before": "B",
+          "after": "C"
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.dataCompleteness",
+          "before": 0.7,
+          "after": 0.45454545454545453
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.0.period",
+          "beforeMissing": true,
+          "after": "2023-12-31 to 2025-12-31"
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.0.source",
+          "before": "computed.scores.leadership.capitalDeployment",
+          "after": "computed.scores.leadership.shareCountTrend"
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.0.unit",
+          "before": "pp",
+          "after": "%"
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.0.value",
+          "before": 27.2,
+          "after": -0.9615607948540661
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.1",
+          "before": {
+            "value": -0.96,
+            "unit": "%",
+            "source": "computed.scores.leadership.shareCountTrend",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.note",
+          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
+          "after": "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade."
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.score",
+          "before": 76.97,
+          "after": 63.77
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "shareCountTrend",
+              "raw": -0.9615607948540661,
+              "unit": "%",
+              "transformedScore": 63.769364769124394,
+              "signalWeight": 0.25,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.545454545454545,
+              "contributionPoints": 0.6258802167783815,
+              "family": "capital-return-policy",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "start shares",
+                  "value": 209000000,
+                  "source": "computed.capital.shareCount.startShares",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "end shares",
+                  "value": 205000000,
+                  "source": "computed.capital.shareCount.endShares",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.aspects.moat.drivers.1.period",
+          "beforeMissing": true,
+          "after": "Lowest of the annual return observations 2024-12-31 to 2025-12-31"
+        },
+        {
+          "path": "stageB.scores.aspects.moat.drivers.1.source",
+          "before": "computed.scores.moat.roicStability",
+          "after": "computed.scores.moat.roicFloor"
+        },
+        {
+          "path": "stageB.scores.aspects.moat.drivers.1.unit",
+          "before": "pp",
+          "after": "%"
+        },
+        {
+          "path": "stageB.scores.aspects.moat.drivers.1.value",
+          "before": 1.58,
+          "after": 36.33592017738359
+        },
+        {
+          "path": "stageB.scores.aspects.moat.note",
+          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+          "after": "Quantitative moat proxy: the latest ROIC, its durability — the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) — and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+        },
+        {
+          "path": "stageB.scores.aspects.moat.score",
+          "before": 86.65,
+          "after": 90.13
+        },
+        {
+          "path": "stageB.scores.aspects.moat.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "roicLevel",
+              "raw": 40.06410256410257,
+              "unit": "%",
+              "transformedScore": 95,
+              "signalWeight": 0.45,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 6.75,
+              "contributionPoints": 3.0375,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "2025-12-31",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "ROIC",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.latestRoicPct",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "roicFloor",
+              "raw": 36.33592017738359,
+              "unit": "%",
+              "transformedScore": 91.82446415373245,
+              "signalWeight": 0.3,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.5,
+              "contributionPoints": 1.88210088691796,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "Lowest of the annual return observations 2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "return at 2024-12-31",
+                  "value": 36.33592017738359,
+                  "source": "computed.returns.roic.series",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "return at 2025-12-31",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.series",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "grossMarginLevel",
+              "raw": 60,
+              "unit": "%",
+              "transformedScore": 79.33333333333333,
+              "signalWeight": 0.25,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 3.75,
+              "contributionPoints": 1.0999999999999999,
+              "family": "profitability",
+              "asOf": "2025-12-31",
+              "period": "2025-12-31",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "gross margin",
+                  "value": 60,
+                  "source": "computed.growth.margins.gross.series",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.aspects.quality.drivers.3.value",
+          "before": 0.03,
+          "after": 0.012269938650306749
+        },
+        {
+          "path": "stageB.scores.aspects.quality.score",
+          "before": 88.62,
+          "after": 88.85
+        },
+        {
+          "path": "stageB.scores.aspects.quality.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "roicVsWaccSpread",
+              "raw": 30.80959800554401,
+              "unit": "pp",
+              "transformedScore": 92,
+              "signalWeight": 0.35,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 5.25,
+              "contributionPoints": 2.205,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "ROIC",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.latestRoicPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "WACC",
+                  "value": 9.254504558558558,
+                  "source": "computed.returns.wacc.waccPct",
+                  "asOf": "2026-07-06"
+                }
+              ]
+            },
+            {
+              "id": "piotroskiF",
+              "raw": 1,
+              "unit": "frac",
+              "transformedScore": 96,
+              "signalWeight": 0.22,
+              "evidenceFraction": 0.7777777777777778,
+              "effectiveCompositeWeightPct": 2.566666666666667,
+              "contributionPoints": 1.1806666666666668,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2.001368925393566,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "signals passed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.score",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "signals assessed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.outOf",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "altmanZOriginalScale",
+              "raw": 5.769922666666666,
+              "unit": "z",
+              "transformedScore": 92,
+              "signalWeight": 0.16,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.4,
+              "contributionPoints": 1.008,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "original variant Z score before grade-scale mapping",
+                  "value": 6.1338,
+                  "source": "computed.forensics.altman.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "accrualsRatioAbs",
+              "raw": 0.012269938650306749,
+              "unit": "frac",
+              "transformedScore": 82,
+              "signalWeight": 0.15,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.25,
+              "contributionPoints": 0.72,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "cash-flow accrual ratio before absolute transform",
+                  "value": 0.012269938650306749,
+                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "beneishM",
+              "raw": -2.6827912496211668,
+              "unit": "m",
+              "transformedScore": 73.86644229797864,
+              "signalWeight": 0.12,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 1.8,
+              "contributionPoints": 0.4295959613636155,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "Beneish M",
+                  "value": -2.6827912496211668,
+                  "source": "computed.forensics.beneish.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 92,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.7956212121212122,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "stageB.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 79.56% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "stageB.scores.composite.score",
+          "before": 77.59,
+          "after": 74.53
+        },
+        {
+          "path": "stageB.scores.factorExposure",
+          "beforeMissing": true,
+          "after": [
+            {
+              "family": "capital-returns",
+              "weightPct": 16.5,
+              "aboveNeutralPoints": 7.12460088691796
+            },
+            {
+              "family": "growth",
+              "weightPct": 14.000000000000002,
+              "aboveNeutralPoints": 2.2271840043786124
+            },
+            {
+              "family": "financial-strength",
+              "weightPct": 12.352941176470589,
+              "aboveNeutralPoints": 4.245798319327731
+            },
+            {
+              "family": "profitability",
+              "weightPct": 9.75,
+              "aboveNeutralPoints": 2.299383843890901
+            },
+            {
+              "family": "accounting-integrity",
+              "weightPct": 9.016666666666667,
+              "aboveNeutralPoints": 3.3382626280302823
+            },
+            {
+              "family": "valuation",
+              "weightPct": 8,
+              "aboveNeutralPoints": 3.36
+            },
+            {
+              "family": "capital-return-policy",
+              "weightPct": 4.545454545454545,
+              "aboveNeutralPoints": 0.6258802167783815
+            },
+            {
+              "family": "momentum-and-trend",
+              "weightPct": 2.75,
+              "aboveNeutralPoints": 0.8595087850428587
+            },
+            {
+              "family": "equity-compensation",
+              "weightPct": 2.6470588235294117,
+              "aboveNeutralPoints": 0.44509803921568614
+            }
+          ]
         }
       ]
     }

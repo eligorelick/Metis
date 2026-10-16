@@ -35,6 +35,7 @@ import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurre
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
+import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
@@ -675,7 +676,17 @@ function computedSections(
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
     { label: "diluted share count trend (5y)", value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
-    { label: "buyback price vs current", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
+    // D-61: the premium of today's quote over the proxy paid price is price
+    // appreciation since the buybacks, labelled so and not graded; timing —
+    // the price actually paid against the same year's average — is the
+    // graded stewardship signal.
+    { label: "current quote vs proxy buyback price (price appreciation since repurchases, not graded)", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
+    ...(cap.buybackPriceAnalysis.totalRepurchased > 0
+      ? [
+          { label: "buyback timing: cost of the repurchased shares at each year's average price vs cost paid", value: cap.buybackPriceAnalysis.timingPct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingPct", asOf: cap.asOf },
+          { label: "buyback timing coverage of repurchase dollars", value: cap.buybackPriceAnalysis.timingCoveragePct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingCoveragePct", asOf: cap.asOf },
+        ]
+      : []),
   ];
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
 
@@ -755,11 +766,49 @@ function computedSections(
     { label: "Altman zone", value: fx.altman?.zone ?? null, unit: "", source: "computed.forensics.altman.zone", asOf: fx.altman?.asOf.balanceSheet ?? null },
     { label: "Beneish M", value: fx.beneish?.score ?? null, unit: "score", source: "computed.forensics.beneish", asOf: fx.beneish?.asOf.current ?? null },
     { label: "Beneish verdict", value: fx.beneish?.verdict ?? null, unit: "", source: "computed.forensics.beneish.verdict", asOf: fx.beneish?.asOf.current ?? null },
+    // D-61: the eight indices the M-score is built from, and the score without
+    // the sales-growth term, so a flag can be traced to what carries it.
+    ...(fx.beneish !== null && fx.beneish.score !== null
+      ? [
+          ...([
+            ["DSRI", fx.beneish.indices.dsri], ["GMI", fx.beneish.indices.gmi], ["AQI", fx.beneish.indices.aqi],
+            ["SGI", fx.beneish.indices.sgi], ["DEPI", fx.beneish.indices.depi], ["SGAI", fx.beneish.indices.sgai],
+            ["TATA", fx.beneish.indices.tata], ["LVGI", fx.beneish.indices.lvgi],
+          ] as const).map(([name, value]): PayloadFigureInput => ({
+            label: `Beneish index ${name}`, value, unit: "x", source: `computed.forensics.beneish.indices.${name.toLowerCase()}`, asOf: fx.beneish!.asOf.current,
+          })),
+          { label: "Beneish M with the sales-growth index at neutral 1.0", value: fx.beneish.sgiNeutralScore ?? null, unit: "score", source: "computed.forensics.beneish.sgiNeutralScore", asOf: fx.beneish.asOf.current },
+          { label: "Beneish flag carried by sales growth alone", value: fx.beneish.growthLed === true ? "yes" : "no", unit: "", source: "computed.forensics.beneish.growthLed", asOf: fx.beneish.asOf.current },
+        ]
+      : []),
     // The forensic layer's own label carries the scale (variant, denominator
     // and the withheld signals by name), so a 3-of-3 on a bank is never read
     // against the paper's 9-point scale.
     { label: fx.piotroski?.label ?? "Piotroski F", value: fx.piotroski?.score ?? null, unit: "score", source: "computed.forensics.piotroski", asOf: fx.piotroski?.asOf.current ?? null },
+    // D-61: each of the nine signals, passed, failed or not evaluable.
+    ...(fx.piotroski !== null
+      ? (Object.entries(PIOTROSKI_SIGNAL_LABELS) as [PiotroskiSignalName, string][]).map(([key, label]): PayloadFigureInput => {
+          const value = fx.piotroski!.signals[key]?.value;
+          return {
+            label: `Piotroski signal: ${label}`,
+            value: value === 1 ? "passed" : value === 0 ? "failed" : "not evaluable",
+            unit: "", source: `computed.forensics.piotroski.signals.${key}`, asOf: fx.piotroski!.asOf.current,
+          };
+        })
+      : []),
     { label: "accrual ratio (cash-flow)", value: fx.accruals?.cashFlowAccrualRatio ?? null, unit: "x", source: "computed.forensics.accruals.cashFlowAccrualRatio", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual definition", value: fx.accruals?.definition ?? null, unit: "", source: "computed.forensics.accruals.definition", asOf: fx.accruals?.asOf.current ?? null },
+    // The adjustment's operands exist only on the adjusted construction.
+    ...(fx.accruals?.definition === "financial-asset-adjusted"
+      ? [
+          { label: "accrual operand financial-asset investing flows (purchases plus sales/maturities of investments)", value: fx.accruals.financialAssetCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.financialAssetCashFlow", asOf: fx.accruals.asOf.current },
+          { label: "accrual operand operating investing cash flow (CFI without financial-asset flows)", value: fx.accruals.operatingInvestingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingInvestingCashFlow", asOf: fx.accruals.asOf.current },
+          { label: "long-term investments removed from net operating assets (current)", value: fx.accruals.longTermInvestmentsCurrent ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.longTermInvestmentsCurrent", asOf: fx.accruals.asOf.current },
+          { label: "long-term investments removed from net operating assets (prior)", value: fx.accruals.longTermInvestmentsPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.longTermInvestmentsPrior", asOf: fx.accruals.asOf.prior },
+        ] satisfies PayloadFigureInput[]
+      : []),
+    { label: "revenue growth over the accrual years", value: fx.accruals?.revenueGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.revenueGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "net operating asset growth over the accrual years", value: fx.accruals?.noaGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.noaGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand net income (NI)", value: fx.accruals?.netIncome ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.netIncome", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand operating cash flow (CFO)", value: fx.accruals?.operatingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand investing cash flow (CFI)", value: fx.accruals?.investingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.investingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
@@ -776,9 +825,12 @@ function computedSections(
   ];
   const forensicNotes = [...fx.notes];
   if (fx.accruals !== null) {
+    // D-61: the note names the construction actually used.
     forensicNotes.push(
-      `Broad aggregate cash-flow accruals = NI - CFO - CFI; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}. NI uses the cash-flow statement's net income, with income-statement fallback; CFO/CFI are net cash provided by operating/investing activities for ${fx.accruals.asOf.current ?? "unknown period"}. Read those exact-dated statement rows, not another cash-flow definition.`,
-      "Investing outflows are negative CFI: subtracting them can make this broad accrual numerator positive even when CFO exceeds NI. That sign alone is not evidence of aggressive revenue recognition. The balance-sheet alternative is (NOA current - NOA prior) / the same scaler; reconcile divergence before drawing an earnings-quality conclusion.",
+      fx.accruals.definition === "operating"
+        ? `Cash-flow accruals here are operating accruals = NI - CFO; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}, for ${fx.accruals.asOf.current ?? "unknown period"}. The statements do not separate investment purchases and sales from operating investment, so no investing flow is included. Read those exact-dated statement rows, not another cash-flow definition.`
+        : `Cash-flow accruals are financial-asset-adjusted (Richardson, Sloan, Soliman and Tuna 2005) = NI - CFO - operating CFI, where operating CFI is investing cash flow without purchases and sales/maturities of investments; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}, for ${fx.accruals.asOf.current ?? "unknown period"}. Net operating assets exclude cash, short-term and long-term investments. Buying securities or strategic equity stakes is not an accrual; capex, acquisitions and unclassified investing flows remain operating investment. Read those exact-dated statement rows, not another cash-flow definition.`,
+      "The balance-sheet alternative is (NOA current - NOA prior) / the same scaler; reconcile divergence before drawing an earnings-quality conclusion. A high ratio is growth in net operating assets, which for a fast-growing company largely scales with sales; it is not evidence of aggressive revenue recognition by itself.",
     );
   }
   for (const flag of fx.flags) {
@@ -959,7 +1011,13 @@ function computedSections(
     sections.push(payloadSection({
       title: "Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)",
       figures: scoreFigures,
-      notes: [sc.composite.methodology, `band table: ${sc.bandsVersion}`],
+      notes: [
+        sc.composite.methodology,
+        `band table: ${sc.bandsVersion}`,
+        // D-61 (NVDA report #34: a leadership grade justified by guidance
+        // execution that the score never measured).
+        "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and net share-count change. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support.",
+      ],
     }));
   }
 

@@ -235,6 +235,20 @@ issuer's accruals and ratio dynamics resemble those of the manipulator sample
 in Beneish's data. Fast-growing, acquisitive, and turnaround companies trip it
 routinely. The report says this wherever the score appears.
 
+**House rule — a growth-led flag (D-61).**
+- **What is computed.** The result carries M recomputed with SGI at neutral
+  1.0 (`sgiNeutralScore`). A flag is **growth-led** when M is above −1.78 but
+  the SGI-neutral M is not, so sales growth alone carries it.
+- **Grading.** A growth-led flag is reported as such and graded on the
+  SGI-neutral M. SGI is in the model as a pressure proxy, not a fault.
+- **Reporting.** The report prints all eight indices and the SGI-neutral M,
+  so the reader can see what carries any flag.
+- **NVDA FY2026 is not growth-led.** With SGI 1.65 at neutral, M is −1.72,
+  still above −1.78: AQI (1.57) and TATA (0.084) carry it as well. AQI counts
+  long-term strategic equity stakes as non-current assets. That is Beneish's
+  definition, assets whose future benefits are less certain, so it is not
+  adjusted.
+
 ### 2.4 What is deliberately not implemented
 
 **The five-variable M-score is not implemented.** It circulates as though it
@@ -349,7 +363,11 @@ against a default de-minimis of zero. Missing `commonStockIssuance` withholds
 the signal and reduces the denominator; it does not award a no-issuance point.
 Strict improvement tests use `>` or `<`, so equality does not normally earn a
 change point. Actual evaluable signals determine `outOf`, which can be below
-7/5/3 when data are missing; an empty battery has a null score. Route-specific
+7/5/3 when data are missing; an empty battery has a null score. The report
+names the signals that failed (D-61). On a fast grower, the current-ratio and
+asset-turnover signals can fail mechanically as cash and receivables
+accumulate. NVDA FY2026 failed ΔROA, CFO > NI, current ratio, gross margin
+and asset turnover. Route-specific
 financial variants and scoring evidence weights are described in
 [METHODOLOGY.md](METHODOLOGY.md). See `tests/stageB.forensics.test.ts` and
 `tests/stageB.finOtherSuppression.test.ts`.
@@ -361,11 +379,31 @@ Flows About Future Earnings?*, The Accounting Review 71(3), 1996; Hribar &
 Collins, *Errors in Estimating Accruals*, Journal of Accounting Research 40(1),
 2002; Richardson, Sloan, Soliman & Tuna on accrual reliability, 2005.
 
-**Implemented — the cash-flow approach is primary.** Aggregate accruals are computed as
-(net income − operating cash flow − investing cash flow) scaled by **average**
-net operating assets. This is the project's broad aggregate-accrual formulation,
-not the narrower `(NI − CFO) / assets` used for Beneish TATA and not a claim
-to reproduce Sloan's original measure. Hribar & Collins showed that the older balance-sheet approach
+**Implemented — the cash-flow approach is primary, financial-asset-adjusted
+(D-61).** Aggregate accruals are (net income − operating cash flow −
+operating investing cash flow) scaled by **average** net operating assets.
+
+**Published.** Richardson, Sloan, Soliman & Tuna (2005) define total accruals
+as the change in net operating assets: working capital plus non-current
+operating assets (ΔWC + ΔNCO). Short- and long-term investments are financial
+assets (their ΔFIN), outside the operating accruals whose low persistence
+Sloan documented.
+
+**Implemented.** Purchases and sales/maturities of investments therefore
+leave investing cash flow, and long-term investments leave NOA alongside cash
+and short-term investments. Capex and acquisitions remain: they are ΔNCO.
+
+**Why it changed.** The broad NI − CFO − CFI it replaced charged every
+securities purchase as an accrual. NVDA's FY2026 ratio was 0.91, mostly
+$58.1B of debt securities and equity stakes bought. With the adjustment it is
+0.60, and the cash-flow and balance-sheet constructions now agree within
+5pp.
+
+**Fallback.** When the statements do not separate those flows, or do not
+report long-term investments in both years, the ratio is operating accruals,
+(NI − CFO) / average NOA, and says so. Neither construction is the narrower
+`(NI − CFO) / assets` used for Beneish TATA, and neither claims to reproduce
+Sloan's original balance-sheet measure. Hribar & Collins showed that the older balance-sheet approach
 (differencing successive balance sheets) introduces measurement error whenever
 a non-operating event moves the balance sheet — acquisitions, divestitures,
 currency translation. Both are computed and reported; the cash-flow figure is
@@ -399,14 +437,24 @@ therefore a display convention, not a finding. This project uses |ratio| < 0.10
 wherever they appear.
 
 `computeAccruals` defines each period's `NOA = total assets − cash and
-short-term investments − (total liabilities − total debt)`. The two aggregates
-are `NI − CFO − CFI` (net income from the cash-flow statement first, income
-statement otherwise) and `NOA_t − NOA_p`. Both use the same scaler. Investing
-cash flow retains its statement sign, so an investing outflow increases this
-broad accrual measure. Missing CFI withholds the cash-flow ratio rather than
-assuming no investment; the balance-sheet ratio can still remain available.
-An absolute difference greater than 0.10 between the ratios adds a house
-divergence note. See `tests/stageB.forensics.test.ts`.
+short-term investments − long-term investments − (total liabilities − total
+debt)`. Long-term investments are removed only when reported in both years;
+otherwise neither year removes them, and a note says so.
+
+The two aggregates are:
+- `NI − CFO − (CFI − purchases − sales/maturities of investments)`, with net
+  income from the cash-flow statement first and the income statement
+  otherwise, or `NI − CFO` under the fallback;
+- `NOA_t − NOA_p`.
+
+Both use the same scaler, and the definition used is returned as
+`definition`. An absolute difference greater than 0.10 between the ratios
+adds a house divergence note. Above 30% revenue growth a house note gives
+revenue and NOA growth. Fairfield, Whisenant & Yohn (2003, *The Accounting
+Review* 78) show that the lower persistence of accruals is largely a
+growth-in-NOA effect, so a fast grower's high ratio is read as growth first.
+The note is disclosed and not graded. See `tests/stageB.forensics.test.ts`
+and `tests/stageB.forensicsD61.test.ts`.
 
 **House rule — the scaler.** Net operating assets can be zero or negative,
 which makes the ratio meaningless or sign-flipped. When average NOA ≤ 0 or is

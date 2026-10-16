@@ -7,7 +7,7 @@
  * report 26's "evidence-completeness fraction" 0.4 / 0.45, which cited the
  * quality/leadership SCORE records — completeness had no record of its own.
  * The bank fixture's quality and leadership completeness were 0.4 and 0.45,
- * the same as report 26's (leadership is 0.31 since D-49). Since D-48 RSI-14
+ * the same as report 26's (leadership is 0.31 since D-49, 0.45 since D-61). Since D-48 RSI-14
  * is no longer a scored driver, so only its payload row carries it.
  */
 
@@ -67,7 +67,10 @@ describe("indicator and completeness rows (D-44)", () => {
     const quality = record(payload, "computed.deterministic-aspect-scores.quality-evidence-completeness");
     expect(quality.unit).toBe("ratio");
     expect(quality.value).toBeCloseTo(0.39888888888888885, 14);
-    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.3125, unit: "ratio" });
+    // D-61: capitalDeployment (0.25) left the aspect, so the observed share-
+    // count trend (0.25) is read against 0.55, not 0.8; buyback timing has
+    // no tagged execution price in this fixture.
+    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.25 / 0.55, unit: "ratio" });
   });
 
   it("verifies report 25/26's indicator spellings on their own records and rejects them on another indicator's", async () => {

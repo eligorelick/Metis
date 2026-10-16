@@ -74,6 +74,13 @@ export interface ForensicsBalanceRow {
   totalEquity?: number | null;
   minorityInterest?: number | null;
   totalDebt?: number | null;
+  /**
+   * D-61: non-current investments (FMP `longTermInvestments`: long-term
+   * marketable securities, equity-method and non-marketable equity stakes).
+   * Financial assets in Richardson et al. (2005), so outside net operating
+   * assets. Absent on statements built from companyfacts.
+   */
+  longTermInvestments?: number | null;
 }
 
 /** Annual cash-flow row (FMP `cash-flow-statement`). */
@@ -85,6 +92,15 @@ export interface ForensicsCashFlowRow {
   netCashProvidedByOperatingActivities?: number | null;
   netCashProvidedByInvestingActivities?: number | null;
   commonStockIssuance?: number | null;
+  /**
+   * D-61: the financial-asset components of investing cash flow, with their
+   * statement signs (purchases negative, sales and maturities positive). FMP
+   * folds marketable debt securities and equity securities into both.
+   */
+  purchasesOfInvestments?: number | null;
+  salesMaturitiesOfInvestments?: number | null;
+  /** Investing flows the statement does not classify; kept as operating investment and disclosed. */
+  otherInvestingActivities?: number | null;
 }
 
 /** One fiscal year of aligned statements. Any statement may be missing. */
@@ -117,6 +133,8 @@ export const FORENSICS_HOUSE_RULES = {
   /** Accrual-ratio bands (heuristic; Sloan 1996 is a decile result, no bright line). */
   accrualElevatedBand: 0.1,
   accrualRedBand: 0.2,
+  /** D-61: revenue growth (%) above which the accrual ratio carries the growth note (not a band change). */
+  accrualGrowthNotePct: 30,
   /** Note when CF vs BS accrual ratios diverge by more than this (M&A/FX signal). */
   accrualDivergence: 0.1,
   /** Suppress growth flags when base-year revenue is below this floor (units = statement currency). */
@@ -720,6 +738,17 @@ export interface BeneishResult {
   neutralized: BeneishIndexName[];
   /** Indices clamped by the winsorization stand-in (house rule). */
   clamped: BeneishIndexName[];
+  /**
+   * D-61: M recomputed with the sales-growth index at neutral 1.0 — the score
+   * without the growth-pressure term (Beneish 1999 includes SGI as an
+   * incentive proxy: growth is not itself manipulation). Null when M is.
+   */
+  sgiNeutralScore?: number | null;
+  /**
+   * D-61: true when M is above the flag threshold but the SGI-neutral M is
+   * not — sales growth alone carries the flag. Graded on the SGI-neutral M.
+   */
+  growthLed?: boolean;
   notes: string[];
   gaps: ManifestEntry[];
   asOf: { current: string | null; prior: string | null };
@@ -1077,8 +1106,29 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
     );
   }
 
+  // D-61: SGI is in the model as a pressure proxy (Beneish 1999: growth
+  // creates the incentive to sustain a trend; growth is not a fault), so a
+  // fast grower trips the flag on growth alone. Report the score without it,
+  // and say whether the flag survives.
+  let sgiNeutralScore: number | null = null;
+  let growthLed = false;
+  if (score !== null) {
+    sgiNeutralScore = score - BENEISH_COEFFICIENTS.sgi * (indices.sgi - 1);
+    const flagged = classifyBeneishVerdict(score) === "flag";
+    growthLed = flagged && classifyBeneishVerdict(sgiNeutralScore) !== "flag";
+    if (growthLed) {
+      notes.push(
+        `Growth-led flag: the sales-growth index alone (SGI ${indices.sgi.toFixed(2)}) puts M (${score.toFixed(2)}) above ${BENEISH_THRESHOLDS.flagAbove}; with SGI at neutral 1.0, M is ${sgiNeutralScore.toFixed(2)}. SGI is a pressure proxy, not a sign of manipulation (Beneish 1999), so the grade uses the SGI-neutral M.`,
+      );
+    } else if (flagged && indices.sgi > 1) {
+      notes.push(
+        `The flag is not growth-led: with SGI (${indices.sgi.toFixed(2)}) at neutral 1.0, M is still ${sgiNeutralScore.toFixed(2)}, above ${BENEISH_THRESHOLDS.flagAbove}; other indices carry it.`,
+      );
+    }
+  }
+
   const out = base(score);
-  return { ...out, tataBalanceSheet };
+  return { ...out, tataBalanceSheet, sgiNeutralScore, growthLed };
 }
 
 // ===========================================================================
@@ -1100,6 +1150,33 @@ export interface PiotroskiSignal {
   /** 1 = pass, 0 = fail, null = not evaluable (excluded from outOf). */
   value: 0 | 1 | null;
   detail: string;
+}
+
+/** D-61: reader-facing names of the nine signals, in the paper's order. */
+export const PIOTROSKI_SIGNAL_LABELS: Readonly<Record<PiotroskiSignalName, string>> = {
+  roaPositive: "ROA > 0",
+  cfoPositive: "CFO > 0",
+  roaImproved: "ΔROA > 0",
+  accrualQuality: "CFO > net income",
+  leverageDown: "leverage fell",
+  liquidityUp: "current ratio rose",
+  noEquityIssuance: "no equity issued",
+  marginUp: "gross margin rose",
+  turnoverUp: "asset turnover rose",
+};
+
+/** D-61: which evaluable signals passed and which failed, by reader-facing name. */
+export function piotroskiSignalOutcomes(result: Pick<PiotroskiResult, "signals">): { passed: string[]; failed: string[]; notEvaluable: string[] } {
+  const passed: string[] = [];
+  const failed: string[] = [];
+  const notEvaluable: string[] = [];
+  for (const [name, label] of Object.entries(PIOTROSKI_SIGNAL_LABELS) as [PiotroskiSignalName, string][]) {
+    const value = result.signals?.[name]?.value;
+    if (value === 1) passed.push(label);
+    else if (value === 0) failed.push(label);
+    else notEvaluable.push(label);
+  }
+  return { passed, failed, notEvaluable };
 }
 
 export interface PiotroskiOptions {
@@ -1459,13 +1536,43 @@ export function classifyAccrualBand(ratio: number): AccrualBand {
   return "red";
 }
 
+/**
+ * D-61: which construction the primary ratio uses.
+ * - `financial-asset-adjusted`: (NI − CFO − operating CFI) / avg NOA, where
+ *   operating CFI excludes purchases, sales and maturities of investments and
+ *   NOA excludes cash, short-term AND long-term investments (Richardson,
+ *   Sloan, Soliman & Tuna 2005 treat both as financial assets).
+ * - `operating`: (NI − CFO) / avg NOA — the fallback when the statements do
+ *   not separate the financial-asset flows or long-term investments.
+ */
+export type AccrualDefinition = "financial-asset-adjusted" | "operating";
+
 export interface AccrualsResult {
   /** Signed operands, retained to explain investment-inclusive vs operating accruals. */
   netIncome?: number | null;
   operatingCashFlow?: number | null;
+  /** Investing cash flow AS REPORTED (all investing flows, statement sign). */
   investingCashFlow?: number | null;
   operatingAccruals?: number | null;
-  /** PRIMARY: (NI − CFO − CFI) / scaler (cash-flow approach, Hribar–Collins). */
+  /** D-61: the construction behind `cashFlowAccrualRatio` (absent on pre-D-61 results). */
+  definition?: AccrualDefinition;
+  /** D-61: purchases + sales/maturities of investments (statement signs); null when not reported. */
+  financialAssetCashFlow?: number | null;
+  /** D-61: reported CFI minus the financial-asset flows (capex, acquisitions, other investing). */
+  operatingInvestingCashFlow?: number | null;
+  /** D-61: investing flows the statement leaves unclassified, kept in operating CFI. */
+  otherInvestingCashFlow?: number | null;
+  /** D-61: long-term investments removed from each year's NOA (null when not removed). */
+  longTermInvestmentsCurrent?: number | null;
+  longTermInvestmentsPrior?: number | null;
+  /** D-61: revenue and NOA growth over the same two years, for the growth note (percent). */
+  revenueGrowthPct?: number | null;
+  noaGrowthPct?: number | null;
+  /**
+   * PRIMARY: cash-flow approach (Hribar–Collins) on the construction named by
+   * `definition` — financial-asset-adjusted (NI − CFO − operating CFI), or
+   * operating accruals (NI − CFO) — over the scaler.
+   */
   cashFlowAccrualRatio: number | null;
   /** SECONDARY: ΔNOA / scaler (balance-sheet approach). */
   balanceSheetAccrualRatio: number | null;
@@ -1483,40 +1590,87 @@ export interface AccrualsResult {
 }
 
 /**
- * NOA = (totalAssets − cashAndShortTermInvestments) − (totalLiabilities − totalDebt).
- * Primary ratio is the cash-flow construction; balance-sheet ratio is a
- * secondary diagnostic (large divergence between the two is itself an M&A/FX
- * signal). NOA ≤ 0 → rescale by average total assets (annotated).
+ * D-61 — Richardson, Sloan, Soliman & Tuna (2005) financial-asset adjustment.
+ *
+ * NOA = (totalAssets − cashAndShortTermInvestments − longTermInvestments)
+ *       − (totalLiabilities − totalDebt): short- AND long-term investments are
+ * financial assets (their FIN), not operating assets. The primary cash-flow
+ * aggregate is NI − CFO − operating CFI, where operating CFI is investing cash
+ * flow without purchases and sales/maturities of investments; capex,
+ * acquisitions and unclassified investing flows remain operating investment
+ * (Richardson's ΔNCO). Buying Treasury bills or a strategic equity stake is
+ * not an accrual. When the statements do not separate those flows (or
+ * long-term investments), the ratio falls back to operating accruals NI − CFO
+ * (Sloan 1996's operating-accrual concept on the Hribar–Collins cash-flow
+ * basis), and the definition used is returned and disclosed.
+ *
+ * The balance-sheet ratio (ΔNOA on the same NOA) is a secondary diagnostic; a
+ * large divergence between the two is itself an M&A/FX signal. NOA ≤ 0 →
+ * rescale by average total assets (annotated).
  */
 export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod): AccrualsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
 
-  const noaOf = (bal: ForensicsBalanceRow | null | undefined): number | null => {
+  // Long-term investments come out of NOA only when known in BOTH years, so
+  // the two NOAs (and the balance-sheet aggregate between them) share one
+  // definition.
+  const ltiT = nv(current.balance?.longTermInvestments);
+  const ltiP = nv(prior.balance?.longTermInvestments);
+  const ltiKnown = ltiT !== null && ltiP !== null;
+  const noaOf = (bal: ForensicsBalanceRow | null | undefined, lti: number | null): number | null => {
     const ta = nv(bal?.totalAssets);
     const cash = nv(bal?.cashAndShortTermInvestments);
     const tl = nv(bal?.totalLiabilities);
     const debt = nv(bal?.totalDebt);
     if (ta === null || cash === null || tl === null || debt === null) return null;
-    return ta - cash - (tl - debt);
+    return ta - cash - (lti ?? 0) - (tl - debt);
   };
-  const noaT = noaOf(current.balance);
-  const noaP = noaOf(prior.balance);
+  const noaT = noaOf(current.balance, ltiKnown ? ltiT : null);
+  const noaP = noaOf(prior.balance, ltiKnown ? ltiP : null);
   const taT = posOrNull(current.balance?.totalAssets);
   const taP = posOrNull(prior.balance?.totalAssets);
 
   const niT = nv(current.cashFlow?.netIncome) ?? nv(current.income?.netIncome);
   const cfoT = nv(current.cashFlow?.netCashProvidedByOperatingActivities);
   const cfiT = nv(current.cashFlow?.netCashProvidedByInvestingActivities);
+  const purchases = nv(current.cashFlow?.purchasesOfInvestments);
+  const salesMaturities = nv(current.cashFlow?.salesMaturitiesOfInvestments);
+  const otherInvesting = nv(current.cashFlow?.otherInvestingActivities);
+  const financialAssetCashFlow = purchases !== null && salesMaturities !== null ? purchases + salesMaturities : null;
+  const operatingInvestingCashFlow =
+    cfiT !== null && financialAssetCashFlow !== null ? cfiT - financialAssetCashFlow : null;
+  // Both halves of the adjustment, or neither: an adjusted numerator over an
+  // NOA that still holds long-term investments would mix two definitions.
+  const definition: AccrualDefinition =
+    operatingInvestingCashFlow !== null && ltiKnown ? "financial-asset-adjusted" : "operating";
 
-  const aggCF = niT !== null && cfoT !== null && cfiT !== null ? niT - cfoT - cfiT : null;
+  let aggCF: number | null = null;
+  if (niT !== null && cfoT !== null) {
+    aggCF = definition === "financial-asset-adjusted" ? niT - cfoT - (operatingInvestingCashFlow as number) : niT - cfoT;
+  }
   if (aggCF === null) {
     gaps.push(
       gapEntry(
         "forensics.accruals.cashFlow",
-        "netIncome/CFO/CFI missing — cash-flow aggregate accruals unavailable",
+        "netIncome/CFO missing — cash-flow aggregate accruals unavailable",
         "warn",
       ),
+    );
+  } else if (definition === "financial-asset-adjusted") {
+    notes.push(
+      "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions" +
+        (otherInvesting !== null && otherInvesting !== 0 ? " and the investing flows the statement leaves unclassified" : "") +
+        " stay in as operating investment.",
+    );
+  } else {
+    const missing = [
+      cfiT === null ? "investing cash flow" : null,
+      financialAssetCashFlow === null ? "purchases and sales/maturities of investments" : null,
+      !ltiKnown ? "long-term investments in both years" : null,
+    ].filter((part): part is string => part !== null);
+    notes.push(
+      `Accrual definition: operating accruals (NI − CFO), because the statements do not report ${missing.join(", ")} — the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Operating accruals exclude every investing flow, including capex and acquisitions.`,
     );
   }
   const aggBS = noaT !== null && noaP !== null ? noaT - noaP : null;
@@ -1527,6 +1681,23 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
         "NOA inputs (totalAssets, cashAndShortTermInvestments, totalLiabilities, totalDebt) missing in one or both years",
         "info",
       ),
+    );
+  } else if (!ltiKnown) {
+    notes.push("Net operating assets are not adjusted for long-term investments, which the balance sheets do not report in both years.");
+  }
+
+  // Growth note (D-61, Fairfield, Whisenant & Yohn 2003): accruals are growth
+  // in net operating assets, and their lower persistence is largely the same
+  // effect as NOA growth itself. Disclosed beside the ratio, never graded.
+  const revT = posOrNull(current.income?.revenue);
+  const revP = posOrNull(prior.income?.revenue);
+  const revenueGrowthPct = revT !== null && revP !== null ? (revT / revP - 1) * 100 : null;
+  const noaGrowthPct = noaT !== null && noaP !== null && noaP > 0 ? (noaT / noaP - 1) * 100 : null;
+  if (revenueGrowthPct !== null && revenueGrowthPct > FORENSICS_HOUSE_RULES.accrualGrowthNotePct) {
+    notes.push(
+      `Growth context: revenue grew ${fmt1(revenueGrowthPct)}%${noaGrowthPct !== null ? ` and net operating assets ${fmt1(noaGrowthPct)}%` : ""} over the same two years. ` +
+        "For a company growing this fast, high accruals largely reflect operating-asset growth that scales with sales; Fairfield, Whisenant & Yohn (2003) show the accrual anomaly is largely a growth-in-NOA effect. " +
+        `The band is not adjusted for growth (house note above ${FORENSICS_HOUSE_RULES.accrualGrowthNotePct}% revenue growth).`,
     );
   }
 
@@ -1577,6 +1748,14 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
     operatingCashFlow: cfoT,
     investingCashFlow: cfiT,
     operatingAccruals: niT !== null && cfoT !== null ? niT-cfoT : null,
+    definition,
+    financialAssetCashFlow,
+    operatingInvestingCashFlow,
+    otherInvestingCashFlow: otherInvesting,
+    longTermInvestmentsCurrent: ltiKnown ? ltiT : null,
+    longTermInvestmentsPrior: ltiKnown ? ltiP : null,
+    revenueGrowthPct,
+    noaGrowthPct,
     balanceSheetAccrualRatio: bsRatio,
     aggregateAccrualsCashFlow: aggCF,
     aggregateAccrualsBalanceSheet: aggBS,

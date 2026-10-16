@@ -487,11 +487,18 @@ function balanceSheetSection(
   const repurchaseCurrency =
     analysedYears.length > 0 && repurchaseCurrencies.size === 1 ? ([...repurchaseCurrencies][0] ?? null) : null;
   if (bb.totalRepurchased > 0 && repurchaseCurrency !== null) {
+    // D-61: the premium is measured on the proxy price, so the current price is
+    // that percentage above (or below) it — price appreciation since the
+    // repurchases, not timing. Timing is stated separately when measurable.
     const priceNote = isNum(bb.premiumDiscountPct)
-      ? ` at an average price proxy ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "below" : "above"} the current price`
+      ? `; the current price is ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "above" : "below"} the average repurchase price proxy (price appreciation since the repurchases, not timing)`
+      : "";
+    const timing = bb.timingPct ?? null;
+    const timingNote = isNum(timing)
+      ? `; at each fiscal year's average price the shares bought would have cost ${fmtPct(Math.abs(timing))} ${timing >= 0 ? "more" : "less"} than was paid`
       : "";
     allocation.push(
-      fact(`Repurchased ${fmtMoney(bb.totalRepurchased, repurchaseCurrency)} of stock across the analysed years${priceNote}.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
+      fact(`Repurchased ${fmtMoney(bb.totalRepurchased, repurchaseCurrency)} of stock across the analysed years${priceNote}${timingNote}.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
     );
   }
   if (bb.note) allocation.push(fact(bb.note, "computed.capital.buybackPriceAnalysis", cap.asOf));
