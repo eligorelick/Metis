@@ -35,14 +35,15 @@ describe("research reliability report surfaces", () => {
       expect(rendered).toContain("7.25%");
       expect(rendered).toContain("10 explicit forecast years");
       expect(rendered).toContain("Discount rate and margin path held fixed.");
-      expect(rendered).toContain("computed.valuation.reverseDcf");
+      // D-62: the trigger names its source by reader label.
+      expect(rendered).toContain("Source: Reverse DCF");
       expect(rendered).toContain("Reassess the valuation");
     }
   });
 
   it("distinguishes computational weights, sensitivities and qualitative commentary", () => {
     for (const rendered of Object.values(surfaces(fixture()))) {
-      expect(rendered).toContain("Display weight");
+      expect(rendered).toMatch(/display weight/i);
       expect(rendered).toContain("not calibrated odds");
       expect(rendered).toContain("changes within the modeled grid");
       expect(rendered).toContain("Qualitative commentary");

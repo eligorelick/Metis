@@ -299,6 +299,14 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         source: releaseRef(latest, "EX-99.1"),
         returned: capital.returned && capitalCurrency(capital.returned.symbol) ? capital.returned.value : null,
         returnedPeriod: capital.returned?.periodText ?? null,
+        // D-62: the release's "approximately" travels with the amount. Bundles
+        // parsed before the flag existed keep the sentence it was read from.
+        ...(capital.returned && capitalCurrency(capital.returned.symbol) &&
+          (capital.returned.approximate === true || capital.sentences.some((s) => /\breturned\b[^.]{0,40}?\b(?:approximately|about|around|roughly|nearly)\s+(?:US)?\$/i.test(s)))
+          ? { returnedApproximate: true } : {}),
+        ...(capital.authorizationRemaining && capitalCurrency(capital.authorizationRemaining.symbol) &&
+          capital.sentences.some((s) => /\b(?:approximately|about|around|roughly|nearly)\s+(?:US)?\$\s?[\d.,]+\s*(?:billion|million) remaining under\b/i.test(s))
+          ? { authorizationRemainingApproximate: true } : {}),
         authorizationRemaining: capital.authorizationRemaining && capitalCurrency(capital.authorizationRemaining.symbol) ? capital.authorizationRemaining.value : null,
         authorizationAdded: capital.authorizationAdded && capitalCurrency(capital.authorizationAdded.symbol) ? capital.authorizationAdded.value : null,
         dividendPerShare: capital.dividendPerShare && capitalCurrency(capital.dividendPerShare.symbol) ? capital.dividendPerShare.value : null,

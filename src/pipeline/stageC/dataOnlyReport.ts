@@ -38,6 +38,7 @@ import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildMarketData } from "@/pipeline/marketData";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
@@ -887,6 +888,9 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   // facts, not analyst judgment, so the data-only report carries them too.
   const filingDisclosures = buildFilingDisclosures(bundle);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
+  // D-62: provider market and consensus data for the key-data box.
+  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true });
+  if (marketData) candidate.marketData = marketData;
 
   // Share exact registry-backed facts with the full verification path. Rebuild
   // them from this run's inputs, including removal of a copied historical field.

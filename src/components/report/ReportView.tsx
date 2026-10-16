@@ -51,9 +51,11 @@ import {
   CatalystsRisksPanel,
   CompetitiveSection,
   CompositeScorecard,
+  DisagreementsBlock,
   ExecutiveSummary,
   FundamentalsSection,
   GradeStripBar,
+  KeyDataBox,
   LeadershipSection,
   MacroSection,
   OutlookSection,
@@ -157,21 +159,23 @@ export function ReportView({
         )}
         {report.scores && <div className="mt-3"><CompositeScorecard scores={report.scores} /></div>}
         <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} /></div>
+        {/* D-62: the bull/bear debate sits with the verdict it informs. */}
+        {report.disagreements.length > 0 && <div className="mt-3 border border-edge bg-panel px-3 py-3"><DisagreementsBlock disagreements={report.disagreements} /></div>}
       </div>
     ),
     business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
-    fundamentals: <FundamentalsSection fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
-    balanceSheet: <BalanceSheetSection balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
-    valuation: <ValuationSection valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
+    fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
+    balanceSheet: <BalanceSheetSection report={report} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
+    valuation: <ValuationSection report={report} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} index={reportSection("quality").index} />,
-    technicals: <TechnicalsSection technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
-    leadership: <LeadershipSection leadership={report.leadership} index={reportSection("leadership").index} />,
-    competitive: <CompetitiveSection competitive={report.competitive} index={reportSection("competitive").index} />,
+    technicals: <TechnicalsSection report={report} technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
+    leadership: <LeadershipSection report={report} leadership={report.leadership} index={reportSection("leadership").index} />,
+    competitive: <CompetitiveSection report={report} competitive={report.competitive} index={reportSection("competitive").index} />,
     catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
-    appendix: <AppendixSection appendix={report.appendix} disagreements={report.disagreements} asOfMap={report.meta.asOfMap} completeness={completeness} index={reportSection("appendix").index} />,
+    appendix: <AppendixSection report={report} completeness={completeness} index={reportSection("appendix").index} />,
   };
 
   return (
@@ -188,6 +192,8 @@ export function ReportView({
       {report.meta && <ReportMetaStrip report={report} completeness={completeness} />}
 
       {completeness.bannerText && <DataOnlyBanner text={completeness.bannerText} />}
+
+      <KeyDataBox report={report} />
 
       <div className="report-columns flex gap-4">
         {/* Main column */}

@@ -1,5 +1,6 @@
 import type { Report, Valuation } from "@/report/schema";
 import { formatFinancialValue, formatMultiple } from "@/report/format";
+import { sourceLabel } from "@/report/presentation";
 
 export interface ValuationReviewInputs {
   scenarioPresentation?: Report["scenarioPresentation"];
@@ -36,7 +37,7 @@ export function valuationReviewBlocks(input: ValuationReviewInputs): ReviewBlock
             `Horizon: ${trigger.horizon}.`,
             `Held fixed / comparison basis: ${trigger.fixedAssumptions.join(" ")}`,
             trigger.consequence,
-            `Source: ${n.source}${n.asOf ? `; as of ${n.asOf}` : ""}${n.period ? `; period ${n.period}` : ""}.`,
+            `Source: ${sourceLabel(n.source)}${n.asOf ? `; as of ${n.asOf}` : ""}${n.period ? `; period ${n.period}` : ""}.`,
           ],
         };
       }),

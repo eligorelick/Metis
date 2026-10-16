@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
 import { buildEvidenceTiming, evidenceTimingRows, EvidenceTimingSchema, type EvidenceTimingBundle } from "@/report/evidenceTiming";
-import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { markdownTableCell } from "@/report/export/markdownEscape";
 import { esc } from "@/report/export/printHtml";
@@ -134,7 +134,9 @@ describe("bounded report evidence timing", () => {
     expect(JSON.stringify(report)).toBe(before);
   });
 
-  it("does not turn a legacy fetch-date fallback into a financial period end on any surface", () => {
+  // D-62: the evidence-timing table is in the separate audit export; the
+  // report body (live, Markdown, print) no longer prints it.
+  it("does not turn a legacy fetch-date fallback into a financial period end in the audit export", () => {
     const acquiredAt = "2026-10-15T10:00:00Z";
     const envelopeAsOf = deriveAsOf([{ date: "2027-03-31" }], acquiredAt);
     expect(envelopeAsOf).toBe("2026-10-15");
@@ -148,13 +150,9 @@ describe("bounded report evidence timing", () => {
     expect(row(report, "Filing")).toBe("not supplied");
     expect(row(report, "Publication")).toBe("not supplied");
     expect(row(report, "Input acquisition")).toBe(acquiredAt);
-    const app = renderToStaticMarkup(createElement(ReportView, { report }));
-    const markdown = reportToMarkdown(report);
-    const print = reportToPrintBody(report);
+    const audit = reportToAuditMarkdown(report);
     for (const item of evidenceTimingRows(report)) {
-      expect(app).toContain(renderToStaticMarkup(createElement("span", null, item.value)).slice(6, -7));
-      expect(markdown).toContain(markdownTableCell(item.value));
-      expect(print).toContain(esc(item.value));
+      expect(audit).toContain(markdownTableCell(item.value));
     }
     expect(JSON.stringify(report)).toBe(before);
   });
@@ -169,7 +167,7 @@ describe("bounded report evidence timing", () => {
     expect(EvidenceTimingSchema.safeParse({ ...timing(), injected: true }).success).toBe(false);
   });
 
-  it("renders the same timing rows beside valuation in live, Markdown and print without mutations", () => {
+  it("renders the timing rows in the audit export and keeps them out of the report body without mutations", () => {
     const report = fixture();
     report.meta.evidenceTiming = timing();
     report.meta.evidenceTiming.financialPeriods[0].source = "statement <untrusted> | extra";
@@ -177,22 +175,18 @@ describe("bounded report evidence timing", () => {
     const app = renderToStaticMarkup(createElement(ReportView, { report }));
     const markdown = reportToMarkdown(report);
     const print = reportToPrintBody(report);
-    for (const result of [app, markdown, print]) {
-      expect(result).toContain("Evidence timing");
-      for (const item of evidenceTimingRows(report)) expect(result).toContain(item.label);
-      expect(result).toContain(OBSERVED);
-      expect(result).toContain(ACQUIRED);
-      expect(result).toContain("actual calculation timestamp");
-      expect(result.indexOf("Evidence timing")).toBeGreaterThan(result.indexOf("Valuation"));
-    }
+    for (const body of [app, markdown, print]) expect(body).not.toContain("Evidence timing");
     expect(app).not.toContain("<untrusted>");
-    expect(print).not.toContain("<untrusted>");
-    expect(markdown).toContain("\\|");
+    expect(print).not.toContain(esc("<untrusted>"));
+    const audit = reportToAuditMarkdown(report);
+    expect(audit).toContain("## Evidence timing");
+    expect(audit).toContain(OBSERVED);
+    expect(audit).toContain(ACQUIRED);
+    expect(audit).toContain("actual calculation timestamp");
+    expect(audit).toContain("\\|");
     for (const item of evidenceTimingRows(report)) {
-      const htmlValue = renderToStaticMarkup(createElement("span", null, item.value)).slice(6, -7);
-      expect(app).toContain(htmlValue);
-      expect(print).toContain(esc(item.value));
-      expect(markdown).toContain(markdownTableCell(item.value));
+      expect(audit).toContain(item.label);
+      expect(audit).toContain(markdownTableCell(item.value));
     }
     expect(JSON.stringify(report)).toBe(before);
   });

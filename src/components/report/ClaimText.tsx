@@ -14,6 +14,7 @@
 import { Badge, type Tone } from "@/components/ui";
 import type { ClaimLabel } from "@/types/core";
 import type { SourcedClaim } from "@/report/schema";
+import { sourceLabel } from "@/report/presentation";
 
 const LABEL_TONE: Record<ClaimLabel, Tone> = {
   FACT: "muted",
@@ -38,15 +39,22 @@ function Provenance({
 }) {
   return (
     <div className="mono flex flex-col gap-0.5 text-[10px] leading-snug text-faint">
+      {/* D-62: one source marker — the reader label, with the registry id only
+          when it differs from it; an absent id is not printed as "n/a". */}
       <span className="break-all">
-        <span className="text-muted">source id</span> {sourceId ?? "n/a"}
+        <span className="text-muted">source</span> {sourceLabel(source)}
+        {sourceLabel(source) !== source && <span className="ml-1">({source})</span>}
       </span>
-      <span className="break-all">
-        <span className="text-muted">source</span> {source}
-      </span>
-      <span>
-        <span className="text-muted">as of</span> {asOf ?? "—"}
-      </span>
+      {sourceId && sourceId !== source && (
+        <span className="break-all">
+          <span className="text-muted">registry id</span> {sourceId}
+        </span>
+      )}
+      {asOf && (
+        <span>
+          <span className="text-muted">as of</span> {asOf}
+        </span>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-15",
+  "generatedAt": "2026-10-16",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -8686,6 +8686,93 @@
               }
             ],
             "comparisons": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentation-d62-2026-10-15",
+      "decisions": [
+        "D-62"
+      ],
+      "reason": "D-62 (presentation for institutional readers): assembleReport adds report.marketData, the provider quote, share count, period-end EV, FY+1/FY+2 consensus, price-target and analyst-grade counts and FINRA short interest copied from the bundle as served, so the page-1 key-data box and the consensus table can show them. No computation, grade, payload or LLM input changes; the DEMO fixture bundle supplies the quote, estimates and targets it already carried.",
+      "deltas": [
+        {
+          "path": "report.marketData",
+          "beforeMissing": true,
+          "after": {
+            "version": "1",
+            "currency": "USD",
+            "estimateCurrency": "USD",
+            "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)",
+            "quote": {
+              "price": 40,
+              "marketCap": 8000000000,
+              "yearHigh": 44,
+              "yearLow": 28,
+              "volume": 1200000,
+              "priceAvg50": 39,
+              "priceAvg200": 36,
+              "asOf": "2025-12-31"
+            },
+            "shares": {
+              "outstanding": 200000000,
+              "float": 180000000,
+              "freeFloatPct": 90,
+              "asOf": "2025-12-31"
+            },
+            "enterpriseValue": {
+              "value": 7200000000,
+              "periodEnd": "2025-12-31",
+              "marketCap": 8000000000,
+              "totalDebt": 1200000000,
+              "cash": 2000000000
+            },
+            "estimates": [
+              {
+                "fiscalYearEnd": "2026-12-31",
+                "revenueAvg": 13500000000,
+                "revenueLow": 13200000000,
+                "revenueHigh": 13800000000,
+                "epsAvg": 9.1,
+                "epsLow": 8.19,
+                "epsHigh": 10.01,
+                "analystsRevenue": 8,
+                "analystsEps": 7
+              },
+              {
+                "fiscalYearEnd": "2027-12-31",
+                "revenueAvg": 14550000000,
+                "revenueLow": 14100000000,
+                "revenueHigh": 15000000000,
+                "epsAvg": 10,
+                "epsLow": 9,
+                "epsHigh": 11,
+                "analystsRevenue": 7,
+                "analystsEps": 6
+              }
+            ],
+            "estimatesAsOf": "2026-07-06",
+            "priceTarget": {
+              "consensus": 44,
+              "median": 45,
+              "high": 52,
+              "low": 36,
+              "asOf": "2026-07-06",
+              "lastMonthCount": 2,
+              "lastMonthAverage": 44,
+              "lastQuarterCount": 5,
+              "lastQuarterAverage": 43
+            },
+            "gradeCounts": {
+              "strongPositive": 2,
+              "positive": 3,
+              "neutral": 4,
+              "negative": 1,
+              "strongNegative": 0,
+              "asOf": "2026-07-06"
+            },
+            "shortInterest": null
           }
         }
       ]

@@ -2022,6 +2022,10 @@ export const FilingDisclosuresSchema = z
         source: FilingRefSchema,
         returned: z.number().nullable(),
         returnedPeriod: z.string().nullable(),
+        /** D-62: the release qualified the amount ("approximately $26.0 billion"). Absent on older reports. */
+        returnedApproximate: z.boolean().optional(),
+        /** D-62: "approximately $99.0 billion remaining". Absent on older reports. */
+        authorizationRemainingApproximate: z.boolean().optional(),
         authorizationRemaining: z.number().nullable(),
         authorizationAdded: z.number().nullable(),
         dividendPerShare: z.number().nullable(),
@@ -2087,6 +2091,55 @@ export const FilingDisclosuresSchema = z
   })
   .strict();
 export type FilingDisclosures = z.infer<typeof FilingDisclosuresSchema>;
+
+/**
+ * D-62: provider market and consensus data, carried as served (no analysis).
+ * Money is in `currency` (the listing's trading currency) for the quote and
+ * EV, and in `estimateCurrency` for estimates and price targets — the issuer
+ * currency those rows inherit under D-57, or null when not established.
+ * Analyst grades are stored as counts only; no rating word is carried.
+ */
+const NullableNumber = z.number().nullable();
+export const MarketDataSchema = z
+  .object({
+    version: z.literal("1"),
+    currency: IsoCurrencySchema.nullable(),
+    estimateCurrency: IsoCurrencySchema.nullable(),
+    estimateCurrencyBasis: z.string().nullable(),
+    quote: z.object({
+      price: NullableNumber, marketCap: NullableNumber, yearHigh: NullableNumber, yearLow: NullableNumber,
+      volume: NullableNumber, priceAvg50: NullableNumber, priceAvg200: NullableNumber, asOf: z.string().nullable(),
+    }).strict().nullable(),
+    shares: z.object({
+      outstanding: NullableNumber, float: NullableNumber, freeFloatPct: NullableNumber, asOf: z.string().nullable(),
+    }).strict().nullable(),
+    enterpriseValue: z.object({
+      value: z.number(), periodEnd: IsoDaySchema, marketCap: NullableNumber, totalDebt: NullableNumber, cash: NullableNumber,
+    }).strict().nullable(),
+    estimates: z.array(z.object({
+      fiscalYearEnd: IsoDaySchema,
+      revenueAvg: NullableNumber, revenueLow: NullableNumber, revenueHigh: NullableNumber,
+      epsAvg: NullableNumber, epsLow: NullableNumber, epsHigh: NullableNumber,
+      analystsRevenue: NullableNumber, analystsEps: NullableNumber,
+    }).strict()),
+    estimatesAsOf: z.string().nullable(),
+    priceTarget: z.object({
+      consensus: NullableNumber, median: NullableNumber, high: NullableNumber, low: NullableNumber, asOf: z.string().nullable(),
+      lastMonthCount: NullableNumber, lastMonthAverage: NullableNumber,
+      lastQuarterCount: NullableNumber, lastQuarterAverage: NullableNumber,
+    }).strict().nullable(),
+    /** Analyst grade counts, most positive first; no consensus word is stored. */
+    gradeCounts: z.object({
+      strongPositive: z.number(), positive: z.number(), neutral: z.number(), negative: z.number(), strongNegative: z.number(),
+      asOf: z.string().nullable(),
+    }).strict().nullable(),
+    shortInterest: z.object({
+      shares: z.number(), daysToCover: NullableNumber, averageDailyVolume: NullableNumber, settlementDate: IsoDaySchema,
+      changePct: NullableNumber,
+    }).strict().nullable(),
+  })
+  .strict();
+export type MarketData = z.infer<typeof MarketDataSchema>;
 
 /* ------------------------------------------------------------------------ *
  * The judge output — everything the judge/synthesis pass must emit.
@@ -2212,6 +2265,14 @@ const ReportObjectSchema = z
      * Optional so every persisted report still parses.
      */
     filingDisclosures: FilingDisclosuresSchema.optional(),
+    /**
+     * D-62: market and consensus data as the providers served it (quote,
+     * share count, period-end EV, FY+1/FY+2 estimates, price-target and
+     * analyst-grade distributions, FINRA short interest), pipeline-filled
+     * from the bundle for the page-1 key-data box. Optional so every
+     * persisted report still parses.
+     */
+    marketData: MarketDataSchema.optional(),
   })
   .strict();
 export const ReportSchema = ReportObjectSchema.superRefine(

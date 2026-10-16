@@ -66,7 +66,7 @@ import {
   buildJudgeFraming,
   CASE_STRENGTH_RUBRIC,
 } from "@/pipeline/stageC/prompts";
-import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
 import {
   assembleReport,
@@ -472,7 +472,7 @@ describe("judge case order (THESIS_JUDGE_ORDER)", () => {
     // fingerprint; the exact value stays in the report JSON for traceability.
     expect(protocol?.note).not.toContain("job-seed-a");
     expect(protocol?.note).toContain(judgeSeedFingerprint("job-seed-a"));
-    for (const exported of [reportToMarkdown(report), reportToPrintHtml(report)]) {
+    for (const exported of [reportToMarkdown(report), reportToPrintHtml(report), reportToAuditMarkdown(report)]) {
       expect(exported).toContain(judgeSeedFingerprint("job-seed-a"));
       expect(exported).not.toContain("job-seed-a");
     }
@@ -1444,17 +1444,20 @@ describe("judgement protocol reaches the rendered report", () => {
     const note = report.meta.judgeProtocol?.note ?? "";
     expect(note).not.toBe("");
 
+    // D-62: the protocol sentence and a one-line check total are in the
+    // report's appendix; the per-family checks table is in the audit export.
     const markdown = reportToMarkdown(report);
     expect(markdown).toContain("Judgement protocol");
     expect(markdown).toContain("read the");
-    expect(markdown).toContain("Deterministic checks");
-    expect(markdown).toContain("3/4"); // direction: passed / checked
-    expect(markdown).toContain("n/a — nothing eligible"); // unit: nothing to check
+    expect(markdown).toContain("Deterministic consistency checks: 6/7 passed");
+    const audit = reportToAuditMarkdown(report);
+    expect(audit).toContain("Deterministic checks");
+    expect(audit).toContain("3/4"); // direction: passed / checked
+    expect(audit).toContain("n/a — nothing eligible"); // unit: nothing to check
 
     const html = reportToPrintHtml(report);
     expect(html).toContain("Judgement protocol");
-    expect(html).toContain("Deterministic checks");
-    expect(html).toContain("3/4");
+    expect(html).toContain("Deterministic consistency checks: 6/7 passed");
     // "checked" is a separate table from citation coverage, never merged in.
     expect(html).toContain("Citation coverage");
   });

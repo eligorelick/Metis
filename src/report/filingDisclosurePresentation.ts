@@ -1,5 +1,5 @@
 import type { ReportAuditTable } from "@/report/auditTables";
-import { formatFinancialValue } from "@/report/format";
+import { decimalRound, formatFinancialValue } from "@/report/format";
 import type { FilingDisclosures, FilingRef, GuidanceRow } from "@/report/schema";
 
 /**
@@ -29,11 +29,21 @@ function money(value: number | null, currency: string | null, perShare = false):
 
 function pct(value: number | null, signed = false, digits = 1): string {
   if (value === null || !Number.isFinite(value)) return DASH;
-  return `${signed && value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value).toFixed(digits)}%`;
+  return `${signed && value > 0 ? "+" : value < 0 ? "−" : ""}${decimalRound(Math.abs(value), digits).toFixed(digits)}%`;
 }
 
 function value(row: { unit: GuidanceRow["unit"] }, v: number, currency: string | null): string {
   return row.unit === "%" ? pct(v, false, 1) : money(v, currency, row.unit === "currency-per-share");
+}
+
+/** "≈$26B": an issuer-qualified amount without decimals the release did not print. */
+function approximately(text: string): string {
+  return `≈${text.replace(/\.(\d*?)0+([KMBT])/, (_, kept: string, suffix: string) => (kept ? `.${kept}${suffix}` : suffix))}`;
+}
+
+/** A filing note about dividends or repurchase authorization. */
+function isCapitalReturnNote(note: string): boolean {
+  return /\b(dividend|repurchase|buyback)\b/i.test(note);
 }
 
 function basis(b: GuidanceRow["basis"]): string {
@@ -76,7 +86,7 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
           c.guidedLow === c.guidedHigh ? DASH : `${fmt(c.guidedLow)} – ${fmt(c.guidedHigh)}`,
           fmt(c.guidedMid),
           fmt(c.actual),
-          c.metric === "revenue" ? pct(c.difference, true, 1) : `${c.difference > 0 ? "+" : c.difference < 0 ? "−" : ""}${Math.abs(c.difference).toFixed(2)} pp`,
+          c.metric === "revenue" ? pct(c.difference, true, 1) : `${c.difference > 0 ? "+" : c.difference < 0 ? "−" : ""}${decimalRound(Math.abs(c.difference), 2).toFixed(2)} pp`,
           c.position === "within" ? "within range" : `${c.position} range`,
         ];
       }),
@@ -118,8 +128,10 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
     ]);
     if (cr !== null) {
       const src = filingLabel(cr.source);
-      if (cr.returned !== null) rows.push([`Returned to shareholders (repurchases + dividends)${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, money(cr.returned, d.currency), src]);
-      if (cr.authorizationRemaining !== null) rows.push(["Repurchase authorization remaining", money(cr.authorizationRemaining, d.currency), src]);
+      // D-62: the release's own qualifier ("approximately $26.0 billion") is
+      // carried, not replaced by false precision ("$26.00B").
+      if (cr.returned !== null) rows.push([`Returned to shareholders (repurchases + dividends)${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, cr.returnedApproximate === true ? approximately(money(cr.returned, d.currency)) : money(cr.returned, d.currency), src]);
+      if (cr.authorizationRemaining !== null) rows.push(["Repurchase authorization remaining", cr.authorizationRemainingApproximate === true ? approximately(money(cr.authorizationRemaining, d.currency)) : money(cr.authorizationRemaining, d.currency), src]);
       if (cr.authorizationAdded !== null) rows.push(["Repurchase authorization added", money(cr.authorizationAdded, d.currency), src]);
       if (cr.dividendPerShare !== null) {
         const dates = [cr.dividendPayDate ? `payable ${cr.dividendPayDate}` : null, cr.dividendRecordDate ? `record ${cr.dividendRecordDate}` : null].filter(Boolean).join(", ");
@@ -127,11 +139,13 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       }
       if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) rows.push(["Dividend change (per share, quarterly)", `${money(cr.dividendChangeFrom, d.currency, true)} → ${money(cr.dividendChangeTo, d.currency, true)}`, src]);
     }
+    const capitalNotes = d.notes.filter(isCapitalReturnNote);
+    const note = [d.freeCashFlowDefinition ? `Issuer definition: ${d.freeCashFlowDefinition}` : "", ...capitalNotes].filter((n) => n !== "").join(" ");
     tables.push({
       heading: "Issuer-reported free cash flow and capital return",
       headers: ["Item", "Amount", "Source"],
       rows,
-      ...(d.freeCashFlowDefinition ? { note: `Issuer definition: ${d.freeCashFlowDefinition}` } : {}),
+      ...(note ? { note } : {}),
     });
   }
   return tables;
@@ -188,7 +202,11 @@ export function filingDisclosureTables(d: FilingDisclosures | undefined, section
     case "fundamentals": return trendTables(d);
     case "outlook": {
       const tables = guidanceTables(d);
-      const notes = [d.currencyBasis, ...d.notes].join(" ");
+      // D-62: dividend and repurchase-authorization notes belong with the
+      // capital-return table, not under results against guidance — unless
+      // that table is not shown.
+      const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
+      const notes = [d.currencyBasis, ...d.notes.filter((n) => !capitalShown || !isCapitalReturnNote(n))].join(" ");
       return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No guidance could be read from the latest earnings releases."]], note: notes }] : [];
     }
     case "catalystsRisks": return eventTable(d);
