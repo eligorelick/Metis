@@ -385,12 +385,16 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   return [...forms];
 }
 /** Explicit typed-source metadata/formula readings; replacements preserve quantity offsets. */
-function typedClaimContext(text: string, record: NumericProvenanceRecord): string {
+function typedClaimContext(text: string, record: NumericProvenanceRecord): string | null {
   if (record.kind === "provider" && record.id.startsWith("payload.filing-facts.") && /^edgar:8-K\s/.test(record.origin) &&
     record.unit === "percent" && record.label === "say-on-pay support (votes for / for + against + abstentions)") {
-    // Read this exact formula before the unordered metric tokens: swapping
-    // votes against into the numerator must not reuse the same word set.
-    return text.replace(/\bmeasured as votes for divided by votes for, against and abstentions\b/gi,
+    // Read complete formulas before unordered metric tokens: numerator,
+    // denominator order and operand multiplicity cannot be recovered from a set.
+    const words = /\bmeasured as votes for divided by votes for, against and abstentions\b/gi;
+    const math = /\(\s*votes\s+for\s*\/\s*for\s*\+\s*against\s*\+\s*abstentions\s*\)/gi;
+    const remainder = text.replace(words, (match) => " ".repeat(match.length)).replace(math, (match) => " ".repeat(match.length));
+    if (/\b(?:votes?|against|abstentions|divided)\b|[/+]/i.test(remainder)) return null;
+    return text.replace(words,
       (match) => "(votes for / for + against + abstentions)".padEnd(match.length));
   }
   if (record.kind !== "provider" || !record.id.startsWith("payload.issuer-filings.") || !/^edgar:8-K\s/.test(record.origin) ||
@@ -590,7 +594,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   if (record !== undefined) {
     if (stated.length !== 1) return support("unchecked", "text-ambiguous", "one numeric record cannot bind multiple prose quantities");
     const quantity = stated[0];
-    const own = context(typedClaimContext(claim.text, record), quantity, stated);
+    const typedText = typedClaimContext(claim.text, record);
+    if (typedText === null) return support("unchecked", "text-context-mismatch", "prose vote formula does not establish the cited numerator and denominator");
+    const own = context(typedText, quantity, stated);
     if (own.periods.some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }

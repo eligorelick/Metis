@@ -78,4 +78,14 @@ describe("saved NVDA report metric context against its original typed records", 
       expect(check(entry, entry.claim.text, { ...entry.record, origin: "unestablished:other-producer" }).status).not.toBe("validated");
     }
   });
+
+  it("requires the exact say-on-pay mathematical numerator and denominator", () => {
+    const vote = bySource("say-on-pay-support-votes-for-for-against-abstentions");
+    const text = (formula: string) => `Say-on-pay support (${formula}) was 93.2%.`;
+    expect(check(vote, text("votes for / for + against + abstentions")).status).toBe("validated");
+    for (const formula of ["votes against / for + against + abstentions", "votes for / against + against + abstentions",
+      "votes for / for + against + against + abstentions", "votes for / for + against"]) {
+      expect(check(vote, text(formula)).status).not.toBe("validated");
+    }
+  });
 });
