@@ -20,7 +20,7 @@ export interface FilingFact {
   /** What the figure is, in the filing's words. */
   label: string;
   value: number;
-  unit: "currency" | "days" | "shares" | "count";
+  unit: "currency" | "days" | "shares" | "count" | "percent";
   /** The printed money symbol ("$"); null for a non-money figure. */
   symbol: string | null;
   /** The date the figure is stated at or for (a balance date, a period end). */
@@ -46,8 +46,47 @@ function clip(text: string, max = 320): string {
   const t = text.trim();
   return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;
 }
-function fact(over: Partial<FilingFact> & Pick<FilingFact, "key" | "label" | "value" | "unit" | "text">): FilingFact {
-  return { symbol: null, asOf: null, period: null, qualifier: null, computed: null, ...over, text: clip(over.text) };
+function fact(over: Partial<FilingFact> & Pick<FilingFact, "key" | "label" | "value" | "unit" | "text">, textLimit = 320): FilingFact {
+  return { symbol: null, asOf: null, period: null, qualifier: null, computed: null, ...over, text: clip(over.text, textLimit) };
+}
+
+/** Current-period customer shares; no names or common identity are inferred. */
+export function parseCustomerConcentrationFacts(rawText: string, scope: { asOf: string | null; fiscalYear: number | null; quarter: number | null }): FilingFact[] {
+  if (scope.asOf === null || scope.fiscalYear === null) return [];
+  const text = normalizeFilingText(rawText);
+  const out: FilingFact[] = [];
+  const counts: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  const ordinals = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"];
+  const shares = (raw: string, count: string): number[] => {
+    const values = [...raw.matchAll(/(?<!\d)(\d{1,3}(?:\.\d+)?)\s*%/g)].map((m) => Number(m[1]));
+    const expected = counts[count.toLowerCase()] ?? Number(count);
+    return values.length === expected && expected <= 10 && values.every((v) => v >= 0 && v <= 100) && values.reduce((a, v) => a + v, 0) <= 100 ? values : [];
+  };
+  const indirect = /\bWe estimate that one AI research and deployment company contributed a meaningful amount of our revenue by purchasing cloud services from our customers in the second quarter and first half of fiscal year (\d{4})\./i.exec(text);
+  for (const m of text.matchAll(/\bFor the ((?:first|second|third|fourth) quarter|first half) of fiscal year (\d{4}), (\w+) direct customers? (?:represented|accounted for) ([\d\s%,.and]+) of (?:our )?(?:total )?revenue\b[^.]*\./gi)) {
+    if (Number(m[2]) !== scope.fiscalYear) continue;
+    const half = m[1]!.toLowerCase() === "first half";
+    const quarter = half ? 2 : ordinals.indexOf(m[1]!.split(" ")[0]!.toLowerCase()) + 1;
+    if (quarter !== scope.quarter) continue;
+    const period = half ? `first half FY${scope.fiscalYear}` : `Q${quarter} FY${scope.fiscalYear}`;
+    for (const [i, value] of shares(m[4]!, m[3]!).entries()) {
+      const separate = !half && i === 0 && scope.quarter === 2 && Number(indirect?.[1]) === scope.fiscalYear ? ` Separately, ${indirect![0]}` : "";
+      out.push(fact({ key: `customer-revenue-${half ? "half" : "quarter"}-${i + 1}`, label: `direct customer revenue share (${ordinals[i]} reported customer)`,
+        value, unit: "percent", asOf: scope.asOf, period, text: m[0] + separate }, 800));
+    }
+  }
+  const terms = /\bIn certain cases,[^.]{0,400}?\blonger payment terms ranging from \d+ days up to one year[^.]*\./i.exec(text)?.[0];
+  for (const m of text.matchAll(new RegExp(String.raw`\b(\w+) direct customers accounted for ([\d\s%,.and]+) of our accounts receivable balance as of (${MONTH_DATE})\.`, "gi"))) {
+    if (isoFromMonthDate(m[3]!) !== scope.asOf) continue;
+    for (const [i, value] of shares(m[2]!, m[1]!).entries()) out.push(fact({ key: `customer-receivables-${i + 1}`, label: `accounts receivable share (${ordinals[i]} reported direct customer)`,
+      value, unit: "percent", asOf: scope.asOf, text: m[0] + (i === 0 && terms !== undefined ? ` Separately, ${terms}` : "") }, 800));
+  }
+  if (scope.quarter === null) {
+    const taiwan = /\bIn fiscal year (\d{4}), we estimate (\d{1,2}(?:\.\d+)?)\s*% of Data Center revenue from Taiwan-headquartered customers was attributed to end customers based in the United States and Europe\./i.exec(text);
+    if (taiwan !== null && Number(taiwan[1]) === scope.fiscalYear && Number(taiwan[2]) <= 100) out.push(fact({ key: "taiwan-headquarters-end-customers", label: "Data Center revenue from Taiwan-headquartered customers attributed to end customers in the United States and Europe",
+      value: Number(taiwan[2]), unit: "percent", asOf: scope.asOf, period: `FY${scope.fiscalYear}`, qualifier: "issuer estimate", text: taiwan[0] }));
+  }
+  return out;
 }
 
 /**
@@ -350,6 +389,7 @@ export function parseOfficerChanges(itemText: string): OfficerChange[] {
       component("sign-on bonus", /\bsign-on bonus of\s+(\$)\s?([\d,]+)/i);
       component("target annualized cash variable compensation", /\btarget annualized cash variable compensation of\s+(\$)\s?([\d,]+)/i);
       component("new-hire restricted stock units, target value", /\brestricted stock units(?:,\s*or RSUs,)?\s+with a target value of\s+(\$)\s?([\d,]+)/i);
+      component("new-hire restricted stock unit grants, combined target value", /\brestricted stock units(?:,\s*or RSUs,)?\s+with a combined target value of\s+(\$)\s?([\d,]+)/i);
       component("new-hire performance-based restricted stock units, target value", /\bperformance-based RSUs(?:,\s*or [A-Z ]+,)?\s+with a target value of\s+(\$)\s?([\d,]+)/i);
       out.push({ kind: "appointment", person: appointed[1]!, role: cleanRole(appointed[2]!), board: /Board/.test(appointed[2]!), announced,
         effective: start === null ? null : isoFromMonthDate(start[1]!), anticipated, note: null, package: pkg });

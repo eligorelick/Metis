@@ -45,7 +45,7 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
       return [f.label, `${f.qualifier ? `${f.qualifier} ` : ""}${amount}`, [f.period, f.asOf ? `as of ${f.asOf}` : null].filter(Boolean).join("; ") || "Not recorded",
         [f.computed ? `Derived: ${f.computed}.` : null, f.text].filter(Boolean).join(" "), sourceText(f.source)];
     }),
-    note: "Each row retains its own period and issuer qualification. Customer shares, investment balances, commitments, financing capacity and transaction consideration describe different exposures; they are not additive.",
+    note: "Each row retains its own period and issuer qualification. Customer shares, investment balances, commitments, financing capacity and transaction consideration describe different exposures; they are not additive. Reported customers are unnamed: matching positions across periods do not establish common identities. Separately stated indirect-customer and payment-term context does not identify those counterparties as the reported direct customers.",
   }];
 }
 

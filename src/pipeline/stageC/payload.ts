@@ -168,6 +168,10 @@ export interface PayloadFigure {
   currencyInherited?: true;
   period: string | null;
   periodContext?: PeriodContext;
+  /** Issuer fiscal label explicitly carried by a source row; never inferred from calendar year. */
+  fiscalPeriod?: string;
+  /** Exact person named by a parsed appointment-package disclosure. */
+  subject?: string;
   source: string;
   asOf: string | null;
 }
@@ -2046,6 +2050,7 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
     unit: f.unit === "percent" ? "%" : f.unit,
     currency: f.unit === "currency" ? currency : null,
     period: f.asOf,
+    ...(/^(?:Q[1-4]\s+)?FY\d{4}$/.test(f.period ?? "") ? { fiscalPeriod: f.period! } : {}),
     source: f.sourceTag,
     asOf: f.source.filingDate,
   }));
@@ -2059,7 +2064,7 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
     const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective}`;
     figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${when}${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
     for (const component of officer.package) figures.push({ label: `${officer.person} ${component.component} (appointment package)`, value: component.value,
-      unit: "currency", currency: currency === "USD" ? "USD" : null, period: officer.announced, source, asOf: officer.source.filingDate });
+      unit: "currency", currency: currency === "USD" ? "USD" : null, period: officer.announced, subject: officer.person, source, asOf: officer.source.filingDate });
   }
   for (const plan of plans) {
     const source = "edgar:10-Q item5";
@@ -2457,6 +2462,8 @@ function attachProvenanceRegistry(
       ...(figure.currencyInherited && resolvedCurrency !== null ? { currencyBasis: "inherited" as const } : {}),
       period: figure.period,
       ...(figure.periodContext === undefined ? {} : { periodContext: figure.periodContext }),
+      ...(figure.fiscalPeriod === undefined ? {} : { fiscalPeriod: figure.fiscalPeriod }),
+      ...(figure.subject === undefined ? {} : { subject: figure.subject }),
       asOf,
       origin: figure.source,
       formulaVersion: kind === "computed" ? "stage-b-v1" : null,

@@ -126,8 +126,8 @@ describe("factual prose numeric validation", () => {
       currency: null, asOf, origin: source, formulaVersion: null, displayPrecision: 2 };
     expect(periodless.log[0]).toMatchObject({ outcome: "unverified", reason: "period-mismatch" });
     expect(periodless.log[0]?.validationStatus).not.toBe("contradicted");
-    const dated = await verify("", "Q1 FY2026 operating margin was 31%.", { provenanceRegistry: [{ ...base, period: "2026-06-30" }] });
-    expect(dated.log[0]).toMatchObject({ reason: "period-mismatch", validationStatus: "contradicted" });
+    const dated = await verify("", "Q1 FY2026 operating margin was 31%.", { provenanceRegistry: [{ ...base, period: "2026-06-30", fiscalPeriod: "Q2 FY2026" }] });
+    expect(dated.log[0]).toMatchObject({ reason: "period-word-mismatch", validationStatus: "contradicted" });
   });
 
   it("never joins separated retained source passages into a synthetic numeric sentence", async () => {

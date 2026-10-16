@@ -16,10 +16,11 @@ import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsReleaseRecord } from "@/providers/currentReports";
-import { materialCreditSupportClauses, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
+import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import {
   parseBusinessCombinationFacts,
   parseCommitmentFacts,
+  parseCustomerConcentrationFacts,
   parseInvestmentFacts,
   parseOfficerChanges,
   parseSayOnPay,
@@ -336,6 +337,11 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   if (releases.length > 0 && guided === undefined) notes.push("No quarterly outlook could be read from the latest earnings releases; no guidance is shown.");
 
   const latest = releases[0];
+  // A dated issuer production statement remains visible even if model prose
+  // chooses a weaker or earlier roadmap description. Keep the source wording.
+  for (const sentence of splitSentences(latest?.releaseNarrative ?? "").filter((s) => /\bnow in full production\b/i.test(s)).slice(0, 2)) {
+    if (sentence.length <= 500) notes.push(`Issuer production milestone (8-K EX-99.1 ${latest!.accession}, filed ${latest!.filingDate}): ${sentence}`);
+  }
   const fcfCurrencyOk = latest !== undefined && symbolCurrency("$", currency) === currency && currency !== null;
   const freeCashFlow = latest && fcfCurrencyOk
     ? latest.freeCashFlow
@@ -435,9 +441,23 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         const name = table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
           : all.findIndex((t) => t.kind === "commitments") === index ? "future commitments" : "additional commitments";
         const source = releaseRef(commitmentRelease, commitmentRelease.commitmentsExhibit ?? "EX-99.1");
+        // Saved bundles may carry the former parser's date borrowed from an
+        // adjacent commitments table. Re-establish guarantee dates from the
+        // same exhibit's own table, including during deterministic replay.
+        const sourceNarrative = commitmentRelease.commitmentsExhibit === "EX-99.2"
+          ? commitmentRelease.commentaryNarrative : commitmentRelease.releaseNarrative;
+        const localGuarantee = table.kind === "guarantees" ? parseCommitmentTables(sourceNarrative ?? "").find((candidate) =>
+          candidate.kind === "guarantees" && candidate.total === table.total &&
+          candidate.rows.length === table.rows.length && candidate.rows.every((row, i) =>
+            row.label === table.rows[i]!.label && row.total === table.rows[i]!.total)) : undefined;
+        const asOf = table.kind === "guarantees" ? localGuarantee?.asOf ?? null : table.asOf;
+        if (table.kind === "guarantees" && localGuarantee !== undefined) {
+          const header = /The following table summarizes the maximum gross exposure related to our guarantees[^:]{0,220}\(in (?:billions|millions)\)/i.exec(sourceNarrative ?? "")?.[0];
+          if (header !== undefined) notes.push(`Guarantee table scope (${source.form} ${source.exhibit}, filed ${source.filingDate}): ${header}.`);
+        }
         return [
-          ...table.rows.map((row) => ({ kind: table.kind, table: name, asOf: table.asOf, label: safeText(row.label, "(row label withheld)"), total: row.total, tableTotal: false, source })),
-          ...(table.total === null ? [] : [{ kind: table.kind, table: name, asOf: table.asOf, label: "Total", total: table.total, tableTotal: true, source }]),
+          ...table.rows.map((row) => ({ kind: table.kind, table: name, asOf, label: safeText(row.label, "(row label withheld)"), total: row.total, tableTotal: false, source })),
+          ...(table.total === null ? [] : [{ kind: table.kind, table: name, asOf, label: "Total", total: table.total, tableTotal: true, source }]),
         ];
       })
     : [];
@@ -516,16 +536,31 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
         qualifier: f.qualifier, computed: f.computed, sourceTag, source, text: safeText(f.text, "The source sentence is withheld from display by the rating-language filter.") });
     }
   };
+  const concentrationScope = (section: ExtractedSection): { asOf: string | null; fiscalYear: number | null; quarter: number | null } => {
+    const asOf = day(section.reportDate);
+    const releaseFiscal = releases.find((r) => r.reported.periodEnd === asOf)?.reported.fiscal;
+    const annualRows = bundle.statements.incomeAnnual;
+    const annual = annualRows.ok ? annualRows.value.data.rows.find((r) => day(r.date) === asOf) : undefined;
+    const annualYear = typeof annual?.fiscalYear === "string" && /^\d{4}$/.test(annual.fiscalYear) ? Number(annual.fiscalYear) : null;
+    return { asOf, fiscalYear: releaseFiscal?.fiscalYear ?? annualYear, quarter: section.form === "10-K" ? null : releaseFiscal?.fiscalQuarter ?? null };
+  };
+  // Prefer MD&A's revenue paragraph: it also states the separate indirect-
+  // customer estimate. Notes supply receivables shares and extended terms.
+  const mdna = sectionRef(bundle.edgar?.tenQMdna);
+  if (mdna !== null) add(parseCustomerConcentrationFacts(mdna.data.text, concentrationScope(mdna.data)), "edgar:10-Q item2", mdna.ref);
   const notes = sectionRef(bundle.edgar?.tenQNotes);
   if (notes !== null) {
+    add(parseCustomerConcentrationFacts(notes.data.text, concentrationScope(notes.data)), "edgar:10-Q notes", notes.ref);
     add(parseStatementFacts(notes.data.statementsText ?? ""), "edgar:10-Q statements", notes.ref);
     add(parseInvestmentFacts(notes.data.text, day(notes.data.reportDate)), "edgar:10-Q notes", notes.ref);
     add(parseCommitmentFacts(notes.data.text), "edgar:10-Q notes", notes.ref);
   }
-  const mdna = sectionRef(bundle.edgar?.tenQMdna);
   if (mdna !== null) add(parseCommitmentFacts(mdna.data.text), "edgar:10-Q item2", mdna.ref);
   const annual = sectionRef(bundle.edgar?.tenKNotes);
-  if (annual !== null) add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref);
+  if (annual !== null) {
+    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref);
+    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), "edgar:10-K notes", annual.ref);
+  }
   for (const goodwill of annualTagValues(bundle, "Goodwill", currency)) {
     facts.push({ key: "goodwill", label: "goodwill (balance sheet)", value: goodwill.value, unit: "currency", asOf: goodwill.end, period: null, qualifier: null,
       computed: null, sourceTag: "edgar:xbrl us-gaap/Goodwill", source: goodwill.ref, text: `us-gaap/Goodwill ${goodwill.value} ${currency} at ${goodwill.end} (10-K ${goodwill.ref.accession})` });

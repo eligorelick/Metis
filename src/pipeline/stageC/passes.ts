@@ -2570,9 +2570,21 @@ function claimSourceMatch(
       // bull/base/bear 25/50/25 (review, 2026-10-13); prose that states the
       // numbers some other way fails closed.
       const allowed = cited.flatMap((record) => record.allowedNumbers ?? []);
+      // A full officer filing may share a tag with a restricted transition
+      // summary. A parsed package supports its exact recipient and amount,
+      // without opening every amount in that filing to every named person.
+      // Require the recipient as the explicit subject, never mere presence
+      // elsewhere in the source. Excerpt metric/unit checks still follow.
+      const packages = numericRegistry.filter((record) => record.subject !== undefined && record.origin === sourceId && record.asOf === asOf);
+      const packageMatched = stated.length === 1 && packages.some((record) => {
+        const subject = record.subject!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^\\s*${subject}(?:['’]s)?\\s+`, "i").test(claim.text) && stated[0] === record.value;
+      });
+      if (stated.length > 0 && packages.length > 0 && !packageMatched) return { supported: false, reason: "value-mismatch" };
       if (
         (stated.length > 0 || statesNumberWord(claim.text)) &&
         cited.some((record) => record.allowedNumbers !== undefined) &&
+        !packageMatched &&
         (stated.length !== allowed.length || stated.some((value, i) => value !== allowed[i]))
       ) {
         return { supported: false, reason: "value-mismatch" };

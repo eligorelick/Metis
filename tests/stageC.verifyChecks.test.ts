@@ -279,6 +279,7 @@ describe("period check", () => {
     unit: "currency",
     currency: "USD",
     period: "2025-09-27",
+    fiscalPeriod: "FY2025",
   });
 
   it("fails a period phrase that names another year", () => {
@@ -291,7 +292,7 @@ describe("period check", () => {
     expect(finding?.figure).toContain("416161000000 currency USD");
   });
 
-  it("keeps the existing fiscal-spelling tolerance: FY2025 IS the 2025-09-27 column", () => {
+  it("uses explicit fiscal metadata for FY2025 and calendar dates for calendar-year prose", () => {
     for (const phrase of ["FY2025", "fiscal 2025", "Q4 2025", "in 2025"]) {
       const result = run(refs(claim(`Revenue in ${phrase} was $416.2 billion.`, fy.id)), [fy]);
       expect(result.checks.period).toEqual({ checked: 1, passed: 1, failed: 0, rate: 1 });
@@ -310,7 +311,7 @@ describe("period check", () => {
     // The module rule is locate-first. The period check used to run before the
     // guard, so "in FY2024" around a figure the sentence never wrote was judged
     // against the cited record's period.
-    const dated = numeric({ value: 6.4, period: "2025-09-27" });
+    const dated = numeric({ value: 6.4, period: "2025-09-27", fiscalPeriod: "FY2025" });
     const result = run(refs(claim("Revenue growth was strong in FY2024.", dated.id)), [dated]);
     expect(result.checks.period.checked).toBe(0);
     expect(result.findings).toEqual([]);

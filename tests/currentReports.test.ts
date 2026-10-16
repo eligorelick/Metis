@@ -499,6 +499,15 @@ describe("D-63 filing evidence", () => {
     const tables = parseCommitmentTables(Q2_COMMENTARY);
     expect(tables.map((t) => [t.kind, t.total])).toEqual([["commitments", 366e9], ["commitments", 56e9], ["guarantees", 108.5e9]]);
     expect(tables[0]!.rows).toContainEqual({ label: "Supply and capacity", total: 279e9 });
+    expect(tables[0]!.asOf).toBe("2026-07-26");
+    // The later guarantees header explicitly includes agreements signed in
+    // August; July's earlier commitments header cannot date that table.
+    expect(tables.find((t) => t.kind === "guarantees")!.asOf).toBeNull();
+    const legacyBundle = nvdaBundle();
+    if (!legacyBundle.edgar.currentReports?.ok) throw new Error("fixture reports missing");
+    legacyBundle.edgar.currentReports.value.data.releases[0]!.commitments!.find((t) => t.kind === "guarantees")!.asOf = "2026-07-26";
+    expect(buildFilingDisclosures(legacyBundle)!.commitments!.find((r) => r.label === "SB Energy Corp. guarantees")!.asOf).toBeNull();
+    expect(buildFilingDisclosures(legacyBundle)!.notes.join(" ")).toContain("including the SB Energy Corp. guarantees signed in August 2026");
     const recon = parseReconciliation(Q2_COMMENTARY);
     const at = (metric: string, periodEnd: string) => recon.find((f) => f.metric === metric && f.periodEnd === periodEnd && f.months === 3)?.value;
     expect([at("principal-payments-property-equipment", "2026-07-26"), at("equity-securities-gains", "2026-04-26"), at("non-gaap-diluted-eps", "2026-07-26")])
@@ -510,9 +519,14 @@ describe("D-63 filing evidence", () => {
     const record = (id: string) => payload.provenanceRegistry!.find((r) => r.id === id);
     expect(record("payload.issuer-filings.principal-payments-on-property-and-equipment-and-intangible-assets-three-months-ended-2026-07-26")).toMatchObject({ value: 59e6, currency: "USD" });
     expect(record("payload.issuer-filings.supply-and-capacity-future-commitments-as-of-2026-07-26")).toMatchObject({ value: 279e9, currency: "USD" });
-    expect(record("payload.issuer-filings.sb-energy-corp-guarantees-guarantees-maximum-gross-exposure-as-of-2026-07-26")).toMatchObject({ value: 105e9 });
+    expect(payload.provenanceRegistry!.find((r) => r.label?.startsWith("SB Energy Corp. guarantees"))).toMatchObject({ value: 105e9, period: null });
     expect(record("computed.quarterly-trend.net-gains-from-equity-securities-quarter-ended-2026-07-26")).toMatchObject({ value: 7_771e6, currency: "USD" });
     expect(record("computed.quarterly-trend.non-gaap-diluted-eps-quarter-ended-2026-07-26")).toMatchObject({ value: 2.22, unit: "currency-per-share" });
+  });
+
+  it("dates guarantees only from their own table heading", () => {
+    const text = "Future commitments by fiscal year as of July 26, 2026, were as follows: 2027 Total (In billions) Supply $ 1 1 Total $ 1 1. The following table summarizes maximum gross exposure related to our guarantees as of August 26, 2026 (in billions): Partner guarantees $ 105 Total $ 105";
+    expect(parseCommitmentTables(text).find((t) => t.kind === "guarantees")).toMatchObject({ asOf: "2026-08-26", total: 105e9 });
   });
 
   it("validates a CFO guidance-track-record fact the gate then admits, and figures an 8-K or the commentary states in a sentence", async () => {

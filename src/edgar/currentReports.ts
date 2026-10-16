@@ -546,7 +546,10 @@ export function parseCommitmentTables(rawText: string): CommitmentTable[] {
     const rows = tableRows(text.slice(guarantees.index + guarantees[0].length, guarantees.index + guarantees[0].length + 600), 1, 8);
     const totalRow = rows.find((r) => /^Total$/i.test(r.label)) ?? null;
     const items = rows.filter((r) => r !== totalRow).map((r) => ({ label: r.label, total: r.cells[0]! * scale }));
-    const asOf = isoFromMonthDate(/as of ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4})/.exec(text.slice(Math.max(0, guarantees.index - 3_000), guarantees.index))?.[1] ?? "");
+    // This table can explicitly include guarantees signed after the quarter
+    // end. Only its own heading can establish an exact date; an earlier
+    // commitments table's date is not the guarantee table's date.
+    const asOf = isoFromMonthDate(/as of ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4})/.exec(guarantees[0])?.[1] ?? "");
     if (items.length > 0) out.push({ kind: "guarantees", asOf, rows: items, total: totalRow === null ? null : totalRow.cells[0]! * scale });
   }
   return out;

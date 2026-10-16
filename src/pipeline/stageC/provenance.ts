@@ -56,6 +56,8 @@ export interface NumericProvenanceRecord {
   id: string;
   /** Metric identity for numeric prose; omitted only by older payloads. */
   label?: string;
+  /** Exact recipient of a parsed officer appointment-package amount. */
+  subject?: string;
   kind: "provider" | "computed";
   value: number;
   unit: CanonicalUnit;

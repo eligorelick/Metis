@@ -42,7 +42,7 @@ function quantities(text: string): Quantity[] {
   // e.g. "USD millions: Cash ... USD 56,586". That explicit declaration is
   // distinct from a claim that simply copies "$56,586" out of a scaled table.
   const declaredMoneyScale = new RegExp(String.raw`^\s*(?:${CURRENCIES}|currency)\s+(thousands?|millions?|billions?|trillions?):`, "i").exec(text)?.[1];
-  const pattern = new RegExp(String.raw`(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES})\s*)?\s*(?<sign>[-+−])?\s*(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share)?`, "gi");
+  const pattern = new RegExp(String.raw`(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES})\s*)?\s*(?<sign>[-+−])?\s*(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share|score)?`, "gi");
   const scaled: { start: number; end: number }[] = [];
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
@@ -74,10 +74,11 @@ function quantities(text: string): Quantity[] {
           : /^shares?$/.test(token) ? "shares"
             : /^days?$/.test(token) ? "days" : /^(?:people|users|subscribers|count)$/.test(token) ? "count" : null;
     if (unit === null && /\b(?:people|users|subscribers)\b/i.test(text.slice(Math.max(0, start - 90), start))) unit = "count";
-    if (scoreUnit) unit = "score";
+    if (scoreUnit || token === "score") unit = "score";
     let currency: string | null = null;
     if (prefix || /^dollars?$/.test(token)) {
-      unit = token === "per share" ? "currency-per-share" : "currency";
+      const leadingPerShare = /\bper[\s-]+share\s+(?:(?:is|was|are|were|of|at|equals?)\s+)?$/i.test(text.slice(0, start));
+      unit = token === "per share" || (token === "" && leadingPerShare) ? "currency-per-share" : "currency";
       currency = /^[A-Z]{3}$/i.test(prefix) ? prefix.toUpperCase()
         : prefix === "US$" ? "USD" : prefix === "€" ? "EUR" : prefix === "£" ? "GBP" : null;
     }
@@ -620,17 +621,19 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // names one of its endpoints ("the trailing period ended 2026-07-26").
     const window = recordWindow(record);
     const labelled = labelWindows(record);
+    const fiscalPeriod = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period ?? "") ? record.period : undefined);
     const periodAgrees = (period: PeriodReference): boolean => period.kind === "window"
       ? established.has(period.key) || labelled.has(period.key) || window?.key === period.key
-      : periodsAgree(period.label, record.period, record.fiscalPeriod ?? null) ||
+      : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
         (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start));
     // A record that carries no period cannot contradict a prose period; it can
     // only fail to establish it (NVDA final rerun: "DCF base-case year-one
     // revenue growth over trailing revenue is 82.1353%" against a period-less
     // reverse-DCF context record was counted as a contradiction).
     if (own.periods.length > 0 && !own.periods.every(periodAgrees)) {
-      return record.period === null
-        ? support("unchecked", "period-mismatch", "the cited numeric record carries no period, so the prose period cannot be checked against it")
+      const unknownFiscal = fiscalPeriod === undefined && own.periods.some((period) => /\bFY\s*\d{4}\b/i.test(period.label));
+      return record.period === null || unknownFiscal
+        ? support("unchecked", "period-mismatch", "the cited numeric record carries no compatible period or fiscal basis, so the prose period cannot be checked against it")
         : support("contradicted", "period-mismatch", "prose period is not established by the cited numeric record");
     }
     const direction = own.direction;

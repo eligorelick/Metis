@@ -44,18 +44,19 @@
  * Pure and deterministic: no clock, no network, no model.
  */
 
+import {
+  canonicalizeFetchedUrl,
+  periodsAgree,
+  type CanonicalUnit,
+  type CitationProvenanceRecord,
+  type NumericProvenanceRecord,
+} from "@/pipeline/stageC/provenance";
 import type {
   CheckRate,
   ConsistencyChecks,
   SourcedClaim,
   VerificationLogEntry,
 } from "@/report/schema";
-import {
-  canonicalizeFetchedUrl,
-  type CanonicalUnit,
-  type CitationProvenanceRecord,
-  type NumericProvenanceRecord,
-} from "@/pipeline/stageC/provenance";
 import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
 
 export type ConsistencyCheckKind = NonNullable<VerificationLogEntry["check"]>;
@@ -1562,9 +1563,18 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
     if (record.period !== null) {
       const phrases = findPeriodPhrases(sentence, numbers, located);
       if (phrases.length > 0) {
-        if (phrases.some((phrase) => phraseNamesRecordYear(phrase, record.period))) {
+        const fiscal = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period) ? record.period : undefined);
+        const fiscalQuarters = phrases.filter((phrase) => /^Q[1-4]\s*(?:of\s+)?FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
+        const fiscalYears = phrases.filter((phrase) => /^FY\s*['’]?(?:19|20)?\d{2}$/i.test(phrase));
+        const explicitFiscal = fiscalQuarters.length > 0 ? fiscalQuarters : fiscalYears;
+        // An ISO calendar date alone does not establish its issuer fiscal
+        // year. Leave that comparison unchecked instead of inventing one.
+        const agrees = explicitFiscal.length > 0
+          ? fiscal === undefined ? null : explicitFiscal.some((phrase) => periodsAgree(phrase, record.period, fiscal))
+          : phrases.some((phrase) => phraseNamesRecordYear(phrase, record.period));
+        if (agrees === true) {
           period.pass();
-        } else {
+        } else if (agrees === false) {
           period.fail();
           fail(
             "period",
