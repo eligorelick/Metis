@@ -26,10 +26,15 @@
 - [x] Recover and validate D-66 verifier and filing facts; commit in evidence worktree.
 - [x] Recover and validate D-67 presentation/completeness; commit in presentation worktree.
 - [x] Merge into `claude/nvda-audit-integration`, resolving shared surfaces without losing fixes.
-- [ ] Run the complete `npm run verify` gate and investigate failures.
+- [x] Run the complete `npm run verify` gate and investigate failures.
 - [ ] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
 - [ ] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
 - [ ] Commit, push and integrate via GitHub with fresh required CI, if release gates pass.
+- [ ] Validate the preserved transport/checkpoint package and prevent timeout
+  recovery from lowering explicitly selected reasoning or speed settings.
+- [ ] After release verification, run CRWV and QCOM as separate normal-history
+  Metis analyses using GPT-6 Astra, max reasoning and standard speed; confirm
+  saved reports and requested/observed execution settings.
 
 ## Recovery evidence
 
@@ -38,3 +43,25 @@
 - D-66 commit `8548e62` survived with additional uncommitted filing-disclosure work.
 - Main checkout is on `main` with unrelated staged pipeline checkpoint/transport changes; left untouched.
 - Baseline `npm run verify` started with output in ignored `tmp/resume-baseline-verify.log`.
+- Final combined source at `bb73f2b` passed `npm run verify` (exit 0,
+  2026-10-16): 6,137 product tests and four database integration tests;
+  three existing product skips. Typecheck, lint, core coverage, enforced
+  risk-file coverage floors, production build and the zero-vulnerability
+  security audit pass. Core statement/branch/function/line coverage is
+  96.31/90.10/98.22/97.55%; aggregate risk coverage is
+  94.68/87.64/97.50/96.92%. Log: ignored `tmp/round3-release-verify.log`.
+- Independent code review reproduced the repaired currency, executive-evidence,
+  transaction-attribution, figure-deduplication and filing-clause boundaries.
+  This does not replace the fresh generated-report audit.
+
+## Remaining research and presentation limits
+
+The original audit's feature requests for a consolidated five-year financial
+summary and displayed historical multiple percentile bands remain open; current
+reports show annual growth/margin/return measures, quarterly trends and available
+history ranks. Peer medians require enough eligible comparable observations.
+Risk likelihood labels and scenario weights are judgmental, not calibrated
+probabilities. Same-family model review and bounded case truncation are disclosed.
+The round-three source-selection replay retains China export/shipment context,
+Rubin production status, the customer recast, Taiwan end-customer geography and
+customer concentration; final analyst prose still requires an output audit.
