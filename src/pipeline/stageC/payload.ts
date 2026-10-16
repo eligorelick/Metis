@@ -90,8 +90,17 @@ export const PAYLOAD_BUDGETS = {
   item1aLongShare: 0.2,
   /** D-63: annual business description — 10-K Item 1 or 20-F Item 4. */
   businessChars: 12_000,
-  /** D-63: the latest 10-Q's notes to the financial statements (Part I Item 1). */
-  tenQNotesChars: 12_000,
+  /**
+   * D-63: the latest 10-Q's notes to the financial statements (Part I Item 1).
+   * D-66: 14,000 (was 12,000): a quarter of it now goes first to the quantified
+   * customer concentration, payment terms and end-customer statements, which
+   * the families had left out (3 of 16 concentration passages kept).
+   */
+  tenQNotesChars: 14_000,
+  /** D-66: the 10-K's notes (business combinations, goodwill, investments, commitments, segment footnotes). */
+  tenKNotesChars: 10_000,
+  /** D-66: the latest 10-Q's Part II Item 5 (Rule 10b5-1 trading arrangements), normally kept whole. */
+  tenQOtherChars: 2_500,
   /** Annual review excerpt: 10-K Item 7 or 20-F Item 5. */
   mdnaChars: 14_000,
   /**
@@ -254,6 +263,8 @@ export interface ContextPayload {
   segmentRevenue?: PayloadSection;
   /** Guidance, issuer-defined FCF and capital return from the latest 8-K EX-99 release. */
   issuerFilings?: PayloadSection;
+  /** D-66: facts the 10-Q/10-K notes and statements and the CFO commentary print beyond the typed statements. */
+  filingFacts?: PayloadSection;
   /** Analyst estimates / price-target consensus / grades summary. */
   estimates: PayloadSection;
   /** Peer set (symbol + name + headline size). */
@@ -1748,8 +1759,12 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     PAYLOAD_BUDGETS.mdnaChars,
     (form) => (form === "20-F" ? "edgar:20-F item5" : "edgar:10-K item7"),
   );
-  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2");
+  // D-66: the 10-Q MD&A keeps its concentration-of-revenue statements first.
+  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2", "interim");
   add(bundle.edgar.tenQNotes, () => "10-Q Part I Item 1 — Notes to the financial statements", PAYLOAD_BUDGETS.tenQNotesChars, () => "edgar:10-Q notes", "notes");
+  // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
+  add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
+  add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
   out.push(...currentReportExcerpts(bundle));
   return out;
 }
@@ -1926,6 +1941,36 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   notes.push(disclosures.currencyBasis);
   if (figures.length === 0 && g === null && cr === null && disclosures.notes.length === 0) return undefined;
   return payloadSection({ title: "Issuer guidance, free cash flow & capital return (8-K earnings release)", figures, notes });
+}
+
+/**
+ * D-66: the facts the 10-Q statements and notes, the 10-Q MD&A, the 10-K
+ * notes, the XBRL goodwill balance and the two newest CFO commentaries state
+ * that no typed statement row carries, each under its own tag, and the
+ * commentary's stated outlook as text.
+ */
+function filingFactsSection(disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
+  const facts = disclosures?.filingFacts ?? [];
+  const outlook = disclosures?.commentaryOutlook ?? [];
+  if (facts.length === 0 && outlook.length === 0) return undefined;
+  const currency = disclosures?.currency ?? null;
+  const figures: PayloadFigureInput[] = facts.map((f) => ({
+    label: `${f.label}${f.qualifier === null ? "" : ` (${f.qualifier})`}${f.period !== null ? `, ${f.period}` : f.asOf !== null ? `, as of ${f.asOf}` : ""}`,
+    value: f.value,
+    unit: f.unit === "percent" ? "%" : f.unit,
+    currency: f.unit === "currency" ? currency : null,
+    period: f.asOf,
+    source: f.sourceTag,
+    asOf: f.source.filingDate,
+  }));
+  for (const o of outlook) {
+    figures.push({ label: o.topic, value: o.text, unit: "", source: `edgar:8-K ${o.source.exhibit ?? "EX-99"} ${o.source.accession}`, asOf: o.source.filingDate });
+  }
+  const notes = [
+    "Read from the filings' own sentences and tables (10-Q statements and notes, 10-Q MD&A, 10-K notes, us-gaap/Goodwill, 8-K CFO commentary); a cash-flow line is the amount paid or received in its window, without sign.",
+    ...facts.filter((f) => f.computed !== null).map((f) => `${f.label} is computed: ${f.computed} (${f.sourceTag}, ${f.source.form} ${f.source.accession}).`),
+  ];
+  return payloadSection({ title: "Filing notes, statements and commentary: investments, commitments, deals, working capital", figures, notes });
 }
 
 /** Segment revenue for the latest quarter, the prior quarter and the year-ago quarter (provider rows). */
@@ -2435,6 +2480,7 @@ function attachProvenanceRegistry(
   const remainingSections: [string, PayloadSection][] = [
     ...(payload.segmentRevenue === undefined ? [] : [["payload.segment-revenue", payload.segmentRevenue] as [string, PayloadSection]]),
     ...(payload.issuerFilings === undefined ? [] : [["payload.issuer-filings", payload.issuerFilings] as [string, PayloadSection]]),
+    ...(payload.filingFacts === undefined ? [] : [["payload.filing-facts", payload.filingFacts] as [string, PayloadSection]]),
     ["payload.estimates", payload.estimates],
     ["payload.peers", payload.peers],
     ["payload.insiders", payload.insiders],
@@ -2624,6 +2670,7 @@ export function assembleContextPayload(
   const quarterlyTrend = quarterlyTrendSection(bundle, disclosures);
   const segmentRevenue = segmentRevenueSection(bundle);
   const issuerFilings = issuerFilingsSection(disclosures);
+  const filingFacts = filingFactsSection(disclosures);
   const missingData = mergeManifest([
     bundle.gaps,
     computed.gaps,
@@ -2648,6 +2695,7 @@ export function assembleContextPayload(
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
     ...(segmentRevenue === undefined ? {} : { segmentRevenue }),
     ...(issuerFilings === undefined ? {} : { issuerFilings }),
+    ...(filingFacts === undefined ? {} : { filingFacts }),
     estimates: estimatesSection(bundle, issuer),
     peers: peersSection(bundle, issuer),
     insiders: insidersSection(bundle),
@@ -2841,6 +2889,7 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
   if (payload.quarterlyTrend) parts.push(renderUntrustedSection(payload.quarterlyTrend));
   if (payload.segmentRevenue) parts.push(renderUntrustedSection(payload.segmentRevenue));
   if (payload.issuerFilings) parts.push(renderUntrustedSection(payload.issuerFilings));
+  if (payload.filingFacts) parts.push(renderUntrustedSection(payload.filingFacts));
   parts.push(renderSection(payload.estimates));
   parts.push(renderUntrustedSection(payload.peers));
   parts.push(renderUntrustedSection(payload.insiders));

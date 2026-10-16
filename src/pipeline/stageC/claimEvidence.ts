@@ -38,7 +38,11 @@ const SIGN_WORD = /\b(?:negative|minus)\s+$/i;
 
 function quantities(text: string): Quantity[] {
   const masked = proseQuantityText(text).replace(WINDOW_LABEL, (match) => " ".repeat(match.length));
-  const pattern = new RegExp(String.raw`(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES})\s*)?\s*(?<sign>[-+−])?\s*(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|people|users|subscribers|count|times|x|per share)?`, "gi");
+  // TracedNumber excerpts declare their display scale before the metric,
+  // e.g. "USD millions: Cash ... USD 56,586". That explicit declaration is
+  // distinct from a claim that simply copies "$56,586" out of a scaled table.
+  const declaredMoneyScale = new RegExp(String.raw`^\s*(?:${CURRENCIES}|currency)\s+(thousands?|millions?|billions?|trillions?):`, "i").exec(text)?.[1];
+  const pattern = new RegExp(String.raw`(?<prefix>US\$|[$€£¥]|(?:${CURRENCIES})\s*)?\s*(?<sign>[-+−])?\s*(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?<scale>thousands?|millions?|billions?|trillions?|bn|mm|k|m|b)?\s*(?<unit>%|percentage points?|percent|bps?|basis points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|x|per share)?`, "gi");
   const scaled: { start: number; end: number }[] = [];
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
@@ -61,14 +65,14 @@ function quantities(text: string): Quantity[] {
     }
     const signWord = SIGN_WORD.exec(masked.slice(Math.max(0, start - 12), start));
     if (signWord !== null && !groups.sign) start -= signWord[0].length;
-    const scale = SCALES[(groups.scale ?? "").toLowerCase()] ?? 1;
+    const scale = SCALES[(groups.scale ?? (groups.prefix ? declaredMoneyScale : undefined) ?? "").toLowerCase()] ?? 1;
     const token = (groups.unit ?? "").toLowerCase();
     const prefix = (groups.prefix ?? "").trim();
     let unit: CanonicalUnit | null = /^(?:%|percent)$/.test(token) ? "percent"
       : /^(?:pp|pps|percentage point|percentage points|bp|bps|basis point|basis points)$/.test(token) ? "percentage-points"
         : /^(?:x|times)$/.test(token) ? "ratio"
           : /^shares?$/.test(token) ? "shares"
-            : /^(?:people|users|subscribers|count)$/.test(token) ? "count" : null;
+            : /^days?$/.test(token) ? "days" : /^(?:people|users|subscribers|count)$/.test(token) ? "count" : null;
     if (unit === null && /\b(?:people|users|subscribers)\b/i.test(text.slice(Math.max(0, start - 90), start))) unit = "count";
     if (scoreUnit) unit = "score";
     let currency: string | null = null;
@@ -84,7 +88,8 @@ function quantities(text: string): Quantity[] {
     const accountingNegative = /\(\s*$/.test(masked.slice(0, start)) && /^\s*\)/.test(masked.slice(end));
     return [{ start, end, value: (groups.sign === "-" || groups.sign === "−" || accountingNegative || signWord !== null ? -1 : 1) *
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
-    step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token), scaled: groups.scale !== undefined }];
+    step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
+    scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined) }];
   });
 }
 
@@ -320,8 +325,10 @@ function labelWindows(record: NumericProvenanceRecord): Set<string> {
 const LABEL_WINDOW = /(?<!\b(?:for|during|over)\s+(?:the\s+)?(?:full\s+)?(?:fiscal\s+)?)\b(?:(quarter)|(?:fiscal\s+)?year)(?=[\s‐‑–—-]+end(?:ed|ing)\b)/gi;
 /** D-66: an axis label ("Product / market platform: Data Center revenue …") classifies the row; it does not define it. */
 function withoutAxis(label: string): string | null {
-  const match = /^([^:\d]{2,40}):\s+(\S[\s\S]*)$/.exec(label);
-  return match !== null && match[1]!.trim().split(/\s+/).length <= 4 ? match[2]! : null;
+  // Only the axes emitted by segmentRevenueSection are classification labels.
+  // Arbitrary prefixes ("non-GAAP:", "excluding acquisitions:") define the figure.
+  const match = /^(?:Product \/ market platform|Reportable segment|Geography):\s+(\S[\s\S]*)$/.exec(label);
+  return match?.[1] ?? null;
 }
 /**
  * D-66: "net income (NI)", "operating cash flow (CFO)": a parenthetical
@@ -376,7 +383,7 @@ function support(status: ClaimNumericSupport["status"], reason: ClaimNumericSupp
  * under the Agreements"), which demanding in the claim failed every figure a
  * filing states in a sentence (NVDA, 2026-10-15: six correct figures untraced).
  */
-const DEFINITION_MODIFIERS = new Set(["non-gaap", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
+const DEFINITION_MODIFIERS = new Set(["gaap", "non-gaap", "net", "adjusted", "excluding", "exclude", "excludes", "ex", "pro-forma", "proforma",
   "organic", "underlying", "core", "normalized", "diluted", "basic", "gross", "operating", "pre-tax", "pretax", "after-tax",
   "segment", "not", "no", "without", "constant", "incremental", "cumulative", "average"]);
 function excerptNamesMetric(claim: string[], source: string[]): boolean {
@@ -451,7 +458,12 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
     const k = header.columns.length;
     if (r - q + 1 === k && metricTokens(lead, []).length > 0) {
       const named = [...text.slice(Math.max(0, header.start - 160), header.start).matchAll(MONTHS_ENDED)].map((m) => m[1]!.toLowerCase());
-      const windows = named.length === header.runs ? named.map((months) => periodLabels(`${months} months ended`)[0] ?? null) : [];
+      // Many statements have no change columns: repeated identical date runs
+      // still establish which half belongs to each explicitly named window.
+      const runWidth = k / named.length;
+      const repeatedRuns = header.runs === 1 && named.length > 1 && Number.isInteger(runWidth) && runWidth >= 2 &&
+        header.columns.every((column, index) => column !== null && column.date === header.columns[index % runWidth]?.date);
+      const windows = named.length === header.runs || repeatedRuns ? named.map((months) => periodLabels(`${months} months ended`)[0] ?? null) : [];
       // "(In millions)" between the header and the row scales an unscaled cell.
       const scaleMatch = [...text.slice(header.start, found[q]!.start).matchAll(TABLE_SCALE)].at(-1);
       const scaleWord = scaleMatch?.[1]?.toLowerCase();
@@ -462,7 +474,7 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
         const column = header.columns[c];
         const period = column ? periodLabels(column.date)[0] : undefined;
         if (column && period !== undefined) {
-          out.set(found[q + c]!, { label: lead, period, window: windows[column.run] ?? null, scale, dollars, rowStart: Math.max(prevEnd, header.end) });
+          out.set(found[q + c]!, { label: lead, period, window: windows[repeatedRuns ? Math.floor(c / runWidth) : column.run] ?? null, scale, dollars, rowStart: Math.max(prevEnd, header.end) });
         }
       }
     }
@@ -646,11 +658,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "text-ambiguous", "multiple source values, periods or columns could bind the prose quantity", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
     }
     const bound = matchingPeriods[0];
-    // D-66: "$ 496" under "($ in millions)" is USD 496 million when the prose
-    // states a scale; a figure copied as printed ("USD millions: … $496")
-    // keeps the printed magnitude.
+    // A header's scale defines the source amount regardless of whether prose
+    // spells its amount with a scale word or with all digits.
     const tableScale = bound.column?.scale ?? 1;
-    const candidate = tableScale !== 1 && quantity.scaled
+    const candidate = tableScale !== 1 && !bound.quantity.scaled
       ? { ...bound, quantity: { ...bound.quantity, value: bound.quantity.value * tableScale, step: bound.quantity.step * tableScale } }
       : bound;
     const sourceDirection = directionOf(candidate);

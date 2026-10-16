@@ -69,6 +69,19 @@ describe("D-66 record-backed prose", () => {
       unit: "currency", currency: "USD", period: "2026-01-25", asOf: "2026-01-25" });
     expect(check("Accrual operand net income as of 2026-01-25 was USD 120.067 billion.", ni)).toBe("validated");
   });
+
+  it("never drops an arbitrary colon-scoped definition as though it were a segment axis", () => {
+    expect(check("Gross margin was 74%.", record({ id: "computed.margin", label: "non-GAAP: gross margin", value: 74, unit: "percent" }))).toBe("unchecked");
+    expect(check("Revenue was USD 10 million.", record({ id: "computed.revenue", label: "excluding acquisitions: revenue", value: 10e6, unit: "currency", currency: "USD" }))).toBe("unchecked");
+  });
+
+  it("checks DSO in days and retains excerpt GAAP and net definitions", () => {
+    const dso = record({ id: "payload.filing-facts.dso", label: "days sales outstanding (DSO)", value: 60, unit: "days" });
+    expect(check("Days sales outstanding (DSO) was 60 days.", dso)).toBe("validated");
+    expect(check("Days sales outstanding (DSO) was 45 days.", dso)).toBe("contradicted");
+    const source: TextExcerpt = { title: "Filing", text: "GAAP gross margin was 74%. Net revenue was USD 10 million.", source: "edgar:10-Q item2", asOf: null, truncated: false, originalChars: 80 };
+    for (const text of ["Gross margin was 74%.", "Revenue was USD 10 million."]) expect(validateClaimNumericSupport({ label: "FACT", text, source: source.source, asOf: null }, { excerpts: [source], sourceId: source.source, reportingCurrency: "USD" }).status).toBe("unchecked");
+  });
 });
 
 describe("D-66 excerpt tables", () => {
@@ -96,5 +109,18 @@ describe("D-66 excerpt tables", () => {
 
   it("reads a sentence's figure through its 'and' when no other figure follows", () => {
     expect(check("The H200 excess-inventory and purchase-obligation charge for the first half of fiscal 2027 was USD 0.4 billion.")).toBe("validated");
+  });
+
+  it("always applies a table's stated scale, including amounts written without scale words", () => {
+    expect(check("Interest income for the second quarter of fiscal 2027 was USD 496.")).toBe("contradicted");
+    expect(check("Interest income for the second quarter of fiscal 2027 was USD 496,000,000.")).toBe("unchecked");
+  });
+
+  it("binds quarter and year-to-date columns when there are no change columns", () => {
+    const source = { ...excerpt, text: "Three Months Ended Six Months Ended Jul 26, 2026 Jul 27, 2025 Jul 26, 2026 Jul 27, 2025 ($ in millions) Revenue $ 96,221 $ 46,743 $ 177,837 $ 90,805" };
+    const checkTable = (text: string) => validateClaimNumericSupport({ label: "FACT", text, source: source.source, asOf: source.asOf }, { excerpts: [source], sourceId: source.source, reportingCurrency: "USD" }).status;
+    expect(checkTable("Revenue for the three months ended July 26, 2026 was USD 96,221 million.")).toBe("validated");
+    expect(checkTable("Revenue for the six months ended July 26, 2026 was USD 177,837 million.")).toBe("validated");
+    expect(checkTable("Revenue for the three months ended July 26, 2026 was USD 177,837 million.")).not.toBe("validated");
   });
 });

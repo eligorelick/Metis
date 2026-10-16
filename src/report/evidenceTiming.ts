@@ -22,8 +22,9 @@ export const EvidenceTimingSchema = z.object({
 export type EvidenceTiming = z.infer<typeof EvidenceTimingSchema>;
 
 const STATEMENTS = ["incomeAnnual", "incomeQuarterly", "balanceAnnual", "balanceQuarterly", "cashflowAnnual", "cashflowQuarterly"] as const;
-// D-63: the business description and the 10-Q notes are filing evidence too.
-const FILINGS = ["latestTenK", "latestTenQ", "item1a", "mdna", "tenQMdna", "business", "tenQNotes"] as const;
+// D-63: the business description and the 10-Q notes are filing evidence too;
+// D-66: so are the 10-K notes and the 10-Q Part II Item 5.
+const FILINGS = ["latestTenK", "latestTenQ", "item1a", "mdna", "tenQMdna", "business", "tenQNotes", "tenKNotes", "tenQOther"] as const;
 interface FilingDates { form?: string; reportDate?: string; filingDate?: string }
 interface StatementDates { date?: string; filingDate?: string }
 /** Narrow input keeps the disclosure independently testable; DataBundle satisfies it. */

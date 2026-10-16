@@ -37,13 +37,16 @@
 export interface SectionSpec {
   form: "10-K" | "10-Q" | "20-F";
   /**
-   * 10-K: "1" (Business), "1A" (Risk Factors) or "7" (MD&A).
+   * 10-K: "1" (Business), "1A" (Risk Factors), "7" (MD&A), "8" (Financial
+   *       Statements and Supplementary Data) or "15" (Exhibits and Financial
+   *       Statement Schedules, where some filers place the statements; D-66).
    * 10-Q: "1" = Part I Item 1 (Financial Statements and their notes),
-   *       "2" = Part I Item 2 (MD&A), "1A" = Part II Item 1A (Risk Factors).
+   *       "2" = Part I Item 2 (MD&A), "1A" = Part II Item 1A (Risk Factors),
+   *       "5" = Part II Item 5 (Other Information: Rule 10b5-1 arrangements; D-66).
    * 20-F: "3D" (Risk Factors), "4" (Information on the Company) or "5"
    *       (Operating and Financial Review).
    */
-  item: "1" | "1A" | "7" | "2" | "3D" | "4" | "5";
+  item: "1" | "1A" | "7" | "8" | "15" | "2" | "3D" | "4" | "5";
   /** 10-Q only; defaults: items "1" and "2" → part 1, item "1A" → part 2. */
   part?: 1 | 2;
 }
@@ -122,7 +125,7 @@ export interface ExtractOptions {
   preparsed?: ParsedDocument;
 }
 
-export type SectionKind = "mdna" | "riskFactors" | "business" | "financialStatements";
+export type SectionKind = "mdna" | "riskFactors" | "business" | "financialStatements" | "otherInformation";
 
 // ---------------------------------------------------------------------------
 // Text utilities (exported for tests)
@@ -502,6 +505,17 @@ const TENK_SEQUENCE: ItemDef[] = [
   { id: "7A", title: /Quantitative[\s]+and[\s]+Qualitative/i },
   { id: "8", title: /Financial[\s]+Statements[\s]+and[\s]+Supplementary/i },
   { id: "9", title: /Changes[\s]+in[\s]+and[\s]+Disagreements/i },
+  // D-66: Parts III and IV bound Item 15, where some filers put the statements.
+  { id: "9A", title: /Controls[\s]+and[\s]+Procedures/i },
+  { id: "9B", title: /Other[\s]+Information/i },
+  { id: "9C", title: /Disclosure[\s]+Regarding[\s]+Foreign/i },
+  { id: "10", title: /Directors,?[\s]+Executive[\s]+Officers/i },
+  { id: "11", title: /Executive[\s]+Compensation/i },
+  { id: "12", title: /Security[\s]+Ownership/i },
+  { id: "13", title: /Certain[\s]+Relationships/i },
+  { id: "14", title: /Principal[\s]+Account(?:ant|ing)/i },
+  { id: "15", title: /Exhibits?,?[\s]+(?:and[\s]+)?Financial[\s]+Statement/i },
+  { id: "16", title: /Form[\s]+10-K[\s]+Summary/i },
 ];
 
 const TENQ_P1_SEQUENCE: ItemDef[] = [
@@ -538,9 +552,12 @@ const SECTION_KIND: Record<string, SectionKind> = {
   "10-K:1": "business",
   "10-K:1A": "riskFactors",
   "10-K:7": "mdna",
+  "10-K:8": "financialStatements",
+  "10-K:15": "financialStatements",
   "10-Q:1": "financialStatements",
   "10-Q:2": "mdna",
   "10-Q:1A": "riskFactors",
+  "10-Q:5": "otherInformation",
   "20-F:3D": "riskFactors",
   "20-F:4": "business",
   "20-F:5": "mdna",
@@ -554,6 +571,7 @@ const TITLE_SYNONYMS: Record<SectionKind, string[]> = {
   // "Information on the Company".
   business: ["information on the company"],
   financialStatements: ["financial statements (unaudited)", "condensed consolidated financial statements", "financial statements"],
+  otherInformation: ["other information"],
 };
 
 /** Contents-TOC entries that terminate a redirected section slice. */
@@ -594,7 +612,11 @@ const BOUNDARY_SYNONYMS: Record<SectionKind, string[]> = {
     "management's discussion and analysis",
     "quantitative and qualitative disclosures",
     "controls and procedures",
+    "changes in and disagreements",
+    "form 10-k summary",
+    "signatures",
   ],
+  otherInformation: ["exhibits", "signatures"],
 };
 
 function specKind(spec: SectionSpec): SectionKind {
@@ -1323,6 +1345,27 @@ export function notesToFinancialStatements(itemText: string): { text: string; st
     if (FIRST_NOTE_RE.test(after)) return { text: itemText.slice(match.index), start: match.index };
   }
   return null;
+}
+
+/**
+ * D-66: where an annual filing's notes end — at the valuation-and-qualifying-
+ * accounts schedule, the exhibit index or Item 16 — whichever comes first
+ * after the notes begin. Item 15 carries all three after the last note.
+ */
+const ANNUAL_NOTES_END_RE = /\bSchedule II\b|\bExhibit Index\b|\bEXHIBIT INDEX\b|\bItem 16\.?\s/g;
+
+/**
+ * D-66: the notes of a 10-K Item 8 (or Item 15): from the notes heading
+ * ({@link notesToFinancialStatements}) to the schedules or exhibit index.
+ * Null when no notes heading is found.
+ */
+export function annualNotesToFinancialStatements(itemText: string): { text: string; start: number } | null {
+  const notes = notesToFinancialStatements(itemText);
+  if (notes === null) return null;
+  for (const end of notes.text.matchAll(ANNUAL_NOTES_END_RE)) {
+    if (end.index > 1_000) return { text: notes.text.slice(0, end.index).trimEnd(), start: notes.start };
+  }
+  return notes;
 }
 
 // ---------------------------------------------------------------------------

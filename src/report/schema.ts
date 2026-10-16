@@ -2136,6 +2136,75 @@ export const FilingDisclosuresSchema = z
     ).optional(),
     /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
     nonGaapBasisNote: z.string().nullable().optional(),
+    /**
+     * D-66: figures the notes, the condensed statements and the CFO
+     * commentary print that no typed statement row carries (investment scale,
+     * lock-ups, commitments, a deal's consideration and goodwill, DSO), in the
+     * statements' currency. Optional on older reports.
+     */
+    filingFacts: z.array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        value: z.number(),
+        unit: z.enum(["currency", "days", "shares", "count", "percent"]),
+        asOf: IsoDaySchema.nullable(),
+        period: z.string().nullable(),
+        qualifier: z.string().nullable(),
+        computed: z.string().nullable(),
+        /** The excerpt or exhibit tag the fact is read from ("edgar:10-Q notes"). */
+        sourceTag: z.string(),
+        source: FilingRefSchema,
+        text: z.string(),
+      }).strict(),
+    ).optional(),
+    /** D-66: the CFO commentary's stated outlook for a working-capital measure ("We expect our DSO to return to more normal levels next quarter."). */
+    commentaryOutlook: z.array(z.object({ topic: z.string(), text: z.string(), source: FilingRefSchema }).strict()).optional(),
+    /**
+     * D-66: officer and director changes from 8-K Item 5.02, with whether the
+     * change was effective by the bundle date. Optional on older reports.
+     */
+    officerChanges: z.array(
+      z.object({
+        kind: z.enum(["departure", "appointment"]),
+        person: z.string(),
+        role: z.string(),
+        board: z.boolean(),
+        announced: IsoDaySchema.nullable(),
+        effective: IsoDaySchema.nullable(),
+        anticipated: z.boolean(),
+        /** The effective date is on or before the bundle date. */
+        inEffect: z.boolean(),
+        note: z.string().nullable(),
+        package: z.array(z.object({ component: z.string(), value: z.number() }).strict()),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    /** D-66: the advisory vote on named-executive-officer pay (8-K Item 5.07). */
+    sayOnPay: z.object({
+      meetingDate: IsoDaySchema.nullable(),
+      approved: z.boolean(),
+      votesFor: z.number(),
+      votesAgainst: z.number(),
+      abstentions: z.number(),
+      brokerNonVotes: z.number().nullable(),
+      /** Votes for over votes for, against and abstaining, percent (computed). */
+      supportPct: z.number(),
+      source: FilingRefSchema,
+    }).strict().optional(),
+    /** D-66: officers' and directors' Rule 10b5-1 trading arrangements (10-Q/10-K "Other Information"). */
+    tradingArrangements: z.array(
+      z.object({
+        person: z.string(),
+        role: z.string(),
+        action: z.enum(["adoption", "modification", "termination"]),
+        date: IsoDaySchema,
+        shares: z.number().nullable(),
+        includesFutureAwards: z.boolean(),
+        expires: IsoDaySchema.nullable(),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
     notes: z.array(z.string()),
   })
   .strict();

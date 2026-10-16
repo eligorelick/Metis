@@ -187,6 +187,7 @@ export const RISK_SOURCE_MANIFEST = [
   // issuer FCF, capital return, material events and XBRL segment revenue feed
   // registered payload numbers and the report, so they carry the same floor.
   "src/edgar/currentReports.ts",
+  "src/edgar/filingFacts.ts",
   "src/edgar/segmentFacts.ts",
   "src/providers/currentReports.ts",
   "src/pipeline/filingDisclosures.ts",

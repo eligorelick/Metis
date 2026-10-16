@@ -441,8 +441,9 @@ describe("D-63 filing evidence", () => {
     for (const span of item1.spans) expect(ITEM1.slice(span.start, span.end)).toBe(span.text);
     expect(item1.coverage.version).toBe("section-evidence-2/business");
 
-    const notes = selectMaterialEvidence(NOTES, 12_000, "notes");
-    expect(notes.text.length).toBeLessThanOrEqual(12_000);
+    // D-66 reserves concentration passages and raises the bounded notes budget.
+    const notes = selectMaterialEvidence(NOTES, 14_000, "notes");
+    expect(notes.text.length).toBeLessThanOrEqual(14_000);
     for (const needle of ["lock-up restrictions", "three direct customers represented 16 %, 15 %, and 13 % of total revenue",
       "issued an aggregate of $ 25.0 billion of senior unsecured notes", "to $ 279 billion", "affiliate of OpenAI Group PBC (OpenAI)", "equity method"]) {
       expect(notes.text).toContain(needle);

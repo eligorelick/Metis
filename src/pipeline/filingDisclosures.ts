@@ -12,10 +12,21 @@
  *
  * Pure: no network, no clock.
  */
-import type { DataBundle } from "@/pipeline/types";
+import type { DataBundle, ExtractedSection } from "@/pipeline/types";
+import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsReleaseRecord } from "@/providers/currentReports";
 import type { GuidanceItem, ReconciliationFact } from "@/edgar/currentReports";
+import {
+  parseBusinessCombinationFacts,
+  parseCommitmentFacts,
+  parseInvestmentFacts,
+  parseOfficerChanges,
+  parseSayOnPay,
+  parseStatementFacts,
+  parseTradingArrangements,
+  type FilingFact,
+} from "@/edgar/filingFacts";
 import { noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
 
 const SYMBOL_CURRENCY: Readonly<Record<string, string>> = { "US$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY" };
@@ -305,7 +316,11 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const currency = statementReportingCurrency(bundle);
   const releases = reports?.releases ?? [];
   const trend = quarterlyTrend(bundle, releases, currency);
-  if (reports === null && segments === null && trend.length === 0) return undefined;
+  const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases);
+  const officerChanges = officerChangeRows(reports, bundle);
+  const sayOnPay = sayOnPayRow(reports);
+  const tradingArrangements = tradingArrangementRows(bundle);
+  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && tradingArrangements.length === 0) return undefined;
   const notes: string[] = [];
 
   const guided = releases.find((r) => (r.guidance?.items.length ?? 0) > 0);
@@ -423,6 +438,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
       })
     : [];
   const basisNote = releases.find((r) => typeof r.nonGaapBasisNote === "string")?.nonGaapBasisNote ?? null;
+  // D-66: the notes', statements' and commentary's facts; officers and votes.
 
   return {
     version: "1.0.0",
@@ -441,6 +457,139 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),
     ...(basisNote === null ? {} : { nonGaapBasisNote: safeText(basisNote, "The issuer's non-GAAP basis note is withheld from display by the rating-language filter; see the release.") }),
+    ...(filingFacts.length === 0 ? {} : { filingFacts }),
+    ...(commentaryOutlook.length === 0 ? {} : { commentaryOutlook }),
+    ...(officerChanges.length === 0 ? {} : { officerChanges }),
+    ...(sayOnPay === null ? {} : { sayOnPay }),
+    ...(tradingArrangements.length === 0 ? {} : { tradingArrangements }),
     notes: notes.map((n) => safeText(n, "A disclosure note is withheld from display by the rating-language filter.")),
   };
+}
+
+type FilingFactRow = NonNullable<FilingDisclosures["filingFacts"]>[number];
+type OutlookRow = NonNullable<FilingDisclosures["commentaryOutlook"]>[number];
+
+/** A periodic-filing section's provenance, when it was read. */
+function sectionRef(res: FetchResult<ExtractedSection> | undefined): { ref: FilingRef; data: ExtractedSection } | null {
+  if (!res?.ok) return null;
+  const data = res.value.data;
+  const filed = day(data.filingDate);
+  return filed === null ? null : { ref: { form: data.form, accession: data.accession, exhibit: null, filingDate: filed, url: data.documentUrl }, data };
+}
+
+/** The last two fiscal-year-end values of an XBRL money tag, newest first (10-K facts only). */
+function annualTagValues(bundle: DataBundle, tag: string, currency: string | null): { end: string; value: number; ref: FilingRef }[] {
+  const facts = bundle.edgar?.companyFacts;
+  if (!facts?.ok || currency === null) return [];
+  const concept = facts.value.data.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown> } | undefined;
+  const units = concept?.units?.[currency];
+  const rows = Array.isArray(units) ? (units as Record<string, unknown>[]) : [];
+  const byEnd = new Map<string, { end: string; value: number; ref: FilingRef }>();
+  for (const row of rows) {
+    const end = day(row.end);
+    const filed = day(row.filed);
+    if (row.form !== "10-K" || row.fp !== "FY" || typeof row.val !== "number" || !Number.isFinite(row.val) || end === null || filed === null || typeof row.accn !== "string") continue;
+    const prior = byEnd.get(end);
+    if (prior !== undefined && prior.ref.filingDate >= filed) continue;
+    byEnd.set(end, { end, value: row.val, ref: { form: "10-K", accession: row.accn, exhibit: null, filingDate: filed, url: null } });
+  }
+  return [...byEnd.values()].sort((a, b) => b.end.localeCompare(a.end)).slice(0, 2);
+}
+
+/**
+ * D-66: the facts the 10-Q statements and notes, the 10-Q MD&A, the 10-K
+ * notes, the XBRL goodwill balance and the two newest CFO commentaries state,
+ * in the statements' currency only (a fact in another currency is left out).
+ */
+function filingFactRows(bundle: DataBundle, currency: string | null, releases: readonly EarningsReleaseRecord[]): { facts: FilingFactRow[]; outlook: OutlookRow[] } {
+  const facts: FilingFactRow[] = [];
+  const add = (found: readonly FilingFact[], sourceTag: string, source: FilingRef): void => {
+    for (const f of found) {
+      if (f.unit === "currency" && (currency === null || symbolCurrency(f.symbol, currency) !== currency)) continue;
+      // The MD&A repeats the notes' supply commitments: one row per fact.
+      if (facts.some((row) => row.key === f.key && row.label === f.label && row.asOf === f.asOf && row.value === f.value)) continue;
+      facts.push({ key: f.key, label: safeText(f.label, "(fact label withheld)"), value: f.value, unit: f.unit, asOf: f.asOf, period: f.period,
+        qualifier: f.qualifier, computed: f.computed, sourceTag, source, text: safeText(f.text, "The source sentence is withheld from display by the rating-language filter.") });
+    }
+  };
+  const notes = sectionRef(bundle.edgar?.tenQNotes);
+  if (notes !== null) {
+    add(parseStatementFacts(notes.data.statementsText ?? ""), "edgar:10-Q statements", notes.ref);
+    add(parseInvestmentFacts(notes.data.text, day(notes.data.reportDate)), "edgar:10-Q notes", notes.ref);
+    add(parseCommitmentFacts(notes.data.text), "edgar:10-Q notes", notes.ref);
+  }
+  const mdna = sectionRef(bundle.edgar?.tenQMdna);
+  if (mdna !== null) add(parseCommitmentFacts(mdna.data.text), "edgar:10-Q item2", mdna.ref);
+  const annual = sectionRef(bundle.edgar?.tenKNotes);
+  if (annual !== null) add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref);
+  for (const goodwill of annualTagValues(bundle, "Goodwill", currency)) {
+    facts.push({ key: "goodwill", label: "goodwill (balance sheet)", value: goodwill.value, unit: "currency", asOf: goodwill.end, period: null, qualifier: null,
+      computed: null, sourceTag: "edgar:xbrl us-gaap/Goodwill", source: goodwill.ref, text: `us-gaap/Goodwill ${goodwill.value} ${currency} at ${goodwill.end} (10-K ${goodwill.ref.accession})` });
+  }
+  const outlook: OutlookRow[] = [];
+  for (const release of releases.slice(0, 2)) {
+    const wc = release.workingCapital;
+    const periodEnd = release.reported.periodEnd;
+    if (wc == null || periodEnd === null) continue;
+    const source = releaseRef(release, release.commentaryUrl === null ? "EX-99.1" : "EX-99.2");
+    const sourceTag = `edgar:8-K ${source.exhibit} ${release.reported.fiscal?.label ?? periodEnd} commentary`;
+    const fiscal = release.reported.fiscal?.label ?? null;
+    const text = wc.sentence ?? "";
+    const rows: FilingFact[] = [];
+    if (wc.dso !== null) rows.push({ key: "dso", label: "days sales outstanding (DSO)", value: wc.dso, unit: "days", symbol: null, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
+    if (wc.priorDso !== null) {
+      rows.push({ key: "dso-prior", label: `days sales outstanding (DSO), ${wc.comparison === "sequential" ? "prior quarter" : "year-ago quarter"} (as stated with ${fiscal ?? periodEnd})`,
+        value: wc.priorDso, unit: "days", symbol: null, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
+    }
+    if (wc.receivables !== null) rows.push({ key: "accounts-receivable", label: "accounts receivable (CFO commentary)", value: wc.receivables, unit: "currency", symbol: wc.receivablesSymbol, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
+    add(rows, sourceTag, source);
+    if (wc.expectation !== null) outlook.push({ topic: `DSO outlook given with ${fiscal ?? `the quarter ended ${periodEnd}`} results`, text: safeText(wc.expectation, "(outlook withheld)"), source });
+  }
+  return { facts, outlook };
+}
+
+type OfficerChangeRow = NonNullable<FilingDisclosures["officerChanges"]>[number];
+
+/** D-66: Item 5.02 officer and director changes, newest filing first, in effect when dated on or before the bundle date. */
+function officerChangeRows(reports: CurrentReports | null, bundle: DataBundle): OfficerChangeRow[] {
+  const asOf = day(bundle.builtAt) ?? day(bundle.asOf?.["quote"]) ?? null;
+  const out: OfficerChangeRow[] = [];
+  for (const event of reports?.events ?? []) {
+    const filed = day(event.filingDate);
+    if (filed === null) continue;
+    for (const section of event.sections.filter((s) => s.item === "5.02")) {
+      for (const change of parseOfficerChanges(section.text)) {
+        out.push({
+          kind: change.kind, person: change.person, role: safeText(change.role, "(role withheld)"), board: change.board, announced: change.announced,
+          effective: change.effective, anticipated: change.anticipated, inEffect: change.effective !== null && asOf !== null && change.effective <= asOf,
+          note: change.note === null ? null : safeText(change.note, "(note withheld)"),
+          package: change.package.filter((p) => p.symbol === "$").map((p) => ({ component: p.component, value: p.value })),
+          source: { form: event.form, accession: event.accession, exhibit: null, filingDate: filed, url: event.url },
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** D-66: the newest Item 5.07's say-on-pay vote. */
+function sayOnPayRow(reports: CurrentReports | null): NonNullable<FilingDisclosures["sayOnPay"]> | null {
+  for (const event of reports?.events ?? []) {
+    const filed = day(event.filingDate);
+    const section = event.sections.find((s) => s.item === "5.07");
+    if (filed === null || section === undefined) continue;
+    const vote = parseSayOnPay(section.text);
+    if (vote === null) continue;
+    const cast = vote.votesFor + vote.votesAgainst + vote.abstentions;
+    return { ...vote, supportPct: cast > 0 ? Number(((vote.votesFor / cast) * 100).toFixed(4)) : 0,
+      source: { form: event.form, accession: event.accession, exhibit: null, filingDate: filed, url: event.url } };
+  }
+  return null;
+}
+
+/** D-66: the 10-Q Part II Item 5 trading arrangements. */
+function tradingArrangementRows(bundle: DataBundle): NonNullable<FilingDisclosures["tradingArrangements"]> {
+  const other = sectionRef(bundle.edgar?.tenQOther);
+  if (other === null) return [];
+  return parseTradingArrangements(other.data.text).map((t) => ({ ...t, role: safeText(t.role, "(role withheld)"), source: other.ref }));
 }

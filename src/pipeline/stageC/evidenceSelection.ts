@@ -9,8 +9,12 @@ export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "t
  * competitors, export and other regulation, and the executive officers.
  */
 export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "customers", "suppliers-manufacturing", "competition", "regulation-export", "officers"] as const;
-/** D-63: the latest 10-Q's notes to the financial statements. */
-export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "tax", "subsequent-liquidity"] as const;
+/**
+ * D-63: the latest 10-Q's notes to the financial statements. D-66: the 10-K's
+ * notes are read with the same families, and business combinations (a deal's
+ * consideration, goodwill and intangibles) join them.
+ */
+export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "tax", "subsequent-liquidity", "business-combinations"] as const;
 export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number] | typeof BUSINESS_CATEGORIES[number] | typeof NOTES_CATEGORIES[number];
 /**
  * Which families a source is read for (D-63). `financial` is the original
@@ -19,7 +23,7 @@ export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number] | typeof BUSIN
  * reading of an 8-K item that first keeps every passage introducing a named
  * party (the counterparty, tenant or acquiree of the operative paragraph).
  */
-export type EvidenceProfile = "financial" | "business" | "risk" | "notes" | "event";
+export type EvidenceProfile = "financial" | "business" | "risk" | "notes" | "event" | "interim";
 export interface EvidenceSpan { start: number; end: number; text: string }
 export interface EvidenceCoverage {
   version: string;
@@ -58,11 +62,34 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   debt: /\b(?:senior (?:unsecured )?notes|notes due|commercial paper|credit (?:facility|agreement)|revolving|borrowings?|term loans?|debt issuance|issued an aggregate)\b/i,
   "capital-return": /\b(?:repurchase(?:d|s)?|buybacks?|dividends?)\b/i,
   contingencies: /\b(?:litigation|lawsuits?|legal proceedings|contingen(?:t|cy|cies)|indemnit(?:y|ies|ification))\b/i,
+  "business-combinations": /\b(?:business combinations?|acquisitions? of|acquired|license agreement|(?:total|purchase) consideration|purchase price|goodwill|intangible assets?)\b/i,
 };
+/**
+ * D-66: the passages of a notes section an equity reader cannot do without,
+ * kept before any family takes its turn (bounded by `priorityShare`): each
+ * quantified customer concentration (revenue and receivables), extended
+ * payment terms, an indirect customer that contributed a meaningful share of
+ * revenue, where billed revenue's end customers are, and a deal's
+ * consideration and goodwill. NVDA final rerun: 3 of 16 concentration
+ * passages were kept and the quarter's 16% customer was not one of them.
+ */
+const NOTES_PRIORITY: readonly RegExp[] = [
+  /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:direct\s+|indirect\s+)?(?:customers?|distributors?|partners?)\b[^.]{0,120}?\b(?:represented|accounted for)\s+\d/i,
+  /\bpayment terms\b[^.]{0,160}?\b\d+\s+days\b/i,
+  /\b(?:contributed|represented|accounted for)\s+(?:a\s+)?(?:meaningful|significant|material|substantial)\s+(?:amount|portion|share|percentage)\s+of\s+(?:our\s+)?(?:total\s+)?revenue\b/i,
+  /\bend customers?\b[^.]{0,160}?\b(?:based|located|headquartered)\b/i,
+  /\b(?:total|aggregate)\s+(?:purchase\s+)?consideration\b|\brecorded\s+\$\s?[\d.,]+\s*(?:billion|million)\s+of\s+goodwill\b|\bcarrying amount of goodwill\b/i,
+  // The deal itself: "In December 2025, we entered into a non-exclusive license agreement with Groq, Inc.".
+  /\b(?:entered into|completed)\b[^.]{0,80}?\b(?:acquisition|acquire|license agreement|merger)\b[^.]{0,40}?\bwith\s+[A-Z]/,
+];
+/** D-66: the same concentration statements where an MD&A states them ("Concentration of Revenue"). */
+const CONCENTRATION_PRIORITY = NOTES_PRIORITY.slice(0, 4);
 interface ProfileSpec {
   categories: readonly EvidenceCategory[];
   /** Passages that are always kept first, within the budget (in source order). */
   priority?: (passage: string) => boolean;
+  /** D-66: the share of the budget priority passages may take (all of it when absent). */
+  priorityShare?: number;
   /**
    * Read as prose (D-63): sentence splits skip abbreviations and break a
    * flattened table from the sentence after it; table-like passages never take
@@ -84,6 +111,10 @@ const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\
 const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES },
+  // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
+  // statements first (the quarter's 16% direct customer, the indirect AI
+  // customer), within an eighth of the budget.
+  interim: { categories: MATERIAL_CATEGORIES, priority: (passage) => CONCENTRATION_PRIORITY.some((pattern) => pattern.test(passage)), priorityShare: 0.125 },
   business: {
     categories: BUSINESS_CATEGORIES,
     prose: { bonus: /\b(?:expected to (?:commence|begin|ship|launch|be available)|roadmap|unveiled|next[- ]generation|joined [A-Z][\w.&-]* in (?:19|20)\d{2}|(?:has|have) served as|co-founded|foundr(?:y|ies)|competitors include|customers include)\b/i },
@@ -95,6 +126,8 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   },
   notes: {
     categories: NOTES_CATEGORIES,
+    priority: (passage) => NOTES_PRIORITY.some((pattern) => pattern.test(passage)),
+    priorityShare: 0.25,
     prose: { bonus: /\b(?:lock[- ]up|restrictions? on the ability to sell|capped at|maximum (?:gross )?exposure|(?:represented|accounted for) \d[^.]{0,60}\bof (?:our )?(?:total )?(?:net )?(?:revenue|sales)|issued an? (?:aggregate|total)|supply commitments|purchase obligations|equity method|non[- ]marketable)\b/i },
   },
   // The operative paragraph of an 8-K item: its dated lead, the parties it
@@ -200,7 +233,15 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
     selected.push({ start: 0, end: text.length, text, categories: [], score: 0, table: false });
   } else {
     // Priority passages (a named party in an 8-K's operative paragraph) first.
-    if (spec.priority !== undefined) for (const passage of all.filter((candidate) => spec.priority!(candidate.text))) add(passage);
+    if (spec.priority !== undefined) {
+      const cap = spec.priorityShare === undefined ? Number.POSITIVE_INFINITY : Math.floor(budget * spec.priorityShare);
+      let used = 0;
+      for (const passage of all.filter((candidate) => !candidate.table && spec.priority!(candidate.text))) {
+        if (spec.priorityShare !== undefined && used + passage.text.length > cap) continue;
+        const before = remaining;
+        if (add(passage)) used += before - remaining;
+      }
+    }
     // Every material family gets a turn before any family can fill the budget.
     // A flattened table never takes a family's turn (prose profiles only).
     const ranked = spec.categories.map((category) => all.filter((passage) => passage.categories.includes(category) && !passage.table)
