@@ -541,6 +541,7 @@ function valuationSection(
   stub: Report["valuation"],
   computed: ComputedMetrics,
   graded: GradeBlock,
+  currency: string | null,
 ): Report["valuation"] {
   const scenarios = stub.scenarios.map((scenario) => ({
     ...scenario,
@@ -549,7 +550,7 @@ function valuationSection(
   // applyScenarioTargets also sets each horizon label, as on the AI path (D-40).
   const withTargets = applyScenarioTargets({ ...stub, graded, scenarios }, computed.scenarioTargets);
   const withFairValue = applyFairValue(withTargets, computed.fairValue);
-  const withDisplay = applyDcfDisplay(withFairValue, computed.valuation);
+  const withDisplay = applyDcfDisplay(withFairValue, computed.valuation, currency);
   const withMultiples = applyMultiples(withDisplay, computed.valuation);
   const withReverse = applyReverseDcf(withMultiples, computed.valuation);
   return {
@@ -872,7 +873,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
       ...fundamentalsSections(computed, cf),
     },
     balanceSheet: { graded: balanceSheetGrade, ...balanceSheetSection(computed, currency, cf, flagClaim) },
-    valuation: valuationSection(stub.valuation, computed, valuationGrade),
+    valuation: valuationSection(stub.valuation, computed, valuationGrade, currency),
     quality: qualitySection(stub.quality, computed, qualityGrade),
     technicals: technicalsSection(computed, technicalsGrade, priceCurrency),
     leadership: leadershipSection(stub.leadership, bundle, leadershipGrade),
