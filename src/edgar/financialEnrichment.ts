@@ -2,6 +2,13 @@ import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } f
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
+import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
+import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
+
+/** Already acquired filing sections only; no additional provider reads. */
+export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
+  return [edgar?.tenQNotes, edgar?.tenKNotes].flatMap((result) => result?.ok ? [result.value.data] : []);
+}
 
 const DAY = 86_400_000;
 function validDay(day: unknown): day is string {
@@ -53,10 +60,54 @@ function principal(facts: CompanyFacts, unit: string, end: string, scope: "annua
 }
 
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
-export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps };
   let out = row;
+  let presentationReason: string | null = null;
+  const longTerm = out.fieldProvenance?.longTermDebt;
+  const tagged = longTerm?.tags.includes("us-gaap/LongTermDebt") && longTerm.unit === currency && longTerm.periodEnd === row.date
+    ? instant(facts, "LongTermDebt", currency, row.date, observedAt) : null;
+  const tagFiling = tagged?.evidence.filings[0];
+  const source = tagFiling && longTerm?.filings.some((filing) => filing.accn === tagFiling.accn && filing.filed === tagFiling.filed)
+    ? presentations.find((section) => section.accession === tagFiling.accn && section.form === tagFiling.form && section.filingDate === tagFiling.filed && section.filingDate <= observedAt.slice(0, 10)) : undefined;
+  if (source && tagged && tagFiling) {
+    const maturities = instant(facts, "LongTermDebtCurrent", currency, row.date, observedAt);
+    const maturityFiling = maturities?.evidence.filings[0];
+    const currentMaturities = maturityFiling?.accn === tagFiling.accn && maturityFiling.filed === tagFiling.filed ? maturities!.value : null;
+    const presentation = reconcileDebtPresentation({ text: source.statementsText ?? source.text, periodEnd: row.date, currency,
+      tagValue: tagged.value, currentMaturities, source, tagSource: { cik: String(facts.cik), accession: tagFiling.accn,
+        filingDate: tagFiling.filed, periodEnd: row.date, unit: currency } });
+    if (presentation.status === "conflict") presentationReason = `debt presentation conflict: ${presentation.reason}`;
+    if (presentation.status === "established" && out.fieldConflicts?.longTermDebt?.usable !== false) {
+      const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
+      const same = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-10);
+      const oldLong = finite(out.longTermDebt), oldCurrent = finite(out.shortTermDebt), oldTotal = finite(out.totalDebt);
+      const noncurrent = presentation.noncurrentDebt!;
+      if (oldLong === null || (!same(oldLong, tagged.value) && (currentMaturities === null || !same(oldLong, tagged.value - currentMaturities))) ||
+          (presentation.currentDebt !== null && (oldCurrent === null || !same(oldCurrent, presentation.currentDebt)))) {
+        presentationReason = "debt presentation conflict: resolved debt components do not match the same-filing carrying lines or the established taxonomy adjustment";
+      } else {
+        const delta = noncurrent - oldLong;
+        const evidence = { ...longTerm!, tags: [...new Set([...longTerm!.tags, ...presentation.evidence!.tags])] };
+        out = { ...out, longTermDebt: noncurrent, fieldProvenance: { ...out.fieldProvenance, longTermDebt: evidence } };
+        if (delta !== 0) {
+          const componentSum = (oldCurrent ?? 0) + oldLong + (finite(out.capitalLeaseObligations) ?? 0);
+          if (oldTotal === null || out.fieldConflicts?.totalDebt?.usable === false || !same(oldTotal, componentSum)) {
+            presentationReason = "debt presentation conflict: total debt does not reconcile to the resolved current, noncurrent and lease components";
+          } else {
+            const totalDebt = oldTotal + delta;
+            const cash = finite(out.cashAndCashEquivalents), oldNet = finite(out.netDebt);
+            out = { ...out, totalDebt, netDebt: cash !== null && oldNet !== null && same(oldNet, oldTotal - cash) ? totalDebt - cash : null };
+          }
+          gaps.push({ field: `statements.balance.${row.date}.longTermDebt`, reason: presentation.reason, severity: "info", expected: true });
+        }
+      }
+    }
+    if (presentationReason !== null) out = { ...out, longTermDebt: null, fieldConflicts: { ...out.fieldConflicts, longTermDebt: {
+      vendorValue: typeof row.longTermDebt === "number" ? row.longTermDebt : null, secValue: null, usable: false, reason: presentationReason,
+    } } };
+  }
   const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
   const maturitySourced = out.fieldProvenance?.shortTermDebt?.tags.some((tag) => tag === `us-gaap/${maturityTag}`) === true;
   const scopeReason = maturitySourced ? fiscalMaturityScopeReason(instant(facts, maturityTag, currency, row.date, observedAt)?.value ?? null,
@@ -68,8 +119,8 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     gaps.push({ field: `statements.balance.${row.date}.shortTermDebt`, reason: scopeReason, severity: "warn" });
   }
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
-  const reason = scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
-    longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null);
+  const reason = presentationReason ?? (scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
+    longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null));
   for (const field of ["totalDebt", "netDebt"] as const) {
     const prior = out.fieldConflicts?.[field];
     if (reason === null && prior?.usable !== false) continue;
@@ -84,7 +135,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
 }
 
 /** Enrichs missing fields only. Conflicts preserve vendor observations and carry usable:false. */
-export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
+export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
     if (!input.ok) return input;
@@ -123,7 +174,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, exact ${scope} period ending ${row.date}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
       }
       if (kind === "balance") {
-        const admitted = admitDebtFields(out, facts, currency, observedAt);
+        const admitted = admitDebtFields(out, facts, currency, observedAt, presentations);
         out = admitted.row;
         gaps.push(...admitted.gaps);
       }

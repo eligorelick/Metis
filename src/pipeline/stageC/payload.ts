@@ -31,7 +31,7 @@ import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
-import { admitDebtFields } from "@/edgar/financialEnrichment";
+import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -1376,7 +1376,7 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
   // admission before raw statement cells can enter the analyst or verifier registry.
   const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
-    admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt).row);
+    admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
   const push = (b: StatementExtractBlock | null): void => {
     if (b) blocks.push(b);
   };

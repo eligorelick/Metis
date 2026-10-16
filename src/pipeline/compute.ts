@@ -127,7 +127,7 @@ import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
-import { admitDebtFields } from "@/edgar/financialEnrichment";
+import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import {
   normalizeQuarterRows,
   quarterWindowViolation,
@@ -1701,7 +1701,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const incomeAnnual = compatible.incomeAnnual.rows;
   const admitBalance = (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
     if (companyFacts === null) return row;
-    const admitted = admitDebtFields(row, companyFacts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt);
+    const admitted = admitDebtFields(row, companyFacts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar));
     ttmGaps.push(...admitted.gaps);
     return admitted.row;
   };

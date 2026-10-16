@@ -39,7 +39,7 @@ import {
   type FmpRawRow,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
-import { enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
 import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
 import { discoverCompanyIrEarnings, type CompanyIrOptions } from "@/providers/companyIr";
@@ -2184,8 +2184,8 @@ export async function buildDataBundle(
 
   if (edgarConfirmedIssuer && edgarBundle.companyFacts.ok) {
     const facts = edgarBundle.companyFacts.value.data;
-    const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt);
-    const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt);
+    const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle));
+    const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle));
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow };
     keylessGaps.push(...annual.gaps, ...quarterly.gaps);
   }
