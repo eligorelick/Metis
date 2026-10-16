@@ -67,6 +67,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/stageA/validate.ts",
   "src/pipeline/stageC/citations.ts",
   "src/pipeline/stageC/continuation.ts",
+  "src/pipeline/stageC/sectionCheckpoint.ts",
   "src/pipeline/stageC/entityValidation.ts",
   "src/pipeline/stageC/index.ts",
   "src/pipeline/stageC/passes.ts",
@@ -177,9 +178,25 @@ export const RISK_SOURCE_MANIFEST = [
   // Research reliability: eligibility, snapshot comparisons and deterministic
   // report claims carry the same per-file coverage floors as existing logic.
   "src/pipeline/peers.ts",
+  "src/pipeline/peerFilings.ts",
   "src/report/evaluation.ts",
   "src/report/evaluationCli.ts",
   "src/report/researchReview.ts",
   "src/report/scenarioPresentation.ts",
   "src/report/thesisTriggers.ts",
+  // Added 2026-10-15 (NVDA report #34 audit, work package 3): 8-K guidance,
+  // issuer FCF, capital return, material events and XBRL segment revenue feed
+  // registered payload numbers and the report, so they carry the same floor.
+  "src/edgar/currentReports.ts",
+  "src/edgar/filingFacts.ts",
+  "src/edgar/segmentFacts.ts",
+  "src/providers/currentReports.ts",
+  "src/pipeline/filingDisclosures.ts",
+  "src/report/filingDisclosurePresentation.ts",
+  "src/report/filingSupplementPresentation.ts",
+  // Added 2026-10-15 (D-62): the shared presentation rules, the audit export
+  // and the provider market-data block feed every report surface.
+  "src/report/presentation.ts",
+  "src/report/export/auditMarkdown.ts",
+  "src/pipeline/marketData.ts",
 ];

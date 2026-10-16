@@ -6135,7 +6135,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.17.0");
+    expect(repRow?.specVersion).toBe("1.19.1");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
@@ -7087,7 +7087,7 @@ describe("runJob — judge retry after a dropped connection", () => {
     expect(startedAt[1]! - startedAt[0]!).toBeGreaterThanOrEqual(55);
   });
 
-  it("lowers the effort a step only when the dropped attempt ran into the provider's time limit", async () => {
+  it("requests smaller section batches after a time-limit cutoff even with no completed section", async () => {
     const run = async (attemptMinutes: number): Promise<unknown[]> => {
       const { jobId } = createJob("AAPL");
       const { passes } = mockPasses();
@@ -7119,8 +7119,8 @@ describe("runJob — judge retry after a dropped connection", () => {
       return continuations;
     };
 
-    // Cut at 15 minutes with nothing completed: the retry steps effort down.
-    expect(await run(15)).toEqual([undefined, { completed: {}, effortStepDown: 1 }]);
+    // Cut at 15 minutes with nothing completed: reduce batch size, retaining settings.
+    expect(await run(15)).toEqual([undefined, { completed: {}, sectionRetryCount: 1 }]);
     // A quick drop is an ordinary transient failure: same request again.
     expect(await run(2)).toEqual([undefined, undefined]);
   });
@@ -9314,7 +9314,9 @@ describe("analyst repair attempt after schema-invalid output", () => {
       model: "chatgpt/gpt-6.1-sol",
     })) as PipelinePasses["runVerifyPass"];
     let calls = 0;
-    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch) => {
+    const continuations: unknown[] = [];
+    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch, _feedback, continuation) => {
+      continuations.push(continuation);
       calls += 1;
       await beforeProviderLaunch?.();
       if (calls === 1) {
@@ -9330,6 +9332,7 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 1 });
 
     expect(calls).toBe(2);
+    expect(continuations).toEqual([{ completed: {}, sectionRetryCount: 1 }, { completed: {}, sectionRetryCount: 2 }]);
     expect(result.status).toBe("done");
     expect(result.dataOnly).toBe(false);
   });

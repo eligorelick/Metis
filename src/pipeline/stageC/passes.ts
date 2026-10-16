@@ -40,12 +40,15 @@ import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
-import type { MultipleKey } from "@/pipeline/stageB/valuation";
+import { isStartingGrowthFamily, type MultipleKey } from "@/pipeline/stageB/valuation";
+import { piotroskiSignalOutcomes } from "@/pipeline/stageB/forensics";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { guardEarningsReferences } from "@/report/earningsReferences";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildMarketData } from "@/pipeline/marketData";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
@@ -80,6 +83,7 @@ import {
   payloadFingerprint,
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
+  guidanceLowCitation,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -118,7 +122,7 @@ import {
   type PassContinuation,
 } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
-import { applyFinancialDiagnostics, assessExecutiveEvidence } from "@/report/financialDiagnostics";
+import { applyFinancialDiagnostics, assessExecutiveEvidence, executiveEvidenceKind } from "@/report/financialDiagnostics";
 import { applyConfidenceCeilings } from "@/pipeline/stageC/confidenceCeiling";
 import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
@@ -155,6 +159,7 @@ import {
   statesOnlyAllowedDates,
 } from "@/pipeline/stageC/consistency";
 import { annotateSharedModelFamily, sharedModelFamilyOf } from "@/report/execution";
+import { createHash } from "node:crypto";
 import type {
   ConsistencyChecks,
   JudgeOrder,
@@ -276,11 +281,12 @@ export interface RunPassArgs {
   /** Reservation identity for the per-request maximum. */
   reservationPass?: "bull" | "bear" | "synthesize" | "verify";
   /**
-   * Steps to lower a subscription connection's reasoning effort for this
-   * request, after earlier attempts ran into the provider's time limit.
-   * Ignored by the paid API, which has no such limit.
+   * Earlier interrupted section attempts: shrink subscription section batches
+   * without changing the captured model, reasoning effort or speed.
    */
-  effortStepDown?: number;
+  sectionRetryCount?: number;
+  /** Subscription stream recovery only; partial text is never a successful result. */
+  onPartialText?: (text: string) => void;
 }
 
 /** The injected non-streaming runner. */
@@ -321,6 +327,12 @@ export interface PassDeps {
    * such limit and keeps one request per pass.
    */
   sectionedOutput?: boolean;
+  sectionCheckpoint?: {
+    load: (field: string) => Record<string, unknown>;
+    save: (field: string, completed: Record<string, unknown>) => void;
+    /** Append-only observations remain auditable even if the worker dies before settlement. */
+    record?: (field: string, telemetry: { model: string; usage: PassUsage; costUsd: number; execution?: ProviderExecution }) => void;
+  };
   /** One job-scoped cancellation/deadline signal. */
   signal?: AbortSignal;
   /** Per-request cost admission, by pass (DECISIONS D-10). */
@@ -738,6 +750,39 @@ function sumUsage(a: PassUsage, b: PassUsage): PassUsage {
   };
 }
 
+/** Attribute section usage only to provider evidence shared by all requests. */
+function sectionExecution(
+  requestedModel: string,
+  observations: { model?: string; execution?: ProviderExecution }[],
+  recoveredSections: boolean,
+): { model: string; execution?: ProviderExecution } {
+  let model = observations.at(-1)?.model ?? requestedModel;
+  const provider = parseSubscriptionModel(requestedModel)?.provider;
+  if (provider === undefined || !observations.some((o) => o.execution !== undefined)) {
+    return { model, ...(provider !== undefined && recoveredSections ? { execution: {
+      requestedModel, modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null,
+    } } : {}) };
+  }
+  const same = <K extends keyof ProviderExecution>(key: K): ProviderExecution[K] | null => {
+    const first = observations[0]?.execution?.[key];
+    return first !== undefined && observations.every((o) => o.execution?.[key] === first) ? first : null;
+  };
+  const observedModels = [...new Set(observations.flatMap((o) => o.execution?.modelObserved !== true ? []
+    : o.execution.observedModels ?? (o.model === undefined ? [] : [parseSubscriptionModel(o.model)?.model ?? o.model])))];
+  if (observedModels.length > 1) model = subscriptionModel(provider, "multiple-models");
+  const requestedServiceTier = same("requestedServiceTier");
+  return { model, execution: {
+    requestedModel,
+    requestedEffort: same("requestedEffort"),
+    effectiveEffort: recoveredSections ? null : same("effectiveEffort"),
+    ...(requestedServiceTier === null ? {} : { requestedServiceTier }),
+    ...(provider === "chatgpt" ? { effectiveServiceTier: recoveredSections ? null : same("effectiveServiceTier") } : {}),
+    modelObserved: !recoveredSections && observations.every((o) => o.execution?.modelObserved === true),
+    usageReported: !recoveredSections && observations.every((o) => o.execution?.usageReported === true),
+    observedModels,
+  } };
+}
+
 /**
  * Produce one structured response in parts (see JUDGE_SECTION_PARTS): each
  * request returns only its group of top-level sections, later groups see the
@@ -755,8 +800,23 @@ async function runPassInSections<T>(a: {
   field: string;
   requestedModel: string;
 }): Promise<PassRun<T>> {
-  const completed: Record<string, unknown> = { ...(a.completed ?? {}) };
+  // The mirror and schema repair are different draws even within one job.
+  const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
+  const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
+  const completed: Record<string, unknown> = {
+    ...Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key))),
+    ...(a.completed ?? {}),
+  };
+  let lastCheckpoint = JSON.stringify(stored);
+  const checkpoint = (sections: Record<string, unknown>): void => {
+    const json = JSON.stringify(sections);
+    if (json === lastCheckpoint) return;
+    a.deps.sectionCheckpoint?.save(checkpointField, sections);
+    lastCheckpoint = json;
+  };
   let last: Extract<RunPassOutcome, { ok: true }> | null = null;
+  const observations: { model?: string; execution?: ProviderExecution }[] = [];
+  const recoveredSections = Object.keys(completed).length > 0;
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
   const pending = (keys: readonly string[]): string[] => keys.filter((key) => !(key in completed));
@@ -772,43 +832,65 @@ async function runPassInSections<T>(a: {
           ...a.base.messages,
           { role: "user", content: sectionRequestInstruction(completed, keys, a.allKeys) },
         ],
+        onPartialText: (text) => {
+          const streamed = completedTopLevelFields(text);
+          const kept = { ...completed };
+          for (const key of keys) if (key in streamed) kept[key] = streamed[key];
+          if (Object.keys(kept).length > Object.keys(completed).length) checkpoint(kept);
+        },
       };
       a.deps.validateRunPass?.(request);
       const outcome = await a.deps.runPass(request);
       if (!outcome.ok) {
+        observations.push({ model: outcome.error.model, execution: outcome.error.execution });
         const kept = { ...completed };
         for (const [key, value] of Object.entries(completedTopLevelFields(outcome.error.partialText ?? ""))) {
           if (keys.includes(key)) kept[key] = value;
         }
         const partialText = Object.keys(kept).length > 0 ? JSON.stringify(kept) : undefined;
+        checkpoint(kept);
         return finishStructuredPass(
-          { ...outcome, error: { ...outcome.error, ...(partialText === undefined ? {} : { partialText }) } },
+          { ...outcome, error: { ...outcome.error, usage: sumUsage(usage, outcome.error.usage ?? { input_tokens: 0, output_tokens: 0 }), costUsd: costUsd + (outcome.error.costUsd ?? 0),
+            ...sectionExecution(a.requestedModel, observations, recoveredSections), ...(partialText === undefined ? {} : { partialText }) } },
           a.parse,
           a.field,
           a.requestedModel,
         );
       }
       let json: unknown;
+      a.deps.sectionCheckpoint?.record?.(checkpointField, {
+        model: outcome.value.data.model, usage: outcome.value.data.usage,
+        costUsd: outcome.value.data.costUsd, execution: outcome.value.data.execution,
+      });
+      observations.push(outcome.value.data);
+      usage = sumUsage(usage, outcome.value.data.usage);
+      costUsd += outcome.value.data.costUsd;
       try {
         json = parseJsonSalvaging(extractText(outcome.value.data.message));
       } catch {
         if (tries === 0) continue;
         // Report the unparseable part exactly as a single response would be.
-        return finishStructuredPass(outcome, a.parse, a.field, a.requestedModel);
+        return finishStructuredPass({ ...outcome, value: { data: { ...outcome.value.data, usage, costUsd,
+          ...sectionExecution(a.requestedModel, observations, recoveredSections) } } }, a.parse, a.field, a.requestedModel);
       }
-      usage = sumUsage(usage, outcome.value.data.usage);
-      costUsd += outcome.value.data.costUsd;
       last = outcome;
       if (json !== null && typeof json === "object" && !Array.isArray(json)) {
         for (const key of keys) {
           if (key in (json as Record<string, unknown>)) completed[key] = (json as Record<string, unknown>)[key];
         }
       }
+      checkpoint(completed);
       return null;
     }
   };
 
-  for (const group of splitSections(a.allKeys, a.parts)) {
+  // A cutoff demonstrates that the original groups were too large for this
+  // connection. Keep the user's model/effort and reduce only the remaining batch size.
+  const recovering = Object.keys(stored).length > 0 || Object.keys(a.completed ?? {}).length > 0;
+  const retryCount = a.base.sectionRetryCount ?? 0;
+  const retryLevel = Math.max(recovering ? 1 : 0, Number.isFinite(retryCount) ? Math.min(6, Math.max(0, Math.floor(retryCount))) : 0);
+  const sectionParts = Math.min(a.allKeys.length, a.parts * 2 ** retryLevel);
+  for (const group of splitSections(a.allKeys, sectionParts)) {
     const keys = pending(group);
     if (keys.length === 0) continue;
     const ended = await requestPart(keys);
@@ -819,8 +901,10 @@ async function runPassInSections<T>(a: {
   // missing — never a request for an optional section the model omitted.
   const missing = pending(a.allKeys);
   if (missing.length > 0 && !a.parse(completed).ok) {
-    const ended = await requestPart(missing);
-    if (ended !== null) return ended;
+    for (const group of splitSections(missing, sectionParts)) {
+      const ended = await requestPart(group);
+      if (ended !== null) return ended;
+    }
   }
 
   // Assigned inside requestPart; TypeScript cannot see through the closure.
@@ -833,7 +917,12 @@ async function runPassInSections<T>(a: {
         costUsd: 0,
         fallbackUsed: false,
         model: a.requestedModel,
+        execution: { requestedModel: a.requestedModel, modelObserved: false, usageReported: false },
       };
+  // Execution evidence must describe every newly completed request, rather
+  // than inheriting the last part's settings. Recovered text has no execution
+  // metadata in the checkpoint; retain the request but withhold attribution.
+  Object.assign(data, sectionExecution(a.requestedModel, observations, recoveredSections));
   const merged: RunPassOutcome = {
     ok: true,
     value: {
@@ -843,7 +932,10 @@ async function runPassInSections<T>(a: {
       },
     },
   };
-  return finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+  const finished = finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+  // A schema-invalid section must be repaired, not pinned forever by a checkpoint.
+  if (!finished.ok) checkpoint({});
+  return finished;
 }
 
 /** Exact provider request used by either analyst side. */
@@ -1145,6 +1237,7 @@ function settlementFromPassRun<T>(
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
+      partialText: run.error.partialText,
     }),
     telemetry,
   };
@@ -1247,15 +1340,15 @@ export async function runAnalystContinuationPass(
   beforeProviderLaunch?: () => void | Promise<void>,
 ): Promise<PassRun<AnalystCase>> {
   const base = buildAnalystRunPassArgs(deps, payload, side);
-  const stepDown = continuation.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {};
+  const retry = continuation.sectionRetryCount ? { sectionRetryCount: continuation.sectionRetryCount } : {};
   const request: RunPassArgs = deps.sectionedOutput
-    ? { ...base, ...stepDown }
+    ? { ...base, ...retry }
     : {
         ...base,
         messages: hasCompletedSections(continuation)
           ? [...base.messages, { role: "user", content: continuationInstruction(continuation.completed, ANALYST_CASE_KEYS) }]
           : base.messages,
-        ...stepDown,
+        ...retry,
       };
   deps.validateRunPass?.(request);
   await beforeProviderLaunch?.();
@@ -2072,7 +2165,7 @@ export function buildJudgeRunPassArgs(
     signal: deps.signal,
     admission: deps.admissionFor?.("synthesize"),
     reservationPass: "synthesize",
-    ...(continuation?.effortStepDown ? { effortStepDown: continuation.effortStepDown } : {}),
+    ...(continuation?.sectionRetryCount ? { sectionRetryCount: continuation.sectionRetryCount } : {}),
   };
 }
 
@@ -2107,7 +2200,7 @@ export async function runJudgePass(
       // In parts: the kept sections seed the parts instead of a continuation turn.
       const base = buildJudgeRunPassArgs(
         deps, payload, bull, bear, validationFeedback, order,
-        continuation === undefined ? undefined : { completed: {}, effortStepDown: continuation.effortStepDown },
+        continuation === undefined ? undefined : { completed: {}, sectionRetryCount: continuation.sectionRetryCount },
       );
       finished = await runPassInSections({
         deps,
@@ -2477,9 +2570,21 @@ function claimSourceMatch(
       // bull/base/bear 25/50/25 (review, 2026-10-13); prose that states the
       // numbers some other way fails closed.
       const allowed = cited.flatMap((record) => record.allowedNumbers ?? []);
+      // A full officer filing may share a tag with a restricted transition
+      // summary. A parsed package supports its exact recipient and amount,
+      // without opening every amount in that filing to every named person.
+      // Require the recipient as the explicit subject, never mere presence
+      // elsewhere in the source. Excerpt metric/unit checks still follow.
+      const packages = numericRegistry.filter((record) => record.subject !== undefined && record.origin === sourceId && record.asOf === asOf);
+      const packageMatched = stated.length === 1 && packages.some((record) => {
+        const subject = record.subject!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^\\s*${subject}(?:['’]s)?\\s+`, "i").test(claim.text) && stated[0] === record.value;
+      });
+      if (stated.length > 0 && packages.length > 0 && !packageMatched) return { supported: false, reason: "value-mismatch" };
       if (
         (stated.length > 0 || statesNumberWord(claim.text)) &&
         cited.some((record) => record.allowedNumbers !== undefined) &&
+        !packageMatched &&
         (stated.length !== allowed.length || stated.some((value, i) => value !== allowed[i]))
       ) {
         return { supported: false, reason: "value-mismatch" };
@@ -2618,19 +2723,20 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     insiderNotes: payload.insiders?.notes,
     leadershipFigures: payload.leadership?.figures,
   });
+  const personNames = collectPersonNames({
+    leadershipNotes: payload.leadership?.notes,
+    insiderNotes: payload.insiders?.notes,
+    executiveNames: [
+      ...reportExecutiveNames(verifiedReport),
+      ...personRows.filter((row) => row.tag !== "fmp:key-executives" && !row.anyOrder).map((row) => row.name),
+    ],
+  });
   const consistency = runConsistencyChecks({
     claims,
     registry,
     citationRegistry,
     fetchedUrls,
-    personNames: collectPersonNames({
-      leadershipNotes: payload.leadership?.notes,
-      insiderNotes: payload.insiders?.notes,
-      executiveNames: [
-        ...reportExecutiveNames(verifiedReport),
-        ...personRows.filter((row) => row.tag !== "fmp:key-executives" && !row.anyOrder).map((row) => row.name),
-      ],
-    }),
+    personNames,
     organizationNames: payloadOrganizationNames(payload),
     personRows,
   });
@@ -2865,6 +2971,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   let factualValidated = 0;
   let factualUnchecked = 0;
   let factualContradicted = 0;
+  let factualQualitative = 0;
   let judgmentsCited = 0;
   let judgmentsTotal = 0;
   for (const { claim, path } of claims) {
@@ -2881,8 +2988,16 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     const registryRecord = sourceId === null
       ? undefined
       : registry.find((record) => record.id === sourceId);
+    // A person the claim names in full is attribution, not part of the metric
+    // ("Jen-Hsun Huang: operating cash flow for FY2026 was ..."). A partial
+    // name stays, so a lone surname that is also a metric word cannot vanish.
+    const claimWords = new Set(claim.text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+    const namedPeople = personNames.filter((name) => {
+      const parts = name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+      return parts.length > 1 && parts.every((part) => claimWords.has(part));
+    });
     const validation = supported && sourceId !== null
-      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: issuerWords, index: claimEvidenceIndex })
+      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
       validation.reason = "supported";
@@ -2901,6 +3016,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       if (validated) factualValidated += 1;
       else if (validationStatus === "contradicted") factualContradicted += 1;
       else factualUnchecked += 1;
+      if (supported && validationStatus === "cited") factualQualitative += 1;
     }
     // The check's own reason, not a blanket "unknown-source": a claim that
     // cited a registered row and was rejected for its content (a person the
@@ -2936,6 +3052,8 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       validationStatus,
       numericSupportStatus: validationStatus,
       claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",
+      ...(validated && registryRecord && /^leadership\.executives\[\d+\]\.evidence\./.test(path) && executiveEvidenceKind(registryRecord)
+        ? { executiveEvidenceKind: executiveEvidenceKind(registryRecord) } : {}),
       ...(validation.spans.length === 0 ? {} : { sourceSpans: validation.spans }),
     });
   }
@@ -2970,6 +3088,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       validated: factualValidated,
       unchecked: factualUnchecked,
       contradicted: factualContradicted,
+      qualitative: factualQualitative,
       total: factualTotal,
       rate: factualTotal === 0 ? null : factualValidated / factualTotal,
     },
@@ -3259,7 +3378,7 @@ export function applyReverseDcf(
   ) {
     const r = computedValuation.reverseDcf;
     if (r.method === "growth") {
-      impliedMetric = r.growthPathFamily === "linear-fade-to-terminal"
+      impliedMetric = isStartingGrowthFamily(r.growthPathFamily)
         ? "starting revenue growth (fades to terminal rate)"
         : "revenue growth (path family unavailable)";
       impliedValue = r.impliedRevenueGrowthPct;
@@ -3306,30 +3425,51 @@ export function applyForensicScores(
     ...keepReason(j.altman.notApplicableReason, altmanScore),
   };
 
+  // D-61: the decompositions travel in the strings every renderer already
+  // prints (variant and zone), so the report shows all eight Beneish indices,
+  // whether sales growth alone carries a flag, and which Piotroski signals
+  // failed — without a schema change.
   const beneishScore = forensics?.beneish?.score ?? null;
+  const bx = forensics?.beneish ?? null;
+  const ix = bx?.indices;
+  const two = (v: number | null | undefined): string => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(2) : "n/a");
   const beneish = {
-    variant: "m-score",
+    variant:
+      bx !== null && beneishScore !== null && ix
+        ? `m-score: DSRI ${two(ix.dsri)}, GMI ${two(ix.gmi)}, AQI ${two(ix.aqi)}, SGI ${two(ix.sgi)}, DEPI ${two(ix.depi)}, ` +
+          `SGAI ${two(ix.sgai)}, TATA ${typeof ix.tata === "number" ? ix.tata.toFixed(3) : "n/a"}, LVGI ${two(ix.lvgi)}` +
+          (typeof bx.sgiNeutralScore === "number" ? `; M with SGI at 1.0: ${bx.sgiNeutralScore.toFixed(2)}` : "")
+        : "m-score",
     score: beneishScore,
-    zone: forensics?.beneish?.verdict ?? null,
+    zone: bx?.growthLed === true ? "flag (growth-led; graded on SGI-neutral M)" : bx?.verdict ?? null,
     ...keepReason(j.beneish.notApplicableReason, beneishScore),
   };
 
   const piotroskiScore = forensics?.piotroski?.score ?? null;
+  const outcomes = forensics?.piotroski ? piotroskiSignalOutcomes(forensics.piotroski) : null;
   const piotroski = {
     variant: "f-score",
     score: piotroskiScore,
     zone:
-      forensics?.piotroski && piotroskiScore !== null
-        ? `${piotroskiScore}/${forensics.piotroski.outOf}`
+      forensics?.piotroski && piotroskiScore !== null && outcomes !== null
+        ? `${piotroskiScore}/${forensics.piotroski.outOf}` +
+          (outcomes.failed.length > 0 ? `; failed: ${outcomes.failed.join(", ")}` : "; every evaluable signal passed")
         : null,
     ...keepReason(j.piotroski.notApplicableReason, piotroskiScore),
   };
 
   // PRIMARY accruals construction (Hribar–Collins cash-flow ratio) + its
-  // house-rule band — the same pair Stage B leads with.
+  // house-rule band — the same pair Stage B leads with; the variant names the
+  // D-61 definition behind it.
   const accrualsScore = forensics?.accruals?.cashFlowAccrualRatio ?? null;
+  const definition = forensics?.accruals?.definition;
   const accruals = {
-    variant: "cash-flow",
+    variant:
+      definition === "financial-asset-adjusted"
+        ? "cash-flow, financial-asset-adjusted (Richardson et al. 2005)"
+        : definition === "operating"
+          ? "cash-flow, operating accruals (NI − CFO)"
+          : "cash-flow",
     score: accrualsScore,
     zone: forensics?.accruals?.band ?? null,
     ...keepReason(j.accruals.notApplicableReason, accrualsScore),
@@ -3505,6 +3645,11 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   ), args.computed);
   const quality = applyForensicScores(args.judgeOutput.quality, args.computed.forensics);
   const business = applySegmentShares(args.judgeOutput.business, args.bundle);
+  // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
+  // events, XBRL segment revenue by quarter and the eight-quarter trend,
+  // pipeline-filled from the bundle. Built before the triggers (D-65), which
+  // cite its guidance records.
+  const filingDisclosures = buildFilingDisclosures(args.bundle);
 
   const candidate: Report = {
     meta,
@@ -3529,7 +3674,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(args.computed.projections ? { projections: args.computed.projections } : {}),
     ...(scenarioTargets ? { scenarioTargets } : {}),
     scenarioPresentation: buildScenarioPresentation(args.computed, comparableScenarioPrice(args.computed, args.bundle)),
-    thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed) : [],
+    thesisTriggers: args.computed.valuation ? buildThesisTriggers(args.computed, guidanceLowCitation(filingDisclosures)) : [],
     ...(fairValue ? { fairValue } : {}),
     // WS5 (D-17): the bank / insurer / mortgage-REIT route metrics and the
     // P/TBV-against-ROTE reading, pipeline-filled exactly like the blocks
@@ -3537,6 +3682,12 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     // unchanged.
     ...(routeMetrics ? { routeMetrics } : {}),
   };
+  if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
+  // D-62: provider market and consensus data (quote, shares, EV, FY+1/FY+2
+  // consensus, price targets, grade counts, short interest) for the page-1
+  // key-data box. Copied as served; the payload the model saw is unchanged.
+  const marketData = buildMarketData(args.bundle, { isAdr: args.computed.route?.overlays?.includes("adr") === true });
+  if (marketData) candidate.marketData = marketData;
 
   // A failed verification pass still persists final assembly. Establish the
   // rendered destination here as well; provisional assembly retains the raw

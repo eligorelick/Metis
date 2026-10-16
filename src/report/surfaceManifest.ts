@@ -59,7 +59,15 @@ export interface ScoreWeightDescriptor {
 export interface ProjectionMetricDescriptor {
   readonly id: `projection-metric:${ProjectionMetric}`;
   readonly key: ProjectionMetric;
+  /** The chart's label: history and forecast on one axis. */
   readonly label: string;
+  /**
+   * D-65: the label of a forecast-only table (the export body prints no
+   * history), naming what the projected figures are: unlevered FCFF, and
+   * operating EPS (EBIT less interest, taxed at the DCF rate) rather than a
+   * GAAP diluted EPS forecast.
+   */
+  readonly forecastLabel: string;
 }
 
 export interface ProjectionPathDescriptor {
@@ -140,7 +148,11 @@ export const SCORE_SURFACES = [
   { id: "score:quality", key: "quality", kind: "aspect", label: "Quality", sectionKey: "quality" },
   { id: "score:balanceSheet", key: "balanceSheet", kind: "aspect", label: "Balance Sheet", sectionKey: "balanceSheet" },
   { id: "score:moat", key: "moat", kind: "aspect", label: "Moat", sectionKey: "competitive" },
-  { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership", sectionKey: "leadership" },
+  // D-61: the deterministic leadership score measures capital stewardship
+  // (repurchase timing, net share-count change) and nothing about the
+  // executives; its label says so. The analyst's leadership GRADE keeps its
+  // own label (GRADE_SURFACES).
+  { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
   { id: "score:technicals", key: "technicals", kind: "aspect", label: "Technicals", sectionKey: "technicals" },
 ] as const satisfies readonly ScoreSurfaceDescriptor[];
 
@@ -161,7 +173,7 @@ export const SCORE_WEIGHTS = [
   { id: "score-weight:quality", aspect: "quality", label: "Quality", sectionKey: "quality" },
   { id: "score-weight:balanceSheet", aspect: "balanceSheet", label: "Balance Sheet", sectionKey: "balanceSheet" },
   { id: "score-weight:moat", aspect: "moat", label: "Moat", sectionKey: "competitive" },
-  { id: "score-weight:leadership", aspect: "leadership", label: "Leadership", sectionKey: "leadership" },
+  { id: "score-weight:leadership", aspect: "leadership", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
   { id: "score-weight:technicals", aspect: "technicals", label: "Technicals", sectionKey: "technicals" },
 ] as const satisfies readonly ScoreWeightDescriptor[];
 
@@ -183,10 +195,10 @@ export const PROJECTION_METRIC_ORDER = [
 ] as const satisfies readonly ProjectionMetric[];
 
 export const PROJECTION_METRICS = [
-  { id: "projection-metric:revenue", key: "revenue", label: "Revenue" },
-  { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin" },
-  { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)" },
-  { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "Diluted EPS" },
+  { id: "projection-metric:revenue", key: "revenue", label: "Revenue", forecastLabel: "Revenue" },
+  { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin", forecastLabel: "Operating margin" },
+  { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)", forecastLabel: "Free cash flow to the firm (FCFF)" },
+  { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "EPS (historical GAAP diluted; forecast operating)", forecastLabel: "Operating EPS (diluted shares)" },
 ] as const satisfies readonly ProjectionMetricDescriptor[];
 
 export const PROJECTION_METRIC_BY_KEY = {
@@ -534,6 +546,7 @@ export const VERIFICATION_LOG_FIELD_ORDER = [
   "sourceSpans",
   "numericSupportStatus",
   "claimSupportStatus",
+  "executiveEvidenceKind",
 ] as const satisfies readonly VerificationLogFieldKey[];
 export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:claim", key: "claim", label: "Claim", optional: false },
@@ -550,6 +563,7 @@ export const VERIFICATION_LOG_FIELDS = [
   { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
   { id: "verification-log-field:numericSupportStatus", key: "numericSupportStatus", label: "Numeric support", optional: true },
   { id: "verification-log-field:claimSupportStatus", key: "claimSupportStatus", label: "Prose support", optional: true },
+  { id: "verification-log-field:executiveEvidenceKind", key: "executiveEvidenceKind", label: "Executive assessment evidence", optional: true },
 ] as const satisfies readonly FieldDescriptor<VerificationLogFieldKey>[];
 export const VERIFICATION_LOG_FIELD_BY_KEY = {
   claim: VERIFICATION_LOG_FIELDS[0],
@@ -565,6 +579,7 @@ export const VERIFICATION_LOG_FIELD_BY_KEY = {
   sourceSpans: VERIFICATION_LOG_FIELDS[10],
   numericSupportStatus: VERIFICATION_LOG_FIELDS[11],
   claimSupportStatus: VERIFICATION_LOG_FIELDS[12],
+  executiveEvidenceKind: VERIFICATION_LOG_FIELDS[13],
 } as const satisfies Record<VerificationLogFieldKey, FieldDescriptor<VerificationLogFieldKey>>;
 
 export type AsOfMapFieldKey = "field" | "asOf";

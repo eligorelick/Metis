@@ -51,6 +51,12 @@ export interface ForensicsIncomeRow {
   netIncomeFromContinuingOperations?: number | null;
   netIncomeFromDiscontinuedOperations?: number | null;
   totalOtherIncomeExpensesNet?: number | null;
+  /**
+   * D-68: inventory write-downs charged in the year (positive), as the filer
+   * tags them (us-gaap InventoryWriteDown). Context for GMI only; vendor rows
+   * do not carry it.
+   */
+  inventoryWriteDown?: number | null;
 }
 
 /** Annual balance-sheet row (FMP `balance-sheet-statement`). Levels, not deltas. */
@@ -74,6 +80,16 @@ export interface ForensicsBalanceRow {
   totalEquity?: number | null;
   minorityInterest?: number | null;
   totalDebt?: number | null;
+  /**
+   * D-61: non-current investments (FMP `longTermInvestments`: long-term
+   * marketable securities, equity-method and non-marketable equity stakes).
+   * Financial assets in Richardson et al. (2005), so outside net operating
+   * assets. Absent on statements built from companyfacts.
+   */
+  longTermInvestments?: number | null;
+  /** D-68: goodwill and other intangible assets (context for NOA growth and AQI). */
+  goodwill?: number | null;
+  intangibleAssets?: number | null;
 }
 
 /** Annual cash-flow row (FMP `cash-flow-statement`). */
@@ -85,6 +101,26 @@ export interface ForensicsCashFlowRow {
   netCashProvidedByOperatingActivities?: number | null;
   netCashProvidedByInvestingActivities?: number | null;
   commonStockIssuance?: number | null;
+  /**
+   * D-61: the financial-asset components of investing cash flow, with their
+   * statement signs (purchases negative, sales and maturities positive). FMP
+   * folds marketable debt securities and equity securities into both.
+   */
+  purchasesOfInvestments?: number | null;
+  salesMaturitiesOfInvestments?: number | null;
+  /** Investing flows the statement does not classify; kept as operating investment and disclosed. */
+  otherInvestingActivities?: number | null;
+  /** D-68: cash paid for acquisitions, net of cash acquired (statement sign: negative). */
+  acquisitionsNet?: number | null;
+  /**
+   * D-68: business-acquisition payments the filer tags on a line of its own
+   * (us-gaap PaymentsToAcquireBusinessTwoNetOfCashAcquired) that the row
+   * carries inside `otherInvestingActivities` (negative). Never also in
+   * `acquisitionsNet`.
+   */
+  acquisitionsInOtherInvesting?: number | null;
+  /** A positive filed payment whose overlap with acquisitionsNet is unresolved; never additive. */
+  acquisitionsInOtherInvestingUnresolved?: number | null;
 }
 
 /** One fiscal year of aligned statements. Any statement may be missing. */
@@ -117,6 +153,13 @@ export const FORENSICS_HOUSE_RULES = {
   /** Accrual-ratio bands (heuristic; Sloan 1996 is a decile result, no bright line). */
   accrualElevatedBand: 0.1,
   accrualRedBand: 0.2,
+  /** D-61: revenue growth (%) above which the accrual ratio carries the growth note (not a band change). */
+  accrualGrowthNotePct: 30,
+  /**
+   * D-68: added goodwill and intangibles (or cash paid for acquisitions) at
+   * least this share of the NOA increase earn the acquisition note.
+   */
+  acquisitionNoteShareOfNoaIncrease: 0.1,
   /** Note when CF vs BS accrual ratios diverge by more than this (M&A/FX signal). */
   accrualDivergence: 0.1,
   /** Suppress growth flags when base-year revenue is below this floor (units = statement currency). */
@@ -181,6 +224,28 @@ function delta(cur: Num, prior: Num): number | null {
 
 function fmt1(v: number): string {
   return v.toFixed(1);
+}
+
+/** D-68: a statement amount for a note ("USD 15.64 billion"); the currency code when known. */
+function fmtAmount(v: number, currency: string | null | undefined): string {
+  const a = Math.abs(v);
+  const sign = v < 0 ? "−" : "";
+  // Round on the scaled integer: 14,535,000,000 → 1453.5 → 14.54, where
+  // (14.535).toFixed(2) gives 14.53 on the binary value.
+  const body = a >= 1e9 ? `${(Math.round(a / 1e7) / 100).toFixed(2)} billion` : a >= 1e6 ? `${(Math.round(a / 1e5) / 10).toFixed(1)} million` : `${Math.round(a)}`;
+  const code = currency?.trim().toUpperCase();
+  return `${sign}${code ? `${code} ` : ""}${body}`;
+}
+
+/** D-68: a signed change for a note ("+USD 15.40 billion"). */
+function fmtChange(v: number, currency: string | null | undefined): string {
+  return `${v >= 0 ? "+" : "−"}${fmtAmount(Math.abs(v), currency)}`;
+}
+
+/** D-68: options shared by the note-writing forensic models. */
+export interface ForensicTextOptions {
+  /** Reporting currency of the statements, named in note amounts. */
+  currency?: string | null;
 }
 
 function gapEntry(
@@ -720,6 +785,33 @@ export interface BeneishResult {
   neutralized: BeneishIndexName[];
   /** Indices clamped by the winsorization stand-in (house rule). */
   clamped: BeneishIndexName[];
+  /**
+   * D-61: M recomputed with the sales-growth index at neutral 1.0 — the score
+   * without the growth-pressure term (Beneish 1999 includes SGI as an
+   * incentive proxy: growth is not itself manipulation). Null when M is.
+   */
+  sgiNeutralScore?: number | null;
+  /**
+   * D-61: true when M is above the flag threshold but the SGI-neutral M is
+   * not — sales growth alone carries the flag. Graded on the SGI-neutral M.
+   */
+  growthLed?: boolean;
+  /**
+   * D-68: AQI recomputed without goodwill, other intangibles and long-term
+   * investments in the numerator (null unless M is above the "unlikely" band,
+   * AQI is above 1 and goodwill or long-term investments are reported in both
+   * years). Context, never graded.
+   */
+  aqiWithoutAcquiredAndInvestments?: number | null;
+  /** D-68: the sentence explaining AQI from the balance sheet (also in `notes`). */
+  aqiContext?: string | null;
+  /** D-68: inventory write-downs the filer tagged (us-gaap InventoryWriteDown), each year. */
+  inventoryWriteDownCurrent?: number | null;
+  inventoryWriteDownPrior?: number | null;
+  /** D-68: GMI with each year's inventory write-downs added back to gross profit (null without both). Context, never graded. */
+  gmiWithoutWriteDowns?: number | null;
+  /** D-68: the sentence explaining GMI from the statements (also in `notes`). */
+  gmiContext?: string | null;
   notes: string[];
   gaps: ManifestEntry[];
   asOf: { current: string | null; prior: string | null };
@@ -732,7 +824,7 @@ export interface BeneishResult {
  * carries the largest coefficient). Not valid for financial companies —
  * suppression happens in runForensics.
  */
-export interface BeneishOptions {
+export interface BeneishOptions extends ForensicTextOptions {
   /**
    * Revenue floor (reporting-currency units) below which the indices are
    * withheld in either year (research §6.1). Defaults to the house floor;
@@ -1077,8 +1169,120 @@ export function computeBeneish(current: ForensicsPeriod, prior: ForensicsPeriod,
     );
   }
 
+  // D-61: SGI is in the model as a pressure proxy (Beneish 1999: growth
+  // creates the incentive to sustain a trend; growth is not a fault), so a
+  // fast grower trips the flag on growth alone. Report the score without it,
+  // and say whether the flag survives.
+  let sgiNeutralScore: number | null = null;
+  let growthLed = false;
+  if (score !== null) {
+    sgiNeutralScore = score - BENEISH_COEFFICIENTS.sgi * (indices.sgi - 1);
+    const flagged = classifyBeneishVerdict(score) === "flag";
+    growthLed = flagged && classifyBeneishVerdict(sgiNeutralScore) !== "flag";
+    if (growthLed) {
+      notes.push(
+        `Growth-led flag: the sales-growth index alone (SGI ${indices.sgi.toFixed(2)}) puts M (${score.toFixed(2)}) above ${BENEISH_THRESHOLDS.flagAbove}; with SGI at neutral 1.0, M is ${sgiNeutralScore.toFixed(2)}. SGI is a pressure proxy, not a sign of manipulation (Beneish 1999), so the grade uses the SGI-neutral M.`,
+      );
+    } else if (flagged && indices.sgi > 1) {
+      notes.push(
+        `The flag is not growth-led: with SGI (${indices.sgi.toFixed(2)}) at neutral 1.0, M is still ${sgiNeutralScore.toFixed(2)}, above ${BENEISH_THRESHOLDS.flagAbove}; other indices carry it.`,
+      );
+    }
+  }
+
+  // D-68: when M is not in the "unlikely" band, say what the statements show
+  // behind AQI and GMI. An acquirer's goodwill and a strategic investor's
+  // stakes raise AQI exactly as capitalised costs would, and an inventory
+  // charge lowers gross margin exactly as pricing pressure would; the index
+  // alone cannot tell them apart, the balance sheet and the tagged
+  // write-downs can.
+  const currency = options?.currency ?? null;
+  const pct1 = (v: number): string => (v * 100).toFixed(1);
+  const dateT = asOf.current ?? "the current year end";
+  const dateP = asOf.prior ?? "the prior year end";
+  const screened = score !== null && classifyBeneishVerdict(score) !== "unlikely";
+  let aqiWithoutAcquiredAndInvestments: number | null = null;
+  let aqiContext: string | null = null;
+  const totalT = posOrNull(current.balance?.totalAssets);
+  const totalP = posOrNull(prior.balance?.totalAssets);
+  if (screened && aqiRaw !== null && aqiRaw > 1 && aqT !== null && aqP !== null && totalT !== null && totalP !== null) {
+    const pair = (field: "goodwill" | "intangibleAssets" | "longTermInvestments"): [number, number] | null => {
+      const c = nv(current.balance?.[field]);
+      const p = nv(prior.balance?.[field]);
+      return c !== null && p !== null ? [c, p] : null;
+    };
+    const parts = [
+      { name: "goodwill", values: pair("goodwill") },
+      { name: "other intangible assets", values: pair("intangibleAssets") },
+      { name: "long-term investments", values: pair("longTermInvestments") },
+    ].filter((part): part is { name: string; values: [number, number] } => part.values !== null);
+    if (parts.some((part) => part.name !== "other intangible assets")) {
+      const softT = aqT * totalT;
+      const softP = aqP * totalP;
+      const restT = softT - parts.reduce((s, part) => s + part.values[0], 0);
+      const restP = softP - parts.reduce((s, part) => s + part.values[1], 0);
+      const moves = [
+        ...parts.map((part) => `${part.name} from ${fmtAmount(part.values[1], currency)} to ${fmtAmount(part.values[0], currency)}`),
+        `the remaining non-current assets from ${fmtAmount(restP, currency)} to ${fmtAmount(restT, currency)}`,
+      ];
+      const removed = parts.map((part) => part.name.replace("other ", ""));
+      const removedText = removed.length > 1 ? `${removed.slice(0, -1).join(", ")} and ${removed[removed.length - 1]}` : removed[0];
+      aqiWithoutAcquiredAndInvestments = restP > 0 && restT >= 0 ? (restT / totalT) / (restP / totalP) : null;
+      const acquisitionCash =
+        nv(current.cashFlow?.acquisitionsNet) === null && nv(current.cashFlow?.acquisitionsInOtherInvesting) === null
+          ? null
+          : -((nv(current.cashFlow?.acquisitionsNet) ?? 0) + (nv(current.cashFlow?.acquisitionsInOtherInvesting) ?? 0));
+      aqiContext =
+        `AQI ${aqiRaw.toFixed(2)}: assets other than current assets and net PP&E were ${fmtAmount(softT, currency)} (${pct1(aqT)}% of total assets) at ${dateT}, against ${fmtAmount(softP, currency)} (${pct1(aqP)}%) at ${dateP}. ` +
+        `Component changes: ${moves.slice(0, -1).join(", ")} and ${moves[moves.length - 1]}.` +
+        (aqiWithoutAcquiredAndInvestments !== null
+          ? ` Without ${removedText}, the index is ${aqiWithoutAcquiredAndInvestments.toFixed(2)}.`
+          : "") +
+        (acquisitionCash !== null && acquisitionCash > 0
+          ? ` Investing cash flow shows ${fmtAmount(acquisitionCash, currency)} paid for acquisitions, net of cash acquired; long-term investments are financial assets (Richardson et al. 2005), not capitalised costs.`
+          : " Long-term investments are financial assets (Richardson et al. 2005), not capitalised costs.");
+      notes.push(aqiContext);
+    }
+  }
+
+  const wdT = posOrNull(current.income?.inventoryWriteDown);
+  const wdP = posOrNull(prior.income?.inventoryWriteDown);
+  let gmiWithoutWriteDowns: number | null = null;
+  let gmiContext: string | null = null;
+  if (screened && gmiRaw !== null && gmiRaw > 1 && gmT !== null && gmP !== null) {
+    gmiContext =
+      `GMI ${gmiRaw.toFixed(2)}: gross margin fell from ${pct1(gmP)}% in the fiscal year ended ${dateP} to ${pct1(gmT)}% in the fiscal year ended ${dateT}.`;
+    if (wdT !== null && wdP !== null) {
+      const exT = gmT + wdT / salesT;
+      const exP = gmP + wdP / salesP;
+      gmiWithoutWriteDowns = exT > 0 ? exP / exT : null;
+      const declinePp = (gmP - gmT) * 100;
+      const explainedPp = declinePp - (exP - exT) * 100;
+      gmiContext +=
+        ` Inventory write-downs the filer tagged (us-gaap InventoryWriteDown) were ${fmtAmount(wdT, currency)} (${pct1(wdT / salesT)}% of revenue) against ${fmtAmount(wdP, currency)} (${pct1(wdP / salesP)}%); added back, gross margin was ${pct1(exT)}% against ${pct1(exP)}%` +
+        (gmiWithoutWriteDowns !== null ? ` (GMI ${gmiWithoutWriteDowns.toFixed(2)})` : "") +
+        (explainedPp > 0
+          ? `, so the write-downs account for ${explainedPp.toFixed(1)}pp of the ${declinePp.toFixed(1)}pp decline.`
+          : ", so the write-downs do not explain the decline.");
+    } else if (wdT !== null) {
+      gmiContext += ` Inventory write-downs the filer tagged (us-gaap InventoryWriteDown) were ${fmtAmount(wdT, currency)} (${pct1(wdT / salesT)}% of revenue); the prior year's are not tagged.`;
+    }
+    notes.push(gmiContext);
+  }
+
   const out = base(score);
-  return { ...out, tataBalanceSheet };
+  return {
+    ...out,
+    tataBalanceSheet,
+    sgiNeutralScore,
+    growthLed,
+    aqiWithoutAcquiredAndInvestments,
+    aqiContext,
+    inventoryWriteDownCurrent: wdT,
+    inventoryWriteDownPrior: wdP,
+    gmiWithoutWriteDowns,
+    gmiContext,
+  };
 }
 
 // ===========================================================================
@@ -1100,6 +1304,33 @@ export interface PiotroskiSignal {
   /** 1 = pass, 0 = fail, null = not evaluable (excluded from outOf). */
   value: 0 | 1 | null;
   detail: string;
+}
+
+/** D-61: reader-facing names of the nine signals, in the paper's order. */
+export const PIOTROSKI_SIGNAL_LABELS: Readonly<Record<PiotroskiSignalName, string>> = {
+  roaPositive: "ROA > 0",
+  cfoPositive: "CFO > 0",
+  roaImproved: "ΔROA > 0",
+  accrualQuality: "CFO > net income",
+  leverageDown: "leverage fell",
+  liquidityUp: "current ratio rose",
+  noEquityIssuance: "no equity issued",
+  marginUp: "gross margin rose",
+  turnoverUp: "asset turnover rose",
+};
+
+/** D-61: which evaluable signals passed and which failed, by reader-facing name. */
+export function piotroskiSignalOutcomes(result: Pick<PiotroskiResult, "signals">): { passed: string[]; failed: string[]; notEvaluable: string[] } {
+  const passed: string[] = [];
+  const failed: string[] = [];
+  const notEvaluable: string[] = [];
+  for (const [name, label] of Object.entries(PIOTROSKI_SIGNAL_LABELS) as [PiotroskiSignalName, string][]) {
+    const value = result.signals?.[name]?.value;
+    if (value === 1) passed.push(label);
+    else if (value === 0) failed.push(label);
+    else notEvaluable.push(label);
+  }
+  return { passed, failed, notEvaluable };
 }
 
 export interface PiotroskiOptions {
@@ -1459,13 +1690,54 @@ export function classifyAccrualBand(ratio: number): AccrualBand {
   return "red";
 }
 
+/**
+ * D-61: which construction the primary ratio uses.
+ * - `financial-asset-adjusted`: (NI − CFO − operating CFI) / avg NOA, where
+ *   operating CFI excludes purchases, sales and maturities of investments and
+ *   NOA excludes cash, short-term AND long-term investments (Richardson,
+ *   Sloan, Soliman & Tuna 2005 treat both as financial assets).
+ * - `operating`: (NI − CFO) / avg NOA — the fallback when the statements do
+ *   not separate the financial-asset flows or long-term investments.
+ */
+export type AccrualDefinition = "financial-asset-adjusted" | "operating";
+
 export interface AccrualsResult {
   /** Signed operands, retained to explain investment-inclusive vs operating accruals. */
   netIncome?: number | null;
   operatingCashFlow?: number | null;
+  /** Investing cash flow AS REPORTED (all investing flows, statement sign). */
   investingCashFlow?: number | null;
   operatingAccruals?: number | null;
-  /** PRIMARY: (NI − CFO − CFI) / scaler (cash-flow approach, Hribar–Collins). */
+  /** D-61: the construction behind `cashFlowAccrualRatio` (absent on pre-D-61 results). */
+  definition?: AccrualDefinition;
+  /** D-61: purchases + sales/maturities of investments (statement signs); null when not reported. */
+  financialAssetCashFlow?: number | null;
+  /** D-61: reported CFI minus the financial-asset flows (capex, acquisitions, other investing). */
+  operatingInvestingCashFlow?: number | null;
+  /** D-61: investing flows the statement leaves unclassified, kept in operating CFI. */
+  otherInvestingCashFlow?: number | null;
+  /** D-61: long-term investments removed from each year's NOA (null when not removed). */
+  longTermInvestmentsCurrent?: number | null;
+  longTermInvestmentsPrior?: number | null;
+  /** D-61: revenue and NOA growth in the accrual year, current over prior, for the growth note (percent). */
+  revenueGrowthPct?: number | null;
+  noaGrowthPct?: number | null;
+  /** D-68: goodwill at each year end (null when not reported in both). */
+  goodwillCurrent?: number | null;
+  goodwillPrior?: number | null;
+  /** D-68: the year's increase in goodwill plus other intangible assets (null when goodwill is not reported in both years). */
+  acquiredGoodwillAndIntangibles?: number | null;
+  /** D-68: cash paid for acquisitions in the current year, net of cash acquired (positive; null when not reported). */
+  acquisitionCashPaid?: number | null;
+  /** Positive filed payment unallocated because overlap with the classified acquisition line is unresolved. */
+  acquisitionCashPaidUnallocated?: number | null;
+  /** D-68: `acquiredGoodwillAndIntangibles` as a share of the NOA increase (percent; null unless NOA rose). */
+  acquiredShareOfNoaIncreasePct?: number | null;
+  /**
+   * PRIMARY: cash-flow approach (Hribar–Collins) on the construction named by
+   * `definition` — financial-asset-adjusted (NI − CFO − operating CFI), or
+   * operating accruals (NI − CFO) — over the scaler.
+   */
   cashFlowAccrualRatio: number | null;
   /** SECONDARY: ΔNOA / scaler (balance-sheet approach). */
   balanceSheetAccrualRatio: number | null;
@@ -1483,40 +1755,148 @@ export interface AccrualsResult {
 }
 
 /**
- * NOA = (totalAssets − cashAndShortTermInvestments) − (totalLiabilities − totalDebt).
- * Primary ratio is the cash-flow construction; balance-sheet ratio is a
- * secondary diagnostic (large divergence between the two is itself an M&A/FX
- * signal). NOA ≤ 0 → rescale by average total assets (annotated).
+ * D-61 — Richardson, Sloan, Soliman & Tuna (2005) financial-asset adjustment.
+ *
+ * NOA = (totalAssets − cashAndShortTermInvestments − longTermInvestments)
+ *       − (totalLiabilities − totalDebt): short- AND long-term investments are
+ * financial assets (their FIN), not operating assets. The primary cash-flow
+ * aggregate is NI − CFO − operating CFI, where operating CFI is investing cash
+ * flow without purchases and sales/maturities of investments; capex,
+ * acquisitions and unclassified investing flows remain operating investment
+ * (Richardson's ΔNCO). Buying Treasury bills or a strategic equity stake is
+ * not an accrual. When the statements do not separate those flows (or
+ * long-term investments), the ratio falls back to operating accruals NI − CFO
+ * (Sloan 1996's operating-accrual concept on the Hribar–Collins cash-flow
+ * basis), and the definition used is returned and disclosed.
+ *
+ * The balance-sheet ratio (ΔNOA on the same NOA) is a secondary diagnostic; a
+ * large divergence between the two is itself an M&A/FX signal. NOA ≤ 0 →
+ * rescale by average total assets (annotated).
  */
-export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod): AccrualsResult {
+/**
+ * D-68: the year's change in net operating assets by line, on the NOA
+ * definition `computeAccruals` used (long-term investments out when known in
+ * both years). Null unless receivables, inventory, net PP&E and the NOA
+ * operands are reported in both years; goodwill and intangibles are their own
+ * line when goodwill is, else they stay in "other operating assets".
+ */
+function noaComposition(
+  current: ForensicsPeriod,
+  prior: ForensicsPeriod,
+  ltiKnown: boolean,
+): {
+  receivables: number;
+  inventory: number;
+  ppe: number;
+  goodwillAndIntangibles: number | null;
+  otherOperatingAssets: number;
+  operatingLiabilities: number;
+} | null {
+  const b = current.balance;
+  const p = prior.balance;
+  const operatingAssets = (bal: ForensicsBalanceRow | null | undefined): number | null => {
+    const ta = nv(bal?.totalAssets);
+    const cash = nv(bal?.cashAndShortTermInvestments);
+    const lti = ltiKnown ? nv(bal?.longTermInvestments) : 0;
+    return ta === null || cash === null || lti === null ? null : ta - cash - lti;
+  };
+  const operatingLiabilities = (bal: ForensicsBalanceRow | null | undefined): number | null => {
+    const tl = nv(bal?.totalLiabilities);
+    const debt = nv(bal?.totalDebt);
+    return tl === null || debt === null ? null : tl - debt;
+  };
+  const arBoth = nv(b?.accountsReceivables) !== null && nv(p?.accountsReceivables) !== null;
+  const receivables = arBoth
+    ? delta(b?.accountsReceivables, p?.accountsReceivables)
+    : delta(b?.netReceivables, p?.netReceivables);
+  const inventory = delta(b?.inventory, p?.inventory);
+  const ppe = delta(b?.propertyPlantEquipmentNet, p?.propertyPlantEquipmentNet);
+  const oaT = operatingAssets(b);
+  const oaP = operatingAssets(p);
+  const olT = operatingLiabilities(b);
+  const olP = operatingLiabilities(p);
+  if (receivables === null || inventory === null || ppe === null || oaT === null || oaP === null || olT === null || olP === null) {
+    return null;
+  }
+  const goodwill = delta(b?.goodwill, p?.goodwill);
+  const intangibles = delta(b?.intangibleAssets, p?.intangibleAssets);
+  const goodwillAndIntangibles = goodwill === null ? null : goodwill + (intangibles ?? 0);
+  return {
+    receivables,
+    inventory,
+    ppe,
+    goodwillAndIntangibles,
+    otherOperatingAssets: oaT - oaP - receivables - inventory - ppe - (goodwillAndIntangibles ?? 0),
+    operatingLiabilities: olT - olP,
+  };
+}
+
+export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod, options: ForensicTextOptions = {}): AccrualsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  const currency = options.currency ?? null;
 
-  const noaOf = (bal: ForensicsBalanceRow | null | undefined): number | null => {
+  // Long-term investments come out of NOA only when known in BOTH years, so
+  // the two NOAs (and the balance-sheet aggregate between them) share one
+  // definition.
+  const ltiT = nv(current.balance?.longTermInvestments);
+  const ltiP = nv(prior.balance?.longTermInvestments);
+  const ltiKnown = ltiT !== null && ltiP !== null;
+  const noaOf = (bal: ForensicsBalanceRow | null | undefined, lti: number | null): number | null => {
     const ta = nv(bal?.totalAssets);
     const cash = nv(bal?.cashAndShortTermInvestments);
     const tl = nv(bal?.totalLiabilities);
     const debt = nv(bal?.totalDebt);
     if (ta === null || cash === null || tl === null || debt === null) return null;
-    return ta - cash - (tl - debt);
+    return ta - cash - (lti ?? 0) - (tl - debt);
   };
-  const noaT = noaOf(current.balance);
-  const noaP = noaOf(prior.balance);
+  const noaT = noaOf(current.balance, ltiKnown ? ltiT : null);
+  const noaP = noaOf(prior.balance, ltiKnown ? ltiP : null);
   const taT = posOrNull(current.balance?.totalAssets);
   const taP = posOrNull(prior.balance?.totalAssets);
 
   const niT = nv(current.cashFlow?.netIncome) ?? nv(current.income?.netIncome);
   const cfoT = nv(current.cashFlow?.netCashProvidedByOperatingActivities);
   const cfiT = nv(current.cashFlow?.netCashProvidedByInvestingActivities);
+  const purchases = nv(current.cashFlow?.purchasesOfInvestments);
+  const salesMaturities = nv(current.cashFlow?.salesMaturitiesOfInvestments);
+  const otherInvesting = nv(current.cashFlow?.otherInvestingActivities);
+  const financialAssetCashFlow = purchases !== null && salesMaturities !== null ? purchases + salesMaturities : null;
+  const operatingInvestingCashFlow =
+    cfiT !== null && financialAssetCashFlow !== null ? cfiT - financialAssetCashFlow : null;
+  // Both halves of the adjustment, or neither: an adjusted numerator over an
+  // NOA that still holds long-term investments would mix two definitions.
+  const definition: AccrualDefinition =
+    operatingInvestingCashFlow !== null && ltiKnown ? "financial-asset-adjusted" : "operating";
 
-  const aggCF = niT !== null && cfoT !== null && cfiT !== null ? niT - cfoT - cfiT : null;
+  let aggCF: number | null = null;
+  if (niT !== null && cfoT !== null) {
+    aggCF = definition === "financial-asset-adjusted" ? niT - cfoT - (operatingInvestingCashFlow as number) : niT - cfoT;
+  }
   if (aggCF === null) {
     gaps.push(
       gapEntry(
         "forensics.accruals.cashFlow",
-        "netIncome/CFO/CFI missing — cash-flow aggregate accruals unavailable",
+        "netIncome/CFO missing — cash-flow aggregate accruals unavailable",
         "warn",
       ),
+    );
+  } else if (definition === "financial-asset-adjusted") {
+    notes.push(
+      "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. " +
+        (otherInvesting !== null && otherInvesting !== 0
+          ? "Capex, acquisitions and the investing flows the statement leaves unclassified"
+          : "Capex and acquisitions") +
+        " stay in as operating investment.",
+    );
+  } else {
+    const missing = [
+      cfiT === null ? "investing cash flow" : null,
+      financialAssetCashFlow === null ? "purchases and sales/maturities of investments" : null,
+      !ltiKnown ? "long-term investments in both years" : null,
+    ].filter((part): part is string => part !== null);
+    notes.push(
+      `Accrual definition: operating accruals (NI − CFO), because the statements do not report ${missing.join(", ")} — the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Operating accruals exclude every investing flow, including capex and acquisitions.`,
     );
   }
   const aggBS = noaT !== null && noaP !== null ? noaT - noaP : null;
@@ -1528,6 +1908,112 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
         "info",
       ),
     );
+  } else if (!ltiKnown) {
+    notes.push("Net operating assets are not adjusted for long-term investments, which the balance sheets do not report in both years.");
+  }
+
+  // Growth note (D-61, Fairfield, Whisenant & Yohn 2003): accruals are growth
+  // in net operating assets, and their lower persistence is largely the same
+  // effect as NOA growth itself. Disclosed beside the ratio, never graded.
+  const revT = posOrNull(current.income?.revenue);
+  const revP = posOrNull(prior.income?.revenue);
+  const revenueGrowthPct = revT !== null && revP !== null ? (revT / revP - 1) * 100 : null;
+  const noaGrowthPct = noaT !== null && noaP !== null && noaP > 0 ? (noaT / noaP - 1) * 100 : null;
+  // One comparison: the current fiscal year against the prior (D-68: the note
+  // said "over the same two years").
+  const currentDate = periodDate(current);
+  const yearPhrase = currentDate !== null ? `in the fiscal year ended ${currentDate}` : "year over year";
+  const growthNote = revenueGrowthPct !== null && revenueGrowthPct > FORENSICS_HOUSE_RULES.accrualGrowthNotePct;
+  if (growthNote) {
+    notes.push(
+      `Growth context: ${yearPhrase}, revenue grew ${fmt1(revenueGrowthPct)}%${noaGrowthPct !== null ? ` and net operating assets ${fmt1(noaGrowthPct)}%` : ""}. ` +
+        "For a company growing this fast, high accruals largely reflect operating-asset growth that scales with sales; Fairfield, Whisenant & Yohn (2003) show the accrual anomaly is largely a growth-in-NOA effect. " +
+        `The band is not adjusted for growth (house note above ${FORENSICS_HOUSE_RULES.accrualGrowthNotePct}% revenue growth).`,
+    );
+  }
+
+  // D-68: what the NOA increase is made of, and how much of it was bought.
+  // An acquisition's goodwill and intangibles are operating assets in NOA, so
+  // the accrual ratio rises with a purchase as it does with receivables; the
+  // note says which, with the statement figures, rather than leaving the
+  // reader an unexplained operating-asset expansion.
+  const gwT = nv(current.balance?.goodwill);
+  const gwP = nv(prior.balance?.goodwill);
+  const iaT = nv(current.balance?.intangibleAssets);
+  const iaP = nv(prior.balance?.intangibleAssets);
+  const goodwillKnown = gwT !== null && gwP !== null;
+  const intangiblesKnown = iaT !== null && iaP !== null;
+  const acquiredGoodwillAndIntangibles = goodwillKnown
+    ? (gwT as number) - (gwP as number) + (intangiblesKnown ? (iaT as number) - (iaP as number) : 0)
+    : null;
+  const acquisitionsLine = nv(current.cashFlow?.acquisitionsNet);
+  const acquisitionsOther = nv(current.cashFlow?.acquisitionsInOtherInvesting);
+  const acquisitionCashPaid =
+    acquisitionsLine === null && acquisitionsOther === null ? null : -((acquisitionsLine ?? 0) + (acquisitionsOther ?? 0));
+  const unresolvedPayment = nv(current.cashFlow?.acquisitionsInOtherInvestingUnresolved);
+  const acquisitionCashPaidUnallocated = unresolvedPayment !== null && unresolvedPayment > 0 ? unresolvedPayment : null;
+  if (acquisitionCashPaidUnallocated !== null) {
+    const reason = `Acquisition cash-flow coverage is partial: the classified vendor acquisitions line is ${acquisitionCashPaid === null ? "unavailable" : fmtAmount(acquisitionCashPaid, currency)}. ` +
+      `The filer separately reports a ${fmtAmount(acquisitionCashPaidUnallocated, currency)} business payment, but its overlap with that line remains unresolved; it is unallocated, not added. The classified line is not total acquisition cash paid.`;
+    notes.push(reason);
+    gaps.push({ field: "forensics.accruals.acquisitionCashPaid", reason, severity: "warn" });
+  }
+  const noaIncrease = aggBS !== null && aggBS > 0 ? aggBS : null;
+  const acquiredShareOfNoaIncreasePct =
+    noaIncrease !== null && acquiredGoodwillAndIntangibles !== null ? (acquiredGoodwillAndIntangibles / noaIncrease) * 100 : null;
+  const materialShare = FORENSICS_HOUSE_RULES.acquisitionNoteShareOfNoaIncrease * (noaIncrease ?? 0);
+  const acquisitionNote =
+    noaIncrease !== null &&
+    ((acquiredGoodwillAndIntangibles !== null && acquiredGoodwillAndIntangibles > 0 && acquiredGoodwillAndIntangibles >= materialShare) ||
+      (acquisitionCashPaid !== null && acquisitionCashPaid > 0 && acquisitionCashPaid >= materialShare));
+  if (acquisitionNote) {
+    const parts: string[] = [];
+    const moved = (name: string, from: number, to: number): string =>
+      to > from
+        ? `${name} rose from ${fmtAmount(from, currency)} to ${fmtAmount(to, currency)}`
+        : to < from
+          ? `${name} fell from ${fmtAmount(from, currency)} to ${fmtAmount(to, currency)}`
+          : `${name} was unchanged at ${fmtAmount(to, currency)}`;
+    if (goodwillKnown) {
+      parts.push(
+        moved("goodwill", gwP as number, gwT as number) +
+          (intangiblesKnown && iaT !== iaP ? ` and ${moved("other intangible assets", iaP as number, iaT as number)}` : ""),
+      );
+    }
+    if (acquisitionCashPaid !== null && acquisitionCashPaid > 0) {
+      const split =
+        acquisitionsLine !== null && acquisitionsLine !== 0 && acquisitionsOther !== null && acquisitionsOther !== 0
+          ? ` (${fmtAmount(-acquisitionsLine, currency)} on the acquisitions line and ${fmtAmount(-acquisitionsOther, currency)} the filer tags as a further business acquisition, which the statement row carries in other investing)`
+          : "";
+      parts.push(acquisitionCashPaidUnallocated !== null
+        ? `the classified vendor acquisitions line shows ${fmtAmount(acquisitionCashPaid, currency)} (partial; the separately filed payment's overlap remains unresolved)`
+        : `investing cash flow shows ${fmtAmount(acquisitionCashPaid, currency)} paid for acquisitions, net of cash acquired${split}`);
+    }
+    const share =
+      acquiredGoodwillAndIntangibles !== null && acquiredGoodwillAndIntangibles > 0 && acquiredShareOfNoaIncreasePct !== null
+        ? ` The added goodwill and intangibles, ${fmtAmount(acquiredGoodwillAndIntangibles, currency)}, are ${Math.round(acquiredShareOfNoaIncreasePct)}% of the ${fmtAmount(noaIncrease as number, currency)} increase in net operating assets: that part of the growth was acquired, not built up in working capital or plant, and the accrual ratio counts it as operating investment (Richardson et al. 2005).`
+        : ` The acquired businesses' assets enter net operating assets, so part of the ${fmtAmount(noaIncrease as number, currency)} increase may have been bought rather than built up in working capital or plant.`;
+    notes.push(`Acquisitions ${yearPhrase}: ${parts.join("; ")}.${share}`);
+  }
+  if (noaIncrease !== null && (growthNote || acquisitionNote)) {
+    const composition = noaComposition(current, prior, ltiKnown);
+    if (composition !== null) {
+      const items = [
+        `receivables ${fmtChange(composition.receivables, currency)}`,
+        `inventory ${fmtChange(composition.inventory, currency)}`,
+        `net PP&E ${fmtChange(composition.ppe, currency)}`,
+        ...(composition.goodwillAndIntangibles !== null && composition.goodwillAndIntangibles !== 0
+          ? [`goodwill and intangibles ${fmtChange(composition.goodwillAndIntangibles, currency)}`]
+          : []),
+        `other operating assets ${fmtChange(composition.otherOperatingAssets, currency)}`,
+      ];
+      notes.push(
+        `Net operating assets rose ${fmtAmount(noaIncrease, currency)} ${yearPhrase}: ${items.join(", ")}; operating liabilities ` +
+          (composition.operatingLiabilities >= 0
+            ? `rose ${fmtAmount(composition.operatingLiabilities, currency)}, which nets against them.`
+            : `fell ${fmtAmount(-composition.operatingLiabilities, currency)}, which adds to them.`),
+      );
+    }
   }
 
   // Scaler: average NOA; fall back to average TA when NOA ≤ 0 or unavailable
@@ -1577,6 +2063,20 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
     operatingCashFlow: cfoT,
     investingCashFlow: cfiT,
     operatingAccruals: niT !== null && cfoT !== null ? niT-cfoT : null,
+    definition,
+    financialAssetCashFlow,
+    operatingInvestingCashFlow,
+    otherInvestingCashFlow: otherInvesting,
+    longTermInvestmentsCurrent: ltiKnown ? ltiT : null,
+    longTermInvestmentsPrior: ltiKnown ? ltiP : null,
+    revenueGrowthPct,
+    noaGrowthPct,
+    goodwillCurrent: goodwillKnown ? gwT : null,
+    goodwillPrior: goodwillKnown ? gwP : null,
+    acquiredGoodwillAndIntangibles,
+    acquisitionCashPaid,
+    ...(acquisitionCashPaidUnallocated === null ? {} : { acquisitionCashPaidUnallocated }),
+    acquiredShareOfNoaIncreasePct,
     balanceSheetAccrualRatio: bsRatio,
     aggregateAccrualsCashFlow: aggCF,
     aggregateAccrualsBalanceSheet: aggBS,
@@ -2213,7 +2713,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       ),
     );
   } else {
-    beneish = computeBeneish(cur, pri, { revenueFloor: inputs.revenueFloor });
+    beneish = computeBeneish(cur, pri, { revenueFloor: inputs.revenueFloor, currency: inputs.reportedCurrency ?? null });
   }
 
   // --- Piotroski (still computed for financials, with a caveat) ---
@@ -2264,7 +2764,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       ),
     );
   } else if (hasPeriod(pri)) {
-    accruals = computeAccruals(cur, pri);
+    accruals = computeAccruals(cur, pri, { currency: inputs.reportedCurrency ?? null });
   } else {
     gaps.push(
       gapEntry(

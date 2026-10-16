@@ -1590,6 +1590,22 @@ export class EdgarClient {
   }
 
   /**
+   * The metadata problem `fetchFilingDocument` would refuse this filing for,
+   * or null. Callers that request a filing's index (or any other Archives
+   * path built from its accession) check this first, so a malformed or
+   * unadmitted submissions row is never turned into a request.
+   */
+  filingProblem(cik: number | string, filing: EdgarFiling): string | null {
+    try {
+      const accessionWasAdmitted =
+        this.admittedAccessionsByCik.get(padCik(cik))?.has(filing.accessionNumber) === true;
+      return filingMetadataProblem(cik, filing, accessionWasAdmitted);
+    } catch (err) {
+      return `invalid filing metadata: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+
+  /**
    * Validate a submissions filing row before constructing or requesting its
    * Archives URL. Provider metadata failures are data gaps, not exceptions.
    */

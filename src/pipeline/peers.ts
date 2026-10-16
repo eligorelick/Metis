@@ -7,12 +7,38 @@ import { routeCompany } from "@/pipeline/stageB/sectorRouting";
 import { comparablePeers, type PeerEconomicEvidence } from "@/pipeline/stageB/peerComparability";
 import type { SectorRoute } from "@/types/core";
 
-export const PEER_CANDIDATE_LIMIT = 6;
-export const PEER_FETCH_BUDGET_MS = 12_000;
+// FMP discovery returns about ten names; six cut real competitors (NVDA report
+// 34 never requested MRVL or QCOM). The deadline grows with the SEC fallback.
+export const PEER_CANDIDATE_LIMIT = 10;
+export const PEER_FETCH_BUDGET_MS = 25_000;
 const DAY = 86_400_000;
 const MAX_QUOTE_AGE = 7 * DAY;
 const MAX_STATEMENT_AGE = 200 * DAY;
 const MAX_PERIOD_DIFFERENCE = 100 * DAY;
+
+/**
+ * D-65: a candidate more than this many times smaller (or larger) than the
+ * subject by market capitalization is not a comparable company. Size is a
+ * priced risk characteristic (Fama and French 1992) and multiples differ
+ * systematically with it; comparable-company practice selects on industry
+ * first and similar size second (Alford 1992 finds industry the decisive
+ * screen, so this bound is deliberately loose: two orders of magnitude).
+ * NVDA report #34 rerun listed a $29M and a $265M listing beside a $5.2T
+ * issuer. Unbacktested house convention (RESEARCH §8).
+ */
+export const PEER_SIZE_RATIO_LIMIT = 100;
+
+/** D-65: why a candidate's size makes it non-comparable, or null. */
+export function peerSizeExclusion(subjectMarketCap: unknown, peerMarketCap: unknown): string | null {
+  const subject = typeof subjectMarketCap === "number" && Number.isFinite(subjectMarketCap) && subjectMarketCap > 0 ? subjectMarketCap : null;
+  const peer = typeof peerMarketCap === "number" && Number.isFinite(peerMarketCap) && peerMarketCap > 0 ? peerMarketCap : null;
+  if (subject === null || peer === null) return null;
+  const ratio = peer / subject;
+  if (ratio >= 1 / PEER_SIZE_RATIO_LIMIT && ratio <= PEER_SIZE_RATIO_LIMIT) return null;
+  const big = (v: number) => v >= 1e12 ? `${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : `${(v / 1e6).toFixed(0)}M`;
+  const grouped = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `size screen: market cap ${big(peer)} is ${ratio < 1 ? `${grouped(1 / ratio)}× smaller than` : `${grouped(ratio)}× larger than`} the subject's ${big(subject)}, outside the ${PEER_SIZE_RATIO_LIMIT}× comparable-size band (house rule D-65)`;
+}
 
 export interface PeerExclusion { symbol: string; reason: string }
 export interface PeerCoverage {
@@ -40,6 +66,10 @@ export interface PeerCollection {
   collectedAt?: string;
 }
 type PeerClient = Pick<FmpClient, "profile" | "quote" | "incomeStatement" | "balanceSheet">;
+/** Fundamentals for one candidate from SEC filings; a reason when they cannot be established. */
+export type PeerFilingFallback = (symbol: string, signal: AbortSignal) => Promise<PeerFundamentals | { reason: string }>;
+/** FMP's refusal of one symbol on one endpoint (fmpAccess.ts); other symbols remain servable. */
+const symbolRefused = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && /this symbol is unavailable on this endpoint/i.test(r.gap.reason);
 const normalize = (v: unknown): string => typeof v === "string" ? v.trim().toUpperCase() : "";
 const issuer = (v: unknown): string => typeof v === "string" && /^\d+$/.test(v.trim()) ? v.trim().replace(/^0+/, "") : "";
 const companyName = (v: unknown): string => normalize(v).replace(/[^A-Z0-9]/g, "").replace(/(?:INCORPORATED|CORPORATION|CORP|INC|PLC|LTD)$/, "");
@@ -66,13 +96,15 @@ function profileReason(subject: FmpProfileRow, peer: FmpProfileRow, symbol: stri
 /**
  * Production supplies a client carrying the existing durable FMP cache and this
  * deadline signal. One candidate at a time, four endpoint reads at most each;
- * terminal entitlement/quota failures stop subsequent candidates. Deadline
+ * terminal entitlement/quota failures stop subsequent candidates. A refusal of
+ * one symbol is not terminal: that candidate is served from SEC filings when a
+ * fallback is supplied, and the next candidate is still requested. Deadline
  * races also bound injected clients; production requests are actually aborted.
  */
 export async function loadPeerFundamentals(opts: {
   symbol: string; profile: FmpProfileRow | undefined; discovered: FmpFetch<FmpStockPeerRow>;
   now: Date; enabled: boolean; client: (signal: AbortSignal) => PeerClient;
-  signal?: AbortSignal; budgetMs?: number; clock?: () => Date;
+  signal?: AbortSignal; budgetMs?: number; clock?: () => Date; secFallback?: PeerFilingFallback;
 }): Promise<PeerCollection> {
   const result: PeerCollection = { candidates: {}, candidateCount: 0, exclusions: [], notes: [] };
   if (!opts.enabled) { result.notes.push("Peer fundamentals unavailable on the keyless/reserved-symbol path; no peer provider requests were made."); return result; }
@@ -84,7 +116,12 @@ export async function loadPeerFundamentals(opts: {
     const symbol = normalize(row.symbol);
     if (!/^[A-Z0-9][A-Z0-9.-]{0,19}$/.test(symbol)) { result.exclusions.push({ symbol: symbol || "(missing)", reason: "invalid candidate symbol" }); continue; }
     if (seen.has(symbol)) { result.exclusions.push({ symbol, reason: "self or duplicate candidate symbol" }); continue; }
-    seen.add(symbol); symbols.push(symbol);
+    seen.add(symbol);
+    // D-65: a micro-cap beside a mega-cap is not requested; the comparison
+    // repeats the screen on the candidate's own quote.
+    const size = peerSizeExclusion(opts.profile.marketCap, row.mktCap);
+    if (size !== null) { result.exclusions.push({ symbol, reason: size }); continue; }
+    symbols.push(symbol);
   }
   result.candidateCount = symbols.length;
   for (const symbol of symbols.slice(PEER_CANDIDATE_LIMIT)) result.exclusions.push({ symbol, reason: `optional candidate budget limit (${PEER_CANDIDATE_LIMIT})` });
@@ -102,9 +139,28 @@ export async function loadPeerFundamentals(opts: {
       })]);
     } finally { signal.removeEventListener("abort", abort); }
   };
-  const terminal = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && /401|402|403|429|quota|rate.?limit|api.?key|entitlement|subscription|denied|timeout|abort/i.test(r.gap.reason);
+  const terminal = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && !symbolRefused(r) && /401|402|403|429|quota|rate.?limit|api.?key|entitlement|subscription|denied|timeout|abort/i.test(r.gap.reason);
   const seenIssuers = new Set<string>();
   const seenNames = new Set<string>();
+  const subjectProfile = opts.profile;
+  const admit = (symbol: string, peer: FmpProfileRow): string | null => {
+    const reason = profileReason(subjectProfile, peer, symbol);
+    const id = issuer(peer.cik); const name = companyName(peer.companyName);
+    if (reason || seenIssuers.has(id) || (name && seenNames.has(name))) return reason ?? "duplicate issuer/share class";
+    seenIssuers.add(id); if (name) seenNames.add(name);
+    return null;
+  };
+  // The SEC fallback replaces the whole candidate, so every member shares one source.
+  const fromFilings = async (symbol: string, refusal: string): Promise<boolean> => {
+    if (!opts.secFallback) return false;
+    const filed = await read(() => opts.secFallback!(symbol, signal));
+    const peer = "reason" in filed ? undefined : rows(filed.profile)[0];
+    const reason = "reason" in filed ? filed.reason : peer ? admit(symbol, peer) : "SEC profile unavailable";
+    if (reason !== null || "reason" in filed) { result.exclusions.push({ symbol, reason: `${refusal}; SEC fallback: ${reason}` }); return true; }
+    result.candidates[symbol] = filed;
+    result.notes.push(`${symbol}: FMP refused this symbol; its fundamentals come from SEC companyfacts and a Yahoo quote, and its industry from an SEC SIC code equal to the subject's.`);
+    return true;
+  };
   let stopped = false;
   try {
     const client = opts.client(signal);
@@ -114,18 +170,20 @@ export async function loadPeerFundamentals(opts: {
         const profile = await read(() => client.profile(symbol));
         const peer = rows(profile)[0];
         if (!profile.ok || !peer) {
+          if (!profile.ok && symbolRefused(profile) && await fromFilings(symbol, profile.gap.reason)) continue;
           result.exclusions.push({ symbol, reason: !profile.ok ? profile.gap.reason : "profile unavailable" });
           stopped = terminal(profile); continue;
         }
-        const reason = profileReason(opts.profile, peer, symbol);
-        const id = issuer(peer.cik); const name = companyName(peer.companyName);
-        if (reason || seenIssuers.has(id) || (name && seenNames.has(name))) {
-          result.exclusions.push({ symbol, reason: reason ?? "duplicate issuer/share class" }); continue;
-        }
-        seenIssuers.add(id); if (name) seenNames.add(name);
+        const reason = admit(symbol, peer);
+        if (reason) { result.exclusions.push({ symbol, reason }); continue; }
         const [quote, incomeQuarterly, balanceQuarterly] = await read(() => Promise.all([
           client.quote(symbol), client.incomeStatement(symbol, "quarter", 5), client.balanceSheet(symbol, "quarter", 5),
         ]));
+        const refused = [quote, incomeQuarterly, balanceQuarterly].find(symbolRefused);
+        if (refused && !refused.ok && opts.secFallback) {
+          seenIssuers.delete(issuer(peer.cik)); seenNames.delete(companyName(peer.companyName));
+          await fromFilings(symbol, refused.gap.reason); continue;
+        }
         result.candidates[symbol] = { profile, quote, incomeQuarterly, balanceQuarterly };
         stopped = [quote, incomeQuarterly, balanceQuarterly].some(terminal);
       } catch {
@@ -204,11 +262,11 @@ export function comparePeerFundamentals(opts: {
   const collection = opts.collection;
   const peerCoverage: PeerCoverage = {
     methodology: [
-      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
+      `FMP discovery candidates; at most ${PEER_CANDIDATE_LIMIT} candidate profiles and three additional cached endpoints each, within ${PEER_FETCH_BUDGET_MS / 1000}s. Exact normalized industry AND sector; same valuation route and listing/reporting currency; market capitalization within ${PEER_SIZE_RATIO_LIMIT}× of the subject's either way; known CIK deduplicates issuers/share classes; non-ADR equities only.`,
       "Quotes must be no older than 7 calendar days and never future-dated; stale cache responses are excluded. Quarterly balance/TTM ends must be at most 200 days old and within 100 days of the subject fiscal end. Statements require dated filings available by the quote date.",
       "P/B uses market cap / total stockholders equity; P/TBV subtracts goodwill, intangible assets and explicitly disclosed preferred equity. Common-earnings comparison uses market cap / four contiguous quarters of earnings available to common. No forward EPS, currency conversion or share-class EPS assumptions.",
       "Medians require at least four distinct issuers surviving nonpositive/missing exclusions and the 1.5×IQR rule for that metric. EV, cash-flow and REIT peer metrics are withheld because comparable definitions are unproven. These peer observations do not change grades or intrinsic value.",
-      "Every median also requires independently sourced subject and peer business-model, accounting, exact reporting-period and metric-definition evidence available at the comparison date. FMP industry/profile classification alone does not establish that evidence; absent or incompatible evidence suppresses the comparison.",
+      "Business-model, accounting, reporting-period and metric-definition evidence that is supplied but invalid, unavailable at the comparison date, or different from the subject's excludes a peer. No source supplies that evidence independently yet, so a median that rests on the screens above carries a stated comparability caveat rather than being withheld; FMP industry classification alone does not establish business-model comparability.",
       ...(collection?.notes ?? ["Peer fundamentals not collected on this report."]),
     ], candidates: collection?.candidateCount ?? 0, evaluated: Object.keys(collection?.candidates ?? {}).length,
     eligible: [], exclusions: [...(collection?.exclusions ?? [])], comparisons: [],
@@ -233,6 +291,10 @@ export function comparePeerFundamentals(opts: {
     : sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik) ?? (targetBalance ? statementReason(targetBalance, currency, targetQuoteMs) : "quarterly balance filing unavailable");
   if (targetBalanceReason) { exclude(symbol, `subject balance: ${targetBalanceReason}`); return out; }
   out.subjectEconomicEvidence = evidenceForObservation(subject.subjectEconomicEvidence, subject.balance.date, currency, targetQuoteMs);
+  // Supplied evidence that does not describe the observation is contrary
+  // evidence, not absent evidence: it never falls back to the caveat path.
+  const subjectEvidenceContrary = subject.subjectEconomicEvidence !== undefined && out.subjectEconomicEvidence === undefined;
+  if (subjectEvidenceContrary) exclude(symbol, "subject economic evidence does not describe the compared observation's period, currency or availability; no peer median is published");
   const subjectCommon = opts.subjectIncomeQuarterly && opts.subjectBalanceQuarterly && !sourceReason(opts.subjectIncomeQuarterly, symbol, now, targetCik) && !sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik)
     ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs)
     : { value: null, date: null, reason: "subject four-quarter common earnings source/identity unavailable" };
@@ -241,7 +303,7 @@ export function comparePeerFundamentals(opts: {
   if (!commonValid) exclude(symbol, `Common earnings comparison: ${subjectCommon.reason ?? "subject TTM statement stale or missing"}`);
   const commonValues: Array<{ symbol: string; value: number; economicEvidence?: PeerEconomicEvidence }> = [];
   const ids = new Set([issuer(opts.profile.cik)]); const names = new Set([companyName(opts.profile.companyName)]);
-  for (const [requested, candidate] of Object.entries(collection?.candidates ?? {})) {
+  for (const [requested, candidate] of subjectEvidenceContrary ? [] : Object.entries(collection?.candidates ?? {})) {
     const peerSymbol = normalize(requested); const profile = rows(candidate.profile)[0];
     const candidateCik = issuer(profile?.cik);
     const reason = sourceReason(candidate.profile, peerSymbol, now, candidateCik) || (!profile ? "profile missing" : profileReason(opts.profile, profile, peerSymbol)) || quoteReason(candidate.quote, peerSymbol, now, candidateCik) || sourceReason(candidate.balanceQuarterly, peerSymbol, now, candidateCik);
@@ -253,6 +315,8 @@ export function comparePeerFundamentals(opts: {
       { incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null, availableQuarters: null }, { today: opts.now.toISOString().slice(0, 10) }).base;
     if (candidateRoute !== opts.route) { exclude(peerSymbol, "valuation route differs from subject's resolved route"); continue; }
     const peerQuote = rows(candidate.quote)[0]; const quoteMs = (peerQuote.timestamp as number) * 1000;
+    const sizeReason = peerSizeExclusion(subject.quote.marketCap, peerQuote.marketCap);
+    if (sizeReason !== null) { exclude(peerSymbol, sizeReason); continue; }
     const normalizedBalance = normalizeQuarterRows(rows(candidate.balanceQuarterly));
     const bal = normalizedBalance.rows[0]; const balanceEnd = day(bal?.date);
     const balReason = bal ? statementReason(bal, currency, quoteMs) : "quarterly balance missing";
@@ -261,6 +325,7 @@ export function comparePeerFundamentals(opts: {
     }
     const mcap = peerQuote.marketCap as number; const multiples: Partial<Record<MultipleKey, number | null>> = {};
     const economicEvidence = evidenceForObservation(candidate.economicEvidence, bal.date, currency, quoteMs);
+    if (candidate.economicEvidence && !economicEvidence) { exclude(peerSymbol, "economic evidence does not describe this peer's observation period, currency or availability"); continue; }
     const equity = positive(bal.totalStockholdersEquity);
     if (equity !== null && positive(subject.balance.totalStockholdersEquity) !== null) multiples.priceToBook = mcap / equity;
     else exclude(peerSymbol, "priceToBook: positive equity required for both issuer and peer");
@@ -275,8 +340,11 @@ export function comparePeerFundamentals(opts: {
     const common = incomeSourceReason ? { value: null, date: null, reason: incomeSourceReason } : commonIncome(rows(candidate.incomeQuarterly), normalizedBalance.rows, currency, quoteMs);
     const incomeEnd = day(common.date);
     const commonEligible = commonValid && common.value !== null && incomeEnd !== null && now - incomeEnd <= MAX_STATEMENT_AGE && Math.abs(incomeEnd - (targetIncomeEnd as number)) <= MAX_PERIOD_DIFFERENCE;
-    if (commonEligible && common.value !== null) {
-      commonValues.push({ symbol: peerSymbol, value: mcap / common.value, economicEvidence: evidenceForObservation(candidate.economicEvidence, common.date, currency, quoteMs) });
+    const commonEvidence = evidenceForObservation(candidate.economicEvidence, common.date, currency, quoteMs);
+    if (commonEligible && common.value !== null && candidate.economicEvidence && !commonEvidence) {
+      exclude(peerSymbol, "common earnings: economic evidence does not describe this peer's trailing-earnings period");
+    } else if (commonEligible && common.value !== null) {
+      commonValues.push({ symbol: peerSymbol, value: mcap / common.value, economicEvidence: commonEvidence });
       if (subject.incomeTtm?.basis === "ttm" && positive(subject.incomeTtm.epsDiluted) === null && subject.incomeTtm.netIncome === subjectCommon.value
         && (!economicEvidence || economicEvidence.periodEnd.slice(0, 10) === common.date) && (!out.subjectEconomicEvidence || out.subjectEconomicEvidence.periodEnd.slice(0, 10) === subjectCommon.date)) multiples.peTtm = mcap / common.value;
       else exclude(peerSymbol, "peTtm: subject price/diluted-EPS or annual basis differs; use the separate common-earnings comparison");
@@ -302,9 +370,14 @@ export function comparePeerFundamentals(opts: {
     const subjectEvidence = metric === "marketCapToTtmCommonEarnings"
       ? evidenceForObservation(subject.subjectEconomicEvidence, subjectCommon.date, currency, targetQuoteMs)
       : out.subjectEconomicEvidence;
+    if (subject.subjectEconomicEvidence && !subjectEvidence) {
+      for (const entry of candidates) exclude(entry.symbol, `${metric}: subject economic evidence does not describe this comparison's period`);
+      return [];
+    }
     const comparison = comparablePeers(subjectEvidence, candidates, metric, out.peerComparisonAsOf ?? null);
     for (const entry of comparison.excluded) exclude(entry.symbol, `${metric}: ${entry.reasons.join("; ")}`);
     for (const peer of comparison.eligible) eligibleSymbols.add(peer.symbol);
+    peerCoverage.methodology.push(...comparison.caveats);
     return comparison.eligible;
   };
   for (const key of ["peTtm", "priceToBook", "priceToTbv"] as const) {

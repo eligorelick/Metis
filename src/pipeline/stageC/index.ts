@@ -30,8 +30,9 @@
  */
 
 import type { DataBundle } from "@/pipeline/types";
-import { CHATGPT_EFFORTS, parseSubscriptionModel, type ChatGptRunOptions } from "@/ai/contracts";
+import { parseSubscriptionModel } from "@/ai/contracts";
 import { runSubscriptionPass } from "@/ai/transport";
+import { createSectionCheckpoint } from "./sectionCheckpoint";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type {
@@ -244,29 +245,22 @@ const runPassStreaming: RunPassStreamingFn = (args) => {
  * thinking tokens are billed as output and dominate per-pass cost, so this is
  * the user's cost/quality knob; the default stays "high".
  */
-/**
- * The selected subscription options with the reasoning effort lowered by
- * `steps`, floored at the lowest level. Only a captured explicit effort is
- * lowered: the provider default is not a known level to step down from.
- */
-export function steppedDownOptions(
-  options: ChatGptRunOptions | undefined,
-  steps: number | undefined,
-): ChatGptRunOptions | undefined {
-  if (!steps || steps <= 0 || options?.effort === undefined) return options;
-  const index = CHATGPT_EFFORTS.indexOf(options.effort);
-  return { ...options, effort: CHATGPT_EFFORTS[Math.max(0, index - steps)] };
-}
-
 function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
   if (parseSubscriptionModel(deps.analysisModel)) {
     const connectionId = deps.connectionId;
     if (!connectionId) throw new Error("Subscription pass is missing its captured account connection");
+    const owners = new Map<string, ReturnType<NonNullable<typeof deps.passAttemptFor>>>();
+    const checkpoint = deps.jobSeed ? createSectionCheckpoint(JSON.stringify({ job: deps.jobSeed, payload: payloadFingerprint(deps.payload), model: deps.analysisModel, options: deps.subscriptionOptions ?? null })) : undefined;
     return {
       model: deps.analysisModel, signal: deps.signal, jobSeed: deps.jobSeed,
       // The plan endpoint closes any single response at 15 minutes.
       sectionedOutput: true,
-      runPass: (args) => runSubscriptionPass(args, connectionId, steppedDownOptions(deps.subscriptionOptions, args.effortStepDown)),
+      ...(checkpoint ? { sectionCheckpoint: { ...checkpoint, record: (field: string, telemetry: unknown) => checkpoint.record(field, telemetry, owners.get(field.split(":")[0])) } } : {}),
+      runPass: (args) => {
+        const field = args.field ?? "llm";
+        if (!owners.has(field)) owners.set(field, deps.passAttemptFor?.(field === "llm.judge" ? "synthesize" : field === "llm.bull" ? "bull" : "bear"));
+        return runSubscriptionPass(args, connectionId, deps.subscriptionOptions);
+      },
       validateRunPass: (args) => {
         if (args.model !== deps.analysisModel || JSON.stringify(args.messages).length > 2_000_000) {
           throw new Error("Subscription pass changed model or exceeded the local input size limit");

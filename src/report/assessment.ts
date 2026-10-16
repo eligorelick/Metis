@@ -1,4 +1,4 @@
-import type { GradeBlock, Report } from "@/report/schema";
+import type { AspectScore, GradeBlock, Report } from "@/report/schema";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 import type { Grade } from "@/types/core";
 
@@ -43,9 +43,35 @@ export function gradeForDisplay(block: GradeBlock): Grade | null {
   return block.grade;
 }
 
-export function gradeDisplayLabel(block: GradeBlock): string {
+/** The deterministic score fields a limited-evidence label reads. */
+export type AspectEvidence = Pick<AspectScore, "score" | "band" | "dataCompleteness">;
+
+/** True when an aspect has a score but evidence for less than half its signal weight. */
+export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): boolean {
+  return aspect != null && aspect.score !== null && aspect.band !== null && aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE;
+}
+
+/**
+ * D-67: the one rule for an aspect under the evidence floor. No surface shows
+ * a letter for it (the strip, the section header, the scorecard band and the
+ * live chips all withhold it), and every surface shows the same deterministic
+ * score with the marker and the evidence share. The composite is unchanged:
+ * it already weights each aspect by its evidence share.
+ */
+export function limitedEvidenceText(aspect: AspectEvidence): string {
+  return `score ${Math.round(aspect.score ?? 0)}/100 on ${Math.round(aspect.dataCompleteness * 100)}% of signals`;
+}
+
+export function gradeDisplayLabel(block: GradeBlock, aspect?: AspectEvidence | null): string {
   if (gradeForDisplay(block) !== null) return block.grade;
-  return block.assessmentStatus === "limited-evidence" || /on (\d+)% of intended signals/.test(block.oneLineWhy)
-    ? "Not assessed — limited evidence"
-    : "Not assessed";
+  const limited = block.assessmentStatus === "limited-evidence" || /on (\d+)% of intended signals/.test(block.oneLineWhy);
+  if (!limited) return "Not assessed";
+  return aspect && aspect.score !== null && aspect.band !== null
+    ? `Not assessed — limited evidence (${limitedEvidenceText(aspect)})`
+    : "Not assessed — limited evidence";
+}
+
+/** "Grade A", or the not-assessed label: the heading of a graded section. */
+export function gradeHeading(block: GradeBlock, aspect?: AspectEvidence | null): string {
+  return gradeForDisplay(block) !== null ? `Grade ${block.grade}` : gradeDisplayLabel(block, aspect);
 }

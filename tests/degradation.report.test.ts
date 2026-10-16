@@ -437,13 +437,9 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
       expect(n.verified === true || n.verified === null).toBe(true);
       expect(Number.isFinite(n.value)).toBe(true);
     }
-    // These are deterministic display weights, never model-authored odds.
-    expect(report.valuation.scenarios.map((scenario) => scenario.probability)).toEqual([
-      0.25,
-      0.5,
-      0.25,
-    ]);
-    expect(report.scenarioPresentation?.weightBasis).toMatch(/uncalibrated/);
+    // Re-pinned for D-60: price targets carry no weight; the display prior stays on the projections.
+    expect(report.valuation.scenarios.map((scenario) => scenario.probability)).toEqual([null, null, null]);
+    expect(report.scenarioPresentation?.weightBasis).toMatch(/not a calibrated probability/);
     expect(report.valuation.scenarios.every((s) => s.qualitativeCommentary?.length === 0)).toBe(true);
     // Pipeline ownership is not an independently checked factual citation.
     expect(report.meta.provenanceCoverage).toBeUndefined();
@@ -606,7 +602,9 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     const serialized = JSON.stringify(report);
     expect(serialized).toContain("Diluted share count changed -7.5% between 2022-09-24 and 2025-09-27 (buyback).");
     expect(serialized).toContain(
-      "Repurchased 90B USD of stock across the analysed years at an average price proxy 12.5% above the current price.",
+      // D-61: the premium is measured on the proxy price; it is appreciation
+      // since the repurchases, said so, not timing.
+      "Repurchased 90B USD of stock across the analysed years; the current price is 12.5% below the average repurchase price proxy (price appreciation since the repurchases, not timing).",
     );
     expect(serialized).toContain("Average price proxy: repurchase dollars over the change in diluted shares.");
     // No quote, and the fair value's own currency is unknown (null): it is

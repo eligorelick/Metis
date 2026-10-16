@@ -987,7 +987,7 @@ export function ReportReadyPanel({
     missingData,
   );
   const completenessText = completeness.metadataStatus === "confirmed"
-    ? `completeness confirmed · ${completeness.state} · ${completeness.criticalCount} critical · ${completeness.warningCount} warning · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
+    ? `completeness confirmed · ${completeness.state} · ${completeness.dataCriticalCount} critical · ${completeness.dataWarningCount} warning${completeness.processDisclosureCount > 0 ? ` · ${completeness.processDisclosureCount} process disclosure` : ""} · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
     : completeness.statusText.replace(/^Completeness/, "completeness");
   const persistedDataOnlyText = summary !== null ? completeness.bannerText : null;
 

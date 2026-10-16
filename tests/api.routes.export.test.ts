@@ -177,23 +177,33 @@ describe("GET /api/export/[reportId]", () => {
 
     const markdownResponse = await exportGET(...exportReq(String(id), "md"));
     const printResponse = await exportGET(...exportReq(String(id), "pdf"));
+    const auditResponse = await exportGET(...exportReq(String(id), "audit"));
     expect(markdownResponse.status).toBe(200);
     expect(printResponse.status).toBe(200);
+    expect(auditResponse.status).toBe(200);
+    expect(auditResponse.headers.get("Content-Type")).toBe("text/markdown; charset=utf-8");
+    expect(auditResponse.headers.get("Content-Disposition")).toBe(`attachment; filename="DEMO-report-${id}-audit.md"`);
     const markdown = await markdownResponse.text();
     const print = await printResponse.text();
+    const audit = await auditResponse.text();
+    // D-62: the report (Markdown and print) carries the reader-facing leaves;
+    // the audit export carries the raw registry leaves the body no longer prints.
     for (const output of [markdown, print]) {
       for (const sentinel of [
         "TASK28:composite:methodology",
-        "TASK28:fundamentals:driver:duplicate-identity-note",
         "TASK28:evidence:guidanceVsActuals:source-id",
         "TASK28:evidence:compensation:source-display",
-        "TASK28:revenue:historical:0:source-id",
-        "TASK28:epsDiluted:weighted:1:citation-note",
-        "TASK28:PROJECTION-WEIGHTS:VERSION",
-        "TASK28.verification.computed.path",
-        "TASK28.asOfMap.alpha",
       ]) expect(output).toContain(sentinel);
     }
+    for (const sentinel of [
+      "TASK28:composite:methodology",
+      "TASK28:fundamentals:driver:duplicate-identity-note",
+      "TASK28:revenue:historical:0:source-id",
+      "TASK28:epsDiluted:weighted:1:citation-note",
+      "TASK28:PROJECTION-WEIGHTS:VERSION",
+      "TASK28.verification.computed.path",
+      "TASK28.asOfMap.alpha",
+    ]) expect(audit).toContain(sentinel);
 
     const stored = handle.db.select({ reportJson: reports.reportJson })
       .from(reports)
@@ -211,7 +221,8 @@ describe("GET /api/export/[reportId]", () => {
     expect(markdownResponse.status).toBe(200);
     const markdown = await markdownResponse.text();
     expect(markdown).not.toContain(entityConflict);
-    expect(markdown).toContain("legacy.entityValidation");
+    // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+    expect(markdown).toContain("Legacy entity validation");
     expect(markdown).toContain("critical");
 
     const stored = handle.sqlite
@@ -229,7 +240,8 @@ describe("GET /api/export/[reportId]", () => {
     expect(printResponse.status).toBe(200);
     const printHtml = await printResponse.text();
     expect(printHtml).not.toContain(entityConflict);
-    expect(printHtml).toContain("legacy.entityValidation");
+    // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+    expect(printHtml).toContain("Legacy entity validation");
     expect(printHtml).toContain("critical");
 
     const stored = handle.sqlite

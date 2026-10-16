@@ -40,6 +40,18 @@ describe("deriveNextEarnings", () => {
     expect(result.value.asOf).toBe("2026-07-05");
   });
 
+  it("stamps the next earnings date with the day the calendar was observed, not the last reported quarter", () => {
+    // D-63: FMP's earnings envelope is dated by its newest reported row (NVDA,
+    // fetched 2026-10-15: "2026-08-26"), which printed a past date beside the
+    // next earnings date.
+    const value: Sourced<FmpPayload<FmpEarningsRow>> = {
+      data: { rows: [{ date: "2026-11-18", epsActual: null }, { date: "2026-08-26", epsActual: 2.46 }], raw: [] },
+      asOf: "2026-08-26", source: "fmp", endpoint: "fmp://earnings", fetchedAt: "2026-10-15T12:00:00.000Z",
+    };
+    const result = deriveNextEarnings({ ok: true, value }, "2026-10-15", "NVDA");
+    expect(result).toMatchObject({ ok: true, value: { asOf: "2026-10-15", data: { date: "2026-11-18" } } });
+  });
+
   it("does not accept impossible calendar dates", () => {
     const result = deriveNextEarnings(
       earnings([{ date: "9999-02-30", epsActual: null }]),

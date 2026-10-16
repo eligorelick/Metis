@@ -69,6 +69,125 @@ export function buildDataCompleteness(
   };
 }
 
+/* ------------------------------------------------------------------------ *
+ * D-67: what a reader counts as a data gap
+ * ------------------------------------------------------------------------ */
+
+type Severity = ManifestEntry["severity"];
+
+/** One underlying gap, which several manifest entries may describe. */
+export interface ClassifiedGap {
+  /** Stable key of the underlying gap (the dataset or field it is about). */
+  key: string;
+  /** Severity as displayed: a downgraded entry shows "info". */
+  severity: Severity;
+  /** The highest severity any of its manifest entries recorded. */
+  recordedSeverity: Severity;
+  /** The manifest fields describing this gap, in manifest order. */
+  fields: string[];
+  /** The shortest reason among its entries (the full set is in the audit export). */
+  reason: string;
+  /** Why the displayed severity differs from the recorded one, when it does. */
+  downgrade?: string;
+}
+
+export interface ManifestClassification {
+  /** Critical and warning DATA gaps, one row per underlying gap. */
+  dataGaps: ClassifiedGap[];
+  /**
+   * How the analysis ran or what verification found (a length cap, a
+   * same-family judge, a named-person check): disclosed, but not missing data.
+   */
+  processDisclosures: ClassifiedGap[];
+  /** Recorded as warnings, displayed as information, each with its reason. */
+  downgraded: ClassifiedGap[];
+}
+
+const RANK: Record<Severity, number> = { info: 1, warn: 2, critical: 3 };
+
+/** Provider fields another source of the same dataset reads under its own name. */
+const DATASET_ALIAS: Record<string, string> = {
+  historicalMarketCap: "marketCapHistory",
+};
+
+/**
+ * The dataset a manifest field is about, so the provider failure, the
+ * substitution layer's verdict and its detail entry count as one gap:
+ * `fmp.historicalMarketCap(NVDA)`, `keyless.marketCapHistory` and
+ * `keyless.marketCapHistory.shareBasis` all describe the missing market-cap
+ * history. A field-level backfill entry keeps its own key.
+ */
+export function gapDatasetKey(field: string): string {
+  const fmp = /^fmp\.([A-Za-z]+)\(/.exec(field);
+  if (fmp) return DATASET_ALIAS[fmp[1]!] ?? fmp[1]!;
+  const keyless = /^keyless\.([A-Za-z]+)(?:\.[A-Za-z]+)*$/.exec(field);
+  if (keyless && !field.includes(".backfill.")) return DATASET_ALIAS[keyless[1]!] ?? keyless[1]!;
+  return field;
+}
+
+/** Analysis-process disclosures: how the passes ran and what verification found. */
+export function isProcessDisclosure(field: string): boolean {
+  return /^(?:llm|verify)\./.test(field);
+}
+
+/**
+ * Why a recorded warning is information for a reader, or null when it is a
+ * real data gap. Each rule names the evidence that makes the entry moot.
+ */
+function downgradeReason(gap: ManifestEntry, edgarAvailable: boolean): string | null {
+  if (gap.severity !== "warn") return null;
+  // The 8-K, 10-K and 10-Q lists are read from SEC EDGAR submissions; the FMP
+  // filings search is a convenience index of the same filings.
+  if (/^fmp\.secFilingsSearch\(/.test(gap.field) && edgarAvailable) {
+    return "The filing list is read from SEC EDGAR submissions, which were available; the provider's search index is not used.";
+  }
+  // A period mismatch alone does not establish an issuer's adoption date or
+  // whether a withheld lease field contains operating or finance leases.
+  // Keep that warning actionable until issuer-specific evidence resolves it.
+  return null;
+}
+
+/**
+ * D-67: the missing-data manifest as a reader counts it. One underlying gap
+ * is one row however many entries describe it; analysis-process disclosures
+ * are separated from data gaps; entries whose evidence shows them moot are
+ * shown as information with the reason. Expected omissions and the data-only
+ * `analysis.llm` banner entry keep their existing treatment. Pure: the
+ * persisted counts are unchanged, so stored reports still confirm.
+ */
+export function classifyManifest(gaps: readonly ManifestEntry[]): ManifestClassification {
+  const actionable = gaps.filter((gap) => gap.expected !== true);
+  const edgarAvailable = buildDataCompleteness(gaps).edgar === "available";
+  const groups = new Map<string, { kind: "data" | "process" | "downgraded"; entries: ManifestEntry[]; downgrade?: string }>();
+  for (const gap of actionable) {
+    if (gap.severity === "info") continue;
+    const downgrade = isProcessDisclosure(gap.field) ? null : downgradeReason(gap, edgarAvailable);
+    const kind = isProcessDisclosure(gap.field) ? "process" : downgrade !== null ? "downgraded" : "data";
+    const key = `${kind}|${kind === "process" ? gap.field : gapDatasetKey(gap.field)}`;
+    const group = groups.get(key) ?? { kind, entries: [], ...(downgrade !== null ? { downgrade } : {}) };
+    group.entries.push(gap);
+    groups.set(key, group);
+  }
+  const out: ManifestClassification = { dataGaps: [], processDisclosures: [], downgraded: [] };
+  for (const [key, group] of groups) {
+    const recordedSeverity = group.entries.reduce<Severity>((max, e) => (RANK[e.severity] > RANK[max] ? e.severity : max), "info");
+    const reason = group.entries.reduce((best, e) => (e.reason.length < best.length ? e.reason : best), group.entries[0]!.reason);
+    const row: ClassifiedGap = {
+      key: key.slice(key.indexOf("|") + 1),
+      severity: group.kind === "downgraded" ? "info" : recordedSeverity,
+      recordedSeverity,
+      fields: group.entries.map((e) => e.field),
+      reason,
+      ...(group.downgrade ? { downgrade: group.downgrade } : {}),
+    };
+    if (group.kind === "process") out.processDisclosures.push(row);
+    else if (group.kind === "downgraded") out.downgraded.push(row);
+    else out.dataGaps.push(row);
+  }
+  out.dataGaps.sort((a, b) => RANK[b.severity] - RANK[a.severity]);
+  return out;
+}
+
 export type CompletenessMetadataStatus = "confirmed" | "missing" | "inconsistent";
 
 export interface ReportCompletenessPresentation {
@@ -88,6 +207,18 @@ export interface ReportCompletenessPresentation {
   bannerText: string | null;
   manifestText: string;
   statusText: string;
+  /**
+   * D-67: the manifest as a reader counts it (one row per underlying gap,
+   * process disclosures apart, moot entries downgraded). The persisted
+   * counts above keep their stored meaning.
+   */
+  classification: ManifestClassification;
+  /** Critical data gaps, one per underlying gap. */
+  dataCriticalCount: number;
+  /** Warning-level data gaps, one per underlying gap. */
+  dataWarningCount: number;
+  /** Warning- or critical-level analysis-process disclosures. */
+  processDisclosureCount: number;
 }
 
 function completenessMatches(
@@ -159,7 +290,12 @@ export function deriveReportCompletenessPresentation(
     }
   }
 
+  const classification = classifyManifest(gaps);
   return {
+    classification,
+    dataCriticalCount: classification.dataGaps.filter((gap) => gap.severity === "critical").length,
+    dataWarningCount: classification.dataGaps.filter((gap) => gap.severity === "warn").length,
+    processDisclosureCount: classification.processDisclosures.length,
     metadataStatus,
     dataOnly: analysisReason !== null,
     analysisReason,

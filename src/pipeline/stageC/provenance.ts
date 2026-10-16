@@ -56,10 +56,17 @@ export interface NumericProvenanceRecord {
   id: string;
   /** Metric identity for numeric prose; omitted only by older payloads. */
   label?: string;
+  /** Exact recipient of a parsed officer appointment-package amount. */
+  subject?: string;
   kind: "provider" | "computed";
   value: number;
   unit: CanonicalUnit;
   currency: string | null;
+  /**
+   * D-57: the source row carried no currency; `currency` is the issuer's,
+   * inherited because the statements and the listing agree (not an ADR).
+   */
+  currencyBasis?: "inherited";
   period: string | null;
   periodContext?: PeriodContext;
   /**

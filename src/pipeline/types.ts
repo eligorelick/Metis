@@ -54,6 +54,8 @@ import type { CompanyFacts } from "@/edgar/xbrl";
 // WS4 (D-14): successor-registrant history.
 import type { PredecessorFacts } from "@/edgar/successor";
 import type { ExtractMethod } from "@/edgar/extract";
+import type { QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
+import type { CurrentReports } from "@/providers/currentReports";
 import type { ShortInterestPoint } from "@/providers/finra";
 import type { FredObservation } from "@/providers/fred";
 import type { InsiderSentimentMonth } from "@/providers/finnhub";
@@ -87,8 +89,15 @@ export interface StatementSet {
 /** One extracted 10-K / 10-Q section (text feeds the LLM payload). */
 export interface ExtractedSection {
   /** Which report section this is. */
-  sectionName: "item1A" | "item7" | "tenQItem2";
+  sectionName: "item1A" | "item7" | "tenQItem2" | "item1" | "tenQNotes" | "tenKNotes" | "tenQItem5";
   text: string;
+  /**
+   * D-66: for the 10-Q notes, the condensed statements printed before the
+   * notes heading (bounded), read for the cash-flow and investment lines no
+   * typed statement carries (purchases of equity securities, a deal payment).
+   * Absent on sections stored before it and on every other section.
+   */
+  statementsText?: string;
   /** Extraction layer that produced the text (diagnostics/appendix). */
   method: ExtractMethod;
   chars: number;
@@ -145,10 +154,42 @@ export interface EdgarBundle {
   mdna: FetchResult<ExtractedSection>;
   /** 10-Q Part I Item 2 (MD&A); Form 6-K never gets an inferred equivalent. */
   tenQMdna: FetchResult<ExtractedSection>;
+  /**
+   * D-63: annual business description — 10-K Item 1 or 20-F Item 4 — from the
+   * same parsed annual document. Optional: absent on bundles built before it
+   * existed and when submissions or the filing-disclosure reads were off.
+   */
+  business?: FetchResult<ExtractedSection>;
+  /**
+   * D-63: the latest 10-Q's notes to the financial statements (Part I Item 1
+   * from its notes heading on). Optional on the same terms as `business`.
+   */
+  tenQNotes?: FetchResult<ExtractedSection>;
+  /**
+   * D-66: the annual filing's notes to the consolidated financial statements
+   * (10-K Item 8, or Item 15 when Item 8 refers there), from the notes heading
+   * to the schedules or exhibit index. Optional on the same terms as `business`.
+   */
+  tenKNotes?: FetchResult<ExtractedSection>;
+  /**
+   * D-66: the latest 10-Q's Part II Item 5 (Other Information), where officers'
+   * and directors' Rule 10b5-1 trading arrangements are disclosed. Optional on
+   * the same terms as `business`.
+   */
+  tenQOther?: FetchResult<ExtractedSection>;
   /** 8-Ks carrying Item 4.01 (auditor change) among recent filings. May be empty. */
   auditorChange8Ks: FetchResult<EdgarFiling[]>;
   /** 8-Ks carrying Item 4.02 (non-reliance / restatement red flag). May be empty. */
   nonReliance8Ks: FetchResult<EdgarFiling[]>;
+  /**
+   * The latest Item 2.02 8-Ks' EX-99.1 release / EX-99.2 commentary (guidance,
+   * issuer FCF, capital return) and the last year's material-event 8-K items
+   * (NVDA report #34 audit, work package 3). Optional: absent on bundles built
+   * before it existed and when EDGAR submissions were unavailable.
+   */
+  currentReports?: FetchResult<CurrentReports>;
+  /** Segment revenue by quarter from the latest periodic XBRL instances (audit P1-3). */
+  quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   /** Full companyfacts JSON — validation runs getConcept chains against this. */
   companyFacts: FetchResult<CompanyFacts>;
   // --- WS4 (D-14) ------------------------------------------------------------

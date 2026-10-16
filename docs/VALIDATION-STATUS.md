@@ -1,6 +1,34 @@
 # Research validation status
 
-Updated 2026-10-14 for report 1.12.0 / payload 1.17.0.
+Updated 2026-10-16 for report 1.19.1 / payload 1.24.1.
+
+The NVDA audit recovery (D-65 through D-72) changes consensus calendarization,
+the non-operating investment bridge and valuation date, so Stage B now stamps
+`STAGE_B_2026_10_NVDA_AUDIT_3`. Older snapshots require their original engine;
+saved reports retain their original conventions. The recovery also adds typed
+filing and governance disclosures and conservative numeric-claim matching.
+These changes have implementation and frozen-input regression evidence; they
+do not establish institutional readiness, forecast accuracy or an independent
+model-family review. Release verification and live-run results are recorded
+in the recovery plan and decisions log.
+
+D-72 follows the PR review with exhibit-bound financial facts, amended-release
+collection, whole-row quarterly selection, current reporting-currency evidence,
+and guards against unsupported EPS, acquisition double counting, segment-history
+relabeling and incomplete analyst distributions. Source `47a43dd` passed its fresh
+complete local gate: 6,256 product tests, four database tests, coverage floors,
+build and zero-vulnerability security audit. Fresh required remote CI remains
+pending; preceding CI passes apply to the source identified in D-71. An earlier
+push-triggered Windows CLI test hit a mismatched
+outer timeout; its bounded child-process deadlines are now reflected in the test.
+
+The fresh NVDA output and its explicitly labeled corrected replay are recorded
+in D-71. Independent arithmetic reconciled the valuation and score; the source
+review repaired omitted disclosures and verifier false positives. The corrected
+artifact leaves six numeric and 14 qualitative claims unvalidated. Its one
+source-bound editorial wording correction is disclosed, with the original
+model output retained. This is reviewed consistency evidence, not a measured
+forecasting track record.
 
 The META audit repairs evidence handling, numerical consistency, period identity,
 and reproducibility. Passing implementation tests does not establish predictive

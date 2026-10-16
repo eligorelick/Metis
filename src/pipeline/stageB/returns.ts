@@ -197,6 +197,12 @@ export interface WaccInputs {
   currentCoverageBasis?: string | null;
   /** Raw invalid observation, kept separate so it cannot be hidden by averaging. */
   negativeTotalDebtObservation?: number | null;
+  /**
+   * D-60: the latest debt balance on the same lease basis — the market-value
+   * proxy for the debt WEIGHT. Absent ⇒ the average is used for the weight too.
+   */
+  totalDebtLatest?: number | null;
+  totalDebtLatestBasis?: string | null;
   /** Current market cap (currency units) — market-value equity weight. */
   marketCap: number | null;
   /** Effective tax rate as a FRACTION (FMP ratios.effectiveTaxRate, e.g. 0.183). */
@@ -228,6 +234,29 @@ export interface WaccInputs {
   erpAsOf?: string | null;
   /** Where `effectiveTaxRate` came from, e.g. "FMP ratios-ttm effectiveTaxRateTTM". */
   effectiveTaxRateBasis?: string | null;
+  /** D-60: what the raw beta is ("FMP profile beta", or the keyless regression). */
+  betaSource?: string | null;
+  /**
+   * D-60: the OLS regression of the issuer's monthly returns on the benchmark's
+   * over the bundle's own prices — window, frequency, fit and observation count
+   * — disclosed beside the beta. Null when the prices could not support one.
+   */
+  betaRegression?: BetaRegressionEvidence | null;
+  /** D-60: why no regression could be run, when `betaRegression` is null. */
+  betaRegressionUnavailable?: string | null;
+}
+
+/** D-60: a disclosed regression beta (monthly log returns, OLS). */
+export interface BetaRegressionEvidence {
+  beta: number;
+  months: number;
+  windowStart: string | null;
+  windowEnd: string | null;
+  rSquared: number | null;
+  standardError: number | null;
+  /** Price series the returns were built from. */
+  basis: string;
+  benchmark: string;
 }
 
 /**
@@ -306,6 +335,12 @@ export interface WaccResult {
   taxRateBasis: string | null;
   /** What the debt weight and the effective cost of debt divided by (input passthrough). */
   debtBasis: string | null;
+  /** D-60: input passthroughs for the beta disclosure (absent when the caller supplied none). */
+  betaSource?: string | null;
+  betaRegression?: BetaRegressionEvidence | null;
+  betaRegressionUnavailable?: string | null;
+  /** D-60: what the debt WEIGHT divided by, when it differs from debtBasis (the latest balance). */
+  debtWeightBasis?: string | null;
 }
 
 function fmt(n: number): string {
@@ -446,6 +481,10 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     erpAsOf,
     taxRateBasis: taxRateUsed === null ? null : (inputs.effectiveTaxRateBasis ?? null),
     debtBasis: inputs.totalDebtBasis ?? null,
+    ...(isFiniteNumber(inputs.totalDebtLatest) && inputs.totalDebtLatest >= 0 && inputs.totalDebtLatestBasis ? { debtWeightBasis: inputs.totalDebtLatestBasis } : {}),
+    ...(inputs.betaSource !== undefined ? { betaSource: inputs.betaSource } : {}),
+    ...(inputs.betaRegression !== undefined ? { betaRegression: inputs.betaRegression } : {}),
+    ...(inputs.betaRegressionUnavailable !== undefined ? { betaRegressionUnavailable: inputs.betaRegressionUnavailable } : {}),
   };
 
   // --- Risk-free rate is load-bearing ------------------------------------------
@@ -823,10 +862,18 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       weightDebt: null,
     };
   } else {
-    weightEquity = mcap / (mcap + debtAvg);
-    weightDebt = debtAvg / (mcap + debtAvg);
+    // D-60: weights are a CURRENT capital structure, so the debt leg is the
+    // latest balance — the one the EV bridge nets — when supplied; the average
+    // stays the denominator of the effective cost of debt, which divides a
+    // full year of interest. NVDA averaged $20.9B against a $33.4B bridge.
+    const latestDebt = isFiniteNumber(inputs.totalDebtLatest) && inputs.totalDebtLatest >= 0 ? inputs.totalDebtLatest : null;
+    const weightDebtAmount = latestDebt ?? debtAvg;
+    weightEquity = mcap / (mcap + weightDebtAmount);
+    weightDebt = weightDebtAmount / (mcap + weightDebtAmount);
     notes.push(
-      `debt weight uses ${inputs.totalDebtBasis ?? "book totalDebt (avg of latest two periods)"} as market-value proxy`,
+      latestDebt !== null
+        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book totalDebt"} as market-value proxy; the effective cost of debt divides interest by ${inputs.totalDebtBasis ?? "the average balance"}`
+        : `debt weight uses ${inputs.totalDebtBasis ?? "book totalDebt (avg of latest two periods)"} as market-value proxy`,
     );
   }
 
@@ -947,14 +994,34 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
         ? `cost of debt unavailable (${result.costOfDebtMethod})`
         : `pre-tax cost of debt ${fmt(result.costOfDebtPct)}% (${result.costOfDebtMethod}${result.syntheticRating ? `, synthetic rating ${result.syntheticRating}` : ""})`;
   const weightsBasis =
-    result.debtBasis === null
+    result.debtWeightBasis
+      ? `market-value weights: equity = current market capitalization, debt = ${result.debtWeightBasis} as the market-value proxy; the effective cost of debt divides interest by ${result.debtBasis ?? "the average balance"}`
+      : result.debtBasis === null
       ? WEIGHTS_BASIS_LABEL
       : `market-value weights: equity = current market capitalization, debt = ${result.debtBasis} as the market-value proxy`;
+  // D-60: a vendor ERP row carries no vintage; the fetch date is when it was
+  // acquired, not when the premium was estimated. The dated house reference is
+  // printed beside it so the reader can see the gap.
+  const erpVintageText =
+    result.erpSource === "vendor"
+      ? `; vintage not published by the vendor${result.erpAsOf ? `, acquired ${result.erpAsOf}` : ""}; dated reference ${ERP_FALLBACK.source} ${ERP_FALLBACK.pct}%, vintage ${ERP_FALLBACK.asOf}`
+      : result.erpSource === "damodaran-fallback" && result.erpAsOf
+        ? `, vintage ${result.erpAsOf}`
+        : "";
+  // D-60: the beta's regression window, frequency, fit and observation count.
+  const reg = result.betaRegression ?? null;
+  const regressionText = reg !== null
+    ? `; regression on the bundle's prices: ${reg.months} monthly returns vs ${reg.benchmark}, ${reg.windowStart ?? "?"} to ${reg.windowEnd ?? "?"} ` +
+      `(${reg.basis}), slope ${fmt(reg.beta)}${reg.rSquared === null ? "" : `, R² ${reg.rSquared.toFixed(2)}`}${reg.standardError === null ? "" : `, standard error ${reg.standardError.toFixed(2)}`}`
+    : result.betaRegressionUnavailable
+      ? `; no regression check: ${result.betaRegressionUnavailable}`
+      : "";
+  const betaSourceText = result.betaSource ? ` — ${result.betaSource}` : "";
   const summary =
     `WACC ${pctOrNa(result.waccPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${result.riskFreeSeriesId ?? "series not stated"}` +
     `${rfAsOf ? `, observation ${rfAsOf}` : ""}); ERP ${pctOrNa(result.erpPct)} (${erpSourceLabel ?? "unavailable"}` +
-    `${result.erpAsOf ? `, as of ${result.erpAsOf}` : ""}); beta ${result.betaFinal === null ? "n/a" : fmt(result.betaFinal)}` +
-    ` (${BETA_METHOD_LABEL}${result.betaRaw !== null ? `, raw ${fmt(result.betaRaw)}` : ""}); cost of equity ${pctOrNa(result.costOfEquityPct)}; ` +
+    `${result.erpSource === "vendor" ? erpVintageText : result.erpAsOf ? `${erpVintageText || `, as of ${result.erpAsOf}`}` : ""}); beta ${result.betaFinal === null ? "n/a" : fmt(result.betaFinal)}` +
+    ` (${BETA_METHOD_LABEL}${result.betaRaw !== null ? `, raw ${fmt(result.betaRaw)}${betaSourceText}${regressionText}` : ""}); cost of equity ${pctOrNa(result.costOfEquityPct)}; ` +
     `${rdText}; ${taxText}; ${weightsText} (${weightsBasis})`;
   return {
     waccPct: result.waccPct,
@@ -1568,7 +1635,7 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are unreported, disclosed per year) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
+    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {

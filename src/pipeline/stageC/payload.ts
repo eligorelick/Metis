@@ -31,12 +31,17 @@ import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
-import { estimateCurrency } from "@/pipeline/estimateCurrency";
+import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
+import { PIOTROSKI_SIGNAL_LABELS, type PiotroskiSignalName } from "@/pipeline/stageB/forensics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
-import type { TracedNumber } from "@/report/schema";
+import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/schema";
+import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
+import { peerSizeExclusion } from "@/pipeline/peers";
+import { consensusYearsText } from "@/pipeline/stageB/valuation";
+import { materialCreditSupportClauses } from "@/edgar/currentReports";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
   PROJECTION_PATH_ORDER,
@@ -54,7 +59,7 @@ import {
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
-import { selectMaterialEvidence, type EvidenceSpan, type EvidenceCoverage } from "@/pipeline/stageC/evidenceSelection";
+import { selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -78,12 +83,35 @@ import type {
 export const PAYLOAD_BUDGETS = {
   /** Latest earnings-call transcript text (~15-20k chars). */
   transcriptChars: 18_000,
-  /** Annual risk-factors excerpt: 10-K Item 1A or 20-F Item 3.D. */
+  /**
+   * Annual risk-factors excerpt: 10-K Item 1A or 20-F Item 3.D. D-63: this is
+   * the floor; a long section keeps `item1aLongShare` of its length, up to
+   * `item1aMaxChars` (NVDA's 114,916-char Item 1A kept 12% under the flat cap).
+   */
   item1aChars: 14_000,
+  item1aMaxChars: 24_000,
+  item1aLongShare: 0.2,
+  /** D-63: annual business description — 10-K Item 1 or 20-F Item 4. */
+  businessChars: 12_000,
+  /**
+   * D-63: the latest 10-Q's notes to the financial statements (Part I Item 1).
+   * D-66: 14,000 (was 12,000): a quarter of it now goes first to the quantified
+   * customer concentration, payment terms and end-customer statements, which
+   * the families had left out (3 of 16 concentration passages kept).
+   */
+  tenQNotesChars: 14_000,
+  /** D-66: the 10-K's notes (business combinations, goodwill, investments, commitments, segment footnotes). */
+  tenKNotesChars: 10_000,
+  /** D-66: the latest 10-Q's Part II Item 5 (Rule 10b5-1 trading arrangements), normally kept whole. */
+  tenQOtherChars: 2_500,
   /** Annual review excerpt: 10-K Item 7 or 20-F Item 5. */
   mdnaChars: 14_000,
-  /** 10-Q Part I Item 2 (MD&A) excerpt. */
-  tenQMdnaChars: 8_000,
+  /**
+   * 10-Q Part I Item 2 (MD&A) excerpt. D-63: 8,000 dropped 81% of NVDA's
+   * latest-quarter MD&A, including the H200 inventory charge and the
+   * Hyperscale/ACIE recast; it is the most current narrative the filings give.
+   */
+  tenQMdnaChars: 12_000,
   /** Free-text news/press snippet total (many small rows). */
   newsChars: 6_000,
   /** Annual statement periods kept in the compact extract (last 5). */
@@ -92,6 +120,25 @@ export const PAYLOAD_BUDGETS = {
   quarterlyPeriods: 4,
   /** Rows kept for list-shaped sources (insiders, holders, peers, estimates). */
   listRows: 12,
+  /**
+   * Latest 8-K EX-99.1 earnings-release narrative (outlook, highlights). D-63:
+   * 5,000 dropped 4,096 of NVDA's 8,593-char Q2 FY2027 narrative, and the
+   * report then said what it held was "not in the filings".
+   */
+  earningsReleaseChars: 9_000,
+  /**
+   * Latest 8-K EX-99.2 CFO commentary narrative (drivers, commitments, cash
+   * flow). D-63: 7,000 dropped the balance-sheet paragraph (DSO 60 vs 45 days,
+   * receivables, inventory ahead of Vera Rubin, cash taxes) that explains the
+   * quarter's operating-cash-flow drop.
+   */
+  cfoCommentaryChars: 11_000,
+  /** One ordinary material-event 8-K's item text. */
+  eightKEventChars: 1_200,
+  /** Credit-support agreements retain named parties, caps, options and contractual offsets. */
+  eightKCreditEventChars: 1_800,
+  /** All material-event 8-K excerpts together. */
+  eightKEventsTotalChars: 8_600,
 } as const;
 
 /** Marker appended when a text field was truncated to its budget. */
@@ -114,8 +161,17 @@ export interface PayloadFigure {
   value: number | string | null;
   unit: string;
   currency: string | null;
+  /**
+   * D-57: the row carries no currency of its own and `currency` is the
+   * issuer's, inherited. Rendered "(USD, inherited)" and kept on the record.
+   */
+  currencyInherited?: true;
   period: string | null;
   periodContext?: PeriodContext;
+  /** Issuer fiscal label explicitly carried by a source row; never inferred from calendar year. */
+  fiscalPeriod?: string;
+  /** Exact person named by a parsed appointment-package disclosure. */
+  subject?: string;
   source: string;
   asOf: string | null;
 }
@@ -206,6 +262,18 @@ export interface ContextPayload {
   computed: PayloadSection[];
   /** Compact statement extracts (annual + quarterly key line items). */
   statements: StatementExtractBlock[];
+  /**
+   * Eight-quarter trend, segment growth and guidance-vs-actual, computed from
+   * the statements, the periodic XBRL and the earnings releases. Optional:
+   * absent when the bundle carries none of that evidence.
+   */
+  quarterlyTrend?: PayloadSection;
+  /** Segment revenue by quarter from the latest 10-Q/10-K XBRL instances. */
+  segmentRevenue?: PayloadSection;
+  /** Guidance, issuer-defined FCF and capital return from the latest 8-K EX-99 release. */
+  issuerFilings?: PayloadSection;
+  /** D-66: facts the 10-Q/10-K notes and statements and the CFO commentary print beyond the typed statements. */
+  filingFacts?: PayloadSection;
   /** Analyst estimates / price-target consensus / grades summary. */
   estimates: PayloadSection;
   /** Peer set (symbol + name + headline size). */
@@ -291,7 +359,19 @@ export interface ContextPayload {
 // material filing context and distinct filing dates; prior passes cannot resume.
 // 1.22.0 (D-56 review): actual envelope/row/field statement origins; passes
 // built under normalized FMP-only origin labels cannot resume as equivalent.
-export const PAYLOAD_VERSION = "1.22.0" as const;
+// 1.23.0 (D-57, D-58): estimates, targets, peer caps and pay inherit the
+// issuer currency when reporting and listing agree; the DCF evidence sent to
+// analysts changes with the year-one anchor. Prior passes cannot resume.
+// 1.23.0 (NVDA report #34 audit, work package 3): 8-K earnings-release and
+// CFO-commentary evidence (guidance, issuer FCF, capital return), dated
+// material-event 8-K excerpts, XBRL segment revenue by quarter and the
+// eight-quarter trend. Passes built without that evidence cannot resume.
+// The combined 1.23.0 carries both sets of evidence (NVDA audit integration).
+// 1.24.0 (D-65..D-68): consensus/calendarization and equity-bridge conventions,
+// typed filing facts and governance disclosures, bounded verifier matching,
+// and corrected forensic notes. Prior analyst/judge artifacts cannot resume.
+// 1.24.1 (D-72): revised financial evidence and source-bound filing facts.
+export const PAYLOAD_VERSION = "1.24.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -397,7 +477,9 @@ export function formatFigure(f: PayloadFigure): string {
   // never left to assume one (the listing's, or dollars).
   const canonical = f.value === null ? null : canonicalizeTracedUnit(f.unit, null);
   const monetary = canonical?.unit === "currency" || canonical?.unit === "currency-per-share";
-  const currency = monetary && canonical?.currency === null ? ` (${f.currency ?? "currency unknown"})` : "";
+  const currency = monetary && canonical?.currency === null
+    ? ` (${f.currency === null ? "currency unknown" : f.currencyInherited ? `${f.currency}, inherited` : f.currency})`
+    : "";
   const periodContext = f.periodContext === undefined ? "" : ` periodContext=${JSON.stringify(f.periodContext)}`;
   return `${f.label}: ${val}${unit}${currency} ${provenanceTag(f.provenanceId ?? f.source, f.asOf)}${periodContext}`;
 }
@@ -549,7 +631,8 @@ function computedSections(
   }
   for (const c of g.fcfCagrs) {
     growthFigures.push({
-      label: `FCF CAGR ${c.windowYears}y`,
+      // D-60: the CAGR runs on the vendor before-SBC free cash flow, unlike the after-SBC FCF rows.
+      label: `FCF CAGR ${c.windowYears}y (before SBC)`,
       value: c.cagrPct,
       unit: "%",
       source: "computed.growth.fcfCagrs",
@@ -618,7 +701,17 @@ function computedSections(
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
     { label: "diluted share count trend (5y)", value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
-    { label: "buyback price vs current", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
+    // D-61: the premium of today's quote over the proxy paid price is price
+    // appreciation since the buybacks, labelled so and not graded; timing —
+    // the price actually paid against the same year's average — is the
+    // graded stewardship signal.
+    { label: "current quote vs proxy buyback price (price appreciation since repurchases, not graded)", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
+    ...(cap.buybackPriceAnalysis.totalRepurchased > 0
+      ? [
+          { label: "buyback timing: cost of the repurchased shares at each year's average price vs cost paid", value: cap.buybackPriceAnalysis.timingPct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingPct", asOf: cap.asOf },
+          { label: "buyback timing coverage of repurchase dollars", value: cap.buybackPriceAnalysis.timingCoveragePct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingCoveragePct", asOf: cap.asOf },
+        ]
+      : []),
   ];
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
 
@@ -698,11 +791,81 @@ function computedSections(
     { label: "Altman zone", value: fx.altman?.zone ?? null, unit: "", source: "computed.forensics.altman.zone", asOf: fx.altman?.asOf.balanceSheet ?? null },
     { label: "Beneish M", value: fx.beneish?.score ?? null, unit: "score", source: "computed.forensics.beneish", asOf: fx.beneish?.asOf.current ?? null },
     { label: "Beneish verdict", value: fx.beneish?.verdict ?? null, unit: "", source: "computed.forensics.beneish.verdict", asOf: fx.beneish?.asOf.current ?? null },
+    // D-61: the eight indices the M-score is built from, and the score without
+    // the sales-growth term, so a flag can be traced to what carries it.
+    ...(fx.beneish !== null && fx.beneish.score !== null
+      ? [
+          ...([
+            ["DSRI", fx.beneish.indices.dsri], ["GMI", fx.beneish.indices.gmi], ["AQI", fx.beneish.indices.aqi],
+            ["SGI", fx.beneish.indices.sgi], ["DEPI", fx.beneish.indices.depi], ["SGAI", fx.beneish.indices.sgai],
+            ["TATA", fx.beneish.indices.tata], ["LVGI", fx.beneish.indices.lvgi],
+          ] as const).map(([name, value]): PayloadFigureInput => ({
+            label: `Beneish index ${name}`, value, unit: "x", source: `computed.forensics.beneish.indices.${name.toLowerCase()}`, asOf: fx.beneish!.asOf.current,
+          })),
+          { label: "Beneish M with the sales-growth index at neutral 1.0", value: fx.beneish.sgiNeutralScore ?? null, unit: "score", source: "computed.forensics.beneish.sgiNeutralScore", asOf: fx.beneish.asOf.current },
+          { label: "Beneish flag carried by sales growth alone", value: fx.beneish.growthLed === true ? "yes" : "no", unit: "", source: "computed.forensics.beneish.growthLed", asOf: fx.beneish.asOf.current },
+          // D-68: what the statements show behind AQI and GMI (context, not graded).
+          ...(fx.beneish.aqiWithoutAcquiredAndInvestments != null
+            ? [{ label: "Beneish AQI without goodwill, intangibles and long-term investments (context, not graded)", value: fx.beneish.aqiWithoutAcquiredAndInvestments, unit: "x", source: "computed.forensics.beneish.aqiWithoutAcquiredAndInvestments", asOf: fx.beneish.asOf.current }]
+            : []),
+          ...(fx.beneish.gmiContext != null && fx.beneish.inventoryWriteDownCurrent != null
+            ? [
+                { label: "inventory write-downs the filer tagged (current year)", value: fx.beneish.inventoryWriteDownCurrent, unit: "currency", currency: currencies.forensics, source: "computed.forensics.beneish.inventoryWriteDownCurrent", asOf: fx.beneish.asOf.current },
+                ...(fx.beneish.inventoryWriteDownPrior != null
+                  ? [{ label: "inventory write-downs the filer tagged (prior year)", value: fx.beneish.inventoryWriteDownPrior, unit: "currency", currency: currencies.forensics, source: "computed.forensics.beneish.inventoryWriteDownPrior", asOf: fx.beneish.asOf.prior }]
+                  : []),
+                ...(fx.beneish.gmiWithoutWriteDowns != null
+                  ? [{ label: "Beneish GMI with inventory write-downs added back (context, not graded)", value: fx.beneish.gmiWithoutWriteDowns, unit: "x", source: "computed.forensics.beneish.gmiWithoutWriteDowns", asOf: fx.beneish.asOf.current }]
+                  : []),
+              ]
+            : []),
+        ]
+      : []),
     // The forensic layer's own label carries the scale (variant, denominator
     // and the withheld signals by name), so a 3-of-3 on a bank is never read
     // against the paper's 9-point scale.
     { label: fx.piotroski?.label ?? "Piotroski F", value: fx.piotroski?.score ?? null, unit: "score", source: "computed.forensics.piotroski", asOf: fx.piotroski?.asOf.current ?? null },
+    // D-61: each of the nine signals, passed, failed or not evaluable.
+    ...(fx.piotroski !== null
+      ? (Object.entries(PIOTROSKI_SIGNAL_LABELS) as [PiotroskiSignalName, string][]).map(([key, label]): PayloadFigureInput => {
+          const value = fx.piotroski!.signals[key]?.value;
+          return {
+            label: `Piotroski signal: ${label}`,
+            value: value === 1 ? "passed" : value === 0 ? "failed" : "not evaluable",
+            unit: "", source: `computed.forensics.piotroski.signals.${key}`, asOf: fx.piotroski!.asOf.current,
+          };
+        })
+      : []),
     { label: "accrual ratio (cash-flow)", value: fx.accruals?.cashFlowAccrualRatio ?? null, unit: "x", source: "computed.forensics.accruals.cashFlowAccrualRatio", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "accrual definition", value: fx.accruals?.definition ?? null, unit: "", source: "computed.forensics.accruals.definition", asOf: fx.accruals?.asOf.current ?? null },
+    // The adjustment's operands exist only on the adjusted construction.
+    ...(fx.accruals?.definition === "financial-asset-adjusted"
+      ? [
+          { label: "accrual operand financial-asset investing flows (purchases plus sales/maturities of investments)", value: fx.accruals.financialAssetCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.financialAssetCashFlow", asOf: fx.accruals.asOf.current },
+          { label: "accrual operand operating investing cash flow (CFI without financial-asset flows)", value: fx.accruals.operatingInvestingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingInvestingCashFlow", asOf: fx.accruals.asOf.current },
+          { label: "long-term investments removed from net operating assets (current)", value: fx.accruals.longTermInvestmentsCurrent ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.longTermInvestmentsCurrent", asOf: fx.accruals.asOf.current },
+          { label: "long-term investments removed from net operating assets (prior)", value: fx.accruals.longTermInvestmentsPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.longTermInvestmentsPrior", asOf: fx.accruals.asOf.prior },
+        ] satisfies PayloadFigureInput[]
+      : []),
+    // D-68: one fiscal year over the prior, not "the accrual years".
+    { label: "revenue growth in the accrual fiscal year (year over year)", value: fx.accruals?.revenueGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.revenueGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "net operating asset growth in the accrual fiscal year (year over year)", value: fx.accruals?.noaGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.noaGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
+    // D-68: how much of the NOA increase an acquisition added, when one did.
+    ...(fx.accruals != null && (fx.accruals.acquisitionCashPaidUnallocated != null || fx.accruals.notes.some((note) => note.startsWith("Acquisitions ")))
+      ? [
+          { label: "goodwill (current)", value: fx.accruals.goodwillCurrent ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.goodwillCurrent", asOf: fx.accruals.asOf.current },
+          { label: "goodwill (prior)", value: fx.accruals.goodwillPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.goodwillPrior", asOf: fx.accruals.asOf.prior },
+          { label: "increase in goodwill and other intangible assets", value: fx.accruals.acquiredGoodwillAndIntangibles ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquiredGoodwillAndIntangibles", asOf: fx.accruals.asOf.current },
+          { label: fx.accruals.acquisitionCashPaidUnallocated != null
+            ? "cash on the classified vendor acquisitions line (partial; filed payment overlap unresolved)"
+            : "cash paid for acquisitions, net of cash acquired", value: fx.accruals.acquisitionCashPaid ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaid", asOf: fx.accruals.asOf.current },
+          ...(fx.accruals.acquisitionCashPaidUnallocated != null
+            ? [{ label: "filed business payment (unallocated; overlap with classified acquisitions unresolved)", value: fx.accruals.acquisitionCashPaidUnallocated,
+              unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaidUnallocated", asOf: fx.accruals.asOf.current }]
+            : []),
+          { label: "goodwill and intangibles increase as a share of the net-operating-asset increase", value: fx.accruals.acquiredShareOfNoaIncreasePct ?? null, unit: "%", source: "computed.forensics.accruals.acquiredShareOfNoaIncreasePct", asOf: fx.accruals.asOf.current },
+        ]
+      : []),
     { label: "accrual operand net income (NI)", value: fx.accruals?.netIncome ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.netIncome", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand operating cash flow (CFO)", value: fx.accruals?.operatingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand investing cash flow (CFI)", value: fx.accruals?.investingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.investingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
@@ -719,9 +882,12 @@ function computedSections(
   ];
   const forensicNotes = [...fx.notes];
   if (fx.accruals !== null) {
+    // D-61: the note names the construction actually used.
     forensicNotes.push(
-      `Broad aggregate cash-flow accruals = NI - CFO - CFI; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}. NI uses the cash-flow statement's net income, with income-statement fallback; CFO/CFI are net cash provided by operating/investing activities for ${fx.accruals.asOf.current ?? "unknown period"}. Read those exact-dated statement rows, not another cash-flow definition.`,
-      "Investing outflows are negative CFI: subtracting them can make this broad accrual numerator positive even when CFO exceeds NI. That sign alone is not evidence of aggressive revenue recognition. The balance-sheet alternative is (NOA current - NOA prior) / the same scaler; reconcile divergence before drawing an earnings-quality conclusion.",
+      fx.accruals.definition === "operating"
+        ? `Cash-flow accruals here are operating accruals = NI - CFO; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}, for ${fx.accruals.asOf.current ?? "unknown period"}. The statements do not separate investment purchases and sales from operating investment, so no investing flow is included. Read those exact-dated statement rows, not another cash-flow definition.`
+        : `Cash-flow accruals are financial-asset-adjusted (Richardson, Sloan, Soliman and Tuna 2005) = NI - CFO - operating CFI, where operating CFI is investing cash flow without purchases and sales/maturities of investments; ratio = that numerator / ${fx.accruals.scaler ?? "unavailable scaler"}, for ${fx.accruals.asOf.current ?? "unknown period"}. Net operating assets exclude cash, short-term and long-term investments. Buying securities or strategic equity stakes is not an accrual; capex, acquisitions and unclassified investing flows remain operating investment. Read those exact-dated statement rows, not another cash-flow definition.`,
+      "The balance-sheet alternative is (NOA current - NOA prior) / the same scaler; reconcile divergence before drawing an earnings-quality conclusion. A high ratio is growth in net operating assets, which for a fast-growing company largely scales with sales; it is not evidence of aggressive revenue recognition by itself.",
     );
   }
   for (const flag of fx.flags) {
@@ -735,7 +901,11 @@ function computedSections(
     const add = (key: string, value: number | null, unit: string): void => {
       const period = key.startsWith("debtBridge.") ? currentCapital.asOf
         : `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`;
-      figures.push({ label: key.replace(/\./g, " ").replace(/([a-z])([A-Z])/g, "$1 $2"), value, unit, currency: unit === "currency" ? currentCapital.currency : null,
+      // The bridge group is structure, not the metric: "total debt including
+      // leases", never "debt Bridge total Debt Including Leases", which no
+      // prose naming the metric could match (NVDA report 34).
+      const label = key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period });
     };
     for (const key of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc"] as const) add(key, currentCapital[key], "x");
@@ -777,8 +947,11 @@ function computedSections(
     // in the gap list.
     { label: "relative strength vs SPY, 12-1 month (latest month skipped)", value: rs.momentum12m1m?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.12m1m", asOf: rs.momentum12m1m?.endDate ?? null },
     { label: "relative strength vs SPY, 6-month", value: rs.points.find((p) => p.months === 6)?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.6mo", asOf: rs.asOf },
-    { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.read", asOf: t.asOf },
-    { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.read", asOf: t.asOf },
+    // D-66: one tag per read. Both rows printed `computed.technicals.read`, so
+    // the NVDA final rerun's judge composed `computed.technicals.momentum` for
+    // the momentum read, a tag that did not exist (unknown-source).
+    { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.trend-read", asOf: t.asOf },
+    { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.momentum-read", asOf: t.asOf },
   ];
   sections.push(payloadSection({ title: "Technicals (computed)", figures: techFigures, notes: t.notes }));
 
@@ -792,6 +965,21 @@ function computedSections(
       { label: "reverse-DCF implied revenue growth", value: val.reverseDcf?.impliedRevenueGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
       { label: "reverse-DCF implied terminal margin", value: val.reverseDcf?.impliedTerminalMarginPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
     );
+    // D-60 (P0-E): the price-implied year-one growth beside the evidence it
+    // must be read against, each as growth over the same TTM start revenue, so
+    // "demanding" or "undemanding" is a comparison, not an adjective.
+    const anchor = val.assumptions?.revenueAnchor;
+    const start = val.assumptions?.startRevenue.value ?? null;
+    const anchorAsOf = val.assumptions?.asOf.statements ?? null;
+    const overStart = (level: number | null | undefined): number | null =>
+      start !== null && start > 0 && typeof level === "number" && Number.isFinite(level) ? (level / start - 1) * 100 : null;
+    valFigures.push(...([
+      { label: "DCF base-case year-one revenue growth over TTM", value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf: anchorAsOf },
+      { label: "guided run-rate growth over TTM (next-quarter guidance × 4)", value: overStart(anchor?.evidence?.guidedRunRate), unit: "%", source: "computed.valuation.reverseDcfContext.guidedRunRate", asOf: anchorAsOf },
+      { label: "guided sequential pace, annualized", value: anchor?.evidence?.guidedPacePct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.guidedPace", asOf: anchorAsOf },
+      { label: "consensus year-one revenue growth over TTM", value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf: anchorAsOf },
+      { label: "latest-quarter revenue growth, year over year", value: anchor?.runRate?.yoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.latestQuarterYoy", asOf: anchorAsOf },
+    ] satisfies PayloadFigureInput[]).filter((figure) => figure.value !== null));
   } else if (val.kind === "excess-return") {
     // WS5 review (NIT 8): the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
@@ -841,8 +1029,24 @@ function computedSections(
       });
     }
   }
+  // D-65: which base-path years consensus sets, so the prose names them
+  // instead of calling a ten-year path "consensus-anchored".
+  const consensusYears = val.kind === "dcf" ? val.assumptions?.revenueAnchor?.consensusYears : undefined;
+  const consensusPath = val.kind === "dcf" ? val.assumptions?.revenueAnchor?.consensusPath ?? [] : [];
+  const anchoredLabels = consensusPath.filter((r) => r.anchored).map((r) => r.label);
+  const consensusNote = consensusYears === undefined || val.kind !== "dcf" ? [] : [
+    consensusYears.length === 0
+      ? "Consensus anchoring (D-65): no base-path year takes its revenue from analyst consensus; do not describe the base path as consensus-anchored."
+      : `Consensus anchoring (D-65): consensus sets ${consensusYearsText(consensusYears)} of the ${val.assumptions?.years ?? 10}-year base path` +
+        `${anchoredLabels.length > 0 ? ` (${anchoredLabels[0]}${anchoredLabels.length > 1 ? ` through ${anchoredLabels[anchoredLabels.length - 1]}` : ""})` : ""}; ` +
+        `the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.`,
+  ];
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...consensusNote,
+    ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
+      ? ["Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures."]
+      : []),
     ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
   ] }));
 
@@ -898,7 +1102,13 @@ function computedSections(
     sections.push(payloadSection({
       title: "Deterministic aspect scores (computed — ANCHOR your A–F letter grades to these bands; justify any deviation)",
       figures: scoreFigures,
-      notes: [sc.composite.methodology, `band table: ${sc.bandsVersion}`],
+      notes: [
+        sc.composite.methodology,
+        `band table: ${sc.bandsVersion}`,
+        // D-61 (NVDA report #34: a leadership grade justified by guidance
+        // execution that the score never measured).
+        "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and net share-count change. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support.",
+      ],
     }));
   }
 
@@ -959,7 +1169,12 @@ function computedSections(
     sections.push(payloadSection({
       title: `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
       figures: projFigures,
-      notes: [...new Set(projectionSeries.flatMap((series) => series.assumptions))],
+      // D-65: the capital-return basis left the EPS series' assumptions (the
+      // report states it once, under its table); the model still reads it here.
+      notes: [...new Set(projectionSeries.flatMap((series) => [
+        ...series.assumptions,
+        ...(series.capitalReturn?.basis ? [series.capitalReturn.basis] : []),
+      ]))],
     }));
   } else if (computed.projections && computed.projections.notApplicableReason) {
     // No weights here: nothing is weighted on this route, so none are shown.
@@ -1041,7 +1256,9 @@ const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: 
   { key: "totalLiabilities", label: "total liabilities", unit: "currency" },
   { key: "totalStockholdersEquity", label: "stockholders equity", unit: "currency" },
   { key: "totalDebt", label: "total debt", unit: "currency" },
-  { key: "netDebt", label: "net debt", unit: "currency" },
+  // D-60: the vendor netDebt field nets cash only (total debt − cash and
+  // equivalents) and contradicted the house net debt in prose (NVDA report 34:
+  // +$16.4B beside −$66.0B); the house figure is in the current-capital section.
   { key: "cashAndShortTermInvestments", label: "cash + STI", unit: "currency" },
 ];
 
@@ -1171,37 +1388,57 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
  * ------------------------------------------------------------------------ */
 
 /**
- * Analyst estimates and price targets are money in the currency their OWN row
- * states (estimateCurrency), or a documented provider convention — FMP
- * documents none. A listing currency that matches the statements' is not
- * evidence. Anything else stays unknown: rendered as such to the model and
- * never registered, so no citation of it verifies in any currency.
+ * The currency fields of a provider row: its own, else the issuer currency it
+ * inherits (D-57), marked so the prompt and the registry disclose it.
  */
-function estimatesSection(bundle: DataBundle): PayloadSection {
+function rowCurrency(
+  row: object | null | undefined,
+  issuer: InheritedIssuerCurrency,
+): Pick<PayloadFigureInput, "currency" | "currencyInherited"> {
+  const { code, inherited } = providerRowCurrency(row, issuer);
+  return inherited ? { currency: code, currencyInherited: true } : { currency: code };
+}
+
+/** One note per section whose money rows rely on the inheritance rule. */
+function inheritanceNote(figures: readonly PayloadFigureInput[], issuer: InheritedIssuerCurrency): string[] {
+  if (figures.some((f) => f.currencyInherited)) return [`Money rows marked "inherited": currency ${issuer.basis}.`];
+  const unknownMoney = figures.some((f) => f.value !== null && f.currency === null && /^currency/.test(f.unit));
+  return unknownMoney ? [`Money rows shown "(currency unknown)": the issuer currency was ${issuer.basis}.`] : [];
+}
+
+/**
+ * Analyst estimates and price targets are money in the currency their OWN row
+ * states (estimateCurrency), else in the issuer currency they inherit when the
+ * statements and the listing agree and the issuer is not an ADR (D-57).
+ * Anything else stays unknown: rendered as such to the model and never
+ * registered, so no citation of it verifies in any currency.
+ */
+function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
   for (const e of est) {
-    const currency = estimateCurrency(e);
+    const currency = rowCurrency(e, issuer);
     const candidatePeriod = isoDay(e.date);
     const period = isFullIsoDate(candidatePeriod) ? candidatePeriod : null;
     const periodLabel = period ?? "unknown";
     figures.push(
-      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
-      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
+      { label: `est revenue ${periodLabel}`, value: numOrNull(e.revenueAvg), unit: "currency", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
+      { label: `est EPS ${periodLabel}`, value: numOrNull(e.epsAvg), unit: "currency/share", ...currency, period, source: "fmp:analyst-estimates", asOf: estAsOf },
     );
   }
   const ptc = firstRow(bundle.priceTargetConsensus);
   const ptcAsOf = bundle.priceTargetConsensus.ok ? bundle.priceTargetConsensus.value.asOf : null;
   if (ptc) {
-    const currency = estimateCurrency(ptc);
+    const currency = rowCurrency(ptc, issuer);
     figures.push(
-      { label: "price target consensus", value: numOrNull(ptc.targetConsensus), unit: "currency/share", currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
-      { label: "price target high", value: numOrNull(ptc.targetHigh), unit: "currency/share", currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
-      { label: "price target low", value: numOrNull(ptc.targetLow), unit: "currency/share", currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
+      { label: "price target consensus", value: numOrNull(ptc.targetConsensus), unit: "currency/share", ...currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
+      { label: "price target high", value: numOrNull(ptc.targetHigh), unit: "currency/share", ...currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
+      { label: "price target low", value: numOrNull(ptc.targetLow), unit: "currency/share", ...currency, source: "fmp:price-target-consensus", asOf: ptcAsOf },
     );
   }
+  notes.push(...inheritanceNote(figures, issuer));
   const grades = firstRow(bundle.gradesConsensus);
   if (grades) {
     notes.push(
@@ -1235,17 +1472,29 @@ function nextEarningsNote(bundle: DataBundle): string | null {
   return `next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): ${date} [${source}:earnings-calendar · ${asOf}]`;
 }
 
-function peersSection(bundle: DataBundle): PayloadSection {
-  const peers = rowsOf(bundle.peers).slice(0, PAYLOAD_BUDGETS.listRows);
+/**
+ * FMP's stock-peers list draws peers from the subject's own exchange, so a
+ * peer market cap without a currency inherits the subject's listing currency
+ * under the same D-57 rule (which requires it to equal the reporting one).
+ */
+function peersSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
+  // D-65: discovery candidates outside the comparable-size band are named in
+  // a note, not listed as peers (NVDA: a $29M and a $265M listing beside $5.2T).
+  const subjectCap = numOrNull(firstRow(bundle.quote)?.marketCap) ?? numOrNull(firstRow(bundle.profile)?.marketCap);
+  const screened = rowsOf(bundle.peers).map((p) => ({ p, size: peerSizeExclusion(subjectCap, numOrNull(p.mktCap)) }));
+  const peers = screened.filter((s) => s.size === null).map((s) => s.p).slice(0, PAYLOAD_BUDGETS.listRows);
   const asOf = bundle.peers.ok ? bundle.peers.value.asOf : null;
   const figures: PayloadFigureInput[] = peers.map((p) => ({
     label: `${strOrNull(p.symbol) ?? "?"} — ${strOrNull(p.companyName) ?? "?"}`,
     value: numOrNull(p.mktCap),
     unit: "currency mkt cap",
+    ...rowCurrency(p, issuer),
     source: "fmp:stock-peers",
     asOf,
   }));
-  return payloadSection({ title: "Peers", figures, notes: [] });
+  const sizeNotes = screened.filter((s) => s.size !== null)
+    .map((s) => `${strOrNull(s.p.symbol) ?? "?"} (${strOrNull(s.p.companyName) ?? "?"}) is not listed as a peer: ${s.size}.`);
+  return payloadSection({ title: "Peers", figures, notes: [...inheritanceNote(figures, issuer), ...sizeNotes] });
 }
 
 function insidersSection(bundle: DataBundle): PayloadSection {
@@ -1315,7 +1564,7 @@ function institutionalSection(bundle: DataBundle): PayloadSection {
   });
 }
 
-function leadershipSection(bundle: DataBundle): PayloadSection {
+function leadershipSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const execAsOf = bundle.executives.ok ? bundle.executives.value.asOf : null;
@@ -1333,11 +1582,13 @@ function leadershipSection(bundle: DataBundle): PayloadSection {
       label: `comp ${strOrNull(c.nameAndPosition) ?? "?"} FY${numOrNull(c.year) ?? "?"}`,
       value: numOrNull(c.total),
       unit: "currency",
+      ...rowCurrency(c, issuer),
       source: "fmp:executive-compensation",
       asOf: isoDay(c.filingDate),
     });
   }
   void execAsOf;
+  notes.push(...inheritanceNote(figures, issuer));
   return payloadSection({ title: "Leadership & compensation", figures, notes });
 }
 
@@ -1499,21 +1750,49 @@ function transcriptExcerpt(bundle: DataBundle): TextExcerpt | null {
   };
 }
 
+/** D-63: a long risk-factor section keeps a share of its length, between the floor and the cap. */
+export function riskFactorBudget(sourceChars: number): number {
+  return Math.min(PAYLOAD_BUDGETS.item1aMaxChars,
+    Math.max(PAYLOAD_BUDGETS.item1aChars, Math.round(sourceChars * PAYLOAD_BUDGETS.item1aLongShare)));
+}
+
+/**
+ * D-66: the fiscal label an earnings release gives the quarter ending on (or
+ * within three days of) `periodEnd`; an annual filing takes that quarter's
+ * fiscal year. Null when no release reports that period.
+ */
+function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): string | null {
+  const res = bundle.edgar?.currentReports;
+  if (!res?.ok) return null;
+  const day = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
+  const release = res.value.data.releases.find((r) => r.reported.periodEnd !== null && isIsoDate(r.reported.periodEnd) &&
+    Math.abs(day(r.reported.periodEnd) - day(periodEnd)) <= 3 * 86_400_000 && r.reported.fiscal !== null);
+  const label = release?.reported.fiscal?.label ?? null;
+  if (label === null) return null;
+  if (form === "10-K" || form === "20-F") return /^Q4\s+(FY\d{4})$/.exec(label)?.[1] ?? null;
+  return /^Q[1-3]\s+FY\d{4}$/.test(label) ? label : null;
+}
+
 function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
   const add = (
-    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } },
+    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } } | undefined,
     title: (form: string) => string,
-    budget: number,
+    budget: number | ((sourceChars: number) => number),
     source: (form: string) => string,
+    profile: EvidenceProfile = "financial",
   ): void => {
-    if (!res.ok || !res.value) return;
+    if (!res?.ok || !res.value) return;
     const sec = res.value.data;
-    const cut = selectMaterialEvidence(sec.text, budget);
+    const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile);
     const markerNote = sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "";
     const reportingPeriod = isoDay(sec.reportDate);
     const filingDate = isoDay(sec.filingDate);
-    const dateNote = (reportingPeriod !== null && isIsoDate(reportingPeriod) ? `; reporting period ended ${reportingPeriod}` : "") +
+    // D-66: the issuer's own fiscal label for that period, from its earnings
+    // release ("Q2 FY2027"), so a figure stated for "the second quarter of
+    // fiscal 2027" is read against the excerpt that reports it.
+    const fiscal = reportingPeriod !== null && isIsoDate(reportingPeriod) ? fiscalLabelOf(bundle, reportingPeriod, sec.form) : null;
+    const dateNote = (reportingPeriod !== null && isIsoDate(reportingPeriod) ? `; reporting period ended ${reportingPeriod}${fiscal === null ? "" : ` (${fiscal})`}` : "") +
       (filingDate !== null && isIsoDate(filingDate) ? `; filed ${filingDate}` : "");
     out.push({
       title: `${title(sec.form)}${markerNote} (${sec.form} ${sec.accession}${dateNote})`,
@@ -1526,11 +1805,22 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
       coverage: cut.coverage,
     });
   };
+  // D-63: the business description (software platform, roadmap, customers,
+  // suppliers, competitors, officers) and the latest 10-Q's notes join the
+  // risk factors and MD&A; risk factors are read for business risks too.
+  add(
+    bundle.edgar.business,
+    (form) => (form === "20-F" ? "20-F Item 4 — Information on the Company" : "10-K Item 1 — Business"),
+    PAYLOAD_BUDGETS.businessChars,
+    (form) => (form === "20-F" ? "edgar:20-F item4" : "edgar:10-K item1"),
+    "business",
+  );
   add(
     bundle.edgar.item1a,
     (form) => (form === "20-F" ? "20-F Item 3.D — Risk Factors" : "10-K Item 1A — Risk Factors"),
-    PAYLOAD_BUDGETS.item1aChars,
+    riskFactorBudget,
     (form) => (form === "20-F" ? "edgar:20-F item3D" : "edgar:10-K item1A"),
+    "risk",
   );
   add(
     bundle.edgar.mdna,
@@ -1538,8 +1828,419 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     PAYLOAD_BUDGETS.mdnaChars,
     (form) => (form === "20-F" ? "edgar:20-F item5" : "edgar:10-K item7"),
   );
-  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2");
+  // D-66: the 10-Q MD&A keeps its concentration-of-revenue statements first.
+  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2", "interim");
+  add(bundle.edgar.tenQNotes, () => "10-Q Part I Item 1 — Notes to the financial statements", PAYLOAD_BUDGETS.tenQNotesChars, () => "edgar:10-Q notes", "notes");
+  // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
+  add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
+  add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
+  out.push(...currentReportExcerpts(bundle));
   return out;
+}
+
+/**
+ * The latest earnings release and CFO commentary narratives, and one excerpt
+ * per material-event 8-K (audit work package 3). Each 8-K excerpt has its own
+ * source (the accession) and as-of (its filing date), so a sentence citing it
+ * is read against that filing's text only (D-45 excerpt matching).
+ */
+function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
+  const res = bundle.edgar?.currentReports;
+  if (!res?.ok) return [];
+  const out: TextExcerpt[] = [];
+  const latest = res.value.data.releases[0];
+  const narrative = (text: string | null, title: string, source: string, budget: number): void => {
+    if (latest === undefined || text === null || text.trim() === "" || !isIsoDate(latest.filingDate)) return;
+    const cut = selectMaterialEvidence(text, budget);
+    out.push({ title, text: cut.text, source, asOf: latest.filingDate, truncated: cut.truncated, originalChars: cut.originalChars, spans: cut.spans, coverage: cut.coverage });
+  };
+  if (latest !== undefined) {
+    // D-63: the quarter end is stated too, so a figure the narrative gives
+    // without restating its period is read as that quarter's (claimEvidence).
+    const fiscal = latest.reported.fiscal?.label ?? null;
+    const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
+    const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}` : fiscal ?? periodEnd ?? "latest quarter";
+    const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
+    narrative(latest.releaseNarrative, `8-K EX-99.1 — earnings release, ${period} (${where})`, "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
+    narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
+  }
+  let used = 0;
+  for (const event of res.value.data.events) {
+    if (!isIsoDate(event.filingDate) || event.sections.length === 0) continue;
+    if (used >= PAYLOAD_BUDGETS.eightKEventsTotalChars) break;
+    const body = event.sections
+      .map((s) => s.incorporates !== null ? `Item ${s.item} (${s.title}): incorporates Item ${s.incorporates} by reference.` : `Item ${s.item} (${s.title}): ${s.text}`)
+      .join("\n\n");
+    // D-63: the operative paragraph's dated lead, named parties and amounts
+    // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
+    const eventBudget = materialCreditSupportClauses(body).length > 0 ? PAYLOAD_BUDGETS.eightKCreditEventChars : PAYLOAD_BUDGETS.eightKEventChars;
+    const cut = selectMaterialEvidence(body, Math.min(eventBudget, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), "event");
+    used += cut.text.length;
+    const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";
+    out.push({
+      title: `8-K current report — Items ${event.items.join(", ")} (${event.form} ${event.accession}; filed ${event.filingDate}${eventDate})`,
+      text: cut.text,
+      source: `edgar:8-K ${event.accession}`,
+      asOf: event.filingDate,
+      truncated: cut.truncated,
+      originalChars: cut.originalChars,
+      spans: cut.spans,
+      coverage: cut.coverage,
+    });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------------ *
+ * Filing disclosures — guidance, issuer FCF, capital return, XBRL segments,
+ * the eight-quarter trend (audit work package 3 / data depth of 9)
+ * ------------------------------------------------------------------------ */
+
+const GUIDANCE_METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
+  revenue: "revenue",
+  "gross-margin": "gross margin",
+  "operating-expenses": "operating expenses",
+  "operating-margin": "operating margin",
+  "operating-income": "operating income",
+  "other-income": "other income (expense)",
+  "tax-rate": "tax rate",
+  eps: "diluted EPS",
+  "capital-expenditures": "capital expenditures",
+};
+
+const RECONCILIATION_LABELS: Record<NonNullable<FilingDisclosures["reconciliation"]>[number]["metric"], string> = {
+  "operating-cash-flow": "operating cash flow (issuer reconciliation)",
+  "purchases-property-equipment": "purchases related to property and equipment and intangible assets",
+  "principal-payments-property-equipment": "principal payments on property and equipment and intangible assets",
+  "equity-securities-gains": "net gains from equity securities",
+  "non-gaap-tax-impact": "income tax impact of non-GAAP adjustments",
+  "gaap-diluted-eps": "GAAP diluted EPS",
+  "non-gaap-diluted-eps": "non-GAAP diluted EPS",
+};
+
+function guidanceMetricLabel(metric: GuidanceRow["metric"], basis: GuidanceRow["basis"]): string {
+  return `${GUIDANCE_METRIC_LABELS[metric]}${basis === "gaap" ? " (GAAP)" : basis === "non-gaap" ? " (non-GAAP)" : ""}`;
+}
+
+function guidanceFigureName(row: Pick<GuidanceRow, "period" | "metric" | "basis">): string {
+  return `${row.period} ${guidanceMetricLabel(row.metric, row.basis)} guidance`;
+}
+
+/** D-65: the registry id of one guidance figure, as issuerFilingsSection registers it. */
+export function guidanceRecordId(row: Pick<GuidanceRow, "period" | "metric" | "basis">, part: "low" | "midpoint" | "high"): string {
+  return `payload.issuer-filings.${semanticSlug(`${guidanceFigureName(row)} ${part}`)}`;
+}
+
+/**
+ * D-65: the registered record a guided-quarter checkpoint cites: the low end
+ * of the matching range row (revenue, or GAAP gross margin) in the release's
+ * guidance table. Null when no registered row carries that low end, so the
+ * checkpoint keeps its filing citation rather than an id nothing registered.
+ */
+export function guidanceLowCitation(disclosures: FilingDisclosures | undefined): (metric: "revenue" | "gross-margin", low: number) => string | null {
+  const rows = disclosures?.guidance?.rows ?? [];
+  return (metric, low) => {
+    const row = rows.find((r) => r.metric === metric && r.basis !== "non-gaap" && (r.form === "range" || r.form === "plus-minus")
+      && Math.abs(r.low - low) <= Math.max(1e-9, Math.abs(low) * 1e-9));
+    return row === undefined ? null : guidanceRecordId(row, "low");
+  };
+}
+
+function guidanceUnit(unit: GuidanceRow["unit"]): string {
+  return unit === "%" ? "%" : unit === "currency-per-share" ? "currency/share" : "currency";
+}
+
+/** Guidance, prior-outlook midpoints, issuer FCF and capital return (provider rows). */
+function issuerFilingsSection(disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
+  if (disclosures === undefined) return undefined;
+  const figures: PayloadFigureInput[] = [];
+  const notes: string[] = [];
+  const currency = disclosures.currency;
+  const g = disclosures.guidance;
+  if (g !== null) {
+    const source = `edgar:8-K ${g.source.exhibit ?? "EX-99"}`;
+    for (const row of g.rows) {
+      const name = guidanceFigureName(row);
+      const base = { unit: guidanceUnit(row.unit), currency: row.unit === "%" ? null : currency, period: row.period, source, asOf: g.source.filingDate };
+      if (row.form === "range" || row.form === "plus-minus") {
+        figures.push({ ...base, label: `${name} low`, value: row.low }, { ...base, label: `${name} midpoint`, value: row.mid }, { ...base, label: `${name} high`, value: row.high });
+      } else {
+        figures.push({ ...base, label: `${name}${row.form === "approximate" ? " (approximately)" : ""}`, value: row.mid });
+      }
+    }
+    notes.push(`Guidance above is the issuer's outlook from 8-K ${g.source.accession} filed ${g.source.filingDate}${g.reportedPeriod ? `, issued with ${g.reportedPeriod} results` : ""}${g.reportedPeriodEnd ? ` (quarter ended ${g.reportedPeriodEnd})` : ""}; it is a company projection, not a result.`);
+    for (const q of g.qualifiers) notes.push(`Outlook caveat (issuer text): ${q}`);
+  }
+  for (const check of disclosures.guidanceChecks) {
+    const unit = check.metric === "revenue" ? "currency" : "%";
+    figures.push({
+      label: `${check.period} ${guidanceMetricLabel(check.metric, check.basis)} prior guidance midpoint (8-K filed ${check.guidance.filingDate})`,
+      value: check.guidedMid,
+      unit,
+      currency: unit === "currency" ? currency : null,
+      period: check.period,
+      source: `edgar:8-K ${check.guidance.exhibit ?? "EX-99"}`,
+      asOf: check.guidance.filingDate,
+    });
+  }
+  for (const f of disclosures.freeCashFlow) {
+    const window = f.months === 3 ? "three months" : `${f.months === 6 ? "six" : f.months === 9 ? "nine" : "twelve"} months`;
+    figures.push({ label: `issuer-defined free cash flow, ${window} ended ${f.periodEnd}`, value: f.value, unit: "currency", currency, period: f.periodEnd, source: `edgar:${f.source.form} ${f.source.exhibit ?? "exhibit unrecorded"} ${f.source.accession}`, asOf: f.source.filingDate });
+  }
+  if (disclosures.freeCashFlowDefinition) notes.push(`Issuer free-cash-flow definition (issuer text): ${disclosures.freeCashFlowDefinition}`);
+  const cr = disclosures.capitalReturn;
+  if (cr !== null) {
+    const base = { unit: "currency", currency, source: "edgar:8-K EX-99.1", asOf: cr.source.filingDate };
+    if (cr.returned !== null) figures.push({ ...base, label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
+    if (cr.authorizationRemaining !== null) figures.push({ ...base, label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
+    if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
+    if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share", value: cr.dividendPerShare });
+    if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
+    if (cr.dividendPayDate !== null) notes.push(`Next quarterly dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
+  }
+  for (const check of disclosures.guidanceChecks) {
+    notes.push(`${check.period} ${guidanceMetricLabel(check.metric, check.basis)}: actual ${check.position === "within" ? "within" : check.position} the guided range (outlook from 8-K filed ${check.guidance.filingDate}; actual from ${check.actualSource}).`);
+  }
+  // D-63: the release's GAAP-to-non-GAAP reconciliation (the free-cash-flow
+  // bridge, the tax effect of the adjustments, GAAP EPS; the quarterly equity
+  // gains and non-GAAP EPS are in the quarterly-trend rows) and the
+  // commitments and guarantees tables.
+  // Quarter columns only (the year-to-date free cash flow is above), to bound the prompt.
+  for (const f of disclosures.reconciliation ?? []) {
+    if (f.months !== 3 || f.metric === "equity-securities-gains" || f.metric === "non-gaap-diluted-eps") continue;
+    figures.push({
+      label: `${RECONCILIATION_LABELS[f.metric]}, three months ended ${f.periodEnd}`,
+      value: f.value,
+      unit: f.unit === "currency-per-share" ? "currency/share" : "currency",
+      currency,
+      period: f.periodEnd,
+      source: `edgar:${f.source.form} ${f.source.exhibit ?? "exhibit unrecorded"} ${f.source.accession}`,
+      asOf: f.source.filingDate,
+    });
+  }
+  for (const c of disclosures.commitments ?? []) {
+    const label = c.tableTotal ? `${c.table} table total` : `${c.label} (${c.table})`;
+    figures.push({
+      label: `${label}${c.asOf === null ? "" : `, as of ${c.asOf}`}`,
+      value: c.total,
+      unit: "currency",
+      currency,
+      period: c.asOf,
+      source: `edgar:8-K ${c.source.exhibit ?? "EX-99.1"}`,
+      asOf: c.source.filingDate,
+    });
+  }
+  if (disclosures.nonGaapBasisNote) notes.push(`Non-GAAP basis (issuer text): ${disclosures.nonGaapBasisNote}`);
+  for (const n of disclosures.notes) notes.push(n);
+  notes.push(disclosures.currencyBasis);
+  if (figures.length === 0 && g === null && cr === null && disclosures.notes.length === 0) return undefined;
+  return payloadSection({ title: "Issuer guidance, free cash flow & capital return (8-K earnings release)", figures, notes });
+}
+
+/**
+ * D-66: the facts the 10-Q statements and notes, the 10-Q MD&A, the 10-K
+ * notes, the XBRL goodwill balance and the two newest CFO commentaries state
+ * that no typed statement row carries, each under its own tag, and the
+ * commentary's stated outlook as text.
+ */
+function filingFactsSection(disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
+  const facts = disclosures?.filingFacts ?? [];
+  const outlook = disclosures?.commentaryOutlook ?? [];
+  const officers = disclosures?.officerChanges ?? [];
+  const plans = disclosures?.tradingArrangements ?? [];
+  const vote = disclosures?.sayOnPay;
+  if (facts.length === 0 && outlook.length === 0 && officers.length === 0 && plans.length === 0 && vote === undefined) return undefined;
+  const currency = disclosures?.currency ?? null;
+  const figures: PayloadFigureInput[] = facts.map((f) => ({
+    label: `${f.label}${f.qualifier === null ? "" : ` (${f.qualifier})`}${f.period !== null ? `, ${f.period}` : f.asOf !== null ? `, as of ${f.asOf}` : ""}`,
+    value: f.value,
+    unit: f.unit === "percent" ? "%" : f.unit,
+    currency: f.unit === "currency" ? currency : null,
+    period: f.asOf,
+    ...(/^(?:Q[1-4]\s+)?FY\d{4}$/.test(f.period ?? "") ? { fiscalPeriod: f.period! } : {}),
+    source: f.sourceTag,
+    asOf: f.source.filingDate,
+  }));
+  for (const o of outlook) {
+    figures.push({ label: o.topic, value: o.text, unit: "", source: `edgar:8-K ${o.source.exhibit ?? "EX-99"} ${o.source.accession}`, asOf: o.source.filingDate });
+  }
+  // A bounded event excerpt can keep an appointee's dated lead while dropping
+  // the later compensation paragraph. Keep parsed governance facts explicitly.
+  for (const officer of officers) {
+    const source = `edgar:8-K ${officer.source.accession}`;
+    const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective}`;
+    figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${when}${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
+    for (const component of officer.package) figures.push({ label: `${officer.person} ${component.component} (appointment package)`, value: component.value,
+      unit: "currency", currency: currency === "USD" ? "USD" : null, period: officer.announced, subject: officer.person, source, asOf: officer.source.filingDate });
+  }
+  for (const plan of plans) {
+    const source = "edgar:10-Q item5";
+    const scope = `${plan.person} Rule 10b5-1 ${plan.action} on ${plan.date}`;
+    if (plan.shares !== null) figures.push({ label: `${scope}, plan share capacity`, value: plan.shares, unit: "shares", period: plan.date, source, asOf: plan.source.filingDate });
+    figures.push({ label: `${scope}, terms`, value: `${plan.role}; expires ${plan.expires ?? "not stated"}; ${plan.includesFutureAwards ? "includes future equity awards; " : ""}plan capacity, not an executed sale`, unit: "", source, asOf: plan.source.filingDate });
+  }
+  if (vote !== undefined) figures.push({ label: "say-on-pay support (votes for / for + against + abstentions)", value: vote.supportPct,
+    unit: "%", period: vote.meetingDate, source: `edgar:8-K ${vote.source.accession}`, asOf: vote.source.filingDate });
+  const notes = [
+    "Read from the filings' own sentences and tables (10-Q statements and notes, 10-Q MD&A, 10-K notes, us-gaap/Goodwill, 8-K CFO commentary); a cash-flow line is the amount paid or received in its window, without sign.",
+    ...facts.filter((f) => f.computed !== null).map((f) => `${f.label} is computed: ${f.computed} (${f.sourceTag}, ${f.source.form} ${f.source.accession}).`),
+  ];
+  return payloadSection({ title: "Filing notes, statements and commentary: investments, commitments, deals, working capital and governance", figures, notes });
+}
+
+/** Segment revenue for the latest quarter, the prior quarter and the year-ago quarter (provider rows). */
+function segmentRevenueSection(bundle: DataBundle): PayloadSection | undefined {
+  const res = bundle.edgar?.quarterlySegments;
+  if (!res?.ok) return undefined;
+  const data = res.value.data;
+  const figures: PayloadFigureInput[] = [];
+  const notes: string[] = [];
+  const asOf = res.value.asOf;
+  for (const axis of data.axes) {
+    const columns = segmentColumns(axis.quarters);
+    for (const row of axis.rows) {
+      for (const i of columns) {
+        const q = axis.quarters[i]!;
+        const value = row.values[i] ?? null;
+        if (value === null) continue;
+        // D-63: a cell filled as the total less the other rows says so.
+        const residual = row.residualAt?.includes(i) === true;
+        figures.push({
+          label: `${axis.axisLabel}: ${row.label} revenue${residual ? " (total less the other rows)" : ""}, quarter ended ${q.end}`,
+          value,
+          unit: "currency",
+          currency: axis.currency,
+          period: q.end,
+          periodContext: { kind: "duration", start: q.start, end: q.end, basis: "fiscal-quarter" },
+          source: residual ? "computed:xbrl segment residual" : "edgar:xbrl segment revenue",
+          asOf,
+        });
+      }
+    }
+    const children = axis.rows.filter((r) => r.childOf !== null);
+    if (children.length > 0) notes.push(`${axis.axisLabel}: ${children.map((c) => c.label).join(" and ")} are components of ${axis.rows.find((r) => r.member === children[0]!.childOf)?.label ?? "another row"} (they sum to it in the latest quarter).`);
+    if (axis.priorPresentation.length > 0) notes.push(`${axis.axisLabel}: members tagged only in earlier quarters (a prior presentation) are not shown: ${axis.priorPresentation.join(", ")}.`);
+    if (axis.derivedCells > 0) notes.push(`${axis.axisLabel}: ${axis.derivedCells} quarter value(s) are derived as the difference of two reported windows (e.g. fiscal year less nine months).`);
+    if ((axis.residualCells ?? 0) > 0) notes.push(residualNote(axis.axisLabel, axis.residualCells));
+  }
+  notes.push(`Read from ${data.filings.map((f) => `${f.form} ${f.accession} (filed ${f.filingDate})`).join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`);
+  for (const n of data.notes) notes.push(n);
+  return figures.length === 0 ? undefined : payloadSection({ title: "Segment revenue by quarter (10-Q/10-K XBRL)", figures, notes });
+}
+
+/** Latest quarter, the quarter before it, and the quarter about a year earlier. */
+function segmentColumns(quarters: readonly { start: string; end: string }[]): number[] {
+  if (quarters.length === 0) return [];
+  const latest = Date.parse(`${quarters[0]!.end}T00:00:00Z`);
+  const yearAgo = quarters.findIndex((q, i) => i > 0 && Math.abs((latest - Date.parse(`${q.end}T00:00:00Z`)) / 86_400_000 - 364) <= 16);
+  return [...new Set([0, ...(quarters.length > 1 ? [1] : []), ...(yearAgo > 0 ? [yearAgo] : [])])];
+}
+
+/** The eight-quarter trend, segment growth and guidance-vs-actual differences (computed rows). */
+function quarterlyTrendSection(bundle: DataBundle, disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
+  if (disclosures === undefined) return undefined;
+  const figures: PayloadFigureInput[] = [];
+  const currency = disclosures.currency;
+  const statementSource = bundle.statements?.incomeQuarterly?.ok ? `${bundle.statements.incomeQuarterly.value.source}:income-statement(quarter)` : "statements";
+  for (const row of disclosures.quarterlyTrend) {
+    const at = `quarter ended ${row.periodEnd}`;
+    const base = { period: row.periodEnd, source: statementSource, asOf: row.periodEnd };
+    if (row.revenue !== null) figures.push({ ...base, label: `revenue, ${at}`, value: row.revenue, unit: "currency", currency });
+    if (row.revenueYoyPct !== null) figures.push({ ...base, label: `revenue growth year over year, ${at}`, value: row.revenueYoyPct, unit: "%" });
+    if (row.revenueQoqPct !== null) figures.push({ ...base, label: `revenue growth quarter over quarter, ${at}`, value: row.revenueQoqPct, unit: "%" });
+    if (row.grossMarginPct !== null) figures.push({ ...base, label: `gross margin, ${at}`, value: row.grossMarginPct, unit: "%" });
+    if (row.operatingMarginPct !== null) figures.push({ ...base, label: `operating margin, ${at}`, value: row.operatingMarginPct, unit: "%" });
+    if (row.freeCashFlow !== null) figures.push({ ...base, label: `free cash flow (operating cash flow less capex), ${at}`, value: row.freeCashFlow, unit: "currency", currency });
+    // D-63 (audit P1-B): the issuer's own reconciliation figures by quarter.
+    const recon = { ...base, source: "edgar:8-K EX-99 reconciliation" };
+    if (row.equitySecuritiesGains != null) figures.push({ ...recon, label: `net gains from equity securities, ${at}`, value: row.equitySecuritiesGains, unit: "currency", currency });
+    if (row.nonGaapEpsDiluted != null) figures.push({ ...recon, label: `non-GAAP diluted EPS, ${at}`, value: row.nonGaapEpsDiluted, unit: "currency/share", currency });
+  }
+  const segments = bundle.edgar?.quarterlySegments;
+  if (segments?.ok) {
+    for (const axis of segments.value.data.axes) {
+      const columns = segmentColumns(axis.quarters);
+      const latestEnd = axis.quarters[0]!.end;
+      for (const row of axis.rows) {
+        const latest = row.values[0];
+        if (latest === null || latest === undefined) continue;
+        const growth = (i: number | undefined): number | null => {
+          const prior = i === undefined ? null : row.values[i] ?? null;
+          return prior === null || prior <= 0 ? null : Number(((latest / prior - 1) * 100).toFixed(2));
+        };
+        const base = { period: latestEnd, source: "edgar:xbrl segment revenue", asOf: latestEnd };
+        const qoq = growth(columns.includes(1) ? 1 : undefined);
+        const yoy = growth(columns.find((i) => i > 1));
+        if (qoq !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth quarter over quarter, quarter ended ${latestEnd}`, value: qoq, unit: "%" });
+        if (yoy !== null) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} revenue growth year over year, quarter ended ${latestEnd}`, value: yoy, unit: "%" });
+        const total = axis.total[0];
+        if (total !== null && total !== undefined && total > 0) figures.push({ ...base, label: `${axis.axisLabel}: ${row.label} share of revenue, quarter ended ${latestEnd}`, value: Number(((latest / total) * 100).toFixed(2)), unit: "%" });
+      }
+    }
+  }
+  for (const check of disclosures.guidanceChecks) {
+    figures.push({
+      label: `${check.period} ${guidanceMetricLabel(check.metric, check.basis)} actual vs prior guidance midpoint`,
+      value: check.difference,
+      unit: check.metric === "revenue" ? "%" : "pp",
+      period: check.period,
+      source: check.actualSource,
+      asOf: check.periodEnd,
+    });
+  }
+  const notes = [
+    "Year-over-year growth compares with the quarter ending 350-380 days earlier; quarter-over-quarter with the quarter ending 80-100 days earlier. Free cash flow here is operating cash flow less capital expenditure, not the issuer's own definition.",
+  ];
+  // D-63: the company's guidance track record, one citable figure per metric:
+  // the share of the guided quarters whose result landed above (below) the
+  // range the preceding release gave. The CEO and CFO issue that outlook, so
+  // it is their guidance-credibility record for the quarters of their tenure.
+  for (const record of guidanceTrackRecord(disclosures.guidanceChecks)) {
+    figures.push(...record.figures);
+    notes.push(record.note);
+  }
+  if (figures.length === 0) return undefined;
+  return payloadSection({
+    title: "Quarterly trend (computed: last eight quarters, segment growth, results vs prior guidance)",
+    figures,
+    notes,
+  });
+}
+
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+
+/**
+ * D-63: a company-level guidance track record per metric and basis, as two
+ * percentages of the quarters checked (above / below the prior guided range).
+ * The count is a word, not a digit, so a sentence stating the share carries
+ * exactly one figure and the claim validator can bind it.
+ */
+export function guidanceTrackRecord(checks: FilingDisclosures["guidanceChecks"]): { figures: PayloadFigureInput[]; note: string }[] {
+  const groups = new Map<string, FilingDisclosures["guidanceChecks"]>();
+  for (const check of checks) {
+    const key = `${check.metric}|${check.basis}`;
+    groups.set(key, [...(groups.get(key) ?? []), check]);
+  }
+  return [...groups.values()].flatMap((group) => {
+    const n = group.length;
+    if (n === 0 || n >= COUNT_WORDS.length) return [];
+    const metric = guidanceMetricLabel(group[0]!.metric, group[0]!.basis);
+    const quarters = `last ${COUNT_WORDS[n]} guided ${n === 1 ? "quarter" : "quarters"}`;
+    const newest = group.reduce((a, b) => (a.periodEnd >= b.periodEnd ? a : b));
+    const oldest = group.reduce((a, b) => (a.periodEnd <= b.periodEnd ? a : b));
+    const share = (position: "above" | "below"): number => Number(((group.filter((c) => c.position === position).length / n) * 100).toFixed(2));
+    const base = { unit: "%", source: "computed.guidance-track-record", asOf: newest.periodEnd };
+    return [{
+      figures: [
+        { ...base, label: `share of the ${quarters} with ${metric} above the prior guided range`, value: share("above") },
+        { ...base, label: `share of the ${quarters} with ${metric} below the prior guided range`, value: share("below") },
+      ],
+      note: `Guidance track record for ${metric}: ${n} quarter${n === 1 ? "" : "s"} checked, ${oldest.period} to ${newest.period} ` +
+        `(${group.filter((c) => c.position === "above").length} above, ${group.filter((c) => c.position === "within").length} within, ` +
+        `${group.filter((c) => c.position === "below").length} below the range the preceding release gave). This is the company's outlook record; ` +
+        "the CEO and CFO issue that outlook, so it is their guidance-credibility record for the quarters they held the role.",
+    }];
+  });
 }
 
 function excerptCoverageDisclosures(excerpts: readonly (TextExcerpt | null)[]): ManifestEntry[] {
@@ -1765,8 +2466,11 @@ function attachProvenanceRegistry(
       value: figure.value,
       unit,
       currency: resolvedCurrency,
+      ...(figure.currencyInherited && resolvedCurrency !== null ? { currencyBasis: "inherited" as const } : {}),
       period: figure.period,
       ...(figure.periodContext === undefined ? {} : { periodContext: figure.periodContext }),
+      ...(figure.fiscalPeriod === undefined ? {} : { fiscalPeriod: figure.fiscalPeriod }),
+      ...(figure.subject === undefined ? {} : { subject: figure.subject }),
       asOf,
       origin: figure.source,
       formulaVersion: kind === "computed" ? "stage-b-v1" : null,
@@ -1889,7 +2593,11 @@ function attachProvenanceRegistry(
     }
   }
 
+  if (payload.quarterlyTrend !== undefined) registerSection("computed.quarterly-trend", payload.quarterlyTrend, "computed");
   const remainingSections: [string, PayloadSection][] = [
+    ...(payload.segmentRevenue === undefined ? [] : [["payload.segment-revenue", payload.segmentRevenue] as [string, PayloadSection]]),
+    ...(payload.issuerFilings === undefined ? [] : [["payload.issuer-filings", payload.issuerFilings] as [string, PayloadSection]]),
+    ...(payload.filingFacts === undefined ? [] : [["payload.filing-facts", payload.filingFacts] as [string, PayloadSection]]),
     ["payload.estimates", payload.estimates],
     ["payload.peers", payload.peers],
     ["payload.insiders", payload.insiders],
@@ -2048,6 +2756,14 @@ export function assembleContextPayload(
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
   // resolved them. Each figure below takes only the one its evidence supports.
   const currencies = statementCurrencies(bundle);
+  // D-57: the one currency single-currency provider rows (estimates, targets,
+  // peer caps, compensation) inherit when they carry none — the same rule
+  // Stage B applied to the analyst-consensus growth case.
+  const issuer = inheritedIssuerCurrency({
+    reporting: currencies.model,
+    listing: currencies.trading,
+    isAdr: computed.route.overlays.includes("adr") || profile?.isAdr === true,
+  });
 
   // Validation flags = failed/skipped checks + the flags array (data-quality
   // signals the model should weigh). Deterministically ordered.
@@ -2067,6 +2783,11 @@ export function assembleContextPayload(
   // — surfacing them here keeps the prompt and the rendered appendix in agreement.
   const transcript = transcriptExcerpt(bundle);
   const filings = filingExcerpts(bundle);
+  const disclosures = buildFilingDisclosures(bundle);
+  const quarterlyTrend = quarterlyTrendSection(bundle, disclosures);
+  const segmentRevenue = segmentRevenueSection(bundle);
+  const issuerFilings = issuerFilingsSection(disclosures);
+  const filingFacts = filingFactsSection(disclosures);
   const missingData = mergeManifest([
     bundle.gaps,
     computed.gaps,
@@ -2088,11 +2809,15 @@ export function assembleContextPayload(
     quote: quoteSection(bundle, currencies.trading),
     computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle)),
     statements: statementExtracts(bundle),
-    estimates: estimatesSection(bundle),
-    peers: peersSection(bundle),
+    ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
+    ...(segmentRevenue === undefined ? {} : { segmentRevenue }),
+    ...(issuerFilings === undefined ? {} : { issuerFilings }),
+    ...(filingFacts === undefined ? {} : { filingFacts }),
+    estimates: estimatesSection(bundle, issuer),
+    peers: peersSection(bundle, issuer),
     insiders: insidersSection(bundle),
     institutional: institutionalSection(bundle),
-    leadership: leadershipSection(bundle),
+    leadership: leadershipSection(bundle, issuer),
     shortInterest: shortInterestSection(bundle),
     segments: segmentsSection(bundle),
     macro: macroSection(bundle),
@@ -2277,6 +3002,11 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));
   for (const b of payload.statements) parts.push(renderStatement(b));
+  // Issuer member labels and outlook caveats are filing text: untrusted.
+  if (payload.quarterlyTrend) parts.push(renderUntrustedSection(payload.quarterlyTrend));
+  if (payload.segmentRevenue) parts.push(renderUntrustedSection(payload.segmentRevenue));
+  if (payload.issuerFilings) parts.push(renderUntrustedSection(payload.issuerFilings));
+  if (payload.filingFacts) parts.push(renderUntrustedSection(payload.filingFacts));
   parts.push(renderSection(payload.estimates));
   parts.push(renderUntrustedSection(payload.peers));
   parts.push(renderUntrustedSection(payload.insiders));

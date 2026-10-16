@@ -3,6 +3,10 @@
  *
  *   ?format=md  (default) → text/markdown attachment (reportToMarkdown), the
  *                clean, complete, deterministic Markdown rendering.
+ *   ?format=audit        → text/markdown attachment (reportToAuditMarkdown):
+ *                the audit trail behind the report — registry ids, raw values,
+ *                the verification log and checks, the full missing-data
+ *                manifest, projection series and execution record (D-62).
  *   ?format=pdf          → a self-contained, print-optimized HTML document
  *                (light background, print CSS) that the browser prints to PDF.
  *                NO new dependencies — the "PDF" is produced by the browser's
@@ -20,6 +24,7 @@
 import { getReportRecordById, parseReportId } from "@/report/history";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintHtml } from "@/report/export/printHtml";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,8 +47,8 @@ export async function GET(
   const format = (new URL(request.url).searchParams.get("format") ?? "md")
     .toLowerCase()
     .trim();
-  if (format !== "md" && format !== "pdf") {
-    return jsonError(`unknown format "${format}" — use md or pdf`, 400);
+  if (format !== "md" && format !== "pdf" && format !== "audit") {
+    return jsonError(`unknown format "${format}" — use md, pdf or audit`, 400);
   }
 
   const record = getReportRecordById(reportId);
@@ -69,6 +74,18 @@ export async function GET(
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Content-Disposition": `attachment; filename="${base}.md"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  if (format === "audit") {
+    return new Response(reportToAuditMarkdown(report), {
+      status: 200,
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${base}-audit.md"`,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
       },

@@ -123,7 +123,9 @@ function capital(over: Partial<CapitalResult> = {}): CapitalResult {
     interestCoverage: { value: 15, ebit: 900, interestExpense: 60 },
     sbc: { latest: 50, pctOfRevenue: 3, pctOfFcf: 8 },
     shareCount: { trendPct: -10, annualizedPct: -2.5, direction: "buyback", startDate: null, endDate: null, startShares: null, endShares: null, actualYears: 5 },
-    buybackPriceAnalysis: { totalRepurchased: 5000, avgPricePaidProxy: 120, currentPrice: 150, premiumDiscountPct: 25, years: [], note: "" },
+    // D-61: timing (price paid vs the same year's average) is the graded
+    // buyback signal; the premium to today's quote is shown, not graded.
+    buybackPriceAnalysis: { totalRepurchased: 5000, avgPricePaidProxy: 120, currentPrice: 150, premiumDiscountPct: 25, timingPct: 3, timingCoveragePct: 100, years: [], note: "" },
     notes: [],
     gaps: [],
     ...over,
@@ -808,6 +810,10 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
       valuation: bankExcessReturn(),
       // D-46: capital, credit and funding, all four inputs on file.
       financialMetrics: bankRouteMetrics({ tangibleLeverage: 7, ncoToAverageLoans: 0.6, nplRatio: 0.8, loansToDeposits: 85 }),
+      // D-61: a well-timed repurchaser (bought 12% below each year's average),
+      // so the stewardship aspect reads strong as the old premium-to-quote
+      // fixture did and the band comparison below still has a B to lose.
+      capital: capital({ buybackPriceAnalysis: { ...capital().buybackPriceAnalysis, timingPct: 12 } }),
     });
   }
 
@@ -865,7 +871,10 @@ describe("grading — composite completeness excludes route-inapplicable evidenc
     //    still suppressed) is now read against 0.8: 7·0.69 = 4.83.
     //  - Balance sheet 0 -> 10 (D-46, SCORE_BANDS_2026_10): a bank's balance
     //    sheet is graded on capital, credit and funding, all observed here.
-    expect(round2(compWeight)).toBe(76.13);
+    //  - Leadership 0.69 -> 1.00 (D-61): capitalDeployment (the ROIC − WACC
+    //    spread scored a second time) is gone, so both remaining stewardship
+    //    signals are route-applicable and observed: +7·(1 − 0.6875) = +2.19.
+    expect(round2(compWeight)).toBe(78.32);
     // Review of D-50: over what the route supports, every aspect of this bank
     // is fully observed, which is what the confidence ceiling reads.
     for (const a of Object.values(s.aspects)) {
@@ -946,11 +955,11 @@ describe("grading — bank moat never scores on suppressed gross margin (finding
     expect(s.aspects.moat.dataCompleteness).toBeCloseTo(0.75, 6);
   });
 
-  it("a general issuer still scores moat on ROIC level + stability", () => {
+  it("a general issuer still scores moat on ROIC level + durability (floor, D-61)", () => {
     const s = computeScores(makeInputs());
     const names = s.aspects.moat.drivers.map((d) => d.source);
     expect(names.some((n) => n.endsWith(".roicLevel"))).toBe(true);
-    expect(names.some((n) => n.endsWith(".roicStability"))).toBe(true);
+    expect(names.some((n) => n.endsWith(".roicFloor"))).toBe(true);
     expect(names.some((n) => n.endsWith(".roteLevel"))).toBe(false);
   });
 
@@ -1005,9 +1014,11 @@ describe("grading — REIT fundamentals never scores on suppressed EPS growth (f
 describe("META audit score comparability and provenance", () => {
   it("keeps the exact evidence fraction for sparse capital stewardship", () => {
     const cap = capital();
-    cap.buybackPriceAnalysis.premiumDiscountPct = null;
+    // D-61: without a measurable buyback timing only the share-count trend
+    // (0.25 of the 0.55 stewardship weight) remains.
+    cap.buybackPriceAnalysis.timingPct = null;
     const result = computeScores(makeInputs({ capital: cap }));
-    expect(result.aspects.leadership.dataCompleteness).toBe(0.625);
+    expect(result.aspects.leadership.dataCompleteness).toBeCloseTo(0.25 / 0.55, 12);
   });
 
   it("compares reverse growth with the same fading-path base anchor", () => {
@@ -1038,5 +1049,62 @@ describe("META audit score comparability and provenance", () => {
     expect(signals.length).toBeGreaterThan(15);
     expect(50 + signals.reduce((total,s)=>total+s.contributionPoints,0)).toBeCloseTo(result.composite.score!, 2);
     expect(result.factorExposure?.find(x=>x.family==="capital-returns")?.weightPct).toBeGreaterThan(10);
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * D-61 (NVDA report #34 audit, P2-1…P2-4): signals that measured the wrong thing
+ * ------------------------------------------------------------------------ */
+
+describe("D-61 grading signals", () => {
+  const signal = (s: ReturnType<typeof computeScores>, aspect: keyof ReturnType<typeof computeScores>["aspects"], id: string) =>
+    s.aspects[aspect].signals?.find((x) => x.id === id);
+
+  it("moat durability is the worst year's ROIC, so a rising ROIC is not penalised", () => {
+    // NVDA FY2022-FY2026: 69 → 23 → 125 → 198 → 150. The population SD
+    // (61pp) scored 12 — the improvement read as instability.
+    const nvda = computeScores(makeInputs({ roic: roic(149.78, [68.77, 23.4, 124.9, 198.22, 149.78]) }));
+    expect(signal(nvda, "moat", "roicStability")).toBeUndefined();
+    expect(signal(nvda, "moat", "roicFloor")?.raw).toBeCloseTo(23.4, 10);
+    // The same floor scores the same durability whether ROIC rose or stayed flat.
+    const rising = computeScores(makeInputs({ roic: roic(100, [20, 40, 60, 80, 100]) }));
+    const flat = computeScores(makeInputs({ roic: roic(20, [20, 20, 20, 20, 20]) }));
+    expect(signal(rising, "moat", "roicFloor")?.transformedScore).toBe(signal(flat, "moat", "roicFloor")?.transformedScore);
+    expect(signal(nvda, "moat", "roicFloor")!.transformedScore).toBeGreaterThan(70);
+  });
+
+  it("scores ROIC − WACC once (quality) and no longer as leadership capital deployment", () => {
+    const s = computeScores(makeInputs());
+    expect(signal(s, "quality", "roicVsWaccSpread")).toBeDefined();
+    expect(signal(s, "leadership", "capitalDeployment")).toBeUndefined();
+    const spreadSignals = Object.values(s.aspects).flatMap((a) => a.signals ?? []).filter((x) => x.raw === roicVsWacc().spreadPctPts);
+    expect(spreadSignals.map((x) => x.id)).toEqual(["roicVsWaccSpread"]);
+  });
+
+  it("grades buyback timing, not the appreciation to today's quote, and labels the aspect a stewardship proxy", () => {
+    const cap = capital();
+    Object.assign(cap.buybackPriceAnalysis, { premiumDiscountPct: 215, timingPct: 5.2, timingCoveragePct: 100 });
+    const s = computeScores(makeInputs({ capital: cap }));
+    expect(signal(s, "leadership", "buybackDiscipline")).toBeUndefined();
+    expect(signal(s, "leadership", "buybackTiming")?.raw).toBe(5.2);
+    expect(s.aspects.leadership.note).toMatch(/not an assessment of executives/i);
+    Object.assign(cap.buybackPriceAnalysis, { timingPct: null });
+    const noTiming = computeScores(makeInputs({ capital: cap }));
+    expect(signal(noTiming, "leadership", "buybackTiming")).toBeUndefined();
+    // Repurchased without tagged prices: missing evidence. Never repurchased:
+    // nothing to time, so the share-count trend is the whole aspect.
+    expect(noTiming.aspects.leadership.dataCompleteness).toBeCloseTo(0.25 / 0.55, 12);
+    Object.assign(cap.buybackPriceAnalysis, { totalRepurchased: 0 });
+    expect(computeScores(makeInputs({ capital: cap })).aspects.leadership.dataCompleteness).toBe(1);
+  });
+
+  it("grades a Beneish flag that only sales growth produces on the SGI-neutral M", () => {
+    const f = forensics();
+    Object.assign(f.beneish!, { score: -1.5, verdict: "flag", sgiNeutralScore: -2.39, growthLed: true });
+    const s = computeScores(makeInputs({ forensics: f }));
+    expect(signal(s, "quality", "beneishM")).toBeUndefined();
+    expect(signal(s, "quality", "beneishMSgiNeutral")?.raw).toBe(-2.39);
+    Object.assign(f.beneish!, { growthLed: false });
+    expect(signal(computeScores(makeInputs({ forensics: f })), "quality", "beneishM")?.raw).toBe(-1.5);
   });
 });

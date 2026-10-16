@@ -35,7 +35,9 @@ describe.each(["current", "workspace"] as const)("recorded grade/DCF evidence in
     const n = { ...input, value: 0, sourceId: undefined, period: null, asOf: null, verified: null };
     const visible = text(render(design, createElement(GradeReasoning, { title: "legacy", block: block([n]), defaultOpen: true })));
     expect(visible).toMatch(/source id not recorded/);
-    expect(visible).toMatch(/period not supplied/);
+    // D-62: the card omits an absent window; the opt-in source details say it was not recorded.
+    expect(visible).toMatch(/period not recorded/);
+    expect(visible).not.toMatch(/period not supplied/);
     expect(visible).toMatch(/as of not recorded/);
     expect(visible).toContain("0.0%");
     expect(visible).not.toContain("2026-09-30");

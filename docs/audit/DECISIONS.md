@@ -13,6 +13,502 @@ reversibility, the choice, and why. Reversible and disclosed beats clever.
 
 Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
+## D-72 (PR review, 2026-10-16) Preserve the source and withhold unsupported financial history
+
+- **Status:** Implementation, targeted independent rechecks and the complete local gate are finished. Fresh required remote CI remains the release gate.
+- **Evidence:** PR #20 identified nine reproducible boundary issues: merged EX-99.2 financial values lost their originating exhibit, zero-padded exhibits and earnings amendments were omitted, quarterly disclosures bypassed whole-row restatement selection, old reporting currencies suppressed current release facts, missing analyst buckets became zeros, undisclosed interest became zero forecast expense, tagged acquisition cash could be counted twice, and a historical residual could be renamed as a new segment. An earlier push's Windows job also exceeded a five-second test deadline while starting two independently bounded real CLI processes; the PR-triggered rerun passed.
+- **Choice:** Preserve per-fact filing provenance, include canonical exhibit spellings and corresponding amendments, reuse whole-row period selection, require established current disclosure currency, and withhold incomplete analyst distributions. Implicit dollars bind to their own release or periodic-filing reporting period; prior currencies cannot be relabeled current. Forecast EPS needs evidenced interest or a matching debt-free balance without contradictory financing components. Keep existing financial grades and thresholds.
+- **Amendment boundaries:** Linked Item 9.01 amendments require an exact nonempty SEC event date and inspected earnings scope. Readable unrelated or explicitly non-changing amendments retain the original; unknown/unreadable relevant scope withholds stale substitution. Reporting-period order controls current releases and narratives, including legacy arrays; amendments of older quarters cannot displace the latest quarter. Outlooks for a completed fiscal year are not current guidance.
+- **Financial boundaries:** A matching generic acquisition tag can be an aggregate containing a tagged second business payment; it does not prove additivity. A competing nonzero classified acquisitions line leaves the second payment unallocated, with a separate numeric record and partial-coverage warning. Segment residuals require same-presentation filing evidence; cross-filing duration subtraction cannot satisfy that requirement. Unknown interest and unsupported historical residuals remain withheld.
+- **Versions:** Report `1.19.1`, payload `1.24.1`, Stage B `STAGE_B_2026_10_NVDA_AUDIT_3`. Prior saved reports and payload artifacts retain their original meaning and cannot resume as equivalent. The audited DEMO comparison changes only the report-version leaf and disclosure currency-basis wording; every financial value remains pinned.
+- **Frozen NVDA comparison:** With the original snapshot unchanged, the candidate engine retains all 43 source facts and exactly reproduces the $217.039943 DCF and five EPS values. Acquisition context is now $1.535B on the classified vendor line plus a $13B filed payment whose overlap remains unresolved, rather than an unsupported $14.535B total. The known Groq payment stays visible. This is a candidate calculation comparison over retained parsed inputs, not a rerun of exhibit ingestion or a replacement of the original D-71 model output. No provider calls or historical-report writes were made.
+- **CI test boundary:** Keep each CLI subprocess's 20-second hard limit and give the enclosing test the sum of its child limits plus five seconds of overhead. This leaves production deadlines and global unit-test timeouts unchanged. The focused Windows test and typecheck pass locally; fresh full release and remote CI remain gates.
+- **Final combined local gate:** `47a43dd` passed `npm run verify`, exit 0: 6,256 product tests (three existing skips), four database integration tests, dependency shape, typecheck, lint, core coverage, enforced per-file risk coverage, production build and zero-vulnerability security audit. Core statement/branch/function/line coverage is 96.33/90.21/98.23/97.56%; risk aggregate is 94.77/87.99/97.52/96.99%. Audited fixture deltas pass. Log: ignored `tmp/d72-final-release-verify.log`. The original checkout's staged patch hash remains `F95A9485D3D224A7E24DC477C879AF6F70E3180F778DAEF7E8C41AC3D17D8DCD`.
+
+## D-71 (live output audit, 2026-10-16) Correct source-bound disclosures without discarding saved analysis
+
+- **Live evidence:** NVDA job `0cf239de-24d5-43c3-9c25-0a030a3bd262` completed as isolated report 3 at 2026-10-16T07:46:29.701Z, on GPT-6.1 Sol, medium reasoning and standard speed. Its snapshot is `6e1f43a73b4d8af967160b3f4ea378b3d6896599179683fa68ef42bf3ae0008d`. Independent arithmetic, without valuation-engine calls, reproduced base/bull/bear $217.039943/$365.939972/$120.491218 and composite 75.19. Market EV, the investment bridge, years 1-4 consensus coverage, sensitivity crossings and leadership presentation reconcile.
+- **Corrections:** Preceding per-share units and explicit issuer fiscal labels remove eight false contradictions. Unknown fiscal basis stays unchecked. Fifteen equivalent metric contexts validate under exact producer contracts, retaining wrong-date, definition, entity, formula and currency controls. Officer packages retain recipient and amount boundaries. Deterministic disclosures add 13 source-bound facts to the original 30, with separate concentration periods and qualifications; undated subsequent guarantees no longer borrow July 26 from the commitments table. Exact issuer production wording remains visible.
+- **Preservation:** The completed model calls were not repeated. Original report JSON, artifacts, accounting and frozen input remain unchanged. A separate corrected replay binds the original job, snapshot, successful pass artifacts and exact original payload (`1.24.0:aceb7317`), then uses the corrected verification payload (`1.24.0:60cb5f4f`). Export metadata lists changed fields and hashes, and explains that the saved analysts did not see the corrected verification payload. Provider boundaries are disabled for replay.
+- **Editorial correction:** The reviewed export changes one identified Vera Rubin sentence from "ramping into full production" to the source's "now in full production". Exact original sentence, source identity/date, quote and hashes are required; wrong source/date/before-text or missing quote reject the edit. Metadata and the report explicitly identify this as an editorial source correction, not new model-authored analysis. No grade, value or assumption changes. Independent review confirmed the original raw database hash and the correction's source truth.
+- **Result and limits:** The corrected export has 240/240 registered figures traced, 105/105 factual claims cited, 85/91 numeric claims validated, six numeric claims unchecked, zero contradictions and 14 qualitative claims not machine-validated. These are bounded provenance/consistency results, not exhaustive proposition verification, predictive accuracy or institutional readiness. Existing calibration and presentation limitations remain documented. Full final-source verification and required remote CI remain release gates in the recovery plan.
+- **Final local gate:** Application source `ca533a8` passed `npm run verify`, exit 0: 6,188 product tests (three existing skips), four integration tests, typecheck, lint, core and enforced risk coverage, build and zero-vulnerability security audit. Aggregate risk coverage is 94.73/87.79/97.50/96.94% (statements/branches/functions/lines). Audited fixture deltas pass; required remote CI remains a separate release gate.
+
+## D-70 (subscription recovery, 2026-10-16) Preserve selected run settings and reduce section batches
+
+- **Evidence:** The subscription endpoint closes a response at about 15 minutes. The previous judge retry lowered captured reasoning effort after a long cutoff (Max became XHigh), and retries with no completed section repeated the original section batch. Sectioned passes also inherited execution metadata from their last request, which could hide different or missing effort/speed observations in earlier parts.
+- **Options:** Lower reasoning effort; repeat the same request; or keep the captured model, effort and speed and reduce the number of sections per request.
+- **Choice:** Preserve the captured subscription settings on every attempt, including callers carrying the old effort-step-down hint. A cutoff increments a section-retry count. Analyst transport retries also carry that count when no section completed. Each retry doubles the number of section groups, bounded at one top-level section per request; six doublings bound malformed or excessive retry counts. Existing retry-count and job-deadline limits still apply. A single oversized section may still time out; this is not a completion guarantee.
+- **Recovery:** Integrate the existing staged transport/checkpoint package separately from the valuation fixes. Keep bounded final-answer text and complete JSON sections in local atomic checkpoints, keyed by job, payload, selected settings and the exact request; mirror and schema-repair requests remain separate. Record request usage with its launch-attempt owner. A stream without its completion event still fails; a recovered assembly must pass the same final schema validation, and invalid completed assemblies clear their checkpoint.
+- **Execution evidence:** Aggregate observed models, effort and service tier across section requests on success, transport failure and repeated invalid JSON, retaining earlier observations beside the final request's usage. An effective effort or speed is stated only when those observations agree and none is missing. A checkpoint contains content, not its original provider execution evidence: if any section is recovered, whole-pass model/effort/speed and complete usage attribution remain unestablished. Requested settings remain distinct from observed settings. Do not certify a recovered report as entirely observed Max/Standard from its last request alone. An output item already excluded as commentary remains excluded from recovery even if its completed-item event omits the phase.
+- **Risks and limits:** Smaller requests repeat input context and may consume more plan allowance or wall-clock time. Usage journals preserve observations for manual audit but are not automatically reconciled after a worker dies before settlement. No new live-provider or model run validates provider timing or guarantees that requested settings are honored. Checkpoints are local recovery artifacts, not independently authenticated provider receipts.
+- **Validation:** Nine regression cases fail against the staged recovery package before these corrections; all ten selected regression/control cases pass afterward. Additional failing-first cases cover excluded commentary recovery and mixed execution evidence on transport and invalid-JSON failures. Tests cover analyst retry counts with no completed sections, bounded analyst/judge batches, unchanged captured model/Max/Standard, matching/different/missing provider effort and speed, checkpoint recovery, and continued schema validation. Fresh typecheck, lint, 6,157 product tests (3 skipped), 4 integration tests and the exact audited-delta comparison pass. Independent review found no remaining material issue in the reviewed corrections. Primary checkout staged blobs and active jobs are preserved; integrated coverage/build/security verification remains a separate gate.
+
+## D-69 (NVDA recovery integration, 2026-10-15 PDT) Preserve interrupted work and separate calculation conventions
+
+- **Evidence:** Claude's original final-report audit and round-three assignments were recovered from its local session, then checked against the open "NVDA report audit and fixes" app. D-68 was already merged at `bcdeba7`; D-65 and D-67 survived uncommitted; D-66 had a committed verifier fix plus unfinished filing extraction.
+- **Choice:** Complete the recovered work in its existing worktrees, merge all four domains, and preserve the main checkout's unrelated staged transport/checkpoint changes. Do not reset or overwrite historical reports.
+- **Versions:** Report `1.19.0`, payload `1.24.0`, Stage B `STAGE_B_2026_10_NVDA_AUDIT_2`. Score bands stay unchanged. Older payload artifacts cannot resume as equivalent, older snapshots require their original engine, and report comparisons disclose the convention mismatch.
+- **Integration:** Keep both D-68 forensic notes and D-67 grade-context handling in print output. Re-pin the combined payload for D-65's financial changes, D-68's +80 label bytes and D-66's +15 technical-tag bytes: 132,882 prompt bytes, 531 numeric records, 74 citations. The version bump changes only its fingerprint afterward. Audited delta groups retain their individual rationales; this group's only financial-fixture leaf is the report version.
+- **Review correction:** Projected interest expense must use a quarter in the model's established currency and no later than the DCF statement anchor; otherwise retain the compatible annual fallback. Two rejected-quarter regression cases failed before the correction and passed afterward, with a valid USD TTM control retained.
+- **Final review corrections (2026-10-16):** Executive evidence categories are derived from the validated metric contract; compensation cannot unlock a performance grade. Multi-party transaction notes withhold ambiguous attribution. Figure deduplication requires the same metric and period/unit/currency basis, preserving equal-valued cash and debt. Data-only DCF tables inherit the established model currency. A read-only reviewer reproduced these boundaries and the retained credit-support clauses and dated Groq accrual at `bb73f2b`, finding no remaining material issue within that code-review scope; generated-prose review remains a separate release gate.
+- **Frozen calculation:** The integrated engine reproduces base/bull/bear $217.04/$365.94/$120.49 on the original acquired inputs, versus $296.32/$501.15/$163.44 under `6e5367a`. This is a calculation comparison with fixed inputs, not a new forecast backdated to the original run.
+- **Limits:** Consensus breadth/dispersion and peer-size gates are disclosed house rules. Unreported fiscal revenue is calendarized evenly. Dimension-only locked-up equity is not guessed into the bridge. Same-family model review is disclosed; software tests and numeric matches establish bounded consistency, not forecast accuracy or institutional readiness.
+- **Release gates:** Full combined verification, a fresh live NVDA run, report/export review and fresh required CI are tracked in `docs/superpowers/plans/2026-10-15-nvda-round3-recovery.md`. The interrupted baseline run passed product/integration/core coverage and was stopped during risk coverage to validate the combined source instead; it is not claimed as a full gate pass.
+
+## D-68 (NVDA final-report audit, forensics round 3, 2026-10-16) Name what is missing, what was bought, and what is a note
+
+- **Evidence** (final live run, report 1, run-input snapshot `041924526ebb…` captured 2026-10-16T04:20Z, a US evening):
+  - **Leadership** printed "Repurchase timing is unavailable", evidence 45%, score 61 (C), shown as "Not assessed — limited evidence". The D-61 replay of an earlier snapshot had measured +5.2% with 100% of buyback dollars covered.
+  - **Accrual growth note** said revenue and NOA grew "over the same two years"; the comparison is one fiscal year against the prior.
+  - **Unexplained drivers.** Nothing said that NVDA's NOA growth, AQI 1.57 and GMI 1.06 carry an acquisition (goodwill $5.19B → $20.83B, $13.0B tagged `PaymentsToAcquireBusinessTwoNetOfCashAcquired`), strategic investments (long-term investments $3.39B → $22.25B) and inventory write-downs, so the forensic text read the growth as unexplained operating-asset expansion.
+  - **Flags table.** Four methodology notes were "low" severity rows in the Flags table, beside the findings.
+- **Root cause of the missing timing**, reproduced offline on a copy of the frozen snapshot (`runStageB` only):
+  - **Executions were found.** `repurchaseExecutions.ts` was not the cause: its share-basis check passed for all five years with repurchase tags (basis day 2026-10-15, which the split list covers).
+  - **The year-average price was missing.** It is market cap over the fiscal window ÷ basic weighted shares, and the market-cap history was empty. FMP refused the endpoint (HTTP 402), and the keyless derivation withheld all 1,254 days: before afbed58 the closes were dated by the fetch's UTC day, 2026-10-16, which no split list could cover.
+  - **The note blamed the tags.** It fell through to "no tagged repurchase share count and cost on a known share basis matches the fiscal years".
+  - **afbed58 restores it.** Re-deriving the keyless market caps with its basis session (the newest bar, 2026-10-15) restores all 1,254 days and timing +5.18% at 100% coverage. With the fetch day, every day is still withheld.
+- **Options**:
+  - Timing: (a) a fallback year-average price from the daily closes when market caps are missing; (b) keep one measure and name the missing input.
+  - Notes: (a) keep them as "low" flags; (b) a pipeline-owned `quality.notes` list under the forensic table.
+  - Drivers: (a) a generic caveat; (b) the statement figures behind each driver.
+- **Risks**:
+  - Timing (a) needs the closes' basis session, which only the keyless layer knows; the keyless market caps already carry that guard. With afbed58 the case that emptied the history no longer occurs, so (a) would rarely trigger and would mix two price proxies across years.
+  - Drivers (b) needs data the vendor rows lack: inventory write-downs, and a second acquisition that FMP folds into other investing. These come from the filer's tags. The acquisition payment is attributed only when the row's other investing outflow holds it, so it is never counted twice.
+- **Choice**:
+  - **Timing (b).** When timing is not measured, `computeCapital` says which side is missing: the years whose tagged price has no year-average price and why, the years outside the plausibility band, or no tagged pair. A fixture trimmed from the frozen snapshot pins the chain on NVDA's real inputs: the keyless market caps derived on the newest session, the executions, and timing +5.18% at 100% coverage.
+  - **Growth note.** The note says "in the fiscal year ended …". The payload's two growth rows say "in the accrual fiscal year (year over year)".
+  - **Acquisition note.** The note is written when the increase in goodwill and other intangibles, or the cash paid for acquisitions, is at least 10% of the NOA increase (house rule). It gives goodwill and intangibles at both year ends, the cash paid, and the acquired share of the NOA increase. With that note or the growth note, a composition note splits the NOA increase by line.
+  - **Beneish context.** When M is above the "unlikely" band, AQI above 1 is decomposed into goodwill, other intangibles, long-term investments and the remaining non-current assets, with AQI recomputed without the first three. GMI above 1 is explained by the margins and the inventory write-downs the filer tags (`InventoryWriteDown`), recomputed with them added back. Context, never graded.
+  - **Notes, not flags.** The definition, house-band, growth and context notes become `report.quality.notes`. That field is pipeline-owned and removed from the judge request schema. The Flags table keeps findings. The renderer's duplicate definition string is no longer added; a pre-D-61 result, which records no definition, still gets the broad-screen explanation.
+  - **Wording.** "Capex, acquisitions stay in" now reads "Capex and acquisitions stay in" when nothing is unclassified.
+- **Why**:
+  - A missing input should be named where it is missing. The tags were present, and saying otherwise sends the reader to the wrong source.
+  - An acquirer's goodwill and a strategic investor's stakes raise AQI as capitalised costs would, and an inventory charge lowers gross margin as pricing pressure would. The statement lines can tell them apart; the index alone cannot.
+- **NVDA, frozen inputs** (offline replay; scores do not depend on the D-68 text):
+
+  | Item | Live run (pre-afbed58 market caps) | afbed58 market caps + D-68 |
+  | --- | --- | --- |
+  | Market-cap days | 0 of 1,254 | 1,254 |
+  | Repurchase timing | unavailable; note blamed the tags | +5.18%, 100% of dollars covered |
+  | Timing note | "no tagged repurchase share count and cost … matches" | (D-68 text when missing: "tagged repurchase prices were found for 4 of 4 fiscal years … but no year-average price … (no market-cap history inside the fiscal window)") |
+  | Leadership | 60.83 C, evidence 45% | 61.64 C, evidence 100% |
+  | Valuation | 85.96 A, evidence 70% | 86.57 A, evidence 100% |
+  | Composite | 76.59 B | 79.54 B |
+  | Business quality | 77.91 | 78.80 |
+  | Quality | 60.03 C | 60.03 C |
+  | NOA increase | unexplained | $40.90B: goodwill and intangibles +$18.14B (44%), receivables +$15.40B, inventory +$11.32B, PP&E +$5.17B, other +$6.95B, operating liabilities +$16.09B; $14.54B paid for acquisitions ($1.54B acquisitions line + $13.00B tagged business acquisition) |
+  | AQI 1.57 | no decomposition | soft assets $23.40B (21.0% of TA) → $67.95B (32.9%); without goodwill, intangibles and long-term investments 0.83 |
+  | GMI 1.06 | no decomposition | margin 75.0% → 71.1%; tagged write-downs $4.00B vs $1.60B; added back 76.2% → 72.9% (GMI 1.05), 0.6pp of the 3.9pp decline |
+
+  - **Write-downs vs the H20 charge.** The tagged write-downs explain 0.6pp of the 3.9pp margin decline. The 10-K's "$4.5 billion charge … associated with H20 for excess inventory and purchase obligations" also covers purchase obligations, which are not inventory write-downs. The note states only what is tagged; the H20 charge reaches the analysis through the filing excerpts.
+- **Disclosure**:
+  - **Tests.** `tests/stageB.forensicsR3.test.ts` covers the NVDA timing chain on `fixtures/financial/nvda-buyback-timing-20261016.json`, the missing-side note, the forensic notes, and notes vs flags.
+  - **Payload.** The payload golden moves +80 prompt bytes for the two relabelled growth rows (no new record on that fixture). The new forensic payload rows (goodwill, the acquired share, cash paid, AQI and GMI recomputed, tagged write-downs) appear only when their note does.
+  - **Audit deltas.** The group `forensics-r3-2026-10-16` records DEMO's notes moving to `report.quality.notes` and its acquisition and composition notes (DEMO pays 100M for acquisitions with goodwill unchanged).
+  - **Versions.** `PAYLOAD_VERSION`, `REPORT_SPEC_VERSION` and `SCORE_BANDS_VERSION` are unchanged, as instructed: no score, band or ratio moves, and the new report field is optional.
+
+## D-65 (independent audit of the NVDA report built on metis-final.db, report 1, 2026-10-16) Consensus where it exists, one net cash in every EV, robustness on both grids, a dated value
+
+- **Evidence**: the audit of the live NVDA report (spec 1.18.0; frozen inputs replayed offline through `runStageB` on a copy of `metis-final.db`, which reproduces bull $501.15 / base $296.32 / bear $163.44 at `6e5367a`) found:
+  - **P0, consensus beyond year two.** The base path was called "consensus-anchored", but only years 1–2 used consensus. The D-58 fade from year two's 46.9% put years 3–5 9–45% above the FY+3…FY+5 consensus the same cached FMP response held (FY ending 2029-01 $924.4B from 38 analysts, 2030-01 $1,106.5B from 30, 2031-01 $1,161.0B from 35). The auditor's rebuild with years 1–4 on consensus and the same fade gave about $208.
+  - **P2-2.** Year one spread FY2027 consensus evenly over its days although H1 FY2027 ($177.84B) was already reported.
+  - **P1, enterprise values.** The key-data EV ($5.21T, D-60 net cash −$23.22B), the EV multiples (25.7× EBITDA and 17.1× sales, which reconcile only to $5.17T: `multiplesFramework` resolved net debt without the $42.78B equity securities), the provider's $4.77T and the DCF's $7.13T all printed as "Enterprise value".
+  - **P1, robustness.** "All valid cells remain above the current price" read only the WACC × g grid; four year-one growth × margin cells sat below $217.23.
+  - **P2-1.** The $51.16B of long-term investments left invested capital (D-60) but never entered the equity bridge.
+  - **P2-3.** Flows were discounted to 2026-07-26 and compared with the 2026-10-15 price; the diluted-vs-outstanding share basis was a payload note only.
+  - **P2-4.** The bull's +10.12pp margin shock was removed entirely by the scenario cap but still printed, so the 62.95% weighted margin did not reconcile to ±10.12pp.
+  - **P2-8.** Forecast EPS deducted FY2026 interest ($0.26B, flat) although $25B of notes were issued in Q2 FY2027 (Q2 interest $227M).
+  - **P2-9.** An unused "near-term growth 25.0% (range …)" row, and an "analyst-consensus case 76.11%" whose legs were not printed.
+  - **Presentation.** The scenario-decay paragraph printed three times and the flat-share paragraph twice; "shaded band" named a chart the export does not have; the FCF heading promised history the table does not show; projected "Diluted EPS" and the page-1 forward P/E were operating EPS.
+  - **Triggers.** The $105.84B and 73.5% thresholds cited `sec:8-K EX-99.1 …`, which no registry record carries (both "untraced").
+  - **Peers.** The peer list showed a customer (CoreWeave) and listings of $265M and $29M beside a $5.24T issuer.
+- **Options**: (a) disclose the D-60 path's gap to consensus and keep it; (b) anchor every year consensus covers, with no quality gate; (c) anchor every year consensus covers **with adequate breadth and agreement**, fade after the last; plus, for each finding, the narrowest change that makes the printed figure true.
+- **Choice**: (c), and:
+  1. *Consensus path* (`buildRevenueAnchor`, `calendarizeConsensusWindow`). Every explicit window is calendarized against the fiscal-year estimates. A year takes consensus growth (window over window; the level itself when consensus set year one) while every estimate behind it has at least `MIN_CONSENSUS_ANALYSTS` = 3 analysts and an implied dispersion (high − low) ÷ (d2(n) × mean) of at most `MAX_CONSENSUS_CV_PCT` = 25%, and its growth stays within [−10%, max(25%, the prior year)]. Rows without a count or range keep the D-60 rule for years 1–2 and are refused beyond. The stretch is contiguous, and the final year is always the fade's. The fiscal year the first window starts in contributes its consensus less the revenue already reported in it (`FiscalYearToDate`, built from the quarters after the latest annual statement). Disclosure: a "consensus-anchored years" row, a "DCF path vs consensus" table (`dcf.consensusPath`), the anchor basis naming each anchored year and why the next is not, and a payload note telling the analysis to name those years. Projection and growth-path text say "years 1–4" instead of "consensus-anchored".
+  2. *Enterprise values.* `MultiplesBalance` and the own-history rows carry the filed `marketableEquitySecurities`, so `resolveNetDebt` gives the multiples the same net cash as the bridge. The labels are "Enterprise value (market)" (key data), "Intrinsic enterprise value (DCF, operating assets)" (bridge) and "Provider enterprise value (vendor definition, period end)".
+  3. *Robustness.* `summarizeSensitivity` reads both grids. "Robust" needs every valid cell of both on one side of the price; otherwise it counts each grid's cells at or below the price and names the growth × margin cells.
+  4. *Long-term investments.* `DcfAssumptions.nonOperatingInvestments` records what sales-to-capital removed, and the bridge adds exactly that back at its filed carrying value, citing the XBRL non-marketable carrying value when present (`nonMarketableEquityCarrying`). Bridge rows list each non-operating asset.
+  5. *Valuation date.* `DcfAssumptions.valuationDate` moves every discount exponent back by the years from the statement date to the quote date (at most 200 days). The bridge keeps the statement-date balance. The bridge prints the date and factor, plus the shares outstanding at the quote beside the diluted divisor, which is kept.
+  6. *Scenario margins.* `effectiveMarginDeltaPp` records the shift that survives the cap. The construction table, the target basis and each scenario's inputs print it beside the request, and the weighted margin reconciles.
+  7. *EPS interest.* `interestRunRate`: the latest quarter's interest over its average debt (operating leases excluded), applied to the closing debt; else the quarter × 4; else the fiscal year.
+  8. *P2-9.* The near-term row prints only when it set year one, and the consensus method prints both legs (35.26% over 183 days annualized to 82.73%; 69.50%).
+  9. *Presentation.* The decay paragraph is the scenario-construction table's note alone (the target basis points to it); the flat-share paragraph is the capital-return table's note alone (the payload still carries it). "Bull-to-bear spread" replaces "shaded band". Forecast-only tables are headed "Free cash flow to the firm (FCFF)" and "Operating EPS (diluted shares)", the chart's EPS label says "historical GAAP diluted; forecast operating", and the key-data row is "Forward P/E (model base-case operating EPS)".
+  10. *Triggers.* `guidanceLowCitation` returns the guidance-table record's id (`payload.issuer-filings.q3-fy2027-revenue-guidance-low`, `…-gross-margin-gaap-guidance-low`).
+  11. *Peers.* `peerSizeExclusion`: candidates more than `PEER_SIZE_RATIO_LIMIT` = 100× smaller or larger than the subject by market cap are excluded at discovery and at comparison, and are named in a payload note rather than listed as peers.
+- **Why**:
+  - **Consensus.** It is the only forward evidence of the level that the provider response carries. Once it covers a year, a mechanical fade has no better claim to that year.
+  - **Breadth gate.** A mean of one or two forecasts is not a consensus. Dispersion needs two or more estimates (Diether, Malloy and Scherbina 2002), and three give the range an interior point.
+  - **Agreement gate.** The raw range grows with the number of analysts, so it is normalised by d2(n), the expected range of n normal draws (Tippett 1925; Harter 1960 tables), into an implied standard deviation. Dispersion measures uncertainty about the level (Barron, Kim, Lim and Stevens 1998), and above 25% one standard deviation spans half of it.
+  - **Growth band.** It is D-58's year-two bound, applied to every later year.
+  - **Reported half.** Subtracting H1 uses the issuer's own reported fact instead of an even-spread assumption.
+  - **Enterprise values and investments.** The EV, bridge and investment changes put each figure on the definition its label states.
+  - **Roll-forward.** The value and the price it is compared with now share a date. The bridge stays at the statement-date balance because cash generated since then is already in the first window's flows.
+  - **Size screen.** Size is a priced risk characteristic (Fama and French 1992). Industry, not size, is the decisive comparable screen (Alford 1992), so the bound is two orders of magnitude.
+- **NVDA, frozen 2026-10-15 inputs** (offline `runStageB` on a copy of `metis-final.db`):
+
+  | Item | Before | After |
+  | --- | --- | --- |
+  | Base / bull / bear per share | $296.32 / $501.15 / $163.44 | $217.04 / $365.94 / $120.49 |
+  | Upside vs $217.23 | +36.4% | −0.1% |
+  | Years on consensus | 1–2 | 1–4 (FY2032 has no estimate) |
+  | Revenue, years 1–5 | $551.8B, $810.5B, $1.10T, $1.40T, $1.69T | $578.3B, $810.5B, $1.01T, $1.13T, $1.24T |
+  | DCF vs calendarized consensus, years 3–4 | +8.7%, +23.9% | 0.0%, 0.0% (year five not covered) |
+  | Intrinsic EV (bridge) | $7.13T | $5.15T, stated at 2026-10-15 (× 1.0279) |
+  | Non-operating assets added | $42.78B | $42.78B + $51.16B |
+  | Market EV / EV/EBITDA / EV/Sales | $5.21T (box), multiples on $5.17T: 25.7× / 17.1× | $5.21T everywhere: 25.9× / 17.2× |
+  | Sensitivity conclusion | robust: all valid cells above | sensitive: 13 of 25 WACC × g cells and 9 of 15 growth × margin cells at or below the price |
+  | Operating EPS, year one / year five; interest | $12.34 / $36.91; $0.26B | $12.89 / $26.97; $1.45B (4.34% on $33.4B) |
+  | Reverse-DCF implied year-one growth | 68.0% | 90.9% (base 90.9%) |
+  | Valuation score / composite | 86 A / 77 B | 55 D / 72 B |
+
+  - **One-at-a-time reverts** from the after state: the D-60 two-year path +$89.59, the roll-forward −$5.76, the investments add-back −$2.11, the even-spread year one −$0.53. The auditor's rebuild (years 1–4, even spread, no roll-forward or investments) reproduces at $208.66.
+  - **Before-state check.** On the before state the new robustness rule reads: all 25 WACC × g cells above, and four growth × margin cells below (growth −20pp at margin −10pp to 0pp; growth −10pp at −10pp) (tests/stageB.valuationD65.test.ts).
+- **Risks**:
+  - Consensus can herd and goes stale: the gates measure breadth and agreement, not accuracy. Long-horizon sell-side growth is optimistic on average (Chan, Karceski and Lakonishok 2003), though here consensus lies below the house fade.
+  - The 3-analyst, 25% and 100× thresholds are unbacktested house conventions (RESEARCH §8).
+  - The fiscal year after the reported part is still spread evenly, which for a fast grower overstates its early quarters. For NVDA, half of FY2028 is $346B, against about $302B if FY2028's quarters grew at a constant rate from Q4 FY2027's implied $124B (H2 consensus $231.96B less the $108B guided Q3).
+    - On that shape year one would be about $534B. That is 7.6% below the $578.3B used, and 3.2% below D-60's even-spread $551.8B. The H1 subtraction alone therefore moves year one away from the shaped estimate.
+    - Value barely moves (+$0.53 a share), because year two is anchored at the consensus level either way.
+    - The printed year-one growth (90.9%) and the shocks and reverse DCF measured from it are high by about that gap.
+    - No within-year shape is assumed, because no source supplies one.
+  - The roll-forward compounds at the WACC and ignores distributions since the statement date (NVDA paid dividends and bought back shares in the interim, roughly value-neutral at the quote).
+  - The size screen removes Cerebras, a direct competitor, alongside the micro-caps. It cannot recognise a customer: CoreWeave leaves on size alone.
+- **Not fixed**:
+  - NVDA's $4.96B long-term portion of locked-up public equity sits in other assets and is tagged only with a dimension that companyfacts omit, so it stays in operating capital and outside the bridge ($0.20 a share).
+  - LLM-written prose that says "consensus-anchored" is steered by the payload note, not rewritten. No live run was made to confirm it.
+  - Year one and the anchored years still assume the base margin path; consensus EBIT (also in the response) is not used.
+- **Disclosure**:
+  - Assumption rows "consensus-anchored years" and "valuation date"; the "DCF path vs consensus" table; bridge rows for each non-operating asset, the quote date and factor, and shares outstanding; the scenario-construction column "Margin shift after the cap".
+  - Payload notes for consensus anchoring and peer size exclusions; peer methodology text.
+  - Tests: `tests/stageB.valuationD65.test.ts` (9 tests, all failing on `6e5367a`). Re-pins, each with its reason: `tests/stageC.payload.passes.test.ts` (+1,045 prompt bytes, same 531 records and 73 citations), the projection-label pins, and two WACC-grid-only sensitivity tests that now null the second grid.
+  - Audited delta group `valuation-r3-2026-10-16` (163 DEMO leaves: consensus years 1–5, the $0.5B investments add-back, per share 146.23 → 154.97).
+  - `REPORT_SPEC_VERSION`, `PAYLOAD_VERSION`, `SCORE_BANDS_VERSION` and `STAGE_B_IMPLEMENTATION_VERSION` are left for the integrator. All new report fields are optional.
+  - Recovery validation: the frozen snapshot replayed offline against archived `6e5367a` and the recovered tree reproduces both sides of the table above. The nine D-65 tests fail against that archived source and pass against the recovered source. Fresh typecheck, lint, 6,052 product tests (3 skipped), 4 integration tests, core coverage and the exact audited-delta comparison pass; risk coverage is checked separately before integration. These checks establish implementation consistency, not forecast accuracy.
+## D-67 (NVDA final rerun audit, presentation round 3, 2026-10-16) One display rule per figure, label and gap; count a data gap once
+
+- **Evidence**: the final NVDA rerun (report 1, `metis-final.db`, 147,674 bytes / 1,510 lines of Markdown) re-rendered byte-identically on `claude/nvda-audit-integration` and showed: 11 ".00M" amounts ("$959.00M", "−$175.00M", "$438.00M") and 21 ".00B" ("$279.00B" for the release's "$279 billion"); FCF conversion printed three ways (65.8% in the drivers, 0.7× in key numbers, "0.6585x" in a claim) and the accrual ratio four ways (59.8%, 0.6×, 0.60, "0.5977x"); 28 claim or basis figures at four or more decimals ("USD 296.3179 per share", "426.7365x", SMA "223.1738", Beneish "1.5671x", WACC "13.2142%"); scores "85.96"/"60.03" beside an integer scorecard; 59 raw ids in the body (registry ids, manifest fields and `edgar:`/`sec:`/`fred:` citations: multi-citation brackets such as `[computed.valuation.reverse-dcf-… · d; computed.valuation.consensus-… · d]`, `edgar:10-K item1`, the source-fact "Source identity" column, `computed.valuation.*`, `sec:8-K …`, `fred:DGS10`) and mechanical labels ("Pricetobook current", "Timing %", "Weighted epsdiluted", "… guidance 4", "Product market platform data center share of revenue quarter ended …"); the FMP annual segment tables beside the quarterly XBRL tables (with "Other Americas" for the filing's "Other"); 56 lines of peer methodology; six identical "not-assessed" executive cards printing the raw enum; Leadership "Not assessed — limited evidence" in the strip and header while the scorecard printed "61 C" and counted it, beside "Fundamentals confidence: high" under a Degraded data state; an EPS bridge mixing $/share and $B rows without its adjustment line; "9 warnings" that were one market-cap gap three times, three LLM process disclosures, a verification finding, an FMP filing-search 402 that EDGAR made moot and an FY2019 lease `period_mismatch` at the ASC 842 adoption date; and "The shaded band is the scenario range" where no chart is drawn.
+- **Options**: (a) fix the pipeline strings and severities at their source; (b) display rules in the shared presentation layer, applied by all three surfaces to stored and new reports alike; (c) both.
+- **Risks**: (a) leaves every stored report as it is, and re-emitting manifest severities changes the persisted `dataCompleteness` counts, so stored reports would stop confirming against their manifest. (b) rewrites how stored LLM prose prints (rounding, labels); the stored bytes, the verification log and the audit export keep the original text. Rounding prose at display could in principle change a figure the verifier read; the rule only rounds a figure stated more precisely than the prose-precision prompt rule (6e5367a) asks for, and the verifier compares at the stated precision.
+- **Choice**: (b). Prompts, computations, payloads and version stamps are unchanged; `src/pipeline/stageB/projections.ts` (the "shaded band" sentence) is left to the valuation work.
+  1. *Numbers.* Report money prints a whole amount at its scale without decimals ("$959M", "$279B"); a rounded amount keeps them ("$29.00M" for 28,995,200; "$113.00B" for 112,998,066,176), and charts and share counts keep the fixed digits. FCF conversion and the accrual ratios print in whole percent everywhere (driver, key number, claim, forensic table: 66%, 60%). Stored prose figures are shown at reader precision only where over-stated: per-share amounts to cents, multiples to one decimal (two below 10×, two significant digits below 0.1), percentages with four or more decimals to one, percentage points to one, trillions/billions with four or more decimals to two, other numbers with four or more decimals to two, "N.NN on the 0–100 scale" to an integer, "$432.00B" to "$432B". A three-decimal coupon ("4.250% Notes"), an exact-to-the-million amount ("USD 7.771 billion"), versions and timestamps are untouched.
+  2. *Ids and labels.* Every citation in a bracket is labelled (several per bracket), bare ids in pipeline prose read under their labels (a wildcard as "valuation model outputs", `sec:`/`fred:` prefixes as the filing or "FRED DGS10"), new exact and pattern labels cover the ids the rerun cited, a trailing period phrase is parenthesised ("(quarter ended …)"), and the source-fact identity column moves to the audit export. The data-gap tables name gaps by label ("Market-cap history", "Legacy entity validation"); manifest fields stay in the audit export.
+  3. *Segments.* Beside the quarterly XBRL tables the annual FMP tables leave the body; the audit export keeps them as served. A segment axis's own filing note ("total less the other rows") moves from the guidance track record to its segment table.
+  4. *Peers.* The body keeps two lines (candidates evaluated, eligible issuers, screen exclusions, the comparability caveat) and the comparison table; the screen rules, per-metric notes and each exclusion are in the audit export.
+  5. *Executives and Leadership.* Officers with neither grade assessed are named on one line per distinct reason, with their cited facts beneath; the raw enum is never printed. One rule for an aspect under the 50% evidence floor: no surface shows its letter (strip, header, scorecard band cell, live chip; history, watchlist and diff already withheld it), and every surface shows the same deterministic score with the marker and the evidence share ("Not assessed — limited evidence (score 61/100 on 45% of signals)"). The composite is unchanged: it already weights each aspect by its evidence share, and the scorecard note says Leadership enters at 4.5% rather than 10%. The judge's "retain the proxy grade" text is shown as written. Displayed section confidence is capped by the data state, as D-50 caps it by an aspect's coverage: at most medium beside a data warning or unconfirmed completeness, low beside a critical gap ("medium — capped from high: 1 data warning"); stored labels are unchanged.
+  6. *EPS bridge.* One per-share table that foots (GAAP EPS, the adjustment as non-GAAP less GAAP, non-GAAP EPS) and a separate table of the itemized amounts, labelled as the lines captured rather than a bridge.
+  7. *Completeness.* `classifyManifest` reads the manifest as a reader counts it: one row per underlying dataset (`fmp.historicalMarketCap`, `keyless.marketCapHistory` and `.shareBasis` are one gap); `llm.*` and `verify.*` entries are analysis-process disclosures, counted apart; an FMP filing search when EDGAR is available is shown as information with the reason. Lease period mismatches remain actionable: a date alone does not establish issuer adoption or distinguish operating from finance leases. Critical entries are never downgraded. The header, the appendix sentence, the gap tables, the family table ("highest severity as shown"), the job panel and the evidence rail use these counts. The persisted `dataCompleteness` keeps its meaning (warn-level entries), so stored reports still confirm.
+  8. *Charts.* The Markdown and print exports, which draw no chart, drop a sentence pointing at the "shaded band"; the live view keeps it beside its fan chart, and its "(computed.projections.*)" caption loses the id.
+- **NVDA re-render (frozen report 1)**: Markdown 147,674 → 137,749 bytes, 1,511 → 1,418 lines; raw ids in the body 59 → 0 (print and visible live text 0; the live view keeps ids only inside its collapsed provenance details); ".00M" 11 → 1 (the rounded $29.00M), ".00B" 21 → 2 (rounded DCF-path cells); four-or-more-decimal figures 28 → 0; data warnings 9 → 2 (market-cap history and the unresolved lease mismatch), with 4 process disclosures and 1 entry shown as information. Fresh recovery verification also rendered print at 188,754 bytes; print and visible live text each had zero raw ids and zero four-or-more-decimal figures (collapsed provenance retains the originals).
+- **Recovered filing supplements**: the optional D-66 typed filing facts, management commentary outlook, officer changes, say-on-pay vote and Rule 10b5-1 arrangements have deterministic tables shared by Markdown, print and live views. They render independently of analyst prose, retain issuer qualifiers, dates and derivations, keep anticipated departures unconfirmed, and distinguish plan capacity from executed sales. The audit export retains their raw records. The presentation adapter accepts the optional structural contract without changing the schema or pipeline in this branch; D-66 supplies parsing and persistence.
+- **Why**: one shared rule per figure, label and gap keeps the three surfaces from drifting, applies to stored reports without rewriting them, and makes the header count name what is actually missing.
+- **Disclosure**: tests in `tests/report.presentation.d67.test.ts`; re-pinned assertions name D-67 (whole amounts, gap labels in the body, the peer summary, the data-warning wording). The audit export gains "How the report body reads this record" (the classification table, the annual provider segments, the peer screen and the source-fact table with ids). `npm run audit:deltas` moves no leaf.
+## D-66 (NVDA final audit 2026-10-16) Bind prose conservatively and retain the filing evidence behind it
+
+- **Evidence**: the final NVDA rerun left 65 numeric FACT claims unmatched, mostly verifier false negatives. Score scales, 12M window labels, equivalent metric heads, comma-scoped executive titles and quarter/year-to-date table columns were not read correctly. Concentration passages, annual business-combination notes, interim financing payments and trading-plan disclosures were omitted or lacked typed records.
+- **Choice**: retain explicit metric synonyms while requiring definition-changing modifiers, units, sign, period and window. Only the three known segment axes may be omitted from a label; arbitrary colon prefixes remain required. A table's declared scale always applies, including amounts stated without a scale word. Explicit `USD millions:` TracedNumber declarations remain supported. Quarter and year-to-date date runs bind separately with or without change columns; ambiguous dates/columns stay unchecked. GAAP and net modifiers stay required in excerpt matches. DSO is checked in days.
+- **Evidence carried**: read 10-K notes from Item 8 or Item 15, 10-Q Part II Item 5, and bounded interim statements. Register investment balances and lock-ups, equity-method/VIE exposure, investment cash flows, Groq consideration/goodwill/intangible and financing payment, supply commitments, financing-platform lower bound, and the two latest CFO commentaries' DSO/outlook. Carry officer transitions, disclosed appointment packages, say-on-pay and trading arrangements as optional typed disclosure fields. Periodic evidence is retained even without an 8-K or quarterly trend.
+- **Budgets**: 10-Q notes 14,000 characters (was 12,000), with a quarter reserved for concentration and deal passages; 10-K notes 10,000; 10-Q Other Information 2,500; condensed interim statements retained for parsing up to 12,000. The maximum added raw prompt-excerpt budget is 14,500 characters, plus typed fact rows. Coverage and truncation remain disclosed. No version constant changes.
+- **Prompt guidance**: distinguish methodology/data-gap judgments from issuer facts, require real source IDs, keep dated product status and material geography/reclassification explanations, justify risk likelihood separately from impact, compare DSO outlook with later results, describe departed officers as transitions, and distinguish plan capacity from executed sales. Avoid repetitive unsupported executive cards and irrelevant normalization boilerplate.
+- **Validation boundary**: saved SEC fixtures exercise extraction, schema, prompt registry and conservative counterexamples. These checks establish source/metric consistency, not investment correctness, predictive accuracy, live-provider behavior or future LLM compliance. No live model run was made. Annual notes of Form 20-F remain an explicitly disclosed unsupported extraction path.
+- **Review safeguards**: validated compensation cannot unlock execution or credibility merely by appearing in the model's chosen evidence bucket. The verifier records a pipeline-owned metric classification for eligible typed guidance track records and realized statement outcomes; the final executive gate consumes that classification across buckets. Unknown or excerpt-only metric semantics remain unassessed. Business-combination facts are withheld when a note names multiple transaction parties, until amount-to-transaction scope can be established.
+- **Acquisition replay follow-up**: the frozen round-3 snapshot acquired the OpenAI reimbursement/indemnity clause and discretionary additional 3.8 GW option, but neither survived retained excerpts. Credit-support clauses now receive event priority and whole-clause deterministic event context; only these events receive an 1,800-character cap (ordinary events remain 1,200), with the combined cap raised by 600 to 8,600. On that snapshot all nine event excerpts remain, total 8,580 characters, and serialized prompt size increases from 309,009 to 309,840 characters. The current $986 million Groq accrued consideration is registered from the July 26, 2026 liabilities table only when its row number matches the Groq footnote; absent/mismatched dates or footnotes withhold it. The older $4 billion consideration and $2.944 billion cash payment retain their separate dates and meanings.
+- **Saved-report metric-context follow-up**: the original round-3 payload (`1.24.0:aceb7317`) and saved report reproduce 15 equivalent typed-record names that stayed unchecked. Read producer-bound quantitative scores, standardized quarterly FCF, appointment-package metadata, forward FCFF/operating EPS and the exact say-on-pay formula; distinguish a guidance issuance date matching its filing record from the guided fiscal period. Preserve current trailing P/E and the explicit six-month relative-strength horizon, and read lock-up as a restriction rather than an upward change. Before/after replay of all 175 saved prose claims changes exactly those 15 from unchecked to validated. Wrong accounting basis, date, window, entity, award basis, formula numerator/denominator, currency and direction remain rejected. The Beneish claim's unstated annual source scope, vague SPY horizon and ambiguous filing passages remain unchecked; this establishes source consistency only.
+- **Saved report-three verification**: leading "per share is/was USD" and an explicit numeric "score" suffix carry their stated units. DSO fiscal labels propagate from exact issuer commentary periods; explicit fiscal contradictions require an established fiscal basis, never a calendar-year guess. Unknown fiscal basis remains unchecked. Gawel's combined RSU target value is currency, not a share count. A full officer filing's restricted numbers remain restricted: the parsed package supplies an exception only for its exact recipient as the claim subject and one exact package amount, followed by the usual source metric/unit/period checks. Robertson/Parker substitutions, compound recipients, negation and share-unit controls remain unvalidated.
+- **Saved report-three deterministic disclosures**: quarter/H1 direct-customer revenue shares and dated receivables shares retain unnamed reporting positions, separate qualified indirect-customer demand and extended-payment-term context. The annual Taiwan 76% estimate requires an explicitly established FY2026 source scope. No common customer identity is inferred across rows or periods. Guarantee dates are rebuilt from the matching retained source table even for previously parsed bundles; the July 26 commitments date cannot date guarantees signed in August. Exact dated production statements and guarantee table scope remain visible as issuer notes. These supplements can be regenerated beside the same saved model output; original artifacts are preserved and a corrected replay must disclose that no model was rerun.
+- **Focused evidence**: six test files pass (166 tests), with typecheck and changed-file ESLint passing. Targeted filing-facts coverage passes its risk floors: 97.76% statements, 83.05% branches, 100% functions/lines (36 tests). Read-only deterministic verification against snapshot `6e1f43a73b4d8af967160b3f4ea378b3d6896599179683fa68ef42bf3ae0008d` and the saved 07:46:29Z report yields 105 cited factual claims, 70 numeric validations, 35 unchecked and zero contradictions. This is narrower than whole-proposition verification; original model prose is unchanged, and full combined coverage/build validation belongs to the integration gate.
+
+## D-64 (NVDA rerun audit 2026-10-15) A fourth-quarter EPS is never FY EPS minus nine-month EPS
+
+- **Evidence**: the integration rerun showed Q4 FY2025 diluted EPS $0.90; NVIDIA reported $0.89. The EDGAR backfill derived it as FY $2.94 − nine-month $2.04, but per-share amounts are not additive when the weighted share count moves between quarters.
+- **Options**: (a) keep FY − YTD (the former "FMP convention"); (b) withhold every untagged Q4 EPS; (c) rebuild it from Q4 net income over a Q4 share count backed out of the day-weighted identity FY shares × FY days = Σ quarter shares × quarter days.
+- **Choice**: (c) when the annual and all three earlier quarterly weighted counts are tagged, else (b). The backed-out count is used only for the ratio and never reported as a share fact.
+- **Why**: the identity is exact for weighted averages over contiguous periods, so the result matches the issuer's own Q4 EPS up to rounding (NVDA Q4 FY2025 0.894 → $0.89; Q4 FY2026 1.758 → $1.76).
+- **Disclosure**: field provenance `derivation: "fy-share-identity"` and a statement note naming the backed-out count; a withheld figure carries a note saying why.
+
+## D-63 (NVDA report 34 audit P1-8, P1-9, P1-10, P1-14, P0-10, P0-11, P2-10 and the 2026-10-15 rerun findings) Read the business, the 10-Q notes and the release tables; give the CEO and CFO a citable outlook record
+
+- **Evidence**: the integration rerun (`data/recovery/nvda-integration-20261015`) never named CUDA, TSMC or OpenAI. No 10-K Item 1 or 10-Q note was read; section-evidence-2 kept 11% of the 114,916-char Item 1A, 19% of the 10-Q MD&A, 58% of the Q2 release and 59% of the CFO commentary, and its 1,200-char cut of the residual-value-guarantee 8-K dropped "An affiliate of OpenAI Group PBC … will be the tenant". The report then said evidence it held was "not in the filings": the $59M principal payments between issuer FCF and OCF less capex, the non-GAAP reconciliation, the Hugging Face price, and the DSO and inventory build behind the OCF drop. All 30 FACT claims stated no figure (numeric validation 0/30). Every executive was "not-assessed", although the report printed revenue above the guided range three quarters running, and no pay was stated although D-57 registered the compensation rows. Six figures the excerpts printed were untraced. The "Other" geography and Edge Computing showed dashes where the total less the other rows was known. An 18-month-old charge was the only "high" flag, and "$6.1 billion" against "$6.042 billion" was called a discrepancy. The next earnings date was printed beside a past date: the earnings envelope's newest reported row.
+- **Options**: (a) raise every budget; (b) read new sources with family profiles suited to each, under bounded budgets, and register the release tables as typed records; (c) attribute company guidance to no individual, and print the executive cards once as not assessed.
+- **Choice**: (b), plus attribution for the CEO and CFO only.
+  - New sources: 10-K Item 1 (or 20-F Item 4) from the already-parsed annual document, and 10-Q Part I Item 1 cut at its notes heading. Both are optional bundle members `edgar.business` and `edgar.tenQNotes`; they need no new SEC request.
+  - Selector profiles: `business` (platform and software, roadmap, customers, suppliers and manufacturing, competition, export regulation, officers), `notes` (investments and lock-ups, commitments and guarantees, customer concentration, debt, capital return, contingencies, tax) and `risk` (business and financial families) for Item 1A. Prose profiles skip abbreviations when splitting, break a flattened table from the next sentence and from its footnotes, never give a table a family's turn, and score named entities. The `event` profile keeps an 8-K item's dated lead, every passage that introduces a named party, and every amount.
+  - The `financial` profile is section-evidence-2 unchanged, except that an inventory-type charge is now an exceptional item.
+  - Budgets: Item 1 12,000; notes 12,000; Item 1A 20% of its length between 14,000 and 24,000; 10-Q MD&A 12,000 (was 8,000); release narrative 9,000 (was 5,000); CFO commentary 11,000 (was 7,000).
+  - Release tables become records. The GAAP-to-non-GAAP reconciliation gives OCF, capital purchases, principal payments, the tax effect and GAAP EPS by quarter. Equity-securities gains and non-GAAP EPS join the quarterly trend. The commitments and guarantees tables become records, and the "no longer exclude stock-based compensation" basis note is kept.
+  - A notes offering's 8-K summary states its series' aggregate principal, marked computed, and never cuts a sentence mid-list. Item 5.07 (shareholder votes) is a material event.
+  - Guidance track record: per metric, the share of the guided quarters above (and below) the prior range, with the count written as a word so a sentence carries one figure. The prompt asks for it on the CEO and CFO cards as a FACT naming them; the existing verify pass validates it and the D-59 gate admits it.
+  - Pay is stated with its registered currency ("comp" reads as total compensation). Cards are written only for officers with evidence; officers without evidence are named once in the governance notes.
+  - Excerpt-cited figures: the claim's words must appear in the clause, and a definition-changing modifier the clause states must appear in the claim. A clause naming no period takes the excerpt's own (reporting period, fiscal quarter, event date). "X, up from Y" is a level. A two-or-more-date table header binds its rows' cells column by column.
+  - Prompt rules: rounding-aware agreement, a figure in every FACT a record supports, age-decayed flag severity, a whole-payload search before "not in the filings", implied growth compared with guidance, consensus and the latest quarter, and dated catalysts.
+  - Segments: a quarter's one missing top-level cell is the total less the other rows, when the rows are shown to be exhaustive.
+  - The derived next-earnings row is dated by its fetch day.
+- **Why**: (a) would have cost the same prompt growth without reaching the business or notes passages, which carry few figures and lose to numeric MD&A sentences under the financial families. The CEO and CFO publish the quarterly outlook, so the company's results against it are their credibility record; other officers' function-specific evidence is still required, and (c) would have discarded an admissible record the payload already held.
+- **Disclosure**: each excerpt's coverage names its profile (`section-evidence-2/business`, `/notes`, `/risk`, `/event`). A residual segment cell is labelled "(total less the other rows)" with source `computed:xbrl segment residual` and a note. Computed 8-K totals are bracketed `[computed: …]`. Track-record rows cite `computed.guidance-track-record`. For NVDA the cached payload grows by about 51,000 characters: Item 1 and the notes +27,700, Item 1A +9,000, the two release narratives +6,800, records about +8,000. The shared rules grow by about 1,900 characters and the judge framing by about 4,000. `PAYLOAD_VERSION` and `REPORT_SPEC_VERSION` are unchanged as instructed; the new `FilingDisclosures` fields are optional. `tests/stageC.payload.passes.test.ts` re-pins the golden (Item 1A's risk-profile joins, −1,119 prompt bytes). `npm run audit:deltas` moves no leaf: the audited DEMO fixture is reserved, so the filing reads never run.
+
+## D-62 (NVDA report 34 audit, WP10 / P3 + P1-12 + P0-7 headline, 2026-10-15) Write the report for a reader; move the audit trail to its own export
+
+- **Evidence**: the live NVDA rerun (report 2, `data/recovery/nvda-integration-20261015/`) was 367 KB and 2,118 lines with 1,728 "n/a" cells. 220 KB of it was the verification log, the 70-row missing-data manifest, four 17-column projection-series tables and raw score-driver traces. The header led with "Factual prose claims (numeric support): 0/30 validated" although all 30 factual claims were qualitative and 286/292 figures traced. Registry ids served as metric names (`computed.deterministic-aspect-scores.fundamentals-score`); every claim carried "`source id: X` `src: X`"; values printed as 66.89858183148777, 24285000000, "$11,063.00 millions", "95.00 0-100", "-1.1 score", "40.25 index" and "$-7.35B". The peer table was a 10×10 diagonal of dashes. Guidance, issuer FCF and results-vs-guidance appeared in three to six places, Q1 FY27 revenue printed $81.61B in one table and $81.62B in the next (`toFixed` on the binary 81.61499…), "$26.00B" stood for the release's "approximately $26.0 billion", and consensus was used in the DCF but never shown.
+- **Options**: (a) trim text inside the existing renderers; (b) a shared presentation layer used by all three surfaces plus a separate audit export carrying every raw leaf; (c) drop the audit material.
+- **Risks**: (a) leaves the three surfaces drifting and the 0/N headline in place. (b) the "every leaf on every surface" contract becomes "every leaf in the report or its audit export", so a reader of the report alone no longer sees registry ids or the log. (c) loses the trust record.
+- **Choice**: (b). `src/report/presentation.ts` holds the reader rules (labels from registry ids and units, one claim source marker, figure de-duplication across the two capital registries, empty-table and empty-column pruning, the trust rows, the key-data box, consensus tables, the methodology notes, geography and moat labels, last-close versus intraday price naming). `reportToAuditMarkdown` (GET `/api/export/[id]?format=audit`, "Audit trail" button) carries the run execution record and cost ledger, the full validation partition, the deterministic checks and verification log, the raw score tables, a figure registry, evidence timing, the projection audit trail and series, the full manifest, sources and the as-of map. The report body states the limitations once in a methodology box; the header is six rows (model in one line, tokens for plan-allowance runs, data state, verification, versions); the key-data box and the bull/bear debate sit on page 1; warnings and critical gaps stay in the body with their reasons, informational gaps as family counts. Formatting: decimal-safe rounding in every shared formatter, "−$7.35B", "$11.06B (label)", "95/100", plain index and score readings, compact share counts, "≈$26B" when the release says approximately. Pipeline: `report.marketData` (optional) copies the provider quote, shares, period-end EV, FY+1/FY+2 consensus, price-target and grade counts (no rating words) and FINRA short interest from the bundle; `capitalReturn.returnedApproximate` / `authorizationRemainingApproximate` carry the release qualifier. Figures that a deterministic filing table shows (guidance, issuer FCF, results against guidance) are left to that table with a cross-reference. The D-63 filing fields render in their home sections when present: equity-securities gains and non-GAAP diluted EPS as quarterly-trend columns (with the issuer's non-GAAP basis note), the release's FCF and EPS reconciliations under Fundamentals, the commitments and guarantees tables under Balance Sheet, and a company-level guidance track record (counts and mean difference from the results-against-guidance rows) under Outlook.
+- **Why**: the audit's P3 and P1-12 findings are presentation, and the trust signal has to say what was checked without understating it or overclaiming. A separate export keeps every raw value one click away without asking an institutional reader to page through it.
+- **Disclosure**: no computation, grade, prompt or payload changes; `REPORT_SPEC_VERSION` and `PAYLOAD_VERSION` are unchanged (both new fields are optional). The audited delta group `presentation-d62-2026-10-15` records `report.marketData`. Renderer tests that pinned raw leaves on the body now pin them in the audit export, with the reason in each test.
+
+## D-61 (NVDA report #34 audit, WP5, 2026-10-15) Forensic and grading signals that measured the wrong thing
+
+- **Evidence**: report 34 and the 2026-10-15 integration rerun
+  (docs/audit/2026-10-15-nvda-report-34-audit.md, P0-6, P2-1…P2-5):
+  - **Accruals 0.91, "red".** NI − CFO − CFI over average NOA charged all of
+    NVDA's FY2026 investing cash flow (−$52.2B) as accruals. Of that, $58.1B was
+    purchases of investments: $40.6B of debt securities and $17.5B of equity
+    stakes (XBRL `PaymentsToAcquireAvailableForSaleSecuritiesDebt`,
+    `PaymentsToAcquireEquitySecuritiesFvNi`), against $26.5B of sales and
+    maturities. NOA removed short-term investments but not the $22.3B of
+    long-term ones.
+  - **ROIC stability, subscore 12.** The population SD of 68.8 → 23.4 → 124.9
+    → 198.2 → 149.8% ROIC was 61pp, so a rise read as instability. That pulled
+    Moat to C beside the judge's "scale (wide)".
+  - **Beneish M = −1.13, "flag", with no decomposition.**
+  - **ROIC − WACC (136.5pp) scored twice**: as quality's `roicVsWaccSpread` and
+    leadership's `capitalDeployment`, with the same band.
+  - **Buyback "discipline" 214.9% → 90.** This was today's quote over the proxy
+    paid price, i.e. appreciation since the buybacks.
+  - **Leadership B grade justified by "guidance execution"**, which is not a
+    score input, while every executive was "not-assessed".
+  - **Piotroski 4/9 with no signal named.**
+- **Options**:
+  - Accruals: (a) keep the broad measure with a caveat; (b) operating accruals
+    NI − CFO everywhere; (c) the Richardson et al. (2005) financial-asset
+    adjustment, falling back to (b) when the statements do not separate the
+    flows.
+  - Durability: (a) SD of residuals around a linear trend; (b) downside
+    deviation below WACC; (c) years with ROIC > WACC; (d) the minimum ROIC
+    over the window.
+  - Buyback: (a) rename the appreciation measure; (b) a cross-year timing
+    measure from the annual price proxies; (c) the price actually paid
+    (tagged repurchase cost ÷ tagged shares) against the same year's average
+    price.
+  - Leadership's second ROIC read: (a) replace it with incremental ROIC; (b)
+    drop it and renormalise.
+- **Risks**:
+  - Accruals (b) also removes capex and acquisitions, which are operating
+    investment in Richardson's ΔNCO. (c) depends on FMP's
+    `purchasesOfInvestments` / `salesMaturitiesOfInvestments` /
+    `longTermInvestments`. Statements built from companyfacts carry none of
+    them, so those issuers get (b).
+  - Durability (a) still scores NVDA 12: the residual SD is 38.5pp, because
+    FY2023's 23% was a real dip. (b) and (c) bring the contested current WACC
+    into moat. (d) reacts to a single bad year, which is the intent.
+  - Buyback (b) is dominated by dollar-cost averaging on a trending stock: a
+    constant-dollar programme would read about +97% for NVDA. Within a year the
+    proxy price equals the average price by construction, so (b) cannot
+    measure timing. (c) needs share-count tags and a split basis.
+  - Leadership (a) stays in the capital-returns family the audit asked to
+    de-duplicate.
+- **Choice**:
+  - **Accruals (c).** In `computeAccruals`, NOA = total assets − cash and
+    short-term investments − long-term investments − (total liabilities −
+    total debt). The numerator is NI − CFO − operating CFI, where operating CFI
+    is CFI minus (purchases + sales/maturities of investments). Capex,
+    acquisitions and unclassified investing flows stay in. The fallback
+    (operating accruals NI − CFO) is used unless both halves are available,
+    and `definition` records which one was used.
+  - **Accrual growth note.** Above 30% revenue growth a note gives revenue and
+    NOA growth (Fairfield, Whisenant & Yohn 2003). It is disclosed, not
+    graded, and the bands are unchanged.
+  - **Durability (d)** (`roicFloor` / `roteFloor`), banded on the level band.
+  - **Beneish.** The result carries `sgiNeutralScore` (M with SGI = 1.0) and
+    `growthLed` (flagged, but not with SGI neutral). When growth-led, the
+    quality signal is graded on the SGI-neutral M under its own name
+    (`beneishMSgiNeutral`). The forensic table's variant string prints all
+    eight indices.
+  - **Leadership (b).** `capitalDeployment` is removed and the aspect weight is
+    unchanged. `buybackTiming` (weight 0.30) is the cost of the shares
+    actually bought at each fiscal year's average price over the cost paid,
+    minus one. It comes from `StockRepurchased[AndRetired]DuringPeriodShares`
+    and `…Value` (or the treasury-stock pair) from the one filing that tags
+    both for the year, with the count put on the current share basis by the
+    split resolution (`repurchaseExecutions.ts`).
+    - A year whose paid price is more than 1.6× from the year's average is
+      left out as a basis mismatch.
+    - Timing is graded only when at least 50% of repurchase dollars are
+      covered.
+    - A company with no repurchases has no timing signal (not missing
+      evidence).
+    - The appreciation figure is still shown, labelled as appreciation, and
+      not graded.
+  - **Leadership label.** The score is labelled "Leadership (capital
+    stewardship)". Its note and the payload say that management quality,
+    guidance execution and governance are not inputs. The analyst grade
+    surface keeps "Leadership".
+  - **Piotroski.** The forensic zone names the failed signals
+    (`piotroskiSignalOutcomes`), and the payload carries all nine.
+- **Why**:
+  - **Accruals.** Richardson, Sloan, Soliman & Tuna (2005, *JAE* 39) treat
+    short- and long-term investments as financial assets, outside operating
+    accruals. Sloan (1996) and Hribar & Collins (2002) measure operating
+    accruals. Buying a Treasury bill is not an accrual.
+  - **Durability.** A moat is persistence of returns above the cost of capital
+    (Fama & French 2000 on the mean reversion of profitability). How low
+    returns fell is evidence of that; how much they moved is not.
+  - **Beneish.** Beneish (1999) includes SGI as a pressure proxy: growth is
+    not manipulation.
+  - **Buyback timing.** Dittmar & Field (2015, *JFE* 115) measure timing as
+    the price actually paid against the same-period market price. The
+    proxies alone cannot do that.
+  - **Leadership.** Dropping the duplicate is the smallest change that scores
+    ROIC − WACC once. `roicLevel` (moat) and `roicVsWaccSpread` (quality)
+    remain, as level reads in different aspects.
+- **NVDA, frozen inputs** (`npm run research:replay` on a copy of the
+  integration database, report 2):
+
+  | Item | Before | After |
+  | --- | --- | --- |
+  | Accrual ratio (cash-flow) | 0.912, red, broad | 0.598, red, financial-asset-adjusted |
+  | Accrual detail | — | operating CFI −$20.6B; NOA $106.1B / $46.4B → $83.9B / $43.0B; CF vs BS divergence 12.9pp → 4.7pp |
+  | Accrual subscore | 16 | 16 |
+  | Moat durability | SD 61.2pp → 12 | floor 23.4% → 79.3 |
+  | Beneish M | −1.13, flag | −1.13, flag; SGI-neutral −1.72, still above −1.78, so not growth-led; subscore 25.9 |
+  | Buyback | appreciation 214.9% → 90 | timing +5.2% (100% of dollars covered) → 62.3 |
+  | Quality | 60.03 C | 60.03 C |
+  | Moat | 68.36 C | 88.54 A |
+  | Leadership | 81.51 B | 61.64 C |
+  | Composite | 73.3 B | 74.34 B |
+  | Business quality | 77.56 | 78.95 |
+
+  - **Accruals stay red** because NVDA's operating assets really grew 95%:
+    receivables, inventory, and a $13.0B acquisition
+    (`PaymentsToAcquireBusinessTwoNetOfCashAcquired`). Revenue grew 65.5%.
+    The growth note says so.
+  - **Beneish stays flagged** because AQI (1.57) and TATA (0.084) carry it as
+    well as SGI.
+  - **Timing.** NVDA paid $15.93, $46.41, $109.73 and $143.22 against year
+    averages of $17.95, $39.33, $113.97 and $156.62.
+- **Disclosure**:
+  - **Forensic notes, payload and prompt.** The accrual definition, operands,
+    growth rates and notes are in the forensic notes and the payload. The
+    Beneish indices, the SGI-neutral M, the growth-led flag and the nine
+    Piotroski outcomes are payload rows. The prompt's reconciliation rule
+    names both accrual constructions. The pipeline's accrual explanation flag
+    names the construction used.
+  - **Score drivers.** They are `roicFloor` / `roteFloor`, `buybackTiming` and
+    `beneishMSgiNeutral`. The `capitalDeployment`, `roicStability` and
+    `buybackDiscipline` drivers no longer exist.
+  - **Capital notes.** They say when timing is not measurable, and why.
+  - **Tests.** `tests/stageB.forensicsD61.test.ts` and the D-61 block in
+    `tests/stageB.grading.test.ts`. The audited delta group
+    `forensics-d61-2026-10-15` and the payload pin in
+    `tests/stageC.payload.passes.test.ts` say what moved.
+  - **Version stamps.** `REPORT_SPEC_VERSION` and `PAYLOAD_VERSION` are
+    unchanged. The band tables changed (timing band; durability on the
+    level bands), so the integration merge stamps `SCORE_BANDS_VERSION`
+    `SCORE_BANDS_2026_10_NVDA_AUDIT` and the Stage B implementation
+    `STAGE_B_2026_10_NVDA_AUDIT_1`.
+  - **Not changed.**
+    - AQI still counts long-term strategic investments as non-current
+      assets. That is Beneish's definition: assets whose future benefits are
+      less certain.
+    - Statements built from companyfacts carry no investment-flow
+      components, so their accruals use the operating fallback.
+
+## D-60 (NVDA report 34 audit, WP2/WP7/WP8 remainder, 2026-10-15) Mean-reverting scenarios, one net-cash figure, evidence-led year one, a disclosed discount rate
+
+- **Evidence**: the live NVDA rerun on `claude/nvda-audit-integration` (frozen inputs replayed offline through `runStageB`) showed bull $1,233 / base $235.21 / bear $52.31 per share. Bull held +25pp growth for ten years (revenue to about $7.9T) at a 72.5% operating margin, above the 71.1% FY2026 gross margin; bear declined for six straight years. Each target printed a 25/50/25 "display weight" whose implied weighted value the report never showed. The EV bridge netted $99.37B of "cash and short-term investments", of which $42.78B is publicly-held equity (10-Q Note 5; $36.9B under lock-up), and the report printed three net-debt figures as facts (−$66.0B, −$60.5B and the vendor's cash-only +$16.4B). The independent review added: year one carried guidance $108B × 4 at the clamped 25% rather than the guided pace, year two applied consensus growth to that lower base (both years ~15% below consensus, undisclosed), EPS used a 10-year NI/EBIT median of 0.9525, the margin target was capped at FY2025's 62.42% while every recent quarter ran 63.2-66.2%, sales-to-capital counted $51.2B of non-operating stakes as invested capital, and the review conditions restated the base path.
+- **Choices** (each disclosed where the number is printed):
+  1. *Scenarios (P0-5).* Bull/bear shocks are full size in year one and decay on the base path's convergent weights (3-year half-life, zero by year 10), so terminal growth and margin equal the base case. Growth beyond one or two years is not persistent (Chan, Karceski and Lakonishok 2003) and profitability mean-reverts (Fama and French 2000); the weights reuse D-58's fade rather than adding a parameter. Scenario margins are capped at gross margin less the leanest operating-expense ratio the issuer has run (TTM and five fiscal years), never below the base path. Price targets carry no weight; the 25/50/25 prior stays on the weighted operating projections, and the "not a calibrated probability" disclosure is stated once, in the weight basis.
+  2. *Net cash (P0-9).* `NET_DEBT_V3`: marketable equity securities are excluded from cash only when the issuer's own fair-value XBRL fact (`EquitySecuritiesFvNi[Current]`) reconciles with cash and current debt securities to the combined total at the balance date. The DCF bridge adds them back as a separately disclosed non-operating asset at that filed fair value (no marketability discount: the lock-up terms are not structured data). Leverage metrics use the same net debt; invested capital still subtracts the securities (they are non-operating). The vendor cash-only `netDebt` row leaves the prose-facing statement extracts.
+  3. *Year one (P0-A, P0-B).* Calendarized consensus levels set years one and two when consensus is consistent with guidance (at or above the guided quarter's low end × 4); otherwise guidance × 4 is carried at the guided sequential pace, then the run-rate at the near-term rate. The broken-input guard widens from [−10%, +25%] of the run-rate to the evidenced pace (guided pace and latest-quarter YoY). Consensus covers four quarters, guidance one, and an issuer above its own range each quarter makes the guided run-rate a floor. The basis states the gap to consensus whenever a used level differs, and the near-term rate says when it does not set year one.
+  4. *Discount rate (P2-0).* FRED DGS10 is the current risk-free rate (the per-year history already used it); FMP is the fallback. The WACC basis discloses the beta regression on the bundle's own prices (monthly returns vs SPY: window, observation count, R², standard error) beside the vendor beta, which the WACC keeps (no bottom-up beta without a data source), and labels the vendor ERP date as acquisition with the dated Damodaran reference beside it. Debt weight uses the latest balance the bridge nets; the effective cost of debt keeps the average. The WACC axis widens to ±200bp, and a year-one growth × sustained margin grid joins it.
+  5. *Terminal discounting (P2-8).* Kept at N − 0.5 and stated as an assumption row: a perpetuity-growth terminal value of flows that arrive through each year takes the mid-year factor (Rosenbaum and Pearl, *Investment Banking*, ch. 3; Koller, Goedhart and Wessels apply the half-year adjustment to the whole value). Discounting it at N would mix conventions. The terminal FCFF step (reinvestment g/RONIC vs growth/sales-to-capital) is disclosed.
+  6. *Other inputs.* The margin ceiling counts a full four-quarter TTM as earned; sales-to-capital excludes long-term investments; guided GAAP tax sets year one; forecast EPS is (EBIT − latest interest) × (1 − DCF tax), excluding non-operating gains; the capital-return text names the remaining authorization and the share change it would fund; own-history multiple bands take older quarter-end market caps from the bundle's five-year market-cap history; the SBC row uses the TTM cash bridge; review conditions are observable (price-implied year-one revenue, guided-quarter revenue and gross-margin low ends).
+  7. *FCF basis (P2-9).* The projection series labels history as levered FCF after SBC (the forecast FCFF is after SBC too); the FCF CAGR row says "before SBC".
+- **NVDA (frozen 2026-10-15 inputs)**: base $235.21 → $296.32; bull $1,233 → $501.15; bear $52.31 → $163.44; bridge net debt −$66.0B → −$23.22B plus $42.78B non-operating equity (same equity value); WACC 13.25% → 13.21%. One-at-a-time reverts: consensus anchor +$43.0, TTM margin cap +$11.9, operating sales-to-capital +$9.5, WACC inputs +$1.3, guided tax −$1.0.
+- **Risks**: consensus can be stale or herd; the consistency test only rejects a consensus below the guided run-rate. Decaying shocks narrow the band (NVDA bull +69% / bear −45% around base, rather than +424% / −78%). Equity securities are excluded only when the filing reconciles, so an issuer with differently tagged stakes keeps the V2 basis. None of these rules is backtested (RESEARCH §8).
+- **Disclosure**: version strings `NET_DEBT_V3`, `SHARED_SCENARIO_PATHS_2026_10_D60`, `SCENARIO_TARGETS_2026_10_D60`; the delta group `valuation-d60-2026-10-15`; re-pinned tests name D-60. `REPORT_SPEC_VERSION` and `PAYLOAD_VERSION` are left for the integrator.
+
+## D-59 (NVDA report 34 audit, WP4 + WP6, 2026-10-15) Make the peer and executive gates reachable and stop the verifier's false contradictions
+
+- **Evidence**: report 34 (docs/audit/2026-10-15-nvda-report-34-audit.md) showed gates that could never pass. `PeerCandidate.economicEvidence` and `subjectEconomicEvidence` were read but never populated, so every peer of every issuer was excluded; one symbol's HTTP 402 (AVGO) stopped collection, so 2 of 10 candidates were evaluated. `assessExecutiveEvidence` required a `verified` log outcome that the verify pass never assigns to prose, so every executive was "not-assessed". The headline "0/90 validated; 1 contradicted" came from a year-set period rule ("ended 2026-07-26" against "ttm: 2025-07-27 to 2026-07-26"), a symmetric label match against internal key paths ("debt Bridge total Debt Including Leases"), and 60 figure-free claims counted as "unchecked". The earnings reconciliation was "unavailable" because FMP quarters carry no SEC start date.
+- **Options**: (a) populate economic evidence from SEC filings; (b) replace the hard exclusion with a disclosed caveat; (c) remove executive grades; (d) accept the verify pass's own numeric validation as attributable evidence.
+- **Choice**: (b) and (d). Absent comparability evidence is a caveat stated beside the median; supplied evidence that is invalid, unavailable or different from the subject's still excludes, and evidence that does not describe the observation is contrary, never absent. SIC equality establishes industry only for the SEC fallback used when FMP refuses a symbol. Candidates rise from 6 to 10 within 25 seconds. An executive grade survives when a FACT in that executive's own evidence names them and its figure matched the cited record with no failing check. The period check accepts an exact date inside or at the end of a window; the numeric matcher reads registry labels with time words and FCF/SBC/capex normalized, treats a bare "trailing" as twelve months, and requires a named window to be the record's own. A fully named person is attribution, not metric text. An FMP quarter without SEC dates is bounded by the issuer's consecutive preceding quarter (12-14 weeks apart).
+- **Why**: (a) needs a business-model taxonomy and per-metric definitions no source supplies; SIC alone cannot certify accounting or metric comparability, so claiming it would overstate the evidence. (c) discards the design the prompt already describes (capital-allocation record over tenure). The changes only make existing rules reachable; contrary evidence, contradictions and named-individual restrictions are unchanged.
+- **Disclosure**: peer methodology and multiples notes carry the caveat (`valuation.multiples.peers.<key>.comparabilityCaveat`); SEC-served peers are named in the peer notes; `factualValidation.qualitative` reports figure-free claims. Current-capital bridge labels and registry ids change (`computed.current-capital.total-debt-including-leases`); the `computed.capital.current.*` aliases do not. The audited delta group `peer-gates-verifier-2026-10-15` and the payload pin in tests/stageC.payload.passes.test.ts say what moved.
+
+## D-57 (NVDA report #34 audit 2026-10-15) Single-currency provider rows inherit the issuer currency when nothing conflicts
+
+- **Options**: (a) keep D-28: an analyst estimate, price target, peer market
+  cap or compensation total is money only in a currency its own row states;
+  (b) inherit the listing currency for every such row; (c) inherit the
+  issuer's currency only when the statements' reporting currency and the
+  listing currency agree and the issuer is not an ADR, and withhold otherwise.
+- **Risks**: (a) discarded USD consensus, every peer size and all executive pay
+  for a USD-reporting, USD-listed issuer (NVDA report #34). Losing consensus
+  removed the only forward anchor for the DCF growth clamp. (b) mislabels an
+  ADR's per-receipt or per-ordinary-share figures. (c) can still be wrong if a
+  provider ever states a single-currency issuer's rows in a third currency;
+  no such case has been observed.
+- **Choice**: (c). `inheritedIssuerCurrency` and `providerRowCurrency` in
+  `src/pipeline/estimateCurrency.ts` are the one rule. Stage B's
+  analyst-consensus growth case, the year-one revenue anchor and the payload's
+  estimate, target, peer and compensation rows all use it. A row's own currency
+  always wins, and a row in another currency than the model's is still
+  excluded.
+- **Why**: the conflict D-28 guarded against is real only for ADRs and for
+  issuers whose reporting and listing currencies differ. For the rest, all
+  available evidence names one currency.
+- **Disclosure**: the payload renders inherited money as "(USD, inherited)"
+  with a section note naming the basis, and the registry record carries
+  `currencyBasis: "inherited"`. The info entry `valuation.analystEstimates.currency`
+  says the estimates were inherited, or why not. `PAYLOAD_VERSION` moves to
+  1.23.0 and `REPORT_SPEC_VERSION` to 1.18.0.
+
+## D-58 (NVDA report #34 audit 2026-10-15) Anchor the DCF's first years on evidence of the level; fade convergently; floor the terminal tax rate
+
+- **Problem** (audit P0-1, P0-3, P0-4, P2-7). NVDA's base case had four
+  defects:
+  - Year-one revenue was TTM × (1 + clamped 25%) = $378.7B, below the latest
+    quarter × 4 ($384.9B) and Q3 guidance × 4 ($432B).
+  - A linear fade from a consensus year one would have kept growth above 50%
+    for four years.
+  - The year-one margin was cut from the 65.2% TTM to the 62.4% best fiscal
+    year, under a basis text written before the cap ("held flat at current
+    65.21%").
+  - Terminal NOPAT was taxed at the 8.9% historical median, while the issuer
+    guides 16–18%.
+- **Options**: (a) keep the rules and add disclosure; (b) raise the clamp;
+  (c) take the year-one (and two) level from guidance, then consensus, then a
+  seasonally neutral run-rate, with the clamp measured against the run-rate.
+  Later years fade convergently from the last anchored year. The margin cap
+  binds the target, and the terminal tax is floored at max(statutory, 15%).
+- **Choice**: (c), in `buildDcfAssumptions`:
+  - **Run-rate**: the TTM carried 4.5 months at the latest quarter's
+    year-over-year growth, bounded by the TTM and the quarter × 4.
+  - **Consensus**: calendarized by day overlap.
+  - **Year two**: consensus growth bounded to [−10%, max(25%, year one)].
+  - **Fade**: the gap to terminal halves every 3 years.
+  - **Reverse DCF**: solves on the `convergent-shift-to-terminal` family,
+    which contains the base path.
+  - **Terminal tax**: the company median floored at
+    `max(STATUTORY_MARGINAL_TAX_PCT[domicile], 15%)` (US 21%).
+  - **Guidance**: `DcfAssumptionInputs.guidance` exists, but compute passes
+    null until 8-K outlooks are ingested.
+- **Why**: (b) moves the arbitrary number without fixing the level/slope
+  coupling. On report #34's inputs (tests/stageB.dcfAnchoring.test.ts and the
+  audit's replication), the old rules give $143.98. The new rules give $175.8
+  on the run-rate alone, $215.3 with Q3 guidance and $213–234 with consensus,
+  all including the 21% tax floor, which alone costs about 10%.
+- **Risks**: the three-year half-life and the run-rate clamp are unbacktested
+  house conventions (RESEARCH §8.7). The convergent fade lowers values for
+  steady growers whose year one equals their history by roughly 4–5% of
+  year-10 revenue against the linear fade. The tax floor raises taxes only
+  for issuers below it. Issuers with no year-ago quarter keep the pre-D-58
+  year one exactly.
+- **Disclosure**: a "year-one revenue anchor" assumption row (source, value,
+  the clamp when it binds) and notes when the clamp, the margin target cap or
+  the tax floor binds. The margin and tax bases name the values the paths
+  hold. Version stamps as D-57.
+
 ## D-56 (source evidence 2026-10-15) Preserve source periods and separate facts from opinion
 
 - **Research**: [XBRL](https://www.xbrl.org/dates-in-xbrl/) distinguishes instant

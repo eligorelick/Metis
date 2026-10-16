@@ -376,6 +376,22 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
     });
   });
 
+  it("rebuilds a fourth-quarter EPS from net income and the day-weighted share identity, not FY − nine-month EPS", () => {
+    const base = appleLike();
+    const concept = base.facts["us-gaap"]!.WeightedAverageNumberOfDilutedSharesOutstanding as { units: { shares: object[] } };
+    const shares = concept.units.shares;
+    // Q1 and Q2 three-month counts (Q3 = 14,900 and FY = 15,000 are already tagged).
+    shares.push(
+      { start: "2024-09-29", end: "2024-12-28", val: 15_100, accn: "q1-shares", fy: 2025, fp: "Q1", form: "10-Q", filed: "2025-01-31" },
+      { start: "2024-12-29", end: "2025-03-29", val: 15_050, accn: "q2-shares", fy: 2025, fp: "Q2", form: "10-Q", filed: "2025-05-02" },
+    );
+    const q4 = buildStatementsFromCompanyFacts(base, OPTS).incomeQuarterly.rows.find((row) => row.date === "2025-09-27")!;
+    // Four 91-day quarters in a 364-day year: Q4 shares = 15,000×364 − 91×(15,100+15,050+14,900), over 91 = 14,950.
+    expect(q4.epsDiluted).toBeCloseTo(22 / 14_950, 6);
+    expect(q4.fieldProvenance?.epsDiluted?.derivation).toBe("fy-share-identity");
+    expect(q4.weightedAverageShsOutDil).toBeNull(); // the backed-out count is not reported as a fact
+  });
+
   it("uses tagged 3-month income facts, derives the missing quarter from YTD and the fourth from FY − YTD", () => {
     const built = buildStatementsFromCompanyFacts(appleLike(), OPTS);
     const rows = built.incomeQuarterly.rows;
@@ -385,7 +401,10 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
     expect(q1.derivation).toBeUndefined();
     expect(q2).toMatchObject({ period: "Q2", revenue: 90, netIncome: 25 }); // tagged 3-month
     expect(q3).toMatchObject({ period: "Q3", revenue: 90, netIncome: 23, epsDiluted: 1.7, weightedAverageShsOutDil: 14_900 });
-    expect(q4).toMatchObject({ period: "Q4", revenue: 100, netIncome: 22, derivation: "fy-minus-ytd", epsDiluted: 1.6 });
+    // FY EPS − nine-month EPS (7.5 − 5.9 = 1.6) is not a quarter's EPS when the share count moves;
+    // with only Q3's share count tagged the fourth quarter's per-share figure is withheld.
+    expect(q4).toMatchObject({ period: "Q4", revenue: 100, netIncome: 22, derivation: "fy-minus-ytd", epsDiluted: null });
+    expect(built.incomeQuarterly.notes.some((n) => /epsDiluted 2025-09-27: fourth-quarter per-share figure withheld/.test(n))).toBe(true);
     expect(q4.weightedAverageShsOutDil).toBeNull(); // share counts are never subtracted
     expect(q4.derivedFrom).toEqual(expect.arrayContaining([expect.stringMatching(/2025-09-27/), expect.stringMatching(/2025-06-28/)]));
     expect(built.incomeQuarterly.notes.some((n) => /Q4.*FY − YTD/.test(n))).toBe(true);

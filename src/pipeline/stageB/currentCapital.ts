@@ -10,7 +10,16 @@ export interface CashFlowBridge {
 }
 export interface DebtBridge {
   totalDebtIncludingLeases: number | null; operatingLeases: number | null; financeLeases: number | null;
-  cashAndShortTermInvestments: number | null; netDebtIncludingLeases: number | null; netDebtExcludingOperatingLeases: number | null;
+  cashAndShortTermInvestments: number | null;
+  /**
+   * D-60: marketable equity securities inside that total — not cash, so net
+   * debt excludes them and the DCF bridge adds them as a non-operating asset.
+   * Present only when the filing identified them.
+   */
+  marketableEquitySecurities?: number;
+  /** D-60: the cash the house net debt nets (the total less those equity securities); present with them. */
+  cashForNetDebt?: number;
+  netDebtIncludingLeases: number | null; netDebtExcludingOperatingLeases: number | null;
 }
 export interface CurrentCapitalSnapshot {
   industrialMetricsApplicable?: boolean;
@@ -38,8 +47,11 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const debt = finite(row?.totalDebt), operating = finite(row?.operatingLeaseLiability), finance = finite(row?.financeLeaseLiability);
   const combined = finite(row?.cashAndShortTermInvestments), cash = finite(row?.cashAndCashEquivalents), sti = finite(row?.shortTermInvestments);
   const liquidity = combined ?? (cash !== null && sti !== null ? cash + sti : null);
-  const net = resolveNetDebt(row ?? {}).value;
+  const resolution = resolveNetDebt(row ?? {});
+  const net = resolution.value;
+  const equity = resolution.nonOperatingEquitySecurities;
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
+    ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null };
 }
 function periodEndTime(value: string | null | undefined): number | null {

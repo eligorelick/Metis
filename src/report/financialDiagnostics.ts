@@ -1,23 +1,52 @@
 import { statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
 import type { Leadership, Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "@/report/schema";
+import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
+import { citationSourceId } from "@/pipeline/stageC/citations";
 
-/** Individual grades require an attributable validated factual track record. */
+/** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
+export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
+  if (record.kind === "computed" && record.id.startsWith("computed.quarterly-trend.") &&
+    (record.unit === "percent" || record.unit === "percentage-points") &&
+    (record.origin === "computed.guidance-track-record" || (/-actual-vs-prior-guidance-midpoint(?:\.\d+)?$/.test(record.id) && /\bactual vs prior guidance midpoint$/.test(record.label ?? "")))) return "guidance-track-record";
+  // Realized operating/capital outcomes may support execution. Compensation,
+  // titles, forecasts and merely announcing guidance do not belong to these
+  // exact statement-line contracts. Unknown/excerpt-only metrics fail closed.
+  const executionLines = new Set(["revenue", "net sales", "operating income", "net income", "operating cash flow", "free cash flow",
+    "capital expenditure", "buybacks (negative)", "dividends paid (negative)"]);
+  if (record.kind === "provider" && record.unit === "currency" && record.id.startsWith("payload.statements.") && executionLines.has(record.label?.toLowerCase() ?? "")) return "execution";
+  return undefined;
+}
+
+/**
+ * Individual grades require an attributable validated factual track record: a
+ * FACT naming the executive, in that executive's own evidence, whose figures
+ * the verify pass matched to an eligible typed performance metric with no
+ * failing check. Unknown/excerpt-only metric semantics stay unassessed. The
+ * verify pass never marks prose `verified` (a numeric match
+ * does not adjudicate the whole sentence), so requiring that outcome made the
+ * gate unreachable (NVDA report 34: every executive "not-assessed").
+ */
 export function assessExecutiveEvidence(leadership: Leadership, log: readonly VerificationLogEntry[], pendingVerification = false): Leadership {
   return {...leadership, executives:leadership.executives.map((executive, index)=>{
-    const admissible = (claim:SourcedClaim, field:string, claimIndex:number):boolean => {
-      if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return false;
+    const admissible = (claim:SourcedClaim, field:string, claimIndex:number): VerificationLogEntry["executiveEvidenceKind"] => {
+      if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return undefined;
       const words = new Set(claim.text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
       const name = executive.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-      if (name.length === 0 || !name.every(word=>words.has(word))) return false;
-      if (/\b(?:no|lacks?|absent|unavailable)\b.{0,40}\b(?:evidence|record)\b|\b(?:evidence|record)\b.{0,40}\b(?:absent|unavailable|not available|not disclosed)\b/i.test(claim.text)) return false;
-      if (pendingVerification) return true;
+      if (name.length === 0 || !name.every(word=>words.has(word))) return undefined;
+      if (/\b(?:no|lacks?|absent|unavailable)\b.{0,40}\b(?:evidence|record)\b|\b(?:evidence|record)\b.{0,40}\b(?:absent|unavailable|not available|not disclosed)\b/i.test(claim.text)) return undefined;
       const path = `leadership.executives[${index}].evidence.${field}[${claimIndex}]`;
-      return log.some(entry=>entry.path===path && entry.claim===claim.text && entry.outcome==="verified" && entry.validationStatus==="validated" && !entry.check) &&
-        !log.some(entry=>entry.path===path && entry.check && entry.outcome==="unverified");
+      if (log.some(entry=>entry.path===path && entry.check && entry.outcome==="unverified")) return undefined;
+      return log.find(entry=>entry.path===path && entry.claim===claim.text && entry.source===citationSourceId(claim) &&
+        entry.validationStatus==="validated" && !entry.check)?.executiveEvidenceKind;
     };
-    const credibility = (executive.evidence.guidanceVsActuals ?? []).some((claim,i)=>admissible(claim,"guidanceVsActuals",i));
-    const execution = credibility || (executive.evidence.capitalAllocation ?? []).some((claim,i)=>admissible(claim,"capitalAllocation",i));
+    // Provisional assembly is internal to verification and preserves proposed
+    // grades; only the final gate consumes pipeline-produced classifications.
+    if (pendingVerification) return executive;
+    const kinds = [...(executive.evidence.guidanceVsActuals ?? []).map((claim,i)=>admissible(claim,"guidanceVsActuals",i)),
+      ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
+    const credibility = kinds.includes("guidance-track-record");
+    const execution = credibility || kinds.includes("execution");
     return {...executive, grade:execution ? executive.grade : "not-assessed", credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
       ...(!execution || !credibility ? {assessmentReason:"Attributable, validated execution and/or guidance-versus-actual evidence is absent. A citation, rejected claim, compensation or job title alone cannot establish the missing assessment."} : {}),
     };
@@ -58,16 +87,34 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
   }
   const accrual = computed.forensics?.accruals;
   if (accrual) {
-    for (const field of ["cashFlowAccrualRatio", "balanceSheetAccrualRatio", "aggregateAccrualsCashFlow", "aggregateAccrualsBalanceSheet", "noaCurrent", "noaPrior", "scalerValue", "netIncome", "operatingCashFlow", "investingCashFlow", "operatingAccruals"] as const) {
+    for (const field of ["cashFlowAccrualRatio", "balanceSheetAccrualRatio", "aggregateAccrualsCashFlow", "aggregateAccrualsBalanceSheet", "noaCurrent", "noaPrior", "scalerValue", "netIncome", "operatingCashFlow", "investingCashFlow", "operatingAccruals", "financialAssetCashFlow", "operatingInvestingCashFlow"] as const) {
       append(next.quality.graded.keyNumbers, numeric(`computed.forensics.accruals.${field}`, accrual[field], /Ratio/.test(field) ? "x" : "currency", field === "noaPrior" ? accrual.asOf.prior : accrual.asOf.current,
         /Ratio/.test(field) ? null : current?.currency ?? (bundle ? statementCurrencies(bundle).model : null)));
     }
-    const source = "computed.forensics.accruals";
-    const explanation = "Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.";
-    if (!next.quality.flags.some(f=>f.source===source && f.text===explanation)) next.quality.flags.push({ severity:"low", source, text:explanation });
-    for (const note of accrual.notes) {
-      if (!next.quality.flags.some(f=>f.source===source && f.text===note)) next.quality.flags.push({ severity: "low", source, text: note });
+  }
+  // D-68: the accrual definition, its house bands, the growth and acquisition
+  // context and the statement figures behind AQI and GMI are methodology and
+  // context, not findings: they are notes under the forensic table, and the
+  // flags list keeps the findings. The definition itself is the model's own
+  // note (computeAccruals names the construction it used); only a result
+  // from before D-61, which records none, gets the broad-screen explanation.
+  const notes: string[] = [...(next.quality.notes ?? [])];
+  const addNote = (text: string | null | undefined): void => {
+    if (typeof text === "string" && text.trim().length > 0 && !notes.includes(text)) notes.push(text);
+  };
+  if (accrual) {
+    if (accrual.definition === undefined) {
+      addNote("Aggregate cash-flow accruals = (net income − operating cash flow − investing cash flow) / average net operating assets. Investing outflows can make this ratio positive even when operating cash flow exceeds net income. This broad investment-inclusive screen is distinct from operating accruals (net income − operating cash flow) and is not a manipulation finding.");
     }
+    for (const note of accrual.notes) addNote(note);
+  }
+  const beneish = computed.forensics?.beneish;
+  addNote(beneish?.aqiContext);
+  addNote(beneish?.gmiContext);
+  if (notes.length > 0) {
+    next.quality.notes = notes;
+    // A report assembled before D-68 carried these as "low" flags; never both.
+    next.quality.flags = next.quality.flags.filter((f) => !(f.source === "computed.forensics.accruals" && f.severity === "low" && notes.includes(f.text)));
   }
   next.leadership = assessExecutiveEvidence(next.leadership,next.appendix.verificationLog ?? [],options.pendingVerification);
   return next;

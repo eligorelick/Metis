@@ -3,7 +3,14 @@
  * equity bridge. Pure and deterministic: no provider, clock, or persistence.
  */
 
-export const NET_DEBT_RESOLVER_VERSION = "NET_DEBT_V2" as const;
+/**
+ * V3 (D-60): marketable equity securities that the filing places inside cash
+ * and short-term investments are not cash. When their sourced fair value is
+ * supplied, net debt nets only cash, cash equivalents and the remaining
+ * short-term investments, and the equity securities are reported separately
+ * as a non-operating asset. Without that input the result equals V2.
+ */
+export const NET_DEBT_RESOLVER_VERSION = "NET_DEBT_V3" as const;
 
 export interface LeaseDebtInputs {
   totalDebt?: number | null;
@@ -45,6 +52,12 @@ export interface NetDebtInputs extends LeaseDebtInputs {
   cashAndCashEquivalents?: number | null;
   shortTermInvestments?: number | null;
   cashAndShortTermInvestments?: number | null;
+  /**
+   * D-60: fair value of the marketable equity securities INSIDE the
+   * cash-and-short-term-investments total (marketableEquity.ts establishes it
+   * from the filing). Excluded from cash; never inferred.
+   */
+  marketableEquitySecurities?: number | null;
   /** Accepted only for diagnostics; its cash-only convention is never used. */
   vendorNetDebt?: number | null;
 }
@@ -67,6 +80,11 @@ export interface NetDebtResolution {
     cashAndShortTermInvestments: number | null;
     vendorNetDebt: number | null;
   };
+  /**
+   * D-60: the marketable equity securities left out of cash (a non-operating
+   * asset, valued separately). Present only when they were excluded.
+   */
+  nonOperatingEquitySecurities?: number;
   reason: string;
 }
 
@@ -80,6 +98,20 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
   const shortTermInvestments = finite(inputs.shortTermInvestments);
   const combinedCash = finite(inputs.cashAndShortTermInvestments);
   const vendorNetDebt = finite(inputs.vendorNetDebt);
+  const suppliedEquity = finite(inputs.marketableEquitySecurities);
+  // D-60: equity securities leave a cash total only when it can hold them —
+  // positive, and no larger than the total's non-cash part.
+  const equityOutsideCash = (liquidity: number, cashPart: number | null): { excluded: number | null; text: string } => {
+    if (suppliedEquity === null || suppliedEquity === 0) return { excluded: null, text: "" };
+    const room = liquidity - (cashPart ?? 0);
+    if (suppliedEquity < 0 || suppliedEquity > room + Math.max(1, Math.abs(liquidity) * 1e-6)) {
+      return { excluded: null, text: `; supplied marketable equity securities ${suppliedEquity} do not fit inside the short-term investments and were not separated` };
+    }
+    return {
+      excluded: suppliedEquity,
+      text: `, excluding ${suppliedEquity} of marketable equity securities: they are a non-operating asset at fair value, not cash`,
+    };
+  };
   const components = {
     totalDebt,
     cashAndCashEquivalents: cash,
@@ -148,20 +180,24 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
         };
       }
     }
+    const equity = equityOutsideCash(combinedCash, cash);
     return {
       ...base,
-      value: totalDebt - combinedCash,
+      value: totalDebt - combinedCash + (equity.excluded ?? 0),
       cashBasis: "combined-field",
-      reason: "total debt minus cash and short-term investments (combined field)",
+      ...(equity.excluded !== null ? { nonOperatingEquitySecurities: equity.excluded } : {}),
+      reason: `total debt minus cash and short-term investments (combined field)${equity.text}`,
     };
   }
 
   if (cash !== null && shortTermInvestments !== null) {
+    const equity = equityOutsideCash(cash + shortTermInvestments, cash);
     return {
       ...base,
-      value: totalDebt - cash - shortTermInvestments,
+      value: totalDebt - cash - shortTermInvestments + (equity.excluded ?? 0),
       cashBasis: "component-sum",
-      reason: "total debt minus cash and separately reported short-term investments",
+      ...(equity.excluded !== null ? { nonOperatingEquitySecurities: equity.excluded } : {}),
+      reason: `total debt minus cash and separately reported short-term investments${equity.text}`,
     };
   }
 

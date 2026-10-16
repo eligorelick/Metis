@@ -20,14 +20,13 @@
 export interface PassContinuation {
   completed: Record<string, unknown>;
   /**
-   * How many earlier attempts of this pass ran into the provider's response
-   * time limit. A subscription connection lowers the reasoning effort by this
-   * many steps, so the retry is not the same request that just hit the wall.
+   * Earlier interrupted section attempts. Subscription retries reduce only
+   * the number of sections per request; captured model, effort and speed stay fixed.
    */
-  effortStepDown?: number;
+  sectionRetryCount?: number;
 }
 
-/** True when the continuation carries sections to keep (not only an effort step-down). */
+/** True when the continuation carries sections to keep (not only a smaller-batch hint). */
 export function hasCompletedSections(continuation: PassContinuation | undefined): continuation is PassContinuation {
   return continuation !== undefined && Object.keys(continuation.completed).length > 0;
 }

@@ -123,7 +123,7 @@ export interface ShareBasisWithheld {
   reason: string;
 }
 
-export type Derivation = "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters";
+export type Derivation = "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
 
 export interface StatementRowsResult<TRow> {
   /** date DESC (newest fiscal period first). */
@@ -1669,8 +1669,8 @@ function precedingQuarterPoints(points: FactPoint[], ctx: QuarterContext, quarte
  *      fiscal year, the year-to-date fact IS the quarter.
  *
  * Weighted share counts are never subtracted (a share count is a stock, not a
- * flow); per-share amounts use (a) plus the FY-minus-YTD rule at Q4 only, which
- * is the FMP convention for a fourth-quarter EPS.
+ * flow); per-share amounts use (a) only. A fourth-quarter EPS is rebuilt after
+ * the rows are built (deriveFourthQuarterPerShare), never by FY − YTD.
  */
 function quarterResolver(
   index: FactIndex,
@@ -1706,6 +1706,11 @@ function quarterResolver(
       const fy =
         (ctx.fyStart !== null ? findDurationExact(pts, ctx.fyStart, ctx.end) : null) ?? findAnnualDuration(pts, ctx.end);
       if (fy === null || fy.start === undefined) return null;
+      // Per-share amounts are not additive across periods with different share
+      // counts (FY EPS − nine-month EPS is not the fourth quarter's EPS); the
+      // fourth quarter's EPS is rebuilt from its net income and a share count
+      // backed out of the day-weighted identity (deriveFourthQuarterPerShare).
+      if (kind === "perShare") return null;
       const sameLineage = lineage(fy);
       if (ctx.previousEnd !== null) {
         const ytdPrev = findDurationExact(sameLineage, fy.start, ctx.previousEnd);
@@ -1723,7 +1728,6 @@ function quarterResolver(
         // for, and it is disclosed rather than silently mixed.
         if (findDurationExact(pts, fy.start, ctx.previousEnd) !== null) return refuse(fy, "FY − YTD");
       }
-      if (kind === "perShare") return null;
       const quarters = precedingQuarterPoints(sameLineage, ctx, quarterEnds);
       if (quarters === null) {
         return precedingQuarterPoints(pts, ctx, quarterEnds) === null
@@ -2285,6 +2289,7 @@ const DERIVATION_PHRASE: Record<Derivation, string> = {
   "ytd-difference": "YTD difference",
   "fy-minus-ytd": "FY − YTD",
   "fy-minus-quarters": "FY − (Q1+Q2+Q3)",
+  "fy-share-identity": "Q4 net income ÷ Q4 shares from the day-weighted FY identity",
 };
 
 // ---------------------------------------------------------------------------
@@ -2509,6 +2514,79 @@ const CASHFLOW_DEF: StatementDef = {
  * payload. Pure and total: a payload with no usable facts yields empty row
  * lists plus one manifest gap per statement and scope, never a throw.
  */
+/**
+ * A fourth quarter's EPS when the issuer tagged none (10-Ks carry the year,
+ * not the quarter). FY EPS − nine-month EPS is wrong whenever the share count
+ * moves, so the quarter's weighted share count is backed out of the
+ * day-weighted identity
+ *   FY shares × FY days = Σ quarter shares × quarter days
+ * from the annual count and the three tagged quarterly counts of the same
+ * fiscal year, and EPS = the quarter's net income ÷ that count. Without every
+ * operand the per-share figure stays withheld, with a note. Share counts
+ * themselves are never written back (a derived count is not a reported one).
+ */
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+function deriveFourthQuarterPerShare(
+  quarterly: FmpIncomeStatementRow[],
+  annual: readonly FmpIncomeStatementRow[],
+  notes: NoteSink,
+): void {
+  const dated = (row: FmpIncomeStatementRow): row is FmpIncomeStatementRow & { date: string } => typeof row.date === "string";
+  const annualByDate = new Map(annual.filter(dated).map((row) => [row.date, row]));
+  const pairs = [
+    { eps: "eps", shares: "weightedAverageShsOut" },
+    { eps: "epsDiluted", shares: "weightedAverageShsOutDil" },
+  ] as const;
+  for (const q4 of quarterly.filter(dated)) {
+    const fy = annualByDate.get(q4.date);
+    if (fy === undefined) continue;
+    const fyStart = fy.fieldProvenance?.netIncome?.periodStart ?? null;
+    const missing = pairs.filter((pair) => !isNum(q4[pair.eps]));
+    if (missing.length === 0 || fyStart === null) continue;
+    const startMs = dateMs(fyStart) - DAY_MS;
+    const quarters = quarterly
+      .filter(dated)
+      .filter((row) => dateMs(row.date) > startMs + DAY_MS && dateMs(row.date) < dateMs(q4.date))
+      .sort((x, y) => dateMs(x.date) - dateMs(y.date));
+    for (const pair of missing) {
+      const withhold = (why: string): void => {
+        notes.add(`${pair.eps} ${q4.date}: fourth-quarter per-share figure withheld — ${why}; FY − nine-month EPS is not used because per-share amounts are not additive across share counts`);
+      };
+      const fyShares = fy[pair.shares];
+      const netIncome = q4.netIncome;
+      if (!isNum(fyShares) || !isNum(netIncome)) { withhold(`no annual ${pair.shares} or quarter net income`); continue; }
+      if (quarters.length !== 3 || quarters.some((row) => !isNum(row[pair.shares]))) {
+        withhold(`the three earlier quarters' tagged ${pair.shares} are not all available`);
+        continue;
+      }
+      let previousEnd = startMs;
+      let weighted = 0;
+      for (const row of quarters) {
+        const days = (dateMs(row.date) - previousEnd) / DAY_MS;
+        weighted += (row[pair.shares] as number) * days;
+        previousEnd = dateMs(row.date);
+      }
+      const q4Days = (dateMs(q4.date) - previousEnd) / DAY_MS;
+      const fyDays = (dateMs(q4.date) - startMs) / DAY_MS;
+      const q4Shares = (fyShares * fyDays - weighted) / q4Days;
+      if (!(q4Days > 0) || !(q4Shares > 0)) { withhold("the day-weighted share identity gives no positive fourth-quarter count"); continue; }
+      (q4 as Record<string, unknown>)[pair.eps] = tidy(netIncome / q4Shares, PER_SHARE_DECIMALS);
+      const income = q4.fieldProvenance?.netIncome;
+      const fyShareProvenance = fy.fieldProvenance?.[pair.shares];
+      if (income !== undefined && q4.fieldProvenance !== undefined) {
+        q4.fieldProvenance[pair.eps] = {
+          ...income,
+          tags: [...new Set([...income.tags, ...(fyShareProvenance?.tags ?? [])])],
+          filings: [...new Map([...income.filings, ...(fyShareProvenance?.filings ?? [])].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
+          derivation: "fy-share-identity",
+        };
+      }
+      notes.add(`${pair.eps} ${q4.date}: Q4 net income ÷ a Q4 weighted share count of ${Math.round(q4Shares)} backed out of the day-weighted FY identity (FY − nine-month EPS is not additive)`);
+    }
+  }
+}
+
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
@@ -2581,6 +2659,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     state,
     incomeQuarterlyNotes,
   );
+  deriveFourthQuarterPerShare(incomeQuarterly.rows, incomeAnnual.rows, incomeQuarterlyNotes);
   const balanceAnnual = buildStatementRows<FmpBalanceSheetRow>(
     BALANCE_DEF,
     annualYears.map((fy) => ({ date: fy.end, resolve: instantResolver(index, fy.end), quarter: null })),

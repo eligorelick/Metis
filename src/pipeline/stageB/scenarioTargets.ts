@@ -8,9 +8,10 @@
  *  - base target = the deterministic FCFF-DCF fair value per share
  *    (valuation.dcf.perShare) — reused, never recomputed, so it can never
  *    disagree with the DCF page;
- *  - bull / bear re-run the SAME exported runDcf with a sample-σ growth shift
- *    from consecutive company history and a margin shift scaled by the observed
- *    growth/margin correlation. This module and projections.ts share
+ *  - bull / bear re-run the SAME exported runDcf with a sample-σ year-one
+ *    growth shift from consecutive company history and a margin shift scaled
+ *    by the observed growth/margin correlation, both decaying to the base path
+ *    (D-60, scenarioPaths.ts). This module and projections.ts share
  *    scenarioDispersion + perturbScenarioAssumptions, so the target band and
  *    projection fan cannot disagree on what "bull"/"bear" mean;
  *  - the EV→equity→per-share bridge (net debt, minority, preferred, diluted
@@ -43,7 +44,7 @@ import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/sch
 /** Method id stamped into the block. */
 export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 /** Versioned method prior — bump when the construction changes. */
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10_D60" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
@@ -198,6 +199,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     dilutedShares: baseDcf.bridge.dilutedShares,
     minorityInterest: baseDcf.bridge.minorityInterest,
     preferred: baseDcf.bridge.preferred,
+    nonOperatingAssets: baseDcf.bridge.nonOperatingAssets ?? null,
   };
 
   const tn = (name: ScenarioTarget["name"], value: number): TracedNumber => ({
@@ -275,11 +277,19 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     mk("bear", bear.value, pessimistic.growthDeltaPp, pessimistic.marginDeltaPp),
   ];
 
+  // D-65: the margin shift a path actually carries, when the cap cut it.
+  const capped = shared.scenarioAssumptions.scenarios.filter((s) => s.effectiveMarginDeltaPp !== undefined);
+  const signed = (v: number) => `${v >= 0 ? "+" : "−"}${round2(Math.abs(v))}pp`;
+  const cappedText = capped.length === 0 ? "" :
+    ` After the scenario margin cap the year-one margin shift is ${capped.map((s) => `${signed(s.effectiveMarginDeltaPp as number)} for ${s.name} (${signed(s.marginDeltaPp)} requested)`).join(" and ")}` +
+    `${shared.scenarioAssumptions.scenarios.filter((s) => s.name !== "base" && s.effectiveMarginDeltaPp === undefined).map((s) => `, ${signed(s.marginDeltaPp)} for ${s.name}`).join("")}, so the shocks are not symmetric around the base margin.`;
   const basis = [
     "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
-    `bull/bear re-run the SAME DCF with growth shifted ±${round2(dg)}pp and margin shifted ±${round2(dm)}pp; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated. Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
-    "Targets are computed-derived DCF sensitivities, not source-verified facts or empirically calibrated outcome probabilities.",
-    shared.scenarioAssumptions.terminalTransition,
+    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(dm)}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated.${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
+    "Targets are computed-derived DCF sensitivities, not source-verified facts; no weight or probability is attached to them.",
+    // D-65: the decay-and-cap paragraph is stated once, as the note of the
+    // projections' scenario-construction table (it was printed three times).
+    "The shock decay and the scenario margin cap are set out under the weighted projections' scenario construction.",
   ];
 
   return {

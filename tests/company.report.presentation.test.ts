@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import path from "node:path";
 import {
   isValidElement,
@@ -393,6 +394,8 @@ describe("persisted report presentation", () => {
     const rich = task28SentinelReport();
     const unsafe = '<script data-task28-route="persisted">alert(28)</script>';
     rich.scores!.aspects.valuation.drivers[0]!.verificationNote = unsafe;
+    // D-62: driver notes are audit-export leaves; a body leaf carries the payload too.
+    rich.verdict.synthesis = `${rich.verdict.synthesis} ${unsafe}`;
     const before = JSON.stringify(rich);
     harness.getLatestDoneReport.mockReturnValue({
       reportId: 42,
@@ -422,19 +425,23 @@ describe("persisted report presentation", () => {
     for (const html of [latestHtml, savedHtml, printHtml]) {
       for (const sentinel of [
         "TASK28:composite:methodology",
-        "TASK28:fundamentals:driver:duplicate-identity-note",
         "TASK28:evidence:guidanceVsActuals:source-id",
-        "TASK28:revenue:historical:0:citation-note",
-        "TASK28:epsDiluted:weighted:1:source-id",
-        "TASK28:PROJECTION-WEIGHTS:VERSION",
         "TASK28-provider-stale",
         "2026-07-02T03:04:05.678Z",
-        "TASK28.verification.computed.path",
-        "TASK28.asOfMap.beta",
       ]) expect(html).toContain(sentinel);
       expect(html).toContain("&lt;script data-task28-route=&quot;persisted&quot;&gt;alert(28)&lt;/script&gt;");
       expect(html).not.toContain(unsafe);
     }
+    // The raw registry leaves the pages no longer print are in the audit export.
+    const audit = reportToAuditMarkdown(rich);
+    for (const sentinel of [
+      "TASK28:fundamentals:driver:duplicate-identity-note",
+      "TASK28:revenue:historical:0:citation-note",
+      "TASK28:epsDiluted:weighted:1:source-id",
+      "TASK28:PROJECTION-WEIGHTS:VERSION",
+      "TASK28.verification.computed.path",
+      "TASK28.asOfMap.beta",
+    ]) expect(audit).toContain(sentinel);
     expect(JSON.stringify(rich)).toBe(before);
   });
 });

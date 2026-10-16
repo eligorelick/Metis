@@ -2,6 +2,7 @@ import "server-only";
 import type { RunPassArgs, RunPassOutcome } from "@/pipeline/stageC/passes";
 import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt";
 import { runGemini } from "./gemini";
+import { PassSettlementHookError } from "@/pipeline/jobArtifacts";
 import { CHATGPT_EFFORTS, parseSubscriptionModel, subscriptionModel, validModelId, type ChatGptEffort, type ChatGptModelChoice, type ChatGptRunOptions } from "./contracts";
 
 // Counts every streamed byte (lifecycle events echo the request), not just the answer text.
@@ -54,7 +55,7 @@ export function subscriptionMessages(args: RunPassArgs) {
 }
 
 /** A terminal completed event is mandatory; partial JSON is never a successful pass. */
-export async function consumeChatGptStream(response: Response): Promise<{ text: string; model: string; input: number; output: number; effort?: ChatGptEffort; serviceTier?: string }> {
+export async function consumeChatGptStream(response: Response, onPartialText?: (text: string) => void): Promise<{ text: string; model: string; input: number; output: number; effort?: ChatGptEffort; serviceTier?: string }> {
   if (!response.ok) {
     const failure = await response.json().catch(() => null);
     const reason = chatGptFailure(failure?.error);
@@ -74,9 +75,11 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
   const textDeltas = new Map<number, string[]>();
   const excludedIndices = new Set<number>();
   let partialChars = 0;
+  let lastCheckpointAt = 0;
   const notePartial = (): void => {
     if (textDeltas.size === 0) return;
     observed.partialText = [...textDeltas].sort(([a], [b]) => a - b).map(([, parts]) => parts.join("")).join("\n");
+    onPartialText?.(observed.partialText);
   };
   try {
     for (;;) {
@@ -107,6 +110,19 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
         // accept uncompleted deltas, and still require response.completed.
         if (event.type === "response.output_item.done" && Number.isSafeInteger(event.output_index) && event.output_index >= 0 && event.output_index < 10_000) {
           completedItems.set(event.output_index, event.item);
+          const item = event.item;
+          if (!excludedIndices.has(event.output_index) && item?.type === "message" && item.status === "completed" &&
+              (item.role === undefined || item.role === "assistant") &&
+              (item.phase === undefined || item.phase === "final_answer") && Array.isArray(item.content)) {
+            const text = item.content.filter((part: { type?: string; text?: unknown }) => part?.type === "output_text" && typeof part.text === "string")
+              .map((part: { text: string }) => part.text).join("\n");
+            const previousLength = textDeltas.get(event.output_index)?.join("").length ?? 0;
+            if (partialChars - previousLength + text.length <= MAX_PARTIAL_TEXT_CHARS) {
+              textDeltas.set(event.output_index, [text]);
+              partialChars += text.length - previousLength;
+              notePartial();
+            }
+          }
         }
         // An item announced as anything but the final answer (commentary,
         // reasoning) never contributes partial text.
@@ -124,6 +140,10 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
           parts.push(event.delta);
           textDeltas.set(event.output_index, parts);
           partialChars += event.delta.length;
+          if (onPartialText && Date.now() - lastCheckpointAt >= 1_000) {
+            notePartial();
+            lastCheckpointAt = Date.now();
+          }
         }
         if (["error", "response.failed", "response.incomplete"].includes(event.type)) {
           const failure = event.response?.error ?? event.error ?? event;
@@ -157,6 +177,7 @@ export async function consumeChatGptStream(response: Response): Promise<{ text: 
     }
     throw new Error("ChatGPT stream ended before completion");
   } catch (error) {
+    if (error instanceof PassSettlementHookError) throw error;
     const reason = error instanceof Error && /^(ChatGPT|Invalid completed)/.test(error.message) ? error.message : "ChatGPT stream failed or was canceled. No paid fallback was attempted.";
     notePartial();
     throw new ChatGptStreamError(reason, observed);
@@ -218,7 +239,7 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
             ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
             service_tier: options.serviceTier ?? "default",
           }),
-        }));
+        }), args.onPartialText);
       } finally { tracked.release(); }
     } else {
       result = await runGemini(connectionId, parsed.model, messages.map((m) => `${m.role}:\n${m.content}`).join("\n\n"), args.signal);
@@ -234,6 +255,7 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
       },
       message: { model, usage, stop_reason: "end_turn", content: [{ type: "text", text: result.text.replace(/^\s*```(?:json)?\s*\n([\s\S]*?)\n```\s*$/, "$1") }] } } } };
   } catch (error) {
+    if (error instanceof PassSettlementHookError) throw error;
     const observed = error instanceof ChatGptStreamError ? error.observed : undefined;
     const reason = error instanceof Error && /^(ChatGPT|Gemini|Invalid completed|Invalid subscription)/.test(error.message)
       ? error.message : `${parsed.provider} pass failed or was canceled. No paid fallback was attempted.`;

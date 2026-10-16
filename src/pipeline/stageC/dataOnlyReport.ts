@@ -37,10 +37,13 @@ import { applyScenarioPresentation, buildScenarioPresentation, comparableScenari
 import { buildThesisTriggers } from "@/report/thesisTriggers";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildEvidenceTiming } from "@/report/evidenceTiming";
-import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildMarketData } from "@/pipeline/marketData";
+import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
+import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
@@ -485,11 +488,18 @@ function balanceSheetSection(
   const repurchaseCurrency =
     analysedYears.length > 0 && repurchaseCurrencies.size === 1 ? ([...repurchaseCurrencies][0] ?? null) : null;
   if (bb.totalRepurchased > 0 && repurchaseCurrency !== null) {
+    // D-61: the premium is measured on the proxy price, so the current price is
+    // that percentage above (or below) it — price appreciation since the
+    // repurchases, not timing. Timing is stated separately when measurable.
     const priceNote = isNum(bb.premiumDiscountPct)
-      ? ` at an average price proxy ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "below" : "above"} the current price`
+      ? `; the current price is ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "above" : "below"} the average repurchase price proxy (price appreciation since the repurchases, not timing)`
+      : "";
+    const timing = bb.timingPct ?? null;
+    const timingNote = isNum(timing)
+      ? `; at each fiscal year's average price the shares bought would have cost ${fmtPct(Math.abs(timing))} ${timing >= 0 ? "more" : "less"} than was paid`
       : "";
     allocation.push(
-      fact(`Repurchased ${fmtMoney(bb.totalRepurchased, repurchaseCurrency)} of stock across the analysed years${priceNote}.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
+      fact(`Repurchased ${fmtMoney(bb.totalRepurchased, repurchaseCurrency)} of stock across the analysed years${priceNote}${timingNote}.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
     );
   }
   if (bb.note) allocation.push(fact(bb.note, "computed.capital.buybackPriceAnalysis", cap.asOf));
@@ -513,11 +523,11 @@ function reverseDcfNarrative(computed: ComputedMetrics): string {
   }
   const r = v.reverseDcf;
   if (r.method === "growth" && isNum(r.impliedRevenueGrowthPct)) {
-    const compare = r.growthPathFamily === "linear-fade-to-terminal" && isNum(r.baseRevenueGrowthPct)
+    const compare = isStartingGrowthFamily(r.growthPathFamily) && isNum(r.baseRevenueGrowthPct)
       ? ` Against base starting growth of ${fmtPct(r.baseRevenueGrowthPct)} on the same fading path, the starting-growth gap is ${fmtSignedPp(r.impliedRevenueGrowthPct - r.baseRevenueGrowthPct)}.`
       : "";
-    const path = r.growthPathFamily === "linear-fade-to-terminal"
-      ? "starting revenue growth, fading to the terminal rate over the explicit DCF horizon"
+    const path = isStartingGrowthFamily(r.growthPathFamily)
+      ? "starting revenue growth, converging to the terminal rate over the explicit DCF horizon"
       : "revenue growth (growth-path family unavailable)";
     return `The market price is consistent with ${fmtPct(r.impliedRevenueGrowthPct)} ${path}, with every other DCF input held at its base value.${compare} Deterministic solve; no completed narrative assessment is available.`;
   }
@@ -531,6 +541,7 @@ function valuationSection(
   stub: Report["valuation"],
   computed: ComputedMetrics,
   graded: GradeBlock,
+  currency: string | null,
 ): Report["valuation"] {
   const scenarios = stub.scenarios.map((scenario) => ({
     ...scenario,
@@ -539,7 +550,7 @@ function valuationSection(
   // applyScenarioTargets also sets each horizon label, as on the AI path (D-40).
   const withTargets = applyScenarioTargets({ ...stub, graded, scenarios }, computed.scenarioTargets);
   const withFairValue = applyFairValue(withTargets, computed.fairValue);
-  const withDisplay = applyDcfDisplay(withFairValue, computed.valuation);
+  const withDisplay = applyDcfDisplay(withFairValue, computed.valuation, currency);
   const withMultiples = applyMultiples(withDisplay, computed.valuation);
   const withReverse = applyReverseDcf(withMultiples, computed.valuation);
   return {
@@ -780,7 +791,7 @@ function synthesis(
   if (v.kind === "excess-return") parts.push(describeFinancialValuation(v.excessReturn.financialAssumptions));
   if (v.kind === "dcf" && v.reverseDcf?.method === "growth" && isNum(v.reverseDcf.impliedRevenueGrowthPct)) {
     parts.push(
-      `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} starting revenue growth${v.reverseDcf.growthPathFamily === "linear-fade-to-terminal" ? ", fading to the terminal rate over the explicit DCF horizon" : " (growth-path family unavailable)"}.`,
+      `The price is consistent with ${fmtPct(v.reverseDcf.impliedRevenueGrowthPct)} starting revenue growth${isStartingGrowthFamily(v.reverseDcf.growthPathFamily) ? ", converging to the terminal rate over the explicit DCF horizon" : " (growth-path family unavailable)"}.`,
     );
   }
   const flags = computed.forensics.flags.length;
@@ -838,7 +849,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const candidate: Report = {
     ...stub,
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
-    thesisTriggers: buildThesisTriggers(computed),
+    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle))),
     verdict: {
       synthesis: synthesis(computed, bundle, args.reason, currency, stub.appendix.missingData.length),
       gradeStrip: {
@@ -862,7 +873,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
       ...fundamentalsSections(computed, cf),
     },
     balanceSheet: { graded: balanceSheetGrade, ...balanceSheetSection(computed, currency, cf, flagClaim) },
-    valuation: valuationSection(stub.valuation, computed, valuationGrade),
+    valuation: valuationSection(stub.valuation, computed, valuationGrade, currency),
     quality: qualitySection(stub.quality, computed, qualityGrade),
     technicals: technicalsSection(computed, technicalsGrade, priceCurrency),
     leadership: leadershipSection(stub.leadership, bundle, leadershipGrade),
@@ -881,6 +892,13 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
     // has no analyst pass to describe them in prose.
     ...(routeMetrics ? { routeMetrics } : {}),
   };
+  // Guidance, 8-K events, XBRL segments and the quarterly trend are filing
+  // facts, not analyst judgment, so the data-only report carries them too.
+  const filingDisclosures = buildFilingDisclosures(bundle);
+  if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
+  // D-62: provider market and consensus data for the key-data box.
+  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true });
+  if (marketData) candidate.marketData = marketData;
 
   // Share exact registry-backed facts with the full verification path. Rebuild
   // them from this run's inputs, including removal of a copied historical field.

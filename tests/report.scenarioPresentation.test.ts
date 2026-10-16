@@ -108,10 +108,11 @@ describe("modeled-grid sensitivity conclusions", () => {
     input.scenarios[0].qualitativeCommentary = ["previous qualitative comment"];
     const before = JSON.stringify(computed);
     const result = applyScenarioPresentation(input, computed);
-    expect(result.scenarios.map((scenario) => scenario.probability)).toEqual([0.25, 0.5, 0.25]);
-    expect(result.scenarios[0].assumptions.join(" ")).toContain("12.13, 8, 4");
+    // Re-pinned for D-60: targets carry no weight, and the ±2pp shock decays (weights 1, 0.44, 0 over three years).
+    expect(result.scenarios.map((scenario) => scenario.probability)).toEqual([null, null, null]);
+    expect(result.scenarios[0].assumptions.join(" ")).toContain("12.13, 6.88, 2");
     expect(result.scenarios[1].assumptions.join(" ")).toContain("10.13, 6, 2");
-    expect(result.scenarios[2].assumptions.join(" ")).toContain("8.13, 4, 0");
+    expect(result.scenarios[2].assumptions.join(" ")).toContain("8.13, 5.12, 2");
     expect(result.scenarios[0].assumptions.join(" ")).toContain(`mid-year discounting ${midYear ? "on" : "off"}`);
     expect(result.scenarios[0].assumptions.join(" ")).toContain("minority interest not disclosed");
     expect(result.scenarios[0].assumptions.join(" ")).toContain("preferred equity 0");
@@ -147,10 +148,15 @@ describe("modeled-grid sensitivity conclusions", () => {
     const computed = computedFixture();
     if (computed.valuation.kind !== "dcf") throw new Error("fixture DCF");
     computed.valuation.sensitivity = { waccPcts: [8, 9], gTermPcts: [2, 3], perShare: [[110, 120], [115, 125]], notes: [], gaps: [] };
+    // D-65: the growth × margin grid now joins the conclusion (tests/stageB.valuationD65.test.ts);
+    // this test pins the WACC × g rule alone, so the fixture's second grid is removed.
+    computed.valuation.growthMarginGrid = null;
     const available = buildScenarioPresentation(computed, 100);
     expect(available.sensitivity).toMatchObject({ status: "robust-above", minPerShare: 110, maxPerShare: 125, validCells: 4 });
     expect(available.interpretation).toMatch(/present-value DCF sensitivities/);
-    expect(available.weightBasis).toMatch(/uncalibrated/);
+    // Re-pinned for D-60: the basis says targets carry no weight and the projection prior is not calibrated.
+    expect(available.weightBasis).toMatch(/carry no weight/);
+    expect(available.weightBasis).toMatch(/not a calibrated probability/);
     const unavailable = buildScenarioPresentation({} as ComputedMetrics);
     expect(unavailable.sensitivity).toMatchObject({ status: "unavailable", minPerShare: null, maxPerShare: null });
     expect(unavailable.interpretation).toMatch(/scenarios are unavailable/);
