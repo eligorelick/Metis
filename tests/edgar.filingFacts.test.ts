@@ -45,6 +45,13 @@ describe("D-66 recovered filing facts", () => {
     }
   });
 
+  it("binds current accrued purchase consideration to its own dated table and transaction footnote", () => {
+    expect(parseInvestmentFacts(notes, "2026-07-26")).toContainEqual(expect.objectContaining({ key: "accrued-purchase-consideration", label: "accrued purchase consideration for the Groq transaction", value: 986e6, asOf: "2026-07-26" }));
+    expect(parseInvestmentFacts(notes.replace("(3) Related to the Groq, Inc. non-exclusive license agreement.", "(4) Related to the Groq, Inc. non-exclusive license agreement."), "2026-07-26").some((f) => f.key === "accrued-purchase-consideration")).toBe(false);
+    expect(parseInvestmentFacts(notes, "2026-04-26").some((f) => f.key === "accrued-purchase-consideration")).toBe(false);
+    expect(parseInvestmentFacts(notes, null).some((f) => f.key === "accrued-purchase-consideration")).toBe(false);
+  });
+
   it("keeps Groq consideration components and explicitly computes their total", () => {
     const facts = parseBusinessCombinationFacts(annual, "2026-01-25");
     for (const [key, value] of [["deal-goodwill", 14.4e9], ["deal-intangible", 2.5e9], ["deal-consideration-paid", 13e9], ["deal-consideration-payable", 4e9], ["deal-consideration-total", 17e9]]) {
@@ -114,6 +121,7 @@ describe("D-66 recovered filing facts", () => {
     expect(disclosures.tradingArrangements).toHaveLength(3);
     const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
     expect(payload.provenanceRegistry).toContainEqual(expect.objectContaining({ value: 42_404e6, period: "2026-07-26" }));
+    expect(payload.provenanceRegistry).toContainEqual(expect.objectContaining({ label: "accrued purchase consideration for the Groq transaction, as of 2026-07-26", value: 986e6, period: "2026-07-26", origin: "edgar:10-Q notes" }));
     const governanceRecords = payload.provenanceRegistry!.filter((r) => r.id.startsWith("payload.filing-facts.") && /Nicholas Parker|plan share capacity/.test(r.label ?? ""));
     for (const value of [35e6, 5e6, 375_439, 547_942]) expect(governanceRecords.some((r) => r.value === value)).toBe(true);
     const prompt = serializePayloadForPrompt(payload);

@@ -16,7 +16,7 @@ import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsReleaseRecord } from "@/providers/currentReports";
-import type { GuidanceItem, ReconciliationFact } from "@/edgar/currentReports";
+import { materialCreditSupportClauses, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import {
   parseBusinessCombinationFacts,
   parseCommitmentFacts,
@@ -383,8 +383,12 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const events: FilingDisclosures["events"] = (reports?.events ?? []).map((e) => {
     const parts = e.sections
       .filter((s) => s.incorporates === null || e.sections.length === 1)
-      .map((s) => `Item ${s.item}: ${s.summary}`);
-    const joined = parts.join(" ").slice(0, 900);
+      .flatMap((s) => [`Item ${s.item}: ${s.summary}`, ...materialCreditSupportClauses(s.text).filter((clause) => !s.summary.includes(clause)).map((clause) => `Item ${s.item}: ${clause}`)]);
+    // Whole source clauses: never cut off a condition or turn an option into
+    // a commitment. These terms are visible even when model prose omits them.
+    const kept: string[] = [];
+    for (const part of parts) if ([...kept, part].join(" ").length <= 1_400) kept.push(part);
+    const joined = kept.join(" ");
     return {
       filingDate: e.filingDate,
       eventDate: e.eventDate,

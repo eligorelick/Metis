@@ -57,6 +57,17 @@ function fact(over: Partial<FilingFact> & Pick<FilingFact, "key" | "label" | "va
 export function parseInvestmentFacts(rawText: string, periodEnd: string | null): FilingFact[] {
   const out: FilingFact[] = [];
   const text = normalizeFilingText(rawText);
+  // A purchase-consideration balance is attributable only through this
+  // table's numbered footnote, never a party mentioned elsewhere in notes.
+  const accruedHeader = new RegExp(String.raw`(${MONTH_ABBR})\s+(${MONTH_ABBR})\s+Accrued and Other Current Liabilities:\s*\(In millions\)`, "i").exec(text);
+  if (periodEnd !== null && accruedHeader !== null && isoFromTableDate(accruedHeader[1]!) === periodEnd) {
+    const body = text.slice(accruedHeader.index + accruedHeader[0].length).split(new RegExp(String.raw`${MONTH_ABBR}\s+${MONTH_ABBR}\s+Other Long-Term Liabilities:`, "i"))[0]!.slice(0, 2_500);
+    const row = /\bAccrued purchase consideration\s+\((\d{1,2})\)\s+\$?\s*([\d,]+)\s+\$?\s*([\d,]+)/i.exec(body);
+    const linked = row === null ? null : new RegExp(String.raw`\(${row[1]}\)\s+Related to the ([A-Z][\w&.'’-]*(?:\s+[A-Z][\w&.'’-]*){0,4}?)(?:,\s*(?:Inc|LLC|Ltd)\.?)?\s+(?:non-exclusive license agreement|acquisition|transaction)\.`).exec(body);
+    if (row !== null && linked !== null) out.push(fact({ key: "accrued-purchase-consideration", label: `accrued purchase consideration for the ${linked[1]} transaction`,
+      value: Number(row[2]!.replace(/,/g, "")) * 1e6, unit: "currency", symbol: "$", asOf: periodEnd,
+      text: `${accruedHeader[0]} ${row[0]}. ${linked[0]}` }));
+  }
   // The securities table separates current marketable equities from public
   // equities carried in Other Assets. Read its eight explicitly named totals,
   // and require the adjacent note to identify that last column as long-term.

@@ -744,9 +744,16 @@ export function eventDateOf(rawText: string): string | null {
 }
 
 /**
- * A short deterministic summary of one item: its dated lead sentences ("On
- * June 28, 2026, ...") and the first sentence stating an amount, bounded.
+ * Source sentences qualifying credit support: contractual reimbursement or
+ * indemnity, and discretionary additional capacity. Preserve every qualifier.
  */
+export function materialCreditSupportClauses(text: string): string[] {
+  return splitSentences(normalizeFilingText(text)).filter((sentence) =>
+    (/\b(?:reimburse|indemnif(?:y|ication))\b/i.test(sentence) && /\b(?:amounts? actually paid|payments?|obligations?|guarant(?:y|ies|ee|ees))\b/i.test(sentence)) ||
+    (/\badditional\s+(?:approximately\s+)?\d+(?:\.\d+)?\s+(?:gigawatts?|megawatts?|GW|MW)\b/i.test(sentence) && /\b(?:credit support|sole discretion|option)\b/i.test(sentence)));
+}
+
+/** A bounded item summary: dated lead sentences and the first amount. */
 export function summarizeItem(section: EightKItemSection, maxChars = 600): string {
   const sentences = splitSentences(section.text);
   const dated = sentences.filter((s) => /^(?:\([a-z]\)\s*)?On [A-Z][a-z]+ \d{1,2}, \d{4}\b/.test(s));

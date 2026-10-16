@@ -41,6 +41,7 @@ import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/sche
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
 import { peerSizeExclusion } from "@/pipeline/peers";
 import { consensusYearsText } from "@/pipeline/stageB/valuation";
+import { materialCreditSupportClauses } from "@/edgar/currentReports";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
   PROJECTION_PATH_ORDER,
@@ -132,10 +133,12 @@ export const PAYLOAD_BUDGETS = {
    * quarter's operating-cash-flow drop.
    */
   cfoCommentaryChars: 11_000,
-  /** One material-event 8-K's item text. */
+  /** One ordinary material-event 8-K's item text. */
   eightKEventChars: 1_200,
+  /** Credit-support agreements retain named parties, caps, options and contractual offsets. */
+  eightKCreditEventChars: 1_800,
   /** All material-event 8-K excerpts together. */
-  eightKEventsTotalChars: 8_000,
+  eightKEventsTotalChars: 8_600,
 } as const;
 
 /** Marker appended when a text field was truncated to its budget. */
@@ -1859,7 +1862,8 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
       .join("\n\n");
     // D-63: the operative paragraph's dated lead, named parties and amounts
     // come first (the RVG 8-K's tenant, OpenAI, used to be cut).
-    const cut = selectMaterialEvidence(body, Math.min(PAYLOAD_BUDGETS.eightKEventChars, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), "event");
+    const eventBudget = materialCreditSupportClauses(body).length > 0 ? PAYLOAD_BUDGETS.eightKCreditEventChars : PAYLOAD_BUDGETS.eightKEventChars;
+    const cut = selectMaterialEvidence(body, Math.min(eventBudget, PAYLOAD_BUDGETS.eightKEventsTotalChars - used), "event");
     used += cut.text.length;
     const eventDate = event.eventDate !== null && isIsoDate(event.eventDate) ? `; event date ${event.eventDate}` : "";
     out.push({

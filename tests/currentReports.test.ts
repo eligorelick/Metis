@@ -23,7 +23,7 @@ import { dcfGuidance, runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
 import { selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
-import { assembleContextPayload, riskFactorBudget, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, PAYLOAD_BUDGETS, riskFactorBudget, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import {
   buildEarningsReleaseRecord,
@@ -472,6 +472,27 @@ describe("D-63 filing evidence", () => {
     expect(summary.length).toBeLessThanOrEqual(600);
     expect(summary).toMatch(/\[computed: 7 series, \$25\.0 billion aggregate principal amount in total\]$/);
     expect(summary).not.toMatch(/Notes due …/);
+  });
+
+  it("retains the credit-support option and reimbursement qualifiers in source-bound excerpts and deterministic event context", () => {
+    const bundle = nvdaBundle();
+    const payload = payloadOf(bundle);
+    const event = bundle.edgar.currentReports;
+    if (!event?.ok) throw new Error("fixture events missing");
+    const raw = event.value.data.events[0]!;
+    const body = raw.sections.map((s) => s.incorporates !== null ? `Item ${s.item} (${s.title}): incorporates Item ${s.incorporates} by reference.` : `Item ${s.item} (${s.title}): ${s.text}`).join("\n\n");
+    const excerpt = payload.filings.find((e) => e.source === "edgar:8-K 0001045810-26-000069")!;
+    const clauses = ["NVIDIA also can provide credit support to secure approximately an additional 3.8 gigawatts at the Portsmouth Site, exercisable in its sole discretion.", "OpenAI has agreed to reimburse and indemnify NVIDIA for any and all amounts actually paid by NVIDIA to the Lessor under the Agreements."];
+    for (const clause of clauses) {
+      expect(excerpt.text).toContain(clause);
+      expect(serializePayloadForPrompt(payload)).toContain(clause);
+      expect(buildFilingDisclosures(bundle)!.events[0]!.summary).toContain(clause);
+    }
+    for (const needle of ["An affiliate of OpenAI Group PBC", "SB Energy", "approximately 4.25 gigawatts", "cumulatively capped at $105 billion", "On August 17, 2026"]) expect(excerpt.text).toContain(needle);
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.eightKCreditEventChars);
+    for (const span of excerpt.spans!) expect(body.slice(span.start, span.end)).toBe(span.text);
+    expect(excerpt.title).toContain("event date 2026-08-17");
+    expect(excerpt.asOf).toBe("2026-08-17");
   });
 
   it("registers the commentary's reconciliation, commitments and guarantees, and the quarters' equity gains and non-GAAP EPS", () => {

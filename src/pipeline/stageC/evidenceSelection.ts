@@ -1,3 +1,5 @@
+import { materialCreditSupportClauses } from "@/edgar/currentReports";
+
 /** Pure, bounded source selection. Offsets always refer to the original source. */
 export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity"] as const;
@@ -134,7 +136,7 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   // names and the amounts it commits (a cap, a purchase price).
   event: {
     categories: MATERIAL_CATEGORIES,
-    priority: (passage) => DATED_LEAD.test(passage) || DEFINES_PARTY.test(passage) || /(?:US)?\$\s?\d[\d,.]*\s*(?:billion|million|trillion)\b/.test(passage),
+    priority: (passage) => DATED_LEAD.test(passage) || DEFINES_PARTY.test(passage) || materialCreditSupportClauses(passage).length > 0 || /(?:US)?\$\s?\d[\d,.]*\s*(?:billion|million|trillion)\b/.test(passage),
     abbreviations: true,
   },
 };
