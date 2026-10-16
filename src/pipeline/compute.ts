@@ -2122,8 +2122,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     return { date, debt: debt === null ? null : Math.max(0, debt - (lease !== null && lease >= 0 && lease <= debt ? lease : 0)) };
   };
   const latestIncomeQuarter = incomeQuarterly[0];
-  const projectionInterest = latestIncomeQuarter !== undefined && projRowDate(latestIncomeQuarter) > projRowDate(inc0Proj)
-    ? interestRunRate({ date: isoDay(latestIncomeQuarter.date) ?? "", interestExpense: num(latestIncomeQuarter.interestExpense) },
+  const projectionQuarterDate = isoDay(latestIncomeQuarter?.date);
+  const projectionAnchorDate = valuation.kind === "dcf" ? valuation.assumptions?.asOf.statements ?? null : null;
+  // A rejected TTM can leave an older annual DCF anchor. Its EPS must not
+  // import a newer quarter, or interest in an unestablished/different currency.
+  const projectionInterest = latestIncomeQuarter !== undefined && projectionQuarterDate !== null && projectionAnchorDate !== null
+    && projectionQuarterDate <= projectionAnchorDate && projectionQuarterDate > projRowDate(inc0Proj)
+    && currencies.model !== null && establishedCurrencyOn([latestIncomeQuarter], projectionQuarterDate, currencyEvidence) === currencies.model
+    ? interestRunRate({ date: projectionQuarterDate, interestExpense: num(latestIncomeQuarter.interestExpense) },
       debtExLeases(balanceQuarterly.find((b) => isoDay(b.date) === isoDay(latestIncomeQuarter.date))),
       debtExLeases(balanceQuarterly.find((b) => { const d = isoDay(b.date); const q = isoDay(latestIncomeQuarter.date); return d !== null && q !== null && d < q && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS >= 80 && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS <= 100; })))
     : null;

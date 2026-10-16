@@ -171,6 +171,33 @@ describe("ratios over a window's sums need the window in one established currenc
   });
 });
 
+describe("forecast operating EPS interest uses the DCF anchor's currency and period", () => {
+  it.each([
+    ["the latest quarter is in EUR", ["EUR", "USD", "USD", "USD"]],
+    ["the latest quarter is USD but a prior quarter invalidates the TTM", ["USD", "EUR", "USD", "USD"]],
+  ] as const)("keeps annual USD interest when %s", (_, quarterCurrencies) => {
+    const bundle = currencyBundle({ quarterCurrencies, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    const original = runStageB(bundle);
+    const changed = structuredClone(bundle);
+    if (!changed.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
+    changed.statements.incomeQuarterly.value.data.rows[0]!.interestExpense = 400 * M;
+    const after = runStageB(changed);
+    expectAnnualBasis(original);
+    expectAnnualBasis(after);
+    const eps = (c: ComputedMetrics) => c.projections.series.find((s) => s.metric === "epsDiluted")!;
+    expect(eps(after).base).toEqual(eps(original).base);
+    expect(eps(after).assumptions.join(" ")).toContain("latest annual interest expense");
+    expect(eps(after).assumptions.join(" ")).not.toContain("latest quarter's run-rate");
+  });
+
+  it("keeps the latest-quarter run-rate on an established USD TTM anchor", () => {
+    const c = run({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    expectTtmBasis(c);
+    const eps = c.projections.series.find((s) => s.metric === "epsDiluted")!;
+    expect(eps.assumptions.join(" ")).toContain("latest quarter's run-rate");
+  });
+});
+
 describe("the runway divides liquidity by an average of quarterly burn", () => {
   const USD_FILINGS = { burning: true, filingLinks: "shared", siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] } as const;
 
