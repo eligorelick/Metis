@@ -30,7 +30,7 @@
 - [ ] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
 - [ ] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
 - [ ] Commit, push and integrate via GitHub with fresh required CI, if release gates pass.
-- [ ] Validate the preserved transport/checkpoint package and prevent timeout
+- [x] Validate the preserved transport/checkpoint package and prevent timeout
   recovery from lowering explicitly selected reasoning or speed settings.
 - [ ] After release verification, run CRWV and QCOM as separate normal-history
   Metis analyses using GPT-6 Astra, max reasoning and standard speed; confirm
@@ -53,6 +53,23 @@
 - Independent code review reproduced the repaired currency, executive-evidence,
   transaction-attribution, figure-deduplication and filing-clause boundaries.
   This does not replace the fresh generated-report audit.
+- The combined D-70 recovery source (`64cdd6a`, integrated as `3ca810e`)
+  passed the complete `npm run verify` gate, exit 0, in its isolated checkout:
+  6,157 product tests, three existing skips, four integration tests, coverage
+  floors, build and zero-vulnerability audit. Its application/test sources
+  match the integration checkout exactly; the isolated build preserved the
+  active NVDA server. Log: ignored `tmp/selected-settings-release-verify.log`
+  in the valuation recovery checkout.
+- Fresh NVDA run `0cf239de-24d5-43c3-9c25-0a030a3bd262` completed as
+  report 3 at 2026-10-16T07:46:29.701Z, with bull/bear/judge observed on
+  GPT-6.1 Sol, medium reasoning, standard speed. Its original snapshot is
+  `6e1f43a73b4d8af967160b3f4ea378b3d6896599179683fa68ef42bf3ae0008d`.
+  Independent arithmetic reproduced $217.039943/$365.939972/$120.491218
+  scenarios and composite 75.19. Output audit found remaining per-share/fiscal
+  period verifier false positives, omitted concentration context and misdated
+  subsequent guarantees; these require correction before release. Reuse the
+  saved model output in an explicitly labeled deterministic corrected replay,
+  retaining the original report and exact original payload binding.
 
 ## Remaining research and presentation limits
 
