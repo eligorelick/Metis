@@ -1,6 +1,9 @@
 import type { ManifestEntry } from "@/types/core";
-import type { DataCompleteness as PersistedDataCompleteness } from "@/report/schema";
+import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
+
+/** Only source identity is needed to distinguish partial from missing coverage. */
+export type CompletenessSource = Pick<SourceEntry, "provider" | "endpoint">;
 
 export interface DataCompleteness {
   state: "complete" | "degraded" | "blocked";
@@ -201,7 +204,7 @@ export interface ReportCompletenessPresentation {
   state: PersistedDataCompleteness["state"] | "unknown";
   criticalCount: number | "unknown";
   warningCount: number | "unknown";
-  edgar: PersistedDataCompleteness["edgar"] | "unknown";
+  edgar: PersistedDataCompleteness["edgar"] | "partial" | "unknown";
   xbrl: PersistedDataCompleteness["xbrl"] | "unknown";
   forensicValidation: PersistedDataCompleteness["forensicValidation"] | "unknown";
   bannerText: string | null;
@@ -245,6 +248,7 @@ function countLabel(count: number, singular: string, plural: string): string {
 export function deriveReportCompletenessPresentation(
   persisted: PersistedDataCompleteness | undefined,
   gaps: readonly ManifestEntry[],
+  retainedSources: readonly CompletenessSource[] = [],
 ): ReportCompletenessPresentation {
   const recomputed = buildDataCompleteness(gaps);
   const metadataStatus: CompletenessMetadataStatus = persisted === undefined
@@ -260,9 +264,12 @@ export function deriveReportCompletenessPresentation(
   const informationalActionableGapCount = additionalActionable.filter(
     (gap) => gap.severity === "info",
   ).length;
+  const fixtureOnly = gaps.some((gap) => gap.field.startsWith(`${RESERVED_FIXTURE_MANIFEST_FIELD}(`));
+  const edgar = metadataStatus !== "confirmed" ? "unknown" : persisted!.edgar === "missing" && !fixtureOnly &&
+    retainedSources.some((source) => source.provider === "edgar" && source.endpoint.trim() !== "") ? "partial" : persisted!.edgar;
 
   const statusText = metadataStatus === "confirmed"
-    ? `Completeness confirmed: state ${persisted!.state}; critical ${persisted!.criticalCount}; warnings ${persisted!.warningCount}; EDGAR ${persisted!.edgar}; XBRL ${persisted!.xbrl}; forensics ${persisted!.forensicValidation}.`
+    ? `Completeness confirmed: state ${persisted!.state}; critical ${persisted!.criticalCount}; warnings ${persisted!.warningCount}; EDGAR ${edgar}; XBRL ${persisted!.xbrl}; forensics ${persisted!.forensicValidation}.`
     : metadataStatus === "missing"
       ? "Completeness unknown: persisted completeness metadata was not recorded."
       : "Completeness unknown: persisted completeness metadata could not be confirmed against the missing-data manifest.";
@@ -306,7 +313,7 @@ export function deriveReportCompletenessPresentation(
     state: metadataStatus === "confirmed" ? persisted!.state : "unknown",
     criticalCount: metadataStatus === "confirmed" ? persisted!.criticalCount : "unknown",
     warningCount: metadataStatus === "confirmed" ? persisted!.warningCount : "unknown",
-    edgar: metadataStatus === "confirmed" ? persisted!.edgar : "unknown",
+    edgar,
     xbrl: metadataStatus === "confirmed" ? persisted!.xbrl : "unknown",
     forensicValidation: metadataStatus === "confirmed"
       ? persisted!.forensicValidation

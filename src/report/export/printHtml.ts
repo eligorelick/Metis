@@ -1,5 +1,6 @@
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
+import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -237,7 +238,7 @@ interface GradeContext {
 }
 
 function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"]): GradeContext {
-  return { aspect: report.scores?.aspects[key] ?? null, completeness: deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData) };
+  return { aspect: report.scores?.aspects[key] ?? null, completeness: deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources) };
 }
 
 function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
@@ -692,8 +693,8 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report): string {
-  report = withPrincipalSummarySafety(report);
-  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData);
+  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
     business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),

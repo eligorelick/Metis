@@ -9397,11 +9397,12 @@
       ]
     },
     {
-      "name": "d73-debt-completeness",
+      "name": "d76-dividend-units-and-output-evidence",
       "decisions": [
-        "D-73"
+        "D-73",
+        "D-76"
       ],
-      "reason": "D-73: report 1.19.2 withholds incomplete debt carrying values and dependent metrics rather than substituting maturity amounts, partial totals or older balance sheets. This complete-debt DEMO fixture changes its report convention stamp and adds the float measurement date to the existing market data block; every financial value remains pinned. Saved historical reports retain their original conventions.",
+      "reason": "D-76: report 1.19.4 distinguishes an explicitly printed dividend total from its per-share restatement and identifies historical EV origin. This fixture has no affected dividend claim or withheld EV. Exact new output leaves are report.meta.specVersion and report.marketData.enterpriseValueOrigin (provider); the latter is inside the existing whole-object marketData delta. The original marketData insertion and float.asOf attribution remain D-73; D-76 adds only origin classification and the report stamp. All financial values, formulas, grades and weights remain pinned. Saved reports retain their original conventions.",
       "deltas": [
         {
           "path": "report.marketData",
@@ -9435,6 +9436,7 @@
               "totalDebt": 1200000000,
               "cash": 2000000000
             },
+            "enterpriseValueOrigin": "provider",
             "estimates": [
               {
                 "fiscalYearEnd": "2026-12-31",
@@ -9481,18 +9483,11 @@
             },
             "shortInterest": null
           }
-        }
-      ]
-    },
-    {
-      "name": "principal-summary-safety",
-      "decisions": ["D-74", "D-75"],
-      "reason": "D-74/D-75: report 1.19.3 scopes generated principal sums to proven distinct named issuance tranches, corrects legacy presentation copies immutably and binds preceding table scales conservatively. This fixture has no affected annotation or table-scale claim: only the report convention stamp changes; all financial leaves, grades and weights remain pinned. Saved reports retain their original conventions.",
-      "deltas": [
+        },
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.19.3"
+          "after": "1.19.4"
         }
       ]
     }

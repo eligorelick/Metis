@@ -84,12 +84,12 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.19.3");
+    expect(REPORT_SPEC_VERSION).toBe("1.19.4");
     expect(PAYLOAD_VERSION).toBe("1.24.2");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.19.3");
+    expect(newReport().meta.specVersion).toBe("1.19.4");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.24.2");
@@ -105,7 +105,7 @@ describe("new version stamps", () => {
     expect(payloadFingerprint(payload)).not.toBe(prior);
   });
 
-  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1"])("does not compare a prior %s report as the same financial convention", (version) => {
+  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3"])("does not compare a prior %s report as the same financial convention", (version) => {
     const before = newReport();
     before.meta.specVersion = version;
     const after = newReport();

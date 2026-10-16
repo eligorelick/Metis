@@ -99,7 +99,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.19.2 (D-73): withhold incomplete debt carrying values and dependent metrics.
 // 1.19.3 (D-74, D-75): source-scoped principal summaries, immutable legacy
 // presentation corrections and source-bound preceding-table scale verification.
-export const REPORT_SPEC_VERSION = "1.19.3" as const;
+// 1.19.4 (D-76): distinguish explicit total/per-share dividend restatements;
+// identify/refuse unsupported historical EV bridges and qualify partial EDGAR views.
+export const REPORT_SPEC_VERSION = "1.19.4" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2270,6 +2272,10 @@ export const MarketDataSchema = z
     enterpriseValue: z.object({
       value: z.number(), periodEnd: IsoDaySchema, marketCap: NullableNumber, totalDebt: NullableNumber, cash: NullableNumber,
     }).strict().nullable(),
+    /** Absent on older reports; do not infer a vendor from a legacy value alone. */
+    enterpriseValueOrigin: z.enum(["computed", "provider"]).optional(),
+    /** Output-only explanation when a local historical bridge is withheld. */
+    enterpriseValueNote: z.string().optional(),
     estimates: z.array(z.object({
       fiscalYearEnd: IsoDaySchema,
       revenueAvg: NullableNumber, revenueLow: NullableNumber, revenueHigh: NullableNumber,

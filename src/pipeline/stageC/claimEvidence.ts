@@ -119,6 +119,8 @@ interface SourceBinding {
    * fiscal labels for its column. Absent for prose figures.
    */
   column?: { scale: number | null; aliases: string[] };
+  /** An explicit total, or per-share, cash-dividend restatement in one clause. */
+  unitPair?: { totalStart: number; perShareStart: number };
 }
 /** Run-local memo; never retained across reports, payloads or source revisions. */
 export type ClaimEvidenceIndex = Map<TextExcerpt, SourceBinding[]>;
@@ -560,6 +562,20 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
     const found = quantities(body.text).filter((quantity) => !(/^\(\d\)$/.test(body.text.slice(quantity.start - 1, quantity.end + 1)) &&
       /[A-Za-z]\s*$/.test(body.text.slice(Math.max(0, quantity.start - 3), quantity.start - 1)) && /^\s*[$(\d]/.test(body.text.slice(quantity.end + 1))));
     const columns = tableColumns(body.text, found);
+    const dividendPairs = new Map<Quantity, NonNullable<SourceBinding["unitPair"]>>();
+    for (let i = 0; i + 1 < found.length; i++) {
+      const total = found[i]!, perShare = found[i + 1]!;
+      if (total.unit !== "currency" || perShare.unit !== "currency-per-share" ||
+        total.currency !== perShare.currency || total.dollar !== perShare.dollar ||
+        !/^\s*,\s*or\s*$/i.test(body.text.slice(total.end, perShare.start))) continue;
+      const totalContext = context(body.text, total, found, true);
+      const perShareContext = context(body.text, perShare, found, true);
+      if (totalContext.start !== perShareContext.start || totalContext.end !== perShareContext.end ||
+        !/^\s*,\s*of\s+cash\s+dividends\s+paid\s*[.,]?\s*$/i.test(body.text.slice(perShare.end, perShareContext.end))) continue;
+      const pair = { totalStart: total.start, perShareStart: perShare.start };
+      dividendPairs.set(total, pair);
+      dividendPairs.set(perShare, pair);
+    }
     return found.map((quantity) => {
       const column = columns.get(quantity);
       if (column !== undefined) {
@@ -580,6 +596,10 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + rowStart, end: body.start + quantity.end, text: body.text.slice(rowStart, quantity.end) } };
       }
       const own = context(body.text, quantity, found, true);
+      const unitPair = dividendPairs.get(quantity);
+      // The printed "TOTAL, or PER-SHARE, of cash dividends paid" shares its
+      // trailing metric, but each amount retains its own printed unit/value.
+      if (unitPair?.totalStart === quantity.start) own.label += " cash dividends paid";
       const inClause = found.filter((other) => other !== quantity && other.start >= own.start && other.end <= own.end &&
         (other.unit === quantity.unit || other.unit === null || quantity.unit === null));
       const listAmbiguous = /\brespectively\b/i.test(own.text) ||
@@ -589,7 +609,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
           const lead = body.text.slice(Math.max(own.start, before ? before.end : own.start), other.start);
           return !COMPARATIVE_LEAD.test(lead) && metricTokens(lead, []).length === 0;
         });
-      return { quantity, context: own, inherited, listAmbiguous,
+      return { quantity, context: own, inherited, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -704,7 +724,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       // under another window, both columns match and the reading stays ambiguous.
       return own.periods.some((period) => column.aliases.includes(period.key) || (period.kind === "date" && keys.has(period.key)));
     };
-    const matchingPeriods = candidates.filter((candidate) => candidate.column !== undefined
+    let matchingPeriods = candidates.filter((candidate) => candidate.column !== undefined
       ? columnMatches(candidate, candidate.column)
       : candidate.context.periods.length > 0
         ? own.periods.every((period) => candidate.context.periods.some((source) => source.key === period.key)) &&
@@ -717,6 +737,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
         return support("contradicted", "period-mismatch", "the uniquely bound source figure is for another period", [candidates[0].span]);
       }
       return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
+    }
+    const unitPair = matchingPeriods[0]?.unitPair;
+    if (unitPair !== undefined && matchingPeriods.every((candidate) => candidate.unitPair === unitPair)) {
+      const sameUnit = matchingPeriods.filter((candidate) => candidate.quantity.unit === quantity.unit);
+      if (sameUnit.length > 0) matchingPeriods = sameUnit;
     }
     const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
     const distinct = new Set(matchingPeriods.map((candidate) => {

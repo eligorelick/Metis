@@ -32,7 +32,7 @@
 - [x] Resolve PR #20's additional D-72 review findings, verify the combined
   source and obtain fresh required CI on the revised head.
 - [x] Commit, push and integrate the original recovery release via GitHub with fresh required CI.
-- [ ] Release the D-74/D-75 follow-up through PR #24 after its revised-head CI passes.
+- [x] Release the D-74/D-75 follow-up through PR #24 after its revised-head CI passes.
 - [x] Validate the preserved transport/checkpoint package and prevent timeout
   recovery from lowering explicitly selected reasoning or speed settings.
 - [ ] After release verification, run CRWV and QCOM as separate normal-history
@@ -111,8 +111,8 @@ test-only Windows timing follow-ups. D-74/D-75's PR #24 corrects deterministic
 principal summaries and source-bound table-scale verification while preserving
 original analyses and payloads. Its final revised source passed the full local
 gate: 6,418 product tests (three existing skips), four integration tests, both
-coverage gates, build and zero-vulnerability security audit. Fresh required CI
-for that revised head remains pending. The separate normal-history run checkbox
+coverage gates, build and zero-vulnerability security audit. PR #24 subsequently
+merged after both required full and Windows checks passed. The separate normal-history run checkbox
 stays open until both final reports and execution-setting checks are complete.
 
 The original audit's feature requests for a consolidated five-year financial
@@ -124,3 +124,12 @@ probabilities. Same-family model review and bounded case truncation are disclose
 The round-three source-selection replay retains China export/shipment context,
 Rubin production status, the customer recast, Taiwan end-customer geography and
 customer concentration; final analyst prose still requires an output audit.
+
+D-76 follows the final output audit with an explicit dividend-unit pair repair,
+historical internal-EV evidence guards and partial EDGAR coverage wording.
+Original analyst contexts remain exact; no paid rerun or stored-input rewrite
+is involved. Combined source `eaefea32` passed the full local gate: 6,447 product
+tests (three existing skips), four integration tests, both coverage gates, build
+and zero-vulnerability security audit. Independent combined-source/export review
+cleared the intended corrections. Fresh release CI is pending. The final normal
+run audit and execution-setting acceptance remain separate from these checks.

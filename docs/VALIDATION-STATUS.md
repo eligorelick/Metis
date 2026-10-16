@@ -1,6 +1,27 @@
 # Research validation status
 
-Updated 2026-10-16 for report 1.19.3 / payload 1.24.2.
+Updated 2026-10-16 for report 1.19.4 / payload 1.24.2.
+
+D-76 distinguishes an explicitly printed cash-dividend total from its per-share
+restatement, preserving conservative unit and source ambiguity checks. Output
+guards withhold unsupported internally derived historical EV against same-date
+debt evidence and label EDGAR coverage partial when retained sources coexist
+with a missing requested member. Primary valuation formulas, grades and weights
+remain unchanged. Frozen original inputs and analysis conventions are preserved;
+no paid rerun is involved. Both actual reconstructed analyst contexts match their
+original fingerprints and serialized hashes exactly; whole-report verification
+changes only the reviewed dividend entry and earlier table-scale corrections.
+Combined source `eaefea32` passed `npm run verify`, exit 0: 6,447 product tests
+(three existing skips), four database integration tests, core coverage
+96.33/90.21/98.23/97.56% and risk coverage 94.85/88.16/97.58/97.05%
+(statements/branches/functions/lines), production build and zero-vulnerability
+security audit. Independent combined-source and export review found no remaining
+reviewed blocker. A subsequent PR review found compact report-ready coverage
+missing its retained-source metadata; the narrow propagation fix passed focused
+regressions and independent review. Its fresh final local gate and required CI
+are separate from the earlier counts above; final outcomes are recorded in
+PR #25 and the local release manifest. These final checks are pending at this
+documentation freeze.
 
 D-74 corrects deterministic principal summaries: an included financing option
 cannot be added to its offering total. Computed sums require proven distinct
@@ -18,11 +39,12 @@ Frozen CRWV replay corrects only `balanceSheet.coverage.numbers[2]` and
 `balanceSheet.coverage.commentary[2]`; commentary remains numeric-only support.
 The original report, snapshot, computation and analyst payload are unchanged,
 with no paid rerun. Corrected exports preserve the original report 1.19.2
-convention; new reports use 1.19.3, while payload and Stage B remain unchanged.
+convention; that correction used 1.19.3, while payload and Stage B remained unchanged.
 The complete combined D-74/D-75 local `npm run verify` passed: 6,418 product
 tests (three skipped), four database integration tests, both configured coverage
 gates, production build and zero-vulnerability security audit. Independent source
-review found no remaining reviewed blocker. Fresh required CI remains pending;
+review found no remaining reviewed blocker. PR #24 subsequently merged after
+both required full and Windows CI checks passed;
 these checks do not establish forecast accuracy or calibrated grades.
 
 The NVDA audit recovery (D-65 through D-72) changes consensus calendarization,
@@ -51,8 +73,8 @@ filing-presentation reconciliation. Its changed context cannot resume earlier
 analyst artifacts as equivalent. Cross-date or impossible free-float percentages
 are withheld while the float measurement retains its own date; valuation share
 counts are unchanged. The subsequent test-only Windows SQLite timing policy in
-PR #23 passed both required full and Windows checks on main. D-74's source and
-presentation correction requires its own local gate and fresh CI.
+PR #23 passed both required full and Windows checks on main. D-74/D-75 then
+passed their local gate and required PR #24 CI; D-76 requires fresh evidence.
 
 The fresh NVDA output and its explicitly labeled corrected replay are recorded
 in D-71. Independent arithmetic reconciled the valuation and score; the source

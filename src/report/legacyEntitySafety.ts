@@ -8,6 +8,7 @@ import { buildDataCompleteness } from "@/report/completeness";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { attributeJudgeProtocolDisclosures } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
+import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import {
   citationAsOf,
   citationSourceId,
@@ -62,13 +63,13 @@ export function parseStoredReportWithSafety(
       getEntityRegistry(parsed.meta.symbol),
     );
     const assessed = applyReportAssessmentStatus(safety.report);
-    const view = withPrincipalSummarySafety({
+    const view = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety({
       ...assessed,
       appendix: {
         ...assessed.appendix,
         missingData: attributeJudgeProtocolDisclosures(assessed.appendix.missingData, assessed.meta),
       },
-    });
+    }));
     const revalidated = validateStoredReportInReadMode(view, readMode);
     if (revalidated === null) return null;
     return {
