@@ -80,6 +80,43 @@ describe("source-scoped principal aggregation", () => {
     const text = `On June 18, 2026, Acme ${status} $2 billion aggregate principal amount of its 4.25% Notes due 2028 and $3 billion aggregate principal amount of its 5.25% Notes due 2033.`;
     expect(summarizeItem(item(text))).not.toContain("[computed");
   });
+  it.each([
+    "would have completed its offering of",
+    "had expected to have completed its offering of",
+    "should have completed its offering of",
+    "will have completed its offering of",
+    "might have completed its offering of",
+    "had intended to have completed its offering of",
+    "described a hypothetical transaction in which it completed its offering of",
+    "said its plan assumed that it completed its offering of",
+  ])("withholds counterfactual or planning completion (%s)", (status) => {
+    const text = `On June 18, 2026, Acme ${status} $2 billion aggregate principal amount of its 4.25% Notes due 2028 and $3 billion aggregate principal amount of its 5.25% Notes due 2033.`;
+    expect(summarizeItem(item(text))).not.toContain("[computed");
+  });
+  it("keeps a true completed offering admitted under the same named-tranche grammar", () => {
+    const text = "On June 18, 2026, Acme completed its offering of $2 billion aggregate principal amount of its 4.25% Notes due 2028 and $3 billion aggregate principal amount of its 5.25% Notes due 2033.";
+    expect(summarizeItem(item(text))).toContain("[computed from 2 distinct named issuance tranches: $5.0 billion principal sum]");
+  });
+  it.each([
+    "Acme hasn't completed its offering of",
+    "Acme hadn't completed its offering of",
+    "Acme and Beta haven't completed their offering of",
+    "Acme won't have completed its offering of",
+    "Acme wouldn't have completed its offering of",
+    "Acme couldn't have completed its offering of",
+    "Acme shouldn't have completed its offering of",
+    "Acme mustn't have completed its offering of",
+    "Acme doesn't claim that it completed its offering of",
+    "Acme didn't disclose that it completed its offering of",
+    "Acme isn't asserting that it completed its offering of",
+    "Acme wasn't claiming that it completed its offering of",
+    "Acme and Beta weren't claiming that they completed their offering of",
+    "Acme and Beta aren't claiming that they completed their offering of",
+    "Acme and Beta don't claim that they completed their offering of",
+  ].flatMap((prefix) => [prefix, prefix.replace(/'/g, "’")]))("withholds contracted negative completion (%s)", (prefix) => {
+    const text = `On June 18, 2026, ${prefix} $2 billion aggregate principal amount of its 4.25% Notes due 2028 and $3 billion aggregate principal amount of its 5.25% Notes due 2033.`;
+    expect(summarizeItem(item(text))).not.toContain("[computed");
+  });
   it.each(["exchange", "repurchase", "redemption"])("does not describe a completed %s as additive issuance", (role) => {
     expect(summarizeItem(item(`On June 18, 2026, Acme completed the ${role} of $2 billion aggregate principal amount of its 4.25% Notes due 2028 and $3 billion aggregate principal amount of its 5.25% Notes due 2033.`))).not.toContain("[computed");
   });
@@ -92,6 +129,36 @@ describe("source-scoped principal aggregation", () => {
     expect(disclosure.events[0]!.summary).toContain("including $500 million");
     expect(bundle).toEqual(before);
     expect(disclosure.notes).toEqual(buildFilingDisclosures(completeCurrencyBundle({}))!.notes);
+  });
+
+  it("withholds only the legacy annotation when cached raw text is unavailable", () => {
+    const bundle = bundleWithLegacySummary();
+    if (!bundle.edgar.currentReports?.ok) throw new Error("Missing fixture current reports");
+    bundle.edgar.currentReports.value.data.events[0]!.sections[0]!.text = "";
+    const before = structuredClone(bundle);
+    const disclosure = buildFilingDisclosures(bundle)!;
+    expect(disclosure.events[0]!.summary).toContain(SOURCE);
+    expect(disclosure.events[0]!.summary).not.toContain(LEGACY);
+    expect(disclosure.events[0]!.summaryCorrection).toBe("legacy-principal-total-withheld");
+    expect(bundle).toEqual(before);
+  });
+
+  it("preserves an unaffected cached summary selected from full source beyond retained text", () => {
+    const bundle = completeCurrencyBundle({});
+    const raw = "Item 1.01 Entry into a Material Definitive Agreement\n" +
+      "Acme entered into an agreement. " + "Background information about the parties. ".repeat(130) +
+      "Acme entered into a $900 million revolving credit facility.";
+    const event = buildMaterialEventFiling({ accessionNumber: "0000000001-26-000001", form: "8-K", filingDate: "2026-09-22", items: "1.01" }, raw, "https://www.sec.gov/source");
+    expect(event.sections[0]!.text).toHaveLength(4000);
+    expect(event.sections[0]!.text).not.toContain("$900 million");
+    expect(event.sections[0]!.summary).toContain("$900 million");
+    expect(event.sections[0]!.summary).not.toContain("[computed:");
+    bundle.edgar.currentReports = { ok: true, value: { source: "edgar", endpoint: "fixture", fetchedAt: bundle.builtAt, asOf: "2026-09-22", data: { version: CURRENT_REPORTS_VERSION, releases: [], events: [event], notes: [] } } };
+    const before = structuredClone(bundle);
+    const disclosure = buildFilingDisclosures(bundle)!;
+    expect(disclosure.events[0]!.summary).toContain(event.sections[0]!.summary);
+    expect(disclosure.events[0]!.summaryCorrection).toBeUndefined();
+    expect(bundle).toEqual(before);
   });
 
   it("does not put cached summary corrections into the serialized analyst payload", () => {

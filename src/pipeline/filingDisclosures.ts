@@ -461,8 +461,12 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     const parts = e.sections
       .filter((s) => s.incorporates === null || e.sections.length === 1)
       .flatMap((s) => {
-        const summary = s.incorporates === null && s.text.trim() !== "" ? summarizeItem(s) : withoutLegacyPrincipalAnnotation(s.summary);
-        if (summary !== s.summary && withoutLegacyPrincipalAnnotation(s.summary) !== s.summary) summaryCorrection = s.incorporates === null && s.text.trim() !== "" ? "source-principal-summary-rederived" : "legacy-principal-total-withheld";
+        const stripped = withoutLegacyPrincipalAnnotation(s.summary);
+        // Unaffected summaries may retain full-source sentences beyond the
+        // cached text boundary. Re-derive only the exact legacy-marker cases.
+        const rederive = stripped !== s.summary && s.incorporates === null && s.text.trim() !== "";
+        const summary = rederive ? summarizeItem(s) : stripped;
+        if (summary !== s.summary && stripped !== s.summary) summaryCorrection = rederive ? "source-principal-summary-rederived" : "legacy-principal-total-withheld";
         return [`Item ${s.item}: ${summary}`, ...materialCreditSupportClauses(s.text).filter((clause) => !summary.includes(clause)).map((clause) => `Item ${s.item}: ${clause}`)];
       });
     // Whole source clauses: never cut off a condition or turn an option into

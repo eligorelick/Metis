@@ -19,7 +19,7 @@ Frozen CRWV replay corrects only `balanceSheet.coverage.numbers[2]` and
 The original report, snapshot, computation and analyst payload are unchanged,
 with no paid rerun. Corrected exports preserve the original report 1.19.2
 convention; new reports use 1.19.3, while payload and Stage B remain unchanged.
-The complete combined D-74/D-75 local `npm run verify` passed: 6,377 product
+The complete combined D-74/D-75 local `npm run verify` passed: 6,418 product
 tests (three skipped), four database integration tests, both configured coverage
 gates, production build and zero-vulnerability security audit. Independent source
 review found no remaining reviewed blocker. Fresh required CI remains pending;

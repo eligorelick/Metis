@@ -806,7 +806,10 @@ function aggregatePrincipal(text: string): { count: number; text: string } | nul
   if (/\b(?:including|includes?|of which|up to|options?|additional|proposed|planned|expects?|intends?|could|may)\b/i.test(sentence)) return null;
   const entries = [...sentence.matchAll(principal)];
   const prefix = sentence.slice(0, entries[0]!.index).trim();
-  if (/\b(?:not|never|cancelled|canceled|withdrawn|withdrew|abandoned|terminated|if|assuming|contingent)\b/i.test(prefix)) return null;
+  // A completed-offering suffix inside a counterfactual, expectation or plan
+  // does not establish that the named tranches were actually issued.
+  if (/\b[a-z]+n['’]t\b/i.test(prefix) ||
+    /\b(?:not|never|cancelled|canceled|withdrawn|withdrew|abandoned|terminated|if|assuming|assumed|assumes?|contingent|would|should|will|might|must|cannot|ought|expected|expecting|intended|intending|anticipated|anticipating|scheduled|hypothetical|counterfactual|plans?|planning)\b/i.test(prefix)) return null;
   const affirmativeOffering = /\b(?:completed|closed)\s+(?:(?:its|the|an?|their)\s+)?(?:(?:previously announced|upsized|private|public|underwritten|registered)\s+)*(?:offering|issuance)\s+of$/i.test(prefix);
   const affirmativeIssuance = /\bissued(?:\s+and\s+sold)?$/i.test(prefix);
   if (!affirmativeOffering && !affirmativeIssuance) return null;
