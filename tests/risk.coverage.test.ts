@@ -137,6 +137,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/financialEnrichment.ts",
   "src/edgar/debtCompleteness.ts",
   "src/edgar/debtPresentation.ts",
+  "src/edgar/issuerFacts.ts",
   "src/providers/companyEvents.ts",
   "src/providers/companyIr.ts",
   "src/pipeline/runInputSnapshot.ts",

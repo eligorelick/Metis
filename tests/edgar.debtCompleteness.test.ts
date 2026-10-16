@@ -10,6 +10,7 @@ import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { completeCurrencyBundle, currencyBundle, M } from "./helpers/currencyBundle";
 import frozen from "./fixtures/crwv-debt-facts.json";
+import { confirmFixtureIssuer } from "./helpers/edgarIdentity";
 
 const build = (facts = frozen.facts as CompanyFacts) => buildStatementsFromCompanyFacts(facts, {
   symbol: "CRWV", cik: "0001769628", asOf: frozen.asOf, factsObservedAt: "2026-10-16T09:33:42.064Z", annualPeriods: 2, quarterlyPeriods: 4,
@@ -106,6 +107,7 @@ describe("CRWV saved debt facts must not publish a partial carrying total", () =
     delete balance.value.data.rows[0]!.reportedCurrency;
     bundle.edgar = { ...bundle.edgar, companyFacts: { ok: true, value: { data: frozen.facts as CompanyFacts, source: "edgar",
       asOf: frozen.asOf, fetchedAt: `${frozen.asOf}T09:33:42.064Z`, endpoint: "frozen CRWV companyfacts" } } };
+    confirmFixtureIssuer(bundle, 1769628);
     const result = runStageB(bundle);
     expect(result.valuation.multiples!.enterpriseValue.value).toBeNull();
     expect(result.returns.wacc.waccPct).toBeNull();
@@ -128,6 +130,7 @@ describe("CRWV saved debt facts must not publish a partial carrying total", () =
     }
     bundle.edgar = { ...bundle.edgar, companyFacts: { ok: true, value: { data: frozen.facts as CompanyFacts, source: "edgar",
       asOf: frozen.asOf, fetchedAt: bundle.builtAt, endpoint: "frozen CRWV companyfacts" } } };
+    confirmFixtureIssuer(bundle, 1769628);
     const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
     const id = "payload.statements.balance-sheet-quarterly.2026-06-30.total-debt";
     const record = payload.provenanceRegistry?.find((entry) => entry.id === id);

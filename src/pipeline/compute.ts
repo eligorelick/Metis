@@ -128,6 +128,7 @@ import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import {
   normalizeQuarterRows,
   quarterWindowViolation,
@@ -1618,7 +1619,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // D-60: marketable equity securities the filing places inside cash and
   // short-term investments travel on the balance row, so every net-debt
   // consumer can keep them out of cash.
-  const companyFacts = bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null;
+  const companyFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];

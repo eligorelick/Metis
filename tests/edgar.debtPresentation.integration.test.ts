@@ -10,6 +10,7 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { runStageB } from "@/pipeline/compute";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
+import { confirmFixtureIssuer } from "./helpers/edgarIdentity";
 
 const fixture = JSON.parse(readFileSync("fixtures/edgar/qcom-debt-presentation-20260628.json", "utf8")) as DebtPresentationInput;
 const observedAt = "2026-10-16T09:33:42.064Z";
@@ -54,6 +55,7 @@ describe("QCOM source presentation reaches normal enrichment and immutable analy
     bundle.statements.balanceQuarterly.value.data.rows[0] = row as FmpBalanceSheetRow;
     bundle.edgar = { ...bundle.edgar, tenQNotes: { ok: true, value: { data: section, source: "edgar", asOf: fixture.periodEnd, fetchedAt: observedAt, endpoint: fixture.source.documentUrl } },
       companyFacts: { ok: true, value: { data: facts, source: "edgar", asOf: fixture.periodEnd, fetchedAt: observedAt, endpoint: "frozen facts" } } };
+    confirmFixtureIssuer(bundle, 804328);
     const enriched = enrichFinancialFields(bundle.statements.balanceQuarterly, bundle.statements.cashflowQuarterly, facts, "quarter", observedAt, [section]);
     if (!enriched.balance.ok) throw new Error("fixture missing");
     expect(enriched.balance.value.data.rows[0]!.totalDebt).toBe(15270e6);

@@ -32,7 +32,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
-import type { CompanyFacts } from "@/edgar/xbrl";
+import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
@@ -1371,7 +1371,7 @@ function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
-  const facts = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.data as CompanyFacts : null;
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const currencyEvidence = statementCurrencyEvidence(bundle);
   // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
   // admission before raw statement cells can enter the analyst or verifier registry.
