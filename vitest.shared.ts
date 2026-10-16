@@ -191,6 +191,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/currentReports.ts",
   "src/pipeline/filingDisclosures.ts",
   "src/report/filingDisclosurePresentation.ts",
+  "src/report/filingSupplementPresentation.ts",
   // Added 2026-10-15 (D-62): the shared presentation rules, the audit export
   // and the provider market-data block feed every report surface.
   "src/report/presentation.ts",

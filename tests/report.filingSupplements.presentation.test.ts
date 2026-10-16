@@ -5,6 +5,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 import type { FilingDisclosures } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -28,6 +29,52 @@ function disclosures() {
 }
 
 describe("deterministic filing supplements", () => {
+  it("does not turn absent optional records into claims about an issuer", () => {
+    const absent = { currency: null };
+    expect(filingFactTables(absent)).toEqual([]);
+    expect(filingCommentaryOutlookTables(absent)).toEqual([]);
+    expect(filingGovernanceTables(absent)).toEqual([]);
+  });
+
+  it("keeps days, shares and counts distinct and discloses an unrecorded measurement date", () => {
+    const base = disclosures().filingFacts[0]!;
+    const tables = filingFactTables({ currency: "USD", filingFacts: [
+      { ...base, label: "Receivable days", value: 46.5, unit: "days", qualifier: null, computed: null, asOf: null, period: null },
+      { ...base, label: "Shares subject to agreement", value: 123456, unit: "shares", qualifier: null, computed: null, asOf: null, period: null },
+      { ...base, label: "Customer count", value: 3, unit: "count", qualifier: null, computed: null, asOf: null, period: null },
+    ] });
+    expect(tables[0]?.rows.map((r) => r.slice(0, 3))).toEqual([
+      ["Receivable days", "46.5 days", "Not recorded"],
+      ["Shares subject to agreement", "123,456 shares", "Not recorded"],
+      ["Customer count", "3", "Not recorded"],
+    ]);
+  });
+
+  it("distinguishes confirmed and scheduled appointments from anticipated changes", () => {
+    const base = disclosures().officerChanges[0]!;
+    const tables = filingGovernanceTables({ currency: "USD", officerChanges: [
+      { ...base, kind: "appointment", board: true, anticipated: false, inEffect: true, effective: "2026-09-30", announced: null, note: null, package: [] },
+      { ...base, kind: "appointment", anticipated: false, inEffect: false, effective: null, note: null, package: [] },
+      { ...base, anticipated: true, effective: null },
+    ] });
+    expect(tables[0]?.rows[0]).toEqual(["Example Officer — EVP (board)", "Appointment", "Not recorded", "Effective 2026-09-30", "Not recorded", expect.any(String)]);
+    expect(tables[0]?.rows[1]?.[3]).toBe("Scheduled date not recorded");
+    expect(tables[0]?.rows[2]?.[3]).toBe("Anticipated date not recorded; effective status unconfirmed");
+  });
+
+  it("retains a negative pay vote and plan changes when share capacity or expiration is absent", () => {
+    const base = disclosures();
+    const changed: FilingSupplements = { currency: "USD", sayOnPay: { ...base.sayOnPay, approved: false, meetingDate: null, brokerNonVotes: 4 }, tradingArrangements: [
+      { ...base.tradingArrangements[0]!, action: "modification", shares: null, includesFutureAwards: false, expires: null },
+      { ...base.tradingArrangements[0]!, action: "termination", shares: 5000, includesFutureAwards: false },
+    ] };
+    const tables = filingGovernanceTables(changed);
+    expect(tables[0]?.rows[0]?.slice(0, 2)).toEqual(["Not recorded", "Not approved"]);
+    expect(tables[0]?.rows[0]?.[5]).toBe("4");
+    expect(tables[1]?.rows[0]?.slice(1, 5)).toEqual(["Modified", "2026-06-15", "Count not stated", "Not recorded"]);
+    expect(tables[1]?.rows[1]?.[1]).toBe("Terminated");
+  });
+
   it("shows the filing's amount, qualifier, period and derivation without relying on analyst prose", () => {
     const tables = filingDisclosureTables(disclosures(), "balanceSheet");
     const text = JSON.stringify(tables);
