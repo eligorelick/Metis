@@ -780,6 +780,21 @@ function computedSections(
           })),
           { label: "Beneish M with the sales-growth index at neutral 1.0", value: fx.beneish.sgiNeutralScore ?? null, unit: "score", source: "computed.forensics.beneish.sgiNeutralScore", asOf: fx.beneish.asOf.current },
           { label: "Beneish flag carried by sales growth alone", value: fx.beneish.growthLed === true ? "yes" : "no", unit: "", source: "computed.forensics.beneish.growthLed", asOf: fx.beneish.asOf.current },
+          // D-68: what the statements show behind AQI and GMI (context, not graded).
+          ...(fx.beneish.aqiWithoutAcquiredAndInvestments != null
+            ? [{ label: "Beneish AQI without goodwill, intangibles and long-term investments (context, not graded)", value: fx.beneish.aqiWithoutAcquiredAndInvestments, unit: "x", source: "computed.forensics.beneish.aqiWithoutAcquiredAndInvestments", asOf: fx.beneish.asOf.current }]
+            : []),
+          ...(fx.beneish.gmiContext != null && fx.beneish.inventoryWriteDownCurrent != null
+            ? [
+                { label: "inventory write-downs the filer tagged (current year)", value: fx.beneish.inventoryWriteDownCurrent, unit: "currency", currency: currencies.forensics, source: "computed.forensics.beneish.inventoryWriteDownCurrent", asOf: fx.beneish.asOf.current },
+                ...(fx.beneish.inventoryWriteDownPrior != null
+                  ? [{ label: "inventory write-downs the filer tagged (prior year)", value: fx.beneish.inventoryWriteDownPrior, unit: "currency", currency: currencies.forensics, source: "computed.forensics.beneish.inventoryWriteDownPrior", asOf: fx.beneish.asOf.prior }]
+                  : []),
+                ...(fx.beneish.gmiWithoutWriteDowns != null
+                  ? [{ label: "Beneish GMI with inventory write-downs added back (context, not graded)", value: fx.beneish.gmiWithoutWriteDowns, unit: "x", source: "computed.forensics.beneish.gmiWithoutWriteDowns", asOf: fx.beneish.asOf.current }]
+                  : []),
+              ]
+            : []),
         ]
       : []),
     // The forensic layer's own label carries the scale (variant, denominator
@@ -808,8 +823,19 @@ function computedSections(
           { label: "long-term investments removed from net operating assets (prior)", value: fx.accruals.longTermInvestmentsPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.longTermInvestmentsPrior", asOf: fx.accruals.asOf.prior },
         ] satisfies PayloadFigureInput[]
       : []),
-    { label: "revenue growth over the accrual years", value: fx.accruals?.revenueGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.revenueGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
-    { label: "net operating asset growth over the accrual years", value: fx.accruals?.noaGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.noaGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
+    // D-68: one fiscal year over the prior, not "the accrual years".
+    { label: "revenue growth in the accrual fiscal year (year over year)", value: fx.accruals?.revenueGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.revenueGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
+    { label: "net operating asset growth in the accrual fiscal year (year over year)", value: fx.accruals?.noaGrowthPct ?? null, unit: "%", source: "computed.forensics.accruals.noaGrowthPct", asOf: fx.accruals?.asOf.current ?? null },
+    // D-68: how much of the NOA increase an acquisition added, when one did.
+    ...(fx.accruals != null && fx.accruals.notes.some((note) => note.startsWith("Acquisitions "))
+      ? [
+          { label: "goodwill (current)", value: fx.accruals.goodwillCurrent ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.goodwillCurrent", asOf: fx.accruals.asOf.current },
+          { label: "goodwill (prior)", value: fx.accruals.goodwillPrior ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.goodwillPrior", asOf: fx.accruals.asOf.prior },
+          { label: "increase in goodwill and other intangible assets", value: fx.accruals.acquiredGoodwillAndIntangibles ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquiredGoodwillAndIntangibles", asOf: fx.accruals.asOf.current },
+          { label: "cash paid for acquisitions, net of cash acquired", value: fx.accruals.acquisitionCashPaid ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaid", asOf: fx.accruals.asOf.current },
+          { label: "goodwill and intangibles increase as a share of the net-operating-asset increase", value: fx.accruals.acquiredShareOfNoaIncreasePct ?? null, unit: "%", source: "computed.forensics.accruals.acquiredShareOfNoaIncreasePct", asOf: fx.accruals.asOf.current },
+        ]
+      : []),
     { label: "accrual operand net income (NI)", value: fx.accruals?.netIncome ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.netIncome", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand operating cash flow (CFO)", value: fx.accruals?.operatingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.operatingCashFlow", asOf: fx.accruals?.asOf.current ?? null },
     { label: "accrual operand investing cash flow (CFI)", value: fx.accruals?.investingCashFlow ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.investingCashFlow", asOf: fx.accruals?.asOf.current ?? null },

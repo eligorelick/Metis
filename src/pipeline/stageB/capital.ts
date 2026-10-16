@@ -918,6 +918,12 @@ export function computeCapital(
   let timingCost = 0;
   let timingAtYearAverage = 0;
   let timingCoveredDollars = 0;
+  // D-68: why a year with a tagged execution price still left timing unmeasured.
+  let repurchaseYears = 0;
+  let executionYears = 0;
+  const unpricedExecutionYears: string[] = [];
+  const unpricedReasons = new Set<string>();
+  const implausibleExecutionYears: string[] = [];
   const proxyCurrency = comparePriceCurrency(options.reportedCurrency, options.quoteCurrency);
   const priceProxySuppressed = !proxyCurrency.comparable || options.isAdr === true;
   const priceProxySuppressedReason = !proxyCurrency.comparable
@@ -940,6 +946,7 @@ export function computeCapital(
           : 0;
       if (repurchased <= 0) continue;
       totalRepurchased += repurchased;
+      repurchaseYears += 1;
 
       // Fiscal window: (previous row date, this row date]; oldest row falls back to date − 1y.
       const endMs = Date.parse(r.date);
@@ -986,10 +993,18 @@ export function computeCapital(
       let actualPricePaid: number | null = null;
       let paidVsYearAveragePct: number | null = null;
       const execution = executions.find((e) => withinDays(e.periodEnd, r.date, 7));
+      if (execution !== undefined) executionYears += 1;
+      if (execution !== undefined && avgPriceProxy === null) {
+        // The filer tagged what it paid; the market side of the comparison is
+        // what is missing (NVDA's final live run: every market-cap day withheld).
+        unpricedExecutionYears.push(r.date);
+        for (const why of rowNotes) unpricedReasons.add(why);
+      }
       if (execution !== undefined && avgPriceProxy !== null) {
         const paid = execution.value / execution.shares;
         const ratio = paid / avgPriceProxy;
         if (ratio > BUYBACK_EXECUTION_PLAUSIBLE_RATIO || ratio < 1 / BUYBACK_EXECUTION_PLAUSIBLE_RATIO) {
+          implausibleExecutionYears.push(r.date);
           rowNotes.push(
             `tagged repurchase price ${fmt(paid)} is ${fmt(ratio)}× the year's average price ${fmt(avgPriceProxy)} — outside the ${BUYBACK_EXECUTION_PLAUSIBLE_RATIO}× plausibility band, so a share-basis or tagging mismatch is likely; year left out of the timing measure`,
           );
@@ -1021,11 +1036,27 @@ export function computeCapital(
       `buyback timing: the shares actually repurchased would have cost ${fmt(timingPct)}% ${timingPct >= 0 ? "more" : "less"} at each fiscal year's average price than was paid (tagged cost ÷ tagged shares; ${fmt(timingCoveragePct)}% of repurchase dollars covered)`,
     );
   } else if (totalRepurchased > 0) {
+    // D-68: name the side of the comparison that is missing. The tags were
+    // blamed when the year-average price was the gap.
+    const unmatched: string[] = [];
+    if (unpricedExecutionYears.length > 0) {
+      unmatched.push(
+        `no year-average price for ${unpricedExecutionYears.join(", ")}` +
+          (unpricedReasons.size > 0 ? ` (${[...unpricedReasons].join("; ")})` : ""),
+      );
+    }
+    if (implausibleExecutionYears.length > 0) {
+      unmatched.push(
+        `the tagged price for ${implausibleExecutionYears.join(", ")} is outside the ${BUYBACK_EXECUTION_PLAUSIBLE_RATIO}× plausibility band against the year's average price`,
+      );
+    }
     const why = timingCoveragePct !== null
       ? `tagged execution prices cover only ${fmt(timingCoveragePct)}% of repurchase dollars (house minimum ${BUYBACK_TIMING_MIN_COVERAGE_PCT}%)`
       : priceProxySuppressed
         ? "the year-average price proxy is withheld"
-        : "no tagged repurchase share count and cost on a known share basis matches the fiscal years";
+        : executionYears > 0 && unmatched.length > 0
+          ? `tagged repurchase prices were found for ${executionYears} of ${repurchaseYears} fiscal years with repurchases, but ${unmatched.join(", and ")}`
+          : "no tagged repurchase share count and cost on a known share basis matches the fiscal years";
     notes.push(`buyback timing not measured: ${why}; the price actually paid against the year's average price is unknown, so timing is not graded`);
   }
   const avgPricePaidProxy = weightedShares > 0 ? weightedDollars / weightedShares : null;

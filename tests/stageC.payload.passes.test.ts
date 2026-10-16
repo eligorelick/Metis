@@ -769,14 +769,19 @@ describe("payload determinism + provenance", () => {
       // indices, Piotroski signals, accrual operands), D-60 removes 4 (vendor
       // cash-only net debt) -> 531; prompt bytes add D-63 evidence, D-61 and D-60
       // payload text (126,290 + 3,856 + 1,592 = 131,738, +4 from merged labels).
-      fingerprint: "1.23.0:4c978f25",
-      promptBytes: 131_742,
+      // D-68: the two accrual growth rows compare one fiscal year with the
+      // prior, so "over the accrual years" becomes "in the accrual fiscal year
+      // (year over year)"; their labels and registry ids move (+80 prompt
+      // bytes), values and periods do not. The fixture made no acquisition and
+      // its Beneish M (-2.49) is in the "unlikely" band, so no D-68 context row joins.
+      fingerprint: "1.23.0:c8b504b9",
+      promptBytes: 131_822,
       provenanceCount: 531,
-      provenanceHash: "4821d095",
-      provenanceIdsHash: "a549f740",
+      provenanceHash: "28d23173",
+      provenanceIdsHash: "0dee6be6",
       citationCount: 73,
       citationHash: "395a88c9",
-      computedFigureLabelHash: "4a5113a3",
+      computedFigureLabelHash: "7f5cbe9b",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED

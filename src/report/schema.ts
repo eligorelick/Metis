@@ -1153,7 +1153,16 @@ export const QualitySchema = z
   .object({
     graded: GradeBlockSchema,
     forensicScores: ForensicScoresSchema,
+    /** Findings only: what the screens or the analysis flagged. */
     flags: z.array(QualityFlagSchema),
+    /**
+     * D-68: pipeline-owned methodology and context notes for the forensic
+     * screens (accrual definition, house bands, growth and acquisition
+     * context, the statement figures behind AQI and GMI). Not findings, so
+     * not flags. Removed from the judge request schema; absent on reports
+     * written before D-68, which carried them as "low" flags.
+     */
+    notes: z.array(z.string()).optional(),
   })
   .strict();
 export type Quality = z.infer<typeof QualitySchema>;
@@ -2809,6 +2818,11 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       if (Array.isArray(scenarioName?.enum) && scenarioName.enum.join(",") === "bull,base,bear" && "probability" in props) {
         delete props.probability;
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== "probability");
+      }
+      if ("graded" in props && "forensicScores" in props && "flags" in props && "notes" in props) {
+        // D-68: forensic methodology notes are written by the pipeline.
+        delete props.notes;
+        if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((key) => key !== "notes");
       }
       if ("grade" in props && "oneLineWhy" in props && "assessmentStatus" in props) {
         // A deterministic data-only display decision, never model-authored.

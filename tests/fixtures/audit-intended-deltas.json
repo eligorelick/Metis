@@ -6358,33 +6358,6 @@
           }
         },
         {
-          "path": "report.quality.flags.1",
-          "beforeMissing": true,
-          "after": {
-            "severity": "low",
-            "text": "Cash-flow accruals = (net income − operating cash flow − operating investing cash flow) / average net operating assets, financial-asset-adjusted (Richardson et al. 2005): purchases and sales/maturities of investments are excluded from investing cash flow and long-term investments from net operating assets, so buying securities or strategic stakes is not an accrual. Capex and acquisitions remain. It measures growth in net operating assets and is not a manipulation finding.",
-            "source": "computed.forensics.accruals"
-          }
-        },
-        {
-          "path": "report.quality.flags.2",
-          "beforeMissing": true,
-          "after": {
-            "severity": "low",
-            "text": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions stay in as operating investment.",
-            "source": "computed.forensics.accruals"
-          }
-        },
-        {
-          "path": "report.quality.flags.3",
-          "beforeMissing": true,
-          "after": {
-            "severity": "low",
-            "text": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
-            "source": "computed.forensics.accruals"
-          }
-        },
-        {
           "path": "report.quality.forensicScores.accruals.score",
           "before": 0.03296703296703297,
           "after": 0.012269938650306749
@@ -6939,16 +6912,6 @@
           "after": 3950000000
         },
         {
-          "path": "stageB.forensics.accruals.notes.0",
-          "before": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
-          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions stay in as operating investment."
-        },
-        {
-          "path": "stageB.forensics.accruals.notes.1",
-          "beforeMissing": true,
-          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
-        },
-        {
           "path": "stageB.forensics.accruals.operatingInvestingCashFlow",
           "beforeMissing": true,
           "after": -700000000
@@ -6977,16 +6940,6 @@
           "path": "stageB.forensics.beneish.sgiNeutralScore",
           "beforeMissing": true,
           "after": -2.760356467012471
-        },
-        {
-          "path": "stageB.forensics.notes.7",
-          "beforeMissing": true,
-          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex, acquisitions stay in as operating investment."
-        },
-        {
-          "path": "stageB.forensics.notes.8",
-          "beforeMissing": true,
-          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
         },
         {
           "path": "stageB.scores.aspects.leadership.applicableCompleteness",
@@ -9153,6 +9106,120 @@
           "path": "stageB.valuation.sensitivity.waccPcts.4",
           "before": 10.255946000000002,
           "after": 11.257246428985505
+        }
+      ]
+    },
+    {
+      "name": "forensics-r3-2026-10-16",
+      "decisions": [
+        "D-68"
+      ],
+      "reason": "D-68 (NVDA final-report audit, forensics round 3). Methodology notes are notes, not findings: the accrual definition, its house bands and the growth/acquisition context leave report.quality.flags (the three 'low' D-61 flags no longer differ from the baseline and drop out) and are report.quality.notes, a pipeline-owned field removed from the judge request schema. The accrual definition note reads 'Capex and acquisitions stay in' instead of 'Capex, acquisitions stay in' when the statement has no unclassified investing flow, and the house-band note follows the two new notes, so the four note paths D-61 pinned (accruals.notes.0/1, forensics.notes.7/8) move to this group. DEMO's cash-flow statement pays 100M for acquisitions (acquisitionsNet) with goodwill unchanged at 1.00B, at least 10% of its 250M NOA increase, so the accruals carry the new acquisition note and the NOA composition note (receivables +150M, inventory +20M, PP&E +150M, other operating assets +230M, operating liabilities +300M), and the new fields goodwillCurrent/Prior 1.00B, acquiredGoodwillAndIntangibles 0, acquisitionCashPaid 100M and acquiredShareOfNoaIncreasePct 0. The Beneish context fields are null: DEMO's M is in the 'unlikely' band, and its statements carry no tagged inventory write-downs. No score, band, grade or ratio moves.",
+      "deltas": [
+        {
+          "path": "report.quality.notes",
+          "beforeMissing": true,
+          "after": [
+            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
+            "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant.",
+            "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them.",
+            "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
+          ]
+        },
+        {
+          "path": "stageB.forensics.accruals.acquiredGoodwillAndIntangibles",
+          "beforeMissing": true,
+          "after": 0
+        },
+        {
+          "path": "stageB.forensics.accruals.acquiredShareOfNoaIncreasePct",
+          "beforeMissing": true,
+          "after": 0
+        },
+        {
+          "path": "stageB.forensics.accruals.acquisitionCashPaid",
+          "beforeMissing": true,
+          "after": 100000000
+        },
+        {
+          "path": "stageB.forensics.accruals.goodwillCurrent",
+          "beforeMissing": true,
+          "after": 1000000000
+        },
+        {
+          "path": "stageB.forensics.accruals.goodwillPrior",
+          "beforeMissing": true,
+          "after": 1000000000
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.0",
+          "before": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.1",
+          "beforeMissing": true,
+          "after": "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant."
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.2",
+          "beforeMissing": true,
+          "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.3",
+          "beforeMissing": true,
+          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
+        },
+        {
+          "path": "stageB.forensics.beneish.aqiContext",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.forensics.beneish.aqiWithoutAcquiredAndInvestments",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.forensics.beneish.gmiContext",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.forensics.beneish.gmiWithoutWriteDowns",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.forensics.beneish.inventoryWriteDownCurrent",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.forensics.beneish.inventoryWriteDownPrior",
+          "beforeMissing": true,
+          "after": null
+        },
+        {
+          "path": "stageB.forensics.notes.7",
+          "beforeMissing": true,
+          "after": "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment."
+        },
+        {
+          "path": "stageB.forensics.notes.8",
+          "beforeMissing": true,
+          "after": "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant."
+        },
+        {
+          "path": "stageB.forensics.notes.9",
+          "beforeMissing": true,
+          "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
+        },
+        {
+          "path": "stageB.forensics.notes.10",
+          "beforeMissing": true,
+          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
         }
       ]
     }

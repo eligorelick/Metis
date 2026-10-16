@@ -497,7 +497,9 @@ function sectionQuality(q: Quality, report: Report): string {
   const flags = q.flags.length > 0
     ? table(["Severity", "Flag", "Source"], q.flags.map((f) => [esc(f.severity), prose(f.text), esc(sourceLabel(f.source))]))
     : `<p class="faint">No forensic flags raised.</p>`;
-  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report)}${subsection("Forensic scores", forensic)}<h3>Flags</h3>${flags}</section>`;
+  // D-68: methodology and context notes sit under the table; flags are findings.
+  const notes = (q.notes ?? []).length > 0 ? `<div><em>Notes</em><ul>${(q.notes ?? []).map((note) => `<li>${prose(note)}</li>`).join("")}</ul></div>` : "";
+  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report)}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
 }
 
 function sectionTechnicals(report: Report): string {

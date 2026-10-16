@@ -1169,6 +1169,14 @@ export function QualityFlags({
             notApplicableReason={f.accruals.notApplicableReason}
           />
         </div>
+        {/* D-68: methodology and context notes; the flags below are findings. */}
+        {(quality.notes ?? []).length > 0 && (
+          <ul className="mt-2 flex list-disc flex-col gap-1 pl-4 text-[10px] leading-snug text-faint">
+            {(quality.notes ?? []).map((note, i) => (
+              <li key={i}>{note}</li>
+            ))}
+          </ul>
+        )}
       </SubBlock>
       <SubBlock label={`plain-english flags (${sortedFlags.length})`}>
         {sortedFlags.length === 0 ? (
