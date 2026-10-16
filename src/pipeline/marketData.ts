@@ -108,10 +108,11 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean }
     : null;
 
   const g = rows(bundle.gradesConsensus)[0];
-  const gradeCounts: MarketData["gradeCounts"] = g && [g.strongBuy, g.buy, g.hold, g.sell, g.strongSell].some((value) => n(value) !== null)
+  // Missing buckets are unknown, not zero. A total requires all five actual counts.
+  const gradeCounts: MarketData["gradeCounts"] = g && [g.strongBuy, g.buy, g.hold, g.sell, g.strongSell].every((value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0)
     ? {
-        strongPositive: n(g.strongBuy) ?? 0, positive: n(g.buy) ?? 0, neutral: n(g.hold) ?? 0,
-        negative: n(g.sell) ?? 0, strongNegative: n(g.strongSell) ?? 0, asOf: asOfOf(bundle.gradesConsensus),
+        strongPositive: n(g.strongBuy)!, positive: n(g.buy)!, neutral: n(g.hold)!,
+        negative: n(g.sell)!, strongNegative: n(g.strongSell)!, asOf: asOfOf(bundle.gradesConsensus),
       }
     : null;
 

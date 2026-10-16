@@ -16,6 +16,8 @@ import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "@/providers/currentReports";
+import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
+import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import {
   parseBusinessCombinationFacts,
@@ -59,14 +61,13 @@ function daysApart(a: string, b: string): number {
   return Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000;
 }
 
-/** The one ISO currency the quarterly and annual statement rows agree on, else null. */
+/** Current normalized income statement currency; historical currencies do not override it. */
 export function statementReportingCurrency(bundle: DataBundle): string | null {
-  const codes = new Set<string>();
-  for (const row of [...rowsOf(bundle.statements?.incomeQuarterly).slice(0, 8), ...rowsOf(bundle.statements?.incomeAnnual).slice(0, 2)]) {
-    const code = typeof row.reportedCurrency === "string" ? row.reportedCurrency.trim().toUpperCase() : "";
-    if (/^[A-Z]{3}$/.test(code)) codes.add(code);
-  }
-  return codes.size === 1 ? [...codes][0]! : null;
+  const quarterly = rowsOf(bundle.statements?.incomeQuarterly);
+  const normalized = normalizeQuarterRows(quarterly.length > 0 ? quarterly : rowsOf(bundle.statements?.incomeAnnual));
+  const latest = normalized.rows[0];
+  if (!latest || normalized.rejected.some((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.period) && r.period >= latest.date!)) return null;
+  return establishedCurrencyOn([latest], day(latest.date), statementCurrencyEvidence(bundle));
 }
 
 function symbolCurrency(symbol: string | null, statementCurrency: string | null): string | null {
@@ -211,7 +212,8 @@ function guidanceRows(items: readonly GuidanceItem[], currency: string | null, n
  * ended" date); the actual comes from the statement row with that end date.
  */
 function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null): GuidanceCheck[] {
-  const income = rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly);
+  const income = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly)).rows;
+  const evidence = statementCurrencyEvidence(bundle);
   const source = bundle.statements?.incomeQuarterly?.ok ? `${bundle.statements.incomeQuarterly.value.source}:income-statement(quarter)` : "statements";
   const checks: GuidanceCheck[] = [];
   for (const guide of releases) {
@@ -222,6 +224,7 @@ function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRe
       const reporter = releases.find((r) => r.reported.fiscal?.label === item.period.label && r.reported.periodEnd !== null && r.filingDate > guide.filingDate);
       if (!reporter || reporter.reported.periodEnd === null) continue;
       const row = income.find((r) => day(r.date) !== null && daysApart(day(r.date)!, reporter.reported.periodEnd!) <= 3);
+      if (item.metric === "revenue" && (currency === null || !row || establishedCurrencyOn([row], day(row.date), evidence) !== currency)) continue;
       const revenue = num(row?.revenue);
       const grossProfit = num(row?.grossProfit);
       const actual = item.metric === "revenue" ? revenue : revenue !== null && grossProfit !== null && revenue !== 0 ? (grossProfit / revenue) * 100 : null;
@@ -259,17 +262,40 @@ function quarterReconciliation(releases: readonly EarningsReleaseRecord[], curre
   return null;
 }
 
-function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[] = [], currency: string | null = null): FilingDisclosures["quarterlyTrend"] {
+function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[]): FilingDisclosures["quarterlyTrend"] {
+  const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
+  const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
+  for (const [label, normalized] of [["income", normalizedIncome], ["cash-flow", normalizedCash]] as const) {
+    for (const rejection of normalized.rejected) notes.push(`Quarterly ${label} trend: ${rejection.reason}.`);
+  }
+  if (currency === null) {
+    if (normalizedIncome.rows.length > 0) notes.push("Quarterly trend left out: the current income statement's reporting currency is not established.");
+    return [];
+  }
+  const evidence = statementCurrencyEvidence(bundle);
+  const compatibleIncome: FmpIncomeStatementRow[] = [];
+  for (const row of normalizedIncome.rows) {
+    if (establishedCurrencyOn([row], day(row.date), evidence) !== currency) {
+      notes.push(`Quarterly trend history stops before ${row.date}: its reporting currency is unknown or differs from current ${currency}; no currency conversion is assumed.`);
+      break;
+    }
+    compatibleIncome.push(row);
+  }
   const byDate = <T extends FmpRawRow>(rows: T[]): Map<string, T> => {
     const out = new Map<string, T>();
     for (const r of rows) {
       const d = day(r.date);
-      if (d !== null && !out.has(d)) out.set(d, r);
+      if (d !== null) out.set(d, r);
     }
     return out;
   };
-  const income = byDate(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
-  const cash = byDate(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));
+  const income = byDate(compatibleIncome);
+  const cash = byDate(normalizedCash.rows.filter((row) => {
+    if (!income.has(row.date!)) return false;
+    if (establishedCurrencyOn([row], day(row.date), evidence) === currency) return true;
+    notes.push(`Quarterly cash-flow amounts for ${row.date} left out: reporting currency is unknown or differs from current ${currency}.`);
+    return false;
+  }));
   const dates = [...income.keys()].sort().reverse();
   const near = (target: string, lo: number, hi: number): FmpIncomeStatementRow | undefined => {
     const d = dates.find((x) => x < target && daysApart(x, target) >= lo && daysApart(x, target) <= hi);
@@ -321,13 +347,13 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const segments = segmentsRes?.ok ? segmentsRes.value.data : null;
   const currency = statementReportingCurrency(bundle);
   const releases = reports?.releases ?? [];
-  const trend = quarterlyTrend(bundle, releases, currency);
+  const notes: string[] = [];
+  const trend = quarterlyTrend(bundle, releases, currency, notes);
   const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases);
   const officerChanges = officerChangeRows(reports, bundle);
   const sayOnPay = sayOnPayRow(reports);
   const tradingArrangements = tradingArrangementRows(bundle);
   if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && tradingArrangements.length === 0) return undefined;
-  const notes: string[] = [];
 
   const guided = releases.find((r) => (r.guidance?.items.length ?? 0) > 0);
   const guidance: FilingDisclosures["guidance"] = guided && guided.guidance
@@ -473,8 +499,8 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     version: "1.0.0",
     currency,
     currencyBasis: currency === null
-      ? "The statements do not agree on one reporting currency, so no amount printed in an 8-K exhibit is given a currency; those amounts are left out."
-      : `Amounts printed with "$" in the issuer's 8-K exhibits are read in the statements' reporting currency (${currency}); XBRL amounts carry their own ISO unit.`,
+      ? "The current statement reporting currency is not established, so no amount printed in an 8-K exhibit is given a currency; those amounts are left out."
+      : `Amounts printed with "$" in the issuer's 8-K exhibits are read in the current statements' reporting currency (${currency}); XBRL amounts carry their own ISO unit.`,
     guidance,
     guidanceChecks: guidanceChecks(bundle, releases, currency),
     freeCashFlow,
