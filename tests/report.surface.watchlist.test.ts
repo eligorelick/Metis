@@ -164,4 +164,17 @@ describe("manifest-driven watchlist renderers", () => {
       expect(html.match(new RegExp(`title="${title}"`, "g")) ?? []).toHaveLength(2);
     }
   });
+
+  it("explains withheld grades and stale saved quotes accessibly on both Home surfaces", async () => {
+    vi.mocked(getWatchlistView).mockResolvedValue([{ ...WATCH_ROW,
+      grades: { ...WATCH_ROW.grades, quality: null },
+      gradeLabels: { quality: "Not assessed — limited evidence (40% of signals; 50% required)" },
+      priceStale: true,
+    }]);
+    const html = await renderAsync(await Home());
+    expect(html.match(/title="Q: Not assessed — limited evidence \(40% of signals; 50% required\)"/g) ?? []).toHaveLength(2);
+    expect(html.match(/aria-label="Q: Not assessed — limited evidence \(40% of signals; 50% required\)"/g) ?? []).toHaveLength(2);
+    expect(html.match(/cached quote · 2026-08-08 · stale/g) ?? []).toHaveLength(2);
+    expect(html.match(/title="F: A"/g) ?? []).toHaveLength(2);
+  });
 });

@@ -18,13 +18,15 @@ export function ReportTabs({
   analysis,
   report,
   reportMeta,
+  initialTab = "report",
 }: {
   analysis: ReactNode;
   report: ReactNode;
   /** Short label shown on the report tab, e.g. "#42 · 2026-07-06". */
   reportMeta: string;
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("report");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const panelId = (key: Tab): string => `report-tabs-panel-${key}`;
   const tabId = (key: Tab): string => `report-tabs-tab-${key}`;
   // WAI-ARIA tabs: the active tab is announced through aria-selected and the

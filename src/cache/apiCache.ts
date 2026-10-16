@@ -190,6 +190,41 @@ function normalizeTtl(ttlSeconds: number): number {
   return Math.min(Math.floor(ttlSeconds), TEN_YEARS_SECONDS);
 }
 
+/**
+ * Read an eligible durable response without fetching, refreshing, evicting or
+ * writing. Navigation uses this boundary so even a cold/poisoned cache cannot
+ * start provider work. Semantic provider validation remains with the caller.
+ */
+export function readCachedResponse<T>(
+  opts: Pick<CachedFetchOptions<T>, "provider" | "endpoint" | "params" | "ttlSeconds" | "validateBody"> & {
+    /** Required: a read-only surface must have a finite hard stale ceiling. */
+    maxStaleSeconds: number;
+    now?: () => Date;
+  },
+): Sourced<T> | null {
+  try {
+    const { provider, endpoint, params, ttlSeconds, maxStaleSeconds } = opts;
+    if (!Number.isFinite(ttlSeconds) || ttlSeconds < 0 || !Number.isFinite(maxStaleSeconds) || maxStaleSeconds < 0) return null;
+    const cacheKey = buildCacheKey(provider, endpoint, params);
+    const row = getDb().select().from(apiCache).where(eq(apiCache.cacheKey, cacheKey)).get();
+    if (row === undefined || row.provider !== provider || row.endpoint !== endpoint || row.paramsJson !== stableStringify(params)) return null;
+    const nowMs = (opts.now?.() ?? new Date()).getTime();
+    const ageSeconds = (nowMs - Date.parse(row.fetchedAt)) / 1000;
+    const asOfMs = Date.parse(row.asOf);
+    if (!Number.isFinite(ageSeconds) || ageSeconds < 0 || ageSeconds > ttlSeconds + maxStaleSeconds || !Number.isFinite(asOfMs) || asOfMs > nowMs) return null;
+    const data = JSON.parse(decodeCacheBody(row)) as T;
+    if ((opts.validateBody?.(data) ?? null) !== null) return null;
+    return {
+      data, asOf: row.asOf, source: provider, endpoint, fetchedAt: row.fetchedAt,
+      ...(ageSeconds > ttlSeconds ? { stale: true } : {}),
+      ...(preservedEmptyRefreshes.has(cacheKey) ? { staleReason: "empty-refresh-preserved" as const } : {}),
+    };
+  } catch {
+    // A read failure is unavailable evidence, never permission to self-heal.
+    return null;
+  }
+}
+
 function storeRow(db: ThesisDb, row: NewApiCacheRow): void {
   // Large bodies move into the bodyGz BLOB (src/cache/compression.ts). The
   // upsert must always set bodyGz too, or a body that shrinks below the

@@ -8,10 +8,10 @@
  *      add/remove are idempotent.
  *   2. Enrichment: {@link getWatchlistView} joins each watched symbol against
  *      (a) the latest `done` report (grade strip + as-of + verification rate),
- *      (b) a live FMP quote (price + change%, fixture-mode aware), and
- *      (c) the next future earnings date (FMP earnings). Every external lookup
- *      degrades to a `null` field plus a `gaps[]` entry rather than throwing —
- *      in fixture mode (no FMP key) price/earnings are expected gaps.
+ *      (b) an eligible cached FMP quote (price + change%), and
+ *      (c) the next future earnings date from cached FMP earnings. Every lookup
+ *      degrades to a `null` field plus a `gaps[]` entry rather than throwing.
+ *      Navigation never fetches market data or loads synthetic quote fixtures.
  *
  * Server-only: imports @/db and provider clients. NEVER import into a client
  * component — the Sidebar server component calls this and passes plain data down
@@ -27,17 +27,17 @@ import { asc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { watchlist, type WatchlistRow } from "@/db/schema";
-import { getConfig } from "@/config/env";
-import { makeFmpCachedFetch } from "@/pipeline/dataBundle";
-import { createFmpClient, type FmpClient } from "@/providers/fmp";
+import { readCachedResponse } from "@/cache/apiCache";
+import { createFmpClient, type CachedFetchFn, type FmpClient } from "@/providers/fmp";
+import { isReservedFixtureSymbol } from "@/providers/reservedSymbols";
 import { getLatestDoneReport } from "@/report/query";
 import { listRunRefsForSymbol, type RunRef } from "@/report/history";
-import { gradeForDisplay } from "@/report/assessment";
+import { gradeDisplayLabel, gradeForDisplay, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import {
   gradeSurfaceEntries,
   type GradeSurfaceKey,
 } from "@/report/surfaceManifest";
-import type { GradeStrip } from "@/report/schema";
+import type { Report } from "@/report/schema";
 import { canonicalEntitySymbol, normalizeSymbol as normalizeTickerSymbol } from "@/symbol";
 import type { Grade } from "@/types/core";
 
@@ -58,6 +58,8 @@ export interface WatchlistGrades {
   moat: Grade | null;
 }
 
+export type WatchlistGradeLabels = Partial<Record<GradeSurfaceKey, string>>;
+
 /**
  * One enriched sidebar row. Every enrichment field is nullable — a missing
  * quote / report / earnings date degrades the field to null and records the
@@ -70,8 +72,12 @@ export interface WatchlistRowView {
   changePct?: number | null;
   /** as-of date of the price snapshot (ISO), when available. */
   asOf?: string | null;
+  /** True when the saved quote is beyond the provider's freshness TTL. */
+  priceStale?: boolean;
   /** Verdict grade strip from the latest done report, or null when none. */
   grades?: WatchlistGrades | null;
+  /** Presentation-only explanations from the saved report's evidence map. */
+  gradeLabels?: WatchlistGradeLabels;
   /** ISO createdAt of the latest done report, or null. */
   lastReportAt?: string | null;
   /** Verification rate of the latest done report (0..1), or null. */
@@ -152,12 +158,11 @@ export function listWatchlist(): WatchlistEntry[] {
  * Options for {@link getWatchlistView} — the FMP client is injectable for tests.
  *
  * The view is wrapped in React's `cache` so the sidebar and the home panel,
- * which render in parallel in one request, share one enrichment instead of
- * each issuing the FMP quote and earnings calls (audit 2026-09-06, F217).
+ * which render in parallel in one request, share one set of durable reads.
  * Outside a server render `cache` is a pass-through, so tests see plain calls.
  */
 export interface WatchlistViewOptions {
-  /** Override the FMP client (tests). Defaults to a cache-wired live/fixture client. */
+  /** Explicit enrichment client for refresh callers/tests. Default navigation only reads the DB cache. */
   fmp?: FmpClient;
   /** Clock override (tests) — used to compute the earnings "from" window. */
   now?: () => Date;
@@ -168,33 +173,57 @@ export interface WatchlistViewOptions {
  * enrichments per symbol concurrently; a failure in any one degrades that field
  * to null + a gap note and never rejects the whole view.
  *
- * Fixture mode (no FMP key) is expected: price/change/earnings become gaps, the
- * report join still works from the local DB.
+ * Missing or ineligible cached responses become gaps; the report join still
+ * works from the local DB, independently of provider credentials.
  */
 export const getWatchlistView = cache(async function getWatchlistView(
   options: WatchlistViewOptions = {},
 ): Promise<WatchlistRowView[]> {
   const entries = listWatchlist();
   const now = options.now ?? (() => new Date());
-  const fmp = options.fmp ?? defaultFmpClient();
+  const fmp = options.fmp ?? defaultFmpClient(now);
 
-  return Promise.all(entries.map((entry) => enrichSymbol(entry.symbol, fmp, now)));
+  return Promise.all(entries.map((entry) => enrichSymbol(entry.symbol, fmp, now, options.fmp === undefined)));
 });
 
 /**
- * Cache-wired FMP client (live when a key is present, fixtures otherwise).
- *
- * Uses the pipeline's canonical `makeFmpCachedFetch` bridge so watchlist reads
- * share the exact cache semantics of Stage A — including the M6 rule (a
- * transient empty FMP body never overwrites a good cached row) and the
- * provider max-stale ceiling. The watchlist hits the same api_cache rows the
- * pipeline reads, so a divergent bridge here could clobber pipeline inputs.
+ * Reuse FMP's retrieval schema/identity/timestamp checks with a read-only cache
+ * bridge. The loader is deliberately inaccessible here: navigation never
+ * refreshes missing, stale or invalid rows and cannot clobber pipeline inputs.
  */
-function defaultFmpClient(): FmpClient {
-  const config = getConfig();
+function defaultFmpClient(now: () => Date): FmpClient {
+  const maxStaleSeconds = 7 * 86_400;
+  const cachedFetch: CachedFetchFn = async <T>(key: string, ttlMs: number) => {
+    const ttlSeconds = Math.max(0, Math.floor(ttlMs / 1000));
+    const sourced = readCachedResponse<T>({
+      provider: "fmp", endpoint: key, params: {}, ttlSeconds, maxStaleSeconds, now,
+      // The live loader admits only successful exchanges. Reject poisoned legacy
+      // envelopes here; FmpClient then validates the original provider body.
+      validateBody: (value) => {
+        if (typeof value !== "object" || value === null || !("body" in value) || !("status" in value) || !("fetchedAt" in value)) return "invalid provider exchange";
+        const { status, fetchedAt } = value;
+        const age = typeof fetchedAt === "string" ? (now().getTime() - Date.parse(fetchedAt)) / 1000 : NaN;
+        return typeof status === "number" && Number.isInteger(status) && status >= 200 && status < 300 && Number.isFinite(age) && age >= 0 && age <= ttlSeconds + maxStaleSeconds
+          ? null : "invalid provider exchange metadata";
+      },
+    });
+    if (sourced === null) throw new Error("no eligible cached response; refresh through a research run");
+    // Never let a newer cache wrapper relabel an older exchange as fresh.
+    const exchangeFetchedAt = (sourced.data as { fetchedAt: string }).fetchedAt;
+    const fetchedAt = Date.parse(exchangeFetchedAt) < Date.parse(sourced.fetchedAt)
+      ? exchangeFetchedAt : sourced.fetchedAt;
+    const stale = sourced.stale === true || (now().getTime() - Date.parse(fetchedAt)) / 1000 > ttlSeconds;
+    return { value: sourced.data, fetchedAt,
+      ...(stale ? { stale: true } : {}),
+      ...(sourced.staleReason ? { staleReason: sourced.staleReason } : {}),
+    };
+  };
   return createFmpClient({
-    ...(config.fmpApiKey ? { apiKey: config.fmpApiKey } : {}),
-    cachedFetch: makeFmpCachedFetch(),
+    // A noncredential selects the cached-response parser without loading keys
+    // or fixtures. No request can use it: this bridge never calls the loader.
+    apiKey: "watchlist-cache-only",
+    cachedFetch,
+    now,
   });
 }
 
@@ -202,13 +231,14 @@ async function enrichSymbol(
   symbol: string,
   fmp: FmpClient,
   now: () => Date,
+  cacheOnly: boolean,
 ): Promise<WatchlistRowView> {
   const gaps: string[] = [];
 
   const [priceData, report, nextEarnings] = await Promise.all([
-    loadPrice(symbol, fmp, gaps),
+    loadPrice(symbol, fmp, gaps, cacheOnly),
     loadReport(symbol, gaps),
-    loadNextEarnings(symbol, fmp, now, gaps),
+    loadNextEarnings(symbol, fmp, now, gaps, cacheOnly),
   ]);
 
   const runs = loadRuns(symbol, gaps);
@@ -222,7 +252,9 @@ async function enrichSymbol(
     price: priceData.price,
     changePct: priceData.changePct,
     asOf: priceData.asOf,
+    priceStale: priceData.stale === true,
     grades: report.grades,
+    gradeLabels: report.gradeLabels,
     lastReportAt: report.lastReportAt,
     verificationRate: report.verificationRate,
     nextEarnings,
@@ -246,6 +278,7 @@ interface PriceEnrichment {
   changePct: number | null;
   asOf: string | null;
   companyName?: string;
+  stale?: boolean;
 }
 
 /** FMP quote → price + change%; any gap/exception degrades to nulls + note. */
@@ -253,8 +286,10 @@ async function loadPrice(
   symbol: string,
   fmp: FmpClient,
   gaps: string[],
+  cacheOnly: boolean,
 ): Promise<PriceEnrichment> {
   try {
+    if (cacheOnly && isReservedFixtureSymbol(symbol)) throw new Error("no cached market quote for a synthetic fixture symbol");
     const result = await fmp.quote(symbol);
     if (!result.ok) {
       gaps.push(`price: ${result.gap.reason}`);
@@ -273,6 +308,7 @@ async function loadPrice(
       price,
       changePct,
       asOf: result.value.asOf,
+      stale: result.value.stale === true,
       ...(typeof row.name === "string" && row.name.length > 0
         ? { companyName: row.name }
         : {}),
@@ -288,6 +324,7 @@ interface ReportEnrichment {
   lastReportAt: string | null;
   verificationRate: number | null;
   companyName?: string;
+  gradeLabels?: WatchlistGradeLabels;
 }
 
 /** Latest done report → grade strip + as-of + verification rate. */
@@ -297,12 +334,13 @@ function loadReport(symbol: string, gaps: string[]): ReportEnrichment {
     if (latest === null) {
       return { grades: null, lastReportAt: null, verificationRate: null };
     }
-    const grades = latest.report ? extractGrades(latest.report.verdict.gradeStrip) : null;
+    const grades = latest.report ? extractGrades(latest.report) : null;
     if (latest.report === null) {
       gaps.push("report: stored JSON unreadable — grades unavailable");
     }
     return {
       grades,
+      ...(latest.report ? { gradeLabels: extractGradeLabels(latest.report) } : {}),
       lastReportAt: latest.createdAt,
       verificationRate: latest.verificationRate,
       ...(latest.report?.meta.companyName
@@ -316,12 +354,24 @@ function loadReport(symbol: string, gaps: string[]): ReportEnrichment {
 }
 
 /** Pull the present section grades out of a validated report's grade strip. */
-function extractGrades(strip: GradeStrip): WatchlistGrades {
+function extractGrades(report: Report): WatchlistGrades {
   const grades: Partial<Record<GradeSurfaceKey, Grade | null>> = {};
-  for (const { descriptor, block } of gradeSurfaceEntries(strip)) {
+  for (const { descriptor, block } of gradeSurfaceEntries(report.verdict.gradeStrip)) {
     grades[descriptor.key] = gradeForDisplay(block);
   }
   return grades as WatchlistGrades;
+}
+
+function extractGradeLabels(report: Report): WatchlistGradeLabels {
+  const labels: WatchlistGradeLabels = {};
+  for (const { descriptor, block } of gradeSurfaceEntries(report.verdict.gradeStrip)) {
+    const aspect = report.scores?.aspects[descriptor.key];
+    const label = gradeDisplayLabel(block, aspect);
+    labels[descriptor.key] = gradeForDisplay(block) === null && aspect && aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE
+      ? `${label}; ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% evidence required for a letter grade`
+      : label;
+  }
+  return labels;
 }
 
 /**
@@ -334,8 +384,10 @@ async function loadNextEarnings(
   fmp: FmpClient,
   now: () => Date,
   gaps: string[],
+  cacheOnly: boolean,
 ): Promise<string | null> {
   try {
+    if (cacheOnly && isReservedFixtureSymbol(symbol)) throw new Error("no cached earnings for a synthetic fixture symbol");
     const result = await fmp.earnings(symbol);
     if (!result.ok) {
       gaps.push(`earnings: ${result.gap.reason}`);
