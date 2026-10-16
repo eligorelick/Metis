@@ -29,6 +29,8 @@
 - [x] Run the complete `npm run verify` gate and investigate failures.
 - [x] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
 - [x] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
+- [ ] Resolve PR #20's additional D-72 review findings, verify the combined
+  source and obtain fresh required CI on the revised head.
 - [ ] Commit, push and integrate via GitHub with fresh required CI, if release gates pass.
 - [x] Validate the preserved transport/checkpoint package and prevent timeout
   recovery from lowering explicitly selected reasoning or speed settings.
