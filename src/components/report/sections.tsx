@@ -764,7 +764,7 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
       header: "peer median",
       align: "right",
       render: (m) => (
-        <span className="mono text-muted">{formatMultiple(m.peerMedian)}{typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}</span>
+        <span className="mono text-muted">{m.peerMedian === null ? "—" : formatMultiple(m.peerMedian)}{typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}</span>
       ),
     },
     {
@@ -809,9 +809,11 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
         ),
     },
   ];
+  // D-62: the own-history column is dropped when no multiple has a rank.
+  const shown = rows.some((m) => m.own5yPercentile !== null) ? cols : cols.filter((col) => col.key !== "pct");
   return (
     <DataTable
-      columns={cols}
+      columns={shown}
       rows={rows}
       rowKey={(m) => m.name}
       empty="no multiples derivable"
