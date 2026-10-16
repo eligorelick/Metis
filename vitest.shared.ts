@@ -11,6 +11,7 @@ export const INTEGRATION_TEST_INCLUDE = [DB_CLI_TEST];
  * a live provider. See `tests/setup/noLiveNetwork.ts`.
  */
 export const SHARED_SETUP_FILES = ["./tests/setup/noLiveNetwork.ts", "./tests/setup/privateCredentials.ts"];
+export const SHARED_TEST_RUNNER = "./tests/helpers/nativeSqliteRunner.ts";
 
 export const SHARED_RESOLVE_ALIAS = {
   "@": path.resolve(__dirname, "src"),
