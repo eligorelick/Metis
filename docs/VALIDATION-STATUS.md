@@ -8,8 +8,15 @@ guards withhold unsupported internally derived historical EV against same-date
 debt evidence and label EDGAR coverage partial when retained sources coexist
 with a missing requested member. Primary valuation formulas, grades and weights
 remain unchanged. Frozen original inputs and analysis conventions are preserved;
-no paid rerun is involved. Combined frozen-context/replay and local gate evidence
-are pending final execution; fresh release CI is separate.
+no paid rerun is involved. Both actual reconstructed analyst contexts match their
+original fingerprints and serialized hashes exactly; whole-report verification
+changes only the reviewed dividend entry and earlier table-scale corrections.
+Combined source `eaefea32` passed `npm run verify`, exit 0: 6,447 product tests
+(three existing skips), four database integration tests, core coverage
+96.33/90.21/98.23/97.56% and risk coverage 94.85/88.16/97.58/97.05%
+(statements/branches/functions/lines), production build and zero-vulnerability
+security audit. Independent combined-source and export review found no remaining
+reviewed blocker. Fresh required release CI remains pending.
 
 D-74 corrects deterministic principal summaries: an included financing option
 cannot be added to its offering total. Computed sums require proven distinct
