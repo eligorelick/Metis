@@ -16,6 +16,8 @@ const amended: EdgarFiling = { ...original, accessionNumber: "amended", filingDa
 const ok = <T,>(data: T, endpoint: string) => ({ ok: true as const, value: { data, endpoint, asOf: "2026-08-28", fetchedAt: "2026-08-28T17:00:00Z", source: "edgar" as const } });
 const withRelease = (record: EarningsReleaseRecord) => {
   const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+  // Currency evidence must describe the quarter the saved exhibit reports.
+  if (bundle.statements.incomeQuarterly.ok) bundle.statements.incomeQuarterly.value.data.rows.unshift({ date: "2026-07-26", reportedCurrency: "USD", revenue: 96_221e6 });
   bundle.edgar.currentReports = ok<CurrentReports>({ version: CURRENT_REPORTS_VERSION, releases: [record], events: [], notes: [] }, "fixture");
   return bundle;
 };

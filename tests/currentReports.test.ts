@@ -323,6 +323,10 @@ describe("other issuers' phrasing and unreadable filings", () => {
 describe("filing disclosures through the payload and the report tables", () => {
   function bundleWithFilings(): DataBundle {
     const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    if (bundle.statements.incomeQuarterly.ok) bundle.statements.incomeQuarterly.value.data.rows.unshift(
+      { date: "2026-07-26", period: "Q2", fiscalYear: "2027", reportedCurrency: "USD", revenue: 96_221e6, grossProfit: 72_142e6, operatingIncome: 63_734e6, operatingExpenses: 8_408e6 },
+      { date: "2026-04-26", period: "Q1", fiscalYear: "2027", reportedCurrency: "USD", revenue: 81_615e6 },
+    );
     const q2 = buildEarningsReleaseRecord({ filing: filing("0001045810-26-000073", "2026-08-26"), releaseUrl: "https://www.sec.gov/q2", commentaryUrl: null, releaseText: Q2_RELEASE, commentaryText: null, includeNarrative: true });
     const q1 = buildEarningsReleaseRecord({ filing: filing("0001045810-26-000051", "2026-05-20"), releaseUrl: "https://www.sec.gov/q1", commentaryUrl: null, releaseText: Q1_RELEASE, commentaryText: null, includeNarrative: false });
     const rvg = buildMaterialEventFiling(filing("0001045810-26-000069", "2026-08-17", "1.01,2.03,7.01"), read("8k-20260817-items-1.01-2.03.txt"), "https://www.sec.gov/rvg");
@@ -338,7 +342,7 @@ describe("filing disclosures through the payload and the report tables", () => {
     // The Q2 FY2027 statement row (10-Q, quarter ended 2026-07-26).
     const income = bundle.statements.incomeQuarterly;
     if (!income.ok) throw new Error("fixture income statement missing");
-    income.value.data.rows.unshift({ date: "2026-07-26", period: "Q2", fiscalYear: "2027", reportedCurrency: "USD", revenue: 96_221e6, grossProfit: 72_142e6, operatingIncome: 63_734e6, operatingExpenses: 8_408e6 });
+    expect(income.value.data.rows[0]?.date).toBe("2026-07-26");
     const checks = buildFilingDisclosures(bundle)!.guidanceChecks;
     // Q1 FY2027 release guided Q2 revenue to $91.0B ± 2%; Q2 printed $96.221B.
     expect(checks.find((c) => c.metric === "revenue")).toMatchObject({ period: "Q2 FY2027", periodEnd: "2026-07-26", guidedMid: 91e9, actual: 96_221e6, position: "above", difference: 5.74 });
@@ -428,7 +432,10 @@ describe("D-63 filing evidence", () => {
     bundle.edgar.tenQNotes = section("tenQNotes", NOTES, "10-Q", "2026-07-26");
     const income = bundle.statements.incomeQuarterly;
     if (!income.ok) throw new Error("fixture income statement missing");
-    income.value.data.rows.unshift({ date: "2026-07-26", period: "Q2", fiscalYear: "2027", reportedCurrency: "USD", revenue: 96_221e6, grossProfit: 72_142e6, operatingIncome: 63_734e6, operatingExpenses: 8_408e6 });
+    income.value.data.rows.unshift(
+      { date: "2026-07-26", period: "Q2", fiscalYear: "2027", reportedCurrency: "USD", revenue: 96_221e6, grossProfit: 72_142e6, operatingIncome: 63_734e6, operatingExpenses: 8_408e6 },
+      { date: "2026-04-26", period: "Q1", fiscalYear: "2027", reportedCurrency: "USD", revenue: 81_615e6 },
+    );
     return bundle;
   }
   const payloadOf = (bundle: DataBundle) => assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });

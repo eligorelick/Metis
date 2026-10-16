@@ -5,8 +5,9 @@
  * P0-11, P1-11).
  *
  * Currency rule: a "$" printed in an 8-K exhibit is the issuer's own
- * statement currency when the statements agree on one (the same rule the
- * verifier applies to excerpt numbers, D-45); "US$" is USD. A printed symbol
+ * statement currency established for that filing's reporting period; "US$"
+ * is USD. Only figures compatible with the current reporting currency are
+ * shown under the shared currency. A printed symbol
  * naming any other currency is not converted — its figures are left out and
  * the omission is noted.
  *
@@ -74,6 +75,26 @@ function symbolCurrency(symbol: string | null, statementCurrency: string | null)
   if (symbol === null) return null;
   if (symbol === "$") return statementCurrency;
   return SYMBOL_CURRENCY[symbol] ?? null;
+}
+
+/** Historical filing dollars belong to that reporting period, not today's currency. */
+function periodReportingCurrency(bundle: DataBundle, end: string | null): string | null {
+  if (end === null) return null;
+  const quarterly = rowsOf(bundle.statements?.incomeQuarterly).filter((r) => day(r.date) === end);
+  const normalized = normalizeQuarterRows(quarterly.length > 0 ? quarterly : rowsOf(bundle.statements?.incomeAnnual).filter((r) => day(r.date) === end));
+  return establishedCurrencyOn(normalized.rows, end, statementCurrencyEvidence(bundle));
+}
+
+function releaseReportingCurrency(bundle: DataBundle, release: EarningsReleaseRecord): string | null {
+  // Commentary-only exhibits may state the quarter end only in their table
+  // headers. Those parsed three-month column dates are source evidence too.
+  const end = release.reported.periodEnd ?? [...release.freeCashFlow, ...(release.reconciliation ?? [])]
+    .filter((f) => f.months === 3).map((f) => f.periodEnd).sort().at(-1) ?? null;
+  return periodReportingCurrency(bundle, end);
+}
+
+function releaseCurrencyMatches(bundle: DataBundle, release: EarningsReleaseRecord, symbol: string | null, currency: string | null): boolean {
+  return currency !== null && symbolCurrency(symbol, releaseReportingCurrency(bundle, release)) === currency;
 }
 
 /** Issuer text shown on the report must pass the same rating-language gate as the report. */
@@ -160,13 +181,14 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   if (!release || !release.guidance) return null;
   const item = release.guidance.items.find((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && i.basis !== "non-gaap");
   if (!item || item.period.fiscalQuarter === null) return null;
-  const currency = symbolCurrency(item.symbol, statementReportingCurrency(bundle));
+  const sourceCurrency = releaseReportingCurrency(bundle, release);
+  const currency = symbolCurrency(item.symbol, sourceCurrency);
   if (currency === null || currency !== statementReportingCurrency(bundle)) return null;
   const sameQuarter = (metric: GuidanceItem["metric"]): GuidanceItem | undefined =>
     release.guidance!.items.find((i) => i.metric === metric && i.period.label === item.period.label && (i.basis === "gaap" || i.basis === "unspecified"));
   const gm = sameQuarter("gross-margin");
   const opex = sameQuarter("operating-expenses");
-  const opexOk = opex !== undefined && symbolCurrency(opex.symbol, currency) === currency;
+  const opexOk = opex !== undefined && symbolCurrency(opex.symbol, sourceCurrency) === currency;
   const taxItems = release.guidance.items.filter((i) => i.metric === "tax-rate" && i.unit === "%" && (i.basis === "gaap" || i.basis === "unspecified"));
   const tax = taxItems.find((i) => i.period.label === item.period.label) ?? taxItems.find((i) => i.period.fiscalQuarter === null);
   return {
@@ -190,11 +212,11 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
 
 type GuidanceRows = NonNullable<FilingDisclosures["guidance"]>["rows"];
 
-function guidanceRows(items: readonly GuidanceItem[], currency: string | null, notes: string[]): GuidanceRows {
+function guidanceRows(items: readonly GuidanceItem[], currency: string | null, sourceCurrency: string | null, notes: string[]): GuidanceRows {
   const rows: GuidanceRows = [];
   for (const item of items) {
     if (item.unit !== "%") {
-      const itemCurrency = symbolCurrency(item.symbol, currency);
+      const itemCurrency = symbolCurrency(item.symbol, sourceCurrency);
       if (itemCurrency === null || itemCurrency !== currency) {
         notes.push(`Guidance for ${item.period.label} ${item.metric} printed in "${item.symbol ?? "no symbol"}" was left out: that currency is not the statements' (${currency ?? "unestablished"}).`);
         continue;
@@ -220,7 +242,7 @@ function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRe
     for (const item of guide.guidance?.items ?? []) {
       if (item.period.fiscalQuarter === null || (item.metric !== "revenue" && item.metric !== "gross-margin")) continue;
       if (item.metric === "gross-margin" && item.basis !== "gaap") continue;
-      if (item.metric === "revenue" && symbolCurrency(item.symbol, currency) !== currency) continue;
+      if (item.metric === "revenue" && !releaseCurrencyMatches(bundle, guide, item.symbol, currency)) continue;
       const reporter = releases.find((r) => r.reported.fiscal?.label === item.period.label && r.reported.periodEnd !== null && r.filingDate > guide.filingDate);
       if (!reporter || reporter.reported.periodEnd === null) continue;
       const row = income.find((r) => day(r.date) !== null && daysApart(day(r.date)!, reporter.reported.periodEnd!) <= 3);
@@ -254,10 +276,10 @@ function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRe
  * D-63: one three-month reconciliation value per quarter end across the
  * releases (newest release first), read in the statements' currency only.
  */
-function quarterReconciliation(releases: readonly EarningsReleaseRecord[], currency: string | null, metric: ReconciliationFact["metric"], periodEnd: string): number | null {
+function quarterReconciliation(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, metric: ReconciliationFact["metric"], periodEnd: string): number | null {
   for (const release of releases) {
     const fact = (release.reconciliation ?? []).find((f) => f.metric === metric && f.months === 3 && daysApart(f.periodEnd, periodEnd) <= 3);
-    if (fact && currency !== null && symbolCurrency(fact.symbol, currency) === currency) return fact.value;
+    if (fact && releaseCurrencyMatches(bundle, release, fact.symbol, currency)) return fact.value;
   }
   return null;
 }
@@ -327,8 +349,8 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       operatingCashFlow: ocf,
       freeCashFlow: ocf !== null && capex !== null ? ocf - Math.abs(capex) : num(c?.freeCashFlow),
       ...(releases.length === 0 ? {} : {
-        equitySecuritiesGains: quarterReconciliation(releases, currency, "equity-securities-gains", d),
-        nonGaapEpsDiluted: quarterReconciliation(releases, currency, "non-gaap-diluted-eps", d),
+        equitySecuritiesGains: quarterReconciliation(bundle, releases, currency, "equity-securities-gains", d),
+        nonGaapEpsDiluted: quarterReconciliation(bundle, releases, currency, "non-gaap-diluted-eps", d),
       }),
     };
   });
@@ -349,11 +371,16 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const releases = reports?.releases ?? [];
   const notes: string[] = [];
   const trend = quarterlyTrend(bundle, releases, currency, notes);
-  const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases);
+  const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases, notes);
   const officerChanges = officerChangeRows(reports, bundle);
   const sayOnPay = sayOnPayRow(reports);
   const tradingArrangements = tradingArrangementRows(bundle);
-  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && tradingArrangements.length === 0) return undefined;
+  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && tradingArrangements.length === 0 && notes.length === 0) return undefined;
+
+  for (const release of releases) {
+    const sourceCurrency = releaseReportingCurrency(bundle, release);
+    if (sourceCurrency === null || sourceCurrency !== currency) notes.push(`Implicit-dollar amounts from 8-K ${release.accession} (reported period ${release.reported.periodEnd ?? "unknown"}) are left out: that period's statement currency is ${sourceCurrency ?? "unestablished"}, rather than current ${currency ?? "unestablished"}. Explicit currency labels are checked separately.`);
+  }
 
   const guided = releases.find((r) => (r.guidance?.items.length ?? 0) > 0);
   const guidance: FilingDisclosures["guidance"] = guided && guided.guidance
@@ -361,7 +388,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         source: releaseRef(guided, guided.guidanceExhibit),
         reportedPeriod: guided.reported.fiscal?.label ?? null,
         reportedPeriodEnd: guided.reported.periodEnd,
-        rows: guidanceRows(guided.guidance.items, currency, notes),
+        rows: guidanceRows(guided.guidance.items, currency, releaseReportingCurrency(bundle, guided), notes),
         qualifiers: guided.guidance.qualifiers.map((q) => safeText(q, "An issuer outlook caveat is withheld from display by the rating-language filter; see the release.")),
       }
     : null;
@@ -373,14 +400,14 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   for (const sentence of splitSentences(latest?.releaseNarrative ?? "").filter((s) => /\bnow in full production\b/i.test(s)).slice(0, 2)) {
     if (sentence.length <= 500) notes.push(`Issuer production milestone (8-K EX-99.1 ${latest!.accession}, filed ${latest!.filingDate}): ${sentence}`);
   }
-  const fcfCurrencyOk = latest !== undefined && symbolCurrency("$", currency) === currency && currency !== null;
-  const freeCashFlow = latest && fcfCurrencyOk
+  const freeCashFlow = latest
     ? latest.freeCashFlow
+      .filter((f) => releaseCurrencyMatches(bundle, latest, f.symbol, currency))
       .filter((f, i, all) => all.findIndex((g) => g.periodEnd === f.periodEnd && g.months === f.months) === i)
       .map((f) => ({ periodEnd: f.periodEnd, months: f.months, value: f.value, source: earningsFactRef(latest, f.source) }))
     : [];
   const capital = latest?.capitalReturn;
-  const capitalCurrency = (symbol: string | undefined): boolean => symbol === undefined || symbolCurrency(symbol, currency) === currency;
+  const capitalCurrency = (symbol: string | undefined, release = latest): boolean => release !== undefined && releaseCurrencyMatches(bundle, release, symbol ?? "$", currency);
   const capitalReturn: FilingDisclosures["capitalReturn"] = latest && capital && currency !== null &&
     (capital.returned || capital.authorizationRemaining || capital.dividendPerShare || capital.authorizationAdded)
     ? {
@@ -400,19 +427,19 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         dividendPerShare: capital.dividendPerShare && capitalCurrency(capital.dividendPerShare.symbol) ? capital.dividendPerShare.value : null,
         dividendPayDate: capital.dividendPerShare?.payDate ?? null,
         dividendRecordDate: capital.dividendPerShare?.recordDate ?? null,
-        dividendChangeFrom: capital.dividendChange?.from ?? null,
-        dividendChangeTo: capital.dividendChange?.to ?? null,
+        dividendChangeFrom: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.from : null,
+        dividendChangeTo: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.to : null,
       }
     : null;
   // A dividend change or added authorization announced in an earlier release
   // of the window is still news the latest release does not repeat.
   for (const earlier of releases.slice(1)) {
     const change = earlier.capitalReturn.dividendChange;
-    if (change && capitalReturn?.dividendChangeTo == null && capitalCurrency(change.symbol)) {
+    if (change && capitalReturn?.dividendChangeTo == null && capitalCurrency(change.symbol, earlier)) {
       notes.push(`Quarterly dividend raised from ${change.from} to ${change.to} ${currency ?? ""} per share (8-K ${earlier.accession}, filed ${earlier.filingDate}).`.replace("  ", " "));
     }
     const added = earlier.capitalReturn.authorizationAdded;
-    if (added && capitalCurrency(added.symbol) && capitalReturn?.authorizationAdded == null) {
+    if (added && capitalCurrency(added.symbol, earlier) && capitalReturn?.authorizationAdded == null) {
       notes.push(`Share repurchase authorization increased by ${scaledMoney(added.value)} ${currency ?? ""} (8-K ${earlier.accession}, filed ${earlier.filingDate}).`.replace("  ", " "));
     }
   }
@@ -461,13 +488,12 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
 
   // D-63: the latest release's reconciliation rows and the commitments and
   // guarantees tables, in the statements' currency only.
-  const latestCurrencyOk = (symbol: string): boolean => currency !== null && symbolCurrency(symbol, currency) === currency;
   const reconciliation: NonNullable<FilingDisclosures["reconciliation"]> = latest
-    ? (latest.reconciliation ?? []).filter((f) => latestCurrencyOk(f.symbol))
+    ? (latest.reconciliation ?? []).filter((f) => releaseCurrencyMatches(bundle, latest, f.symbol, currency))
       .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: earningsFactRef(latest, f.source) }))
     : [];
   const commitmentRelease = releases.find((r) => (r.commitments ?? []).length > 0);
-  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease && currency !== null
+  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease && releaseCurrencyMatches(bundle, commitmentRelease, "$", currency)
     ? (commitmentRelease.commitments ?? []).flatMap((table, index, all) => {
         const name = table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
           : all.findIndex((t) => t.kind === "commitments") === index ? "future commitments" : "additional commitments";
@@ -500,7 +526,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     currency,
     currencyBasis: currency === null
       ? "The current statement reporting currency is not established, so no amount printed in an 8-K exhibit is given a currency; those amounts are left out."
-      : `Amounts printed with "$" in the issuer's 8-K exhibits are read in the current statements' reporting currency (${currency}); XBRL amounts carry their own ISO unit.`,
+      : `Amounts printed with "$" in issuer filings are shown only when the source period's statement currency is established as current ${currency}; explicit currency labels are checked separately. XBRL amounts carry their own ISO unit.`,
     guidance,
     guidanceChecks: guidanceChecks(bundle, releases, currency),
     freeCashFlow,
@@ -556,11 +582,15 @@ function annualTagValues(bundle: DataBundle, tag: string, currency: string | nul
  * notes, the XBRL goodwill balance and the two newest CFO commentaries state,
  * in the statements' currency only (a fact in another currency is left out).
  */
-function filingFactRows(bundle: DataBundle, currency: string | null, releases: readonly EarningsReleaseRecord[]): { facts: FilingFactRow[]; outlook: OutlookRow[] } {
+function filingFactRows(bundle: DataBundle, currency: string | null, releases: readonly EarningsReleaseRecord[], omissionNotes: string[]): { facts: FilingFactRow[]; outlook: OutlookRow[] } {
   const facts: FilingFactRow[] = [];
-  const add = (found: readonly FilingFact[], sourceTag: string, source: FilingRef): void => {
+  const add = (found: readonly FilingFact[], sourceTag: string, source: FilingRef, sourceCurrency: string | null): void => {
     for (const f of found) {
-      if (f.unit === "currency" && (currency === null || symbolCurrency(f.symbol, currency) !== currency)) continue;
+      if (f.unit === "currency" && (currency === null || symbolCurrency(f.symbol, sourceCurrency) !== currency)) {
+        const omission = `Monetary facts from ${sourceTag} left out: source-period currency ${sourceCurrency ?? "unestablished"} or explicit symbol ${f.symbol ?? "none"} does not establish current ${currency ?? "unestablished"}.`;
+        if (!omissionNotes.includes(omission)) omissionNotes.push(omission);
+        continue;
+      }
       // The MD&A repeats the notes' supply commitments: one row per fact.
       if (facts.some((row) => row.key === f.key && row.label === f.label && row.asOf === f.asOf && row.value === f.value)) continue;
       facts.push({ key: f.key, label: safeText(f.label, "(fact label withheld)"), value: f.value, unit: f.unit, asOf: f.asOf, period: f.period,
@@ -578,19 +608,21 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
   // Prefer MD&A's revenue paragraph: it also states the separate indirect-
   // customer estimate. Notes supply receivables shares and extended terms.
   const mdna = sectionRef(bundle.edgar?.tenQMdna);
-  if (mdna !== null) add(parseCustomerConcentrationFacts(mdna.data.text, concentrationScope(mdna.data)), "edgar:10-Q item2", mdna.ref);
+  if (mdna !== null) add(parseCustomerConcentrationFacts(mdna.data.text, concentrationScope(mdna.data)), "edgar:10-Q item2", mdna.ref, periodReportingCurrency(bundle, day(mdna.data.reportDate)));
   const notes = sectionRef(bundle.edgar?.tenQNotes);
   if (notes !== null) {
-    add(parseCustomerConcentrationFacts(notes.data.text, concentrationScope(notes.data)), "edgar:10-Q notes", notes.ref);
-    add(parseStatementFacts(notes.data.statementsText ?? ""), "edgar:10-Q statements", notes.ref);
-    add(parseInvestmentFacts(notes.data.text, day(notes.data.reportDate)), "edgar:10-Q notes", notes.ref);
-    add(parseCommitmentFacts(notes.data.text), "edgar:10-Q notes", notes.ref);
+    const sourceCurrency = periodReportingCurrency(bundle, day(notes.data.reportDate));
+    add(parseCustomerConcentrationFacts(notes.data.text, concentrationScope(notes.data)), "edgar:10-Q notes", notes.ref, sourceCurrency);
+    add(parseStatementFacts(notes.data.statementsText ?? ""), "edgar:10-Q statements", notes.ref, sourceCurrency);
+    add(parseInvestmentFacts(notes.data.text, day(notes.data.reportDate)), "edgar:10-Q notes", notes.ref, sourceCurrency);
+    add(parseCommitmentFacts(notes.data.text), "edgar:10-Q notes", notes.ref, sourceCurrency);
   }
-  if (mdna !== null) add(parseCommitmentFacts(mdna.data.text), "edgar:10-Q item2", mdna.ref);
+  if (mdna !== null) add(parseCommitmentFacts(mdna.data.text), "edgar:10-Q item2", mdna.ref, periodReportingCurrency(bundle, day(mdna.data.reportDate)));
   const annual = sectionRef(bundle.edgar?.tenKNotes);
   if (annual !== null) {
-    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref);
-    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), "edgar:10-K notes", annual.ref);
+    const sourceCurrency = periodReportingCurrency(bundle, day(annual.data.reportDate));
+    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref, sourceCurrency);
+    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), "edgar:10-K notes", annual.ref, sourceCurrency);
   }
   for (const goodwill of annualTagValues(bundle, "Goodwill", currency)) {
     facts.push({ key: "goodwill", label: "goodwill (balance sheet)", value: goodwill.value, unit: "currency", asOf: goodwill.end, period: null, qualifier: null,
@@ -612,7 +644,7 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
         value: wc.priorDso, unit: "days", symbol: null, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
     }
     if (wc.receivables !== null) rows.push({ key: "accounts-receivable", label: "accounts receivable (CFO commentary)", value: wc.receivables, unit: "currency", symbol: wc.receivablesSymbol, asOf: periodEnd, period: fiscal, qualifier: null, computed: null, text });
-    add(rows, sourceTag, source);
+    add(rows, sourceTag, source, releaseReportingCurrency(bundle, release));
     if (wc.expectation !== null) outlook.push({ topic: `DSO outlook given with ${fiscal ?? `the quarter ended ${periodEnd}`} results`, text: safeText(wc.expectation, "(outlook withheld)"), source });
   }
   return { facts, outlook };

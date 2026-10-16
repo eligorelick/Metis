@@ -136,6 +136,7 @@ describe("D-66 recovered filing facts", () => {
 
   it("carries periodic-only evidence even when current-report and trend inputs are absent", () => {
     const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    if (bundle.statements.incomeAnnual.ok) bundle.statements.incomeAnnual.value.data.rows[0]!.date = "2026-01-25";
     bundle.edgar.tenKNotes = section("tenKNotes", annual, "10-K");
     bundle.statements.incomeQuarterly = { ok: false, gap: { field: "incomeQuarterly", reason: "absent", severity: "info" } };
     expect(buildFilingDisclosures(bundle)?.filingFacts).toContainEqual(expect.objectContaining({ key: "deal-consideration-total", value: 17e9 }));
@@ -143,6 +144,11 @@ describe("D-66 recovered filing facts", () => {
 
   it("makes parsed notes, statements, plans and commentary available to the schema and prompt registry", async () => {
     const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    if (bundle.statements.incomeAnnual.ok) bundle.statements.incomeAnnual.value.data.rows[0]!.date = "2026-01-25";
+    if (bundle.statements.incomeQuarterly.ok) bundle.statements.incomeQuarterly.value.data.rows.unshift(
+      { date: "2026-07-26", reportedCurrency: "USD", fiscalYear: "2027", period: "Q2", revenue: 96_221e6 },
+      { date: "2026-04-26", reportedCurrency: "USD", fiscalYear: "2027", period: "Q1", revenue: 81_615e6 },
+    );
     bundle.builtAt = "2026-10-15T00:00:00Z";
     bundle.edgar.tenQNotes = section("tenQNotes", notes);
     if (bundle.edgar.tenQNotes.ok) bundle.edgar.tenQNotes.value.data.statementsText = statements;
