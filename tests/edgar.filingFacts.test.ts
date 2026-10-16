@@ -102,12 +102,14 @@ describe("D-66 recovered filing facts", () => {
     bundle.edgar.tenQOther = section("tenQItem5", other);
     bundle.edgar.tenQMdna = section("tenQItem2", mdna);
     const release = (quarter: "q1" | "q2") => buildEarningsReleaseRecord({ filing: filing(quarter, quarter === "q2" ? "2026-08-26" : "2026-05-20"), releaseUrl: "https://www.sec.gov/release", commentaryUrl: "https://www.sec.gov/commentary", releaseText: read(`nvda-current-reports/${quarter}fy27-ex99-1.txt`), commentaryText: quarter === "q2" ? q2 : q1, includeNarrative: true });
-    bundle.edgar.currentReports = sourced({ version: CURRENT_REPORTS_VERSION, releases: [release("q2"), release("q1")], events: [buildMaterialEventFiling(filing("officer", "2026-04-27", "5.02"), cao, "https://www.sec.gov/officer")], notes: [] }, "2026-08-26");
+    bundle.edgar.currentReports = sourced({ version: CURRENT_REPORTS_VERSION, releases: [release("q2"), release("q1")], events: [buildMaterialEventFiling(filing("officer", "2026-04-27", "5.02"), cao, "https://www.sec.gov/officer"), buildMaterialEventFiling(filing("parker", "2026-07-02", "5.02"), puri, "https://www.sec.gov/parker"), buildMaterialEventFiling(filing("vote", "2026-06-30", "5.07"), `Item 5.07. Submission of Matters to a Vote of Security Holders. ${vote}`, "https://www.sec.gov/vote")], notes: [] }, "2026-08-26");
     const disclosures = FilingDisclosuresSchema.parse(buildFilingDisclosures(bundle));
     expect(disclosures.officerChanges?.find((c) => c.kind === "departure")).toMatchObject({ inEffect: true });
     expect(disclosures.tradingArrangements).toHaveLength(3);
     const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
     expect(payload.provenanceRegistry).toContainEqual(expect.objectContaining({ value: 42_404e6, period: "2026-07-26" }));
+    const governanceRecords = payload.provenanceRegistry!.filter((r) => r.id.startsWith("payload.filing-facts.") && /Nicholas Parker|plan share capacity/.test(r.label ?? ""));
+    for (const value of [35e6, 5e6, 375_439, 547_942]) expect(governanceRecords.some((r) => r.value === value)).toBe(true);
     const prompt = serializePayloadForPrompt(payload);
     for (const needle of ["Groq", "375,439", "547,942", "500", "DSO outlook", "return to more normal levels next quarter"]) expect(prompt).toContain(needle);
   });

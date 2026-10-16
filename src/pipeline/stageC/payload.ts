@@ -2028,7 +2028,10 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
 function filingFactsSection(disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
   const facts = disclosures?.filingFacts ?? [];
   const outlook = disclosures?.commentaryOutlook ?? [];
-  if (facts.length === 0 && outlook.length === 0) return undefined;
+  const officers = disclosures?.officerChanges ?? [];
+  const plans = disclosures?.tradingArrangements ?? [];
+  const vote = disclosures?.sayOnPay;
+  if (facts.length === 0 && outlook.length === 0 && officers.length === 0 && plans.length === 0 && vote === undefined) return undefined;
   const currency = disclosures?.currency ?? null;
   const figures: PayloadFigureInput[] = facts.map((f) => ({
     label: `${f.label}${f.qualifier === null ? "" : ` (${f.qualifier})`}${f.period !== null ? `, ${f.period}` : f.asOf !== null ? `, as of ${f.asOf}` : ""}`,
@@ -2042,11 +2045,28 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
   for (const o of outlook) {
     figures.push({ label: o.topic, value: o.text, unit: "", source: `edgar:8-K ${o.source.exhibit ?? "EX-99"} ${o.source.accession}`, asOf: o.source.filingDate });
   }
+  // A bounded event excerpt can keep an appointee's dated lead while dropping
+  // the later compensation paragraph. Keep parsed governance facts explicitly.
+  for (const officer of officers) {
+    const source = `edgar:8-K ${officer.source.accession}`;
+    const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective}`;
+    figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${when}${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
+    for (const component of officer.package) figures.push({ label: `${officer.person} ${component.component} (appointment package)`, value: component.value,
+      unit: "currency", currency: currency === "USD" ? "USD" : null, period: officer.announced, source, asOf: officer.source.filingDate });
+  }
+  for (const plan of plans) {
+    const source = "edgar:10-Q item5";
+    const scope = `${plan.person} Rule 10b5-1 ${plan.action} on ${plan.date}`;
+    if (plan.shares !== null) figures.push({ label: `${scope}, plan share capacity`, value: plan.shares, unit: "shares", period: plan.date, source, asOf: plan.source.filingDate });
+    figures.push({ label: `${scope}, terms`, value: `${plan.role}; expires ${plan.expires ?? "not stated"}; ${plan.includesFutureAwards ? "includes future equity awards; " : ""}plan capacity, not an executed sale`, unit: "", source, asOf: plan.source.filingDate });
+  }
+  if (vote !== undefined) figures.push({ label: "say-on-pay support (votes for / for + against + abstentions)", value: vote.supportPct,
+    unit: "%", period: vote.meetingDate, source: `edgar:8-K ${vote.source.accession}`, asOf: vote.source.filingDate });
   const notes = [
     "Read from the filings' own sentences and tables (10-Q statements and notes, 10-Q MD&A, 10-K notes, us-gaap/Goodwill, 8-K CFO commentary); a cash-flow line is the amount paid or received in its window, without sign.",
     ...facts.filter((f) => f.computed !== null).map((f) => `${f.label} is computed: ${f.computed} (${f.sourceTag}, ${f.source.form} ${f.source.accession}).`),
   ];
-  return payloadSection({ title: "Filing notes, statements and commentary: investments, commitments, deals, working capital", figures, notes });
+  return payloadSection({ title: "Filing notes, statements and commentary: investments, commitments, deals, working capital and governance", figures, notes });
 }
 
 /** Segment revenue for the latest quarter, the prior quarter and the year-ago quarter (provider rows). */
