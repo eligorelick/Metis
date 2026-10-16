@@ -142,6 +142,8 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.technicals.relative-strength-vs-spy-12-1-month-latest-month-skipped": "Relative strength vs SPY, 12-1 month",
   "computed.technicals.relative-strength-vs-spy-6-month": "Relative strength vs SPY, 6 month",
   "computed.technicals.read": "Technical read",
+  "computed.technicals.trend-read": "Trend read",
+  "computed.technicals.momentum-read": "Momentum read",
   "computed.valuation.dcf-per-share": "DCF value per share",
   "computed.returns.wacc": "WACC",
   "computed.valuation.reverse-dcf-implied-revenue-growth": "Reverse-DCF implied revenue growth",

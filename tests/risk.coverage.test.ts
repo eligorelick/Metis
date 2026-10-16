@@ -160,6 +160,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/scenarioPresentation.ts",
   "src/report/thesisTriggers.ts",
   "src/edgar/currentReports.ts",
+  "src/edgar/filingFacts.ts",
   "src/edgar/segmentFacts.ts",
   "src/providers/currentReports.ts",
   "src/pipeline/filingDisclosures.ts",

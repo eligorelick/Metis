@@ -553,9 +553,11 @@ describe("public release contract", () => {
       // D-63 adds three: the Q2 FY2027 CFO commentary (EX-99.2) and the
       // extracted 10-K Item 1 and 10-Q notes text (nvda-periodic-sections).
       read("tests/currentReports.test.ts"),
+      // D-66: extracted annual notes, interim statements/Item 2/Item 5 and governance/commentary samples.
+      read("tests/edgar.filingFacts.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(33);
+    expect(edgarFixtures).toHaveLength(40);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

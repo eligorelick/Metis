@@ -783,13 +783,17 @@ describe("payload determinism + provenance", () => {
       // gates, a consensus-anchoring note joins the valuation notes, the
       // analyst-consensus method prints both legs, and the scenario-decay and
       // flat-share paragraphs each appear once. Values move provenanceHash.
-      fingerprint: "1.23.0:519f81a8",
-      promptBytes: 132_867,
+      // D-66: the trend and momentum reads print their own tags
+      // (computed.technicals.trend-read / momentum-read) instead of sharing
+      // computed.technicals.read, so one more citation is registered (73 -> 74)
+      // and the two tags add 15 prompt bytes; no number moved.
+      fingerprint: "1.23.0:070d3aeb",
+      promptBytes: 132_882,
       provenanceCount: 531,
       provenanceHash: "4a143732",
       provenanceIdsHash: "0dee6be6",
-      citationCount: 73,
-      citationHash: "395a88c9",
+      citationCount: 74,
+      citationHash: "5d7e100c",
       computedFigureLabelHash: "7f5cbe9b",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its

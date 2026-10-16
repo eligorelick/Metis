@@ -829,6 +829,11 @@ export interface NamedIndividual {
   surnameOnly: boolean;
   /** The title the sentence attaches to the name, when it attaches one. */
   title: string | null;
+  /**
+   * D-66: the same title read through the comma-separated scopes after it
+   * ("EVP, Operations" after "EVP"); any one of them may match the row.
+   */
+  titleAlternatives?: string[];
 }
 
 /**
@@ -873,7 +878,7 @@ export function namedIndividuals(
       match: hit.name,
       name: hit.name,
       surnameOnly: false,
-      title: titleAfterName(sentence, hit.end) ?? titleBeforeName(sentence, hit.start),
+      ...titleOf(sentence, hit.start, hit.end),
     });
   }
   const organisations = organizationNames.map((name) => name.toLowerCase());
@@ -909,9 +914,9 @@ export function namedIndividuals(
         match: candidate,
         name,
         surnameOnly: groups.surname !== undefined,
-        title: groups.role !== undefined
-          ? titleBeforeName(sentence, start) ?? groups.role
-          : titleAfterName(sentence, end) ?? titleBeforeName(sentence, start),
+        ...(groups.role !== undefined
+          ? { title: titleBeforeName(sentence, start) ?? groups.role }
+          : titleOf(sentence, start, end)),
       });
     }
   }
@@ -1019,7 +1024,7 @@ function unlistedNames(
         match: name,
         name,
         surnameOnly: piece.words.length === 1,
-        title: titleAfterName(sentence, piece.end) ?? titleBeforeName(sentence, piece.start),
+        ...titleOf(sentence, piece.start, piece.end),
       });
     }
   }
@@ -1274,14 +1279,46 @@ const TITLE_STOP =
  * them "Jeremy Barnum is the CEO" citing his "CFO" compensation row was read
  * as naming him only, and passed.
  */
-function titleAfterName(sentence: string, end: number): string | null {
+/** The title a sentence gives a name (after it, else before it), with its comma-scoped readings. */
+function titleOf(sentence: string, start: number, end: number): Pick<NamedIndividual, "title" | "titleAlternatives"> {
+  const after = titlesAfterName(sentence, end);
+  if (after.length === 0) return { title: titleBeforeName(sentence, start) };
+  return after.length > 1 ? { title: after[0]!, titleAlternatives: after.slice(1) } : { title: after[0]! };
+}
+
+/**
+ * The title after a name, then the same title carried through each following
+ * comma-separated scope ("Debora Shoquist, EVP, Operations:" reads "EVP" and
+ * "EVP, Operations"). D-66: the NVDA final rerun rejected four pay claims
+ * that wrote the DEF 14A row's title exactly ("EVP, Operations"), because the
+ * title stopped at the comma and "EVP" alone drops the row's scope. A longer
+ * reading is only an alternative: it passes when it is one of the row's own
+ * titles, and the shortest reading is what a failure names.
+ */
+function titlesAfterName(sentence: string, end: number): string[] {
   const rest = sentence.slice(end);
   const lead = /^\s*(?:,\s*(?:the\s+|its\s+|our\s+)?|\s+(?:as|is|was|remains|became|(?:has|had)\s+been|(?:serves|served|acts|acted)\s+as)\s+(?:also\s+|currently\s+|now\s+|still\s+)?(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:company's\s+|firm's\s+|bank's\s+)?|\s*\()/.exec(rest);
-  if (lead === null) return null;
+  if (lead === null) return [];
   const tail = rest.slice(lead[0].length);
   const stop = TITLE_STOP.exec(tail);
   const title = (stop === null ? tail : tail.slice(0, stop.index)).trim();
-  return title !== "" && opensWithRole(title) ? title : null;
+  if (title === "" || !opensWithRole(title)) return [];
+  const out = [title];
+  let current = title;
+  let after = stop === null ? "" : tail.slice(stop.index);
+  for (let extensions = 0; extensions < 3; extensions += 1) {
+    const comma = /^,\s+/.exec(after);
+    if (comma === null) break;
+    const segment = after.slice(comma[0].length);
+    const next = TITLE_STOP.exec(segment);
+    const scope = (next === null ? segment : segment.slice(0, next.index)).trim();
+    // A scope is capitalised ("Operations", "Worldwide Field Operations").
+    if (scope === "" || !/^[A-Z&]/.test(scope)) break;
+    current = `${current}, ${scope}`;
+    out.push(current);
+    after = next === null ? "" : segment.slice(next.index);
+  }
+  return out;
 }
 
 // A role written right before a name ("CFO James Dimon", "its Co-CEO, Troy
@@ -1313,8 +1350,8 @@ function personRowProblem(
     const theirs = rows.filter((row) => personNameMatches(person.name, person.surnameOnly, row));
     if (theirs.length === 0) return { reason: "named-individual-not-in-source", person };
     if (person.title === null) continue;
-    const title = person.title;
-    if (!theirs.some((row) => row.title !== null && personTitleMatches(title, row.title))) {
+    const titles = [person.title, ...(person.titleAlternatives ?? [])];
+    if (!theirs.some((row) => row.title !== null && titles.some((title) => personTitleMatches(title, row.title!)))) {
       return { reason: "named-individual-title-mismatch", person };
     }
   }

@@ -37,6 +37,7 @@ import {
   type ReconciliationFact,
   type ReportedPeriod,
 } from "@/edgar/currentReports";
+import { parseWorkingCapital, type WorkingCapitalFacts } from "@/edgar/filingFacts";
 import {
   buildQuarterlySegments,
   parseInstanceRevenue,
@@ -80,6 +81,13 @@ export interface EarningsReleaseRecord {
   commitmentsExhibit?: "EX-99.1" | "EX-99.2" | null;
   /** D-63: the issuer's statement of a non-GAAP basis change, when printed. */
   nonGaapBasisNote?: string | null;
+  /**
+   * D-66: receivables, DSO and its stated reason and outlook from the CFO
+   * commentary (else the release), for every release read — the previous
+   * quarter's outlook ("We expect our DSO to return to more normal levels next
+   * quarter") is the test of the latest quarter's. Optional on older records.
+   */
+  workingCapital?: WorkingCapitalFacts | null;
   /** Narrative prose (newest release only), bounded. */
   releaseNarrative: string | null;
   commentaryNarrative: string | null;
@@ -180,6 +188,7 @@ export function buildEarningsReleaseRecord(args: {
     reconciliation: mergeReconciliation(parseReconciliation(releaseText), commentaryText === null ? [] : parseReconciliation(commentaryText)),
     ...commitmentsOf(releaseText, commentaryText),
     nonGaapBasisNote: parseNonGaapBasisNote(releaseText) ?? (commentaryText === null ? null : parseNonGaapBasisNote(commentaryText)),
+    workingCapital: (commentaryText === null ? null : parseWorkingCapital(commentaryText)) ?? parseWorkingCapital(releaseText),
     releaseNarrative: args.includeNarrative ? releaseNarrative(releaseText).slice(0, NARRATIVE_CHARS) : null,
     commentaryNarrative: args.includeNarrative && commentaryText !== null ? releaseNarrative(commentaryText).slice(0, NARRATIVE_CHARS) : null,
   };
