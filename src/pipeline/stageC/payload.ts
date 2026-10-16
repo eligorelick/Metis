@@ -1979,7 +1979,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   }
   for (const f of disclosures.freeCashFlow) {
     const window = f.months === 3 ? "three months" : `${f.months === 6 ? "six" : f.months === 9 ? "nine" : "twelve"} months`;
-    figures.push({ label: `issuer-defined free cash flow, ${window} ended ${f.periodEnd}`, value: f.value, unit: "currency", currency, period: f.periodEnd, source: "edgar:8-K EX-99.1", asOf: f.source.filingDate });
+    figures.push({ label: `issuer-defined free cash flow, ${window} ended ${f.periodEnd}`, value: f.value, unit: "currency", currency, period: f.periodEnd, source: `edgar:${f.source.form} ${f.source.exhibit ?? "exhibit unrecorded"} ${f.source.accession}`, asOf: f.source.filingDate });
   }
   if (disclosures.freeCashFlowDefinition) notes.push(`Issuer free-cash-flow definition (issuer text): ${disclosures.freeCashFlowDefinition}`);
   const cr = disclosures.capitalReturn;
@@ -2008,7 +2008,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       unit: f.unit === "currency-per-share" ? "currency/share" : "currency",
       currency,
       period: f.periodEnd,
-      source: "edgar:8-K EX-99 reconciliation",
+      source: `edgar:${f.source.form} ${f.source.exhibit ?? "exhibit unrecorded"} ${f.source.accession}`,
       asOf: f.source.filingDate,
     });
   }

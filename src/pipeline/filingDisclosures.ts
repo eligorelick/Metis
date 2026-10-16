@@ -15,7 +15,7 @@
 import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
-import type { CurrentReports, EarningsReleaseRecord } from "@/providers/currentReports";
+import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "@/providers/currentReports";
 import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import {
   parseBusinessCombinationFacts,
@@ -87,12 +87,17 @@ function currentReportsOf(bundle: DataBundle): CurrentReports | null {
 
 function releaseRef(release: EarningsReleaseRecord, exhibit: "EX-99.1" | "EX-99.2" | null): FilingRef {
   return {
-    form: "8-K",
+    form: release.form ?? "8-K",
     accession: release.accession,
-    exhibit,
+    exhibit: exhibit === "EX-99.2" ? release.commentaryExhibit ?? exhibit : exhibit === "EX-99.1" ? release.releaseExhibit ?? exhibit : null,
     filingDate: release.filingDate,
     url: exhibit === "EX-99.2" ? release.commentaryUrl : release.releaseUrl,
   };
+}
+
+/** Legacy merged facts establish the filing, not which of its exhibits supplied a row. */
+function earningsFactRef(release: EarningsReleaseRecord, source: EarningsFactSource | undefined): FilingRef {
+  return source === undefined ? { ...releaseRef(release, null), url: null } : { ...source };
 }
 
 /**
@@ -346,7 +351,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const freeCashFlow = latest && fcfCurrencyOk
     ? latest.freeCashFlow
       .filter((f, i, all) => all.findIndex((g) => g.periodEnd === f.periodEnd && g.months === f.months) === i)
-      .map((f) => ({ periodEnd: f.periodEnd, months: f.months, value: f.value, source: releaseRef(latest, "EX-99.1") }))
+      .map((f) => ({ periodEnd: f.periodEnd, months: f.months, value: f.value, source: earningsFactRef(latest, f.source) }))
     : [];
   const capital = latest?.capitalReturn;
   const capitalCurrency = (symbol: string | undefined): boolean => symbol === undefined || symbolCurrency(symbol, currency) === currency;
@@ -433,7 +438,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const latestCurrencyOk = (symbol: string): boolean => currency !== null && symbolCurrency(symbol, currency) === currency;
   const reconciliation: NonNullable<FilingDisclosures["reconciliation"]> = latest
     ? (latest.reconciliation ?? []).filter((f) => latestCurrencyOk(f.symbol))
-      .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: releaseRef(latest, null) }))
+      .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: earningsFactRef(latest, f.source) }))
     : [];
   const commitmentRelease = releases.find((r) => (r.commitments ?? []).length > 0);
   const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease && currency !== null

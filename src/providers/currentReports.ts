@@ -56,25 +56,40 @@ const EVENT_WINDOW_DAYS = 365;
 const NARRATIVE_CHARS = 20_000;
 const ITEM_TEXT_CHARS = 4_000;
 
+/** A fact's supplying document, independent of the exhibit supplying other rows. */
+export interface EarningsFactSource {
+  form: string;
+  accession: string;
+  exhibit: string | null;
+  filingDate: string;
+  url: string | null;
+}
+type SourcedEarningsFact<T> = T & { source?: EarningsFactSource };
+
 export interface EarningsReleaseRecord {
   accession: string;
   filingDate: string;
+  /** Optional on legacy bundles, whose releases were all ordinary 8-Ks. */
+  form?: string;
   /** EDGAR acceptance timestamp, when the submissions row carries one. */
   acceptedAt: string | null;
   releaseUrl: string | null;
   commentaryUrl: string | null;
+  /** Original document TYPE spelling; semantic role remains EX-99.1/.2 below. */
+  releaseExhibit?: string | null;
+  commentaryExhibit?: string | null;
   reported: ReportedPeriod;
   guidance: IssuerGuidance | null;
   /** Which exhibit the guidance was read from. */
   guidanceExhibit: "EX-99.1" | "EX-99.2" | null;
-  freeCashFlow: FreeCashFlowFact[];
+  freeCashFlow: SourcedEarningsFact<FreeCashFlowFact>[];
   capitalReturn: CapitalReturnFacts;
   /**
    * D-63: GAAP-to-non-GAAP reconciliation rows (FCF bridge, equity-securities
    * gains, their tax effect, GAAP and non-GAAP diluted EPS) by column, from the
    * release and the commentary. Optional: absent on records stored before it.
    */
-  reconciliation?: ReconciliationFact[];
+  reconciliation?: SourcedEarningsFact<ReconciliationFact>[];
   /** D-63: commitments and guarantees tables (commentary first, then release). */
   commitments?: CommitmentTable[];
   /** D-63: the exhibit the commitments tables were read from. */
@@ -160,9 +175,11 @@ function plain(html: string): string {
  * the release, else the commentary; so does issuer FCF. Pure.
  */
 export function buildEarningsReleaseRecord(args: {
-  filing: Pick<EdgarFiling, "accessionNumber" | "filingDate" | "acceptanceDateTime">;
+  filing: Pick<EdgarFiling, "accessionNumber" | "filingDate" | "acceptanceDateTime"> & Partial<Pick<EdgarFiling, "form">>;
   releaseUrl: string | null;
   commentaryUrl: string | null;
+  releaseExhibit?: string | null;
+  commentaryExhibit?: string | null;
   releaseText: string;
   commentaryText: string | null;
   includeNarrative: boolean;
@@ -173,19 +190,28 @@ export function buildEarningsReleaseRecord(args: {
   const fromCommentary = releaseHasItems || commentaryText === null ? null : parseGuidance(commentaryText);
   const guidance = releaseHasItems ? fromRelease : fromCommentary !== null && fromCommentary.items.length > 0 ? fromCommentary : fromRelease ?? fromCommentary;
   const reported = parseReportedPeriod(releaseText);
-  const fcfRelease = parseIssuerFreeCashFlow(releaseText);
+  const source = (exhibit: "EX-99.1" | "EX-99.2"): EarningsFactSource => ({
+    form: filing.form ?? "8-K", accession: filing.accessionNumber, filingDate: filing.filingDate,
+    exhibit: exhibit === "EX-99.1" ? args.releaseExhibit ?? exhibit : args.commentaryExhibit ?? exhibit,
+    url: exhibit === "EX-99.1" ? args.releaseUrl : args.commentaryUrl,
+  });
+  const fcfRelease = parseIssuerFreeCashFlow(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") }));
   return {
     accession: filing.accessionNumber,
     filingDate: filing.filingDate,
+    form: filing.form ?? "8-K",
     acceptedAt: filing.acceptanceDateTime ?? null,
     releaseUrl: args.releaseUrl,
     commentaryUrl: args.commentaryUrl,
-    reported: reported.fiscal === null && commentaryText !== null ? { ...parseReportedPeriod(commentaryText), periodEnd: reported.periodEnd } : reported,
+    releaseExhibit: args.releaseExhibit ?? (args.releaseUrl === null ? null : "EX-99.1"),
+    commentaryExhibit: args.commentaryExhibit ?? (args.commentaryUrl === null ? null : "EX-99.2"),
+    reported: reported.fiscal === null && commentaryText !== null ? { ...parseReportedPeriod(commentaryText), periodEnd: reported.periodEnd ?? parseReportedPeriod(commentaryText).periodEnd } : reported,
     guidance,
     guidanceExhibit: guidance === null || guidance.items.length === 0 ? null : guidance === fromRelease ? "EX-99.1" : "EX-99.2",
-    freeCashFlow: fcfRelease.length > 0 || commentaryText === null ? fcfRelease : parseIssuerFreeCashFlow(commentaryText),
+    freeCashFlow: fcfRelease.length > 0 || commentaryText === null ? fcfRelease : parseIssuerFreeCashFlow(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") })),
     capitalReturn: parseCapitalReturn(releaseText),
-    reconciliation: mergeReconciliation(parseReconciliation(releaseText), commentaryText === null ? [] : parseReconciliation(commentaryText)),
+    reconciliation: mergeReconciliation(parseReconciliation(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") })),
+      commentaryText === null ? [] : parseReconciliation(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),
     ...commitmentsOf(releaseText, commentaryText),
     nonGaapBasisNote: parseNonGaapBasisNote(releaseText) ?? (commentaryText === null ? null : parseNonGaapBasisNote(commentaryText)),
     workingCapital: (commentaryText === null ? null : parseWorkingCapital(commentaryText)) ?? parseWorkingCapital(releaseText),
@@ -201,7 +227,7 @@ function commitmentsOf(releaseText: string, commentaryText: string | null): Pick
   return { commitments: fromRelease, commitmentsExhibit: fromRelease.length > 0 ? "EX-99.1" : null };
 }
 
-function mergeReconciliation(first: ReconciliationFact[], second: ReconciliationFact[]): ReconciliationFact[] {
+function mergeReconciliation(first: SourcedEarningsFact<ReconciliationFact>[], second: SourcedEarningsFact<ReconciliationFact>[]): SourcedEarningsFact<ReconciliationFact>[] {
   const out = [...first];
   for (const fact of second) {
     if (!out.some((f) => f.metric === fact.metric && f.periodEnd === fact.periodEnd && f.months === fact.months)) out.push(fact);
@@ -231,7 +257,27 @@ export function buildMaterialEventFiling(
 function recentEightKs(filings: readonly EdgarFiling[], today: string, windowDays: number, accept: (f: EdgarFiling) => boolean): EdgarFiling[] {
   return filings
     .filter((f) => (f.form === "8-K" || f.form === "8-K/A") && f.filingDate <= today && daysBetween(f.filingDate, today) <= windowDays && accept(f))
-    .sort((a, b) => b.filingDate.localeCompare(a.filingDate) || b.accessionNumber.localeCompare(a.accessionNumber));
+    .sort((a, b) => b.filingDate.localeCompare(a.filingDate) || (b.acceptanceDateTime ?? "").localeCompare(a.acceptanceDateTime ?? "") || b.accessionNumber.localeCompare(a.accessionNumber));
+}
+
+/** Canonical role only; retained provenance keeps the original document TYPE. */
+function earningsExhibitRole(type: string): "release" | "commentary" | null {
+  const match = /^EX-99\.0*([12])$/i.exec(type.trim());
+  return match?.[1] === "1" ? "release" : match?.[1] === "2" ? "commentary" : null;
+}
+
+function earningsFilings(filings: readonly EdgarFiling[], today: string, notes: string[]): EdgarFiling[] {
+  const candidates = recentEightKs(filings, today, RELEASE_WINDOW_DAYS, (f) => itemsOf(f.items).includes("2.02"));
+  // A shared nonempty SEC reportDate establishes the amended event. Do this
+  // before document reads: an unreadable amendment must not revive stale data.
+  // Do not infer amendment linkage from proximity or fiscal quarter alone.
+  return candidates.filter((filing, i) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(filing.reportDate)) return true;
+    const amendment = candidates.slice(0, i).find((newer) => newer.form === "8-K/A" && newer.reportDate === filing.reportDate);
+    if (!amendment) return true;
+    notes.push(`${filing.form} ${filing.accessionNumber} (${filing.filingDate}) superseded for earnings by 8-K/A ${amendment.accessionNumber} (${amendment.filingDate}); original values are not substituted for unreadable amended evidence.`);
+    return false;
+  }).slice(0, MAX_EARNINGS_RELEASES);
 }
 
 export async function collectCurrentReports(
@@ -247,8 +293,7 @@ export async function collectCurrentReports(
   let fetchedAt: string | null = null;
   let attempted = 0;
 
-  const earnings = recentEightKs(filings, today, RELEASE_WINDOW_DAYS, (f) => f.form === "8-K" && itemsOf(f.items).includes("2.02"))
-    .slice(0, MAX_EARNINGS_RELEASES);
+  const earnings = earningsFilings(filings, today, notes);
   for (const [position, filing] of earnings.entries()) {
     attempted += 1;
     const problem = filingProblem(edgar, cik, filing);
@@ -261,30 +306,34 @@ export async function collectCurrentReports(
       notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): exhibit index unreadable (${index})`);
       continue;
     }
-    const releaseDoc = index.documents.find((d) => /^EX-99\.1$/i.test(d.type.trim())) ?? findDocumentByType(index, "EX-99");
-    const commentaryDoc = index.documents.find((d) => /^EX-99\.2$/i.test(d.type.trim()) && d !== releaseDoc) ?? null;
-    if (!releaseDoc) {
+    const releaseDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "release") ??
+      findDocumentByType({ ...index, documents: index.documents.filter((d) => earningsExhibitRole(d.type) !== "commentary") }, "EX-99");
+    const commentaryDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "commentary") ?? null;
+    if (!releaseDoc && !commentaryDoc) {
       notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): Item 2.02 filing furnishes no EX-99 exhibit`);
       continue;
     }
-    const release = await fetchText(edgar, cik, filing, releaseDoc.filename);
-    if (typeof release === "string") {
-      notes.push(`8-K ${filing.accessionNumber} EX-99 (${releaseDoc.filename}) unreadable: ${release}`);
-      continue;
+    let releaseText = "";
+    let releaseUrl: string | null = null;
+    if (releaseDoc) {
+      const release = await fetchText(edgar, cik, filing, releaseDoc.filename);
+      if (typeof release === "string") notes.push(`8-K ${filing.accessionNumber} EX-99 (${releaseDoc.filename}) unreadable: ${release}`);
+      else { releaseText = plain(release.text); releaseUrl = release.url; fetchedAt ??= release.fetchedAt; }
     }
-    fetchedAt ??= release.fetchedAt;
-    const releaseText = plain(release.text);
     let commentaryText: string | null = null;
     let commentaryUrl: string | null = null;
     if (commentaryDoc) {
       const commentary = await fetchText(edgar, cik, filing, commentaryDoc.filename);
       if (typeof commentary === "string") notes.push(`8-K ${filing.accessionNumber} EX-99.2 (${commentaryDoc.filename}) unreadable: ${commentary}`);
-      else { commentaryText = plain(commentary.text); commentaryUrl = commentary.url; }
+      else { commentaryText = plain(commentary.text); commentaryUrl = commentary.url; fetchedAt ??= commentary.fetchedAt; }
     }
+    if (releaseUrl === null && commentaryUrl === null) continue;
     const record = buildEarningsReleaseRecord({
       filing,
-      releaseUrl: release.url,
+      releaseUrl,
       commentaryUrl,
+      releaseExhibit: releaseDoc?.type.trim() ?? null,
+      commentaryExhibit: commentaryDoc?.type.trim() ?? null,
       releaseText,
       commentaryText,
       includeNarrative: position === 0,
