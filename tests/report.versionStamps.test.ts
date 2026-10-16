@@ -84,12 +84,12 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.19.2");
+    expect(REPORT_SPEC_VERSION).toBe("1.19.3");
     expect(PAYLOAD_VERSION).toBe("1.24.2");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.19.2");
+    expect(newReport().meta.specVersion).toBe("1.19.3");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.24.2");

@@ -98,6 +98,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/history.ts",
   "src/report/diff.ts",
   "src/report/legacyEntitySafety.ts",
+  "src/report/principalAggregationSafety.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",

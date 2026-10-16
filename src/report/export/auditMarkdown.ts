@@ -11,6 +11,7 @@
  */
 
 import { formatExecutionMetadata } from "@/report/execution";
+import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { scoreAuditTables, factualValidationText } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
@@ -418,6 +419,7 @@ function renderSources(report: Report): string {
 
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report): string {
+  report = withPrincipalSummarySafety(report);
   const m = report.meta;
   const blocks = [
     [

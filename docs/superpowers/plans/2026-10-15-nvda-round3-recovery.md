@@ -29,9 +29,10 @@
 - [x] Run the complete `npm run verify` gate and investigate failures.
 - [x] Recompute frozen NVDA inputs, generate a fresh live NVDA report, audit values/disclosures and inspect browser/export surfaces.
 - [x] Obtain a fresh branch review, resolve material findings, record validation and remaining limits.
-- [ ] Resolve PR #20's additional D-72 review findings, verify the combined
+- [x] Resolve PR #20's additional D-72 review findings, verify the combined
   source and obtain fresh required CI on the revised head.
-- [ ] Commit, push and integrate via GitHub with fresh required CI, if release gates pass.
+- [x] Commit, push and integrate the original recovery release via GitHub with fresh required CI.
+- [ ] Release the D-74/D-75 follow-up through PR #24 after its revised-head CI passes.
 - [x] Validate the preserved transport/checkpoint package and prevent timeout
   recovery from lowering explicitly selected reasoning or speed settings.
 - [ ] After release verification, run CRWV and QCOM as separate normal-history
@@ -86,7 +87,8 @@
   and security audit (zero vulnerabilities). Aggregate risk coverage is
   94.73% statements, 87.79% branches, 97.50% functions and 96.94% lines.
   `npm run audit:deltas` also passes. Log: ignored
-  `tmp/nvda-final-release-verify.log`. Required remote CI is still pending.
+  `tmp/nvda-final-release-verify.log`. The original release's subsequent remote
+  CI closure is recorded below.
 
 ## Remaining research and presentation limits
 
@@ -100,8 +102,18 @@ and scores. It now labels $1.535B as classified acquisition cash plus $13B
 unallocated with overlap unresolved; this replaces the unsupported additive
 total without changing the original D-71 artifact. Inputs were already parsed,
 so this comparison does not establish new exhibit-ingestion behavior. Fresh
-required CI on the revised head and the requested normal-history runs remain
+required CI subsequently passed; the requested normal-history run task remains
 pending. Log: ignored `tmp/d72-final-release-verify.log`.
+
+PR #20 through PR #23 merged after the required full and Windows checks passed,
+closing D-72 and the original recovery release, including the subsequent
+test-only Windows timing follow-ups. D-74/D-75's PR #24 corrects deterministic
+principal summaries and source-bound table-scale verification while preserving
+original analyses and payloads. Its final revised source passed the full local
+gate: 6,418 product tests (three existing skips), four integration tests, both
+coverage gates, build and zero-vulnerability security audit. Fresh required CI
+for that revised head remains pending. The separate normal-history run checkbox
+stays open until both final reports and execution-setting checks are complete.
 
 The original audit's feature requests for a consolidated five-year financial
 summary and displayed historical multiple percentile bands remain open; current

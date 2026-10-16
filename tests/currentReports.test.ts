@@ -479,7 +479,7 @@ describe("D-63 filing evidence", () => {
       text: `On June 18, 2026, NVIDIA Corporation completed its offering of ${series.map((name, i) => `$${amounts[i]} aggregate principal amount of its ${name}`).join(", ")}.` };
     const summary = summarizeItem(offering);
     expect(summary.length).toBeLessThanOrEqual(600);
-    expect(summary).toMatch(/\[computed: 7 series, \$25\.0 billion aggregate principal amount in total\]$/);
+    expect(summary).toMatch(/\[computed from 7 distinct named issuance tranches: \$25\.0 billion principal sum\]$/);
     expect(summary).not.toMatch(/Notes due …/);
   });
 

@@ -20,7 +20,8 @@ import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { orderedEarningsReleases } from "@/providers/currentReports";
-import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
+import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
+import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import {
   parseBusinessCombinationFacts,
   parseCommitmentFacts,
@@ -456,9 +457,18 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   }
 
   const events: FilingDisclosures["events"] = (reports?.events ?? []).map((e) => {
+    let summaryCorrection: FilingDisclosures["events"][number]["summaryCorrection"];
     const parts = e.sections
       .filter((s) => s.incorporates === null || e.sections.length === 1)
-      .flatMap((s) => [`Item ${s.item}: ${s.summary}`, ...materialCreditSupportClauses(s.text).filter((clause) => !s.summary.includes(clause)).map((clause) => `Item ${s.item}: ${clause}`)]);
+      .flatMap((s) => {
+        const stripped = withoutLegacyPrincipalAnnotation(s.summary);
+        // Unaffected summaries may retain full-source sentences beyond the
+        // cached text boundary. Re-derive only the exact legacy-marker cases.
+        const rederive = stripped !== s.summary && s.incorporates === null && s.text.trim() !== "";
+        const summary = rederive ? summarizeItem(s) : stripped;
+        if (summary !== s.summary && stripped !== s.summary) summaryCorrection = rederive ? "source-principal-summary-rederived" : "legacy-principal-total-withheld";
+        return [`Item ${s.item}: ${summary}`, ...materialCreditSupportClauses(s.text).filter((clause) => !summary.includes(clause)).map((clause) => `Item ${s.item}: ${clause}`)];
+      });
     // Whole source clauses: never cut off a condition or turn an option into
     // a commitment. These terms are visible even when model prose omits them.
     const kept: string[] = [];
@@ -471,6 +481,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
       form: e.form,
       items: e.items,
       summary: safeText(joined || "No item text could be read from the filing.", "Summary withheld from display by the report's rating-language filter; see the filing."),
+      ...(summaryCorrection === undefined ? {} : { summaryCorrection }),
       url: e.url,
     };
   });

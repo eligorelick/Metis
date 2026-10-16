@@ -1,4 +1,5 @@
 import type { ReportAuditTable } from "@/report/auditTables";
+import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
 import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
@@ -319,11 +320,12 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
 
 function eventTable(d: FilingDisclosures): ReportAuditTable[] {
   if (d.events.length === 0) return [];
+  const corrected = d.events.some((e) => e.summaryCorrection !== undefined || withoutLegacyPrincipalAnnotation(e.summary) !== e.summary);
   return [{
     heading: "Material SEC current reports (Form 8-K, last 12 months)",
-    headers: ["Filed", "Event date", "Items", "Summary (issuer text)", "Accession"],
-    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), e.summary, e.accession]),
-    note: "Items 1.01 (material agreement), 1.02, 2.01, 2.03 (off-balance-sheet or direct financial obligation), 2.05, 2.06, 5.02 (officers and directors) and 8.01 (other events). Earnings releases (Item 2.02) appear under guidance.",
+    headers: ["Filed", "Event date", "Items", "Summary", "Accession"],
+    rows: d.events.map((e) => [e.filingDate, e.eventDate ?? DASH, e.items.join(", "), withoutLegacyPrincipalAnnotation(e.summary), e.accession]),
+    note: "Items 1.01 (material agreement), 1.02, 2.01, 2.03 (off-balance-sheet or direct financial obligation), 2.05, 2.06, 5.02 (officers and directors) and 8.01 (other events). Earnings releases (Item 2.02) appear under guidance." + (corrected ? " An earlier generated principal total was withheld or re-derived; the appendix explains this deterministic correction." : ""),
   }];
 }
 

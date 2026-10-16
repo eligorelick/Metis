@@ -770,7 +770,7 @@ export function summarizeItem(section: EightKItemSection, maxChars = 600): strin
   // Notes due 2028, …") and used to end "…Notes due …" with the total unread,
   // so the series' aggregate principal is stated, marked as computed.
   const total = aggregatePrincipal(section.text);
-  const suffix = total === null ? "" : ` [computed: ${total.count} series, ${total.text} aggregate principal amount in total]`;
+  const suffix = total === null ? "" : ` [computed from ${total.count} distinct named issuance tranches: ${total.text} principal sum]`;
   const room = Math.max(0, maxChars - suffix.length);
   const kept: string[] = [];
   for (const s of picked) {
@@ -790,13 +790,51 @@ function clipAtClause(sentence: string, maxChars: number): string {
 }
 
 /**
- * The sum of the "$X aggregate principal amount" series an item lists, when it
- * lists two or more in one currency symbol; null otherwise.
+ * Admit only one completed issuance's explicit list of distinct coupon/maturity
+ * tranches. Principal mentions alone do not establish additive amounts: an
+ * option can already be included, or a paragraph can repeat the same notes.
+ * Ambiguous contexts retain issuer wording without a computed total.
  */
 function aggregatePrincipal(text: string): { count: number; text: string } | null {
-  const amounts = [...normalizeFilingText(text).matchAll(/((?:US)?\$)\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(thousand|million|billion|trillion))?\s+(?:in\s+)?aggregate principal amount/gi)];
+  const normalized = normalizeFilingText(text);
+  const principal = /((?:US)?\$)\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(thousand|million|billion|trillion))?\s+(?:in\s+)?aggregate principal amount/gi;
+  const amounts = [...normalized.matchAll(principal)];
   if (amounts.length < 2 || new Set(amounts.map((m) => m[1]!.toUpperCase())).size !== 1) return null;
+  if ([...normalized.matchAll(/\baggregate principal amounts?\b/gi)].length !== amounts.length) return null;
+  const sentence = splitSentences(normalized).find((s) => [...s.matchAll(principal)].length === amounts.length);
+  if (sentence === undefined) return null;
+  if (/\b(?:including|includes?|of which|up to|options?|additional|proposed|planned|expects?|intends?|could|may)\b/i.test(sentence)) return null;
+  const entries = [...sentence.matchAll(principal)];
+  const prefix = sentence.slice(0, entries[0]!.index).trim();
+  // A completed-offering suffix inside a counterfactual, expectation or plan
+  // does not establish that the named tranches were actually issued.
+  if (/\b[a-z]+n['’]t\b/i.test(prefix) ||
+    /\b(?:not|never|cancelled|canceled|withdrawn|withdrew|abandoned|terminated|if|assuming|assumed|assumes?|contingent|would|should|will|might|must|cannot|ought|expected|expecting|intended|intending|anticipated|anticipating|scheduled|hypothetical|counterfactual|plans?|planning)\b/i.test(prefix)) return null;
+  const affirmativeOffering = /\b(?:completed|closed)\s+(?:(?:its|the|an?|their)\s+)?(?:(?:previously announced|upsized|private|public|underwritten|registered)\s+)*(?:offering|issuance)\s+of$/i.test(prefix);
+  const affirmativeIssuance = /\bissued(?:\s+and\s+sold)?$/i.test(prefix);
+  if (!affirmativeOffering && !affirmativeIssuance) return null;
+  const identities = new Set<string>();
+  for (const [i, amount] of entries.entries()) {
+    const tail = sentence.slice(amount.index! + amount[0].length, entries[i + 1]?.index ?? sentence.length);
+    const named = /^\s+of\s+(?:its\s+)?(\d+(?:\.\d+)?)%\s+(?:(?:convertible|senior|unsecured|secured|subordinated)\s+)*notes\s+due\s+(\d{4})\b/i.exec(tail);
+    if (named === null) return null;
+    const identity = `${Number(named[1])}|${named[2]}`;
+    if (identities.has(identity)) return null;
+    identities.add(identity);
+    const separator = tail.slice(named[0].length);
+    const validSeparator = i + 1 < entries.length
+      ? /^\s*(?:\(([^()]{1,256})\)\s*)?(?:,\s*(?:and\s+)?|and\s+)$/i
+      : /^\s*(?:\(([^()]{1,256})\)\s*)?[.;]?\s*$/;
+    const parsedSeparator = validSeparator.exec(separator);
+    if (parsedSeparator === null) return null;
+    const definition = parsedSeparator[1];
+    // Only bounded defined-note labels, including NVIDIA's final collective
+    // label. A parenthetical cannot conceal another amount or transaction role.
+    if (definition !== undefined && (!/^the\b/i.test(definition) ||
+      /[^\s,“”"'‘’]/.test(definition.replace(/\b(?:the|notes|and|together|with|\d{4})\b/gi, "")))) return null;
+  }
   const sum = amounts.reduce((acc, m) => acc + Number(m[2]!.replace(/,/g, "")) * (m[3] ? SCALE[m[3].toLowerCase()]! : 1), 0);
+  if (!Number.isFinite(sum) || sum <= 0) return null;
   const symbol = amounts[0]![1]!.toUpperCase();
   const fmt = (v: number): string => {
     const s = v.toFixed(3).replace(/0+$/, "");

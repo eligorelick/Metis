@@ -118,7 +118,7 @@ interface SourceBinding {
    * D-66: a table cell's header scale ("(In millions)") and the excerpt's
    * fiscal labels for its column. Absent for prose figures.
    */
-  column?: { scale: number; aliases: string[] };
+  column?: { scale: number | null; aliases: string[] };
 }
 /** Run-local memo; never retained across reports, payloads or source revisions. */
 export type ClaimEvidenceIndex = Map<TextExcerpt, SourceBinding[]>;
@@ -456,7 +456,7 @@ function excerptPeriods(excerpt: TextExcerpt): PeriodReference[] {
 
 const HEADER_DATE = new RegExp(String.raw`\b(?:${MONTH_NAMES})\.?\s+\d{1,2},?\s+(?:19|20)\d{2}\b|\b\d{4}-\d{2}-\d{2}\b`, "gi");
 
-interface TableColumn { label: string; period: PeriodReference; window: PeriodReference | null; scale: number; dollars: boolean; rowStart: number }
+interface TableColumn { label: string; period: PeriodReference; window: PeriodReference | null; scale: number | null; dollars: boolean; rowStart: number }
 /** A table header's change column ("$ Change", "% Change"), which binds no period. */
 const CHANGE_COLUMN = /^[\s,|]*(?:[$%]\s*)?Change\b/i;
 const MONTHS_ENDED = /\b(Three|Six|Nine)\s+Months\s+Ended\b/gi;
@@ -516,12 +516,28 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
       const repeatedRuns = header.runs === 1 && named.length > 1 && Number.isInteger(runWidth) && runWidth >= 2 &&
         header.columns.every((column, index) => column !== null && column.date === header.columns[index % runWidth]?.date);
       const windows = named.length === header.runs || repeatedRuns ? named.map((months) => periodLabels(`${months} months ended`)[0] ?? null) : [];
-      // "(In millions)" between the header and the row scales an unscaled cell.
-      const scaleMatch = [...text.slice(header.start, found[q]!.start).matchAll(TABLE_SCALE)].at(-1);
-      const scaleWord = scaleMatch?.[1]?.toLowerCase();
-      const scale = scaleWord === undefined ? 1 : SCALES[scaleWord] ?? 1;
+      // A declaration can immediately precede the date header, e.g. CRWV's
+      // "(in millions): June 30, 2026 December 31, 2025". Admit only a local
+      // adjacent chain of parentheticals; prose or another table breaks it.
+      const prefix = text.slice(Math.max(0, header.start - 160), header.start);
+      const preceding = [...prefix.matchAll(TABLE_SCALE)];
+      let boundary = prefix.length;
+      const adjacent: RegExpMatchArray[] = [];
+      for (let i = preceding.length - 1; i >= 0; i--) {
+        const match = preceding[i]!;
+        if (!/^[\s:|]*$/.test(prefix.slice(match.index + match[0].length, boundary))) break;
+        adjacent.unshift(match);
+        boundary = match.index;
+      }
+      const declarations = [...adjacent, ...text.slice(header.start, found[q]!.start).matchAll(TABLE_SCALE)];
+      const scaleWords = new Set(declarations.map((match) => match[1]!.toLowerCase()));
+      const scaleWord = declarations.at(-1)?.[1]?.toLowerCase();
+      // This new preceding-header contract admits only the plain scale; an
+      // extra currency/unit qualifier cannot disappear into reportingCurrency.
+      const plainPrefix = adjacent.every((match) => /^\(\s*(?:\$\s*)?in\s+(?:thousands|millions|billions)\s*\)$/i.test(match[0]));
+      const scale = !plainPrefix || scaleWords.size > 1 ? null : scaleWord === undefined ? 1 : SCALES[scaleWord] ?? 1;
       // "($ in millions)" makes every cell of the table dollars, not only the first row's.
-      const dollars = scaleMatch !== undefined && /\$/.test(scaleMatch[0]);
+      const dollars = declarations.some((match) => /\$/.test(match[0]));
       for (let c = 0; c < k; c++) {
         const column = header.columns[c];
         const period = column ? periodLabels(column.date)[0] : undefined;
@@ -703,10 +719,14 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
     }
     const directionOf = (binding: SourceBinding): QuantityDirection | null => binding.levelBeforeComparison ? null : binding.context.direction;
-    const distinct = new Set(matchingPeriods.map((candidate) => JSON.stringify([
-      candidate.quantity.value, candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
-      directionOf(candidate),
-    ])));
+    const distinct = new Set(matchingPeriods.map((candidate) => {
+      const multiplier = candidate.quantity.scaled ? 1 : candidate.column?.scale ?? 1;
+      return JSON.stringify([
+        candidate.quantity.value * multiplier, candidate.quantity.step * multiplier,
+        candidate.quantity.unit, resolvedCurrency(candidate.quantity, options.reportingCurrency), candidate.context.periods.map((period) => period.key),
+        directionOf(candidate),
+      ]);
+    }));
     // A window with its year or date ("the first half of fiscal year 2027") is one period, not two.
     if (distinct.size !== 1 || matchingPeriods.some((candidate) => candidate.listAmbiguous ||
       (candidate.column === undefined && (candidate.context.periods.filter((period) => period.kind !== "window").length > 1 ||
@@ -714,6 +734,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "text-ambiguous", "multiple source values, periods or columns could bind the prose quantity", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
     }
     const bound = matchingPeriods[0];
+    if (matchingPeriods.some((candidate) => candidate.column?.scale === null)) {
+      return support("unchecked", "text-ambiguous", "the bound table header carries conflicting scale declarations", matchingPeriods.slice(0, 3).map((candidate) => candidate.span));
+    }
     // A header's scale defines the source amount regardless of whether prose
     // spells its amount with a scale word or with all digits.
     const tableScale = bound.column?.scale ?? 1;

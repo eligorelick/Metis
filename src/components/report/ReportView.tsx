@@ -29,6 +29,7 @@
  */
 
 import { MetisLogo } from "@/brand/MetisLogo";
+import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
@@ -136,7 +137,7 @@ function DataOnlyBanner({ text }: { text: string }) {
  * ------------------------------------------------------------------------ */
 
 export function ReportView({
-  report,
+  report: sourceReport,
   /** Optional chart node mounted inside the Technicals section. */
   technicalsChart,
   /** Optional chart node mounted inside the Fundamentals section. */
@@ -146,6 +147,7 @@ export function ReportView({
   technicalsChart?: ReactNode;
   fundamentalsChart?: ReactNode;
 }) {
+  const report = withPrincipalSummarySafety(sourceReport);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,

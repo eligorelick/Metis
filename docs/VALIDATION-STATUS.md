@@ -1,6 +1,29 @@
 # Research validation status
 
-Updated 2026-10-16 for report 1.19.2 / payload 1.24.2.
+Updated 2026-10-16 for report 1.19.3 / payload 1.24.2.
+
+D-74 corrects deterministic principal summaries: an included financing option
+cannot be added to its offering total. Computed sums require proven distinct
+named issuance tranches; unsupported wording withholds the sum. Legacy views
+and exports remove the exact earlier generated annotation with an informational
+correction disclosure. Original stored reports, model output, usage and analysis
+conventions remain preserved; no paid analyst or judge rerun is involved. The
+actual frozen CRWV analyst payload is byte-identical (fingerprint
+`1.24.2:71b55ac7`; exact SHA-256 recorded in D-74), so only the report convention
+stamp changes.
+
+D-75 additionally binds plain table scales immediately preceding explicit date
+columns. Conflicting declarations and unsupported qualifiers remain unchecked.
+Frozen CRWV replay corrects only `balanceSheet.coverage.numbers[2]` and
+`balanceSheet.coverage.commentary[2]`; commentary remains numeric-only support.
+The original report, snapshot, computation and analyst payload are unchanged,
+with no paid rerun. Corrected exports preserve the original report 1.19.2
+convention; new reports use 1.19.3, while payload and Stage B remain unchanged.
+The complete combined D-74/D-75 local `npm run verify` passed: 6,418 product
+tests (three skipped), four database integration tests, both configured coverage
+gates, production build and zero-vulnerability security audit. Independent source
+review found no remaining reviewed blocker. Fresh required CI remains pending;
+these checks do not establish forecast accuracy or calibrated grades.
 
 The NVDA audit recovery (D-65 through D-72) changes consensus calendarization,
 the non-operating investment bridge and valuation date. The subsequent debt
@@ -27,8 +50,9 @@ D-73 follows source-data preflight with conservative debt completeness and
 filing-presentation reconciliation. Its changed context cannot resume earlier
 analyst artifacts as equivalent. Cross-date or impossible free-float percentages
 are withheld while the float measurement retains its own date; valuation share
-counts are unchanged. Combined local verification, independent review and fresh
-required remote CI remain gates for this follow-up.
+counts are unchanged. The subsequent test-only Windows SQLite timing policy in
+PR #23 passed both required full and Windows checks on main. D-74's source and
+presentation correction requires its own local gate and fresh CI.
 
 The fresh NVDA output and its explicitly labeled corrected replay are recorded
 in D-71. Independent arithmetic reconciled the valuation and score; the source
