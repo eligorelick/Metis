@@ -765,14 +765,18 @@ describe("payload determinism + provenance", () => {
       // floor. Its coverage now lists the risk families. Net -1,119 prompt
       // bytes (the separators carried multi-byte ellipses); no record, citation
       // or finance figure moved. The fixture has no Item 1, 10-Q notes or 8-K.
-      fingerprint: "1.23.0:e65a07b5",
-      promptBytes: 126_290,
-      provenanceCount: 524,
-      provenanceHash: "fe8c84e7",
-      provenanceIdsHash: "145e22a3",
-      citationCount: 60,
-      citationHash: "0fa208f0",
-      computedFigureLabelHash: "527bb223",
+      // Integration of D-60..D-64: D-61 adds 11 records and 13 citations (Beneish
+      // indices, Piotroski signals, accrual operands), D-60 removes 4 (vendor
+      // cash-only net debt) -> 531; prompt bytes add D-63 evidence, D-61 and D-60
+      // payload text (126,290 + 3,856 + 1,592 = 131,738, +4 from merged labels).
+      fingerprint: "1.23.0:4c978f25",
+      promptBytes: 131_742,
+      provenanceCount: 531,
+      provenanceHash: "4821d095",
+      provenanceIdsHash: "a549f740",
+      citationCount: 73,
+      citationHash: "395a88c9",
+      computedFigureLabelHash: "4a5113a3",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -789,7 +793,7 @@ describe("payload determinism + provenance", () => {
       // D-61: moat durability is the ROIC floor, leadership drops the second
       // ROIC − WACC read and grades buyback timing (unmeasurable here), and the
       // accruals signal reads operating accruals — see the comment above.
-      financeHash: "e9e62820",
+      financeHash: "12125e0e",
     });
   });
 

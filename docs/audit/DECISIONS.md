@@ -196,11 +196,10 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
     `forensics-d61-2026-10-15` and the payload pin in
     `tests/stageC.payload.passes.test.ts` say what moved.
   - **Version stamps.** `REPORT_SPEC_VERSION` and `PAYLOAD_VERSION` are
-    unchanged. `SCORE_BANDS_VERSION` is deliberately left at
-    `SCORE_BANDS_2026_10_AUDIT`, as D-57/D-58 left the Stage B version, so
-    the frozen integration snapshots still replay. The band tables did change
-    (timing band; durability on the level bands), so bump it when this
-    merges.
+    unchanged. The band tables changed (timing band; durability on the
+    level bands), so the integration merge stamps `SCORE_BANDS_VERSION`
+    `SCORE_BANDS_2026_10_NVDA_AUDIT` and the Stage B implementation
+    `STAGE_B_2026_10_NVDA_AUDIT_1`.
   - **Not changed.**
     - AQI still counts long-term strategic investments as non-current
       assets. That is Beneish's definition: assets whose future benefits are

@@ -5,7 +5,10 @@ import { REPORT_SPEC_VERSION } from "@/report/schema";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 
 export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_FINANCIAL_INTEGRITY_1" as const;
+// NVDA_AUDIT_1 (D-57..D-64): evidence-anchored DCF, mean-reverting scenarios,
+// one net-cash figure, corrected forensic signals and fourth-quarter EPS; a
+// snapshot frozen under FINANCIAL_INTEGRITY_1 does not replay as this convention.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_NVDA_AUDIT_1" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

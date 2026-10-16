@@ -87,7 +87,8 @@ function titleWords(segment: string): string {
 const ASPECT_LABEL: Record<string, string> = {
   fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality",
   balancesheet: "Balance-sheet", balanceSheet: "Balance-sheet", moat: "Moat",
-  leadership: "Leadership", technicals: "Technicals", composite: "Composite",
+  // D-61: the deterministic leadership score is a capital-stewardship proxy.
+  leadership: "Leadership (capital stewardship)", technicals: "Technicals", composite: "Composite",
 };
 
 const EXACT_LABELS: Record<string, string> = {
@@ -1012,7 +1013,7 @@ export interface BodyTable {
 const SCORE_ASPECT_ORDER = ["fundamentals", "valuation", "quality", "balanceSheet", "moat", "leadership", "technicals"] as const;
 const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = {
   fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality", balanceSheet: "Balance Sheet",
-  moat: "Moat", leadership: "Leadership", technicals: "Technicals",
+  moat: "Moat", leadership: "Leadership (capital stewardship)", technicals: "Technicals",
 };
 
 /**
