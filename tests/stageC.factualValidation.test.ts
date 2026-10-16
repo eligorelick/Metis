@@ -116,7 +116,12 @@ describe("factual prose numeric validation", () => {
     // The NVDA final rerun's record and sentence, verbatim.
     const context = { id: source, label: "DCF base-case year-one revenue growth over TTM", kind: "computed" as const, value: 82.1353, unit: "percent" as const,
       currency: null, asOf, origin: source, formulaVersion: null, displayPrecision: 4, period: null };
-    const periodless = await verify("", "DCF base-case year-one revenue growth over trailing revenue is 82.1353%.", { provenanceRegistry: [context] });
+    // D-66: "trailing" names the TTM window the record's own label states
+    // ("… over TTM"), so the verbatim sentence now validates; a period the
+    // label does not state (a month) is still left unchecked, never contradicted.
+    const verbatim = await verify("", "DCF base-case year-one revenue growth over trailing revenue is 82.1353%.", { provenanceRegistry: [context] });
+    expect(verbatim.log[0]?.validationStatus).toBe("validated");
+    const periodless = await verify("", "DCF base-case year-one revenue growth over trailing revenue in March 2026 is 82.1353%.", { provenanceRegistry: [context] });
     const base = { id: source, label: "Operating margin", kind: "provider" as const, value: 31, unit: "percent" as const,
       currency: null, asOf, origin: source, formulaVersion: null, displayPrecision: 2 };
     expect(periodless.log[0]).toMatchObject({ outcome: "unverified", reason: "period-mismatch" });

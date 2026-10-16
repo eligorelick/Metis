@@ -1013,6 +1013,17 @@ describe("person-row claims are read however the name and title are written (rev
     },
   );
 
+  it("D-66: reads a title through the comma scope its row spells ('EVP, Operations'), never dropping the scope", () => {
+    // The NVDA final rerun rejected these pay claims although they spell the DEF 14A rows exactly.
+    const nvda = collectPersonRows({ leadershipFigures: compFigures(["Debora Shoquist EVP, Operations", "Ajay K. Puri EVP, Worldwide Field Operations"], "2026-05-12", 2026) });
+    const verify = (text: string) => run(refs(claim(text, "fmp:executive-compensation", { asOf: "2026-05-12" })), [],
+      { citationRegistry: [compCitation("2026-05-12")], personNames: nvda.map((row) => row.name), personRows: nvda });
+    expect(verify("Debora Shoquist, EVP, Operations: total compensation is shown for FY2026.").findings).toEqual([]);
+    expect(verify("Ajay K. Puri, EVP, Worldwide Field Operations: total compensation is shown for FY2026.").findings).toEqual([]);
+    expect(verify("Debora Shoquist, EVP: total compensation is shown for FY2026.").findings[0]?.reason).toBe("named-individual-title-mismatch");
+    expect(verify("Debora Shoquist, EVP, Worldwide Field Operations: total compensation is shown.").findings[0]?.reason).toBe("named-individual-title-mismatch");
+  });
+
   it("reads a title written after 'is' or 'serves as', and one written before the name", () => {
     for (const text of [
       "Jeremy Barnum is the CEO.",

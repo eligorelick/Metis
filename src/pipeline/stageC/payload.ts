@@ -891,8 +891,11 @@ function computedSections(
     // in the gap list.
     { label: "relative strength vs SPY, 12-1 month (latest month skipped)", value: rs.momentum12m1m?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.12m1m", asOf: rs.momentum12m1m?.endDate ?? null },
     { label: "relative strength vs SPY, 6-month", value: rs.points.find((p) => p.months === 6)?.differentialPctPoints ?? null, unit: "pp", source: "computed.technicals.relativeStrength.6mo", asOf: rs.asOf },
-    { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.read", asOf: t.asOf },
-    { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.read", asOf: t.asOf },
+    // D-66: one tag per read. Both rows printed `computed.technicals.read`, so
+    // the NVDA final rerun's judge composed `computed.technicals.momentum` for
+    // the momentum read, a tag that did not exist (unknown-source).
+    { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.trend-read", asOf: t.asOf },
+    { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.momentum-read", asOf: t.asOf },
   ];
   sections.push(payloadSection({ title: "Technicals (computed)", figures: techFigures, notes: t.notes }));
 
@@ -1673,6 +1676,23 @@ export function riskFactorBudget(sourceChars: number): number {
     Math.max(PAYLOAD_BUDGETS.item1aChars, Math.round(sourceChars * PAYLOAD_BUDGETS.item1aLongShare)));
 }
 
+/**
+ * D-66: the fiscal label an earnings release gives the quarter ending on (or
+ * within three days of) `periodEnd`; an annual filing takes that quarter's
+ * fiscal year. Null when no release reports that period.
+ */
+function fiscalLabelOf(bundle: DataBundle, periodEnd: string, form: string): string | null {
+  const res = bundle.edgar?.currentReports;
+  if (!res?.ok) return null;
+  const day = (iso: string): number => Date.parse(`${iso}T00:00:00Z`);
+  const release = res.value.data.releases.find((r) => r.reported.periodEnd !== null && isIsoDate(r.reported.periodEnd) &&
+    Math.abs(day(r.reported.periodEnd) - day(periodEnd)) <= 3 * 86_400_000 && r.reported.fiscal !== null);
+  const label = release?.reported.fiscal?.label ?? null;
+  if (label === null) return null;
+  if (form === "10-K" || form === "20-F") return /^Q4\s+(FY\d{4})$/.exec(label)?.[1] ?? null;
+  return /^Q[1-3]\s+FY\d{4}$/.test(label) ? label : null;
+}
+
 function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
   const add = (
@@ -1688,7 +1708,11 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     const markerNote = sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "";
     const reportingPeriod = isoDay(sec.reportDate);
     const filingDate = isoDay(sec.filingDate);
-    const dateNote = (reportingPeriod !== null && isIsoDate(reportingPeriod) ? `; reporting period ended ${reportingPeriod}` : "") +
+    // D-66: the issuer's own fiscal label for that period, from its earnings
+    // release ("Q2 FY2027"), so a figure stated for "the second quarter of
+    // fiscal 2027" is read against the excerpt that reports it.
+    const fiscal = reportingPeriod !== null && isIsoDate(reportingPeriod) ? fiscalLabelOf(bundle, reportingPeriod, sec.form) : null;
+    const dateNote = (reportingPeriod !== null && isIsoDate(reportingPeriod) ? `; reporting period ended ${reportingPeriod}${fiscal === null ? "" : ` (${fiscal})`}` : "") +
       (filingDate !== null && isIsoDate(filingDate) ? `; filed ${filingDate}` : "");
     out.push({
       title: `${title(sec.form)}${markerNote} (${sec.form} ${sec.accession}${dateNote})`,

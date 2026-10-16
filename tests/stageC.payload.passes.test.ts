@@ -769,13 +769,17 @@ describe("payload determinism + provenance", () => {
       // indices, Piotroski signals, accrual operands), D-60 removes 4 (vendor
       // cash-only net debt) -> 531; prompt bytes add D-63 evidence, D-61 and D-60
       // payload text (126,290 + 3,856 + 1,592 = 131,738, +4 from merged labels).
-      fingerprint: "1.23.0:4c978f25",
-      promptBytes: 131_742,
+      // D-66: the trend and momentum reads print their own tags
+      // (computed.technicals.trend-read / momentum-read) instead of sharing
+      // computed.technicals.read, so one more citation is registered (73 -> 74)
+      // and the two tags add 15 prompt bytes; no number moved.
+      fingerprint: "1.23.0:5fbdfcd8",
+      promptBytes: 131_757,
       provenanceCount: 531,
       provenanceHash: "4821d095",
       provenanceIdsHash: "a549f740",
-      citationCount: 73,
-      citationHash: "395a88c9",
+      citationCount: 74,
+      citationHash: "5d7e100c",
       computedFigureLabelHash: "4a5113a3",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
