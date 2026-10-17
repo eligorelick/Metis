@@ -4,6 +4,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import type { Scenario, ScenarioPresentation, SensitivityCell, Valuation } from "@/report/schema";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
+import { projectionAvailability } from "@/report/surfaceManifest";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 /**
@@ -13,7 +14,7 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
  * belongs to the weighted operating projections alone, and this is the one
  * place the report says it is not a calibrated probability.
  */
-const WEIGHT_BASIS = "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability.";
+const WEIGHT_BASIS = "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied.";
 
 /** D-65: the year-one growth × sustained margin grid, as the DCF display carries it. */
 export interface GrowthMarginCells { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][] }
@@ -91,12 +92,18 @@ export function comparableScenarioPrice(computed: ComputedMetrics, bundle: Pick<
 export function buildScenarioPresentation(computed: ComputedMetrics, currentPrice: number | null = null): ScenarioPresentation {
   const display = computed.valuation ? computeDcfDisplay(computed.valuation) : null;
   const cells = display?.sensitivityGrid ?? [];
+  const entityAvailable = finite(display?.bridge?.enterpriseValue) && (display?.forecastRows?.length ?? 0) > 0;
+  const projections = projectionAvailability(computed.projections?.series ?? []);
   return {
     methodVersion: "SCENARIO_PRESENTATION_2026_10",
-    weightBasis: WEIGHT_BASIS,
+    weightBasis: `${WEIGHT_BASIS} ${projections.weighted
+      ? "The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability."
+      : "No weighted operating projections are available; no projection weights are applied."}`,
     interpretation: computed.scenarioTargets?.status === "available"
       ? "Scenario values are present-value DCF sensitivities over the explicit operating horizon. Growth and margin paths use the shifts that generated each labeled target; all other model inputs remain at base. Model commentary is qualitative and does not set those inputs."
-      : "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",
+      : entityAvailable
+        ? `${projections.forward ? "Entity DCF and numerical operating scenario paths are available" : "Entity DCF is available; numerical operating scenario paths are unavailable"}; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.`
+        : "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",
     sensitivity: summarizeSensitivity(cells, currentPrice, display?.growthMarginGrid ?? null),
   };
 }
@@ -104,34 +111,38 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
 function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["name"]): string[] {
   const targets = computed.scenarioTargets;
   const target = targets?.status === "available" ? targets.targets.find((entry) => entry.name === name) : undefined;
+  const scenarioInputs = target?.perShare != null ? target : computed.projections?.scenarioAssumptions?.scenarios.find(entry => entry.name === name);
   const valuation = computed.valuation;
-  if (!target || valuation?.kind !== "dcf" || !valuation.assumptions || !valuation.dcf || !target.perShare) {
+  if (!scenarioInputs || valuation?.kind !== "dcf" || !valuation.assumptions || !valuation.dcf) {
     return ["Deterministic scenario inputs unavailable for this route or target; see the missing-data manifest."];
   }
-  const a = name === "base" ? valuation.assumptions : perturbScenarioAssumptions(valuation.assumptions, target.growthDeltaPp, target.marginDeltaPp);
+  const a = name === "base" ? valuation.assumptions : perturbScenarioAssumptions(valuation.assumptions, scenarioInputs.growthDeltaPp, scenarioInputs.marginDeltaPp);
   const display = (value: number) => Number(value.toFixed(2)).toString();
   const path = (xs: number[]) => xs.map(display).join(", ");
   const bridge = valuation.dcf.bridge;
-  const known = (v: number | null) => v === null ? "not disclosed (engine convention applies)" : display(v);
+  const known = (v: number | null) => v === null ? "unavailable" : display(v);
+  const claim = (v: number | null) => v === null ? "not disclosed; model uses 0" : display(v);
   // D-65: the margin shift the path carries after the scenario cap, beside the
   // shock requested (NVDA bull: +10.12pp requested, 0 after the 65.21% cap).
   const effectiveMargin = (a.ebitMarginPath.value[0] ?? 0) - (valuation.assumptions.ebitMarginPath.value[0] ?? 0);
-  const marginText = Math.abs(effectiveMargin - target.marginDeltaPp) < 0.005
-    ? `operating margin ${display(target.marginDeltaPp)} percentage points`
-    : `operating margin ${display(effectiveMargin)} percentage points after the scenario margin cap (${display(target.marginDeltaPp)} requested)`;
+  const marginText = Math.abs(effectiveMargin - scenarioInputs.marginDeltaPp) < 0.005
+    ? `operating margin ${display(scenarioInputs.marginDeltaPp)} percentage points`
+    : `operating margin ${display(effectiveMargin)} percentage points after the scenario margin cap (${display(scenarioInputs.marginDeltaPp)} requested)`;
   return [
     "Computed inputs are displayed rounded to two decimal places; valuation calculations retain full precision.",
-    `Year-one shift versus base: revenue growth ${display(target.growthDeltaPp)} percentage points, ${marginText}; both decay to zero by year ${a.years}.`,
+    `Year-one shift versus base: revenue growth ${display(scenarioInputs.growthDeltaPp)} percentage points, ${marginText}; both decay to zero by year ${a.years}.`,
     `Revenue growth path (% per year, in horizon order): ${path(a.growthPath.value)}.`,
     `Operating-margin path (% per year, in horizon order): ${path(a.ebitMarginPath.value)}.`,
     `Fixed base inputs: starting revenue ${display(a.startRevenue.value)} reporting-currency units; WACC ${display(a.wacc.value)}%; terminal growth actually used ${display(valuation.dcf.gTermUsedPct)}%; terminal ROIC ${display(a.terminal.roicTermPct.value)}%; sales-to-capital ${display(a.salesToCapital.value)}x; tax path (%): ${path(a.taxRatePath.value)}; mid-year discounting ${a.midYear.value ? "on" : "off"}.`,
-    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${known(bridge.minorityInterest)}, preferred equity ${known(bridge.preferred)}` +
+    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${claim(bridge.minorityInterest)}, preferred equity ${claim(bridge.preferred)}` +
       `${bridge.nonOperatingAssets === undefined ? ""
         : bridge.nonOperatingComponents && bridge.nonOperatingComponents.length > 0
           ? `, plus non-operating ${bridge.nonOperatingComponents.map((c) => `${c.label.replace(/ \(.*\)$/, "")} ${display(c.value)}`).join(" and ")}`
           : `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}` +
       `${a.valuationDate === undefined ? "" : `; value stated at the quote date ${a.valuationDate.value}`}.`,
-    "Targets are labeled by per-share value; a negative perturbed equity value is floored at zero. No scenario is a future-price forecast.",
+    target?.perShare != null
+      ? "Targets are labeled by per-share value; a negative perturbed equity value is floored at zero. No scenario is a future-price forecast."
+      : "Operating scenarios use the recorded enterprise-value ordering. Per-share targets and qualitative narratives may be withheld independently; no operating path is a future-price forecast.",
   ];
 }
 

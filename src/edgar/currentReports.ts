@@ -23,6 +23,8 @@
  * Pure: no network, no clock.
  */
 
+import { parseGuidanceTables } from "@/edgar/guidanceTables";
+
 // ---------------------------------------------------------------------------
 // Shared text helpers
 // ---------------------------------------------------------------------------
@@ -133,6 +135,8 @@ function fullYearPhrase(text: string): FiscalPeriod | null {
 
 export type GuidanceMetric =
   | "revenue"
+  | "adjusted-ebitda"
+  | "adjusted-ebitda-margin-expansion"
   | "gross-margin"
   | "operating-expenses"
   | "operating-margin"
@@ -148,7 +152,7 @@ export interface GuidanceItem {
   basis: GuidanceBasis;
   period: FiscalPeriod;
   /** Money in base units of the printed symbol; percentages in percent points. */
-  unit: "currency" | "currency-per-share" | "%";
+  unit: "currency" | "currency-per-share" | "%" | "percentage-points";
   symbol: string | null;
   low: number;
   mid: number;
@@ -157,6 +161,11 @@ export interface GuidanceItem {
   form: "point" | "range" | "plus-minus" | "approximate";
   /** The issuer's sentence, bounded. */
   sentence: string;
+  previous?: { low: number; mid: number; high: number };
+  growth?: { low: number; high: number };
+  previousGrowth?: { low: number; high: number };
+  span?: { start: number; end: number; text: string };
+  headerSpan?: { start: number; end: number; text: string };
 }
 
 export interface IssuerGuidance {
@@ -277,6 +286,8 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
 
 /** Guidance from a release or commentary; null when it prints no outlook. */
 export function parseGuidance(rawText: string): IssuerGuidance | null {
+  const table = parseGuidanceTables(rawText);
+  if (table !== null) return table;
   const block = outlookBlock(normalizeFilingText(rawText));
   if (block === null) return null;
   const period = quarterPhrase(block);
@@ -377,15 +388,42 @@ function tableColumns(text: string, rowIndex: number, count: number): { ends: st
   return { ends: ends as string[], months: ends.map((_, i) => (ytdStart > 0 && i >= ytdStart ? groups[1]! : groups[0]!)), scale };
 }
 
+const COMPACT_FOUR_COLUMN_HEADER = String.raw`Three months ended (${MONTHS.join("|")})\s+(\d{1,2}),\s+(Six|Nine|Twelve) months ended \1\s+\2,\s+(20\d{2})\s+(20\d{2})\s+\4\s+\5\s+`;
+
+function compactHeaderColumns(header: RegExpMatchArray): { ends: string[]; months: (3 | 6 | 9 | 12)[] } | null {
+  if (Number(header[4]) - Number(header[5]) !== 1) return null;
+  const current = isoFromMonthDate(`${header[1]} ${header[2]}, ${header[4]}`);
+  const prior = isoFromMonthDate(`${header[1]} ${header[2]}, ${header[5]}`);
+  if (!current || !prior) return null;
+  return { ends: [current, prior, current, prior], months: [3, 3, MONTH_WORDS[header[3]!.toLowerCase()]!, MONTH_WORDS[header[3]!.toLowerCase()]!] };
+}
+
+/** Admit the compact FCF table only as a complete, arithmetically bound triplet. */
+function compactFreeCashFlow(text: string): { columns: NonNullable<ReturnType<typeof compactHeaderColumns>>; cfo: number[]; capex: number[]; fcf: number[] } | null {
+  const pattern = new RegExp(String.raw`\bFree Cash Flow\s+${COMPACT_FOUR_COLUMN_HEADER}\(In millions\)\s+Net cash provided by operating activities\s+${ROW_VALUES}Less:\s+Total capital expenditures\s+${ROW_VALUES}Free cash flow\s+${ROW_VALUES}`, "gi");
+  const matches = [...text.matchAll(pattern)];
+  if (matches.length !== 1) return null;
+  const match = matches[0]!;
+  const columns = compactHeaderColumns(match);
+  const cfo = rowNumbers(match[6]!), capex = rowNumbers(match[7]!), fcf = rowNumbers(match[8]!);
+  if (!columns || [cfo, capex, fcf].some((cells) => cells.length !== 4 || cells.some((v) => !Number.isSafeInteger(v))) || !/\$/.test(match[6]!) || !/\$/.test(match[8]!)) return null;
+  // This grammar admits whole millions as printed. Half a printed unit is the
+  // maximum residual; integer cells must therefore reconcile exactly.
+  if (capex.some((v) => v > 0) || fcf.some((v, i) => Math.abs(cfo[i]! + capex[i]! - v) > 0.5)) return null;
+  return { columns, cfo, capex: capex.map(Math.abs), fcf };
+}
+
 export function parseIssuerFreeCashFlow(rawText: string): FreeCashFlowFact[] {
   const text = normalizeFilingText(rawText);
+  const definition = /Free cash flow is (?:calculated|defined) as [^.]{10,300}\./i.exec(text)?.[0] ?? null;
+  const compact = compactFreeCashFlow(text);
+  if (compact) return compact.fcf.map((value, i) => ({ value: value * 1e6, symbol: "$", periodEnd: compact.columns.ends[i]!, months: compact.columns.months[i]!, definition }));
   const row = new RegExp(String.raw`\bFree cash flow\s+${ROW_VALUES}`).exec(text);
   if (!row) return [];
   const values = rowNumbers(row[1]!);
   const columns = tableColumns(text, row.index, values.length);
   if (columns === null || columns.scale === null) return [];
   const scale = columns.scale;
-  const definition = /Free cash flow is (?:calculated|defined) as [^.]{10,300}\./i.exec(text)?.[0] ?? null;
   return values.map((value, i) => ({
     value: value * scale,
     symbol: "$",
@@ -397,6 +435,7 @@ export function parseIssuerFreeCashFlow(rawText: string): FreeCashFlowFact[] {
 
 export type ReconciliationMetric =
   | "operating-cash-flow"
+  | "total-capital-expenditures"
   | "purchases-property-equipment"
   | "principal-payments-property-equipment"
   | "equity-securities-gains"
@@ -426,6 +465,18 @@ const RECONCILIATION_ROWS: { metric: ReconciliationMetric; label: RegExp; sign: 
   { metric: "non-gaap-tax-impact", label: /Income tax impact of non-GAAP adjustments/, sign: 1 },
 ];
 
+/** The compact four-column EPS table prints its date once per duration. */
+function compactEpsColumns(text: string, rowIndex: number): { ends: string[]; months: (3 | 6 | 9 | 12)[] } | null {
+  const before = text.slice(Math.max(0, rowIndex - 12_000), rowIndex);
+  const headerPattern = new RegExp(String.raw`${COMPACT_FOUR_COLUMN_HEADER}\(In millions,? except share and per share data\)`, "gi");
+  const header = [...before.matchAll(headerPattern)].at(-1);
+  if (!header) return null;
+  const title = before.slice(Math.max(0, header.index - 120), header.index);
+  if (!/Adjusted Net Income(?:\s*\(Loss\))?\s*&\s*Adjusted EPS\s*$/i.test(title)) return null;
+  if (/\b(?:months|year)\s+ended\b/i.test(before.slice(header.index + header[0].length))) return null;
+  return compactHeaderColumns(header);
+}
+
 /**
  * D-63 (NVDA audit P1-A, P1-B): the GAAP-to-non-GAAP reconciliation an
  * earnings release or CFO commentary prints — the free-cash-flow bridge (so
@@ -442,6 +493,12 @@ export function parseReconciliation(rawText: string): ReconciliationFact[] {
   const push = (fact: ReconciliationFact): void => {
     if (!out.some((f) => f.metric === fact.metric && f.periodEnd === fact.periodEnd && f.months === fact.months)) out.push(fact);
   };
+  const fcf = compactFreeCashFlow(text);
+  if (fcf) {
+    for (const [metric, values] of [["operating-cash-flow", fcf.cfo], ["total-capital-expenditures", fcf.capex]] as const) {
+      values.forEach((value, i) => push({ metric, value: value * 1e6, unit: "currency", symbol: "$", periodEnd: fcf.columns.ends[i]!, months: fcf.columns.months[i]! }));
+    }
+  }
   for (const rule of RECONCILIATION_ROWS) {
     for (const row of text.matchAll(new RegExp(String.raw`${rule.label.source}\s+${ROW_VALUES}`, "g"))) {
       const values = rowNumbers(row[1]!);
@@ -462,6 +519,19 @@ export function parseReconciliation(rawText: string): ReconciliationFact[] {
       const values = rowNumbers(cells);
       const columns = tableColumns(text, eps.index, values.length);
       if (columns === null || !/\$/.test(cells)) continue;
+      values.forEach((value, i) => push({ metric, value, unit: "currency-per-share", symbol: "$", periodEnd: columns.ends[i]!, months: columns.months[i]! }));
+    }
+  }
+  // A compact issuer-adjusted EPS reconciliation is a different taxonomy
+  // from the financial-summary or weighted-average-share tables. Admit a
+  // matched pair only under that explicit heading and one four-column header.
+  const compact = new RegExp(String.raw`GAAP diluted earnings per share\s+${ROW_VALUES}([\s\S]{0,4000}?)Adjusted earnings per share\s*(?:\(\d{1,2}\))?\s+${ROW_VALUES}`, "g");
+  for (const pair of text.matchAll(compact)) {
+    const gaap = rowNumbers(pair[1]!), adjusted = rowNumbers(pair[3]!);
+    if (gaap.length !== 4 || adjusted.length !== 4 || /\b(?:months|year)\s+ended\b/i.test(pair[2]!) || !/\$/.test(pair[1]!) || !/\$/.test(pair[3]!)) continue;
+    const columns = compactEpsColumns(text, pair.index);
+    if (columns === null) continue;
+    for (const [metric, values] of [["gaap-diluted-eps", gaap], ["non-gaap-diluted-eps", adjusted]] as const) {
       values.forEach((value, i) => push({ metric, value, unit: "currency-per-share", symbol: "$", periodEnd: columns.ends[i]!, months: columns.months[i]! }));
     }
   }

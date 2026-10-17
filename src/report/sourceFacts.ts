@@ -26,7 +26,7 @@ export interface SourceFactRow {
 export interface ReportedEarningsReconciliation {
   status: "available" | "unavailable";
   reason: string | null;
-  method: "pretax-minus-tax" | "pretax-minus-tax-plus-equity-method" | null;
+  method: "pretax-minus-tax" | "pretax-minus-tax-plus-equity-method" | "pretax-minus-tax-minus-nci" | null;
   pretaxMinusTax: number | null;
   reconciledNetIncome: number | null;
   reportedNetIncome: number | null;
@@ -52,9 +52,11 @@ const FACT_LINES = [
   ["income-tax-expense", "income tax expense"],
   ["net-income", "net income"],
   ["equity-method-income-loss-as-filed", "equity-method income (loss), as filed"],
+  ["consolidated-net-income", "consolidated net income"],
+  ["noncontrolling-interest-net-income", "noncontrolling interest net income"],
 ] as const;
 
-const RECONCILIATION_EXPLANATION = "Reported arithmetic only: income before tax minus income tax expense is compared with reported net income. The signed as-filed equity-method result is added only if needed to match that identity. This is not normalized recurring earnings, a tax allocation, or a universal treatment of equity-method results.";
+const RECONCILIATION_EXPLANATION = "Reported arithmetic only: income before tax minus income tax expense is compared with reported net income. When consolidated and parent earnings differ, signed noncontrolling-interest earnings are subtracted from consolidated profit to reconcile parent profit; a noncontrolling loss increases parent profit. An equity-method result cannot plug a known ownership-scope gap. Outside an established ownership bridge, the signed as-filed equity-method result is shown only as a matching reported arithmetic identity. This is not normalized recurring earnings, a tax allocation, or a universal treatment of equity-method results.";
 
 function emptyReconciliation(reason: string): ReportedEarningsReconciliation {
   return { status: "unavailable", reason, method: null, pretaxMinusTax: null, reconciledNetIncome: null,
@@ -139,6 +141,19 @@ function reconcile(rows: readonly SourceFactRow[]): ReportedEarningsReconciliati
     explanation: RECONCILIATION_EXPLANATION,
   };
   if (reconciles(directResidual, [pretax.value, tax.value, net.value])) return direct;
+  const consolidated = find("consolidated-net-income"), nci = find("noncontrolling-interest-net-income");
+  if (nci) {
+    const consolidatedMatches = consolidated === undefined || reconciles(pretaxMinusTax - consolidated.value, [pretax.value, tax.value, consolidated.value]);
+    const reconciledNetIncome = pretaxMinusTax - nci.value;
+    const residual = reconciledNetIncome - net.value;
+    const matches = consolidatedMatches && reconciles(residual, [pretax.value, tax.value, nci.value, net.value]);
+    return { ...direct, status: matches ? "available" : "unavailable", method: "pretax-minus-tax-minus-nci", reconciledNetIncome, residual,
+      reason: matches ? null : "Reported consolidated-to-parent ownership arithmetic does not reconcile; an equity-method amount is not used as a plug.",
+      operandIds: [...direct.operandIds, nci.provenanceId, ...(consolidated ? [consolidated.provenanceId] : [])] };
+  }
+  if (consolidated && reconciles(pretaxMinusTax - consolidated.value, [pretax.value, tax.value, consolidated.value])) {
+    return { ...direct, status: "unavailable", reason: "Consolidated profit reconciles to pretax less tax, but parent profit differs and signed noncontrolling-interest earnings are unavailable; ownership scope cannot be reconciled with an equity-method plug." };
+  }
   const equity = find("equity-method-income-loss-as-filed");
   if (!equity) return { ...direct, status: "unavailable", reason: "Missing reported equity-method income (loss), as filed; the direct identity does not reconcile." };
   const reconciledNetIncome = pretaxMinusTax + equity.value;

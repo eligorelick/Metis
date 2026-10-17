@@ -22,6 +22,7 @@
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -86,11 +87,13 @@ import {
   withoutTabled,
   dataStateText,
   factorExposureTable,
+  factorContributionSensitivityTable,
   figureRows,
   figureValueText,
   gapCountText,
   gapSummary,
   geographyLabel,
+  geographicBasisNote,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -124,6 +127,8 @@ import {
   SOURCE_ENTRY_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -377,6 +382,7 @@ function renderScores(scores: Scoring): string {
     ...(card.note ? [`_${markdownProse(card.note)}_`, ""] : []),
     ...(drivers ? auditTableBlocks([drivers]) : []),
     ...(exposure ? auditTableBlocks([exposure]) : []),
+    ...auditTableBlocks([factorContributionSensitivityTable(scores)]),
     `_${markdownProse(c.methodology)}_ _(bands ${markdownProse(scores.bandsVersion)})_`,
   ].join("\n");
 }
@@ -393,7 +399,11 @@ function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): s
   // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
   if (showAnnualSegments(quarterly.length > 0)) {
     lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, false)}`, segmentTable(b.segments.product)));
+  }
+  if (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)) {
     lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, false)}`, segmentTable(b.segments.geographic, true)));
+    const geographicBasis = geographicBasisNote(b.segments.geographic);
+    if (geographicBasis) lines.push("", markdownProse(geographicBasis), "");
   }
   lines.push(...subsection("### Concentration risks", claimList(b.concentrationRisks)));
   return lines.join("\n").trimEnd();
@@ -528,18 +538,20 @@ function renderValuation(
   );
 
   lines.push(...subsection("### Multiples", bodyTable(
-    // WS6 (D-19): a rank among N quarters of the issuer's own history, not a percentile.
-    ["Multiple", "Current", "Peer median", "Own-history rank", "Sector-appropriate"],
+    // Empirical percentile within the retained sample; N is separate from its scale.
+    ["Multiple", "Basis and limitations", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
     v.multiples.map((m) => [
       m.name,
+      m.basis ?? DASH,
       m.current === null ? DASH : `${num(m.current, 1)}×`,
       m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
       m.own5yPercentile === null
         ? DASH
-        : `rank ${m.own5yPercentile.toFixed(0)}/100${typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""}`,
+        : ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations),
       m.sectorAppropriate ? "yes" : "no",
     ]),
   )));
+  if (v.multiplesBasis) lines.push(markdownProse(v.multiplesBasis), "");
 
   // D-62: consensus and market data, shown once, beside the multiples.
   if (review.report) lines.push(...auditTableBlocks(consensusTables(review.report)));
@@ -578,7 +590,7 @@ function renderScenario(sc: Scenario, assumptions: readonly string[], computedWe
   // priceTarget is null when the deterministic computation suppressed it —
   // show "unavailable", never a fabricated value.
   const pt = sc.priceTarget;
-  const target = pt ? markdownHeading(tracedValue(pt)) : "unavailable";
+  const target = pt ? markdownHeading(tracedValue(pt)) : "per-share target unavailable";
   const targetAsOf = pt ? asOfSuffix(pt.asOf) : "";
   const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
   // D-60: computed targets carry no weight; a stored report that recorded one still shows it.
@@ -728,6 +740,7 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
     cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    ["Probability"],
   )));
   lines.push(...auditTableBlocks(extra));
   return lines.join("\n").trimEnd();
@@ -755,20 +768,24 @@ function renderOutlook(report: Report): string {
 
 function renderProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
+  const available = projectionAvailability(series);
   const pct = (w: number) => `${Math.round(w * 100)}%`;
   const lines: string[] = [
     sectionHeading("projections"),
     "",
-    `Horizon ${p.horizonYears}y · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear).`,
-    "",
   ];
+  if (available.forward) lines.push(
+    `Horizon ${p.horizonYears}y${available.weighted ? ` · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear)` : ""}.`,
+    "",
+  );
   lines.push(...auditTableBlocks(projectionAuditTables(p)));
-  if (series.length === 0) {
+  if (!available.forward) {
     lines.push(`_Not applicable${p.notApplicableReason ? `: ${markdownProse(p.notApplicableReason)}` : "."}_`, "");
   }
+  if (!available.weighted) lines.push("No weighted projection points are available; no projection weights are applied.", "");
   // D-62: the assumption block every series repeats is stated once. D-67: no
   // chart is rendered here, so a sentence pointing at one is dropped.
-  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions.map((line) => withoutChartReferences(displayProse(line)))));
+  const { common, specific } = splitCommonLines(series.map((s) => projectionDisplayAssumptions(s).map((line) => withoutChartReferences(displayProse(line)))));
   if (common.length > 0) {
     lines.push("**Assumptions common to every series:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
   }

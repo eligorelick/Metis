@@ -341,8 +341,10 @@ export interface OfficerChange {
   role: string;
   /** A Board seat rather than an executive office. */
   board: boolean;
-  /** The date the filing says the change was decided or notified. */
+  /** An explicit announcement date, distinct from a private decision or notice. */
   announced: string | null;
+  /** The filing's dated agreement to a departure, when explicitly stated. */
+  agreedDate?: string;
   /** The effective date, when the filing states one or ties it to a successor's start. */
   effective: string | null;
   /** The effective date is an expected one ("anticipated to be on …"). */
@@ -359,6 +361,25 @@ function cleanRole(role: string): string {
   return role.replace(/,\s*or\s+[A-Z]{2,5},?/g, "").replace(/\s+,/g, ",").replace(/,\s*$/, "").replace(/\s+/g, " ").trim();
 }
 
+/** Read the whole printed amount, never the numeric prefix a component lead matched. */
+function officerPackageAmount(text: string): number | null {
+  const amount = /^\$\s*(\d+(?:,\d+)*(?:\.\d+)?)/.exec(text);
+  if (amount === null || !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(amount[1]!)) return null;
+  let tail = text.slice(amount[0].length);
+  const scale = /^\s+(thousand|million|billion|trillion)\b/i.exec(tail);
+  if (scale !== null) tail = tail.slice(scale[0].length);
+  // Attached abbreviations/scientific notation, malformed decimal/grouping,
+  // a second number, and ranges/alternatives do not establish one amount.
+  if (/^(?:[a-z\d%/]|[,.]+\s*\d)|^\s+\d/i.test(tail) ||
+    /^\s*[,;]?\s*(?:(?:to|through|or|and)\s+\$?\s*\d|[-–—]\s*\$?\s*\d)/i.test(tail) ||
+    /^\s*\(\s*(?:in\s+)?(?:thousands?|millions?|billions?|trillions?|crore|lakh)\b/i.test(tail)) return null;
+  const nextWord = /^\s+([a-z]+)/i.exec(tail)?.[1];
+  if (scale === null && nextWord !== undefined && !/^(?:per|annually|payable|subject|with|which|as|to|for|and|will|shall|in|pursuant)$/i.test(nextWord)) return null;
+  if (scale !== null && nextWord !== undefined && /^(?:thousand|million|billion|trillion|crore|lakh)$/i.test(nextWord)) return null;
+  const value = Number(amount[1]!.replace(/,/g, "")) * (scale === null ? 1 : SCALE[scale[1]!.toLowerCase()]!);
+  return Number.isFinite(value) ? value : null;
+}
+
 /**
  * One 8-K Item 5.02's officer and director changes, from its lettered
  * paragraphs. A departure "effective upon the employment commencement date of
@@ -367,45 +388,62 @@ function cleanRole(role: string): string {
  */
 export function parseOfficerChanges(itemText: string): OfficerChange[] {
   const text = normalizeFilingText(itemText);
-  const paragraphs = text.split(/\s(?=\([a-f]\)\s+On\s)/).map((p) => p.replace(/^\([a-f]\)\s+/, ""));
+  // Issuers also use unlettered "Departure/Appointment of ..." headings.
+  // Split only at explicit dated leads; biography and vesting dates are not leads.
+  const paragraphs = text.split(new RegExp(String.raw`\s(?=(?:\([a-f]\)\s+)?On ${MONTH_DATE},\s+)`)).map((p) => p.replace(/^\([a-f]\)\s+/, ""));
+  const definedDates = [...text.matchAll(new RegExp(String.raw`\beffective\s+(?:as\s+of\s+)?(${MONTH_DATE})\s*\(\s*(?:the\s+)?["“]\s*Effective Date\s*["”]\s*\)`, "gi"))];
+  const aliasDates = [...new Set(definedDates.map((match) => isoFromMonthDate(match[1]!)))];
+  const effectiveAlias = aliasDates.length === 1 ? aliasDates[0]! : null;
   const out: OfficerChange[] = [];
   const tiedToSuccessor = new Set<OfficerChange>();
   for (const paragraph of paragraphs) {
     const lead = new RegExp(String.raw`^On (${MONTH_DATE}),\s+`).exec(paragraph);
     if (lead === null) continue;
-    const announced = isoFromMonthDate(lead[1]!);
+    const actionDate = isoFromMonthDate(lead[1]!);
     const rest = paragraph.slice(lead[0].length);
     const appointed = new RegExp(String.raw`\bappointed\s+${NAME},(?:\s+age\s+\d+,)?\s+as\s+(a member of the Board|[^.]+?)\s+of\s+the\s+Company\b`).exec(rest) ??
-      new RegExp(String.raw`\bappointed\s+${NAME},(?:\s+age\s+\d+,)?\s+as\s+(a member of the Board|[^.,]+)`).exec(rest);
+      new RegExp(String.raw`\bappointed\s+${NAME},(?:\s+age\s+\d+,)?\s+as\s+(a member of the Board|[^.,]+)`).exec(rest) ??
+      new RegExp(String.raw`^.{0,140}?\bannounced the appointment of\s+${NAME}\s+as\s+(?:the\s+Company['’]s\s+)?(Chief[^.,]+|President[^.,]*|a member of the Board)`).exec(rest);
     if (appointed !== null) {
       const start = new RegExp(String.raw`\beffective\s+(?:upon\s+the\s+commencement\s+of\s+(?:his|her|their)\s+employment[^.]*?(?:which is anticipated to be|on))?\s*(?:on\s+)?(${MONTH_DATE})`, "i").exec(rest);
       const anticipated = /\banticipated to be on\b/i.test(rest);
       const pkg: OfficerChange["package"] = [];
       const component = (label: string, pattern: RegExp): void => {
         const m = pattern.exec(rest);
-        if (m !== null) pkg.push({ component: label, value: Number(m[2]!.replace(/,/g, "")), symbol: m[1]! });
+        if (m === null) return;
+        const value = officerPackageAmount(rest.slice(m.index + m[0].lastIndexOf(m[1]!)));
+        if (value !== null) pkg.push({ component: label, value, symbol: m[1]! });
       };
-      component("annual base salary", /\bannual base salary will be\s+(\$)\s?([\d,]+)/i);
-      component("sign-on bonus", /\bsign-on bonus of\s+(\$)\s?([\d,]+)/i);
+      component("annual base salary", /\bannual base salary (?:will be|of)\s+(\$)\s?([\d,]+)/i);
+      component("sign-on bonus", /\b(?:sign-on bonus|aggregate cash signing bonus) of\s+(\$)\s?([\d,]+)/i);
       component("target annualized cash variable compensation", /\btarget annualized cash variable compensation of\s+(\$)\s?([\d,]+)/i);
       component("new-hire restricted stock units, target value", /\brestricted stock units(?:,\s*or RSUs,)?\s+with a target value of\s+(\$)\s?([\d,]+)/i);
       component("new-hire restricted stock unit grants, combined target value", /\brestricted stock units(?:,\s*or RSUs,)?\s+with a combined target value of\s+(\$)\s?([\d,]+)/i);
       component("new-hire performance-based restricted stock units, target value", /\bperformance-based RSUs(?:,\s*or [A-Z ]+,)?\s+with a target value of\s+(\$)\s?([\d,]+)/i);
+      component("new-hire restricted stock units, grant value", /\bgrant of[^.]{0,100}?restricted stock units\s*\([“"]\s*RSUs\s*[”"]\)\s+with an aggregate value of\s+(\$)\s?([\d,]+)/i);
+      component("annual equity awards, target value", /\bannual equity awards with a target value of\s+(\$)\s?([\d,]+)/i);
+      const usesEffectiveAlias = /\bas of the Effective Date\b/.test(splitSentences(rest)[0] ?? "");
+      const announced = /\bannounced\b/i.test(rest.slice(0, appointed.index + appointed[0].length)) ? actionDate : null;
       out.push({ kind: "appointment", person: appointed[1]!, role: cleanRole(appointed[2]!), board: /Board/.test(appointed[2]!), announced,
-        effective: start === null ? null : isoFromMonthDate(start[1]!), anticipated, note: null, package: pkg });
+        effective: usesEffectiveAlias ? effectiveAlias : start === null ? null : isoFromMonthDate(start[1]!), anticipated, note: null, package: pkg });
       continue;
     }
     const departing = new RegExp(String.raw`^${NAME},\s+(.+?)\s+of\s+[A-Z][\w.,& ]*?(?:,\s*or the Company,)?\s+(?:notified|informed|announced)[^.]*?\b(?:retire|resign|step down|depart)`).exec(rest) ??
       new RegExp(String.raw`^${NAME}\s+(resigned|retired)\s+from\s+(?:the\s+)?(Board of Directors|[^.,]+?)(?:,|\s+effective|\.)`).exec(rest);
-    if (departing !== null) {
-      const role = departing[2] === "resigned" || departing[2] === "retired" ? departing[3]! : departing[2]!;
-      const dated = new RegExp(String.raw`\beffective\s+(${MONTH_DATE})`, "i").exec(rest);
+    const agreed = new RegExp(String.raw`^.{0,180}?\band\s+${NAME}\s+agreed that (?:Mr|Ms|Mrs)\.\s+([A-Z][a-zA-Z'’-]+)\s+would step down as\s+(?:the\s+Company['’]s\s+)?([^.,]+)`).exec(rest);
+    const departure = departing !== null ? { person: departing[1]!, role: departing[2] === "resigned" || departing[2] === "retired" ? departing[3]! : departing[2]! }
+      : agreed !== null && agreed[1]!.split(/\s+/).at(-1) === agreed[2] ? { person: agreed[1]!, role: agreed[3]! } : null;
+    if (departure !== null) {
+      const { person, role } = departure;
+      const dated = new RegExp(String.raw`\beffective\s+(?:as\s+of\s+)?(${MONTH_DATE})`, "i").exec(rest);
       const onSuccessor = /\beffective upon the (?:employment commencement date|commencement of employment) of (?:his|her|their) successor\b/i.test(rest);
       const immediately = /\beffective immediately\b/i.test(rest);
       const after = /\b(?:Following such date|Thereafter|After (?:that|such) date),?\s+(?:he|she|they) will\s+([^.]+)\./i.exec(rest)?.[1] ??
         /\b(is expected to remain with the Company\s+[^.]+)\./i.exec(rest)?.[1] ?? null;
-      const change: OfficerChange = { kind: "departure", person: departing[1]!, role: cleanRole(role), board: /Board/.test(role), announced,
-        effective: dated !== null ? isoFromMonthDate(dated[1]!) : immediately ? announced : null, anticipated: false,
+      const announced = departing !== null && /\bannounced\b/i.test(departing[0]) ? actionDate : null;
+      const change: OfficerChange = { kind: "departure", person, role: cleanRole(role), board: /Board/.test(role), announced,
+        ...(departing === null && agreed !== null && actionDate !== null ? { agreedDate: actionDate } : {}),
+        effective: dated !== null ? isoFromMonthDate(dated[1]!) : immediately ? actionDate : null, anticipated: false,
         note: after === null ? null : clip(after, 160), package: [] };
       if (onSuccessor && change.effective === null) tiedToSuccessor.add(change);
       out.push(change);

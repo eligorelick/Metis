@@ -48,6 +48,8 @@ export interface ForensicsIncomeRow {
   interestExpense?: number | null;
   incomeTaxExpense?: number | null;
   netIncome?: number | null;
+  netIncomeConsolidated?: number | null;
+  netIncomeAttributableToNoncontrollingInterest?: number | null;
   netIncomeFromContinuingOperations?: number | null;
   netIncomeFromDiscontinuedOperations?: number | null;
   totalOtherIncomeExpensesNet?: number | null;
@@ -1684,9 +1686,8 @@ export type AccrualScaler = "avgNOA" | "avgTotalAssets";
 
 /** House-rule bands (research §4.3 — heuristic, not canonical). */
 export function classifyAccrualBand(ratio: number): AccrualBand {
-  const a = Math.abs(ratio);
-  if (a < FORENSICS_HOUSE_RULES.accrualElevatedBand) return "unremarkable";
-  if (a < FORENSICS_HOUSE_RULES.accrualRedBand) return "elevated";
+  if (ratio < FORENSICS_HOUSE_RULES.accrualElevatedBand) return "unremarkable";
+  if (ratio < FORENSICS_HOUSE_RULES.accrualRedBand) return "elevated";
   return "red";
 }
 
@@ -1855,7 +1856,12 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
   const taT = posOrNull(current.balance?.totalAssets);
   const taP = posOrNull(prior.balance?.totalAssets);
 
-  const niT = nv(current.cashFlow?.netIncome) ?? nv(current.income?.netIncome);
+  const parentNi = nv(current.income?.netIncome);
+  const nciNi = nv(current.income?.netIncomeAttributableToNoncontrollingInterest);
+  const consolidatedNi = nv(current.income?.netIncomeConsolidated) ??
+    (parentNi !== null && nciNi !== null ? parentNi + nciNi : null);
+  const niT = consolidatedNi ?? nv(current.cashFlow?.netIncome) ?? parentNi;
+  if (consolidatedNi !== null) notes.push("Accruals use consolidated net income including signed NCI earnings, matching consolidated cash flows; parent earnings are not substituted.");
   const cfoT = nv(current.cashFlow?.netCashProvidedByOperatingActivities);
   const cfiT = nv(current.cashFlow?.netCashProvidedByInvestingActivities);
   const purchases = nv(current.cashFlow?.purchasesOfInvestments);
@@ -2044,8 +2050,9 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
   const band = cfRatio !== null ? classifyAccrualBand(cfRatio) : null;
   if (band !== null) {
     notes.push(
-      "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line).",
+      "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk.",
     );
+    if (cfRatio !== null && cfRatio < 0) notes.push("Negative accruals mean cash flows exceed the earnings numerator on the disclosed construction. Large negative values warrant business-model, working-capital and cash-flow scope review; magnitude alone is not an accounting-integrity red flag.");
   }
   if (
     cfRatio !== null &&
@@ -2265,13 +2272,15 @@ export function computeSupportFlags(
     );
   }
 
-  // --- One-time items (serial "one-timers") ---
+  // --- Repeated material other income/expense (classification needed) ---
   const lookback = inputs.income.slice(0, H.oneTimeLookbackYears);
   // Count DISTINCT fiscal years, not rows: an FMP restatement double-row (same
   // fiscal date twice) must not inflate the evaluated/breach counts and let the
   // serial "one-timer" flag fire on only two genuinely distinct breach years.
   const evaluatedYears = new Set<string>();
   const breachYearSet = new Set<string>();
+  let expenseBreachYears = 0;
+  let incomeBreachYears = 0;
   let latestShare: number | null = null;
   for (const [i, row] of lookback.entries()) {
     if (row === null) continue;
@@ -2282,7 +2291,11 @@ export function computeSupportFlags(
     if (i === 0) latestShare = share;
     if (evaluatedYears.has(row.date)) continue; // duplicate fiscal year — count once
     evaluatedYears.add(row.date);
-    if (share > H.oneTimeItemsShareOfOperatingIncome) breachYearSet.add(row.date);
+    if (share > H.oneTimeItemsShareOfOperatingIncome) {
+      breachYearSet.add(row.date);
+      if (other < 0) expenseBreachYears++;
+      if (other > 0) incomeBreachYears++;
+    }
   }
   const evaluated = evaluatedYears.size;
   const breaches = breachYearSet.size;
@@ -2292,7 +2305,7 @@ export function computeSupportFlags(
       flags.push({
         id: "serial-one-time-items",
         severity: "flag",
-        message: `Non-operating/"other" items exceeded 10% of operating income in ${breaches} of the last ${evaluated} fiscal years — recurring "one-time" charges suggest core profitability may be overstated.`,
+        message: `Repeated material other income/expense: the net aggregate exceeded 10% of operating income in ${breaches} of the last ${evaluated} fiscal years (${expenseBreachYears} net-expense years; ${incomeBreachYears} net-income years). Classification of the underlying gains and expenses is required before normalizing recurring earnings; the aggregate alone does not establish their recurrence or accounting quality.`,
         metrics: { breachYearsCount: breaches, evaluatedYears: evaluated },
         rule: `house rule: |totalOtherIncomeExpensesNet| > ${H.oneTimeItemsShareOfOperatingIncome * 100}% of |operatingIncome| in >= ${H.oneTimeSerialYears} of the last ${H.oneTimeLookbackYears} fiscal years`,
         heuristic: true,
@@ -2302,7 +2315,7 @@ export function computeSupportFlags(
       flags.push({
         id: "one-time-items",
         severity: "warn",
-        message: `"Other" income/expense items were ${fmt1(latestShare * 100)}% of operating income in the latest fiscal year — warrants a check for one-time items.`,
+        message: `Net other ${nv(incT?.totalOtherIncomeExpensesNet)! < 0 ? "expense" : "income"} was ${fmt1(latestShare * 100)}% of operating income in the latest fiscal year. Classification of the underlying gains and expenses is required before normalizing recurring earnings; materiality alone does not establish a one-time item or accounting-quality concern.`,
         metrics: { otherItemsShareOfOperatingIncomePct: latestShare * 100 },
         rule: `house rule: |totalOtherIncomeExpensesNet| > ${H.oneTimeItemsShareOfOperatingIncome * 100}% of |operatingIncome|`,
         heuristic: true,

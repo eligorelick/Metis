@@ -736,3 +736,35 @@ export function projectionCellPoint(
   if (point.value.unit !== seriesUnit) return null;
   return point;
 }
+
+/** The same period/unit/uniqueness/finite admission for main and alternative paths. */
+export function admittedProjectionPoints(series: ProjectionSeries, path: ProjectionPath, alternative?: "flatShare" | "shareTrend"): ProjectionPoint[] {
+  const paths = alternative === undefined ? null : series[alternative];
+  if (alternative !== undefined && paths === undefined) return [];
+  const selected = paths ? { ...series, ...paths, historical: [] } : series;
+  return projectionPeriodRows(selected).flatMap(row => {
+    const point = projectionCellPoint(row, path, series.unit);
+    return point !== null && typeof point.value.value === "number" && Number.isFinite(point.value.value) ? [point] : [];
+  });
+}
+
+/** Actual displayable observations, never inferred from a series container. */
+export function projectionAvailability(series: readonly ProjectionSeries[]): { forward: boolean; weighted: boolean } {
+  let forward = false, weighted = false;
+  for (const s of series) for (const alternative of [undefined, "flatShare", "shareTrend"] as const) {
+    for (const path of ["bull", "base", "bear", "weighted"] as const) {
+      if (admittedProjectionPoints(s, path, alternative).length === 0) continue;
+      forward = true;
+      if (path === "weighted") weighted = true;
+    }
+  }
+  return { forward, weighted };
+}
+
+/** Stored construction notes do not establish that a missing path was applied. */
+export function projectionDisplayAssumptions(series: ProjectionSeries): string[] {
+  const available = projectionAvailability([series]);
+  if (!available.forward) return [];
+  return available.weighted ? series.assumptions : series.assumptions.filter(line =>
+    !/\b(?:weighted (?:path|margin)|display (?:prior|weights?))\b/i.test(line));
+}

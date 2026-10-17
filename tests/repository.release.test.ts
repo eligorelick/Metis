@@ -66,6 +66,8 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-04-recommendations.md",
   "docs/audit/2026-10-15-amzn-integrity.md",
   "docs/audit/2026-10-15-nvda-report-34-audit.md",
+  "docs/audit/2026-10-17-expe-issue-disposition.md",
+  "docs/audit/2026-10-17-expe-remediation-plan.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
@@ -559,9 +561,11 @@ describe("public release contract", () => {
       // D-66: extracted annual notes, interim statements/Item 2/Item 5 and governance/commentary samples.
       read("tests/edgar.filingFacts.test.ts"),
       read("tests/edgar.debtPresentation.test.ts"),
+        // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
+        read("tests/edgar.operatingExpenseScope.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(43);
+    expect(edgarFixtures).toHaveLength(44);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

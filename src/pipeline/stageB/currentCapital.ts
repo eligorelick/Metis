@@ -1,6 +1,7 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { leaseDebtConflict, resolveNetDebt } from "./netDebt";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 
 export interface CashFlowBridge {
@@ -9,6 +10,12 @@ export interface CashFlowBridge {
   afterSbcStandardizedFcf: number | null; afterSbcIssuerFcf: number | null; definition: string;
 }
 export interface DebtBridge {
+  leaseScopeNote?: string;
+  debtIncludingDisclosedLeasePortion?: number | null;
+  operatingLeasesNoncurrent?: number | null; operatingLeasesCurrent?: number | null;
+  financeLeasesNoncurrent?: number | null; financeLeasesCurrent?: number | null;
+  netDebtIncludingDisclosedLeasePortion?: number | null;
+  netDebtExcludingDisclosedOperatingLeasePortion?: number | null;
   totalDebtIncludingLeases: number | null; operatingLeases: number | null; financeLeases: number | null;
   cashAndShortTermInvestments: number | null;
   /**
@@ -40,7 +47,8 @@ export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   const sbc = finite(row?.stockBasedCompensation);
   return { operatingCashFlow, cashCapitalExpenditure: capex, standardizedFcf, financeLeasePrincipalPayments: principal,
     leaseAdjustedFcf: sub(standardizedFcf, principal), issuerFcf: issuer, stockBasedCompensation: sbc, afterSbcStandardizedFcf: sub(standardizedFcf, sbc), afterSbcIssuerFcf: sub(issuer, sbc),
-    definition: row?.issuerFreeCashFlowDefinition ?? "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC is a separate economic adjustment; historical FCF is levered, forecast FCFF is unlevered.",
+    definition: (row?.issuerFreeCashFlowDefinition ?? "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison.") +
+      " SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
   };
 }
 export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
@@ -50,6 +58,18 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const resolution = resolveNetDebt(row ?? {});
   const net = resolution.value;
   const equity = resolution.nonOperatingEquitySecurities;
+  const incomplete = incompleteLeaseCoverage(row);
+  if (incomplete !== null) return {
+    totalDebtIncludingLeases: null, operatingLeases: incomplete.operating === null ? operating : null,
+    financeLeases: incomplete.finance === null ? finance : null, cashAndShortTermInvestments: liquidity,
+    debtIncludingDisclosedLeasePortion: debt, netDebtIncludingDisclosedLeasePortion: net,
+    ...(incomplete.operating === "noncurrent" ? { operatingLeasesNoncurrent: operating } : incomplete.operating === "current" ? { operatingLeasesCurrent: operating } : {}),
+    ...(incomplete.finance === "noncurrent" ? { financeLeasesNoncurrent: finance } : incomplete.finance === "current" ? { financeLeasesCurrent: finance } : {}),
+    ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
+    netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
+    netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null && leaseDebtScopeRefusal(row, false) === null ? sub(net, operating) : null,
+    leaseScopeNote: incomplete.note,
+  };
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null };

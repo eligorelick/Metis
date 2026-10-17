@@ -1,6 +1,6 @@
 import type { ScoreAspect, ScoreSignal } from "@/report/schema";
 import type { ScoringInputs } from "./grading";
-import { windowCagr, yearsBetweenDates, type CagrPoint } from "./growth";
+import { CAGR_SPAN_TOLERANCE_YEARS, scoringMargin, windowCagr, yearsBetweenDates, type CagrPoint } from "./growth";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const day = (value: string | null | undefined): string | null => {
@@ -37,6 +37,40 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       const source = `computed.growth.${collection}[${growthRows.indexOf(row)}]`;
       operand("start value", row.startValue, `${source}.startValue`, result.startDate);
       operand("end value", row.endValue, `${source}.endValue`, result.endDate);
+      // Historical endpoint rates are not durability forecasts. Retain the
+      // scored window and disclose same-end alternatives, without silently
+      // replacing it with an invented "normalized" growth assumption.
+      const alternatives = [5, 3, 1].flatMap(window => {
+        const value = windowCagr(growthRows, window).cagrPct;
+        const point = growthRows.find(r => r.windowYears === window);
+        if (value === null || !point || point.endDate !== row.endDate) return [];
+        const alternativeSource = `computed.growth.${collection}[${growthRows.indexOf(point)}]`;
+        operand(`${window}-year historical CAGR`, value, `${alternativeSource}.cagrPct`, day(point.endDate));
+        if (point !== row) {
+          operand(`${window}-year start value`, point.startValue, `${alternativeSource}.startValue`, day(point.startDate));
+          operand(`${window}-year end value`, point.endValue, `${alternativeSource}.endValue`, day(point.endDate));
+        }
+        return [{ window, value }];
+      });
+      const short = alternatives.find(p => p.window === 3);
+      const sensitivity = years === 5 && short
+        ? ` Window sensitivity: historical 5-year CAGR ${row.cagrPct!.toFixed(2)}% versus 3-year CAGR ${short.value.toFixed(2)}% (${(row.cagrPct! - short.value).toFixed(2)} percentage-point difference); recovery or base effects may affect endpoint growth. These historical rates do not establish a durable growth forecast.`
+        : " Historical endpoint growth does not establish a durable growth forecast.";
+      result.fallbackReason = `${result.fallbackReason ?? ""}${sensitivity}`.trim();
+      const longest = growthRows.filter(point => {
+        if (!finite(point.cagrPct) || !finite(point.actualYears) || point.actualYears <= result.windowYears! ||
+          point.endDate !== row.endDate || point.startDate === row.startDate || !day(point.startDate) || !day(point.endDate) ||
+          !finite(point.startValue) || !finite(point.endValue) || point.startValue <= 0 || point.endValue <= 0) return false;
+        const span = yearsBetweenDates(point.startDate!, point.endDate!);
+        return span !== null && Math.abs(span - point.actualYears) <= CAGR_SPAN_TOLERANCE_YEARS;
+      }).sort((a, b) => b.actualYears! - a.actualYears!)[0];
+      if (longest) {
+        result.fallbackReason += ` Longest retained window: ${longest.actualYears!.toFixed(2)} years of available history (${longest.startDate} to ${longest.endDate}): ${longest.cagrPct!.toFixed(2)}%; historical context only, with the scoring window unchanged.`;
+        const longSource = `computed.growth.${collection}[${growthRows.indexOf(longest)}]`;
+        operand("longest-history CAGR", longest.cagrPct, `${longSource}.cagrPct`, day(longest.endDate));
+        operand("longest-history start value", longest.startValue, `${longSource}.startValue`, day(longest.startDate));
+        operand("longest-history end value", longest.endValue, `${longSource}.endValue`, day(longest.endDate));
+      }
       break;
     }
   } else if (id === "equityReturnVsCoeSpread" || id === "roeImpliedVsAchievable") {
@@ -141,12 +175,30 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     if (ownKeys) {
       const stats = i.valuation.kind !== "pre-revenue" ? i.valuation.multiples?.multiples ?? [] : [];
       const selected = ownKeys.map(key => stats.find(m => m.key === key)).find(m => finite(m?.ownHistory?.percentileRank));
-      result.period = selected ? `Current ${selected.key} rank among ${selected.ownHistory!.observations} historical quarters; historical observation dates unavailable` : null;
-      result.fallbackReason = selected ? `Historical sample dates unavailable${selected.key !== ownKeys[0] ? `; ${ownKeys[0]} unavailable, using ${selected.key}` : ""}.` : "Own-history rank unavailable.";
+      const details = selected?.ownHistory?.observationDetails ?? [];
+      const completeSample = details.length > 0 && details.length === selected?.ownHistory?.observations &&
+        details.every(point => day(point.periodEnd) !== null && finite(point.value));
+      const periods = completeSample ? details.map(point => point.periodEnd).sort() : [];
+      result.period = selected ? `Current ${selected.key} empirical percentile rank among ${selected.ownHistory!.observations} historical quarters; ` +
+        (completeSample ? `retained fiscal sample periods ${periods[0]} to ${periods.at(-1)}` : "historical sample dates unavailable or incomplete") : null;
+      const missingMarketDates = details.filter(point => day(point.marketDate) === null).length;
+      const cashStat = stats.find(m => m.key === "priceToFcf");
+      const cashOwnershipScope = [cashStat?.ownershipScope, cashStat?.historyScope].filter(Boolean).join(" ");
+      result.fallbackReason = selected ? [
+        cashOwnershipScope ?? null,
+        completeSample ? null : "Historical sample dates unavailable or incomplete.",
+        completeSample && missingMarketDates > 0 ? `${missingMarketDates} market observation date(s) unavailable; fiscal period dates are not substituted.` : null,
+        "Historical publication availability at the market observation dates is not established; this is a retrospective comparison of retained statement history.",
+        selected.key !== ownKeys[0] ? `${ownKeys[0]} unavailable, using ${selected.key}.` : null,
+      ].filter(Boolean).join(" ") : ["Own-history rank unavailable.", cashOwnershipScope].filter(Boolean).join(" ");
       if (selected) {
         operand(`${selected.key} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);
         operand("own-history rank", selected.ownHistory!.percentileRank, `computed.valuation.multiples.${selected.key}.ownHistory.percentileRank`, quoteDate);
         operand("historical observations", selected.ownHistory!.observations, `computed.valuation.multiples.${selected.key}.ownHistory.observations`, null);
+        if (completeSample) details.forEach((point, index) => {
+          operand(`historical multiple, period ending ${point.periodEnd}`, point.value,
+            `computed.valuation.multiples.${selected.key}.ownHistory.observationDetails[${index}].value`, day(point.marketDate));
+        });
       }
     } else if (i.valuation.kind === "dcf") {
       const a = i.valuation.assumptions;
@@ -191,6 +243,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     const used = b.years.filter(r => finite(r.actualPricePaid) && finite(r.avgPriceProxy) && r.repurchased > 0);
     dates(used[0]?.date, used.at(-1)?.date);
     result.period = `Fiscal years with tagged repurchase prices ${result.period ?? "unavailable"}; each compared with the same year's average price`;
+    result.fallbackReason = "This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline.";
     for (const row of used) {
       operand(`price paid, year ending ${row.date}`, row.actualPricePaid, "computed.capital.buybackPriceAnalysis.years.actualPricePaid", day(row.date));
       operand(`average price, year ending ${row.date}`, row.avgPriceProxy, "computed.capital.buybackPriceAnalysis.years.avgPriceProxy", day(row.date));
@@ -200,8 +253,9 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     result.family = "profitability";
     const rows = (id === "grossMarginLevel" ? i.growth.margins.gross.series : i.growth.margins.operating.series).filter(r => finite(r.pct));
     if (id === "grossMarginLevel") {
-      const latest = rows.at(-1); dates(null, latest?.date);
-      operand("gross margin", latest?.pct, "computed.growth.margins.gross.series");
+      const latest = scoringMargin(i.growth.margins.gross.series, i.growth.asOf);
+      dates(null, latest.date); result.fallbackReason = latest.reason;
+      operand("gross margin", latest.pct, "computed.growth.margins.gross.series");
     } else {
       dates(rows[0]?.date, rows.at(-1)?.date);
       for (const row of rows) operand(`operating margin at ${row.date}`, row.pct, "computed.growth.margins.operating.series", day(row.date));

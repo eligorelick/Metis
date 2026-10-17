@@ -56,6 +56,27 @@ describe("supplementCommonEarnings", () => {
   const income = env([{ date: "2025-12-31", netIncome: 57_048_000_000 }]);
   const balance = env([{ date: "2025-12-31", preferredStock: 20_045_000_000 }]);
 
+  it("supplements the standard long consolidated-profit alias and preserves its selected source tag", () => {
+    const tag = "NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest";
+    const filed = facts([]);
+    filed.facts["us-gaap"]![tag] = { units: { USD: [{ ...FY2025, val: 875 }] } };
+    const vendor = env([{ date: "2025-12-31", reportedCurrency: "USD", netIncome: 878 }]);
+    const out = supplementCommonEarnings(vendor, env([{ date: "2025-12-31", minorityInterest: 1262 }]), filed, "2026-10-14");
+    expect(rowsOf(out.income)[0]).toMatchObject({ netIncome: 878, netIncomeConsolidated: 875,
+      fieldProvenance: { netIncomeConsolidated: { tags: [`us-gaap/${tag}`] } } });
+  });
+
+  it("supplements consolidated and signed NCI earnings even when common earnings already exist", () => {
+    const filed = facts([]);
+    filed.facts["us-gaap"]!.ProfitLoss = { units: { USD: [{ ...FY2025, val: 875 }] } };
+    filed.facts["us-gaap"]!.NetIncomeLossAttributableToNoncontrollingInterest = { units: { USD: [{ ...FY2025, val: -3 }] } };
+    const vendor = env([{ date: "2025-12-31", reportedCurrency: "USD", netIncome: 878, netIncomeAvailableToCommon: 878 }]);
+    const out = supplementCommonEarnings(vendor, env([{ date: "2025-12-31", minorityInterest: -50 }]), filed, "2026-10-14", "2026-04-01T12:00:00.000Z");
+    expect(rowsOf(out.income)[0]).toMatchObject({ netIncome: 878, netIncomeAvailableToCommon: 878, netIncomeConsolidated: 875,
+      netIncomeAttributableToNoncontrollingInterest: -3, fieldProvenance: { netIncomeConsolidated: { tags: ["us-gaap/ProfitLoss"], observedAt: "2026-04-01T12:00:00.000Z" } } });
+    expect(out.gaps).toHaveLength(2);
+  });
+
   it("keeps the source acquisition time and selected filing", () => {
     const observedAt = "2026-04-01T12:13:14.000Z";
     const out = supplementCommonEarnings(income, balance, facts([FY2025]), "2026-10-14", observedAt);

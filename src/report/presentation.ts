@@ -15,6 +15,7 @@ import { parseSubscriptionModel } from "@/ai/contracts";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
 import { EXECUTIVE_EVIDENCE_GROUPS } from "@/report/surfaceManifest";
@@ -133,6 +134,19 @@ const ASPECT_LABEL: Record<string, string> = {
 };
 
 const EXACT_LABELS: Record<string, string> = {
+  ...Object.fromEntries([
+    ["debtIncludingDisclosedLeasePortion", "Debt including disclosed lease portion (full coverage unverified)"],
+    ["operatingLeasesNoncurrent", "Operating leases (noncurrent only)"],
+    ["operatingLeasesCurrent", "Operating leases (current only)"],
+    ["financeLeasesNoncurrent", "Finance leases (noncurrent only)"],
+    ["financeLeasesCurrent", "Finance leases (current only)"],
+    ["netDebtIncludingDisclosedLeasePortion", "Net debt including disclosed lease portion (full coverage unverified)"],
+    ["netDebtExcludingDisclosedOperatingLeasePortion", "Net debt excluding disclosed operating-lease portion"],
+  ].flatMap(([field, label]) => [[`computed.capital.current.debtBridge.${field}`, label],
+    [`computed.current-capital.${field!.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`, label]])),
+  // Stable legacy rule ids describe a materiality screen, not proof of one-off items.
+  "computed.forensics.flags.serial-one-time-items": "Material other income/expense",
+  "computed.forensics.flags.one-time-items": "Material other income/expense",
   "payload.quote.price": "Share price",
   "computed.technicals.last-close": "Last close",
   "computed.technicals.sma50": "50-day moving average",
@@ -578,6 +592,15 @@ export function annualSegmentHeading(kind: "Product" | "Geographic", rows: reado
   return `${kind} segments — annual${asOf ? `, fiscal year ended ${asOf}` : ""} (prior presentation)`;
 }
 
+/** A primary geography definition travels with every row, including exceptions. */
+export function geographicBasisNote(rows: readonly { revenue: TracedNumber }[]): string | null {
+  const first = rows[0]?.revenue;
+  const note = first?.verificationNote;
+  return first && typeof note === "string" && note.startsWith("Annual geographic revenue (") &&
+    first.source.startsWith("https://www.sec.gov/Archives/edgar/data/") &&
+    rows.every(row => row.revenue.source === first.source && row.revenue.verificationNote === note) ? note : null;
+}
+
 /** A technical indicator's label, naming an intraday quote "latest price" rather than "last close". */
 export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; detail: string | null }): string {
   if (n.source === "computed.technicals.last-close" && timing.intraday) return `Latest price (${timing.detail})`;
@@ -701,9 +724,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const priceCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) ?? modelCurrency : modelCurrency);
   const timing = priceTiming(report);
   const price = md?.quote?.price ?? priceTrace?.value ?? null;
-  const priceAsOf = md?.quote?.asOf ?? priceTrace?.asOf ?? null;
+  const priceAsOf = md?.quote ? md.quote.asOf : priceTrace?.asOf ?? null;
   if (price !== null) {
-    rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : undefined });
+    rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
   }
   const high = md?.quote?.yearHigh ?? firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
   const low = md?.quote?.yearLow ?? firstTrace(traces, /^computed\.technicals\.52w-low$/)?.value ?? null;
@@ -711,23 +734,29 @@ export function keyDataRows(report: Report): KeyDataRow[] {
 
   const quotedCap = md?.quote?.marketCap ?? firstTrace(traces, /^payload\.quote\.market-?cap$/)?.value ?? null;
   const dilutedShares = bridge?.dilutedShares ?? null;
-  const marketCap = quotedCap ?? (price !== null && dilutedShares !== null && dilutedShares > 0 ? price * dilutedShares : null);
-  if (marketCap !== null) rows.push({ label: "Market cap", value: money(marketCap, priceCurrency), note: quotedCap !== null ? "quote" : "price × diluted shares" });
-  if (marketCap !== null && bridge && bridge.netDebt !== null) {
-    // D-65: the market EV, on the same net cash the DCF bridge and the EV
-    // multiples use; the DCF's own intrinsic EV and the provider's period-end
-    // EV carry their own labels where they print.
+  const scope = report.valuation.marketValueScope;
+  const admittedPriceAsOf = scope?.priceAsOf ?? null;
+  const marketCap = scope?.status === "resolved" ? scope.marketCap : quotedCap;
+  if (marketCap !== null) rows.push(scope?.status === "resolved"
+    ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}; main quote as of ${admittedPriceAsOf ?? "unavailable date"}${scope.approximate ? "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
+    : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
+  if (scope?.status === "resolved" && scope.enterpriseValue !== null) {
+    rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: scope.enterpriseValueBasis });
+  } else if (!scope && marketCap !== null && bridge && bridge.netDebt !== null) {
+    // Legacy reports retain their stored bridge convention; new reports use
+    // the admitted Stage B EV, including its NCI, cash and lease scope guards.
     const ev = marketCap + bridge.netDebt + (bridge.minorityInterest ?? 0) + (bridge.preferredEquity ?? 0);
     rows.push({ label: "Enterprise value (market)", value: money(ev, priceCurrency), note: `market cap + net debt${bridge.asOf ? ` at ${bridge.asOf}` : ""} (equity securities are not cash); the EV multiples use the same figure` });
   }
   const outstanding = md?.shares?.outstanding ?? null;
-  if (outstanding !== null && outstanding > 0) {
+  if (scope?.status === "resolved" && scope.economicShares !== null) {
+    rows.push({ label: "Economic share units", value: formatLargeNumber(scope.economicShares), note: `equivalence-weighted outstanding units at ${scope.shareCountAsOf ?? "unavailable date"}; not diluted weighted-average shares` });
+  } else if (outstanding !== null && outstanding > 0) {
     const freeFloat = md?.shares?.freeFloatPct;
-    rows.push({ label: "Shares outstanding", value: formatLargeNumber(outstanding), note: comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
-  } else if (dilutedShares !== null && dilutedShares > 0) {
+    rows.push({ label: scope ? "Provider shares (scope unverified)" : "Shares outstanding", value: formatLargeNumber(outstanding), note: scope ? `raw provider count; class coverage unverified${md?.shares?.asOf ? `; at ${md.shares.asOf}` : ""}` : comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
+  } else if (!scope && dilutedShares !== null && dilutedShares > 0) {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
-
   const capitalReturn = report.filingDisclosures?.capitalReturn ?? null;
   if (capitalReturn?.dividendPerShare != null && price !== null && price > 0) {
     rows.push({

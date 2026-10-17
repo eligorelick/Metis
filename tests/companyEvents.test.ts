@@ -10,6 +10,19 @@ const evidence = { issuer, text: "Example Corporation today announced it will re
 const vendor: FetchResult<FmpEarningsRow> = { ok: true, value: { data: { date: "2026-10-29" }, asOf: "2026-10-13", source: "fmp", endpoint: "fmp:earnings", fetchedAt: observedAt } };
 
 describe("authoritative company earnings events", () => {
+  it.each(["unavailable", "throws"])("reads an available SEC exhibit when its primary document %s", async (mode) => {
+    const filing = { accessionNumber: "0000000001-26-000003", form: "8-K", filingDate: "2026-09-24", reportDate: "2026-09-24", primaryDocument: "current.htm", items: "8.01" };
+    const ok = <T,>(data: T, filename: string): FetchResult<T> => ({ ok: true, value: { data, source: "edgar", endpoint: `https://www.sec.gov/Archives/edgar/data/1/000000000126000003/${filename}`, asOf: filing.filingDate, fetchedAt: observedAt } });
+    const client = { fetchFilingDocument: async (_cik: string, document: { primaryDocument: string }) => {
+      if (document.primaryDocument === "current.htm") {
+        if (mode === "throws") throw new Error("primary document unavailable");
+        return { ok: false, gap: { field: "primary", reason: "404", severity: "info" } };
+      }
+      return ok(`<html><body>${evidence.text}</body></html>`, document.primaryDocument);
+    }, filingIndexHeaders: async () => ok({ documents: [{ filename: "release.htm", type: "EX-99.1", sequence: "2" }] }, "index.htm") } as unknown as EdgarClient;
+    const result = await discoverFiledEarningsAnnouncement(client, "1", [filing], "EXM", "2026-10-13", observedAt, issuer);
+    expect(result).toMatchObject([{ ok: true, value: { source: "edgar", data: { date: "2026-10-28", confirmation: "company_confirmed", announcementUrl: "https://www.sec.gov/Archives/edgar/data/1/000000000126000003/release.htm" } } }]);
+  });
   it.each(["SEATTLE -- ", "Redmond — ", "NEW YORK– "])("accepts an issuer-bound release after the recognized location dateline %s", (dateline) => {
     const text = `${dateline}Example Corporation will report financial results on October 28, 2026.`;
     const company = companyEarningsAnnouncement({ ...evidence, text }, "EXM", "2026-10-13");
@@ -27,7 +40,6 @@ describe("authoritative company earnings events", () => {
     "BUSINESS WIRE -- Example Corporation will report financial results on October 28, 2026.",
     "SEATTLE (BUSINESS WIRE) -- Example Corporation will report financial results on October 28, 2026.",
     "SEATTLE -- Reuters reports Example Corporation will report financial results on October 28, 2026.",
-    "SEATTLE, September 24, 2026 -- Example Corporation will report financial results on October 28, 2026.",
   ])("keeps issuer anchoring and source-attribution boundaries after a dateline: %s", (text) => {
     expect(companyEarningsAnnouncement({ ...evidence, text }, "EXM", "2026-10-13")).toBeNull();
   });

@@ -11,13 +11,14 @@
  * `NetIncomeLossAvailableToCommonStockholdersBasic` for the same fiscal year.
  *
  * Scope is deliberately narrow so the "no statement row mixes source fields"
- * rule keeps its meaning: ONE field, filled only when the vendor row lacks it
+ * rule keeps its meaning: explicit earnings-scope fields, filled only when the vendor row lacks them
  * and preferred stock or noncontrolling interests are outstanding, only from a full-year 10-K fact whose
  * period end equals the vendor row's date, never overriding a vendor value, and
  * every filled period is disclosed in the missing-data manifest.
  */
 
 import type { CompanyFacts } from "@/edgar/xbrl";
+import { CONSOLIDATED_NET_INCOME_TAGS } from "@/edgar/tagSynonyms";
 import type { FmpBalanceSheetRow, FmpIncomeStatementRow, FmpPayload, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 
@@ -60,8 +61,11 @@ export function filedCommonEarnings(
 
 interface CommonEarningsFact { value: number; accn: string | null; filed: string; start: string; end: string; form: string }
 function selectCommonEarnings(facts: CompanyFacts, date: string, analysisAsOf?: string): CommonEarningsFact | null {
+  return selectAnnualEarnings(facts, TAG, date, analysisAsOf);
+}
+function selectAnnualEarnings(facts: CompanyFacts, tag: string, date: string, analysisAsOf?: string): CommonEarningsFact | null {
   if (analysisAsOf !== undefined && !isDay(analysisAsOf)) return null;
-  const concept = facts.facts["us-gaap"]?.[TAG] as { units?: Record<string, XbrlPoint[]> } | undefined;
+  const concept = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, XbrlPoint[]> } | undefined;
   const points = concept?.units?.USD;
   if (!Array.isArray(points)) return null;
   let best: CommonEarningsFact | null = null;
@@ -99,9 +103,14 @@ export function supplementCommonEarnings(
   const none: CommonEarningsSupplement = { income, gaps: [] };
   if (facts === null || !income.ok || !balance.ok) return none;
 
-  const filled: string[] = [];
+  const supplemented = [
+    ["netIncomeAvailableToCommon", [TAG]],
+    ["netIncomeConsolidated", CONSOLIDATED_NET_INCOME_TAGS],
+    ["netIncomeAttributableToNoncontrollingInterest", ["NetIncomeLossAttributableToNoncontrollingInterest"]],
+  ] as const;
+  const filled = new Map<string, string[]>();
+  const selectedTags = new Map<string, Set<string>>();
   const rows = income.value.data.rows.map((row) => {
-    if (typeof row.netIncomeAvailableToCommon === "number" && Number.isFinite(row.netIncomeAvailableToCommon)) return row;
     if (typeof row.date !== "string") return row;
     // The filed fact is read from the USD unit only.
     if (row.reportedCurrency !== undefined && row.reportedCurrency !== null && row.reportedCurrency !== "USD") return row;
@@ -109,35 +118,41 @@ export function supplementCommonEarnings(
     const preferred = bal?.preferredStock;
     const nci = bal?.minorityInterest;
     const hasPreferred = typeof preferred === "number" && Number.isFinite(preferred) && preferred > 0;
-    const hasNci = typeof nci === "number" && Number.isFinite(nci) && nci > 0;
+    const hasNci = typeof nci === "number" && Number.isFinite(nci) && nci !== 0;
     if (!hasPreferred && !hasNci) return row;
-    const filed = selectCommonEarnings(facts, row.date, analysisAsOf);
-    if (filed === null) return row;
     const explicitStarts = [row.periodStart, ...Object.values(row.fieldProvenance ?? {}).map(p => p.periodStart)].filter(start => start !== undefined && start !== null);
-    if (explicitStarts.some(start => start !== filed.start)) return row;
-    const provenance: StatementFieldProvenance = {
-      source: "edgar", unit: "USD", periodStart: filed.start, periodEnd: filed.end,
-      observedAt: factsObservedAt ?? "", tags: [`us-gaap/${TAG}`],
-      filings: [{ accn: filed.accn ?? "", filed: filed.filed, form: filed.form }],
-    };
-    filled.push(`${row.date} (${filed.accn ?? "10-K"} filed ${filed.filed})`);
-    return { ...row, netIncomeAvailableToCommon: filed.value, fieldProvenance: { ...row.fieldProvenance, netIncomeAvailableToCommon: provenance } };
+    let out = row;
+    for (const [field, tags] of supplemented) {
+      if (typeof row[field] === "number" && Number.isFinite(row[field])) continue;
+      const selected = tags.map(tag => ({ tag, fact: selectAnnualEarnings(facts, tag, row.date!, analysisAsOf) }))
+        .find(candidate => candidate.fact !== null && !explicitStarts.some(start => start !== candidate.fact!.start));
+      if (selected === undefined) continue;
+      const { tag, fact: filed } = selected;
+      if (filed === null) continue;
+      const provenance: StatementFieldProvenance = {
+        source: "edgar", unit: "USD", periodStart: filed.start, periodEnd: filed.end,
+        observedAt: factsObservedAt ?? "", tags: [`us-gaap/${tag}`],
+        filings: [{ accn: filed.accn ?? "", filed: filed.filed, form: filed.form }],
+      };
+      filled.set(field, [...(filled.get(field) ?? []), `${row.date} (${filed.accn ?? "10-K"} filed ${filed.filed})`]);
+      selectedTags.set(field, new Set([...(selectedTags.get(field) ?? []), tag]));
+      out = { ...out, [field]: filed.value, fieldProvenance: { ...out.fieldProvenance, [field]: provenance } };
+    }
+    return out;
   });
-  if (filled.length === 0) return none;
+  if (filled.size === 0) return none;
 
   return {
     income: { ...income, value: { ...income.value, data: { ...income.value.data, rows } } },
-    gaps: [
-      {
-        field: "statements.incomeAnnual.netIncomeAvailableToCommon",
+    gaps: supplemented.filter(([field]) => filled.has(field)).map(([field]) => ({
+        field: `statements.incomeAnnual.${field}`,
         reason:
-          `the vendor income statement carries no net income available to common beside outstanding preferred stock or noncontrolling interests, ` +
-          `so that one field was taken from SEC EDGAR companyfacts (us-gaap/${TAG}, full-year 10-K, same period end) ` +
-          `for ${filled.join(", ")}; every other field on those rows is the vendor's`,
+          `the vendor income statement carries no ${field} beside outstanding preferred stock or noncontrolling interests, ` +
+          `so that scope field was taken from SEC EDGAR companyfacts (${[...selectedTags.get(field)!].map(tag => `us-gaap/${tag}`).join(", ")}, full-year 10-K, same period end) ` +
+          `for ${filled.get(field)!.join(", ")}; vendor observations are preserved`,
         severity: "info",
-        attemptedSources: [`edgar:companyfacts us-gaap/${TAG}`],
+        attemptedSources: [...selectedTags.get(field)!].map(tag => `edgar:companyfacts us-gaap/${tag}`),
         expected: true,
-      },
-    ],
+      })),
   };
 }

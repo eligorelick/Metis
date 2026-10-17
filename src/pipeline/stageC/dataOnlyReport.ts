@@ -49,6 +49,7 @@ import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
+import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
   applyDcfDisplay,
   applyFairValue,
@@ -597,7 +598,7 @@ function technicalsSection(computed: ComputedMetrics, graded: GradeBlock, curren
     traced(t.smaCross.sma50, "currency/share", "computed.technicals.smaCross", asOf, { currency, period: "SMA50" }),
     traced(t.smaCross.sma200, "currency/share", "computed.technicals.smaCross", asOf, { currency, period: "SMA200" }),
     traced(t.rsi14, "index", "computed.technicals.rsi14", asOf, { period: "RSI-14" }),
-    traced(t.macd.histogram, "points", "computed.technicals.macd", asOf, { period: "MACD histogram" }),
+    traced(t.macd.histogram, "currency/share", "computed.technicals.macd", asOf, { currency, period: "MACD histogram" }),
     traced(t.range52w.high52w, "currency/share", "computed.technicals.range52w", asOf, { currency, period: "52-week high" }),
     traced(t.range52w.low52w, "currency/share", "computed.technicals.range52w", asOf, { currency, period: "52-week low" }),
     traced(t.range52w.pctFromHigh, "%", "computed.technicals.range52w", asOf, { period: "% from 52-week high" }),
@@ -727,8 +728,10 @@ function segmentRows(
   const total = entries.reduce((acc, [, value]) => acc + value, 0);
   const rows: Report["business"]["segments"]["product"] = [];
   for (const [name, value] of entries) {
-    const revenue = traced(value, "currency", source, asOf, { currency, period: asOf });
+    const revenue = traced(value, "currency", result.value.source === "edgar" ? result.value.endpoint : source, asOf, { currency, period: asOf });
     if (revenue === null) continue;
+    const primaryBasis = selectedGeographyNotes(result)[0];
+    if (primaryBasis) revenue.verificationNote = primaryBasis;
     const pct = total > 0 ? (value / total) * 100 : null;
     rows.push({
       name,

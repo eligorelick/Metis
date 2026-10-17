@@ -1,6 +1,7 @@
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -69,6 +70,8 @@ import {
   SOURCE_ENTRY_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -99,11 +102,13 @@ import {
   showAnnualSegments,
   withoutChartReferences,
   factorExposureTable,
+  factorContributionSensitivityTable,
   figureRows,
   figureValueText,
   gapCountText,
   gapSummary,
   geographyLabel,
+  geographicBasisNote,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -342,7 +347,7 @@ function sectionScores(scores: Scoring): string {
     <p>Composite: <strong class="mono">${c.score === null ? DASH : Math.round(c.score)} / 100</strong> ${compositeChip}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
-    ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores)])}
+    ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
     <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
 }
 
@@ -353,9 +358,10 @@ function sectionScores(scores: Scoring): string {
 function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
   const quarterly = bodyTables(extra);
   // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
-  const annual = showAnnualSegments(quarterly.length > 0)
-    ? `${subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product))}${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}`
-    : "";
+  const annual = (showAnnualSegments(quarterly.length > 0)
+    ? subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product)) : "") +
+    (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)
+      ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
     ${quarterly}
@@ -456,16 +462,18 @@ function sectionValuation(
   parts.push(`<h3>Reverse DCF</h3><p>Implied ${esc(v.reverseDcf.impliedMetric)}: <strong class="mono">${esc(reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue))}</strong></p><p>${prose(v.reverseDcf.narrative)}</p>`);
 
   parts.push(subsection("Multiples", bodyTable(
-    // WS6 (D-19): a rank among N quarters, not a percentile.
-    ["Multiple", "Current", "Peer median", "Own-history rank", "Sector-appropriate"],
+    // Empirical percentile within the retained sample; N is separate from its scale.
+    ["Multiple", "Basis and limitations", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
     v.multiples.map((m) => [
       m.name,
+      m.basis ?? DASH,
       m.current === null ? DASH : `${num(m.current, 1)}×`,
       m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
-      m.own5yPercentile === null ? DASH : `rank ${m.own5yPercentile.toFixed(0)}/100${typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""}`,
+      m.own5yPercentile === null ? DASH : ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations),
       m.sectorAppropriate ? "yes" : "no",
     ]),
   )));
+  if (v.multiplesBasis) parts.push(`<p class="faint">${esc(v.multiplesBasis)}</p>`);
   // D-62: consensus and market data, once, beside the multiples.
   parts.push(bodyTables(consensusTables(report)));
 
@@ -498,7 +506,7 @@ function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeig
   ].join("");
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
-      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "target unavailable"}</span>
+      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "per-share target unavailable"}</span>
       ${computedWeights && sc.probability === null ? "" : `<span class="prob">${computedWeights ? "display weight" : "p"} ${probability}</span>`}
       <span class="asof">${esc(sc.horizon)}</span></div>
     <div class="scenariobody">${blocks}</div></div>`;
@@ -597,6 +605,7 @@ function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: Repo
   const risks = bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
     cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    ["Probability"],
   );
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
   return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}${subsection("Catalysts", catalysts)}${subsection("Risks", risks)}${bodyTables(extra)}</section>`;
@@ -616,9 +625,10 @@ function sectionOutlook(report: Report): string {
 
 function sectionProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
+  const available = projectionAvailability(series);
   const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
   // D-67: no chart is rendered here, so a sentence pointing at one is dropped.
-  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions.map((line) => withoutChartReferences(displayProse(line)))));
+  const { common, specific } = splitCommonLines(series.map((s) => projectionDisplayAssumptions(s).map((line) => withoutChartReferences(displayProse(line)))));
   const blocks = series
     .map((s, index) => {
       const rows = projectionPeriodRows(s).flatMap((row) => {
@@ -633,8 +643,9 @@ function sectionProjections(p: Projections): string {
     .join("");
   const pct = (w: number) => `${Math.round(w * 100)}%`;
   return `<section class="block">${sectionHeading("projections")}
-    <p class="faint">Horizon ${p.horizonYears}y · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear).</p>
-    ${series.length === 0 ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
+    ${available.forward ? `<p class="faint">Horizon ${p.horizonYears}y${available.weighted ? ` · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear)` : ""}.</p>` : ""}
+    ${!available.forward ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
+    ${!available.weighted ? `<p class="faint">No weighted projection points are available; no projection weights are applied.</p>` : ""}
     ${bodyTables(projectionAuditTables(p))}
     ${common.length > 0 ? `<p><em>Assumptions common to every series</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
     ${blocks}</section>`;

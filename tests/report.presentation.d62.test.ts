@@ -36,6 +36,8 @@ describe("reader labels and one source marker", () => {
     expect(metricLabel("computed.capital.current.debtBridge.totalDebtIncludingLeases")).toBe("Total debt including leases");
     expect(metricLabel("payload.statements.income-statement-quarterly.2026-07-26.revenue")).toBe("Revenue (quarter ended 2026-07-26)");
     expect(metricLabel("computed.technicals.rsi-14")).toBe("RSI (14-day)");
+    expect(metricLabel("computed.forensics.flags.serial-one-time-items")).toBe("Material other income/expense");
+    expect(metricLabel("computed.forensics.flags.one-time-items")).toBe("Material other income/expense");
     expect(metricLabel("edgar:10-Q item2", "currency millions: Cash, cash equivalents")).toBe("Cash, cash equivalents");
     expect(metricLabel("FACT: Latest annual ROIC")).toBe("FACT: Latest annual ROIC");
     expect(claimCitation({ source: "edgar:10-Q item2", sourceId: "edgar:10-Q item2", asOf: "2026-07-26" })).toBe("10-Q Item 2 · 2026-07-26");

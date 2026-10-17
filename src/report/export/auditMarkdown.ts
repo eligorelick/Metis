@@ -24,7 +24,7 @@ import {
   numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { trustRows } from "@/report/presentation";
+import { geographicBasisNote, trustRows } from "@/report/presentation";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -350,9 +350,10 @@ function renderBodyReading(report: Report): string {
     lines.push(
       "### Annual provider segments",
       "",
-      "The provider's annual segment rows as served (FMP names). The report body shows them only when no quarterly XBRL segment table is available.",
+      "Annual segment rows retain their source's labels and allocation basis. The report body shows them only when no quarterly XBRL segment table is available.",
       "",
       table(["Kind", "Segment", "Revenue", "Unit", "As of", "Share %", "Registry id"], segmentRows),
+      ...(geographicBasisNote(segments.geographic) ? ["", markdownProse(geographicBasisNote(segments.geographic)!)] : []),
       "",
     );
   }
@@ -368,6 +369,7 @@ function renderBodyReading(report: Report): string {
       officerChanges: disclosures.officerChanges,
       sayOnPay: disclosures.sayOnPay,
       tradingArrangements: disclosures.tradingArrangements,
+      companyStatements: report.filingDisclosures?.companyStatements,
     }).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length > 0)));
     if (Object.keys(supplements).length > 0) {
       lines.push("### Filing disclosure supplements (raw record)", "", "Stored values, periods, source identities and issuer text, before display rounding.", "", "```json", JSON.stringify(supplements, null, 2), "```", "");
@@ -418,6 +420,17 @@ function renderSources(report: Report): string {
   ].join("\n");
 }
 
+function renderOwnHistory(report: Report): string {
+  const rows = report.valuation.multiples.filter(row => row.ownHistoryDetails?.length);
+  if (!rows.length) return "";
+  return ["## Historical multiple sample observations", "",
+    "Each value below is a retained sample observation. Market dates are the actual capitalization observation dates; vendor ratios do not establish an underlying quote date.", "",
+    ...rows.flatMap(row => [`### ${markdownHeading(row.name)}`, "", markdownProse(row.ownHistoryBasis ?? "Sample basis unavailable."), "",
+      table(["Period end", "Market date", "Multiple (unrounded)", "Source", "Capitalization source"],
+        row.ownHistoryDetails!.map(point => [point.periodEnd, point.marketDate ?? "unavailable", String(point.value), point.source, point.marketCapSourceId ?? "unavailable"])), ""]),
+  ].join("\n").trimEnd();
+}
+
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report): string {
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
@@ -435,6 +448,9 @@ export function reportToAuditMarkdown(report: Report): string {
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),
+    report.valuation.multiplesBasis ? `## Current multiple equity and enterprise-value basis\n\n${markdownProse(report.valuation.multiplesBasis)}` : "",
+    report.valuation.multiples.some(row => row.basis) ? `## Current multiple row bases and limitations\n\n${table(["Multiple", "Current (unrounded)", "Basis and limitations"], report.valuation.multiples.filter(row => row.basis).map(row => [row.name, row.current === null ? "unavailable" : String(row.current), row.basis!]))}` : "",
+    renderOwnHistory(report),
     renderTiming(report),
     report.projections ? renderProjections(report.projections) : "",
     renderManifest(report),

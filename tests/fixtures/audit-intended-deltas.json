@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-16",
+  "generatedAt": "2026-10-17",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -1627,11 +1627,6 @@
       "reason": "Valuation methodology (D-18, D-19): the near-term growth anchor became the median of four methods with its range shown, the terminal rule is labelled a house convention, WACC inputs are disclosed by source and observation date, free cash flow is reported net of stock-based compensation, the enterprise-value bridge is explicit, and an own-history multiple is a rank among N quarters. Fair value, the score drivers reading those inputs, and the disclaimer text move with them.",
       "deltas": [
         {
-          "path": "report.meta.disclaimer",
-          "before": "Informational only — not investment advice.",
-          "after": "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security."
-        },
-        {
           "path": "stageB.capital.dilution",
           "beforeMissing": true,
           "after": {
@@ -2267,11 +2262,6 @@
           "after": "computed.scores.quality.altmanZOriginalScale"
         },
         {
-          "path": "stageB.forensics.altman.asOf.marketCap",
-          "before": "2025-12-31",
-          "after": "2026-07-06"
-        },
-        {
           "path": "stageB.forensics.beneish.notes.0",
           "before": "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
           "after": "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1)."
@@ -2398,44 +2388,6 @@
             ],
             "gaps": []
           }
-        }
-      ]
-    },
-    {
-      "name": "repository-audit-2026-10-03",
-      "decisions": [
-        "D-35"
-      ],
-      "reason": "Repository audit D-35: spec 1.7.0 distinguishes corrected beta calendar windows, FRED missing-period lags, annual-capital continuity and inclusive reverse-DCF roots. The four valuation paths correct finance-lease prose: amortisation is within EBIT and added back in EBITDA; interest is below EBIT. DEMO numerical outputs are unchanged from the pre-audit tree. The immutable historical financial projection is preserved.",
-      "deltas": [
-        {
-          "path": "stageB.valuation.multiples.enterpriseValue",
-          "beforeMissing": true,
-          "after": {
-            "value": 6700000000,
-            "excludingLeases": 6700000000,
-            "includingLeases": 6700000000,
-            "leaseLiability": null,
-            "totalLeaseLiability": 100000000,
-            "financeLeaseLiability": null,
-            "includeLeases": false,
-            "basis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-          }
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.1.basis",
-          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
-          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. EV excluding the operating-lease liability 6700000000; EV as reported 6700000000. Balance basis: latest quarterly balance sheet 2025-12-31."
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.2.basis",
-          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.0",
-          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
         }
       ]
     },
@@ -3085,16 +3037,6 @@
           }
         },
         {
-          "path": "report.balanceSheet.coverage.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC is a separate economic adjustment; historical FCF is levered, forecast FCFF is unlevered.",
-            "label": "FACT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
-          }
-        },
-        {
           "path": "report.balanceSheet.coverage.numbers.1",
           "beforeMissing": true,
           "after": {
@@ -3637,142 +3579,6 @@
           "after": 16.129032258064523
         },
         {
-          "path": "report.scores.aspects.fundamentals.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "revenueCagr",
-              "raw": 8.695652173913038,
-              "unit": "%",
-              "transformedScore": 58.478260869565204,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 7.000000000000001,
-              "contributionPoints": 0.5934782608695643,
-              "family": "growth",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 1,
-              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR.",
-              "operands": [
-                {
-                  "name": "start value",
-                  "value": 11500000000,
-                  "source": "computed.growth.revenueCagrs[0].startValue",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "end value",
-                  "value": 12500000000,
-                  "source": "computed.growth.revenueCagrs[0].endValue",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "operatingMarginSlope",
-              "raw": 0.9993153821010003,
-              "unit": "pp/yr",
-              "transformedScore": 69.98973073151501,
-              "signalWeight": 0.3,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 6.000000000000001,
-              "contributionPoints": 1.1993838438909008,
-              "family": "profitability",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2.001368925393566,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "operating margin at 2023-12-31",
-                  "value": 18,
-                  "source": "computed.growth.margins.operating.series",
-                  "asOf": "2023-12-31"
-                },
-                {
-                  "name": "operating margin at 2024-12-31",
-                  "value": 19,
-                  "source": "computed.growth.margins.operating.series",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "operating margin at 2025-12-31",
-                  "value": 20,
-                  "source": "computed.growth.margins.operating.series",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "epsCagr",
-              "raw": 17.80487804878048,
-              "unit": "%",
-              "transformedScore": 74.48780487804876,
-              "signalWeight": 0.2,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 4.000000000000001,
-              "contributionPoints": 0.9795121951219508,
-              "family": "growth",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 1,
-              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR.",
-              "operands": [
-                {
-                  "name": "start value",
-                  "value": 7.246376811594203,
-                  "source": "computed.growth.epsDilutedCagrs[0].startValue",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "end value",
-                  "value": 8.536585365853659,
-                  "source": "computed.growth.epsDilutedCagrs[0].endValue",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "fcfCagr",
-              "raw": 16.129032258064523,
-              "unit": "%",
-              "transformedScore": 71.80645161290323,
-              "signalWeight": 0.15,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.0000000000000004,
-              "contributionPoints": 0.6541935483870971,
-              "family": "growth",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 1,
-              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR.",
-              "operands": [
-                {
-                  "name": "start value",
-                  "value": 1550000000,
-                  "source": "computed.growth.fcfCagrs[0].startValue",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "end value",
-                  "value": 1800000000,
-                  "source": "computed.growth.fcfCagrs[0].endValue",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
-        },
-        {
           "path": "report.scores.aspects.leadership.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -3841,11 +3647,6 @@
           "path": "report.scores.aspects.quality.drivers.2.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.quality.drivers.2.period",
-          "beforeMissing": true,
-          "after": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06"
         },
         {
           "path": "report.scores.aspects.quality.drivers.2.value",
@@ -4043,53 +3844,6 @@
             "to": "low",
             "reason": "the deterministic valuation score rests on under half of the inputs its route supports"
           }
-        },
-        {
-          "path": "stageB.capital.current",
-          "beforeMissing": true,
-          "after": {
-            "industrialMetricsApplicable": true,
-            "basis": "annual",
-            "asOf": "2025-12-31",
-            "periodStart": "2025-01-01",
-            "currency": "USD",
-            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
-            "netDebtToEbitda": -0.4642857142857143,
-            "netDebt": -1300000000,
-            "ebitda": 2800000000,
-            "ebit": 2500000000,
-            "interestExpense": 150000000,
-            "fcfBeforeSbc": 1800000000,
-            "netIncome": 1750000000,
-            "interestCoverage": 16.666666666666668,
-            "fcfConversionBeforeSbc": 1.0285714285714285,
-            "sbcPctOfFcf": 13.88888888888889,
-            "cashBridge": {
-              "operatingCashFlow": 2400000000,
-              "cashCapitalExpenditure": -600000000,
-              "standardizedFcf": 1800000000,
-              "financeLeasePrincipalPayments": null,
-              "leaseAdjustedFcf": null,
-              "issuerFcf": null,
-              "stockBasedCompensation": 250000000,
-              "afterSbcStandardizedFcf": 1550000000,
-              "afterSbcIssuerFcf": null,
-              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC is a separate economic adjustment; historical FCF is levered, forecast FCFF is unlevered."
-            },
-            "debtBridge": {
-              "totalDebtIncludingLeases": 1200000000,
-              "operatingLeases": null,
-              "financeLeases": null,
-              "cashAndShortTermInvestments": 2500000000,
-              "netDebtIncludingLeases": -1300000000,
-              "netDebtExcludingOperatingLeases": null
-            }
-          }
-        },
-        {
-          "path": "stageB.capital.fcf.basis",
-          "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
         },
         {
           "path": "stageB.forensics.accruals.investingCashFlow",
@@ -4697,142 +4451,6 @@
           "after": 16.129032258064523
         },
         {
-          "path": "stageB.scores.aspects.fundamentals.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "revenueCagr",
-              "raw": 8.695652173913038,
-              "unit": "%",
-              "transformedScore": 58.478260869565204,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 7.000000000000001,
-              "contributionPoints": 0.5934782608695643,
-              "family": "growth",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 1,
-              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR.",
-              "operands": [
-                {
-                  "name": "start value",
-                  "value": 11500000000,
-                  "source": "computed.growth.revenueCagrs[0].startValue",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "end value",
-                  "value": 12500000000,
-                  "source": "computed.growth.revenueCagrs[0].endValue",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "operatingMarginSlope",
-              "raw": 0.9993153821010003,
-              "unit": "pp/yr",
-              "transformedScore": 69.98973073151501,
-              "signalWeight": 0.3,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 6.000000000000001,
-              "contributionPoints": 1.1993838438909008,
-              "family": "profitability",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2.001368925393566,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "operating margin at 2023-12-31",
-                  "value": 18,
-                  "source": "computed.growth.margins.operating.series",
-                  "asOf": "2023-12-31"
-                },
-                {
-                  "name": "operating margin at 2024-12-31",
-                  "value": 19,
-                  "source": "computed.growth.margins.operating.series",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "operating margin at 2025-12-31",
-                  "value": 20,
-                  "source": "computed.growth.margins.operating.series",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "epsCagr",
-              "raw": 17.80487804878048,
-              "unit": "%",
-              "transformedScore": 74.48780487804876,
-              "signalWeight": 0.2,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 4.000000000000001,
-              "contributionPoints": 0.9795121951219508,
-              "family": "growth",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 1,
-              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR.",
-              "operands": [
-                {
-                  "name": "start value",
-                  "value": 7.246376811594203,
-                  "source": "computed.growth.epsDilutedCagrs[0].startValue",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "end value",
-                  "value": 8.536585365853659,
-                  "source": "computed.growth.epsDilutedCagrs[0].endValue",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "fcfCagr",
-              "raw": 16.129032258064523,
-              "unit": "%",
-              "transformedScore": 71.80645161290323,
-              "signalWeight": 0.15,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 3.0000000000000004,
-              "contributionPoints": 0.6541935483870971,
-              "family": "growth",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 1,
-              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR.",
-              "operands": [
-                {
-                  "name": "start value",
-                  "value": 1550000000,
-                  "source": "computed.growth.fcfCagrs[0].startValue",
-                  "asOf": "2024-12-31"
-                },
-                {
-                  "name": "end value",
-                  "value": 1800000000,
-                  "source": "computed.growth.fcfCagrs[0].endValue",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
-        },
-        {
           "path": "stageB.scores.aspects.leadership.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -4901,11 +4519,6 @@
           "path": "stageB.scores.aspects.quality.drivers.2.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.quality.drivers.2.period",
-          "beforeMissing": true,
-          "after": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06"
         },
         {
           "path": "stageB.scores.aspects.quality.drivers.2.value",
@@ -5073,20 +4686,6 @@
             "basis": "fiscal-year",
             "anchorEndDate": "2025-12-31",
             "anchorStartDate": "2025-01-01"
-          }
-        },
-        {
-          "path": "stageB.valuation.assumptions.sbc",
-          "beforeMissing": true,
-          "after": {
-            "value": {
-              "beforeSbc": 1800000000,
-              "afterSbc": 1550000000,
-              "sbc": 250000000,
-              "asOf": "2025-12-31",
-              "basis": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
-            },
-            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
           }
         },
         {
@@ -5413,11 +5012,6 @@
           "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; net income less disclosed preferred distributions (parent income; no second NCI deduction))"
         },
         {
-          "path": "stageB.valuation.multiples.multiples.4.basis",
-          "before": "marketCap / totalStockholdersEquity (latest quarterly balance sheet 2025-12-31)",
-          "after": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock)"
-        },
-        {
           "path": "stageB.valuation.multiples.multiples.5.basis",
           "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
           "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
@@ -5632,28 +5226,6 @@
             "calculationAsOf": "2026-07-06T00:00:00.000Z",
             "calculatedAt": null,
             "reportGeneratedAt": "2026-07-06T12:00:00.000Z"
-          }
-        },
-        {
-          "path": "report.sourceFactSummary",
-          "beforeMissing": true,
-          "after": {
-            "version": "1.0.0",
-            "status": "unavailable",
-            "reason": "income before tax: Statement duration boundaries are unknown or conflicting.",
-            "qualifier": "as reported",
-            "rows": [],
-            "earningsReconciliation": {
-              "status": "unavailable",
-              "reason": "income before tax: Statement duration boundaries are unknown or conflicting.",
-              "method": null,
-              "pretaxMinusTax": null,
-              "reconciledNetIncome": null,
-              "reportedNetIncome": null,
-              "residual": null,
-              "operandIds": [],
-              "explanation": "Reported arithmetic only: income before tax minus income tax expense is compared with reported net income. The signed as-filed equity-method result is added only if needed to match that identity. This is not normalized recurring earnings, a tax allocation, or a universal treatment of equity-method results."
-            }
           }
         }
       ]
@@ -6281,11 +5853,6 @@
           "after": 36.33592017738359
         },
         {
-          "path": "report.scores.aspects.moat.note",
-          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
-          "after": "Quantitative moat proxy: the latest ROIC, its durability — the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) — and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
-        },
-        {
           "path": "report.scores.aspects.moat.score",
           "before": 86.65,
           "after": 90.13
@@ -6506,11 +6073,6 @@
           "after": "buyback timing not measured: no tagged repurchase share count and cost on a known share basis matches the fiscal years; the price actually paid against the year's average price is unknown, so timing is not graded"
         },
         {
-          "path": "stageB.capital.notes.3",
-          "beforeMissing": true,
-          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
-        },
-        {
           "path": "stageB.capital.notes.4",
           "beforeMissing": true,
           "after": "Latest free cash flow (2025-12-31): 1800000000 before SBC, 1550000000 after subtracting SBC of 250000000."
@@ -6717,11 +6279,6 @@
           "path": "stageB.scores.aspects.moat.drivers.1.value",
           "before": 1.58,
           "after": 36.33592017738359
-        },
-        {
-          "path": "stageB.scores.aspects.moat.note",
-          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
-          "after": "Quantitative moat proxy: the latest ROIC, its durability — the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) — and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
         },
         {
           "path": "stageB.scores.aspects.moat.score",
@@ -7011,157 +6568,9 @@
           "after": 30.806856135117066
         },
         {
-          "path": "report.scores.aspects.quality.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "roicVsWaccSpread",
-              "raw": 30.806856135117066,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 5.25,
-              "contributionPoints": 2.205,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "WACC",
-                  "value": 9.257246428985505,
-                  "source": "computed.returns.wacc.waccPct",
-                  "asOf": "2026-07-06"
-                }
-              ]
-            },
-            {
-              "id": "piotroskiF",
-              "raw": 1,
-              "unit": "frac",
-              "transformedScore": 96,
-              "signalWeight": 0.22,
-              "evidenceFraction": 0.7777777777777778,
-              "effectiveCompositeWeightPct": 2.566666666666667,
-              "contributionPoints": 1.1806666666666668,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2.001368925393566,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "signals passed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.score",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "signals assessed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.outOf",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "altmanZOriginalScale",
-              "raw": 5.769922666666666,
-              "unit": "z",
-              "transformedScore": 92,
-              "signalWeight": 0.16,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.4,
-              "contributionPoints": 1.008,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "original variant Z score before grade-scale mapping",
-                  "value": 6.1338,
-                  "source": "computed.forensics.altman.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "accrualsRatioAbs",
-              "raw": 0.012269938650306749,
-              "unit": "frac",
-              "transformedScore": 82,
-              "signalWeight": 0.15,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.25,
-              "contributionPoints": 0.72,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "cash-flow accrual ratio before absolute transform",
-                  "value": 0.012269938650306749,
-                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "beneishM",
-              "raw": -2.6827912496211668,
-              "unit": "m",
-              "transformedScore": 73.86644229797864,
-              "signalWeight": 0.12,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1.8,
-              "contributionPoints": 0.4295959613636155,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "Beneish M",
-                  "value": -2.6827912496211668,
-                  "source": "computed.forensics.beneish.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
-        },
-        {
           "path": "report.scores.aspects.valuation.drivers.0.period",
           "beforeMissing": true,
           "after": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus"
-        },
-        {
-          "path": "report.scores.bandsVersion",
-          "before": "SCORE_BANDS_2026_07",
-          "after": "SCORE_BANDS_2026_10_NVDA_AUDIT"
         },
         {
           "path": "report.thesisTriggers",
@@ -7328,11 +6737,6 @@
           "after": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
         },
         {
-          "path": "stageB.returns.roic.notes.0",
-          "before": "invested capital = totalDebt + totalStockholdersEquity − cashAndCashEquivalents (house definition per the valuation methodology §2.2)",
-          "after": "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (NET_DEBT_V3; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")"
-        },
-        {
           "path": "stageB.returns.roicVsWacc.note",
           "before": "spread = ROIC 36.4583% − WACC 9.2559% (positive = returns above cost of capital)",
           "after": "spread = ROIC 40.0641% − WACC 9.2572% (positive = returns above cost of capital)"
@@ -7407,157 +6811,9 @@
           "after": 30.806856135117066
         },
         {
-          "path": "stageB.scores.aspects.quality.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "roicVsWaccSpread",
-              "raw": 30.806856135117066,
-              "unit": "pp",
-              "transformedScore": 92,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 5.25,
-              "contributionPoints": 2.205,
-              "family": "capital-returns",
-              "asOf": "2025-12-31",
-              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "ROIC",
-                  "value": 40.06410256410257,
-                  "source": "computed.returns.roic.latestRoicPct",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "WACC",
-                  "value": 9.257246428985505,
-                  "source": "computed.returns.wacc.waccPct",
-                  "asOf": "2026-07-06"
-                }
-              ]
-            },
-            {
-              "id": "piotroskiF",
-              "raw": 1,
-              "unit": "frac",
-              "transformedScore": 96,
-              "signalWeight": 0.22,
-              "evidenceFraction": 0.7777777777777778,
-              "effectiveCompositeWeightPct": 2.566666666666667,
-              "contributionPoints": 1.1806666666666668,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2.001368925393566,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "signals passed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.score",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "signals assessed",
-                  "value": 7,
-                  "source": "computed.forensics.piotroski.outOf",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "altmanZOriginalScale",
-              "raw": 5.769922666666666,
-              "unit": "z",
-              "transformedScore": 92,
-              "signalWeight": 0.16,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.4,
-              "contributionPoints": 1.008,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "Balance 2025-12-31; income 2025-12-31; market cap 2026-07-06",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "original variant Z score before grade-scale mapping",
-                  "value": 6.1338,
-                  "source": "computed.forensics.altman.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "accrualsRatioAbs",
-              "raw": 0.012269938650306749,
-              "unit": "frac",
-              "transformedScore": 82,
-              "signalWeight": 0.15,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 2.25,
-              "contributionPoints": 0.72,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "cash-flow accrual ratio before absolute transform",
-                  "value": 0.012269938650306749,
-                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            },
-            {
-              "id": "beneishM",
-              "raw": -2.6827912496211668,
-              "unit": "m",
-              "transformedScore": 73.86644229797864,
-              "signalWeight": 0.12,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1.8,
-              "contributionPoints": 0.4295959613636155,
-              "family": "accounting-integrity",
-              "asOf": "2025-12-31",
-              "period": "2024-12-31 to 2025-12-31",
-              "startDate": "2024-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 0.999315537303217,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "Beneish M",
-                  "value": -2.6827912496211668,
-                  "source": "computed.forensics.beneish.score",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
-        },
-        {
           "path": "stageB.scores.aspects.valuation.drivers.0.period",
           "beforeMissing": true,
           "after": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus"
-        },
-        {
-          "path": "stageB.scores.bandsVersion",
-          "before": "SCORE_BANDS_2026_07",
-          "after": "SCORE_BANDS_2026_10_NVDA_AUDIT"
         },
         {
           "path": "stageB.valuation.assumptions.notes.4",
@@ -7717,16 +6973,6 @@
       "reason": "D-68 (NVDA final-report audit, forensics round 3). Methodology notes are notes, not findings: the accrual definition, its house bands and the growth/acquisition context leave report.quality.flags (the three 'low' D-61 flags no longer differ from the baseline and drop out) and are report.quality.notes, a pipeline-owned field removed from the judge request schema. The accrual definition note reads 'Capex and acquisitions stay in' instead of 'Capex, acquisitions stay in' when the statement has no unclassified investing flow, and the house-band note follows the two new notes, so the four note paths D-61 pinned (accruals.notes.0/1, forensics.notes.7/8) move to this group. DEMO's cash-flow statement pays 100M for acquisitions (acquisitionsNet) with goodwill unchanged at 1.00B, at least 10% of its 250M NOA increase, so the accruals carry the new acquisition note and the NOA composition note (receivables +150M, inventory +20M, PP&E +150M, other operating assets +230M, operating liabilities +300M), and the new fields goodwillCurrent/Prior 1.00B, acquiredGoodwillAndIntangibles 0, acquisitionCashPaid 100M and acquiredShareOfNoaIncreasePct 0. The Beneish context fields are null: DEMO's M is in the 'unlikely' band, and its statements carry no tagged inventory write-downs. No score, band, grade or ratio moves.",
       "deltas": [
         {
-          "path": "report.quality.notes",
-          "beforeMissing": true,
-          "after": [
-            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
-            "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant.",
-            "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them.",
-            "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
-          ]
-        },
-        {
           "path": "stageB.forensics.accruals.acquiredGoodwillAndIntangibles",
           "beforeMissing": true,
           "after": 0
@@ -7765,11 +7011,6 @@
           "path": "stageB.forensics.accruals.notes.2",
           "beforeMissing": true,
           "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
-        },
-        {
-          "path": "stageB.forensics.accruals.notes.3",
-          "beforeMissing": true,
-          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
         },
         {
           "path": "stageB.forensics.beneish.aqiContext",
@@ -7815,11 +7056,6 @@
           "path": "stageB.forensics.notes.9",
           "beforeMissing": true,
           "after": "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them."
-        },
-        {
-          "path": "stageB.forensics.notes.10",
-          "beforeMissing": true,
-          "after": "House-rule bands: |ratio| < 10% unremarkable, 10–20% elevated, > 20% red flag (heuristic — Sloan 1996 is a decile-ranking result with no canonical bright line)."
         }
       ]
     },
@@ -7839,23 +7075,6 @@
           "path": "report.fairValue.upsidePct",
           "before": 265.575,
           "after": 287.425
-        },
-        {
-          "path": "report.scenarioPresentation",
-          "beforeMissing": true,
-          "after": {
-            "methodVersion": "SCENARIO_PRESENTATION_2026_10",
-            "weightBasis": "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability.",
-            "interpretation": "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",
-            "sensitivity": {
-              "status": "robust-above",
-              "conclusion": "The valuation-versus-price conclusion is robust within the modeled grids: every valid cell of both grids remains above the current price. The WACC × terminal-growth and year-one growth × sustained-margin grids are assessed (growth × margin cells withheld above the scenario margin ceiling are excluded); this is not a statistical confidence interval or a future-price range.",
-              "validCells": 40,
-              "totalCells": 50,
-              "minPerShare": 50.208799137952624,
-              "maxPerShare": 250.11161675694476
-            }
-          }
         },
         {
           "path": "report.scores.aspects.valuation.drivers.0.value",
@@ -7900,11 +7119,6 @@
           ]
         },
         {
-          "path": "report.valuation.dcf.assumptions.1.basis",
-          "before": "linear fade from 7.89% (analyst consensus revenue, avg implied growth over next 2 fiscal years (through 2027-12-31)) to terminal 2.5% by year 10",
-          "after": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
-        },
-        {
           "path": "report.valuation.dcf.assumptions.2.basis",
           "before": "held flat at current 20% under improving dated-margin regime (5y median 19%, slope 1pp/year)",
           "after": "years 1–5 take their revenue from calendarized analyst consensus; years 6–10 follow the convergent fade. A year is anchored only while its fiscal-year estimates have at least 3 analysts, an implied dispersion of at most 25% ((high − low) ÷ (d2(n) × mean)) and growth within the house band (house rule D-65); the DCF path vs consensus table shows every window"
@@ -7938,15 +7152,6 @@
           "path": "report.valuation.dcf.assumptions.4.basis",
           "before": "min(2.5%, risk-free 4%) — house rule: nothing grows faster than rf forever",
           "after": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
-        },
-        {
-          "path": "report.valuation.dcf.assumptions.7",
-          "beforeMissing": true,
-          "after": {
-            "name": "sales-to-capital",
-            "value": "2.98",
-            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)"
-          }
         },
         {
           "path": "report.valuation.dcf.assumptions.10",
@@ -8556,196 +7761,9 @@
           }
         },
         {
-          "path": "stageB.valuation.assumptions.notes.0",
-          "before": "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
-          "after": "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
-        },
-        {
           "path": "stageB.valuation.assumptions.notes.1",
           "beforeMissing": true,
           "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
-        },
-        {
-          "path": "stageB.valuation.assumptions.revenueAnchor",
-          "beforeMissing": true,
-          "after": {
-            "source": "consensus",
-            "yearOneRevenue": 13500000000,
-            "yearOneGrowthPct": 8.000000000000007,
-            "yearTwoGrowthPct": 7.777777777777772,
-            "runRate": null,
-            "clampedFrom": null,
-            "basis": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
-            "anchoredGrowthPct": [
-              8.000000000000007,
-              7.777777777777772,
-              7.560137457044669,
-              7.348242811501593,
-              7.14285714285714
-            ],
-            "consensusYears": [
-              1,
-              2,
-              3,
-              4,
-              5
-            ],
-            "consensusPath": [
-              {
-                "year": 1,
-                "label": "FY2026 ending 2026-12-31",
-                "startDate": "2026-01-01",
-                "endDate": "2026-12-31",
-                "consensus": 13500000000,
-                "anchored": true,
-                "status": "anchored: the year-one level",
-                "fiscalYears": [
-                  {
-                    "date": "2026-12-31",
-                    "revenue": 13500000000,
-                    "analysts": 8,
-                    "dispersionPct": 1.5610974515084104,
-                    "days": 365
-                  }
-                ]
-              },
-              {
-                "year": 2,
-                "label": "FY2027 ending 2027-12-31",
-                "startDate": "2027-01-01",
-                "endDate": "2027-12-31",
-                "consensus": 14550000000,
-                "anchored": true,
-                "status": "anchored: consensus growth",
-                "fiscalYears": [
-                  {
-                    "date": "2027-12-31",
-                    "revenue": 14550000000,
-                    "analysts": 7,
-                    "dispersionPct": 2.2875617641676325,
-                    "days": 365
-                  }
-                ]
-              },
-              {
-                "year": 3,
-                "label": "FY2028 ending 2028-12-31",
-                "startDate": "2028-01-01",
-                "endDate": "2028-12-31",
-                "consensus": 15650000000,
-                "anchored": true,
-                "status": "anchored: consensus growth",
-                "fiscalYears": [
-                  {
-                    "date": "2028-12-31",
-                    "revenue": 15650000000,
-                    "analysts": 6,
-                    "dispersionPct": 3.2781015253258556,
-                    "days": 366
-                  }
-                ]
-              },
-              {
-                "year": 4,
-                "label": "FY2029 ending 2029-12-31",
-                "startDate": "2029-01-01",
-                "endDate": "2029-12-31",
-                "consensus": 16800000000,
-                "anchored": true,
-                "status": "anchored: consensus growth",
-                "fiscalYears": [
-                  {
-                    "date": "2029-12-31",
-                    "revenue": 16800000000,
-                    "analysts": 5,
-                    "dispersionPct": 4.6063137206731355,
-                    "days": 365
-                  }
-                ]
-              },
-              {
-                "year": 5,
-                "label": "FY2030 ending 2030-12-31",
-                "startDate": "2030-01-01",
-                "endDate": "2030-12-31",
-                "consensus": 18000000000,
-                "anchored": true,
-                "status": "anchored: consensus growth",
-                "fiscalYears": [
-                  {
-                    "date": "2030-12-31",
-                    "revenue": 18000000000,
-                    "analysts": 4,
-                    "dispersionPct": 6.475635421725758,
-                    "days": 365
-                  }
-                ]
-              },
-              {
-                "year": 6,
-                "label": "FY2031 ending 2031-12-31",
-                "startDate": "2031-01-01",
-                "endDate": "2031-12-31",
-                "consensus": null,
-                "anchored": false,
-                "status": "not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates",
-                "fiscalYears": []
-              },
-              {
-                "year": 7,
-                "label": "FY2032 ending 2032-12-31",
-                "startDate": "2032-01-01",
-                "endDate": "2032-12-31",
-                "consensus": null,
-                "anchored": false,
-                "status": "not anchored: the anchored stretch ended at year five",
-                "fiscalYears": []
-              },
-              {
-                "year": 8,
-                "label": "FY2033 ending 2033-12-31",
-                "startDate": "2033-01-01",
-                "endDate": "2033-12-31",
-                "consensus": null,
-                "anchored": false,
-                "status": "not anchored: the anchored stretch ended at year five",
-                "fiscalYears": []
-              },
-              {
-                "year": 9,
-                "label": "FY2034 ending 2034-12-31",
-                "startDate": "2034-01-01",
-                "endDate": "2034-12-31",
-                "consensus": null,
-                "anchored": false,
-                "status": "not anchored: the anchored stretch ended at year five",
-                "fiscalYears": []
-              },
-              {
-                "year": 10,
-                "label": "FY2035 ending 2035-12-31",
-                "startDate": "2035-01-01",
-                "endDate": "2035-12-31",
-                "consensus": null,
-                "anchored": false,
-                "status": "not anchored: the anchored stretch ended at year five",
-                "fiscalYears": []
-              }
-            ],
-            "evidence": {
-              "guidedRunRate": null,
-              "guidedPacePct": null,
-              "consensusYearOne": 13500000000,
-              "consensusYearTwo": 14550000000,
-              "nearTermRateUsed": false,
-              "guidedQuarter": null
-            }
-          }
-        },
-        {
-          "path": "stageB.valuation.assumptions.salesToCapital.basis",
-          "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
-          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)"
         },
         {
           "path": "stageB.valuation.assumptions.terminal.reinvestmentRate.basis",
@@ -9173,11 +8191,6 @@
           }
         },
         {
-          "path": "stageB.valuation.notes.0",
-          "before": "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
-          "after": "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with guidance, then guidance at its own pace, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
-        },
-        {
           "path": "stageB.valuation.notes.1",
           "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
           "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
@@ -9483,11 +8496,1209 @@
             },
             "shortInterest": null
           }
+        }
+      ]
+    },
+    {
+      "name": "expe-ownership-and-evidence",
+      "decisions": [
+        "D-78"
+      ],
+      "reason": "EXPE audit repairs consolidated equity scope and explicit capital/SBC/accrual definitions, records historical growth-window context, removes unused projection priors and exposes valuation ownership uncertainty. The simple no-NCI DEMO fixture retains its financial numbers and composite formula; these reviewed differences are explanatory notes, evidence operands, reconciliation metadata and version stamps.",
+      "deltas": [
+        {
+          "path": "report.balanceSheet.coverage.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+            "label": "FACT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
+          }
         },
+        {
+          "path": "report.quality.notes",
+          "beforeMissing": true,
+          "after": [
+            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
+            "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant.",
+            "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them.",
+            "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
+          ]
+        },
+        {
+          "path": "report.scores.aspects.moat.note",
+          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+          "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+        },
+        {
+          "path": "report.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10_FRESHNESS_AUDIT"
+        },
+        {
+          "path": "report.sourceFactSummary",
+          "beforeMissing": true,
+          "after": {
+            "version": "1.0.0",
+            "status": "unavailable",
+            "reason": "income before tax: Statement duration boundaries are unknown or conflicting.",
+            "qualifier": "as reported",
+            "rows": [],
+            "earningsReconciliation": {
+              "status": "unavailable",
+              "reason": "income before tax: Statement duration boundaries are unknown or conflicting.",
+              "method": null,
+              "pretaxMinusTax": null,
+              "reconciledNetIncome": null,
+              "reportedNetIncome": null,
+              "residual": null,
+              "operandIds": [],
+              "explanation": "Reported arithmetic only: income before tax minus income tax expense is compared with reported net income. When consolidated and parent earnings differ, signed noncontrolling-interest earnings are subtracted from consolidated profit to reconcile parent profit; a noncontrolling loss increases parent profit. An equity-method result cannot plug a known ownership-scope gap. Outside an established ownership bridge, the signed as-filed equity-method result is shown only as a matching reported arithmetic identity. This is not normalized recurring earnings, a tax allocation, or a universal treatment of equity-method results."
+            }
+          }
+        },
+        {
+          "path": "report.valuation.dcf.assumptions.7",
+          "beforeMissing": true,
+          "after": {
+            "name": "sales-to-capital",
+            "value": "2.98",
+            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)"
+          }
+        },
+        {
+          "path": "report.valuation.multiplesBasis",
+          "beforeMissing": true,
+          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+        },
+        {
+          "path": "stageB.capital.current",
+          "beforeMissing": true,
+          "after": {
+            "industrialMetricsApplicable": true,
+            "basis": "annual",
+            "asOf": "2025-12-31",
+            "periodStart": "2025-01-01",
+            "currency": "USD",
+            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+            "netDebtToEbitda": -0.4642857142857143,
+            "netDebt": -1300000000,
+            "ebitda": 2800000000,
+            "ebit": 2500000000,
+            "interestExpense": 150000000,
+            "fcfBeforeSbc": 1800000000,
+            "netIncome": 1750000000,
+            "interestCoverage": 16.666666666666668,
+            "fcfConversionBeforeSbc": 1.0285714285714285,
+            "sbcPctOfFcf": 13.88888888888889,
+            "cashBridge": {
+              "operatingCashFlow": 2400000000,
+              "cashCapitalExpenditure": -600000000,
+              "standardizedFcf": 1800000000,
+              "financeLeasePrincipalPayments": null,
+              "leaseAdjustedFcf": null,
+              "issuerFcf": null,
+              "stockBasedCompensation": 250000000,
+              "afterSbcStandardizedFcf": 1550000000,
+              "afterSbcIssuerFcf": null,
+              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
+            },
+            "debtBridge": {
+              "totalDebtIncludingLeases": 1200000000,
+              "operatingLeases": null,
+              "financeLeases": null,
+              "cashAndShortTermInvestments": 2500000000,
+              "netDebtIncludingLeases": -1300000000,
+              "netDebtExcludingOperatingLeases": null
+            }
+          }
+        },
+        {
+          "path": "stageB.capital.fcf.basis",
+          "beforeMissing": true,
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+        },
+        {
+          "path": "stageB.capital.notes.3",
+          "beforeMissing": true,
+          "after": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+        },
+        {
+          "path": "stageB.forensics.accruals.notes.3",
+          "beforeMissing": true,
+          "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
+        },
+        {
+          "path": "stageB.forensics.notes.10",
+          "beforeMissing": true,
+          "after": "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
+        },
+        {
+          "path": "stageB.returns.roic.notes.0",
+          "before": "invested capital = totalDebt + totalStockholdersEquity − cashAndCashEquivalents (house definition per the valuation methodology §2.2)",
+          "after": "invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (NET_DEBT_V3; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY \"EV bridge\")"
+        },
+        {
+          "path": "stageB.returns.roic.series.1.notes.0",
+          "before": "no prior balance sheet — single-period IC used",
+          "after": "2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again"
+        },
+        {
+          "path": "stageB.returns.roic.series.1.notes.1",
+          "beforeMissing": true,
+          "after": "no prior balance sheet — single-period IC used"
+        },
+        {
+          "path": "stageB.returns.roic.series.2.notes.0",
+          "beforeMissing": true,
+          "after": "2025-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again"
+        },
+        {
+          "path": "stageB.returns.roic.series.2.notes.1",
+          "beforeMissing": true,
+          "after": "2024-12-31: invested-capital equity basis totalEquity: consolidated total equity including NCI; NCI is not added again"
+        },
+        {
+          "path": "stageB.scores.aspects.moat.note",
+          "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+          "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
+        },
+        {
+          "path": "stageB.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10_FRESHNESS_AUDIT"
+        },
+        {
+          "path": "stageB.valuation.assumptions.salesToCapital.basis",
+          "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
+          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, quarter balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)"
+        },
+        {
+          "path": "stageB.valuation.assumptions.sbc",
+          "beforeMissing": true,
+          "after": {
+            "value": {
+              "beforeSbc": 1800000000,
+              "afterSbc": 1550000000,
+              "sbc": 250000000,
+              "asOf": "2025-12-31",
+              "basis": "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation (house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, \"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that band would charge the same expense twice, because SBC as a percentage of free cash flow is already a scored metric."
+            },
+            "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.1.basis",
+          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000. Balance basis: latest quarterly balance sheet 2025-12-31."
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.2.basis",
+          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
+          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.0",
+          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+        }
+      ]
+    },
+    {
+      "name": "expe-primary-evidence-followup",
+      "decisions": [
+        "D-79"
+      ],
+      "reason": "D-79 follow-up preserves ordinary-fixture financial values and scoring arithmetic while recording actual/unknown capitalization observation dates, longest retained growth operands, carrying-book limits, model-extrapolation wording, distinct entity/per-share scenario availability, conditional disclaimer and version stamps. Seven final reclassified leaves change only disclosure or date metadata, including date descriptions inside otherwise unchanged quality signals. Primary-source paths have separate positive/negative regressions; this exact list does not certify live research or accept arbitrary finance changes.",
+      "deltas": [
+        {
+          "path": "report.meta.disclaimer",
+          "before": "Informational only — not investment advice.",
+          "after": "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security."
+        },
+        {
+          "path": "report.scenarioPresentation",
+          "beforeMissing": true,
+          "after": {
+            "methodVersion": "SCENARIO_PRESENTATION_2026_10",
+            "weightBasis": "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. No weighted operating projections are available; no projection weights are applied.",
+            "interpretation": "Entity DCF is available; numerical operating scenario paths are unavailable; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.",
+            "sensitivity": {
+              "status": "robust-above",
+              "conclusion": "The valuation-versus-price conclusion is robust within the modeled grids: every valid cell of both grids remains above the current price. The WACC × terminal-growth and year-one growth × sustained-margin grids are assessed (growth × margin cells withheld above the scenario margin ceiling are excluded); this is not a statistical confidence interval or a future-price range.",
+              "validCells": 40,
+              "totalCells": 50,
+              "minPerShare": 50.208799137952624,
+              "maxPerShare": 250.11161675694476
+            }
+          }
+        },
+        {
+          "path": "report.scores.aspects.fundamentals.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "revenueCagr",
+              "raw": 8.695652173913038,
+              "unit": "%",
+              "transformedScore": 58.478260869565204,
+              "signalWeight": 0.35,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 7.000000000000001,
+              "contributionPoints": 0.5934782608695643,
+              "family": "growth",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 1,
+              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR. Historical endpoint growth does not establish a durable growth forecast. Longest retained window: 2.00 years of available history (2023-12-31 to 2025-12-31): 9.11%; historical context only, with the scoring window unchanged.",
+              "operands": [
+                {
+                  "name": "start value",
+                  "value": 11500000000,
+                  "source": "computed.growth.revenueCagrs[0].startValue",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "end value",
+                  "value": 12500000000,
+                  "source": "computed.growth.revenueCagrs[0].endValue",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "1-year historical CAGR",
+                  "value": 8.695652173913038,
+                  "source": "computed.growth.revenueCagrs[0].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history CAGR",
+                  "value": 9.108945117996182,
+                  "source": "computed.growth.revenueCagrs[1].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history start value",
+                  "value": 10500000000,
+                  "source": "computed.growth.revenueCagrs[1].startValue",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "longest-history end value",
+                  "value": 12500000000,
+                  "source": "computed.growth.revenueCagrs[1].endValue",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "operatingMarginSlope",
+              "raw": 0.9993153821010003,
+              "unit": "pp/yr",
+              "transformedScore": 69.98973073151501,
+              "signalWeight": 0.3,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 6.000000000000001,
+              "contributionPoints": 1.1993838438909008,
+              "family": "profitability",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2.001368925393566,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "operating margin at 2023-12-31",
+                  "value": 18,
+                  "source": "computed.growth.margins.operating.series",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "operating margin at 2024-12-31",
+                  "value": 19,
+                  "source": "computed.growth.margins.operating.series",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "operating margin at 2025-12-31",
+                  "value": 20,
+                  "source": "computed.growth.margins.operating.series",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "epsCagr",
+              "raw": 17.80487804878048,
+              "unit": "%",
+              "transformedScore": 74.48780487804876,
+              "signalWeight": 0.2,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.000000000000001,
+              "contributionPoints": 0.9795121951219508,
+              "family": "growth",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 1,
+              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR. Historical endpoint growth does not establish a durable growth forecast. Longest retained window: 2.00 years of available history (2023-12-31 to 2025-12-31): 19.00%; historical context only, with the scoring window unchanged.",
+              "operands": [
+                {
+                  "name": "start value",
+                  "value": 7.246376811594203,
+                  "source": "computed.growth.epsDilutedCagrs[0].startValue",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "end value",
+                  "value": 8.536585365853659,
+                  "source": "computed.growth.epsDilutedCagrs[0].endValue",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "1-year historical CAGR",
+                  "value": 17.80487804878048,
+                  "source": "computed.growth.epsDilutedCagrs[0].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history CAGR",
+                  "value": 18.995342761454292,
+                  "source": "computed.growth.epsDilutedCagrs[1].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history start value",
+                  "value": 6.028708133971292,
+                  "source": "computed.growth.epsDilutedCagrs[1].startValue",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "longest-history end value",
+                  "value": 8.536585365853659,
+                  "source": "computed.growth.epsDilutedCagrs[1].endValue",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "fcfCagr",
+              "raw": 16.129032258064523,
+              "unit": "%",
+              "transformedScore": 71.80645161290323,
+              "signalWeight": 0.15,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 3.0000000000000004,
+              "contributionPoints": 0.6541935483870971,
+              "family": "growth",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 1,
+              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR. Historical endpoint growth does not establish a durable growth forecast.",
+              "operands": [
+                {
+                  "name": "start value",
+                  "value": 1550000000,
+                  "source": "computed.growth.fcfCagrs[0].startValue",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "end value",
+                  "value": 1800000000,
+                  "source": "computed.growth.fcfCagrs[0].endValue",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "1-year historical CAGR",
+                  "value": 16.129032258064523,
+                  "source": "computed.growth.fcfCagrs[0].cagrPct",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.aspects.quality.drivers.2.period",
+          "beforeMissing": true,
+          "after": "Balance 2025-12-31; income 2025-12-31; market cap unavailable"
+        },
+        {
+          "path": "report.scores.aspects.quality.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "roicVsWaccSpread",
+              "raw": 30.806856135117066,
+              "unit": "pp",
+              "transformedScore": 92,
+              "signalWeight": 0.35,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 5.25,
+              "contributionPoints": 2.205,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "ROIC",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.latestRoicPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "WACC",
+                  "value": 9.257246428985505,
+                  "source": "computed.returns.wacc.waccPct",
+                  "asOf": "2026-07-06"
+                }
+              ]
+            },
+            {
+              "id": "piotroskiF",
+              "raw": 1,
+              "unit": "frac",
+              "transformedScore": 96,
+              "signalWeight": 0.22,
+              "evidenceFraction": 0.7777777777777778,
+              "effectiveCompositeWeightPct": 2.566666666666667,
+              "contributionPoints": 1.1806666666666668,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2.001368925393566,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "signals passed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.score",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "signals assessed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.outOf",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "altmanZOriginalScale",
+              "raw": 5.769922666666666,
+              "unit": "z",
+              "transformedScore": 92,
+              "signalWeight": 0.16,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.4,
+              "contributionPoints": 1.008,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "Balance 2025-12-31; income 2025-12-31; market cap unavailable",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "original variant Z score before grade-scale mapping",
+                  "value": 6.1338,
+                  "source": "computed.forensics.altman.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "accrualsRatioAbs",
+              "raw": 0.012269938650306749,
+              "unit": "frac",
+              "transformedScore": 82,
+              "signalWeight": 0.15,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.25,
+              "contributionPoints": 0.72,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "cash-flow accrual ratio before absolute transform",
+                  "value": 0.012269938650306749,
+                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "beneishM",
+              "raw": -2.6827912496211668,
+              "unit": "m",
+              "transformedScore": 73.86644229797864,
+              "signalWeight": 0.12,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 1.8,
+              "contributionPoints": 0.4295959613636155,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "Beneish M",
+                  "value": -2.6827912496211668,
+                  "source": "computed.forensics.beneish.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.valuation.dcf.assumptions.1.basis",
+          "before": "linear fade from 7.89% (analyst consensus revenue, avg implied growth over next 2 fiscal years (through 2027-12-31)) to terminal 2.5% by year 10",
+          "after": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+        },
+        {
+          "path": "report.valuation.marketValueScope",
+          "beforeMissing": true,
+          "after": {
+            "status": "unverified-vendor-scope",
+            "marketCap": 8000000000,
+            "economicShares": null,
+            "currency": null,
+            "shareCountAsOf": null,
+            "priceAsOf": "2025-12-31",
+            "approximate": false,
+            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
+            "enterpriseValue": 6700000000,
+            "enterpriseValueBasis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+          }
+        },
+        {
+          "path": "stageB.forensics.altman.asOf.marketCap",
+          "before": "2025-12-31",
+          "after": null
+        },
+        {
+          "path": "stageB.scores.aspects.fundamentals.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "revenueCagr",
+              "raw": 8.695652173913038,
+              "unit": "%",
+              "transformedScore": 58.478260869565204,
+              "signalWeight": 0.35,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 7.000000000000001,
+              "contributionPoints": 0.5934782608695643,
+              "family": "growth",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 1,
+              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR. Historical endpoint growth does not establish a durable growth forecast. Longest retained window: 2.00 years of available history (2023-12-31 to 2025-12-31): 9.11%; historical context only, with the scoring window unchanged.",
+              "operands": [
+                {
+                  "name": "start value",
+                  "value": 11500000000,
+                  "source": "computed.growth.revenueCagrs[0].startValue",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "end value",
+                  "value": 12500000000,
+                  "source": "computed.growth.revenueCagrs[0].endValue",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "1-year historical CAGR",
+                  "value": 8.695652173913038,
+                  "source": "computed.growth.revenueCagrs[0].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history CAGR",
+                  "value": 9.108945117996182,
+                  "source": "computed.growth.revenueCagrs[1].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history start value",
+                  "value": 10500000000,
+                  "source": "computed.growth.revenueCagrs[1].startValue",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "longest-history end value",
+                  "value": 12500000000,
+                  "source": "computed.growth.revenueCagrs[1].endValue",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "operatingMarginSlope",
+              "raw": 0.9993153821010003,
+              "unit": "pp/yr",
+              "transformedScore": 69.98973073151501,
+              "signalWeight": 0.3,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 6.000000000000001,
+              "contributionPoints": 1.1993838438909008,
+              "family": "profitability",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2.001368925393566,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "operating margin at 2023-12-31",
+                  "value": 18,
+                  "source": "computed.growth.margins.operating.series",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "operating margin at 2024-12-31",
+                  "value": 19,
+                  "source": "computed.growth.margins.operating.series",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "operating margin at 2025-12-31",
+                  "value": 20,
+                  "source": "computed.growth.margins.operating.series",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "epsCagr",
+              "raw": 17.80487804878048,
+              "unit": "%",
+              "transformedScore": 74.48780487804876,
+              "signalWeight": 0.2,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.000000000000001,
+              "contributionPoints": 0.9795121951219508,
+              "family": "growth",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 1,
+              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR. Historical endpoint growth does not establish a durable growth forecast. Longest retained window: 2.00 years of available history (2023-12-31 to 2025-12-31): 19.00%; historical context only, with the scoring window unchanged.",
+              "operands": [
+                {
+                  "name": "start value",
+                  "value": 7.246376811594203,
+                  "source": "computed.growth.epsDilutedCagrs[0].startValue",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "end value",
+                  "value": 8.536585365853659,
+                  "source": "computed.growth.epsDilutedCagrs[0].endValue",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "1-year historical CAGR",
+                  "value": 17.80487804878048,
+                  "source": "computed.growth.epsDilutedCagrs[0].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history CAGR",
+                  "value": 18.995342761454292,
+                  "source": "computed.growth.epsDilutedCagrs[1].cagrPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "longest-history start value",
+                  "value": 6.028708133971292,
+                  "source": "computed.growth.epsDilutedCagrs[1].startValue",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "longest-history end value",
+                  "value": 8.536585365853659,
+                  "source": "computed.growth.epsDilutedCagrs[1].endValue",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "fcfCagr",
+              "raw": 16.129032258064523,
+              "unit": "%",
+              "transformedScore": 71.80645161290323,
+              "signalWeight": 0.15,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 3.0000000000000004,
+              "contributionPoints": 0.6541935483870971,
+              "family": "growth",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 1,
+              "fallbackReason": "5-year CAGR unavailable or span-incompatible; using 1-year CAGR. Historical endpoint growth does not establish a durable growth forecast.",
+              "operands": [
+                {
+                  "name": "start value",
+                  "value": 1550000000,
+                  "source": "computed.growth.fcfCagrs[0].startValue",
+                  "asOf": "2024-12-31"
+                },
+                {
+                  "name": "end value",
+                  "value": 1800000000,
+                  "source": "computed.growth.fcfCagrs[0].endValue",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "1-year historical CAGR",
+                  "value": 16.129032258064523,
+                  "source": "computed.growth.fcfCagrs[0].cagrPct",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.aspects.quality.drivers.2.period",
+          "beforeMissing": true,
+          "after": "Balance 2025-12-31; income 2025-12-31; market cap unavailable"
+        },
+        {
+          "path": "stageB.scores.aspects.quality.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "roicVsWaccSpread",
+              "raw": 30.806856135117066,
+              "unit": "pp",
+              "transformedScore": 92,
+              "signalWeight": 0.35,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 5.25,
+              "contributionPoints": 2.205,
+              "family": "capital-returns",
+              "asOf": "2025-12-31",
+              "period": "ROIC period end 2025-12-31; WACC observation 2026-07-06",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "ROIC",
+                  "value": 40.06410256410257,
+                  "source": "computed.returns.roic.latestRoicPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "WACC",
+                  "value": 9.257246428985505,
+                  "source": "computed.returns.wacc.waccPct",
+                  "asOf": "2026-07-06"
+                }
+              ]
+            },
+            {
+              "id": "piotroskiF",
+              "raw": 1,
+              "unit": "frac",
+              "transformedScore": 96,
+              "signalWeight": 0.22,
+              "evidenceFraction": 0.7777777777777778,
+              "effectiveCompositeWeightPct": 2.566666666666667,
+              "contributionPoints": 1.1806666666666668,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2.001368925393566,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "signals passed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.score",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "signals assessed",
+                  "value": 7,
+                  "source": "computed.forensics.piotroski.outOf",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "altmanZOriginalScale",
+              "raw": 5.769922666666666,
+              "unit": "z",
+              "transformedScore": 92,
+              "signalWeight": 0.16,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.4,
+              "contributionPoints": 1.008,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "Balance 2025-12-31; income 2025-12-31; market cap unavailable",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "original variant Z score before grade-scale mapping",
+                  "value": 6.1338,
+                  "source": "computed.forensics.altman.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "accrualsRatioAbs",
+              "raw": 0.012269938650306749,
+              "unit": "frac",
+              "transformedScore": 82,
+              "signalWeight": 0.15,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 2.25,
+              "contributionPoints": 0.72,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "cash-flow accrual ratio before absolute transform",
+                  "value": 0.012269938650306749,
+                  "source": "computed.forensics.accruals.cashFlowAccrualRatio",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "beneishM",
+              "raw": -2.6827912496211668,
+              "unit": "m",
+              "transformedScore": 73.86644229797864,
+              "signalWeight": 0.12,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 1.8,
+              "contributionPoints": 0.4295959613636155,
+              "family": "accounting-integrity",
+              "asOf": "2025-12-31",
+              "period": "2024-12-31 to 2025-12-31",
+              "startDate": "2024-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 0.999315537303217,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "Beneish M",
+                  "value": -2.6827912496211668,
+                  "source": "computed.forensics.beneish.score",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.valuation.assumptions.notes.0",
+          "before": "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
+          "after": "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+        },
+        {
+          "path": "stageB.valuation.assumptions.revenueAnchor",
+          "beforeMissing": true,
+          "after": {
+            "source": "consensus",
+            "yearOneRevenue": 13500000000,
+            "yearOneGrowthPct": 8.000000000000007,
+            "yearTwoGrowthPct": 7.777777777777772,
+            "runRate": null,
+            "clampedFrom": null,
+            "basis": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+            "anchoredGrowthPct": [
+              8.000000000000007,
+              7.777777777777772,
+              7.560137457044669,
+              7.348242811501593,
+              7.14285714285714
+            ],
+            "consensusYears": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "consensusPath": [
+              {
+                "year": 1,
+                "label": "FY2026 ending 2026-12-31",
+                "startDate": "2026-01-01",
+                "endDate": "2026-12-31",
+                "consensus": 13500000000,
+                "anchored": true,
+                "status": "anchored: the year-one level",
+                "fiscalYears": [
+                  {
+                    "date": "2026-12-31",
+                    "revenue": 13500000000,
+                    "analysts": 8,
+                    "dispersionPct": 1.5610974515084104,
+                    "days": 365
+                  }
+                ]
+              },
+              {
+                "year": 2,
+                "label": "FY2027 ending 2027-12-31",
+                "startDate": "2027-01-01",
+                "endDate": "2027-12-31",
+                "consensus": 14550000000,
+                "anchored": true,
+                "status": "anchored: consensus growth",
+                "fiscalYears": [
+                  {
+                    "date": "2027-12-31",
+                    "revenue": 14550000000,
+                    "analysts": 7,
+                    "dispersionPct": 2.2875617641676325,
+                    "days": 365
+                  }
+                ]
+              },
+              {
+                "year": 3,
+                "label": "FY2028 ending 2028-12-31",
+                "startDate": "2028-01-01",
+                "endDate": "2028-12-31",
+                "consensus": 15650000000,
+                "anchored": true,
+                "status": "anchored: consensus growth",
+                "fiscalYears": [
+                  {
+                    "date": "2028-12-31",
+                    "revenue": 15650000000,
+                    "analysts": 6,
+                    "dispersionPct": 3.2781015253258556,
+                    "days": 366
+                  }
+                ]
+              },
+              {
+                "year": 4,
+                "label": "FY2029 ending 2029-12-31",
+                "startDate": "2029-01-01",
+                "endDate": "2029-12-31",
+                "consensus": 16800000000,
+                "anchored": true,
+                "status": "anchored: consensus growth",
+                "fiscalYears": [
+                  {
+                    "date": "2029-12-31",
+                    "revenue": 16800000000,
+                    "analysts": 5,
+                    "dispersionPct": 4.6063137206731355,
+                    "days": 365
+                  }
+                ]
+              },
+              {
+                "year": 5,
+                "label": "FY2030 ending 2030-12-31",
+                "startDate": "2030-01-01",
+                "endDate": "2030-12-31",
+                "consensus": 18000000000,
+                "anchored": true,
+                "status": "anchored: consensus growth",
+                "fiscalYears": [
+                  {
+                    "date": "2030-12-31",
+                    "revenue": 18000000000,
+                    "analysts": 4,
+                    "dispersionPct": 6.475635421725758,
+                    "days": 365
+                  }
+                ]
+              },
+              {
+                "year": 6,
+                "label": "FY2031 ending 2031-12-31",
+                "startDate": "2031-01-01",
+                "endDate": "2031-12-31",
+                "consensus": null,
+                "anchored": false,
+                "status": "not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates",
+                "fiscalYears": []
+              },
+              {
+                "year": 7,
+                "label": "FY2032 ending 2032-12-31",
+                "startDate": "2032-01-01",
+                "endDate": "2032-12-31",
+                "consensus": null,
+                "anchored": false,
+                "status": "not anchored: the anchored stretch ended at year five",
+                "fiscalYears": []
+              },
+              {
+                "year": 8,
+                "label": "FY2033 ending 2033-12-31",
+                "startDate": "2033-01-01",
+                "endDate": "2033-12-31",
+                "consensus": null,
+                "anchored": false,
+                "status": "not anchored: the anchored stretch ended at year five",
+                "fiscalYears": []
+              },
+              {
+                "year": 9,
+                "label": "FY2034 ending 2034-12-31",
+                "startDate": "2034-01-01",
+                "endDate": "2034-12-31",
+                "consensus": null,
+                "anchored": false,
+                "status": "not anchored: the anchored stretch ended at year five",
+                "fiscalYears": []
+              },
+              {
+                "year": 10,
+                "label": "FY2035 ending 2035-12-31",
+                "startDate": "2035-01-01",
+                "endDate": "2035-12-31",
+                "consensus": null,
+                "anchored": false,
+                "status": "not anchored: the anchored stretch ended at year five",
+                "fiscalYears": []
+              }
+            ],
+            "evidence": {
+              "guidedRunRate": null,
+              "guidedPacePct": null,
+              "consensusYearOne": 13500000000,
+              "consensusYearTwo": 14550000000,
+              "nearTermRateUsed": false,
+              "guidedQuarter": null
+            }
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.enterpriseValue",
+          "beforeMissing": true,
+          "after": {
+            "equityScope": {
+              "status": "unverified-vendor-scope",
+              "marketCap": 8000000000,
+              "priceAsOf": "2025-12-31",
+              "economicShares": null,
+              "approximate": false,
+              "sourceIds": [],
+              "sourceHashes": [],
+              "shareCountAsOf": null,
+              "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope."
+            },
+            "noncontrollingInterestBasis": "none-disclosed",
+            "nonOperatingHoldingsScope": "not-comprehensively-resolved",
+            "value": 6700000000,
+            "excludingLeases": 6700000000,
+            "includingLeases": 6700000000,
+            "leaseLiability": null,
+            "totalLeaseLiability": 100000000,
+            "financeLeaseLiability": null,
+            "includeLeases": false,
+            "basis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.4.basis",
+          "before": "marketCap / totalStockholdersEquity (latest quarterly balance sheet 2025-12-31)",
+          "after": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness"
+        },
+        {
+          "path": "stageB.valuation.notes.0",
+          "before": "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
+          "after": "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+        }
+      ]
+    },
+    {
+      "name": "expe-evidence-block-and-report-basis",
+      "decisions": [
+        "D-81",
+        "D-82"
+      ],
+      "reason": "D-81 retains six pipeline-owned per-multiple scope/basis strings. D-82 patches deterministic ISO-duration claim verification and advances the report stamp to 1.23.1 without changing payload or financial inputs. All 1,180 preceding assertions remain represented, plus the six basis leaves; no financial numeric golden value is reclassified.",
+      "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.19.4"
+          "after": "1.23.1"
+        },
+        {
+          "path": "report.valuation.multiples.0.basis",
+          "beforeMissing": true,
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; net income less disclosed preferred distributions (parent income; no second NCI deduction))"
+        },
+        {
+          "path": "report.valuation.multiples.1.basis",
+          "beforeMissing": true,
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000. Balance basis: latest quarterly balance sheet 2025-12-31."
+        },
+        {
+          "path": "report.valuation.multiples.2.basis",
+          "beforeMissing": true,
+          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+        },
+        {
+          "path": "report.valuation.multiples.3.basis",
+          "beforeMissing": true,
+          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
+        },
+        {
+          "path": "report.valuation.multiples.4.basis",
+          "beforeMissing": true,
+          "after": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness"
+        },
+        {
+          "path": "report.valuation.multiples.5.basis",
+          "beforeMissing": true,
+          "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
         }
       ]
     }

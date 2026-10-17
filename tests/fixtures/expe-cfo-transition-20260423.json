@@ -1,0 +1,42 @@
+{
+  "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1324424/000132442426000016/expe-20260417.htm",
+  "filingDate": "2026-04-23",
+  "accession": "0001324424-26-000016",
+  "sourceSha256": "67dc4c80ec86c81c35b1b595568ce684fabd60b51acbcfea602023f1e178a380",
+  "item": "5.02",
+  "title": "Departure of Directors or Certain Officers; Election of Directors; Appointment of Certain Officers; Compensatory Arrangements of Certain Officers",
+  "text": "Departure of Chief Financial Officer On April 17, 2026, Expedia Group, Inc. (the “ Company ” or “ Expedia Group ”) and Scott Schenkel agreed that Mr. Schenkel would step down as the Company’s Chief Financial Officer, effective as of May 11, 2026 (the “ Effective Date ”).\nAppointment of Chief Financial Officer On April 23, 2026, Expedia Group announced the appointment of Derek Andersen as the Company’s Chief Financial Officer, succeeding Mr. Schenkel in the role as of the Effective Date.\nMr. Andersen will receive an annual base salary of $1,000,000.\nSubject to his continued employment with Expedia, Mr. Andersen will receive an aggregate cash signing bonus of $2,500,000, to be paid as follows, in each case subject to his continued employment with Expedia through the applicable date: $500,000 on the Effective Date, $500,000 on the six-month anniversary of the Effective Date, $500,000 on the one-year anniversary of the Effective Date, and $1,000,000 on the second anniversary of the Effective Date.\nOn the Effective Date, Mr. Andersen will receive a grant of Expedia Group restricted stock units (“ RSUs ”) with an aggregate value of $17,000,000 (with the number of RSUs calculated using the 30-day average closing price of Company common stock as of the last day of the month prior to the Effective Date) (the “ Initial Equity Award ”).\nMr. Andersen will also be eligible to receive annual equity awards with a target value of $10,000,000.",
+  "selection": "Minimal necessary source sentences only; all other Item 5.02 passages omitted. Offsets refer to the full normalized source item retained privately.",
+  "spans": [
+    {
+      "start": 0,
+      "end": 271,
+      "text": "Departure of Chief Financial Officer On April 17, 2026, Expedia Group, Inc. (the “ Company ” or “ Expedia Group ”) and Scott Schenkel agreed that Mr. Schenkel would step down as the Company’s Chief Financial Officer, effective as of May 11, 2026 (the “ Effective Date ”)."
+    },
+    {
+      "start": 474,
+      "end": 693,
+      "text": "Appointment of Chief Financial Officer On April 23, 2026, Expedia Group announced the appointment of Derek Andersen as the Company’s Chief Financial Officer, succeeding Mr. Schenkel in the role as of the Effective Date."
+    },
+    {
+      "start": 1694,
+      "end": 1756,
+      "text": "Mr. Andersen will receive an annual base salary of $1,000,000."
+    },
+    {
+      "start": 1773,
+      "end": 2226,
+      "text": "Subject to his continued employment with Expedia, Mr. Andersen will receive an aggregate cash signing bonus of $2,500,000, to be paid as follows, in each case subject to his continued employment with Expedia through the applicable date: $500,000 on the Effective Date, $500,000 on the six-month anniversary of the Effective Date, $500,000 on the one-year anniversary of the Effective Date, and $1,000,000 on the second anniversary of the Effective Date."
+    },
+    {
+      "start": 4906,
+      "end": 5244,
+      "text": "On the Effective Date, Mr. Andersen will receive a grant of Expedia Group restricted stock units (“ RSUs ”) with an aggregate value of $17,000,000 (with the number of RSUs calculated using the 30-day average closing price of Company common stock as of the last day of the month prior to the Effective Date) (the “ Initial Equity Award ”)."
+    },
+    {
+      "start": 5759,
+      "end": 5861,
+      "text": "Mr. Andersen will also be eligible to receive annual equity awards with a target value of $10,000,000."
+    }
+  ]
+}

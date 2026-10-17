@@ -20,6 +20,24 @@ function longMdna(): string {
 }
 
 describe("bounded material filing evidence", () => {
+  it.each(["financial", "interim"] as const)("preserves distribution costs and their adjacent marketing offset in the %s reading", (profile) => {
+    const definition = "Selling and marketing direct costs include traffic generation costs and private label and affiliate program commissions.";
+    const driver = "Selling and marketing direct increased $199 million for the three months ended June 30, 2026, primarily driven by an increase in partner commissions to support revenue growth.";
+    const offset = "The increase in the year-to-date period was partially offset by a decrease in marketing spend in the consumer segment, which had significant marketing leverage.";
+    const original = `${longMdna()}\n${definition}\n${driver}\n${offset}`;
+    const selected = selectMaterialEvidence(original, 8_000, profile);
+    for (const sentence of [definition, driver, offset]) expect(selected.text).toContain(sentence);
+    expect(selected.text.length).toBeLessThanOrEqual(8_000);
+    expect(selected.coverage.categories).toEqual(expect.arrayContaining([expect.objectContaining({ category: "distribution-costs", status: "retained" })]));
+    for (const span of selected.spans) expect(original.slice(span.start, span.end)).toBe(span.text);
+  });
+  it("withholds a referring marketing offset if its commission-driver context cannot fit", () => {
+    const driver = `Selling and marketing direct increased $199 million from partner commissions ${"under the distribution agreement ".repeat(30)}.`;
+    const offset = "The increase was partially offset by a decrease in consumer marketing spend.";
+    const selected = selectMaterialEvidence(`${driver}\n${offset}`, 400, "interim");
+    expect(selected.text).not.toContain(offset);
+    expect(selected.text.length).toBeLessThanOrEqual(400);
+  });
   it("retains investment-driven earnings explanations amid dense operating results", () => {
     const selected = selectMaterialEvidence(longMdna(), 8_000);
     expect(selected.text).toContain(earningsBridge);

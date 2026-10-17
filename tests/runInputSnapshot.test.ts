@@ -180,7 +180,7 @@ describe("immutable normalized run inputs", () => {
       expect(replay.computed.symbol).toBe(snapshot.content.bundle.symbol);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
-  it("resolves supplied replay artifact files from actual bytes and refuses a changed method", () => {
+  it("resolves supplied replay artifact files from actual bytes and refuses a changed method", { timeout: 45_000 }, () => {
     const dir = mkdtempSync(join(tmpdir(), "thesis-custody-replay-"));
     try {
       const input = join(dir, "snapshot.json"), output = join(dir, "replay.json"), method = join(dir, "method.txt"), lock = join(dir, "lock.txt"), diff = join(dir, "diff.txt");

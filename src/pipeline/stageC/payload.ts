@@ -27,12 +27,15 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
+import { quotePriceObservationDay } from "@/providers/fmp";
+import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
 import { inheritedIssuerCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
@@ -49,6 +52,9 @@ import {
   PROJECTION_PATH_ORDER,
   SCORE_ASPECT_ORDER,
   orderedProjectionSeries,
+  admittedProjectionPoints,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -235,6 +241,8 @@ export interface TextExcerpt {
   spans?: EvidenceSpan[];
   /** A keyword family being retained does not imply all of its passages survived. */
   coverage?: EvidenceCoverage;
+  /** Retained authority and observation context for an official company statement. */
+  sourceEvidence?: { kind: "issuer-statement"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[] };
 }
 
 /**
@@ -375,7 +383,14 @@ export interface ContextPayload {
 // 1.24.1 (D-72): revised financial evidence and source-bound filing facts.
 // 1.24.2 (D-73): incomplete debt is withheld, including downstream valuation
 // context. Analysts from earlier conventions cannot resume as equivalent.
-export const PAYLOAD_VERSION = "1.24.2" as const;
+// 1.25.0 (D-78): ownership-specific earnings rows, class/EV scope and current
+// source form/exhibit context change analyst evidence; prior passes cannot resume.
+// Primary disclosure composition and quote measurement dates change the
+// admitted model context; earlier evidence fingerprints cannot resume.
+// 1.28.0 (D-81): complete passage-level applicability, price-unit MACD and
+// admitted per-multiple bases change the analyst context. Earlier reusable
+// analyst/judge passes cannot resume as equivalent; completed reports stay readable.
+export const PAYLOAD_VERSION = "1.28.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -514,7 +529,7 @@ function firstRow<TRow extends FmpRawRow>(f: {
 /** The quote is in the listing's trading currency. */
 function quoteSection(bundle: DataBundle, currency: string | null): PayloadSection {
   const q = firstRow(bundle.quote);
-  const asOf = bundle.quote.ok ? bundle.quote.value.asOf : null;
+  const asOf = quotePriceObservationDay(q);
   const figures: PayloadFigureInput[] = [
     { label: "price", value: numOrNull(q?.price), unit: "currency/share", currency, source: "fmp:quote", asOf },
     { label: "marketCap", value: numOrNull(q?.marketCap), unit: "currency", currency, source: "fmp:quote", asOf },
@@ -524,7 +539,7 @@ function quoteSection(bundle: DataBundle, currency: string | null): PayloadSecti
     { label: "yearHigh", value: numOrNull(q?.yearHigh), unit: "currency/share", currency, source: "fmp:quote", asOf },
     { label: "volume", value: numOrNull(q?.volume), unit: "shares", source: "fmp:quote", asOf },
   ];
-  return payloadSection({ title: "Quote", figures, notes: [] });
+  return payloadSection({ title: "Quote", figures, notes: q && asOf === null ? ["Price observation date unavailable; source retrieval time does not establish the quote session."] : [] });
 }
 
 /**
@@ -918,12 +933,13 @@ function computedSections(
     for (const [key, value] of Object.entries(currentCapital.cashBridge)) {
       if (key !== "definition" && (typeof value === "number" || value === null)) add(`cashBridge.${key}`, value, "currency");
     }
-    for (const [key, value] of Object.entries(currentCapital.debtBridge)) add(`debtBridge.${key}`, value, "currency");
+    for (const [key, value] of Object.entries(currentCapital.debtBridge)) if (typeof value === "number" || value === null) add(`debtBridge.${key}`, value, "currency");
     figures.push({ label: "capital basis", value: `${currentCapital.basis}: ${currentCapital.periodStart ?? "unknown start"} to ${currentCapital.asOf ?? "unknown end"}`,
       unit: "", source: "computed.capital.current", asOf: currentCapital.asOf });
     sections.push(payloadSection({ title: "Current capital (computed)", figures, notes: [
       `Current capital basis: ${currentCapital.basis}; exact window ${currentCapital.periodStart ?? "unknown start"} through ${currentCapital.asOf ?? "unknown end"}.`,
       ...(currentCapital.fallbackReason ? [currentCapital.fallbackReason] : []), currentCapital.cashBridge.definition,
+      ...(currentCapital.debtBridge.leaseScopeNote ? [currentCapital.debtBridge.leaseScopeNote] : []),
     ] }));
   }
 
@@ -934,14 +950,11 @@ function computedSections(
     { label: "last close", value: t.lastClose, unit: "currency/share", currency: currencies.trading, source: "computed.technicals", asOf: t.asOf },
     { label: "SMA50", value: t.smaCross.sma50, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
     { label: "SMA200", value: t.smaCross.sma200, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
-    // D-44: these rows printed no unit at all, so the judge wrote one of its
-    // own ("RSI", "RSI index", "MACD histogram") and 8 of reports 25/26's key
-    // numbers failed as unit-mismatch. "index" is the registry's existing
-    // dimensionless bucket for them (the record is unchanged); for the MACD
-    // histogram, a difference of price averages, it is that bucket and not
-    // the figure's true dimension.
+    // RSI is dimensionless; MACD subtracts price EMAs and their signal EMA,
+    // retaining the source price currency/share. An unknown currency cannot
+    // support a numeric MACD quotation or a dimensionless substitute.
     { label: "RSI-14", value: t.rsi14, unit: "index", source: "computed.technicals.rsi14", asOf: t.asOf },
-    { label: "MACD histogram", value: t.macd.histogram, unit: "index", source: "computed.technicals.macd", asOf: t.asOf },
+    { label: "MACD histogram", value: currencies.trading === null ? null : t.macd.histogram, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.macd", asOf: t.asOf },
     { label: "52w high", value: t.range52w.high52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "52w low", value: t.range52w.low52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "% from 52w high", value: t.range52w.pctFromHigh, unit: "%", source: "computed.technicals.range52w", asOf: t.asOf },
@@ -957,7 +970,9 @@ function computedSections(
     { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.trend-read", asOf: t.asOf },
     { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.momentum-read", asOf: t.asOf },
   ];
-  sections.push(payloadSection({ title: "Technicals (computed)", figures: techFigures, notes: t.notes }));
+  sections.push(payloadSection({ title: "Technicals (computed)", figures: techFigures, notes: [...t.notes,
+    ...(currencies.trading === null ? ["MACD price currency is unknown; the numeric histogram is withheld rather than treated as a dimensionless index."] : []),
+  ] }));
 
   // --- Valuation -----------------------------------------------------------
   const val = computed.valuation;
@@ -1047,6 +1062,8 @@ function computedSections(
   ];
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => stat.basis?.trim() ? [`${stat.key}: ${stat.basis}`] : [])),
+    ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string"))),
     ...consensusNote,
     ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
       ? ["Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures."]
@@ -1117,18 +1134,17 @@ function computedSections(
   }
 
   // --- Weighted projections (feature 1.1.0) --------------------------------
-  if (computed.projections && computed.projections.series.length > 0) {
+  const projectionPoints = projectionAvailability(computed.projections?.series ?? []);
+  if (computed.projections && projectionPoints.forward) {
     const pr = computed.projections;
     const projFigures: PayloadFigureInput[] = [];
     const projectionSeries = orderedProjectionSeries(pr.series);
     for (const s of projectionSeries) {
       const periodRows = projectionPeriodRows(s);
       const pointsFor = (path: (typeof PROJECTION_PATH_ORDER)[number]) =>
-        periodRows.flatMap((row) => {
-          const point = projectionCellPoint(row, path, s.unit);
-          return point === null ? [] : [point];
-        });
+        admittedProjectionPoints(s, path);
       const w = pointsFor("weighted");
+      const endpoint = [w, pointsFor("base"), pointsFor("bull"), pointsFor("bear")].find(points => points.length > 0) ?? [];
       const at = (arr: typeof w, i: number) => arr[i];
       const y5 = w.length - 1;
       const idxs = [0, Math.min(2, y5), y5];
@@ -1136,8 +1152,8 @@ function computedSections(
         const pt = at(w, i);
         if (pt) projFigures.push({ label: `${s.metric} weighted ${pt.period}`, value: pt.value.value, unit: s.unit, currency: pt.value.currency, period: pt.period, source: `computed.projections.${s.metric}.weighted`, asOf: pt.value.asOf });
       }
-      const endpointRow = w[y5]
-        ? periodRows.find((row) => row.period === w[y5]!.period)
+      const endpointRow = endpoint.at(-1)
+        ? periodRows.find((row) => row.period === endpoint.at(-1)!.period)
         : undefined;
       const b5 = endpointRow
         ? projectionCellPoint(endpointRow, "bull", s.unit)
@@ -1147,10 +1163,14 @@ function computedSections(
         : null;
       if (b5) projFigures.push({ label: `${s.metric} bull ${b5.period}`, value: b5.value.value, unit: s.unit, currency: b5.value.currency, period: b5.period, source: `computed.projections.${s.metric}.bull`, asOf: b5.value.asOf });
       if (be5) projFigures.push({ label: `${s.metric} bear ${be5.period}`, value: be5.value.value, unit: s.unit, currency: be5.value.currency, period: be5.period, source: `computed.projections.${s.metric}.bear`, asOf: be5.value.asOf });
+      const baseEnd = !projectionPoints.weighted && endpointRow ? projectionCellPoint(endpointRow, "base", s.unit) : null;
+      if (baseEnd) projFigures.push({ label: `${s.metric} base ${baseEnd.period}`, value: baseEnd.value.value, unit: s.unit, currency: baseEnd.value.currency, period: baseEnd.period, source: `computed.projections.${s.metric}.base`, asOf: baseEnd.value.asOf });
       for (const alternative of ["flatShare", "shareTrend"] as const) {
-        for (const i of idxs) {
-          const point = s[alternative]?.weighted[i];
-          if (!point) continue;
+        const points = admittedProjectionPoints(s, "weighted", alternative);
+        const last = points.length - 1;
+        for (const i of new Set([0, Math.min(2, last), last])) {
+          const point = points[i];
+          if (point === undefined) continue;
           projFigures.push({ label: `${alternative === "flatShare" ? "flat-share EPS" : "hypothetical historical-share-trend EPS"} weighted ${point.period}`,
             value: point.value.value, unit: s.unit, currency: point.value.currency, period: point.period,
             source: `computed.projections.${s.metric}.${alternative}.weighted`, asOf: point.value.asOf });
@@ -1163,7 +1183,7 @@ function computedSections(
     // the three numbers, which become the only numbers a sentence citing it
     // may state (attachProvenanceRegistry, allowedNumbers).
     const pct = (w: number): number => Math.round(w * 1000) / 10;
-    projFigures.push({
+    if (projectionPoints.weighted) projFigures.push({
       label: "scenario weights bull/base/bear in percent (fixed, unbacktested prior; not calibrated probabilities)",
       value: `${pct(pr.scenarioWeights.bull)}/${pct(pr.scenarioWeights.base)}/${pct(pr.scenarioWeights.bear)}`,
       unit: "",
@@ -1171,23 +1191,25 @@ function computedSections(
       asOf: null,
     });
     sections.push(payloadSection({
-      title: `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
+      title: projectionPoints.weighted
+        ? `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`
+        : `Operating projections (computed - ${pr.horizonYears}y forward; weighted path unavailable; ESTIMATE, interpret - never restate as fact)`,
       figures: projFigures,
       // D-65: the capital-return basis left the EPS series' assumptions (the
       // report states it once, under its table); the model still reads it here.
       notes: [...new Set(projectionSeries.flatMap((series) => [
-        ...series.assumptions,
+        ...projectionDisplayAssumptions(series),
         ...(series.capitalReturn?.basis ? [series.capitalReturn.basis] : []),
-      ]))],
+      ])), ...(projectionPoints.weighted ? [] : ["No weighted projection points are available; no projection weights are applied."])],
     }));
-  } else if (computed.projections && computed.projections.notApplicableReason) {
+  } else if (computed.projections) {
     // No weights here: nothing is weighted on this route, so none are shown.
     // The n/a row gives "probability-weighted forecasts are unavailable" a
     // gap tag to cite (D-43; report 26 cited "unsupported" for it).
     sections.push(payloadSection({
       title: "Weighted projections (computed)",
       figures: [{ label: "weighted projections", value: null, unit: "", source: "computed.projections", asOf: null }],
-      notes: [`not applicable: ${computed.projections.notApplicableReason}`],
+      notes: [`not applicable: ${computed.projections.notApplicableReason ?? "No actual forward projection points are available."}`],
     }));
   }
 
@@ -1247,6 +1269,8 @@ const INCOME_LINE_ITEMS: { key: keyof FmpIncomeStatementRow; label: string; unit
   { key: "operatingIncome", label: "operating income", unit: "currency" },
   { key: "ebit", label: "EBIT", unit: "currency" },
   { key: "netIncome", label: "net income", unit: "currency" },
+  { key: "netIncomeConsolidated", label: "consolidated net income", unit: "currency" },
+  { key: "netIncomeAttributableToNoncontrollingInterest", label: "noncontrolling interest net income", unit: "currency" },
   { key: "epsDiluted", label: "diluted EPS", unit: "currency/share" },
   { key: "weightedAverageShsOutDil", label: "diluted shares", unit: "shares" },
   { key: "interestExpense", label: "interest expense", unit: "currency" },
@@ -1347,7 +1371,8 @@ function extractStatement<TRow extends FmpRawRow>(
   const periodLabels = kept.map((r) => isoDay(r.date) ?? "unknown");
   const fiscalLabels = kept.map((r) => issuerFiscalLabel(r));
   const lines: StatementLineExtract[] = lineItems.map((li) => ({
-    lineItem: li.label,
+    lineItem: periodKind === "instant" && li.key === "totalDebt" && kept.some(r => incompleteLeaseCoverage(r as FmpBalanceSheetRow) !== null)
+      ? "debt including disclosed lease portion (full lease coverage unverified; see period notes)" : li.label,
     unit: li.unit,
     source,
     byPeriod: kept.map((r, i) => {
@@ -1364,7 +1389,10 @@ function extractStatement<TRow extends FmpRawRow>(
       };
     }),
   }));
-  return { title, periods: periodLabels, lineItems: lines, notes: [] };
+  return { title, periods: periodLabels, lineItems: lines, notes: periodKind !== "instant" ? [] : kept.flatMap(r => {
+    const coverage = incompleteLeaseCoverage(r as FmpBalanceSheetRow);
+    return coverage === null ? [] : [`${isoDay(r.date) ?? "Unknown balance date"}: ${coverage.note}`];
+  }) };
 }
 
 function statementExtracts(bundle: DataBundle): StatementExtractBlock[] {
@@ -1636,8 +1664,9 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
           value: numOrNull(data[key]),
           unit: "currency",
           currency,
-          source: `fmp:revenue-${kind}-segmentation`,
+          source: res.ok && res.value.source === "edgar" ? res.value.endpoint : `fmp:revenue-${kind}-segmentation`,
           asOf,
+          ...(kind === "geographic" && selectedGeographyNotes(res).length > 0 ? { period: asOf } : {}),
         });
       }
     }
@@ -1647,7 +1676,7 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
   return payloadSection({
     title: "Revenue segmentation (as-reported keys — never hard-coded)",
     figures,
-    notes: [],
+    notes: selectedGeographyNotes(bundle.segmentation.geographic),
   });
 }
 
@@ -1845,7 +1874,25 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
   add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
   out.push(...currentReportExcerpts(bundle));
+  out.push(...companyIrMaterialExcerpts(bundle));
   return out;
+}
+
+/** Official company statements remain distinct from SEC filings and news-feed snippets. */
+function companyIrMaterialExcerpts(bundle: DataBundle): TextExcerpt[] {
+  const result = bundle.companyIrMaterialEvents;
+  if (!result?.ok) return [];
+  return result.value.data.events.slice(0, 3).filter((event) => isIsoDate(event.publishedAt.slice(0, 10)) && event.publishedAt.slice(0, 10) <= bundle.builtAt.slice(0, 10)).map((event) => {
+    const omittedChars = Math.max(0, event.originalChars - event.text.length);
+    return {
+      title: `Official company news: ${event.title} (${event.status}; consideration and funding not established by this reader)`,
+      source: event.url, asOf: event.publishedAt.slice(0, 10),
+      text: event.text + (omittedChars > 0 ? `\n\n${TRUNCATION_MARKER} ${omittedChars} of ${event.originalChars} source chars omitted; bounded official-news selection is not a comprehensive review]` : ""),
+      truncated: omittedChars > 0, originalChars: event.originalChars, spans: [event.span],
+      coverage: { version: "official-material-statement-1", retainedChars: event.text.length, omittedChars, categories: [] },
+      sourceEvidence: { kind: "issuer-statement" as const, publishedAt: event.publishedAt, observedAt: event.observedAt, sourceHash: event.sourceHash, authorityChain: event.authorityChain },
+    };
+  });
 }
 
 /**
@@ -1871,7 +1918,8 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
     const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}` : fiscal ?? periodEnd ?? "latest quarter";
     const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
-    narrative(latest.releaseNarrative, `8-K EX-99.1 — earnings release, ${period} (${where})`, "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
+    const primaryRelease = latest.releaseExhibit === null && latest.releaseUrl !== null;
+    narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
   }
   let used = 0;
@@ -1908,6 +1956,8 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
 
 const GUIDANCE_METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
   revenue: "revenue",
+  "adjusted-ebitda": "adjusted EBITDA",
+  "adjusted-ebitda-margin-expansion": "adjusted EBITDA margin expansion",
   "gross-margin": "gross margin",
   "operating-expenses": "operating expenses",
   "operating-margin": "operating margin",
@@ -1920,6 +1970,7 @@ const GUIDANCE_METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
 
 const RECONCILIATION_LABELS: Record<NonNullable<FilingDisclosures["reconciliation"]>[number]["metric"], string> = {
   "operating-cash-flow": "operating cash flow (issuer reconciliation)",
+  "total-capital-expenditures": "total capital expenditures (positive outflow)",
   "purchases-property-equipment": "purchases related to property and equipment and intangible assets",
   "principal-payments-property-equipment": "principal payments on property and equipment and intangible assets",
   "equity-securities-gains": "net gains from equity securities",
@@ -1957,7 +2008,7 @@ export function guidanceLowCitation(disclosures: FilingDisclosures | undefined):
 }
 
 function guidanceUnit(unit: GuidanceRow["unit"]): string {
-  return unit === "%" ? "%" : unit === "currency-per-share" ? "currency/share" : "currency";
+  return unit === "percentage-points" ? "pp" : unit === "%" ? "%" : unit === "currency-per-share" ? "currency/share" : "currency";
 }
 
 /** Guidance, prior-outlook midpoints, issuer FCF and capital return (provider rows). */
@@ -1968,15 +2019,18 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   const currency = disclosures.currency;
   const g = disclosures.guidance;
   if (g !== null) {
-    const source = `edgar:8-K ${g.source.exhibit ?? "EX-99"}`;
+    const source = `edgar:${g.source.form} ${g.source.exhibit ?? g.source.accession}`;
     for (const row of g.rows) {
       const name = guidanceFigureName(row);
-      const base = { unit: guidanceUnit(row.unit), currency: row.unit === "%" ? null : currency, period: row.period, source, asOf: g.source.filingDate };
+      const base = { unit: guidanceUnit(row.unit), currency: row.unit === "%" || row.unit === "percentage-points" ? null : currency, period: row.period, source, asOf: g.source.filingDate };
       if (row.form === "range" || row.form === "plus-minus") {
         figures.push({ ...base, label: `${name} low`, value: row.low }, { ...base, label: `${name} midpoint`, value: row.mid }, { ...base, label: `${name} high`, value: row.high });
       } else {
         figures.push({ ...base, label: `${name}${row.form === "approximate" ? " (approximately)" : ""}`, value: row.mid });
       }
+      if (row.previous) figures.push({ ...base, label: `${name} previous low`, value: row.previous.low }, { ...base, label: `${name} previous high`, value: row.previous.high });
+      if (row.growth) figures.push({ ...base, currency: null, unit: "%", label: `${name} current revenue growth low`, value: row.growth.low }, { ...base, currency: null, unit: "%", label: `${name} current revenue growth high`, value: row.growth.high });
+      if (row.previousGrowth) figures.push({ ...base, currency: null, unit: "%", label: `${name} previous revenue growth low`, value: row.previousGrowth.low }, { ...base, currency: null, unit: "%", label: `${name} previous revenue growth high`, value: row.previousGrowth.high });
     }
     notes.push(`Guidance above is the issuer's outlook from 8-K ${g.source.accession} filed ${g.source.filingDate}${g.reportedPeriod ? `, issued with ${g.reportedPeriod} results` : ""}${g.reportedPeriodEnd ? ` (quarter ended ${g.reportedPeriodEnd})` : ""}; it is a company projection, not a result.`);
     for (const q of g.qualifiers) notes.push(`Outlook caveat (issuer text): ${q}`);
@@ -1989,7 +2043,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       unit,
       currency: unit === "currency" ? currency : null,
       period: check.period,
-      source: `edgar:8-K ${check.guidance.exhibit ?? "EX-99"}`,
+      source: `edgar:${check.guidance.form} ${check.guidance.exhibit ?? check.guidance.accession}`,
       asOf: check.guidance.filingDate,
     });
   }
@@ -2000,7 +2054,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   if (disclosures.freeCashFlowDefinition) notes.push(`Issuer free-cash-flow definition (issuer text): ${disclosures.freeCashFlowDefinition}`);
   const cr = disclosures.capitalReturn;
   if (cr !== null) {
-    const base = { unit: "currency", currency, source: "edgar:8-K EX-99.1", asOf: cr.source.filingDate };
+    const base = { unit: "currency", currency, source: `edgar:${cr.source.form} ${cr.source.exhibit ?? cr.source.accession}`, asOf: cr.source.filingDate };
     if (cr.returned !== null) figures.push({ ...base, label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
     if (cr.authorizationRemaining !== null) figures.push({ ...base, label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
@@ -2036,7 +2090,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       unit: "currency",
       currency,
       period: c.asOf,
-      source: `edgar:8-K ${c.source.exhibit ?? "EX-99.1"}`,
+      source: `edgar:${c.source.form} ${c.source.exhibit ?? c.source.accession}`,
       asOf: c.source.filingDate,
     });
   }
@@ -2059,7 +2113,7 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
   const officers = disclosures?.officerChanges ?? [];
   const plans = disclosures?.tradingArrangements ?? [];
   const vote = disclosures?.sayOnPay;
-  if (facts.length === 0 && outlook.length === 0 && officers.length === 0 && plans.length === 0 && vote === undefined) return undefined;
+  if (facts.length === 0 && (disclosures?.segmentPerformance?.length ?? 0) === 0 && outlook.length === 0 && officers.length === 0 && plans.length === 0 && vote === undefined) return undefined;
   const currency = disclosures?.currency ?? null;
   const figures: PayloadFigureInput[] = facts.map((f) => ({
     label: `${f.label}${f.qualifier === null ? "" : ` (${f.qualifier})`}${f.period !== null ? `, ${f.period}` : f.asOf !== null ? `, as of ${f.asOf}` : ""}`,
@@ -2071,6 +2125,15 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
     source: f.sourceTag,
     asOf: f.source.filingDate,
   }));
+  for (const row of disclosures?.segmentPerformance ?? []) {
+    const base = { currency: row.currency, period: row.periodEnd, source: `edgar:${row.source.form} item2 ${row.source.accession} ${row.source.url}`, asOf: row.source.filingDate };
+    figures.push({ ...base, label: `${row.segment} segment adjusted EBITDA margin, quarter ended ${row.periodEnd}`, value: row.marginPct, unit: "%" });
+    figures.push({ ...base, label: `${row.segment} prior segment adjusted EBITDA margin, quarter ended ${row.comparisonPeriodEnd}`, value: row.priorMarginPct, unit: "%", period: row.comparisonPeriodEnd });
+    figures.push({ ...base, label: `${row.segment} segment revenue, quarter ended ${row.periodEnd}`, value: row.revenue, unit: "currency" });
+    figures.push({ ...base, label: `${row.segment} segment adjusted EBITDA, quarter ended ${row.periodEnd}`, value: row.profit, unit: "currency" });
+    figures.push({ ...base, label: `${row.segment} prior segment revenue, quarter ended ${row.comparisonPeriodEnd}`, value: row.priorRevenue, unit: "currency", period: row.comparisonPeriodEnd });
+    figures.push({ ...base, label: `${row.segment} prior segment adjusted EBITDA, quarter ended ${row.comparisonPeriodEnd}`, value: row.priorProfit, unit: "currency", period: row.comparisonPeriodEnd });
+  }
   for (const o of outlook) {
     figures.push({ label: o.topic, value: o.text, unit: "", source: `edgar:8-K ${o.source.exhibit ?? "EX-99"} ${o.source.accession}`, asOf: o.source.filingDate });
   }
@@ -2078,8 +2141,9 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
   // the later compensation paragraph. Keep parsed governance facts explicitly.
   for (const officer of officers) {
     const source = `edgar:8-K ${officer.source.accession}`;
-    const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective}`;
-    figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${when}${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
+    const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective} specified by filing`;
+    const dated = [officer.agreedDate === undefined ? null : `agreement date ${officer.agreedDate}`, officer.announced === null ? "public announcement date not stated" : `public announcement date ${officer.announced}`].filter(Boolean).join("; ");
+    figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${dated}; ${when}; completion unconfirmed${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
     for (const component of officer.package) figures.push({ label: `${officer.person} ${component.component} (appointment package)`, value: component.value,
       unit: "currency", currency: currency === "USD" ? "USD" : null, period: officer.announced, subject: officer.person, source, asOf: officer.source.filingDate });
   }
@@ -2092,8 +2156,10 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
   if (vote !== undefined) figures.push({ label: "say-on-pay support (votes for / for + against + abstentions)", value: vote.supportPct,
     unit: "%", period: vote.meetingDate, source: `edgar:8-K ${vote.source.accession}`, asOf: vote.source.filingDate });
   const notes = [
-    "Read from the filings' own sentences and tables (10-Q statements and notes, 10-Q MD&A, 10-K notes, us-gaap/Goodwill, 8-K CFO commentary); a cash-flow line is the amount paid or received in its window, without sign.",
+    "Read from the filings' own sentences and tables and matched SEC XBRL facts (10-Q statements and notes, 10-Q MD&A, 10-K notes, us-gaap/Goodwill, 8-K CFO commentary). Composition cash-flow components retain their signed cash contributions; other paid/received disclosures retain their stated amounts and windows.",
+    ...facts.filter((f) => f.key.startsWith("composition-")).map((f) => `${f.label}: ${f.text}`),
     ...facts.filter((f) => f.computed !== null).map((f) => `${f.label} is computed: ${f.computed} (${f.sourceTag}, ${f.source.form} ${f.source.accession}).`),
+    ...(disclosures?.segmentPerformance ?? []).map((r) => `${r.segment} segment adjusted EBITDA margins are computed from matched quarterly tables: ${r.profit} / ${r.revenue} × 100 = ${r.marginPct}%; prior ${r.priorProfit} / ${r.priorRevenue} × 100 = ${r.priorMarginPct}%; change ${r.changeBasisPoints} basis points. These are segment adjusted measures, not consolidated GAAP margins (${r.source.form} ${r.source.accession}).`),
   ];
   return payloadSection({ title: "Filing notes, statements and commentary: investments, commitments, deals, working capital and governance", figures, notes });
 }
@@ -2685,10 +2751,8 @@ function attachProvenanceRegistry(
         }
       }
       for (const alternative of ["flatShare", "shareTrend"] as const) {
-        const paths = series[alternative];
-        if (!paths) continue;
         for (const scenario of ["bull", "base", "bear", "weighted"] as const) {
-          for (const point of paths[scenario]) {
+          for (const point of admittedProjectionPoints(series, scenario, alternative)) {
             registerStageBNumber(projectionProvenanceId(series.metric, `${alternative}.${scenario}`, point.period),
               point.value, point.period, projections.weightsVersion);
           }
@@ -2937,6 +3001,7 @@ function renderExcerpt(ex: TextExcerpt): string {
     source: provenanceTag(ex.source, ex.asOf),
     truncated: ex.truncated,
     coverage: ex.coverage,
+    sourceEvidence: ex.sourceEvidence,
     content: ex.text,
   });
   return [

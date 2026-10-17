@@ -68,6 +68,11 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     if (value && !target.some(n=>n.source===value.source)) target.push(value);
   };
   if (current && current.industrialMetricsApplicable !== false) {
+    if (current.debtBridge.leaseScopeNote) {
+      const unqualified = new Set(["totalDebtIncludingLeases", "operatingLeases", "financeLeases", "netDebtIncludingLeases", "netDebtExcludingOperatingLeases"].flatMap(field =>
+        [`computed.capital.current.debtBridge.${field}`, `computed.current-capital.${field.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`]));
+      next.balanceSheet.debtProfile.numbers = next.balanceSheet.debtProfile.numbers.filter(n => !unqualified.has(n.sourceId ?? n.source));
+    }
     const period = `${current.basis}: ${current.periodStart ?? "unknown start"} to ${current.asOf ?? "unknown end"}`;
     for (const [field,value] of Object.entries(current.cashBridge)) {
       if (typeof value !== "number") continue;
@@ -83,7 +88,7 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     next.balanceSheet.coverage.commentary.push({ label: "FACT", source: "computed.capital.current", asOf: current.asOf,
       text: `Capital grading basis: ${period}. ${current.fallbackReason ?? "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled."} ${current.cashBridge.definition}` });
     next.balanceSheet.debtProfile.commentary.push({ label: "FACT", source: "computed.capital.current", asOf: current.asOf,
-      text: "The debt bridge distinguishes debt including leases from debt excluding operating leases, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero." });
+      text: current.debtBridge.leaseScopeNote ?? "The debt bridge distinguishes debt including leases from debt excluding operating leases, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero." });
   }
   const accrual = computed.forensics?.accruals;
   if (accrual) {

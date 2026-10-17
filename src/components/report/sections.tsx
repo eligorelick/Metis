@@ -15,6 +15,7 @@
 
 import type { ReactNode } from "react";
 import { MIN_HEADLINE_EVIDENCE, type AspectEvidence } from "@/report/assessment";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
   annualSegmentHeading,
@@ -30,10 +31,12 @@ import {
   showAnnualSegments,
   sourceLabel,
   factorExposureTable,
+  factorContributionSensitivityTable,
   figureRows,
   gapCountText,
   gapSummary,
   geographyLabel,
+  geographicBasisNote,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -114,6 +117,8 @@ import {
   SOURCE_ENTRY_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
 } from "@/report/surfaceManifest";
 
 import { SensitivityHeatmap } from "@/components/charts/SensitivityHeatmap";
@@ -389,7 +394,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
       </div>
       <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
-        <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores)]} />
+        <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />
       </div>
       <div className="border-t border-edge px-3 py-1.5">
         <p className="text-[10px] leading-snug text-faint">{c.methodology}</p>
@@ -429,24 +434,25 @@ export function ProjectionsSection({
 }) {
   const weights = projections.scenarioWeights;
   const series = orderedProjectionSeries(projections.series);
+  const available = projectionAvailability(series);
   return (
     <SectionFrame
       id="projections"
       index={index}
       title="Weighted Projections"
-      right={
+      right={available.forward ? (
         <span className="mono text-[10px] text-faint">
-          {projections.horizonYears}y · {Math.round(weights.bull * 100)}/{Math.round(weights.base * 100)}/
-          {Math.round(weights.bear * 100)} bull/base/bear
+          {projections.horizonYears}y{available.weighted ? ` · ${Math.round(weights.bull * 100)}/${Math.round(weights.base * 100)}/${Math.round(weights.bear * 100)} bull/base/bear` : ""}
         </span>
-      }
+      ) : null}
     >
-      {series.length === 0 ? (
+      {!available.forward ? (
         <div className="text-[11px] text-faint">
           Projections not applicable
           {projections.notApplicableReason ? `: ${projections.notApplicableReason}` : "."}
         </div>
-      ) : (
+      ) : null}
+      {series.length > 0 ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {series.map((s, seriesIndex) => (
             <div key={`${s.metric}:${seriesIndex}`} className="border border-edge bg-bg p-2">
@@ -454,9 +460,9 @@ export function ProjectionsSection({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
       {(() => {
-        const { common, specific } = splitCommonLines(series.map((s) => s.assumptions));
+        const { common, specific } = splitCommonLines(series.map(projectionDisplayAssumptions));
         const lines = [...common, ...specific.flat().filter((line, i, all) => all.indexOf(line) === i)];
         return lines.length > 0 ? (
           <SubBlock label="method & assumptions">
@@ -469,7 +475,8 @@ export function ProjectionsSection({
         ) : null;
       })()}
       <ExtraAuditTables tables={projectionAuditTables(projections)}/>
-      {series.length > 0 && (
+      {!available.weighted && <p className="text-[10px] leading-snug text-faint">No weighted projection points are available; no projection weights are applied.</p>}
+      {available.weighted && (
         <p className="text-[10px] leading-snug text-faint">
           Forward figures are model ESTIMATEs, not facts. The weighted path uses a
           versioned, unbacktested display prior—not empirical outcome probabilities or a point prediction.
@@ -537,18 +544,19 @@ export function BusinessSegments({
       </SubBlock>
       <ExtraAuditTables tables={extraTables} />
       {/* D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export. */}
-      {showAnnualSegments(extraTables.length > 0) && <div className="grid gap-4 lg:grid-cols-2">
-        <SubBlock label={annualSegmentHeading("Product", business.segments.product, false).toLowerCase()}>
+      {(showAnnualSegments(extraTables.length > 0) || geographicBasisNote(business.segments.geographic)) && <div className="grid gap-4 lg:grid-cols-2">
+        {showAnnualSegments(extraTables.length > 0) && <SubBlock label={annualSegmentHeading("Product", business.segments.product, false).toLowerCase()}>
           <SegmentTable
             rows={business.segments.product}
             emptyLabel="no product segmentation reported"
           />
-        </SubBlock>
+        </SubBlock>}
         <SubBlock label={annualSegmentHeading("Geographic", business.segments.geographic, false).toLowerCase()}>
           <SegmentTable
             rows={business.segments.geographic.map((row) => ({ ...row, name: geographyLabel(row.name) }))}
             emptyLabel="no geographic segmentation reported"
           />
+          {geographicBasisNote(business.segments.geographic) && <p className="mt-2 text-[11px] leading-snug text-muted">{geographicBasisNote(business.segments.geographic)}</p>}
         </SubBlock>
       </div>}
       <SubBlock label="concentration risks">
@@ -774,6 +782,11 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
       render: (m) => <span className="mono text-muted">{m.name}</span>,
     },
     {
+      key: "basis",
+      header: "basis and limitations",
+      render: (m) => <span className="text-xs leading-relaxed text-faint">{m.basis ?? "-"}</span>,
+    },
+    {
       key: "cur",
       header: "current",
       align: "right",
@@ -789,10 +802,8 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
     },
     {
       key: "pct",
-      // WS6 (D-19): a RANK among the issuer's own quarters, never a percentile
-      // - the window is 8-20 observations. WS6 review (SHOULD-FIX 3): N is
-      // printed beside the rank, not left in the computed valuation notes.
-      header: "own-history rank",
+      // The normalized empirical percentile scale and sample size are separate.
+      header: "own-history percentile (sample)",
       align: "right",
       render: (m) =>
         m.own5yPercentile === null ? (
@@ -808,9 +819,7 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
                   // the Markdown and print exports print it; "rank 85 of 12
                   // quarters" read as an impossible ordinal (audit
                   // 2026-09-06, F214).
-                  typeof m.ownHistoryObservations === "number"
-                    ? `rank ${m.own5yPercentile.toFixed(0)}/100 of ${m.ownHistoryObservations} quarters`
-                    : `rank ${m.own5yPercentile.toFixed(0)}`
+                  ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations)
                 }
               />
             </div>
@@ -1012,6 +1021,7 @@ export function ValuationSection({
 
       <SubBlock label="multiples vs peers & own 5-yr history">
         <MultiplesTable rows={valuation.multiples} />
+        {valuation.multiplesBasis && <p className="mt-2 text-xs leading-relaxed text-faint">{valuation.multiplesBasis}</p>}
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 
@@ -1600,11 +1610,12 @@ export function CatalystsRisksPanel({
   extraTables?: ReportAuditTable[];
 }) {
   const { catalysts, risks } = catalystsRisks;
-  const matrixItems: MatrixItem[] = risks.map((r) => ({
+  const matrixItems: MatrixItem[] = risks.flatMap((r) => r.probability === "unknown" ? [] : [{
     title: r.title,
     severity: r.severity,
     probability: r.probability,
-  }));
+  }]);
+  const unknownProbabilityCount = risks.filter((r) => r.probability === "unknown").length;
   const sortedCatalysts = [...catalysts].sort((a, b) => {
     // Undated last; otherwise ascending by expected date.
     if (a.expectedDate === null && b.expectedDate === null) return 0;
@@ -1703,6 +1714,11 @@ export function CatalystsRisksPanel({
           {dataOnly && risks.length === 0
             ? <p className="text-[11px] text-faint">Not assessed — an empty list does not establish that no risks exist.</p>
             : <SeverityProbMatrix items={matrixItems} />}
+          {unknownProbabilityCount > 0 && (
+            <p className="text-[11px] text-faint">
+              {unknownProbabilityCount} {unknownProbabilityCount === 1 ? "risk has" : "risks have"} unknown probability and {unknownProbabilityCount === 1 ? "is" : "are"} not placed in the matrix; see the risk list below.
+            </p>
+          )}
           <div className="mt-1 flex flex-col gap-1.5">
             {risks.map((r, i) => (
               <div

@@ -41,13 +41,13 @@ async function verifyNumbers(payload: ContextPayload, numbers: object[]) {
 }
 
 describe("indicator and completeness rows (D-44)", () => {
-  it("prints a bare unit on every numeric technicals row and registers them under unchanged ids and units", () => {
+  it("prints the actual dimensions on technicals rows and preserves their registry ids", () => {
     const payload = build();
     const prompt = serializePayloadForPrompt(payload);
     expect(prompt).toMatch(/RSI-14: [\d.-]+ index \[computed\.technicals\.rsi-14 · /);
-    expect(prompt).toMatch(/MACD histogram: [\d.e-]+ index \[computed\.technicals\.macd-histogram · /);
+    expect(prompt).toMatch(/MACD histogram: [\d.e-]+ currency\/share/);
     expect(record(payload, "computed.technicals.rsi-14").unit).toBe("index");
-    expect(record(payload, "computed.technicals.macd-histogram").unit).toBe("index");
+    expect(record(payload, "computed.technicals.macd-histogram")).toMatchObject({ unit: "currency-per-share", currency: "USD" });
     // The excess-return horizon is in years, as its label says.
     expect(record(payload, "computed.valuation.excess-return-horizon-years").unit).toBe("years");
     // No numeric figure in any section prints without a unit.
@@ -84,7 +84,7 @@ describe("indicator and completeness rows (D-44)", () => {
       at(macd, macd.value, "MACD histogram"),
       at(macd, macd.value, "index"),
       at(rsi, rsi.value, "rsi"),
-    ])).toEqual(["supported", "supported", "supported", "supported", "supported"]);
+    ])).toEqual(["supported", "supported", "supported", "unit-mismatch", "supported"]);
     // D-48: RSI-14 is displayed, not scored, so no driver record exists.
     expect((payload.provenanceRegistry ?? []).some((entry) => entry.id === "computed.scores.technicals.rsi14")).toBe(false);
     // The same values under the other indicator's name: id, value and as-of

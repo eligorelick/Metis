@@ -5,7 +5,7 @@
  *   collectCurrentReports — the latest four Item 2.02 8-Ks' EX-99.1 release and
  *     EX-99.2 commentary (guidance, issuer FCF, capital return; the newest
  *     one's narrative for the analysts), plus up to ten material-event 8-Ks
- *     from the last year (Items 1.01, 1.02, 2.01, 2.03, 2.05, 2.06, 5.02, 8.01).
+ *     since the latest annual filing (a year when that baseline is missing).
  *   collectQuarterlySegments — the XBRL instances of the latest 10-K and up to
  *     three 10-Qs, read for segment revenue by quarter.
  *
@@ -81,7 +81,7 @@ export interface EarningsReleaseRecord {
   commentaryExhibit?: string | null;
   reported: ReportedPeriod;
   guidance: IssuerGuidance | null;
-  /** Which exhibit the guidance was read from. */
+  /** Supplying document role; releaseExhibit/commentaryExhibit retain its actual type (null for a primary document). */
   guidanceExhibit: "EX-99.1" | "EX-99.2" | null;
   freeCashFlow: SourcedEarningsFact<FreeCashFlowFact>[];
   capitalReturn: CapitalReturnFacts;
@@ -115,6 +115,9 @@ export interface MaterialEventSection {
   summary: string;
   text: string;
   incorporates: string | null;
+  /** Present when bounded retention omitted part of the supplying item. */
+  truncated?: boolean;
+  originalChars?: number;
 }
 
 export interface MaterialEventFiling {
@@ -191,9 +194,11 @@ export function buildEarningsReleaseRecord(args: {
   const fromCommentary = releaseHasItems || commentaryText === null ? null : parseGuidance(commentaryText);
   const guidance = releaseHasItems ? fromRelease : fromCommentary !== null && fromCommentary.items.length > 0 ? fromCommentary : fromRelease ?? fromCommentary;
   const reported = parseReportedPeriod(releaseText);
+  const releaseExhibit = args.releaseExhibit === undefined ? (args.releaseUrl === null ? null : "EX-99.1") : args.releaseExhibit;
+  const commentaryExhibit = args.commentaryExhibit === undefined ? (args.commentaryUrl === null ? null : "EX-99.2") : args.commentaryExhibit;
   const source = (exhibit: "EX-99.1" | "EX-99.2"): EarningsFactSource => ({
     form: filing.form ?? "8-K", accession: filing.accessionNumber, filingDate: filing.filingDate,
-    exhibit: exhibit === "EX-99.1" ? args.releaseExhibit ?? exhibit : args.commentaryExhibit ?? exhibit,
+    exhibit: exhibit === "EX-99.1" ? releaseExhibit : commentaryExhibit,
     url: exhibit === "EX-99.1" ? args.releaseUrl : args.commentaryUrl,
   });
   const fcfRelease = parseIssuerFreeCashFlow(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") }));
@@ -204,8 +209,8 @@ export function buildEarningsReleaseRecord(args: {
     acceptedAt: filing.acceptanceDateTime ?? null,
     releaseUrl: args.releaseUrl,
     commentaryUrl: args.commentaryUrl,
-    releaseExhibit: args.releaseExhibit ?? (args.releaseUrl === null ? null : "EX-99.1"),
-    commentaryExhibit: args.commentaryExhibit ?? (args.commentaryUrl === null ? null : "EX-99.2"),
+    releaseExhibit,
+    commentaryExhibit,
     reported: reported.fiscal === null && commentaryText !== null ? { ...parseReportedPeriod(commentaryText), periodEnd: reported.periodEnd ?? parseReportedPeriod(commentaryText).periodEnd } : reported,
     guidance,
     guidanceExhibit: guidance === null || guidance.items.length === 0 ? null : guidance === fromRelease ? "EX-99.1" : "EX-99.2",
@@ -248,8 +253,9 @@ export function buildMaterialEventFiling(
       item: s.item,
       title: s.title,
       summary: s.incorporates !== null ? `Incorporates Item ${s.incorporates} by reference.` : summarizeItem(s),
-      text: s.text.slice(0, ITEM_TEXT_CHARS),
+      text: s.text.slice(0, s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS),
       incorporates: s.incorporates,
+      ...(s.text.length > (s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS) ? { truncated: true, originalChars: s.text.length } : {}),
     }));
   return { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, eventDate: eventDateOf(text), items: itemsOf(filing.items), url, sections };
 }
@@ -336,25 +342,22 @@ export async function collectCurrentReports(
       notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}) not read: ${problem}`);
       continue;
     }
-    const index = await indexOf(edgar, cik, filing.accessionNumber);
-    if (typeof index === "string") {
-      notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): exhibit index unreadable (${index})`);
-      continue;
-    }
-    const primary = linkedExhibitAmendment ? await fetchText(edgar, cik, filing, filing.primaryDocument) : null;
+    const indexResult = await indexOf(edgar, cik, filing.accessionNumber);
+    if (typeof indexResult === "string") notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): exhibit index unreadable (${indexResult})`);
+    const index: FilingIndex = typeof indexResult === "string" ? { documents: [], typeByFilename: {} } : indexResult;
+    let primary = linkedExhibitAmendment ? await fetchText(edgar, cik, filing, filing.primaryDocument) : null;
     const primaryText = primary !== null && typeof primary !== "string" ? plain(primary.text) : null;
     const primaryScope = primaryEarningsScope(primaryText);
     const releaseDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "release") ??
       findDocumentByType({ ...index, documents: index.documents.filter((d) => earningsExhibitRole(d.type) !== "commentary") }, "EX-99");
     const commentaryDoc = index.documents.find((d) => earningsExhibitRole(d.type) === "commentary") ?? null;
     if (!releaseDoc && !commentaryDoc) {
-      if (linkedExhibitAmendment && primaryScope === "unrelated" && event !== null) {
+      if (linkedExhibitAmendment && typeof indexResult !== "string" && primaryScope === "unrelated" && event !== null) {
         amendedEvents.delete(event);
         notes.push(`8-K/A ${filing.accessionNumber}: linked Item 9.01 amendment supplies no earnings scope or EX-99 exhibit; original earnings evidence retained.`);
         continue;
       }
-      notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): Item 2.02 filing furnishes no EX-99 exhibit`);
-      continue;
+      if (typeof indexResult !== "string") notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}): Item 2.02 filing furnishes no EX-99 exhibit`);
     }
     let releaseText = "";
     let releaseUrl: string | null = null;
@@ -370,12 +373,32 @@ export async function collectCurrentReports(
       if (typeof commentary === "string") notes.push(`8-K ${filing.accessionNumber} EX-99.2 (${commentaryDoc.filename}) unreadable: ${commentary}`);
       else { commentaryText = plain(commentary.text); commentaryUrl = commentary.url; fetchedAt ??= commentary.fetchedAt; }
     }
-    if (releaseUrl === null && commentaryUrl === null) continue;
+    let primaryAlternative = false;
+    if (releaseUrl === null && commentaryUrl === null) {
+      // The cover may itself contain the earnings disclosure. Read it once
+      // when exhibits cannot supply evidence; an exhibit reference alone
+      // never establishes guidance or any reported value.
+      primary ??= await fetchText(edgar, cik, filing, filing.primaryDocument);
+      if (typeof primary === "string") {
+        notes.push(`8-K ${filing.accessionNumber}: primary document alternative unreadable: ${primary}`);
+        continue;
+      }
+      const text = plain(primary.text);
+      if ((parseGuidance(text)?.items.length ?? 0) === 0 && parseReportedPeriod(text).fiscal === null && parseIssuerFreeCashFlow(text).length === 0) {
+        notes.push(`8-K ${filing.accessionNumber}: primary document alternative contained no readable earnings facts; exhibits remain unavailable.`);
+        continue;
+      }
+      releaseText = text;
+      releaseUrl = primary.url;
+      fetchedAt ??= primary.fetchedAt;
+      primaryAlternative = true;
+      notes.push(`8-K ${filing.accessionNumber}: primary document used as an alternative to unavailable earnings exhibits.`);
+    }
     const record = buildEarningsReleaseRecord({
       filing,
       releaseUrl,
       commentaryUrl,
-      releaseExhibit: releaseDoc?.type.trim() ?? null,
+      releaseExhibit: primaryAlternative ? null : releaseDoc?.type.trim() ?? null,
       commentaryExhibit: commentaryDoc?.type.trim() ?? null,
       releaseText,
       commentaryText,
@@ -387,7 +410,7 @@ export async function collectCurrentReports(
       const parsedEarnings = record.reported.fiscal !== null || record.reported.periodEnd !== null || record.freeCashFlow.length > 0 ||
         (record.reconciliation?.length ?? 0) > 0 || (record.guidance?.items.length ?? 0) > 0;
       if (!(exhibitEarnings || primaryScope === "earnings") || !parsedEarnings) {
-        const allRead = (releaseDoc === null || releaseDoc === undefined || releaseUrl !== null) && (commentaryDoc === null || commentaryUrl !== null);
+        const allRead = typeof indexResult !== "string" && (releaseDoc === null || releaseDoc === undefined || releaseUrl !== null) && (commentaryDoc === null || commentaryUrl !== null);
         if (primaryScope === "unrelated" && allRead && event !== null) {
           amendedEvents.delete(event);
           notes.push(`8-K/A ${filing.accessionNumber}: readable linked Item 9.01 primary/exhibits contain no earnings scope; original earnings evidence retained.`);
@@ -405,7 +428,12 @@ export async function collectCurrentReports(
   releases.splice(0, releases.length, ...ordered.map((record, i) => i === 0 ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
-  const eventFilings = recentEightKs(filings, today, EVENT_WINDOW_DAYS, (f) => hasMaterialEventItem(f.items)).slice(0, MAX_EVENT_FILINGS);
+  const annual = filings.filter((f) => ["10-K", "20-F", "40-F"].includes(f.form) && /^\d{4}-\d{2}-\d{2}$/.test(f.filingDate) && f.filingDate <= today)
+    .sort((a, b) => b.filingDate.localeCompare(a.filingDate))[0];
+  const eventWindow = annual === undefined ? EVENT_WINDOW_DAYS : daysBetween(annual.filingDate, today);
+  const eventCandidates = recentEightKs(filings, today, eventWindow, (f) => hasMaterialEventItem(f.items));
+  const eventFilings = eventCandidates.slice(0, MAX_EVENT_FILINGS);
+  if (eventCandidates.length > eventFilings.length) notes.unshift(`Material-event reads limited to ${MAX_EVENT_FILINGS} of ${eventCandidates.length} filings since ${annual?.filingDate ?? `${EVENT_WINDOW_DAYS} days before ${today}`}; omitted unread evidence: ${eventCandidates.slice(MAX_EVENT_FILINGS).map((f) => `${f.accessionNumber} (${f.filingDate}; Items ${f.items ?? "unknown"})`).join("; ")}.`);
   for (const filing of eventFilings) {
     attempted += 1;
     const problem = filingProblem(edgar, cik, filing);
@@ -420,6 +448,7 @@ export async function collectCurrentReports(
     }
     fetchedAt ??= doc.fetchedAt;
     const event = buildMaterialEventFiling(filing, plain(doc.text), doc.url);
+    for (const section of event.sections.filter((s) => s.truncated)) notes.push(`8-K ${filing.accessionNumber} Item ${section.item}: retained ${section.text.length} of ${section.originalChars} source characters; omitted officer/event terms remain unreviewed.`);
     if (event.sections.length === 0) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}) lists Items ${event.items.join(", ")} but no item heading could be read in its primary document`);
     events.push(event);
   }

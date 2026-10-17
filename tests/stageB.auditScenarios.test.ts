@@ -11,22 +11,32 @@ const history = [1000, 1100, 1320, 1452, 1742.4].map((revenue, i) => ({
   netIncome: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i] * 0.75, epsDiluted: 1, interestExpense: 10,
 }));
 const route: CompanyRouteResult = { base: "general", overlays: [], evidence: { sector: null, industry: null }, notes: [], gaps: [], asOf: { today: "2026-10-13", incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null } };
-function fixture(basis: "ttm" | "annual" = "ttm") {
+function fixture(basis: "ttm" | "annual" = "ttm", minorityInterest = 25, preferred = 10) {
   const a = buildDcfAssumptions({ revenueCagr3yPct: 12, analystEstimates: null, waccPct: 9, riskFreePct: 4,
     incomeTtm: { date: "2026-06-30", basis, revenue: 2000, operatingIncome: 600, incomeBeforeTax: 560, incomeTaxExpense: 140 },
     incomeHistory: history.map(r => ({ date: r.date, revenue: r.revenue, operatingIncome: r.ebit, incomeBeforeTax: r.ebit, incomeTaxExpense: r.ebit * .25 })),
     balance: { date: "2026-06-30", basis: "quarter", totalDebt: 200, totalStockholdersEquity: 800, cashAndShortTermInvestments: 300 }, marketCap: 5000 }).assumptions!;
-  const opts = { waccPct: 9, netDebt: -100, dilutedShares: 100, minorityInterest: 25, preferred: 10 };
+  const opts = { waccPct: 9, netDebt: -100, dilutedShares: 100, minorityInterest, preferred };
   const dcf = runDcf(a, opts);
   const valuation: Extract<ValuationResult, { kind: "dcf" }> = { kind: "dcf", route: "general", assumptions: a, dcf, sensitivity: null, reverseDcf: null,
     multiples: { multiples: [], enterpriseValue: { value: null, excludingLeases: null, includingLeases: null, leaseLiability: null, includeLeases: false, basis: "test" }, sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] }, notes: [], gaps: [] };
   return { a, opts, dcf, valuation };
 }
-function projections(valuation = fixture().valuation, shareCountAnnualizedPct: number | null = -5) {
+// Share-count sensitivities need an ownership-compatible common-earnings model.
+// Keep the separate 25-NCI fixture for the entity/equity bridge assertions.
+function projections(valuation = fixture("ttm", 0, 0).valuation, shareCountAnnualizedPct: number | null = -5) {
   return computeProjections({ route, valuation, waccPct: 9, dilutedShares: 100, incomeHistory: history, fcfHistory: [], shareCountAnnualizedPct, currency: "USD", asOf: "2026-10-13" });
 }
 
 describe("report audit valuation regressions", () => {
+  it("retains entity paths but withholds share-count EPS alternatives for the NCI bridge fixture", () => {
+    const result = projections(fixture().valuation);
+    const eps = result.series.find(s => s.metric === "epsDiluted")!;
+    expect(eps.historical.length).toBeGreaterThan(0);
+    expect(eps.base).toEqual([]);
+    expect(eps.shareTrend).toBeUndefined();
+    expect(result.series.find(s => s.metric === "revenue")!.base.length).toBeGreaterThan(0);
+  });
   it("inverts a fading forward path at the identical year-one anchor", () => {
     const { a, opts } = fixture();
     a.growthPath.value = fadePath(12, 2.5, 10);

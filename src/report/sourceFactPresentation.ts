@@ -21,7 +21,7 @@ export function sourceFactAuditTables(summary: SourceFactSummary | undefined, wi
       ["Reconciliation status", bridge.status, bridge.reason ?? "Complete compatible reported operands reconcile"],
       ...(bridge.pretaxMinusTax !== null || bridge.reportedNetIncome !== null ? [
       ["Income before tax minus reported income tax", exactMoney(bridge.pretaxMinusTax,currency), "Calculated from the reported operands above"],
-      ["Reconciled net income", exactMoney(bridge.reconciledNetIncome,currency), bridge.method === "pretax-minus-tax-plus-equity-method" ? "Calculated subtotal plus signed as-filed equity-method result" : "Calculated subtotal; equity-method result is not added again"],
+      ["Reconciled net income", exactMoney(bridge.reconciledNetIncome,currency), bridge.method === "pretax-minus-tax-minus-nci" ? "Consolidated profit minus signed noncontrolling-interest earnings = parent profit" : bridge.method === "pretax-minus-tax-plus-equity-method" ? "Calculated subtotal plus signed as-filed equity-method result" : "Calculated subtotal; equity-method result is not added again"],
       ["Reported net income", exactMoney(bridge.reportedNetIncome,currency), "Reported operand above"],
       ["Residual", exactMoney(bridge.residual,currency), "Calculated less reported net income; retained without forcing zero"],
       ] : []),

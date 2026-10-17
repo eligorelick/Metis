@@ -22,6 +22,9 @@ import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { orderedEarningsReleases } from "@/providers/currentReports";
 import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
+import { parseSegmentPerformance } from "@/edgar/segmentPerformance";
+import { selectedGeographyNotes } from "@/edgar/annualGeography";
+import { financialCompositionFacts } from "@/pipeline/financialComposition";
 import {
   parseBusinessCombinationFacts,
   parseCommitmentFacts,
@@ -110,10 +113,11 @@ function currentReportsOf(bundle: DataBundle): CurrentReports | null {
 }
 
 function releaseRef(release: EarningsReleaseRecord, exhibit: "EX-99.1" | "EX-99.2" | null): FilingRef {
+  const documentType = exhibit === "EX-99.2" ? release.commentaryExhibit : exhibit === "EX-99.1" ? release.releaseExhibit : null;
   return {
     form: release.form ?? "8-K",
     accession: release.accession,
-    exhibit: exhibit === "EX-99.2" ? release.commentaryExhibit ?? exhibit : exhibit === "EX-99.1" ? release.releaseExhibit ?? exhibit : null,
+    exhibit: documentType === undefined ? exhibit : documentType,
     filingDate: release.filingDate,
     url: exhibit === "EX-99.2" ? release.commentaryUrl : release.releaseUrl,
   };
@@ -138,6 +142,8 @@ export interface RevenueGuidanceAnchor {
   mid: number;
   high: number;
   currency: string;
+  /** Same-release, same-fiscal-year annual outlook, for comparability only. */
+  annualRevenueComparison?: { periodLabel: string; fiscalYear: number; low: number; high: number; currency: string };
   filingDate: string;
   accession: string;
   /** End of the quarter the same release reported (the guided quarter follows it). */
@@ -194,6 +200,11 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const opexOk = opex !== undefined && symbolCurrency(opex.symbol, sourceCurrency) === currency;
   const taxItems = release.guidance.items.filter((i) => i.metric === "tax-rate" && i.unit === "%" && (i.basis === "gaap" || i.basis === "unspecified"));
   const tax = taxItems.find((i) => i.period.label === item.period.label) ?? taxItems.find((i) => i.period.fiscalQuarter === null);
+  const annual = release.guidance.items.filter((i) => i.metric === "revenue" && i.unit === "currency" && i.period.fiscalQuarter === null &&
+    i.period.fiscalYear === item.period.fiscalYear && i.basis !== "non-gaap" && symbolCurrency(i.symbol, sourceCurrency) === currency &&
+    Number.isFinite(i.low) && Number.isFinite(i.high) && i.low > 0 && i.high >= i.low && forwardGuidance(i, releases));
+  const annualRanges = new Map(annual.map(i => [`${i.low}|${i.high}`, i]));
+  const annualComparison = annualRanges.size === 1 ? [...annualRanges.values()][0]! : null;
   return {
     periodLabel: item.period.label,
     fiscalYear: item.period.fiscalYear,
@@ -202,6 +213,8 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
     mid: item.mid,
     high: item.high,
     currency,
+    ...(annualComparison === null ? {} : { annualRevenueComparison: { periodLabel: annualComparison.period.label,
+      fiscalYear: annualComparison.period.fiscalYear, low: annualComparison.low, high: annualComparison.high, currency } }),
     filingDate: release.filingDate,
     accession: release.accession,
     basePeriodEnd: release.reported.periodEnd,
@@ -226,14 +239,15 @@ function forwardGuidance(item: GuidanceItem, releases: readonly EarningsReleaseR
 function guidanceRows(items: readonly GuidanceItem[], currency: string | null, sourceCurrency: string | null, notes: string[]): GuidanceRows {
   const rows: GuidanceRows = [];
   for (const item of items) {
-    if (item.unit !== "%") {
+    if (item.unit !== "%" && item.unit !== "percentage-points") {
       const itemCurrency = symbolCurrency(item.symbol, sourceCurrency);
       if (itemCurrency === null || itemCurrency !== currency) {
         notes.push(`Guidance for ${item.period.label} ${item.metric} printed in "${item.symbol ?? "no symbol"}" was left out: that currency is not the statements' (${currency ?? "unestablished"}).`);
         continue;
       }
     }
-    rows.push({ period: item.period.label, metric: item.metric, basis: item.basis, unit: item.unit, low: item.low, mid: item.mid, high: item.high, form: item.form });
+    rows.push({ period: item.period.label, metric: item.metric, basis: item.basis, unit: item.unit, low: item.low, mid: item.mid, high: item.high, form: item.form,
+      ...(item.previous ? { previous: item.previous } : {}), ...(item.growth ? { growth: item.growth } : {}), ...(item.previousGrowth ? { previousGrowth: item.previousGrowth } : {}), ...(item.span ? { span: item.span } : {}), ...(item.headerSpan ? { headerSpan: item.headerSpan } : {}) });
   }
   return rows;
 }
@@ -347,6 +361,17 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
     const capex = num(c?.capitalExpenditure);
     const year = typeof r.fiscalYear === "number" ? String(r.fiscalYear) : r.fiscalYear;
     const period = typeof r.period === "string" ? r.period.trim().toUpperCase() : null;
+    let operatingExpenses = num(r.operatingExpenses);
+    const source = bundle.statements.incomeQuarterly;
+    const expenseProof = r.fieldProvenance?.operatingExpenses;
+    // Old SEC adapter rows filled this field from whichever R&D/SG&A
+    // components existed. Preserve the observations, but never promote that
+    // unprovenanced subset into a complete total in a regenerated report.
+    if (operatingExpenses !== null && source.ok && source.value.source === "edgar" &&
+      (expenseProof?.source !== "edgar" || !expenseProof.tags.includes("us-gaap/OperatingExpenses") || expenseProof.periodEnd !== d || expenseProof.unit !== currency)) {
+      notes.push(`Operating expenses for ${d} withheld: the retained SEC row does not establish a complete, period- and currency-matched total; R&D/SG&A components alone are insufficient.`);
+      operatingExpenses = null;
+    }
     return {
       periodEnd: d,
       fiscalLabel: typeof year === "string" && /^\d{4}$/.test(year) && period !== null && /^Q[1-4]$/.test(period) ? `${period} FY${year}` : null,
@@ -354,7 +379,7 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       revenueYoyPct: growth(near(d, 350, 380)),
       revenueQoqPct: growth(near(d, 80, 100)),
       grossMarginPct: pct(num(r.grossProfit)),
-      operatingExpenses: num(r.operatingExpenses),
+      operatingExpenses,
       operatingMarginPct: pct(num(r.operatingIncome)),
       epsDiluted: num(r.epsDiluted),
       operatingCashFlow: ocf,
@@ -381,13 +406,28 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   const segments = segmentsRes?.ok ? segmentsRes.value.data : null;
   const currency = statementReportingCurrency(bundle);
   const releases = orderedEarningsReleases(reports?.releases ?? []);
-  const notes: string[] = [];
+  const notes: string[] = selectedGeographyNotes(bundle.segmentation?.geographic);
   const trend = quarterlyTrend(bundle, releases, currency, notes);
+  const interim = segmentPrimarySection(bundle);
+  const segmentCurrency = interim === null ? null : periodReportingCurrency(bundle, day(interim.data.reportDate));
+  const segmentPerformance = interim !== null && segmentCurrency === currency
+    ? parseSegmentPerformance(interim.data.text, day(interim.data.reportDate), segmentCurrency).map((row) => ({ ...row, source: interim.ref })) : [];
   const { facts: filingFacts, outlook: commentaryOutlook } = filingFactRows(bundle, currency, releases, notes);
   const officerChanges = officerChangeRows(reports, bundle);
   const sayOnPay = sayOnPayRow(reports);
   const tradingArrangements = tradingArrangementRows(bundle);
-  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && tradingArrangements.length === 0 && notes.length === 0) return undefined;
+  const primaryStatements = bundle.companyIrMaterialEvents;
+  const companyStatements: NonNullable<FilingDisclosures["companyStatements"]> = primaryStatements?.ok
+    ? primaryStatements.value.data.events.filter((event) => event.symbol === bundle.symbol && day(event.publishedAt) !== null &&
+      event.publishedAt.slice(0, 10) <= bundle.builtAt.slice(0, 10) && /^https:\/\/[^\s]+$/.test(event.url) && /^[a-f0-9]{64}$/.test(event.sourceHash) &&
+      event.authorityChain.length >= 2 && event.authorityChain.at(-1) === event.url).slice(0, 3).map((event) => ({
+        form: null, symbol: event.symbol, category: event.category, status: event.status, title: event.title, text: event.text,
+        url: event.url, publishedAt: event.publishedAt, observedAt: event.observedAt, sourceHash: event.sourceHash,
+        authorityChain: [...event.authorityChain], originalChars: event.originalChars, span: { ...event.span },
+        consideration: null, funding: null,
+        limitations: "Bounded official company statements, not a comprehensive transaction or leadership ledger. Completion is issuer-stated, not independently verified. Consideration and funding remain unestablished by this reader.",
+      })) : [];
+  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && segmentPerformance.length === 0 && tradingArrangements.length === 0 && notes.length === 0 && companyStatements.length === 0) return undefined;
 
   for (const release of releases) {
     const sourceCurrency = releaseReportingCurrency(bundle, release);
@@ -555,7 +595,9 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     freeCashFlowDefinition: latest?.freeCashFlow[0]?.definition ?? null,
     capitalReturn,
     events,
+    ...(companyStatements.length === 0 ? {} : { companyStatements }),
     segments: segmentTables,
+    ...(segmentPerformance.length === 0 ? {} : { segmentPerformance }),
     quarterlyTrend: trend,
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),
@@ -578,6 +620,34 @@ function sectionRef(res: FetchResult<ExtractedSection> | undefined): { ref: Fili
   const data = res.value.data;
   const filed = day(data.filingDate);
   return filed === null ? null : { ref: { form: data.form, accession: data.accession, exhibit: null, filingDate: filed, url: data.documentUrl }, data };
+}
+
+/** New segment margins require their own primary-document admission, not the legacy section wrapper. */
+function segmentPrimarySection(bundle: DataBundle): ReturnType<typeof sectionRef> {
+  const edgar = bundle.edgar;
+  const section = edgar?.tenQMdna;
+  const filing = edgar?.latestTenQ;
+  const identity = edgar?.cik;
+  if (!section?.ok || section.value.source !== "edgar" || !filing?.ok || filing.value.source !== "edgar" || !identity?.ok) return null;
+  const mapping = identity.value.data;
+  if (!Number.isSafeInteger(mapping.cik) || mapping.cik <= 0 || !/^\d{10}$/.test(mapping.cik10) || mapping.cik10 !== String(mapping.cik).padStart(10, "0")) return null;
+  const requested = bundle.symbol.trim().toUpperCase();
+  const registrant = edgar.registrant;
+  const mappedBySec = identity.value.source === "edgar" && mapping.ticker.trim().toUpperCase() === requested;
+  const confirmedByRegistrant = registrant != null && registrant.cik10 === mapping.cik10 && registrant.tickers.some((ticker) => ticker.trim().toUpperCase() === requested);
+  if (requested === "" || (!mappedBySec && !confirmedByRegistrant)) return null;
+  const data = section.value.data, metadata = filing.value.data;
+  const validDay = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  const cutoff = bundle.builtAt.slice(0, 10);
+  if (!validDay(cutoff) || !Number.isFinite(Date.parse(bundle.builtAt)) || !validDay(data.reportDate) || !validDay(data.filingDate) ||
+    data.reportDate > data.filingDate || data.filingDate > cutoff || data.form !== metadata.form || !/^10-Q(?:\/A)?$/.test(data.form) ||
+    data.sectionName !== "tenQItem2" || data.reportDate !== metadata.reportDate || data.filingDate !== metadata.filingDate ||
+    section.value.asOf !== data.reportDate || data.accession !== metadata.accessionNumber || !/^\d{10}-\d{2}-\d{6}$/.test(data.accession) ||
+    !/^[a-zA-Z0-9_.-]+\.html?$/i.test(metadata.primaryDocument) || !Number.isFinite(Date.parse(section.value.fetchedAt))) return null;
+  const url = `https://www.sec.gov/Archives/edgar/data/${mapping.cik}/${data.accession.replaceAll("-", "")}/${metadata.primaryDocument}`;
+  if (data.documentUrl !== url || (section.value.endpoint !== url && section.value.endpoint !== `${url} (${data.form} Item 2)`) ||
+    filing.value.endpoint !== `https://data.sec.gov/submissions/CIK${mapping.cik10}.json`) return null;
+  return sectionRef(section);
 }
 
 /** The last two fiscal-year-end values of an XBRL money tag, newest first (10-K facts only). */
@@ -669,12 +739,13 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
     add(rows, sourceTag, source, releaseReportingCurrency(bundle, release));
     if (wc.expectation !== null) outlook.push({ topic: `DSO outlook given with ${fiscal ?? `the quarter ended ${periodEnd}`} results`, text: safeText(wc.expectation, "(outlook withheld)"), source });
   }
+  facts.push(...financialCompositionFacts(bundle, currency));
   return { facts, outlook };
 }
 
 type OfficerChangeRow = NonNullable<FilingDisclosures["officerChanges"]>[number];
 
-/** D-66: Item 5.02 officer and director changes, newest filing first, in effect when dated on or before the bundle date. */
+/** Item 5.02 dates as specified by filings; elapsed dates do not prove completion. */
 function officerChangeRows(reports: CurrentReports | null, bundle: DataBundle): OfficerChangeRow[] {
   const asOf = day(bundle.builtAt) ?? day(bundle.asOf?.["quote"]) ?? null;
   const out: OfficerChangeRow[] = [];
@@ -685,7 +756,9 @@ function officerChangeRows(reports: CurrentReports | null, bundle: DataBundle): 
       for (const change of parseOfficerChanges(section.text)) {
         out.push({
           kind: change.kind, person: change.person, role: safeText(change.role, "(role withheld)"), board: change.board, announced: change.announced,
+          ...(change.agreedDate === undefined ? {} : { agreedDate: change.agreedDate }),
           effective: change.effective, anticipated: change.anticipated, inEffect: change.effective !== null && asOf !== null && change.effective <= asOf,
+          completionStatus: "unconfirmed",
           note: change.note === null ? null : safeText(change.note, "(note withheld)"),
           package: change.package.filter((p) => p.symbol === "$").map((p) => ({ component: p.component, value: p.value })),
           source: { form: event.form, accession: event.accession, exhibit: null, filingDate: filed, url: event.url },

@@ -434,7 +434,7 @@ export function ScenarioCard({
         ) : (
           // Deterministic target suppressed (insufficient valuation inputs) —
           // show "unavailable", never a fabricated number.
-          <span className="mono text-[13px] text-faint">target unavailable</span>
+          <span className="mono text-[13px] text-faint">per-share target unavailable</span>
         )}
         <span className="mono text-[10px] text-faint">{horizon}</span>
       </div>

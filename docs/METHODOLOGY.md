@@ -936,13 +936,14 @@ vendor's pre-baked ratio. Which multiples are meaningful depends on the route:
 banks and insurers never get EV multiples, because debt is their raw material;
 equity REITs lead with P/FFO and P/AFFO.
 
-The own-history figure is a **rank among N quarters**, not a percentile. The
-window is 8 to 20 quarterly observations — far too few to estimate a
-percentile of a distribution, and CFA Institute guidance is to describe such a
-figure as a rank within the observed sample. The numeric field keeps its
-historical name for backward compatibility with persisted reports, but its
-description, every rendered label, the basis strings and the missing-data
-reason all say rank.
+The own-history figure is an **empirical percentile rank within the retained
+sample**, on a 0-100 scale with interpolation between order statistics. It is
+not an ordinal position among the quarters or an estimate of a population
+percentile. The 8 to 20 observations are a small sample, and input definitions
+and period comparability limit interpretation. The audit export retains the
+individual period ends, market observation dates, unrounded multiple values,
+source method and available capitalization source identity. Vendor ratios do
+not establish their underlying market observation date.
 
 Each window's market cap comes from the vendor enterprise-values history when
 it has a row within 45 days before the quarter end, else (D-60) from the
@@ -951,11 +952,9 @@ history stops at five quarters, so no issuer reached the eight-quarter minimum
 (NVDA report #34: valuation completeness 70%). Only the market cap is taken;
 each window's EV is rebuilt from that quarter's own statement components.
 
-**N is rendered beside the rank**, not left in a note: the multiples row carries
-`ownHistoryObservations`, and every surface prints it the same way — "rank
-62/100 of 12 quarters" in the Markdown and print-HTML exports and on the app's
-own-history bar (the app had dropped the "/100", so a 0–100 rank read as a rank
-among the quarters; audit 2026-09-06, F214). A report persisted before that field existed still parses and
+**N is rendered separately from the percentile scale**: the multiples row carries
+`ownHistoryObservations`, and every surface prints "empirical percentile 62/100
+(n = 12 quarters)". A report persisted before that field existed still parses and
 still renders, without inventing an N. The field is optional in Zod for exactly
 that reason and is stripped from the judge's request schema — the judge never
 authors this table (`applyMultiples` replaces it wholesale from computed

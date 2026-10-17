@@ -29,6 +29,8 @@ import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtConflict, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
+import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { leaseDebtScopeRefusal } from "./leaseScope";
 
 // ---------------------------------------------------------------------------
 // SPREADS_2026_01 — Damodaran synthetic-rating spread table (verbatim)
@@ -1197,6 +1199,10 @@ export interface ReturnsIncomeRow {
 }
 
 export interface ReturnsBalanceRow {
+  fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
+  leaseCoverageNote?: string;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Restatement recency (see ReturnsIncomeRow). */
@@ -1214,6 +1220,9 @@ export interface ReturnsBalanceRow {
    */
   operatingLeaseLiability?: number | null;
   totalStockholdersEquity?: number | null;
+  /** Consolidated equity includes noncontrolling interests. */
+  totalEquity?: number | null;
+  minorityInterest?: number | null;
   cashAndCashEquivalents?: number | null;
   /** Tangible common equity components (bank profitability; see computeRote). */
   goodwill?: number | null;
@@ -1321,8 +1330,8 @@ function yearTaxRate(row: ReturnsIncomeRow, notes: string[]): number | null {
 }
 
 /**
- * Invested capital = totalDebt + totalStockholdersEquity − cash, which is
- * exactly `netDebt + equity`. It therefore routes through the house net-debt
+ * Invested capital = totalDebt + consolidated equity - cash, which is
+ * exactly `netDebt + consolidated equity`. It therefore routes through the house net-debt
  * resolver rather than open-coding a cash convention: netting
  * cashAndCashEquivalents ALONE (the old behaviour) overstated invested capital
  * by the short-term-investment balance for any issuer holding liquidity in
@@ -1335,8 +1344,13 @@ function investedCapital(
   notes: string[],
   includeOperatingLeases: boolean,
 ): number | null {
-  if (!isFiniteNumber(b.totalStockholdersEquity)) {
-    notes.push(`totalStockholdersEquity missing on ${b.date} — invested capital uncomputable`);
+  const equity = resolveConsolidatedEquity(b);
+  const scopeRefusal = leaseDebtScopeRefusal(b, includeOperatingLeases);
+  if (scopeRefusal) { notes.push(`${b.date}: ${scopeRefusal} ROIC withheld.`); return null; }
+  if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
+  notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
+  if (equity.value === null) {
+    notes.push(`totalStockholdersEquity/consolidated equity missing on ${b.date} - invested capital uncomputable`);
     return null;
   }
   if (!isFiniteNumber(b.totalDebt)) {
@@ -1369,7 +1383,7 @@ function investedCapital(
     if (operatingLease <= b.totalDebt) {
       debt = b.totalDebt - operatingLease;
       notes.push(
-        `${b.date}: operating-lease liability ${fmt(operatingLease)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
+        `${b.date}: ${b.leaseCoverageNote ? "disclosed operating-lease portion" : "operating-lease liability"} ${fmt(operatingLease)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
       );
     } else {
       notes.push(
@@ -1386,7 +1400,7 @@ function investedCapital(
     cashAndShortTermInvestments: b.cashAndShortTermInvestments ?? null,
   });
   if (resolution.value !== null) {
-    return resolution.value + b.totalStockholdersEquity;
+    return resolution.value + equity.value;
   }
 
   // A CONFLICT refusal is not a missing basis: the vendor's combined cash field
@@ -1414,7 +1428,7 @@ function investedCapital(
     `short-term investments unreported on ${b.date} — invested capital nets cash only ` +
       "(narrower than the house cash + short-term-investments basis)",
   );
-  return debt + b.totalStockholdersEquity - b.cashAndCashEquivalents;
+  return debt + equity.value - b.cashAndCashEquivalents;
 }
 
 /**
@@ -1635,7 +1649,7 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + totalStockholdersEquity − (cash + short-term investments): the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
+    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
@@ -1701,6 +1715,8 @@ export function computeRoic(
     const balPrev = findPriorAnnualBalance(bal, balNow, prevIncomeDate, "roic", yearNotes, gaps);
     let icAvg: number;
     if (balPrev !== null && balPrev !== balNow) {
+      const priorScopeRefusal = leaseDebtScopeRefusal(balPrev, includeOperatingLeases);
+      if (priorScopeRefusal) { yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`); continue; }
       const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases);
       if (icPrev !== null) {
         icAvg = (icNow + icPrev) / 2;

@@ -339,11 +339,11 @@ describe("reportToMarkdown", () => {
     expect(md).toMatch(/#### Bear — .* \(p 25%/);
   });
 
-  it("renders 'unavailable' for a scenario whose deterministic target is suppressed (null) — no crash / NaN", () => {
+  it("qualifies an unavailable per-share scenario target (null) — no crash / NaN", () => {
     const r = clone(report);
     for (const s of r.valuation.scenarios) s.priceTarget = null;
     const out = reportToMarkdown(ReportSchema.parse(r));
-    expect(out).toMatch(/#### Base — unavailable/i);
+    expect(out).toMatch(/#### Base — per-share target unavailable/i);
     expect(out).not.toContain("undefined");
     expect(out).not.toContain("NaN");
   });
