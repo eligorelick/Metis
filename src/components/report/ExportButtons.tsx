@@ -6,6 +6,8 @@
  *
  *   - Export MD  → navigates to /api/export/[reportId]?format=md, which returns
  *     a text/markdown attachment (the browser downloads it).
+ *   - Audit trail → /api/export/[reportId]?format=audit, the separate audit
+ *     file (verification log, data-gap manifest, raw values; D-62).
  *   - Export PDF → opens the light print page
  *     /company/[symbol]/report/[reportId]/print?autoprint=1 in a new tab, which
  *     auto-fires the browser print dialog (dependency-free PDF via print-to-PDF).
@@ -27,17 +29,18 @@ export function ExportButtons({
   /** Optional extra classes for the wrapper (layout at the mount site). */
   className?: string;
 }) {
-  const [busy, setBusy] = useState<null | "md" | "pdf">(null);
+  const [busy, setBusy] = useState<null | "md" | "audit" | "pdf">(null);
 
   const sym = encodeURIComponent(symbol);
   const mdHref = `/api/export/${reportId}?format=md`;
+  const auditHref = `/api/export/${reportId}?format=audit`;
   const printHref = `/company/${sym}/report/${reportId}/print?autoprint=1`;
 
-  const onExportMd = (): void => {
-    setBusy("md");
+  const download = (kind: "md" | "audit", href: string): void => {
+    setBusy(kind);
     // Trigger a download without navigating away: a transient anchor click.
     const a = document.createElement("a");
-    a.href = mdHref;
+    a.href = href;
     a.rel = "noopener";
     // `download` hints the filename; the route's Content-Disposition is
     // authoritative and carries the symbol-derived name.
@@ -47,6 +50,8 @@ export function ExportButtons({
     a.remove();
     window.setTimeout(() => setBusy(null), 600);
   };
+  const onExportMd = (): void => download("md", mdHref);
+  const onExportAudit = (): void => download("audit", auditHref);
 
   const onExportPdf = (): void => {
     setBusy("pdf");
@@ -61,6 +66,12 @@ export function ExportButtons({
         busy={busy === "md"}
         label="Export MD"
         title="Download the full report as Markdown"
+      />
+      <ExportButton
+        onClick={onExportAudit}
+        busy={busy === "audit"}
+        label="Audit trail"
+        title="Download the audit trail: verification log, data gaps and raw values"
       />
       <ExportButton
         onClick={onExportPdf}

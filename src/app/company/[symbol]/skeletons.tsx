@@ -57,7 +57,7 @@ function PanelSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-/** Placeholder for the main research surface while the pipeline runs. */
+/** Placeholder while saved research or the live analysis surface loads. */
 export function CompanyBodySkeleton({ symbol }: { symbol?: string }) {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-3 p-4" aria-busy>
@@ -98,7 +98,7 @@ export function CompanyBodySkeleton({ symbol }: { symbol?: string }) {
 
       <div className="pt-2 text-center text-[11px] text-faint">
         <span className="animate-pulse">
-          loading {symbol ? `${symbol} ` : ""}research — fetching filings, prices &amp; macro, then computing metrics…
+          loading {symbol ? `${symbol} ` : ""}research…
         </span>
       </div>
     </div>

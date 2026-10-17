@@ -76,7 +76,7 @@ describe("computeDcfDisplay — general DCF route", () => {
     const wacc = byName.get("wacc (discount rate)")!;
     expect(wacc).toBeDefined();
     expect(wacc.basis).toBe(a.wacc.basis);
-    const anchor = [...byName.values()].find((r) => r.name.startsWith("near-term growth anchor"))!;
+    const anchor = [...byName.values()].find((r) => r.name.startsWith("near-term growth rate"))!;
     expect(anchor).toBeDefined();
     expect(anchor.basis).toBe(a.growthAnchor.basis);
     const s2c = [...byName.values()].find((r) => r.name.toLowerCase().includes("sales-to-capital"))!;
@@ -108,7 +108,7 @@ describe("computeDcfDisplay — general DCF route", () => {
       notes: [],
       gaps: [],
     });
-    const anchorRow = display.assumptions.find((r) => r.name.startsWith("near-term growth anchor"))!;
+    const anchorRow = display.assumptions.find((r) => r.name.startsWith("near-term growth rate"))!;
     const growthRow = display.assumptions.find((r) => r.name.startsWith("revenue growth"))!;
     expect(anchorRow.name).toContain("after the house clamp");
     expect(anchorRow.value).toContain("25.0%");

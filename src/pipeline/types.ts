@@ -11,6 +11,7 @@
  */
 
 import type { StockSplits } from "@/edgar/splits";
+import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import type { PeerCollection } from "@/pipeline/peers";
 import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type {
@@ -54,6 +55,10 @@ import type { CompanyFacts } from "@/edgar/xbrl";
 // WS4 (D-14): successor-registrant history.
 import type { PredecessorFacts } from "@/edgar/successor";
 import type { ExtractMethod } from "@/edgar/extract";
+import type { QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
+import type { AnnualGeography } from "@/edgar/annualGeography";
+import type { CurrentReports } from "@/providers/currentReports";
+import type { CompanyIrMaterialEvents } from "@/providers/companyIr";
 import type { ShortInterestPoint } from "@/providers/finra";
 import type { FredObservation } from "@/providers/fred";
 import type { InsiderSentimentMonth } from "@/providers/finnhub";
@@ -87,8 +92,15 @@ export interface StatementSet {
 /** One extracted 10-K / 10-Q section (text feeds the LLM payload). */
 export interface ExtractedSection {
   /** Which report section this is. */
-  sectionName: "item1A" | "item7" | "tenQItem2";
+  sectionName: "item1A" | "item7" | "tenQItem2" | "item1" | "tenQNotes" | "tenKNotes" | "tenQItem5";
   text: string;
+  /**
+   * For 10-Q and 10-K notes, the statement prefix before the notes heading
+   * (bounded to 12,000 characters), with the same filing identity as this
+   * section. Supports source-bound debt presentation and cash-flow/investment
+   * facts. Absent on legacy sections, empty prefixes and other section kinds.
+   */
+  statementsText?: string;
   /** Extraction layer that produced the text (diagnostics/appendix). */
   method: ExtractMethod;
   chars: number;
@@ -132,6 +144,10 @@ export interface EdgarRegistrant {
 }
 
 export interface EdgarBundle {
+  /** Matched primary annual geography; retained even when usable vendor data wins. */
+  annualGeography?: FetchResult<AnnualGeography>;
+  /** Primary filing cover inventories, including unresolved economic rights. */
+  economicShareInventory?: import("@/edgar/economicShares").FilingEconomicShares[];
   /** Public company-confirmed future events extracted from bounded recent 8-K/EX-99 reads. */
   earningsAnnouncements?: Sourced<FmpEarningsRow>[];
   cik: FetchResult<CikMapping>;
@@ -145,10 +161,42 @@ export interface EdgarBundle {
   mdna: FetchResult<ExtractedSection>;
   /** 10-Q Part I Item 2 (MD&A); Form 6-K never gets an inferred equivalent. */
   tenQMdna: FetchResult<ExtractedSection>;
+  /**
+   * D-63: annual business description — 10-K Item 1 or 20-F Item 4 — from the
+   * same parsed annual document. Optional: absent on bundles built before it
+   * existed and when submissions or the filing-disclosure reads were off.
+   */
+  business?: FetchResult<ExtractedSection>;
+  /**
+   * D-63: the latest 10-Q's notes to the financial statements (Part I Item 1
+   * from its notes heading on). Optional on the same terms as `business`.
+   */
+  tenQNotes?: FetchResult<ExtractedSection>;
+  /**
+   * D-66: the annual filing's notes to the consolidated financial statements
+   * (10-K Item 8, or Item 15 when Item 8 refers there), from the notes heading
+   * to the schedules or exhibit index. Optional on the same terms as `business`.
+   */
+  tenKNotes?: FetchResult<ExtractedSection>;
+  /**
+   * D-66: the latest 10-Q's Part II Item 5 (Other Information), where officers'
+   * and directors' Rule 10b5-1 trading arrangements are disclosed. Optional on
+   * the same terms as `business`.
+   */
+  tenQOther?: FetchResult<ExtractedSection>;
   /** 8-Ks carrying Item 4.01 (auditor change) among recent filings. May be empty. */
   auditorChange8Ks: FetchResult<EdgarFiling[]>;
   /** 8-Ks carrying Item 4.02 (non-reliance / restatement red flag). May be empty. */
   nonReliance8Ks: FetchResult<EdgarFiling[]>;
+  /**
+   * The latest Item 2.02 8-Ks' EX-99.1 release / EX-99.2 commentary (guidance,
+   * issuer FCF, capital return) and the last year's material-event 8-K items
+   * (NVDA report #34 audit, work package 3). Optional: absent on bundles built
+   * before it existed and when EDGAR submissions were unavailable.
+   */
+  currentReports?: FetchResult<CurrentReports>;
+  /** Segment revenue by quarter from the latest periodic XBRL instances (audit P1-3). */
+  quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   /** Full companyfacts JSON — validation runs getConcept chains against this. */
   companyFacts: FetchResult<CompanyFacts>;
   // --- WS4 (D-14) ------------------------------------------------------------
@@ -270,6 +318,8 @@ export function sourceManifestEntries(
  * deterministically emit them.
  */
 export interface DataBundle {
+  /** Retained, dated class inventory and economic rights; issuerId = CIK10, securityId = symbol. */
+  economicShareEvidence?: EconomicShareEvidence[];
   symbol: string;
   /** ISO timestamp of the bundle build (clock injectable in tests). */
   builtAt: string;
@@ -318,6 +368,8 @@ export interface DataBundle {
   secFilings: FmpFetch<FmpSecFilingRow>;
   news: FmpFetch<FmpNewsArticleRow>;
   pressReleases: FmpFetch<FmpNewsArticleRow>;
+  /** Bounded, issuer-bound official news, separate from paid snippets and SEC filings. */
+  companyIrMaterialEvents?: FetchResult<CompanyIrMaterialEvents>;
 
   /** ~5y daily OHLCV, date desc, split-adjusted close only. */
   eodPrices: FmpFetch<FmpEodBarRow>;

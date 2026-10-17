@@ -14,6 +14,7 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { leaseDebtScopeRefusal } from "./leaseScope";
 import type { ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import {
@@ -27,6 +28,7 @@ import {
 import { resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import type { CurrentCapitalSnapshot } from "@/pipeline/stageB/currentCapital";
+import type { RepurchaseExecution } from "@/pipeline/stageB/repurchaseExecutions";
 
 // ---------------------------------------------------------------------------
 // Input interfaces — FMP field names
@@ -71,6 +73,9 @@ export interface CapitalCashFlowRow {
 }
 
 export interface CapitalBalanceRow {
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
+  fieldProvenance?: Record<string, { tags: string[] }>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   acceptedDate?: string | null;
@@ -84,6 +89,8 @@ export interface CapitalBalanceRow {
   cashAndCashEquivalents?: number | null;
   shortTermInvestments?: number | null;
   cashAndShortTermInvestments?: number | null;
+  /** D-60: marketable equity securities inside the combined cash field; excluded from net-debt cash. */
+  marketableEquitySecurities?: number | null;
 }
 
 /** One row of FMP /stable/historical-market-capitalization. */
@@ -116,6 +123,12 @@ export interface CapitalOptions {
   quoteCurrency?: string | null;
   /** True when the listed instrument is an American depositary share. */
   isAdr?: boolean | null;
+  /**
+   * D-61: shares actually repurchased and their cost per fiscal year, from the
+   * filer's XBRL equity-statement tags, on the current share basis
+   * (repurchaseExecutions.ts). Absent ⇒ buyback timing is not measurable.
+   */
+  repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag">>;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +201,10 @@ export interface BuybackYearRow {
   avgPriceProxy: number | null;
   /** repurchased / avgPriceProxy — implied shares bought. */
   sharesProxy: number | null;
+  /** D-61: tagged repurchase cost ÷ tagged shares (current basis) — the average price actually paid. */
+  actualPricePaid?: number | null;
+  /** D-61: (actual price paid ÷ the year's average price proxy − 1) × 100; negative = bought below the average. */
+  paidVsYearAveragePct?: number | null;
   note?: string;
 }
 
@@ -278,8 +295,23 @@ export interface CapitalResult {
     /** Dollar-weighted average price-paid proxy across analyzed years. */
     avgPricePaidProxy: number | null;
     currentPrice: number | null;
-    /** (currentPrice − avgPricePaidProxy) / avgPricePaidProxy × 100 (positive = bought below today's price). */
+    /**
+     * (currentPrice − avgPricePaidProxy) / avgPricePaidProxy × 100: the price
+     * APPRECIATION since the repurchases (positive = today's quote is above the
+     * proxy paid price). Shown, not graded (D-61): it rewards any stock that
+     * rose, whatever the timing.
+     */
     premiumDiscountPct: number | null;
+    /**
+     * D-61 repurchase timing: what the shares actually bought would have cost
+     * at each fiscal year's average price, over what was actually paid, minus
+     * one, × 100. Positive = bought below the same year's average price.
+     * Null without tagged execution data covering at least
+     * BUYBACK_TIMING_MIN_COVERAGE_PCT of the repurchase dollars.
+     */
+    timingPct?: number | null;
+    /** D-61: share of repurchase cash-flow dollars in years whose execution price is known. */
+    timingCoveragePct?: number | null;
     years: BuybackYearRow[];
     note: string;
   };
@@ -316,6 +348,7 @@ const FCF_SBC_BASIS =
   "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation " +
   "(house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, " +
   "\"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; " +
+  "the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. " +
   "years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: " +
   "FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the " +
   "unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that " +
@@ -325,7 +358,18 @@ const MAINT_CAPEX_HEURISTIC_NOTE =
   "HEURISTIC: maintenance capex approximated by D&A (maintenance = min(|capex|, D&A), growth = max(0, |capex| − D&A)); actual split is not disclosed in standardized statements";
 
 const BUYBACK_HEURISTIC_NOTE =
-  "HEURISTIC: assumes shares were repurchased at each fiscal year's average price proxy (average daily market cap ÷ weighted-average diluted shares); actual execution prices are not disclosed";
+  "HEURISTIC: the proxy assumes shares were repurchased at each fiscal year's average price (average daily market cap ÷ basic weighted-average shares, diluted as a disclosed fallback); its premium/discount to today's quote measures price appreciation since the repurchases, not timing, and is not graded. " +
+  "Timing (D-61, graded) compares the price actually paid — the filer's tagged repurchase cost ÷ tagged shares, on the current share basis — with the same fiscal year's average price (Dittmar & Field 2015); it is withheld when those tags are absent";
+
+/**
+ * D-61 house rules for repurchase timing. A paid price more than 1.6× away
+ * from the same year's average price is a share-basis or tagging mismatch, not
+ * timing: within a fiscal year the price paid lies between the year's low and
+ * high. Timing is graded only when execution prices cover at least half of
+ * the repurchase dollars.
+ */
+export const BUYBACK_EXECUTION_PLAUSIBLE_RATIO = 1.6;
+export const BUYBACK_TIMING_MIN_COVERAGE_PCT = 50;
 
 function fmt(n: number): string {
   return String(Number(n.toFixed(4)));
@@ -333,6 +377,13 @@ function fmt(n: number): string {
 
 /** Statement joins tolerate this much fiscal-date drift (compute.ts matchByDate uses the same). */
 const STATEMENT_JOIN_TOLERANCE_DAYS = 5;
+
+/** True when two ISO dates are at most `days` apart. */
+function withinDays(a: string, b: string, days: number): boolean {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  return Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= days * 24 * 3600 * 1000;
+}
 
 /**
  * The row whose fiscal date is the given one, or the nearest within
@@ -603,9 +654,12 @@ export function computeCapital(
       cashAndCashEquivalents: latestBal?.cashAndCashEquivalents,
       shortTermInvestments: latestBal?.shortTermInvestments,
       cashAndShortTermInvestments: latestBal?.cashAndShortTermInvestments,
+      marketableEquitySecurities: latestBal?.marketableEquitySecurities,
       vendorNetDebt: latestBal?.netDebt,
     });
-    const netDebt = resolution.value;
+    const debtScopeRefusal = leaseDebtScopeRefusal(latestBal, true);
+    const netDebt = debtScopeRefusal ? null : resolution.value;
+    if (debtScopeRefusal) ndNotes.push(debtScopeRefusal);
     ndNotes.push(`${resolution.version}: ${resolution.reason}`);
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;
@@ -864,6 +918,19 @@ export function computeCapital(
   let totalRepurchased = 0;
   let weightedDollars = 0;
   let weightedShares = 0;
+  // D-61 timing accumulators (executions on the current share basis).
+  const executions = (options.repurchaseExecutions ?? []).filter(
+    (e) => isFiniteNumber(e.shares) && e.shares > 0 && isFiniteNumber(e.value) && e.value > 0,
+  );
+  let timingCost = 0;
+  let timingAtYearAverage = 0;
+  let timingCoveredDollars = 0;
+  // D-68: why a year with a tagged execution price still left timing unmeasured.
+  let repurchaseYears = 0;
+  let executionYears = 0;
+  const unpricedExecutionYears: string[] = [];
+  const unpricedReasons = new Set<string>();
+  const implausibleExecutionYears: string[] = [];
   const proxyCurrency = comparePriceCurrency(options.reportedCurrency, options.quoteCurrency);
   const priceProxySuppressed = !proxyCurrency.comparable || options.isAdr === true;
   const priceProxySuppressedReason = !proxyCurrency.comparable
@@ -886,6 +953,7 @@ export function computeCapital(
           : 0;
       if (repurchased <= 0) continue;
       totalRepurchased += repurchased;
+      repurchaseYears += 1;
 
       // Fiscal window: (previous row date, this row date]; oldest row falls back to date − 1y.
       const endMs = Date.parse(r.date);
@@ -928,16 +996,75 @@ export function computeCapital(
         weightedDollars += repurchased;
         weightedShares += sharesProxy;
       }
+      // D-61: the price actually paid, against the same year's average price.
+      let actualPricePaid: number | null = null;
+      let paidVsYearAveragePct: number | null = null;
+      const execution = executions.find((e) => withinDays(e.periodEnd, r.date, 7));
+      if (execution !== undefined) executionYears += 1;
+      if (execution !== undefined && avgPriceProxy === null) {
+        // The filer tagged what it paid; the market side of the comparison is
+        // what is missing (NVDA's final live run: every market-cap day withheld).
+        unpricedExecutionYears.push(r.date);
+        for (const why of rowNotes) unpricedReasons.add(why);
+      }
+      if (execution !== undefined && avgPriceProxy !== null) {
+        const paid = execution.value / execution.shares;
+        const ratio = paid / avgPriceProxy;
+        if (ratio > BUYBACK_EXECUTION_PLAUSIBLE_RATIO || ratio < 1 / BUYBACK_EXECUTION_PLAUSIBLE_RATIO) {
+          implausibleExecutionYears.push(r.date);
+          rowNotes.push(
+            `tagged repurchase price ${fmt(paid)} is ${fmt(ratio)}× the year's average price ${fmt(avgPriceProxy)} — outside the ${BUYBACK_EXECUTION_PLAUSIBLE_RATIO}× plausibility band, so a share-basis or tagging mismatch is likely; year left out of the timing measure`,
+          );
+        } else {
+          actualPricePaid = paid;
+          paidVsYearAveragePct = (ratio - 1) * 100;
+          timingCost += execution.value;
+          timingAtYearAverage += execution.shares * avgPriceProxy;
+          timingCoveredDollars += repurchased;
+        }
+      }
       buybackYears.push({
         date: r.date,
         repurchased,
         avgMarketCap,
         avgPriceProxy,
         sharesProxy,
+        ...(execution !== undefined ? { actualPricePaid, paidVsYearAveragePct } : {}),
         note: rowNotes.length > 0 ? rowNotes.join("; ") : undefined,
       });
     }
     buybackYears.reverse(); // oldest → newest for display consistency
+  }
+  const timingCoveragePct = totalRepurchased > 0 && timingCost > 0 ? (timingCoveredDollars / totalRepurchased) * 100 : null;
+  let timingPct: number | null = null;
+  if (timingCoveragePct !== null && timingCoveragePct >= BUYBACK_TIMING_MIN_COVERAGE_PCT) {
+    timingPct = (timingAtYearAverage / timingCost - 1) * 100;
+    notes.push(
+      `buyback timing: the shares actually repurchased would have cost ${fmt(timingPct)}% ${timingPct >= 0 ? "more" : "less"} at each fiscal year's average price than was paid (tagged cost ÷ tagged shares; ${fmt(timingCoveragePct)}% of repurchase dollars covered)`,
+    );
+  } else if (totalRepurchased > 0) {
+    // D-68: name the side of the comparison that is missing. The tags were
+    // blamed when the year-average price was the gap.
+    const unmatched: string[] = [];
+    if (unpricedExecutionYears.length > 0) {
+      unmatched.push(
+        `no year-average price for ${unpricedExecutionYears.join(", ")}` +
+          (unpricedReasons.size > 0 ? ` (${[...unpricedReasons].join("; ")})` : ""),
+      );
+    }
+    if (implausibleExecutionYears.length > 0) {
+      unmatched.push(
+        `the tagged price for ${implausibleExecutionYears.join(", ")} is outside the ${BUYBACK_EXECUTION_PLAUSIBLE_RATIO}× plausibility band against the year's average price`,
+      );
+    }
+    const why = timingCoveragePct !== null
+      ? `tagged execution prices cover only ${fmt(timingCoveragePct)}% of repurchase dollars (house minimum ${BUYBACK_TIMING_MIN_COVERAGE_PCT}%)`
+      : priceProxySuppressed
+        ? "the year-average price proxy is withheld"
+        : executionYears > 0 && unmatched.length > 0
+          ? `tagged repurchase prices were found for ${executionYears} of ${repurchaseYears} fiscal years with repurchases, but ${unmatched.join(", and ")}`
+          : "no tagged repurchase share count and cost on a known share basis matches the fiscal years";
+    notes.push(`buyback timing not measured: ${why}; the price actually paid against the year's average price is unknown, so timing is not graded`);
   }
   const avgPricePaidProxy = weightedShares > 0 ? weightedDollars / weightedShares : null;
   const currentPrice = isFiniteNumber(quote.price) && quote.price > 0 ? quote.price : null;
@@ -1021,6 +1148,8 @@ export function computeCapital(
       avgPricePaidProxy,
       currentPrice,
       premiumDiscountPct,
+      timingPct,
+      timingCoveragePct,
       years: buybackYears,
       note: BUYBACK_HEURISTIC_NOTE,
     },

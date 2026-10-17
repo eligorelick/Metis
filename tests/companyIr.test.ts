@@ -26,6 +26,18 @@ const publicLookup = async () => [{ address: "93.184.216.34", family: 4 }];
 const release = `<html><head><meta property="article:published_time" content="2026-09-24T08:00:00Z"></head><body><h1>Example to Announce Third Quarter 2026 Results</h1><p>Example announced it will release third quarter 2026 financial results on October 28, 2026 after market close.</p></body></html>`;
 
 describe("bounded official IR announcement discovery", () => {
+  it("reaches the news index when an IR homepage also lists older financial results", async () => {
+    let requests = 0;
+    const pages: Record<string, string> = {
+      "https://example.com/": '<a href="https://investor.example.com/">Investor Relations</a>',
+      "https://investor.example.com/": '<a href="/news/">Press Releases</a>' + Array.from({ length: 3 }, (_, i) => `<a href="/old/${i}">Example Reports Quarterly Financial Results</a>`).join(""),
+      "https://investor.example.com/news/": '<a href="/new">Example to Announce Third Quarter Financial Results</a>',
+      "https://investor.example.com/new": release,
+    };
+    const result = await discoverCompanyIrEarnings("https://example.com", "EXM", "2026-10-13", { issuer, now, lookup: publicLookup, fetchImpl: (async (url) => { requests++; return new Response(pages[String(url)] ?? "old results", { headers: { "content-type": "text/html" } }); }) as typeof fetch });
+    expect(result.announcements).toMatchObject([{ ok: true, value: { data: { date: "2026-10-28", authorityChain: ["https://example.com/", "https://investor.example.com/", "https://investor.example.com/news/", "https://investor.example.com/new"] } } }]);
+    expect(requests).toBeLessThanOrEqual(6);
+  });
   it("follows the company's official IR relationship and index to public announcement without paid feeds", async () => {
     const pages: Record<string, string> = {
       "https://example.com/": '<a href="https://ir.example-investors.com/">Investor Relations</a>',

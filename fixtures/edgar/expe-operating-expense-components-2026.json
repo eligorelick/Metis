@@ -1,0 +1,41 @@
+{
+  "cik": 1324424,
+  "entityName": "Expedia Group, Inc.",
+  "_provenance": {
+    "companyFacts": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001324424.json",
+    "filings": [
+      "https://www.sec.gov/Archives/edgar/data/1324424/000132442426000035/expe-20260331.htm",
+      "https://www.sec.gov/Archives/edgar/data/1324424/000132442426000053/expe-20260630.htm"
+    ],
+    "scope": "Limited public standard-tag extract. No OperatingExpenses or ResearchAndDevelopmentExpense facts exist for these two quarterly periods. SellingAndMarketingExpense covers direct selling and marketing in these statements; its sum with G&A is not a complete operating-expense total."
+  },
+  "facts": {
+    "us-gaap": {
+      "Assets": { "label": "Assets", "units": { "USD": [
+        { "end": "2026-03-31", "val": 26459000000, "accn": "0001324424-26-000035", "filed": "2026-05-08", "form": "10-Q", "fp": "Q1", "fy": 2026 },
+        { "end": "2026-06-30", "val": 29061000000, "accn": "0001324424-26-000053", "filed": "2026-08-06", "form": "10-Q", "fp": "Q2", "fy": 2026 }
+      ] } },
+      "RevenueFromContractWithCustomerExcludingAssessedTax": { "label": "Revenue", "units": { "USD": [
+        { "start": "2025-01-01", "end": "2025-12-31", "val": 14733000000, "accn": "0001324424-26-000008", "filed": "2026-02-13", "form": "10-K", "fp": "FY", "fy": 2025 },
+        { "start": "2026-01-01", "end": "2026-03-31", "val": 3426000000, "accn": "0001324424-26-000035", "filed": "2026-05-08", "form": "10-Q", "fp": "Q1", "fy": 2026 },
+        { "start": "2026-04-01", "end": "2026-06-30", "val": 4315000000, "accn": "0001324424-26-000053", "filed": "2026-08-06", "form": "10-Q", "fp": "Q2", "fy": 2026 }
+      ] } },
+      "OperatingIncomeLoss": { "label": "Operating income", "units": { "USD": [
+        { "start": "2026-01-01", "end": "2026-03-31", "val": 251000000, "accn": "0001324424-26-000035", "filed": "2026-05-08", "form": "10-Q", "fp": "Q1", "fy": 2026 },
+        { "start": "2026-04-01", "end": "2026-06-30", "val": 800000000, "accn": "0001324424-26-000053", "filed": "2026-08-06", "form": "10-Q", "fp": "Q2", "fy": 2026 }
+      ] } },
+      "NetIncomeLoss": { "label": "Net income attributable to parent", "units": { "USD": [
+        { "start": "2026-01-01", "end": "2026-03-31", "val": -6000000, "accn": "0001324424-26-000035", "filed": "2026-05-08", "form": "10-Q", "fp": "Q1", "fy": 2026 },
+        { "start": "2026-04-01", "end": "2026-06-30", "val": 878000000, "accn": "0001324424-26-000053", "filed": "2026-08-06", "form": "10-Q", "fp": "Q2", "fy": 2026 }
+      ] } },
+      "SellingAndMarketingExpense": { "label": "Selling and marketing expense", "units": { "USD": [
+        { "start": "2026-01-01", "end": "2026-03-31", "val": 1856000000, "accn": "0001324424-26-000035", "filed": "2026-05-08", "form": "10-Q", "fp": "Q1", "fy": 2026 },
+        { "start": "2026-04-01", "end": "2026-06-30", "val": 2119000000, "accn": "0001324424-26-000053", "filed": "2026-08-06", "form": "10-Q", "fp": "Q2", "fy": 2026 }
+      ] } },
+      "GeneralAndAdministrativeExpense": { "label": "General and administrative expense", "units": { "USD": [
+        { "start": "2026-01-01", "end": "2026-03-31", "val": 196000000, "accn": "0001324424-26-000035", "filed": "2026-05-08", "form": "10-Q", "fp": "Q1", "fy": 2026 },
+        { "start": "2026-04-01", "end": "2026-06-30", "val": 204000000, "accn": "0001324424-26-000053", "filed": "2026-08-06", "form": "10-Q", "fp": "Q2", "fy": 2026 }
+      ] } }
+    }
+  }
+}

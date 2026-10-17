@@ -111,7 +111,7 @@ export async function consumeChatGptStream(response: Response, onPartialText?: (
         if (event.type === "response.output_item.done" && Number.isSafeInteger(event.output_index) && event.output_index >= 0 && event.output_index < 10_000) {
           completedItems.set(event.output_index, event.item);
           const item = event.item;
-          if (item?.type === "message" && item.status === "completed" &&
+          if (!excludedIndices.has(event.output_index) && item?.type === "message" && item.status === "completed" &&
               (item.role === undefined || item.role === "assistant") &&
               (item.phase === undefined || item.phase === "final_answer") && Array.isArray(item.content)) {
             const text = item.content.filter((part: { type?: string; text?: unknown }) => part?.type === "output_text" && typeof part.text === "string")

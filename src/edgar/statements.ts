@@ -46,6 +46,7 @@
 
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
+import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
@@ -123,7 +124,7 @@ export interface ShareBasisWithheld {
   reason: string;
 }
 
-export type Derivation = "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters";
+export type Derivation = "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
 
 export interface StatementRowsResult<TRow> {
   /** date DESC (newest fiscal period first). */
@@ -590,6 +591,8 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),
   netIncome: lineItemChain("netIncome", "money"),
+  netIncomeConsolidated: lineItemChain("netIncomeConsolidated", "money"),
+  netIncomeAttributableToNoncontrollingInterest: lineItemChain("netIncomeAttributableToNoncontrollingInterest", "money"),
   netIncomeAvailableToCommon: lineItemChain("netIncomeAvailableToCommon", "money"),
   netIncomeFromContinuingOperations: lineItemChain("netIncomeFromContinuingOperations", "money"),
   netIncomeFromDiscontinuedOperations: lineItemChain("netIncomeFromDiscontinuedOperations", "money"),
@@ -665,7 +668,7 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
         unit: "money",
         steps: [
           { kind: "first", tags: tagsFor("operatingLeaseLiability"), unit: "money" },
-          { kind: "sumAny", tags: tagsFor("operatingLeaseLiabilityParts"), unit: "money" },
+          { kind: "sum", tags: tagsFor("operatingLeaseLiabilityParts"), unit: "money" },
         ],
       },
     },
@@ -676,7 +679,7 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
         unit: "money",
         steps: [
           { kind: "first", tags: tagsFor("financeLeaseLiability"), unit: "money" },
-          { kind: "sumAny", tags: tagsFor("financeLeaseLiabilityParts"), unit: "money" },
+          { kind: "sum", tags: tagsFor("financeLeaseLiabilityParts"), unit: "money" },
         ],
       },
     },
@@ -709,11 +712,21 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   /**
    * Bank tagging (JPM): `CashAndCashEquivalentsAtCarryingValue` goes stale — its
    * last point is 2018 — while `CashAndDueFromBanks` carries the operating cash.
-   * The restricted-cash catch-all stays last: at a bank it equals cash + the
-   * interest-bearing deposits that `shortTermInvestments` below claims, so
-   * letting it win here would double-count them in cashAndShortTermInvestments.
+   * A combined restricted/unrestricted total is not a synonym for available
+   * cash. It can establish unrestricted cash only with a same-filing tagged
+   * restricted component, validated below before it supplies liquidity.
    */
-  cashAndCashEquivalents: lineItemChain("cashAndCashEquivalents", "money"),
+  cashAndCashEquivalents: {
+    kind: "chain", unit: "money", steps: [
+      lineItemChain("cashAndCashEquivalents", "money"),
+      ...tagsFor("restrictedCashAndCashEquivalents").map((minus): ChainSpec => ({
+        kind: "diff", plus: tagsFor("cashAndCashEquivalentsIncludingRestricted")[0]!, minus, unit: "money",
+        disclose: "unrestricted cash derived as combined restricted/unrestricted cash minus the separately tagged restricted balance; restrictions are not deducted from directly tagged unrestricted cash",
+      })),
+    ],
+  },
+  cashAndCashEquivalentsIncludingRestricted: lineItemChain("cashAndCashEquivalentsIncludingRestricted", "money"),
+  restrictedCashAndCashEquivalents: lineItemChain("restrictedCashAndCashEquivalents", "money"),
   shortTermInvestments: lineItemChain("shortTermInvestments", "money"),
   cashAndShortTermInvestments: lineItemChain("cashAndShortTermInvestments", "money"),
   netReceivables: lineItemChain("netReceivables", "money"),
@@ -795,29 +808,23 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
    * Caterpillar tags no StockholdersEquity line — only the total including
    * noncontrolling interest — so invested capital, the DCF and the multiples
    * EV bridge were all suppressed. Parent equity is that total less the
-   * noncontrolling interest when the filer tags one (exact), else the total
-   * itself stands in (disclosed; the noncontrolling slice is usually small).
+   * noncontrolling interest when the filer tags one. Without either a parent
+   * line or an NCI allocation, parent equity remains unavailable; consolidated
+   * totalEquity can still support consolidated operating returns.
    */
   totalStockholdersEquity: {
     kind: "chain",
     unit: "money",
     steps: [
       { kind: "first", tags: tagsFor("totalStockholdersEquity"), unit: "money" },
-      {
+      ...tagsFor("minorityInterest").map((minus): ChainSpec => ({
         kind: "diff",
         plus: tagsFor("totalEquity")[0] as string,
-        minus: tagsFor("minorityInterest")[0] as string,
+        minus,
         unit: "money",
         disclose:
           "stockholders' equity derived as total equity including noncontrolling interest minus the noncontrolling interest: the filer tags no StockholdersEquity line",
-      },
-      {
-        kind: "first",
-        tags: tagsFor("totalEquity"),
-        unit: "money",
-        disclose:
-          "total equity including noncontrolling interest stands in for stockholders' equity: the filer tags neither a StockholdersEquity line nor a MinorityInterest to net out",
-      },
+      })),
     ],
   },
   minorityInterest: lineItemChain("minorityInterest", "money"),
@@ -992,6 +999,9 @@ const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
     for (const spec of Object.values(table)) collectTags(spec, tags);
   }
   collectTags(BANK_REVENUE_SPEC, tags);
+  // Completeness/scope evidence only, never carrying-value stand-ins.
+  tags.add("DebtInstrumentCarryingAmount");
+  tags.add("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
   return tags;
 })();
 
@@ -1669,8 +1679,8 @@ function precedingQuarterPoints(points: FactPoint[], ctx: QuarterContext, quarte
  *      fiscal year, the year-to-date fact IS the quarter.
  *
  * Weighted share counts are never subtracted (a share count is a stock, not a
- * flow); per-share amounts use (a) plus the FY-minus-YTD rule at Q4 only, which
- * is the FMP convention for a fourth-quarter EPS.
+ * flow); per-share amounts use (a) only. A fourth-quarter EPS is rebuilt after
+ * the rows are built (deriveFourthQuarterPerShare), never by FY − YTD.
  */
 function quarterResolver(
   index: FactIndex,
@@ -1706,6 +1716,11 @@ function quarterResolver(
       const fy =
         (ctx.fyStart !== null ? findDurationExact(pts, ctx.fyStart, ctx.end) : null) ?? findAnnualDuration(pts, ctx.end);
       if (fy === null || fy.start === undefined) return null;
+      // Per-share amounts are not additive across periods with different share
+      // counts (FY EPS − nine-month EPS is not the fourth quarter's EPS); the
+      // fourth quarter's EPS is rebuilt from its net income and a share count
+      // backed out of the day-weighted identity (deriveFourthQuarterPerShare).
+      if (kind === "perShare") return null;
       const sameLineage = lineage(fy);
       if (ctx.previousEnd !== null) {
         const ytdPrev = findDurationExact(sameLineage, fy.start, ctx.previousEnd);
@@ -1723,7 +1738,6 @@ function quarterResolver(
         // for, and it is disclosed rather than silently mixed.
         if (findDurationExact(pts, fy.start, ctx.previousEnd) !== null) return refuse(fy, "FY − YTD");
       }
-      if (kind === "perShare") return null;
       const quarters = precedingQuarterPoints(sameLineage, ctx, quarterEnds);
       if (quarters === null) {
         return precedingQuarterPoints(pts, ctx, quarterEnds) === null
@@ -1797,14 +1811,13 @@ interface ComputeContext {
 
 function computeIncome(v: FieldValues, notes: NoteSink, ctx: string): void {
   v.grossProfit ??= sub(v.revenue ?? null, v.costOfRevenue ?? null);
-  v.operatingExpenses ??= sumAnyValues(
-    [
-      ["researchAndDevelopmentExpenses", v.researchAndDevelopmentExpenses ?? null],
-      ["sellingGeneralAndAdministrativeExpenses", v.sellingGeneralAndAdministrativeExpenses ?? null],
-    ],
-    notes,
-    `operatingExpenses ${ctx}`,
-  );
+  if (v.operatingExpenses == null && (v.researchAndDevelopmentExpenses != null || v.sellingGeneralAndAdministrativeExpenses != null)) {
+    // These components do not establish a complete expense perimeter: an
+    // issuer may separately report technology, indirect marketing, D&A,
+    // restructuring or other operating costs outside its standard tags.
+    v.operatingExpenses = null;
+    notes.add(`operatingExpenses ${ctx} WITHHELD: R&D and SG&A components do not establish a complete operating-expense total; individual components remain available.`);
+  }
   v.ebitda ??= add(v.operatingIncome ?? null, v.depreciationAndAmortization ?? null);
   // EBIT follows operating income, and only operating income.
   //
@@ -1837,6 +1850,19 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string): void {
 }
 
 function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
+  const cashResolution = cc.resolved.get("cashAndCashEquivalents");
+  const restrictionDerived = cashResolution?.tags.some(tag => tagsFor("cashAndCashEquivalentsIncludingRestricted").includes(tag)) === true;
+  if (restrictionDerived && cashResolution) {
+    const filings = new Set((cashResolution.evidencePoints ?? [cashResolution.point]).map(point => `${point.accn}|${point.filed}`));
+    if (cashResolution.value < 0 || (v.restrictedCashAndCashEquivalents ?? 0) < 0 || filings.size !== 1) {
+      v.cashAndCashEquivalents = null;
+      const reason = "unrestricted cash derivation unavailable: a restriction amount is negative or exceeds its combined total, or the operands come from different filings";
+      notes.withhold("cashAndCashEquivalents", ctx, reason);
+      notes.add(`cashAndCashEquivalents ${ctx}: ${reason}`);
+    }
+  }
+  const cashScopeUnknown = v.cashAndCashEquivalents == null && v.cashAndCashEquivalentsIncludingRestricted != null &&
+    !cc.resolved.has("cashAndShortTermInvestments");
   // A strict `add` here returned null for every filer that presents a single
   // "Cash and cash equivalents" line and tags no short-term-investment concept
   // (Home Depot, McDonald's, UPS, Costco and hundreds like them). That
@@ -1850,6 +1876,12 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `cashAndShortTermInvestments ${ctx}`,
   );
+  if (cashScopeUnknown) {
+    v.cashAndShortTermInvestments = null;
+    const reason = "combined cash includes restricted cash but unrestricted cash is unestablished; liquidity and net debt are withheld rather than treating restrictions as available cash";
+    for (const field of ["cashAndShortTermInvestments", "netDebt"]) notes.withhold(field, ctx, reason);
+    notes.add(`cashAndShortTermInvestments ${ctx}: ${reason}`);
+  }
   // `totalEquity` deliberately stays strict: `validate.ts` and `forensics.ts`
   // both fall back to `totalStockholdersEquity`, so nothing is suppressed.
   v.totalEquity ??= add(v.totalStockholdersEquity ?? null, v.minorityInterest ?? null);
@@ -1868,6 +1900,24 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `totalDebt ${ctx}`,
   );
+  const refusedCurrent = notes.withheld.find((held) => held.field === "shortTermDebt" && held.periods.includes(ctx));
+  const partialLease = (["Operating", "Finance"] as const).find(prefix =>
+    cc.resolved.get("capitalLeaseObligations")?.parts?.[`${prefix.toLowerCase()}LeaseLiability`] === undefined &&
+    ((cc.money(`${prefix}LeaseLiabilityCurrent`) === null) !== (cc.money(`${prefix}LeaseLiabilityNoncurrent`) === null)));
+  const incomplete = partialLease !== undefined
+    ? `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`
+    : refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
+    : incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount"));
+  if (partialLease !== undefined) {
+    v.capitalLeaseObligations = null;
+    notes.withhold("capitalLeaseObligations", ctx, incomplete!);
+  }
+  if (incomplete !== null) {
+    v.totalDebt = null;
+    v.netDebt = null;
+    for (const field of ["totalDebt", "netDebt"]) notes.withhold(field, ctx, incomplete);
+    notes.add(`totalDebt ${ctx}: ${incomplete}`);
+  }
   v.netDebt ??= sub(v.totalDebt ?? null, v.cashAndCashEquivalents ?? null);
   // WS6 review (BLOCKER 1): the OPERATING slice of the lease liability, on its
   // own. Under ASC 842 operating-lease cost sits in operating expenses, so EBIT
@@ -1880,6 +1930,8 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   // liability, which is what the EV bridge treats as "not separable".
   v.operatingLeaseLiability ??=
     cc.resolved.get("capitalLeaseObligations")?.parts?.["operatingLeaseLiability"] ?? null;
+  v.financeLeaseLiability ??=
+    cc.resolved.get("capitalLeaseObligations")?.parts?.["financeLeaseLiability"] ?? null;
 }
 
 /**
@@ -1943,7 +1995,13 @@ function resolveDebtOverlaps(
   // reader has to see the figure the filer disclosed either way.
   const maturitiesStand = shortTermTags.includes(MATURITIES_NEXT_YEAR_TAG);
   const maturities = cc.money(MATURITIES_NEXT_YEAR_TAG);
-  if (maturitiesStand) {
+  const fiscalRemainder = cc.money("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
+  const scopeReason = maturitiesStand ? fiscalMaturityScopeReason(maturities, fiscalRemainder) : null;
+  if (scopeReason !== null) {
+    v.shortTermDebt = null;
+    notes.withhold("shortTermDebt", ctx, scopeReason);
+    notes.add(`shortTermDebt ${ctx}: ${scopeReason}`);
+  } else if (maturitiesStand) {
     notes.add(
       `shortTermDebt ${ctx}: current maturities taken from the debt maturity schedule (${MATURITIES_NEXT_YEAR_TAG} ${maturities}) — no balance-sheet current-maturities tag was filed for the period; the figure is CURRENT MATURITIES ONLY (any short-term borrowings and commercial paper the filer tagged are added beside it) and, being a note disclosure rather than a balance-sheet line, is often filed annually only, so quarterly rows can lack it`,
     );
@@ -1959,8 +2017,13 @@ function resolveDebtOverlaps(
   const longTermTags = tagsOf("longTermDebt");
   // Case 2.
   if (longTermTags.includes("LongTermDebt") && v.longTermDebt != null) {
-    const current = cc.money("LongTermDebtCurrent") ?? (maturitiesStand ? maturities : null);
-    if (current !== null) {
+    const current = cc.money("LongTermDebtCurrent") ?? (maturitiesStand && scopeReason === null ? maturities : null);
+    if (scopeReason !== null && current === null) {
+      const reason = "noncurrent carrying debt allocation unavailable: LongTermDebt includes current maturities, but the fiscal maturity bucket was rejected as current carrying debt";
+      v.longTermDebt = null;
+      notes.withhold("longTermDebt", ctx, reason);
+      notes.add(`longTermDebt ${ctx}: ${reason}`);
+    } else if (current !== null) {
       v.longTermDebt = tidy(v.longTermDebt - current, MONEY_DECIMALS);
       notes.add(
         `longTermDebt ${ctx}: LongTermDebt less current maturities (${cc.money("LongTermDebtCurrent") !== null ? "LongTermDebtCurrent" : MATURITIES_NEXT_YEAR_TAG} ${current})`,
@@ -2213,6 +2276,11 @@ function buildStatementRows<TRow>(
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
     }
     row.fieldProvenance = fieldProvenance;
+    if (def.statement === "balance") {
+      const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
+      if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
+        { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
+    }
 
     // The superseded figure of every field a later filing changed, kept beside
     // the value the row carries; a MATERIAL line that moved by more than
@@ -2285,6 +2353,7 @@ const DERIVATION_PHRASE: Record<Derivation, string> = {
   "ytd-difference": "YTD difference",
   "fy-minus-ytd": "FY − YTD",
   "fy-minus-quarters": "FY − (Q1+Q2+Q3)",
+  "fy-share-identity": "Q4 net income ÷ Q4 shares from the day-weighted FY identity",
 };
 
 // ---------------------------------------------------------------------------
@@ -2480,7 +2549,7 @@ const INCOME_DEF = (bankRevenue: boolean): StatementDef => ({
   anchors: ["revenue", "netIncome"],
   aliases: {},
   unsourced: INCOME_UNSOURCED,
-  computed: ["grossProfit", "operatingExpenses", "ebitda", "ebit"],
+  computed: ["grossProfit", "ebitda", "ebit"],
   compute: computeIncome,
 });
 
@@ -2490,7 +2559,7 @@ const BALANCE_DEF: StatementDef = {
   anchors: ["totalAssets"],
   aliases: BALANCE_ALIASES,
   unsourced: BALANCE_UNSOURCED,
-  computed: ["cashAndShortTermInvestments", "totalEquity", "totalLiabilities", "totalDebt", "netDebt", "operatingLeaseLiability"],
+  computed: ["cashAndShortTermInvestments", "totalEquity", "totalLiabilities", "totalDebt", "netDebt", "operatingLeaseLiability", "financeLeaseLiability"],
   compute: computeBalance,
 };
 
@@ -2509,6 +2578,79 @@ const CASHFLOW_DEF: StatementDef = {
  * payload. Pure and total: a payload with no usable facts yields empty row
  * lists plus one manifest gap per statement and scope, never a throw.
  */
+/**
+ * A fourth quarter's EPS when the issuer tagged none (10-Ks carry the year,
+ * not the quarter). FY EPS − nine-month EPS is wrong whenever the share count
+ * moves, so the quarter's weighted share count is backed out of the
+ * day-weighted identity
+ *   FY shares × FY days = Σ quarter shares × quarter days
+ * from the annual count and the three tagged quarterly counts of the same
+ * fiscal year, and EPS = the quarter's net income ÷ that count. Without every
+ * operand the per-share figure stays withheld, with a note. Share counts
+ * themselves are never written back (a derived count is not a reported one).
+ */
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+function deriveFourthQuarterPerShare(
+  quarterly: FmpIncomeStatementRow[],
+  annual: readonly FmpIncomeStatementRow[],
+  notes: NoteSink,
+): void {
+  const dated = (row: FmpIncomeStatementRow): row is FmpIncomeStatementRow & { date: string } => typeof row.date === "string";
+  const annualByDate = new Map(annual.filter(dated).map((row) => [row.date, row]));
+  const pairs = [
+    { eps: "eps", shares: "weightedAverageShsOut" },
+    { eps: "epsDiluted", shares: "weightedAverageShsOutDil" },
+  ] as const;
+  for (const q4 of quarterly.filter(dated)) {
+    const fy = annualByDate.get(q4.date);
+    if (fy === undefined) continue;
+    const fyStart = fy.fieldProvenance?.netIncome?.periodStart ?? null;
+    const missing = pairs.filter((pair) => !isNum(q4[pair.eps]));
+    if (missing.length === 0 || fyStart === null) continue;
+    const startMs = dateMs(fyStart) - DAY_MS;
+    const quarters = quarterly
+      .filter(dated)
+      .filter((row) => dateMs(row.date) > startMs + DAY_MS && dateMs(row.date) < dateMs(q4.date))
+      .sort((x, y) => dateMs(x.date) - dateMs(y.date));
+    for (const pair of missing) {
+      const withhold = (why: string): void => {
+        notes.add(`${pair.eps} ${q4.date}: fourth-quarter per-share figure withheld — ${why}; FY − nine-month EPS is not used because per-share amounts are not additive across share counts`);
+      };
+      const fyShares = fy[pair.shares];
+      const netIncome = q4.netIncome;
+      if (!isNum(fyShares) || !isNum(netIncome)) { withhold(`no annual ${pair.shares} or quarter net income`); continue; }
+      if (quarters.length !== 3 || quarters.some((row) => !isNum(row[pair.shares]))) {
+        withhold(`the three earlier quarters' tagged ${pair.shares} are not all available`);
+        continue;
+      }
+      let previousEnd = startMs;
+      let weighted = 0;
+      for (const row of quarters) {
+        const days = (dateMs(row.date) - previousEnd) / DAY_MS;
+        weighted += (row[pair.shares] as number) * days;
+        previousEnd = dateMs(row.date);
+      }
+      const q4Days = (dateMs(q4.date) - previousEnd) / DAY_MS;
+      const fyDays = (dateMs(q4.date) - startMs) / DAY_MS;
+      const q4Shares = (fyShares * fyDays - weighted) / q4Days;
+      if (!(q4Days > 0) || !(q4Shares > 0)) { withhold("the day-weighted share identity gives no positive fourth-quarter count"); continue; }
+      (q4 as Record<string, unknown>)[pair.eps] = tidy(netIncome / q4Shares, PER_SHARE_DECIMALS);
+      const income = q4.fieldProvenance?.netIncome;
+      const fyShareProvenance = fy.fieldProvenance?.[pair.shares];
+      if (income !== undefined && q4.fieldProvenance !== undefined) {
+        q4.fieldProvenance[pair.eps] = {
+          ...income,
+          tags: [...new Set([...income.tags, ...(fyShareProvenance?.tags ?? [])])],
+          filings: [...new Map([...income.filings, ...(fyShareProvenance?.filings ?? [])].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
+          derivation: "fy-share-identity",
+        };
+      }
+      notes.add(`${pair.eps} ${q4.date}: Q4 net income ÷ a Q4 weighted share count of ${Math.round(q4Shares)} backed out of the day-weighted FY identity (FY − nine-month EPS is not additive)`);
+    }
+  }
+}
+
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
@@ -2581,6 +2723,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     state,
     incomeQuarterlyNotes,
   );
+  deriveFourthQuarterPerShare(incomeQuarterly.rows, incomeAnnual.rows, incomeQuarterlyNotes);
   const balanceAnnual = buildStatementRows<FmpBalanceSheetRow>(
     BALANCE_DEF,
     annualYears.map((fy) => ({ date: fy.end, resolve: instantResolver(index, fy.end), quarter: null })),

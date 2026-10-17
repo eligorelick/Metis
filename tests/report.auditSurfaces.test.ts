@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
-import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText } from "@/report/auditTables";
 import { ReportSchema, type Report } from "@/report/schema";
@@ -43,14 +43,21 @@ describe("audit disclosures across live, Markdown and print reports",()=>{
   it("shows actual periods, financial bridges and validation status consistently without mutation",()=>{
     const report=auditReport(), before=JSON.stringify(report);
     const surfaces=[renderToStaticMarkup(createElement(ReportView,{report})),reportToMarkdown(report),reportToPrintBody(report)];
+    // D-62: reader tables in the body; modeled point dates, raw signal values,
+    // the scenario-construction record and the full validation partition in the
+    // audit export.
     for (const surface of surfaces) {
-      for (const text of ["Enterprise value to equity bridge","DCF annual cash-flow path","Common equity value","Signal evidence and contributions","Factor-family exposure","Business quality","Price attractiveness","2026-07-01","2027-06-30","rolling-12-month","scenario-sentinel-1","1/4 validated; 1 contradicted; 2 unchecked","Citation presence: 3/4","No attributable execution evidence in this run","EPS share-count sensitivity","unfunded hypothetical","a".repeat(64)]) expect(surface).toContain(text);
+      for (const text of ["Enterprise value to equity bridge","DCF annual cash-flow path","Common equity value","Score drivers","Factor-family exposure","Business quality","price attractiveness","2027-06-30","1/4 numeric claims validated","1 contradicted","3/4 factual claims cited","No attributable execution evidence in this run","EPS share-count sensitivity","unfunded hypothetical","a".repeat(64)]) expect(surface).toContain(text);
     }
+    const audit = reportToAuditMarkdown(report);
+    for (const text of ["Signal evidence and contributions","2026-07-01","rolling-12-month","scenario-sentinel-1","1/4 validated; 1 contradicted; 2 unchecked","Citation presence: 3/4"]) expect(audit).toContain(text);
     expect(JSON.stringify(report)).toBe(before);
   });
   it("does not manufacture legacy evidence, bridges or sensitivity paths",()=>{
     const report=loadTask28Fixture();
-    expect(scoreAuditTables(report.scores!)).toEqual([]);
+    expect(scoreAuditTables(report.scores!)).toEqual([expect.objectContaining({
+      heading: "Factor contribution sensitivity", rows: [["Unavailable", expect.stringMatching(/complete.*reconcile/i)]],
+    })]);
     expect(valuationAuditTables(report.valuation.dcf)).toEqual([]);
     expect(projectionAuditTables(report.projections!)).toEqual([]);
     expect(factualValidationText()).toBeNull();

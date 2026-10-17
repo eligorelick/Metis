@@ -8,7 +8,8 @@
  *            (space included). Any non-array body carrying "Error Message" is an
  *            error REGARDLESS of HTTP status (401-before-routing: bogus paths
  *            401 identically to real ones, so status alone proves nothing).
- *  - Retry:  429/5xx only (handled by fetchWithPolicy); 401/402/403 are
+ *  - Retry:  5xx/network only (handled by fetchWithPolicy); 429 establishes a
+ *            bounded key-scoped quota cooldown. Other 401/402/403 are
  *            deterministic auth/plan errors → returned as data gaps, no retry.
  *  - EOD:    historical-price-eod/full serves max ~5 years per request →
  *            automatic 5-year from/to chunking loop.
@@ -37,7 +38,7 @@ import { fetchWithPolicy, HttpTransportError, type FetchPolicy, type TokenBucket
 import { canonicalEntitySymbol, isValidSymbol, sameEntitySymbol } from "@/symbol";
 // WS4 (D-11): DEMO and DBNK are reserved fixture symbols and never reach the vendor.
 import { anyReservedFixtureSymbol, isReservedFixtureSymbol } from "@/providers/reservedSymbols";
-import { FmpAccessError, fmpAccessKey, parseFmpRestriction, resetFmpAccess, withFmpAccess } from "@/providers/fmpAccess";
+import { FmpAccessError, FmpQuotaError, assertFmpQuotaAvailable, fmpAccessKey, fmpQuotaError, parseFmpRestriction, resetFmpAccess, withFmpAccess } from "@/providers/fmpAccess";
 
 // ---------------------------------------------------------------------------
 // Cache contract (implemented by @/cache/apiCache — injected to keep this
@@ -96,6 +97,8 @@ export interface FmpProfileRow extends FmpRawRow {
 }
 
 export interface FmpQuoteRow extends FmpRawRow {
+  /** Actual price observation day; explicit null when the vendor supplied no date. */
+  priceAsOf?: string | null;
   symbol?: string;
   name?: string;
   price?: number;
@@ -127,7 +130,7 @@ export interface StatementFieldProvenance {
   tags: string[];
   filings: { accn: string; filed: string; form: string }[];
   /** Quarter reconstruction; absent for a directly reported field. */
-  derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters";
+  derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
 }
 
 export interface StatementFieldConflict {
@@ -170,6 +173,10 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
   netIncome?: number;
+  /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */
+  netIncomeConsolidated?: number;
+  /** Signed earnings allocated to NCI; a loss is negative. */
+  netIncomeAttributableToNoncontrollingInterest?: number;
   /** SEC-derived earnings attributable to common, after preferred distributions/adjustments. */
   netIncomeAvailableToCommon?: number;
   bottomLineNetIncome?: number;
@@ -181,6 +188,9 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
 
 export interface FmpBalanceSheetRow extends FmpStatementRow {
   cashAndCashEquivalents?: number;
+  /** SEC combined total; never a synonym for unrestricted cash. */
+  cashAndCashEquivalentsIncludingRestricted?: number;
+  restrictedCashAndCashEquivalents?: number;
   shortTermInvestments?: number;
   cashAndShortTermInvestments?: number;
   netReceivables?: number;
@@ -216,6 +226,14 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalInvestments?: number;
   totalDebt?: number;
   netDebt?: number;
+  /**
+   * D-60: filed fair value of marketable equity securities INSIDE
+   * cashAndShortTermInvestments. Never served by FMP; Stage B attaches it from
+   * EDGAR companyfacts only when the filing's components reconcile to the total.
+   */
+  marketableEquitySecurities?: number;
+  /** D-60: the reconciliation sentence behind `marketableEquitySecurities`. */
+  marketableEquityBasis?: string;
 }
 
 export interface FmpCashFlowRow extends FmpStatementRow {
@@ -1093,6 +1111,15 @@ function addUtcYears(date: Date, years: number): Date {
   return d;
 }
 
+/** A fetch/envelope date never establishes when a price was observed. */
+export function quotePriceObservationDay(row: FmpRawRow | null | undefined): string | null {
+  if (!row) return null;
+  const timestamp = typeof row.timestamp === "number" ? row.timestamp : null;
+  if (timestamp !== null && Number.isFinite(timestamp) && timestamp > 0 && timestamp * 1000 <= 8.64e15) return new Date(timestamp * 1000).toISOString().slice(0, 10);
+  const date = typeof row.date === "string" ? row.date.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date ? date : null;
+}
+
 /**
  * Derive an asOf date from response rows (fiscal date / quote timestamp), else
  * fallback. Clamped to the fetch date: forward-looking endpoints
@@ -1414,11 +1441,12 @@ export class FmpClient {
     const cacheKey = fmpCacheKey(spec.endpoint, params);
     const ttlMs = FMP_TTLS[spec.method];
     const expectedEntityScope = spec.entityScope === undefined ? undefined : canonicalEntityScope(spec.entityScope);
+    const accessKey = fmpAccessKey(apiKey, this.baseUrl);
 
     let exchange: CachedFetchResult<LiveExchange>;
     try {
       exchange = await this.cachedFetch<LiveExchange>(cacheKey, ttlMs, () => withFmpAccess({
-        key: fmpAccessKey(apiKey, this.baseUrl),
+        key: accessKey,
         endpoint: spec.endpoint,
         symbols: typeof params.symbol === "string" ? params.symbol
           : typeof params.symbols === "string" ? params.symbols : undefined,
@@ -1435,6 +1463,8 @@ export class FmpClient {
           provider: "fmp",
           timeoutMs: this.timeoutMs,
           signal: this.signal,
+          retryOn429: false,
+          beforeAttempt: () => assertFmpQuotaAvailable(accessKey, this.now().getTime()),
           ...(this.limiter ? { limiter: this.limiter } : {}),
           ...(this.fetchImpl ? { fetchImpl: this.fetchImpl } : {}),
         };
@@ -1443,7 +1473,10 @@ export class FmpClient {
           { headers: { apikey: apiKey, accept: "application/json" } },
           policy,
         );
-        const fetchedAt = this.now().toISOString();
+        const now = this.now();
+        const quota = fmpQuotaError(res.status, res.bodyText, res.headers.get("retry-after"), now.getTime());
+        if (quota !== null) throw quota;
+        const fetchedAt = now.toISOString();
         // A plan-cap rejection is a retryable request-shape problem, not data:
         // learn the cap and let the catch below re-issue the call within it.
         // Only when the limit actually sent exceeds the cap — a rejection of an
@@ -1530,6 +1563,9 @@ export class FmpClient {
       if (err instanceof FmpAccessError) {
         return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       }
+      if (err instanceof FmpQuotaError) {
+        return gap(spec.gapField, err.message, "warn", [endpointPath]);
+      }
       if (err instanceof FmpApiError) {
         return gap(spec.gapField, `FMP error (HTTP ${err.status}): ${err.message}`, "warn", [endpointPath]);
       }
@@ -1585,7 +1621,8 @@ export class FmpClient {
       exchange.value.fetchedAt,
     ], this.now().toISOString());
     if (timestampProblem !== null) return gap(spec.gapField, timestampProblem, "warn", [endpointPath]);
-    const rows = validation.rows;
+    const rows = validation.rows.map(row => spec.method === "quote" || spec.method === "batchQuote"
+      ? { ...row, priceAsOf: quotePriceObservationDay(row) } : row);
     const sourced: Sourced<FmpPayload<TRow>> = {
       data: { rows, raw: body, ...(planLimit === undefined ? {} : { planLimit }) },
       asOf: deriveAsOf(rows, fetchedAt ?? this.now().toISOString()),

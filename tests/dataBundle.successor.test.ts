@@ -151,6 +151,9 @@ async function xomBundle(opts?: { predecessorFacts?: CompanyFacts | null; succes
     fmp: createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" }),
     edgar: createEdgarClient({ transport: xomTransport(log, opts) }),
     yahoo: fakeYahoo(),
+    // The header-read counts are predecessor resolution only; the 8-K and XBRL
+    // segment reads (which read 10-Q index headers too) are a separate feature.
+    filingDisclosures: false,
     ...noNetworkConfigs(),
   });
   const predecessor = bundle.edgar.predecessor;
@@ -174,9 +177,12 @@ describe("resolving a successor's predecessor from recorded SEC payloads", () =>
     });
     // Exactly two headers were read, in rank order, and the search stopped at
     // the first that co-registered.
-    expect(headerReads).toHaveLength(2);
-    expect(headerReads[0]).toContain(EIGHT_K_12B);
-    expect(headerReads[1]).toContain(TEN_Q);
+    // Company earnings discovery may separately read 8-K exhibit indexes when
+    // its primary fetch fails. These are not predecessor co-registration reads.
+    const predecessorReads = headerReads.filter(url => url.includes(EIGHT_K_12B) || url.includes(TEN_Q));
+    expect(predecessorReads).toHaveLength(2);
+    expect(predecessorReads[0]).toContain(EIGHT_K_12B);
+    expect(predecessorReads[1]).toContain(TEN_Q);
   });
 
   it("still hops when the successor's own facts hold a single quarter and no year", async () => {
@@ -218,7 +224,7 @@ describe("resolving a successor's predecessor from recorded SEC payloads", () =>
   it("does not hop when the successor carries an annual history of its own", async () => {
     const { predecessor, headerReads } = await xomBundle({ successorFacts: factsWith(SUCCESSOR_CIK, "ExxonMobil Holdings Corp", 3) });
     expect(predecessor).toBeNull();
-    expect(headerReads).toHaveLength(0);
+    expect(headerReads.filter(url => url.includes(EIGHT_K_12B) || url.includes(TEN_Q))).toHaveLength(0);
   });
 
   it("does not adopt a co-registrant whose own payload carries no history", async () => {

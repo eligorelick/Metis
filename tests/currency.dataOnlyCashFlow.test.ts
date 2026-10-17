@@ -22,6 +22,7 @@ import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DataBundle } from "@/pipeline/types";
+import { valuationAuditTables } from "@/report/auditTables";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import type { Report, TracedNumber } from "@/report/schema";
@@ -74,6 +75,39 @@ describe("control: cash flows in the statements' one currency", () => {
   it("control: JPY cash flows with JPY statements are stated in JPY", () => {
     const r = report(bundleOf({ profileCurrency: "JPY", annualCurrency: "JPY" }));
     expect(fcfValues(r).map((v) => v.value.currency)).toEqual(["JPY", "JPY", "JPY"]);
+  });
+});
+
+describe("data-only DCF tables preserve the established model currency", () => {
+  it.each(["USD", "JPY"])("labels the D-65 investment bridge, FCFF and consensus tables in %s", (currency) => {
+    const bundle = bundleOf({ annualCurrency: currency, profileCurrency: currency });
+    for (const family of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
+      if (!family.ok) throw new Error("balance fixture required");
+      for (const row of family.value.data.rows) row.longTermInvestments = 50 * M;
+    }
+    const r = report(bundle);
+    expect(r.valuation.dcf.bridge?.nonOperatingComponents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "long-term investments (filed carrying value)", value: 50 * M }),
+    ]));
+    expect(r.valuation.dcf.bridge?.currency).toBe(currency);
+    expect(r.valuation.dcf.forecastRows?.length).toBeGreaterThan(0);
+    expect(r.valuation.dcf.consensusPath?.length).toBeGreaterThan(0);
+    const tables = valuationAuditTables(r.valuation.dcf);
+    for (const heading of ["Enterprise value to equity bridge", "DCF annual cash-flow path", "DCF path vs consensus"]) {
+      const table = tables.find((t) => t.heading.includes(heading));
+      expect(table, heading).toBeDefined();
+      expect(JSON.stringify(table)).not.toContain("currency unknown");
+      expect(JSON.stringify(table)).toMatch(currency === "USD" ? /\$/ : /JPY/);
+    }
+  });
+
+  it.each([
+    ["unknown", { annualCurrency: null, quarterCurrencies: [null, null, null, null] }],
+    ["conflicting", { annualCurrency: null, quarterCurrencies: ["USD", "USD", "USD", "USD"], siblingQuarterCurrencies: ["EUR", "EUR", "EUR", "EUR"], filingLinks: "shared" }],
+  ] as const)("keeps %s model currency unknown even when handed a USD computed twin", (_, options) => {
+    const r = report(bundleOf(options), runStageB(bundleOf({})));
+    expect(r.valuation.dcf.bridge?.currency).toBeNull();
+    expect(JSON.stringify(valuationAuditTables(r.valuation.dcf))).toContain("currency unknown");
   });
 });
 

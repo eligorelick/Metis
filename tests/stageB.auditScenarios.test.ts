@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDcfAssumptions, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
+import { buildDcfAssumptions, convergentFadeWeights, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
 import { computeProjections, perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -8,25 +8,35 @@ import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 
 const history = [1000, 1100, 1320, 1452, 1742.4].map((revenue, i) => ({
   date: `${2021 + i}-12-31`, revenue, ebit: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i],
-  netIncome: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i] * 0.75, epsDiluted: 1,
+  netIncome: revenue * [0.4, 0.4, 0.1, 0.4, 0.1][i] * 0.75, epsDiluted: 1, interestExpense: 10,
 }));
 const route: CompanyRouteResult = { base: "general", overlays: [], evidence: { sector: null, industry: null }, notes: [], gaps: [], asOf: { today: "2026-10-13", incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null } };
-function fixture(basis: "ttm" | "annual" = "ttm") {
+function fixture(basis: "ttm" | "annual" = "ttm", minorityInterest = 25, preferred = 10) {
   const a = buildDcfAssumptions({ revenueCagr3yPct: 12, analystEstimates: null, waccPct: 9, riskFreePct: 4,
     incomeTtm: { date: "2026-06-30", basis, revenue: 2000, operatingIncome: 600, incomeBeforeTax: 560, incomeTaxExpense: 140 },
     incomeHistory: history.map(r => ({ date: r.date, revenue: r.revenue, operatingIncome: r.ebit, incomeBeforeTax: r.ebit, incomeTaxExpense: r.ebit * .25 })),
     balance: { date: "2026-06-30", basis: "quarter", totalDebt: 200, totalStockholdersEquity: 800, cashAndShortTermInvestments: 300 }, marketCap: 5000 }).assumptions!;
-  const opts = { waccPct: 9, netDebt: -100, dilutedShares: 100, minorityInterest: 25, preferred: 10 };
+  const opts = { waccPct: 9, netDebt: -100, dilutedShares: 100, minorityInterest, preferred };
   const dcf = runDcf(a, opts);
   const valuation: Extract<ValuationResult, { kind: "dcf" }> = { kind: "dcf", route: "general", assumptions: a, dcf, sensitivity: null, reverseDcf: null,
     multiples: { multiples: [], enterpriseValue: { value: null, excludingLeases: null, includingLeases: null, leaseLiability: null, includeLeases: false, basis: "test" }, sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] }, notes: [], gaps: [] };
   return { a, opts, dcf, valuation };
 }
-function projections(valuation = fixture().valuation, shareCountAnnualizedPct: number | null = -5) {
+// Share-count sensitivities need an ownership-compatible common-earnings model.
+// Keep the separate 25-NCI fixture for the entity/equity bridge assertions.
+function projections(valuation = fixture("ttm", 0, 0).valuation, shareCountAnnualizedPct: number | null = -5) {
   return computeProjections({ route, valuation, waccPct: 9, dilutedShares: 100, incomeHistory: history, fcfHistory: [], shareCountAnnualizedPct, currency: "USD", asOf: "2026-10-13" });
 }
 
 describe("report audit valuation regressions", () => {
+  it("retains entity paths but withholds share-count EPS alternatives for the NCI bridge fixture", () => {
+    const result = projections(fixture().valuation);
+    const eps = result.series.find(s => s.metric === "epsDiluted")!;
+    expect(eps.historical.length).toBeGreaterThan(0);
+    expect(eps.base).toEqual([]);
+    expect(eps.shareTrend).toBeUndefined();
+    expect(result.series.find(s => s.metric === "revenue")!.base.length).toBeGreaterThan(0);
+  });
   it("inverts a fading forward path at the identical year-one anchor", () => {
     const { a, opts } = fixture();
     a.growthPath.value = fadePath(12, 2.5, 10);
@@ -52,14 +62,18 @@ describe("report audit valuation regressions", () => {
   });
   it("uses the same countercyclical scenario identity in targets and projected revenue", () => {
     const { valuation, a } = fixture();
-    const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
+    // Re-pinned for D-60: decaying shocks need a margin-dominated history (growth σ ≈ 1.2pp, margin σ 12pp, corr ≈ −1) to invert.
+    const countercyclical = ([[1000, 30], [1100, 15], [1188, 45], [1300.86, 20], [1398.42, 50]] as const).map(([revenue, m], i) => ({
+      date: `${2021 + i}-12-31`, revenue, ebit: revenue * m / 100, netIncome: revenue * m / 100 * 0.75, epsDiluted: 1 }));
+    const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: countercyclical, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
     const bull = t.targets.find(t => t.name === "bull")!;
     expect(bull.growthDeltaPp).toBeLessThan(0);
-    const p = projections(valuation);
+    const p = computeProjections({ route, valuation, waccPct: 9, dilutedShares: 100, incomeHistory: countercyclical, fcfHistory: [], shareCountAnnualizedPct: -5, currency: "USD", asOf: "2026-10-13" });
     const revenue = p.series.find(s => s.metric === "revenue")!;
     expect(revenue.bull[0].value.value).toBeCloseTo(2000 * (1 + (a.growthPath.value[0] + bull.growthDeltaPp) / 100), 2);
     expect(p.scenarioAssumptions).toEqual(t.scenarioAssumptions);
-    expect(t.scenarioAssumptions?.alternatives[0].name).toBe("decaying-growth-shock");
+    // D-60: the decaying shock is the main construction, so no alternative is listed.
+    expect(t.scenarioAssumptions?.alternatives).toEqual([]);
     // The main-branch compatibility adapter must not invert the already-shared
     // labels again, including the flat-share and unfunded-share-trend paths.
     expect(alignProjectionScenarios(p, t)).toBe(p);
@@ -67,9 +81,9 @@ describe("report audit valuation regressions", () => {
   it("refuses unfunded share shrinkage and provides flat-share and historical-trend EPS", () => {
     const eps = projections().series.find(s => s.metric === "epsDiluted")!;
     const firstEbit = fixture().dcf.yearRows[0].ebit;
-    expect(eps.base[0].value.value).toBeCloseTo(firstEbit * .75 / 100, 2);
+    expect(eps.base[0].value.value).toBeCloseTo((firstEbit - 10) * .75 / 100, 2);
     expect(eps.flatShare?.base[0].value.value).toBe(eps.base[0].value.value);
-    expect(eps.shareTrend?.base[0].value.value).toBeCloseTo(firstEbit * .75 / 95, 2);
+    expect(eps.shareTrend?.base[0].value.value).toBeCloseTo((firstEbit - 10) * .75 / 95, 2);
     expect(eps.capitalReturn?.appliedShareCountAnnualizedPct).toBe(0);
     expect(projections(undefined, null).series.some(s => s.metric === "epsDiluted")).toBe(true);
   });
@@ -88,9 +102,13 @@ describe("report audit valuation regressions", () => {
     expect(result.impliedRevenueGrowthPct).toBeNull();
     expect(result.gaps.some(g => g.field === "valuation.reverseDcf.growthBracket")).toBe(true);
   });
-  it("recovers a different market-implied anchor using the same fading terminal growth", () => {
+  it("recovers a different market-implied anchor on the same convergent-shift path family (D-58)", () => {
     const { a, opts } = fixture();
-    const price = runDcf({ ...a, growthPath: { value: fadePath(18.25, 2.5, 10), basis: "sensitivity" } }, opts).perShare!;
+    // The family is the base path with year one moved to g and every later
+    // year moved by (g − base) × its convergent fade weight.
+    const w = convergentFadeWeights(10);
+    const shifted = a.growthPath.value.map((g, i) => g + (18.25 - 12) * w[i]);
+    const price = runDcf({ ...a, growthPath: { value: shifted, basis: "sensitivity" } }, opts).perShare!;
     const result = reverseDcf(price, a, opts);
     expect(result.impliedRevenueGrowthPct).toBeCloseTo(18.25, 2);
     expect(result.baseRevenueGrowthPct).toBe(12);
@@ -107,8 +125,8 @@ describe("report audit valuation regressions", () => {
   });
   it("retains positive dilution while exposing a constant-share EPS comparison", () => {
     const eps = projections(undefined, 5).series.find(s => s.metric === "epsDiluted")!;
-    expect(eps.base[0].value.value).toBeCloseTo(fixture().dcf.yearRows[0].ebit * .75 / 105, 2);
-    expect(eps.flatShare?.base[0].value.value).toBeCloseTo(fixture().dcf.yearRows[0].ebit * .75 / 100, 2);
+    expect(eps.base[0].value.value).toBeCloseTo((fixture().dcf.yearRows[0].ebit - 10) * .75 / 105, 2);
+    expect(eps.flatShare?.base[0].value.value).toBeCloseTo((fixture().dcf.yearRows[0].ebit - 10) * .75 / 100, 2);
     expect(eps.capitalReturn?.policy).toBe("dilution-trend");
   });
 });

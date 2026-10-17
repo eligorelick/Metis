@@ -1,11 +1,12 @@
 import type { Report } from "@/report/schema";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
+import { dataStateText } from "@/report/presentation";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
 import { sectionAnchorId } from "./primitives";
 
 /** Recorded snapshot context; no new fetch, confidence score or inferred date. */
 export function ReportEvidenceRail({ report }: { report: Report }) {
-  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData);
+  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const dates = Object.entries(report.meta.asOfMap);
   return (
     <aside className="workspace-evidence-rail" aria-label="Report evidence and gaps">
@@ -15,7 +16,7 @@ export function ReportEvidenceRail({ report }: { report: Report }) {
         <div><dt className="text-faint">Generated</dt><dd className="mono break-words">{report.meta.generatedAt}</dd></div>
         <div><dt className="text-faint">Analysis model</dt><dd className="break-words">{report.meta.model}</dd></div>
       </dl>
-      <p className="mt-3 text-[12px] text-muted">{completeness.statusText}</p>
+      <p className="mt-3 text-[12px] text-muted">{dataStateText(completeness)}</p>
       <p className="mt-2 text-[11px] text-faint">Incident counts follow the report&apos;s completeness policy. Recorded entries below also include expected and fixture omissions.</p>
       <details className="mt-3">
         <summary className="cursor-pointer text-[12px] font-medium">Recorded gaps ({report.appendix.missingData.length})</summary>

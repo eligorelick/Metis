@@ -7,6 +7,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { ReportMetaStrip } from "@/components/report/sections";
 import { buildDataCompleteness } from "@/report/completeness";
 import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import type { DataCompleteness, Report } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
@@ -216,18 +217,26 @@ function expectUnknownCompleteness(text: string): void {
   expectNoLegacyOverclaim(text);
 }
 
+/**
+ * D-62: a confirmed data state leads with the state itself ("Degraded: 0
+ * critical gaps, 1 warning; …"). "Completeness confirmed: state degraded"
+ * described the metadata check, not the data, and read as a contradiction.
+ */
+function expectConfirmedState(text: string, expected: ExpectedDimensions, scope?: string): void {
+  // D-67: warnings are counted once per underlying data gap ("1 data warning").
+  expect(text, scope).toMatch(new RegExp(`\\b${expected.state}: ${expected.critical} critical gaps?, ${expected.warnings} data warnings?;`, "i"));
+  expect(text, scope).toMatch(new RegExp(`EDGAR ${expected.edgar}`, "i"));
+  expect(text, scope).toMatch(new RegExp(`XBRL ${expected.xbrl}`, "i"));
+  expect(text, scope).toMatch(new RegExp(`forensics ${expected.forensics}`, "i"));
+  expect(text, scope).not.toMatch(/completeness confirmed/i);
+}
+
 function expectConfirmedScopes(
   scopes: CompletenessScopes,
   expected: ExpectedDimensions,
 ): void {
   eachCompletenessScope(scopes, (text, scope) => {
-    expect(text, scope).toMatch(/completeness confirmed/i);
-    expect(text, scope).toMatch(new RegExp(`state ${expected.state}`, "i"));
-    expect(text, scope).toMatch(new RegExp(`critical ${expected.critical}`, "i"));
-    expect(text, scope).toMatch(new RegExp(`warnings ${expected.warnings}`, "i"));
-    expect(text, scope).toMatch(new RegExp(`EDGAR ${expected.edgar}`, "i"));
-    expect(text, scope).toMatch(new RegExp(`XBRL ${expected.xbrl}`, "i"));
-    expect(text, scope).toMatch(new RegExp(`forensics ${expected.forensics}`, "i"));
+    expectConfirmedState(text, expected, scope);
   });
 }
 
@@ -274,13 +283,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
       expect(text, surface).toContain("No completed multi-pass analysis");
       expect(text, surface).toContain("Deterministic data is complete");
-      expect(text, surface).toMatch(/completeness confirmed/i);
-      expect(text, surface).toMatch(/state blocked/i);
-      expect(text, surface).toMatch(/critical 1/i);
-      expect(text, surface).toMatch(/warnings 0/i);
-      expect(text, surface).toMatch(/EDGAR available/i);
-      expect(text, surface).toMatch(/XBRL checked/i);
-      expect(text, surface).toMatch(/forensics complete/i);
+      expectConfirmedState(text, { state: "blocked", critical: 1, warnings: 0, edgar: "available", xbrl: "checked", forensics: "complete" }, surface);
       expectNoLegacyOverclaim(text);
     });
   });
@@ -316,11 +319,13 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
       expect(text, surface).toContain("1 additional data gap");
       expect(text, surface).not.toContain("1 additional data gaps");
-      expect(text, surface).toContain("TASK28:integration:one actionable bull gap");
-      expect(text, surface).toContain("TASK28:integration:expected issuer omission");
       expect(text, surface).not.toMatch(/deterministic data is complete/i);
       expectNoLegacyOverclaim(text);
     });
+    // D-62: the body keeps a gap summary; every manifest reason is in the audit export.
+    const audit = readable(reportToAuditMarkdown(report));
+    expect(audit).toContain("TASK28:integration:one actionable bull gap");
+    expect(audit).toContain("TASK28:integration:expected issuer omission");
   });
 
   it("keeps analysis-only legacy reports data-only but marks absent completeness metadata unknown", () => {
@@ -376,13 +381,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
     expectConfirmedScopes(completenessScopes(report, rendered), testCase);
 
     eachSurface(rendered, (text, surface) => {
-      expect(text, surface).toMatch(/completeness confirmed/i);
-      expect(text, surface).toMatch(new RegExp(`state ${testCase.state}`, "i"));
-      expect(text, surface).toMatch(new RegExp(`critical ${testCase.critical}`, "i"));
-      expect(text, surface).toMatch(new RegExp(`warnings ${testCase.warnings}`, "i"));
-      expect(text, surface).toMatch(new RegExp(`EDGAR ${testCase.edgar}`, "i"));
-      expect(text, surface).toMatch(new RegExp(`XBRL ${testCase.xbrl}`, "i"));
-      expect(text, surface).toMatch(new RegExp(`forensics ${testCase.forensics}`, "i"));
+      expectConfirmedState(text, testCase, surface);
       expect(text, surface).not.toContain("No completed multi-pass analysis");
       expect(text, surface).not.toMatch(/deterministic data is complete/i);
       expectNoLegacyOverclaim(text);

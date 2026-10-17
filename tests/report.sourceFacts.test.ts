@@ -53,6 +53,30 @@ function record(input: ContextPayload, metric: string): NumericProvenanceRecord 
 }
 
 describe("evidence-bound source facts and reported earnings", () => {
+  function ownershipPayload(nci: number | null): ContextPayload {
+    const input = payload({ "income-before-tax": 1027, "income-tax-expense": 152, "net-income": 878, "equity-method-income-loss-as-filed": 3 });
+    for (const [metric, label, value] of [["consolidated-net-income", "consolidated net income", 875],
+      ["noncontrolling-interest-net-income", "noncontrolling interest net income", nci]] as const) {
+      if (value === null) continue;
+      const id = `payload.statements.income-statement-quarterly.2026-06-30.${metric}`;
+      input.provenanceRegistry!.push({ ...input.provenanceRegistry![0]!, id, label, value });
+      input.statements[0]!.lineItems.push({ lineItem: label, unit: "currency", source: "fmp:income-statement(quarter)",
+        byPeriod: [{ ...input.statements[0]!.lineItems[0]!.byPeriod[0]!, value, provenanceId: id }] });
+    }
+    return input;
+  }
+  it("reconciles consolidated profit to parent profit by subtracting signed NCI earnings", () => {
+    const summary = buildSourceFactSummary(ownershipPayload(-3))!;
+    expect(summary.earningsReconciliation).toMatchObject({ status: "available", method: "pretax-minus-tax-minus-nci", pretaxMinusTax: 875,
+      reconciledNetIncome: 878, reportedNetIncome: 878, residual: 0 });
+    expect(summary.earningsReconciliation.operandIds.some(id => id.endsWith("equity-method-income-loss-as-filed"))).toBe(false);
+    expect(SourceFactSummarySchema.safeParse(summary).success).toBe(true);
+  });
+  it("does not use an unrelated equity-method amount to plug a known ownership-scope gap", () => {
+    const summary = buildSourceFactSummary(ownershipPayload(null))!;
+    expect(summary.earningsReconciliation.status).toBe("unavailable");
+    expect(summary.earningsReconciliation.reason).toMatch(/noncontrolling|ownership/i);
+  });
   it("binds an EDGAR quarter to its actual provider origin", () => {
     const input = payload();
     for (const line of input.statements[0]!.lineItems) line.source = "edgar:income-statement(quarter)";
@@ -375,6 +399,21 @@ describe("pipeline-owned source facts across report paths", () => {
     expect(ai.sourceFactSummary?.earningsReconciliation.status).toBe("available");
     expect(dataOnly.sourceFactSummary).toEqual(ai.sourceFactSummary);
     expect(ReportSchema.safeParse(dataOnly).success).toBe(true);
+  });
+
+  // NVDA report 34: FMP serves the latest quarter without field-level SEC
+  // boundaries, so the reconciliation was "unavailable" on every FMP issuer.
+  it("reconciles an FMP-served quarter bounded by the issuer's preceding fiscal quarter", async () => {
+    const bundle = compatibleBundle();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("Synthetic statements required");
+    const [latest, prior] = bundle.statements.incomeQuarterly.value.data.rows;
+    delete latest!.fieldProvenance;
+    prior!.fiscalYear = "2025"; prior!.period = "Q4";
+    const context = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+    const summary = (await runVerifyPass(verifyDeps, context, reportFixture())).verifiedReport.sourceFactSummary;
+    expect(summary?.status).toBe("available");
+    expect(summary?.earningsReconciliation.status).toBe("available");
+    expect(summary?.rows[0]?.periodContext).toMatchObject({ start: "2026-01-01", end: "2026-03-31", basis: "fiscal-quarter", fiscalLabel: "Q1 FY2026" });
   });
 
   it("does not carry a copied source summary through a data-only report with no quarterly evidence", () => {

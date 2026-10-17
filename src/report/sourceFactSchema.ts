@@ -25,7 +25,7 @@ export const SourceFactRowSchema = z.object({
 export const ReportedEarningsReconciliationSchema = z.object({
   status: z.enum(["available", "unavailable"]),
   reason: z.string().min(1).nullable(),
-  method: z.enum(["pretax-minus-tax", "pretax-minus-tax-plus-equity-method"]).nullable(),
+  method: z.enum(["pretax-minus-tax", "pretax-minus-tax-plus-equity-method", "pretax-minus-tax-minus-nci"]).nullable(),
   pretaxMinusTax: z.number().nullable(),
   reconciledNetIncome: z.number().nullable(),
   reportedNetIncome: z.number().nullable(),
@@ -58,7 +58,8 @@ export const SourceFactSummarySchema = z.object({
   const reconciliation = summary.earningsReconciliation;
   if (new Set(reconciliation.operandIds).size !== reconciliation.operandIds.length || reconciliation.operandIds.some(id => !ids.has(id))) ctx.addIssue({ code: "custom", path: ["earningsReconciliation", "operandIds"], message: "Every unique reconciliation operand must have a rendered source fact" });
   if (reconciliation.method !== null) {
-    const required = ["income-before-tax", "income-tax-expense", "net-income", ...(reconciliation.method === "pretax-minus-tax-plus-equity-method" ? ["equity-method-income-loss-as-filed"] : [])];
+    const required = ["income-before-tax", "income-tax-expense", "net-income", ...(reconciliation.method === "pretax-minus-tax-plus-equity-method" ? ["equity-method-income-loss-as-filed"] : []),
+      ...(reconciliation.method === "pretax-minus-tax-minus-nci" ? ["noncontrolling-interest-net-income", ...(summary.rows.some(row => row.metric === "consolidated-net-income") ? ["consolidated-net-income"] : [])] : [])];
     const rendered = summary.rows.filter(row => required.includes(row.metric));
     if (rendered.length !== required.length || reconciliation.operandIds.length !== required.length || rendered.some(row => !reconciliation.operandIds.includes(row.provenanceId))) ctx.addIssue({ code: "custom", path: ["earningsReconciliation", "operandIds"], message: "Reported arithmetic requires every method operand to be rendered" });
   }

@@ -254,8 +254,9 @@ describe("fmtMoney", () => {
     expect(fmtMoney(1234.5, null)).toBe("1,234.50 (currency unknown)");
   });
 
-  it("negative values render as $-… (sign INSIDE the currency prefix — current behavior)", () => {
-    expect(fmtMoney(-5, "USD")).toBe("$-5.00");
+  // D-62: a true minus sign leads the currency ("−$5.00"), not "$-5.00".
+  it("negative values render with a leading minus sign before the currency", () => {
+    expect(fmtMoney(-5, "USD")).toBe("−$5.00");
   });
 
   it("sentinels -> n/a", () => {

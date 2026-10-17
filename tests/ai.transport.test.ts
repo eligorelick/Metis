@@ -103,6 +103,16 @@ describe("response validation boundaries", () => {
     expect(error).toMatchObject({ message: "ChatGPT stream ended before completion", observed: { partialText: '{"verdict":{"synthesis":"saved"}}' } });
     expect(kept).toContain('{"verdict":{"synthesis":"saved"}}');
   });
+  it("never checkpoints an excluded commentary item when its done event omits the phase", async () => {
+    const kept: string[] = [];
+    const error = await consumeChatGptStream(stream(
+      { type: "response.output_item.added", output_index: 0, item: { type: "message", phase: "commentary" } },
+      { type: "response.output_item.done", output_index: 0, item: { type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: '{"verdict":{"synthesis":"commentary"}}' }] } },
+    ), (text) => { kept.push(text); }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ message: "ChatGPT stream ended before completion" });
+    expect(error).not.toHaveProperty("observed.partialText");
+    expect(kept).toEqual([]);
+  });
   it("uses completed output items when OAuth's terminal response omits output", async () => {
     const item = { type: "message", role: "assistant", status: "completed", phase: "final_answer", content: [{ type: "output_text", text: '{"ok":true}' }] };
     const result = await consumeChatGptStream(stream(

@@ -170,14 +170,29 @@ the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
-**Analyst-estimate currency.** `src/pipeline/estimateCurrency.ts` requires the
-estimate row's own `reportedCurrency`/`currency` or a documented provider
-convention. The provider-convention constant is currently null. A matching
-listing currency does not establish an estimate's currency. All estimate rows
-must share the model currency to enter the consensus growth method; otherwise
-they are disclosed as currency unknown or incompatible and excluded. Monetary
-estimate/target fields with unknown currency cannot become verified money
-merely because they are present in the payload.
+**Provider rows without a currency (D-57).** FMP's analyst-estimate,
+price-target, stock-peer and executive-compensation rows carry no currency
+field. `src/pipeline/estimateCurrency.ts` gives each row its own
+`reportedCurrency`/`currency` when it has one. Otherwise the row inherits the
+issuer's currency, but only when three things agree:
+
+- the reporting currency the statements establish (the model currency);
+- the listing currency on the profile;
+- the issuer is not an ADR.
+
+An ADR's provider rows may be per receipt in the listing currency or per
+ordinary share in the reporting currency, so inheritance is withheld. It is
+also withheld when the reporting and listing currencies differ, or when either
+is unknown. An inherited figure is rendered "(USD, inherited)" in the AI
+payload, its registry record carries `currencyBasis: "inherited"`, and the
+`valuation.analystEstimates.currency` manifest entry says the estimates were
+inherited. Stock-peer market caps inherit the subject's currency because FMP
+draws peers from the subject's own exchange. All estimate rows must resolve to
+the model currency to enter the consensus growth method and the year-one
+revenue anchor. A row in another currency is excluded, as is a row whose
+currency stays unknown, and no FX conversion is attempted. D-57 replaces
+D-28's own-row-only rule, which discarded USD consensus, peer sizes and
+executive pay for a USD issuer (NVDA report #34).
 
 These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/stageB.ttm.compute.test.ts`, `tests/currency.quarterEvidence.test.ts`,
@@ -193,13 +208,13 @@ rate)` row) and in the report's computed-returns notes.
 
 | Input | Source | Convention |
 | --- | --- | --- |
-| Risk-free rate | FMP treasury rates (`year10`), else **FRED `DGS10`** | The series id and the observation date are both stated. |
-| Equity risk premium | FMP market-risk-premium `totalEquityRiskPremium` for the issuer's domicile, with country-code/name alias matching; an absent or conflicting domicile row falls back to the unambiguous US row with disclosure, then the dated **Damodaran US** implied-ERP fallback if the selected input is missing or implausible | Conflicting distinct premiums for one country are not chosen by array order. The static fallback is 4.18%, dated 2026-07-01 in `returns.ts`; it requires a valid analysis date, cannot post-date that analysis, and expires after 210 days. A value outside [3%, 25%] falls back. This domicile rule is a house assumption, not an estimate of geographic revenue exposure. |
-| Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. |
+| Risk-free rate | **FRED `DGS10`** (latest finite observation), else FMP treasury rates (`year10`) | The series id and the observation date are both stated. D-60: DGS10 comes first so the current WACC and every per-year WACC share one series; the vendor endpoint is only the fallback. |
+| Equity risk premium | FMP market-risk-premium `totalEquityRiskPremium` for the issuer's domicile, with country-code/name alias matching; an absent or conflicting domicile row falls back to the unambiguous US row with disclosure, then the dated **Damodaran US** implied-ERP fallback if the selected input is missing or implausible | Conflicting distinct premiums for one country are not chosen by array order. The static fallback is 4.18%, dated 2026-07-01 in `returns.ts`; it requires a valid analysis date, cannot post-date that analysis, and expires after 210 days. A value outside [3%, 25%] falls back. This domicile rule is a house assumption, not an estimate of geographic revenue exposure. D-60: the vendor row carries no vintage, so its date is printed as the acquisition date with "vintage not published by the vendor", beside the dated Damodaran reference. |
+| Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. D-60: a vendor beta publishes no window or fit, so the basis also prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. The WACC keeps the beta it used; no bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%]. Where it came from is named. No universal statutory rate is assumed. |
-| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), averaged over the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else over the latest two fiscal-year ends | Stated as E% / D%, with the pair of balances and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, a WACC-only shortfall is disclosed as a warning rather than blocking the report. |
+| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, a WACC-only shortfall is disclosed as a warning rather than blocking the report. |
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
 rate by 0.5pp or more is disclosed in the manifest, because it materially
@@ -261,17 +276,45 @@ net income, and leverage requires positive EBITDA. Maintenance capex
 `min(abs(capex), D&A)` and growth capex `max(0, abs(capex) − D&A)` are house
 heuristics, not a filed maintenance/development split.
 
-Buyback price discipline is a proxy: within each fiscal cash-flow window,
-average the available market-cap history and divide by basic weighted-average
-shares (diluted fallback disclosed). Negative repurchase cash flow is converted
-to positive dollars spent; implied shares bought equal spend / proxy price.
-The aggregate price is total covered spend / total implied shares. Its
-premium/discount is `(current price − proxy paid price) / proxy paid price`;
-positive means the current price exceeds the proxy paid price. Partial dollar
-coverage is disclosed. It is not the actual transaction-price record and is
-withheld for ADRs or unmatched/unknown quote/statement currencies.
+**Buyback price proxy.** Within each fiscal cash-flow window, the available
+market-cap history is averaged and divided by basic weighted-average shares
+(diluted fallback disclosed). That is the year's average price.
+- Negative repurchase cash flow is converted to positive dollars spent, and
+  implied shares bought equal spend ÷ proxy price.
+- The aggregate proxy price is total covered spend ÷ total implied shares.
+- Its premium/discount, `(current price − proxy paid price) / proxy paid
+  price`, is the price **appreciation since the repurchases**. It is shown
+  and not graded (D-61), because it rewards any stock that rose.
+- Partial dollar coverage is disclosed.
+- The proxy is withheld for ADRs and for unmatched or unknown quote/statement
+  currencies.
+
+**Repurchase timing** (D-61, `repurchaseExecutions.ts`) uses the price
+actually paid: the filer's tagged repurchase cost ÷ tagged shares for the
+fiscal year.
+- **Tags.** The share/value pairs are
+  `StockRepurchasedAndRetiredDuringPeriod*`,
+  `StockRepurchasedDuringPeriod*` and `TreasuryStockSharesAcquired` /
+  `TreasuryStockValueAcquiredCostMethod`. Both facts come from the latest
+  filing that tags both for that year.
+- **Share basis.** The count is put on the statements' share basis with the
+  split resolution. Without that resolution, nothing is computed.
+- **Measure.** Timing = (Σ shares bought × that year's average price) ÷
+  (Σ cost paid) − 1. Positive means the shares were bought below the same
+  year's average price (Dittmar & Field 2015).
+- **Exclusions.** A year whose paid price is more than 1.6× away from its
+  average price is excluded as a basis or tagging mismatch. Timing is
+  withheld below 50% coverage of repurchase dollars.
+- **Missing side (D-68).** The year's average price is the market cap over
+  the fiscal window ÷ basic weighted shares. When timing is not measured,
+  the capital note names the side that is missing: the years whose tagged
+  execution price has no year-average price (and why, e.g. no market-cap
+  history inside the fiscal window), the years outside the plausibility band,
+  or no tagged pair at all.
+
 See `tests/stageB.growth.returns.capital.test.ts`,
-`tests/stageB.returnsCurrencyAndIc.test.ts` and `tests/stageB.rote.test.ts`.
+`tests/stageB.forensicsD61.test.ts`, `tests/stageB.returnsCurrencyAndIc.test.ts`
+and `tests/stageB.rote.test.ts`.
 
 ## Growth anchor
 
@@ -308,11 +351,119 @@ its measured span, e.g. "measured span 2.00 years, not the 3-year window". With
 two annual years of history both windows are excluded rather than counting one
 two-year rate twice. The degraded CAGR series is still displayed with its span.
 
-The median is then **clamped to [−10%, +25%]**, and the anchor the report
-prints is the clamped value — the same number the growth path fades from.
-When the clamp moves it, the anchor's basis says so, the growth-path basis
-repeats it, and the assumption row reads "25.0% (…, clamped from the 65.0%
-median)". Nothing prints the pre-clamp median as if it were the anchor.
+The median is then **clamped to [−10%, +25%]**. The report prints the clamped
+value as the "near-term growth rate", and the year-one revenue anchor below
+uses that value. When the clamp moves it, the rate's basis says so, the
+growth-path basis repeats it, and the assumption row reads "25.0% (…, clamped
+from the 65.0% median)". Nothing prints the pre-clamp median as if it were the
+rate.
+
+### Year-one revenue anchor (D-58, D-60)
+
+Year-one revenue is the 12 months after the TTM end. D-60 takes it from the
+first available of three sources:
+
+1. **Analyst consensus levels**, calendarized to the year-one window, when
+   consensus is consistent with guidance: no guidance, or a year-one
+   consensus at or above the guided quarter's low end × 4. Each fiscal-year
+   estimate is spread evenly over its days and weighted by its overlap with
+   the window. A 52/53-week year starts the day after the previous estimate's
+   year end. The estimates must cover at least 97% of the window. D-65: the
+   fiscal year the window starts in contributes its consensus **less the
+   revenue already reported** in it (the quarters after the latest annual
+   statement through the TTM end, consecutive 13/14-week quarters in the model
+   currency), spread over its unreported days; a consensus at or below what
+   is already reported is stale and leaves the window uncovered. NVDA FY2027:
+   $409.80B − $177.84B reported for H1 = $231.96B for 2026-07-27..2027-01-25,
+   where an even share gave $205.5B. The next fiscal year's share is still an
+   even spread, which for a fast grower overstates its early quarters
+   (disclosed in D-65; no within-year shape is assumed). Consensus covers the
+   window's four quarters; guidance covers one, and an issuer that reports
+   above its own range each quarter makes the guided run-rate a floor rather
+   than a central case. A consensus below the guided run-rate predates or
+   contradicts the outlook and is not used for year one. The same breadth and
+   agreement gates as later years apply (below).
+2. **Management guidance** for the next fiscal quarter
+   (`DcfAssumptionInputs.guidance`, from the 8-K earnings release). The guided
+   quarter is annualized (× 4) and carried 4.5 months, from the guided
+   quarter's midpoint to the year-one window's midpoint, at the **guided
+   sequential pace**: guided quarter over the latest reported quarter,
+   annualized. D-58 carried it at the clamped near-term rate, a statement about
+   history rather than about the guided trajectory. Guidance must end 80–100
+   days after the TTM and be published after it. A guided operating margin, if
+   present, sets the year-one margin; a guided GAAP tax rate sets the year-one
+   tax rate.
+3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
+   the year-one midpoint at the near-term growth rate.
+
+The **run-rate** is the latest quarter annualized, made seasonally neutral.
+Latest quarter × 4 overstates a seasonal peak quarter and understates a
+trough. So the run-rate is the TTM carried 4.5 months forward at the latest
+quarter's year-over-year growth, which has no seasonal component, bounded by
+the TTM and latest quarter × 4. It needs the same fiscal quarter a year
+earlier (350–380 days before), established in the model currency. Without one,
+the anchor falls back to the pre-D-58 rule: TTM revenue grown one year at the
+near-term growth rate.
+
+**A broken-input guard bounds year-one revenue relative to the run-rate.** Its
+range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided
+sequential pace and the latest quarter's year-over-year growth. It catches a
+mis-scaled estimate without overruling the issuer's own reported trajectory.
+Without a run-rate it is measured against the TTM. When it binds, the anchor
+row prints both values.
+
+**Later years (D-65).** Every explicit year after the first takes consensus
+growth, window over window, while consensus covers it: the consensus level
+itself when consensus set year one, else consensus growth applied to the level
+actually used, with the gap to the consensus level stated. D-60 stopped at year
+two, and the convergent fade from there put NVDA's years 3–5 9–45% above the
+FY+3…FY+5 consensus the same provider response held. A year is anchored only
+while every fiscal-year estimate behind its window passes two gates, and its
+growth stays in band:
+
+- **Breadth:** at least `MIN_CONSENSUS_ANALYSTS` = 3 revenue estimates. A mean
+  of one or two forecasts is a forecaster's view, not a consensus, and
+  dispersion is undefined below two (Diether, Malloy and Scherbina 2002 require
+  two or more); three gives the low–high range an interior point.
+- **Agreement:** an implied coefficient of variation, (high − low) ÷ (d2(n) ×
+  mean), of at most `MAX_CONSENSUS_CV_PCT` = 25%. The raw range widens with the
+  number of forecasters, so it is divided by d2(n), the expected range of n
+  normal draws (Tippett 1925; the range-chart constant, Harter 1960 tables,
+  linear between tabulated n and held at d2(50) above it). One standard
+  deviation of disagreement wider than a quarter of the level means the mean
+  no longer pins a level (dispersion as uncertainty: Barron, Kim, Lim and
+  Stevens 1998).
+- **Band:** growth within [−10%, max(25%, the prior anchored year's growth)].
+  Year two is clamped to it (as D-58 did) and then ends the stretch; from year
+  three a window outside it ends the stretch.
+
+A provider row without an analyst count or range is accepted for years one and
+two (the D-60 rule) and never beyond. The stretch is contiguous, and the final
+explicit year always belongs to the fade, so the path reaches the terminal
+rate. The fade starts from the last anchored year. Both gates and the band are
+unbacktested house conventions (RESEARCH §8).
+
+The assumption block prints a **consensus-anchored years** row ("years 1–4 of
+10"), and the valuation section a **DCF path vs consensus** table: each window's
+DCF revenue beside calendarized consensus, the gap, whether it was anchored and
+why not, and the fiscal-year estimates behind it (days, analyst count, implied
+dispersion). Text names the anchored years; it never calls the path
+"consensus-anchored" alone.
+
+**The near-term growth rate** (median of methods, clamped to [−10%, 25%]) sets
+year one only on the run-rate and TTM paths. D-65: when it does not, it is not
+an assumption row (its methods stay in the notes and the audit export), and the
+analyst-consensus method prints both of its legs so the average can be
+reproduced.
+
+On NVDA's 2026-10-15 inputs, consensus sits above guidance × 4 ($432B), so it
+sets year one: $578.3B for the 12 months to 2027-07-26 (+90.9% over TTM; D-60's
+even spread gave $551.8B). Consensus also covers the windows to 2028, 2029 and
+2030-07-26 ($810.5B, $1,013.9B, $1,133.7B: +40.1%, +25.1%, +11.8%), with 30–42
+analysts and implied dispersions of 2.9–15.0%; FY2032 has no estimate, so year
+five is the fade's. Guidance alone would give $513.7B at the guided 58.7%
+annual pace; D-58 gave $469.7B (tests/stageB.dcfAnchoring.test.ts,
+tests/stageB.valuationD65.test.ts).
 
 **Three of the four methods read the same series.** The regression, the 3-year
 CAGR and the 5-year CAGR are all functions of the same annual revenue history,
@@ -338,21 +489,72 @@ regression's R² is where an erratic history now shows up.
 ## Fade and horizon
 
 The explicit horizon is **10 years**, stated in years in the assumption block.
-Growth fades linearly from the anchor in year 1 to the terminal rate in year
-10. The EBIT margin fades from the current margin to a target over 5 years and
-is held flat thereafter; the target is the five-year median, or the better/
-worse of median and current under a dated improving/declining margin regime
-(a slope of more than ±0.5pp per year). The tax rate fades from the observed
-effective rate to the company's own historical median; when no current rate
-can be observed (a pre-tax loss, a missing tax line) the path is held at that
-median and the basis says so. Cash flows are discounted on the **mid-year
-convention**.
 
-**Two guards bound the paths.** The EBIT-margin path is held inside
-[−20%, ceiling], where the ceiling is 45% or the highest margin in the
-issuer's own five-year history, whichever is higher — a cap that never binds
-below a margin the company has demonstrably earned (the TTM figure is not
-evidence for its own cap), and one note when it binds. Sales-to-capital is
+**Growth path (D-58, D-65).** Year one comes from the year-one revenue
+anchor, and every later year consensus covers takes consensus growth (D-65,
+above). Every year after the anchored stretch follows a **convergent
+fade** from the last anchored year's growth to the terminal rate in year 10:
+the gap to the terminal rate decays geometrically with a
+`GROWTH_FADE_HALF_LIFE_YEARS` = 3 year half-life, rescaled to reach the
+terminal rate exactly in year 10, so it closes somewhat faster than halving
+every three years (NVDA since D-65: 9.3pp of excess in year four, 6.8pp in year five). Chan, Karceski
+and Lakonishok (2003) find growth beyond one or two years is not persistent,
+so the gap should close fastest at the start. The former linear fade from
+year one kept a +78% consensus year one above 50% growth for four years. The
+half-life is a house convention pending the backtest in RESEARCH §8.2.
+
+**Margin path.** The EBIT margin starts at the current margin: guided, else
+TTM, else the five-year median. It fades to a target over 5 years and is held
+flat thereafter. The target is the five-year median, or the better/worse of
+median and current under a dated improving/declining margin regime (a slope of
+more than ±0.5pp per year).
+
+**Tax path (D-58).** The tax rate fades from the observed effective rate to a
+terminal rate. The terminal rate is the company's own historical median,
+floored at max(statutory marginal rate, 15% global minimum tax). The
+statutory rates come from `STATUTORY_MARGINAL_TAX_PCT`, which lists only
+sourced national rates: US 21%, 26 U.S.C. §11(b), excluding state taxes. The
+15% floor is the OECD Pillar Two GloBE minimum. A below-statutory effective
+rate (credits, deferrals, preferential regimes) is not carried in perpetuity:
+Damodaran moves the terminal rate toward the marginal rate. NVDA's 8.93%
+historical median becomes a 21% terminal rate. A company whose own median is
+higher keeps it. When no current rate can be observed (a pre-tax loss, a
+missing tax line), the path is held at the terminal rate and the basis says
+so.
+
+Cash flows are discounted on the **mid-year convention**, the Gordon terminal
+value included: it is the value at the end of year N of flows that, like the
+explicit ones, arrive through each year, so it takes the factor for N − 0.5
+(Rosenbaum and Pearl, *Investment Banking*, ch. 3: perpetuity-growth terminal
+values take the mid-year factor, exit-multiple values the year-end factor;
+Koller, Goedhart and Wessels apply the half-year adjustment to the whole value).
+Discounting it at N would treat explicit flows as mid-year and perpetuity
+flows as year-end, lowering it by (1 + WACC)^0.5. D-60 prints the convention as
+an assumption row ("discounting convention") rather than leaving it implicit.
+
+**Valuation date (D-65).** The explicit windows start the day after the
+statement date, so their flows are discounted to it, while the per-share value
+is compared with a later quote. Every discount exponent is reduced by the years
+elapsed from the statement date to the quote date, which rolls the whole value
+forward at the WACC (NVDA: 81 days, × 1.0279). The equity bridge keeps the
+statement-date balance: cash generated since then is inside the first window's
+flows, so it is not counted twice. A quote more than `MAX_ROLL_FORWARD_DAYS` =
+200 days after the statement is not rolled forward (a stale statement is a data
+problem, not a timing one), and a gap says so. The "valuation date" assumption
+row and the bridge's "value stated at" row print the date and factor.
+
+**Two guards bound the paths.** The EBIT-margin **target** is held inside
+[−20%, ceiling]. The ceiling is 45% or the highest sustained margin in the
+issuer's own record — its last five fiscal years and, since D-60, the
+four-quarter TTM (a full year of reported quarters; a margin above 100% never
+counts) — whichever is higher, so the cap never binds below a margin the
+company has demonstrably earned. NVDA's four latest quarters ran 63.2–66.2%
+(TTM 65.21%) while the FY2025 cap was 62.42%. D-58 applies the ceiling
+to the margin the path fades to (year 5 onward and the terminal year), not to
+year one. Year one may sit above it unless it exceeds 100%, which no real
+operating margin can. The basis is written after the cap and names the cap
+that bound. NVDA report #34 printed "held flat at current 65.21%" beside a
+62.42% path; the path now runs 65.21% → 62.42% by year 5. Sales-to-capital is
 held inside [0.5, 5]. Both are broken-input guards in the sense of
 [RESEARCH §7.5](RESEARCH.md), not views on what a company can earn: they exist
 so that a mis-scaled statement cannot print a confident number.
@@ -407,11 +609,11 @@ partial case where only some years are missing. When a history is supplied but
 no year carries a computable ROIC there is no comparison at all, and the note
 says that — not that a risk-free observation was missing.
 
-The per-year WACCs are always recomputed from **FRED `DGS10`**, while the
-current WACC prefers the provider's own 10-year treasury rate and falls back to
-`DGS10`. When those two differ, the returns notes say so explicitly: the newest
-fiscal year's own WACC can then differ from the current one because the two
-rates come from different series, not because the rate moved.
+The per-year WACCs are always recomputed from **FRED `DGS10`**, and since
+D-60 the current WACC takes `DGS10` first too, falling back to the provider's
+10-year treasury rate only when FRED has no observation. When the fallback runs,
+the returns notes say the newest fiscal year's own WACC can differ from the
+current one because the two rates come from different series.
 
 Terminal reinvestment is g ÷ ROIC_terminal, Damodaran's consistency rule.
 
@@ -590,16 +792,68 @@ EV = market capitalisation
 Preferred and minority interests are claims senior to common equity, so they
 belong in EV; undisclosed means zero, following the provider's convention. The
 DCF's equity bridge is the same identity read backwards: equity value =
-EV − net debt − minority interest − preferred equity.
+EV − net debt − minority interest − preferred equity + non-operating
+marketable equity securities (D-60, when identified) + the long-term
+investments sales-to-capital removed as non-operating (D-65).
 
-`src/pipeline/stageB/netDebt.ts` owns the `NET_DEBT_V1` resolver: debt minus
+**Three enterprise values, three labels (D-65).** The key-data box's
+**Enterprise value (market)** is the quote's market cap plus the D-60 net debt
+(equity securities are not cash), and since D-65 the EV multiples (EV/EBITDA,
+EV/Sales, and their own-history ranks, each quarter on its own filed equity
+securities) use exactly that net debt, so the box and the multiples agree (NVDA:
+$5.21T, EV/EBITDA 25.9×, EV/Sales 17.2×; before D-65 the multiples netted the
+$42.78B of equity stakes as cash and reconciled to $5.17T). The DCF bridge's
+**Intrinsic enterprise value (DCF, operating assets)** is the model's value of
+the operating business; it excludes the non-operating assets the bridge adds
+back. The **Provider enterprise value (vendor definition, period end)** is the
+vendor's own figure at its period end (that date's market cap + debt − cash and
+equivalents) and is shown only as provider data.
+
+**Long-term investments (D-65).** Sales-to-capital removes the balance sheet's
+long-term investments from invested capital as non-operating (D-60); the bridge
+now adds the same amount back at its filed carrying value, so an asset left out
+of operating capital is never left out of value too. Where the companyfacts
+carry the issuer's non-marketable carrying value
+(`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`: cost less
+impairment, adjusted for observable price changes) it is cited beside the line
+(NVDA: $51.16B, of which $47.90B non-marketable equity). No fair-value estimate
+or marketability discount is applied. Equity stakes a filing places inside
+other assets (NVDA's $4.96B long-term portion of locked-up public equity, 10-Q
+Note 5) are tagged only with a dimension the companyfacts omit, so they stay in
+operating capital and outside the bridge.
+
+**Share basis (D-65).** Per-share values divide by the latest weighted-average
+diluted count, which carries option and RSU dilution; the bridge table also
+prints the shares outstanding the quote implies (market cap ÷ price) and says
+which one divides.
+
+`src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
 the combined cash-and-short-term-investments field, or minus both separately
 disclosed cash components when the combined field is unavailable. Negative
 total debt, absent debt, missing cash components, or contradictory combined
 cash evidence withholds house net debt. Combined cash below reported cash,
 or disagreement with the component sum beyond `max(1, abs(combined) × 1e-6)`
 is a conflict; it cannot fall back to a narrower cash-only convention. Vendor
-net debt is diagnostic evidence only, because it can omit short-term investments.
+net debt is diagnostic evidence only, because it can omit short-term investments;
+since D-60 it is no longer a row in the statement extracts the narrative reads.
+
+**Marketable equity securities are not cash (`NET_DEBT_V3`, D-60).** NVDA's
+"cash and short-term investments" of $99.37B (2026-07-26) is cash $22.44B +
+marketable debt securities $34.14B + publicly-held equity securities $42.78B,
+most of the equity under lock-up (10-Q Note 5). Stage B reads the issuer's own
+fair-value fact at the balance date (`EquitySecuritiesFvNiCurrent`, else
+`EquitySecuritiesFvNi`) and excludes it from cash only when cash + current debt
+securities (`DebtSecuritiesCurrent` or
+`AvailableForSaleSecuritiesDebtSecuritiesCurrent`, or none) + the equity
+securities reconcile to the combined total within 0.01%; an equity stake the
+filing places outside short-term investments is never subtracted from cash. Net
+debt, net debt/EBITDA and the current-capital debt bridge use that one figure
+(NVDA bridge: −$23.22B rather than −$66.0B). The DCF equity bridge then **adds
+the equity securities back as a separately disclosed non-operating asset** at
+the filed fair value: their gains sit below operating income, so the FCFF path
+does not value them. No marketability discount is estimated, because the
+lock-up terms are not structured data; the note says so. Invested capital still
+subtracts them, being non-operating.
 The anchor compares the latest quarterly and annual whole rows. It selects the
 newer unless that row lacks finite debt, stockholders' equity or combined cash
 and the older row has all three; then it uses the older whole row with a note
@@ -682,19 +936,25 @@ vendor's pre-baked ratio. Which multiples are meaningful depends on the route:
 banks and insurers never get EV multiples, because debt is their raw material;
 equity REITs lead with P/FFO and P/AFFO.
 
-The own-history figure is a **rank among N quarters**, not a percentile. The
-window is 8 to 20 quarterly observations — far too few to estimate a
-percentile of a distribution, and CFA Institute guidance is to describe such a
-figure as a rank within the observed sample. The numeric field keeps its
-historical name for backward compatibility with persisted reports, but its
-description, every rendered label, the basis strings and the missing-data
-reason all say rank.
+The own-history figure is an **empirical percentile rank within the retained
+sample**, on a 0-100 scale with interpolation between order statistics. It is
+not an ordinal position among the quarters or an estimate of a population
+percentile. The 8 to 20 observations are a small sample, and input definitions
+and period comparability limit interpretation. The audit export retains the
+individual period ends, market observation dates, unrounded multiple values,
+source method and available capitalization source identity. Vendor ratios do
+not establish their underlying market observation date.
 
-**N is rendered beside the rank**, not left in a note: the multiples row carries
-`ownHistoryObservations`, and every surface prints it the same way — "rank
-62/100 of 12 quarters" in the Markdown and print-HTML exports and on the app's
-own-history bar (the app had dropped the "/100", so a 0–100 rank read as a rank
-among the quarters; audit 2026-09-06, F214). A report persisted before that field existed still parses and
+Each window's market cap comes from the vendor enterprise-values history when
+it has a row within 45 days before the quarter end, else (D-60) from the
+bundle's five-year daily market-cap history (close × shares): the vendor
+history stops at five quarters, so no issuer reached the eight-quarter minimum
+(NVDA report #34: valuation completeness 70%). Only the market cap is taken;
+each window's EV is rebuilt from that quarter's own statement components.
+
+**N is rendered separately from the percentile scale**: the multiples row carries
+`ownHistoryObservations`, and every surface prints "empirical percentile 62/100
+(n = 12 quarters)". A report persisted before that field existed still parses and
 still renders, without inventing an N. The field is optional in Zod for exactly
 that reason and is stripped from the judge's request schema — the judge never
 authors this table (`applyMultiples` replaces it wholesale from computed
@@ -714,14 +974,37 @@ show a rank for a number it declines to print.
 
 Peer medians are trimmed of n/m values and 1.5×IQR outliers and suppressed
 below four surviving peers. With FMP access, optional collection inspects at
-most six provider candidates under a bounded request/time budget. Same-industry,
-sector, valuation-route, currency, issuer/share-class and date checks govern
-eligibility; contradictory statement identifiers are rejected. Quotes and
-quarterly statements must be timely and filings available by the quote date.
-The report lists the method, metric-specific counts and excluded candidates.
-Keyless, reserved fixture symbols, unavailable data and thin coverage publish
-no unsupported median. This is a screened provider list, not an exhaustive
-or independently optimized peer universe.
+most ten provider candidates within 25 seconds. A candidate FMP refuses by
+symbol (HTTP 402 on that symbol only) does not stop the collection: with an
+SEC contact configured it is read from SEC companyfacts and a Yahoo quote,
+its market capitalization is that price times the filed share count on the
+quote's split basis, and its industry is established by an SEC SIC code equal
+to the subject's. Same-industry, sector, valuation-route, currency,
+issuer/share-class and date checks govern eligibility; contradictory statement
+identifiers are rejected. Quotes and quarterly statements must be timely and
+filings available by the quote date. Business-model, accounting and
+metric-definition evidence that is supplied but invalid or different from the
+subject's excludes a peer; no source supplies it independently yet, so a
+median resting on the screens alone is published with a stated comparability
+caveat (D-59). The report lists the method, metric-specific counts and
+excluded candidates. Keyless, reserved fixture symbols, unavailable data and
+thin coverage publish no unsupported median. This is a screened provider list,
+not an exhaustive or independently optimized peer universe.
+
+**Size screen (D-65).** A candidate whose market capitalization is more than
+`PEER_SIZE_RATIO_LIMIT` = 100 times smaller or larger than the subject's is not
+a comparable company: it is excluded at discovery (on the discovery row's
+market cap, so it costs no provider reads), again at comparison (on its own
+quote), and left out of the peer list the analysis reads, with a note naming it
+and the ratio. Size is a priced risk characteristic (Fama and French 1992) and
+multiples differ systematically with it; comparable-company practice selects
+on industry first and size second, and industry is the decisive screen (Alford
+1992), so the bound is deliberately loose. NVDA ($5.24T) keeps AVGO, AMD, INTC,
+ARM, MRVL and QCOM (1/3 to 1/27 of its size) and drops CoreWeave (1/136),
+Cerebras (1/163) and the $265M and $29M listings the rerun's peer table printed.
+CoreWeave is also an NVIDIA customer; no structured source identifies customer
+relationships, so the screen removes it here on size alone. Unbacktested house
+convention (RESEARCH §8).
 
 Market-cap/common-earnings comparisons use four quarterly observations with
 established common ownership and appear separately from price/weighted-EPS
@@ -1218,6 +1501,51 @@ SIC major group 65 (real-estate operators, agents and managers) is deliberately
 outside the exclusion band: those are ordinary operating companies with
 inventory, receivables and a working-capital cycle.
 
+#### Accrual definition, Beneish and Piotroski decompositions (D-61)
+
+**Accruals.** The cash-flow accrual ratio is financial-asset-adjusted
+(Richardson, Sloan, Soliman & Tuna 2005):
+- the numerator is NI − CFO − operating CFI, where operating CFI is investing
+  cash flow without purchases and sales/maturities of investments;
+- net operating assets exclude cash, short-term **and** long-term investments.
+
+Capex, acquisitions and investing flows the statement leaves unclassified
+remain operating investment. If the statements do not report the investment
+flows (FMP `purchasesOfInvestments`, `salesMaturitiesOfInvestments`) and
+long-term investments in both years, the ratio is operating accruals
+NI − CFO. Statements built from companyfacts always take this path. The
+result's `definition`, the forensic notes, the payload and the report's
+"Variant" cell name the construction used. Above 30% revenue growth a note
+gives the fiscal year's revenue and NOA growth: accruals of a fast grower are
+mostly NOA growth (Fairfield, Whisenant & Yohn 2003). The note is not graded.
+
+**Acquisitions and NOA composition (D-68).** When the year's increase in
+goodwill and other intangibles, or the cash paid for acquisitions, is at least
+10% of the NOA increase (house rule), a note gives goodwill and intangibles at
+both year ends, the cash paid (the statement's acquisitions line plus a
+payment the filer tags as `PaymentsToAcquireBusinessTwoNetOfCashAcquired`
+when the row carries it in other investing) and the acquired share of the NOA
+increase. With that note or the growth note, a second note splits the NOA
+increase into receivables, inventory, net PP&E, goodwill and intangibles,
+other operating assets and operating liabilities. Neither is graded.
+
+**Beneish.** The report prints all eight indices and M with SGI at neutral
+1.0. When only SGI carries M over −1.78, the zone reads "flag (growth-led)"
+and the quality signal is graded on the SGI-neutral M. When M is above the
+"unlikely" band (D-68), AQI above 1 is explained from the balance sheet
+(goodwill, other intangibles, long-term investments and the remaining
+non-current assets at both year ends, and AQI without the first three), and
+GMI above 1 from the gross margins and the inventory write-downs the filer
+tags (`InventoryWriteDown`), with GMI and the margin decline recomputed with
+them added back. Context, not graded.
+
+**Notes, not flags (D-68).** The accrual definition, its house bands and the
+growth, acquisition, AQI and GMI context are the report's forensic notes,
+printed under the forensic table. The flags list carries findings only.
+
+**Piotroski.** The zone names the failed signals, and the payload carries all
+nine outcomes.
+
 #### Piotroski F, on three scales
 
 The score is reported over the signals that remain, with its own denominator,
@@ -1312,19 +1640,45 @@ bridging; missing/non-positive diluted shares prevents per-share valuation.
 Preferred and minority claims are subtracted separately, with null treated as
 zero. The bridge recorded on the base result is reused by scenario reruns.
 
-The **5 × 5 sensitivity grid** uses WACC and terminal-growth offsets of
-−1, −0.5, 0, +0.5 and +1 percentage points. It holds explicit paths fixed and
-retains the base terminal excess spread above each cell's own WACC. A cell
-inside the 1.5pp Gordon guard is null, rather than moved to a different growth
-rate. Sensitivity growth is an axis experiment; it is not a new base-case
-terminal-growth recommendation.
+The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
+percentage points (D-60; ±1pp spanned less than one regression beta's
+uncertainty) and terminal-growth offsets of −1, −0.5, 0, +0.5 and +1. It holds
+explicit paths fixed and retains the base terminal excess spread above each
+cell's own WACC. A cell inside the 1.5pp Gordon guard is null, rather than
+moved to a different growth rate. Sensitivity growth is an axis experiment; it
+is not a new base-case terminal-growth recommendation.
 
-The **reverse DCF** first searches constant explicit-horizon revenue growth
-over [−20%, 60%], retaining the base margins, taxes, sales-to-capital, terminal
-assumptions and bridge. This constant growth is a different path from the
-forward DCF's fading growth and is labeled accordingly. A 17-point prescan
-finds exact roots or sign-change intervals; multiple branches choose the
-interval nearest base year-one growth. Bisection stops at 0.01pp interval
+The **growth × margin grid** (D-60) varies the two inputs that decide the
+value: year-one revenue growth shifted by −20, −10, 0, +10 and +20pp on the
+reverse DCF's convergent-shift family (the shift is gone by year 10), against
+the operating margin shifted by −10, −5, 0, +5 and +10pp in every year and the
+terminal value. WACC, terminal growth, tax and the bridge stay at base. A cell
+whose margin would exceed the scenario margin ceiling (below) above the base
+path is withheld rather than priced.
+
+The terminal transition is disclosed: the explicit years reinvest revenue
+growth ÷ sales-to-capital, the Gordon year reinvests terminal growth ÷
+terminal ROIC, and where the two disagree FCFF steps at year N + 1 (NVDA:
+−9.9%, reinvestment 1.8% → 13.7% of NOPAT). The step is where two
+conventions meet, not a forecast, and the terminal-reinvestment assumption row
+says so.
+
+Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
+total debt + equity − cash and short-term investments − long-term
+investments, whose income is below the EBIT the DCF projects. When removing
+them would leave no operating capital the D-58 basis stands and says why.
+
+The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
+widened to base year-one growth + 30pp when that is higher. It retains the
+base margins, taxes, sales-to-capital, terminal assumptions and bridge. The
+path family is `convergent-shift-to-terminal` (D-58). Year one moves to the
+solved rate, and every later year moves by the same amount times its
+convergent fade weight, so the shift is gone by year 10. The base path is the
+family member at base year-one growth, so implied minus base year-one growth
+(the `reverseImpliedVsAchievable` grading signal) compares like with like.
+Reports stored before D-58 carry `linear-fade-to-terminal` and are read as
+written. A 17-point prescan finds exact roots or sign-change intervals;
+multiple branches choose the interval nearest base year-one growth. Bisection stops at 0.01pp interval
 width, 80 iterations, or valuation error under 0.05% of price. A non-positive
 year-one base FCFF skips that inversion; no growth root also falls back to
 solving a terminal EBIT margin in [0%, 60%], with a margin fade over the full
@@ -1370,12 +1724,33 @@ sales or operating response. See `tests/compute.runwayAnchor.test.ts`,
 `src/pipeline/stageB/projections.ts` displays the first five years of the
 general-route DCF's explicit path, with up to four annual historical points.
 Revenue, operating margin and FCFF come from the DCF year rows. Forward EPS
-equals EBIT times the median historical net-income/positive-EBIT ratio, divided
-by diluted shares compounded at the measured annualized share-count trend.
-A missing positive share anchor, conversion history or share trend withholds
-EPS rather than assuming flat shares. Fiscal labels advance from the DCF's
-statement anchor, so a TTM-anchored path need not start from the last annual
-fiscal-year label.
+(D-60) is operating EBIT less interest expense, held flat, taxed at that year's
+DCF rate, divided by diluted shares compounded at the applied share-count
+trend. D-65: the interest is the latest quarter's run-rate when a quarter
+newer than the latest fiscal year exists — the quarter's interest over its
+average debt (opening and closing balances, operating leases excluded) is the
+issuer's own effective rate, applied to the closing debt so debt issued during
+the quarter is priced for a full year; without both balances, the quarter × 4;
+else the latest fiscal year's. NVDA: FY2026 $0.26B predates $25B of notes
+issued in Q2 FY2027; Q2's $227M on $20.9B average debt is 4.34% a year, $1.45B
+on $33.4B. Interest income, investment gains and other non-operating items are
+excluded, so it is operating EPS, not a forecast of GAAP EPS, and the export
+tables, the chart and the page-1 forward P/E say "operating EPS" (D-65); the
+former median historical net-income/EBIT ratio (NVDA 0.9525) carried low-tax
+years and investment gains into every forecast year. A missing positive share
+anchor withholds EPS. Fiscal labels advance from the DCF's statement anchor, so
+a TTM-anchored path need not start from the last annual fiscal-year label.
+Forecast-only tables are headed by the forecast measure ("Free cash flow to the
+firm (FCFF)", "Operating EPS (diluted shares)"); the chart, which also plots
+history, keeps the two-part labels.
+
+The base EPS holds the share count flat (a positive dilution trend is kept). A
+repurchase authorization is discretionary capacity, not a committed schedule;
+the capital-return note names the remaining authorization from the latest
+earnings release and the annual share change it would fund if spent evenly
+over the horizon at the current quote, beside the observed trend (NVDA: $99B,
+−0.38%/yr against −0.47%/yr observed). The historical-share-trend EPS remains a
+labelled hypothetical that deducts no repurchase cash.
 
 Sample revenue-growth dispersion uses at least three positive, approximately
 annual growth intervals (0.7–1.3 elapsed years); sample operating-margin
@@ -1384,54 +1759,99 @@ excluded individually, so surviving intervals can still support a fan.
 Growth sigma is capped at 25pp and margin sigma at 12pp. The joint shock is
 `dg = sigma_growth` and `dm = sigma_margin × correlation(growth, margin)`
 from at least three paired annual observations. Missing correlation leaves
-scenario margins at base with disclosure. The scenario perturbation gives
-the growth and margin bounds headroom for the requested shock; it does not
-simply reapply the narrower base-case clamps. Neither sigma nor the band is
-a fitted confidence interval.
+scenario margins at base with disclosure. Neither sigma nor the band is a
+fitted confidence interval.
+
+**Shocks mean-revert (D-60).** Each shock is full size in year one and is
+multiplied in later years by the base path's convergent fade weight (3-year
+half-life, rescaled to zero in year 10), so terminal growth and the terminal
+margin equal the base case and only the revenue level the shock built up
+persists. NVDA report #34 held +25pp for ten years (revenue to about $7.9T) and
+carried a 72.5% margin into perpetuity; growth beyond one or two years is not
+persistent (Chan, Karceski and Lakonishok 2003) and profitability
+mean-reverts (Fama and French 2000). The perturbation gives the growth and
+margin bounds headroom for the shock rather than reapplying the narrower
+base-case clamps. **Scenario margins are capped** at gross margin (TTM, else
+the latest fiscal year) less the leanest operating-expense ratio among the TTM
+and the last five fiscal years, never below the base path: operating margin is
+gross margin less operating expenses, so no scenario can earn more than today's
+gross margin with the leanest cost base the issuer has run (NVDA: 74.67% −
+9.46% = 65.21%). Without gross profit the cap is unavailable and the
+construction text says so. D-65: when the cap (or a bound) cuts a requested
+shock, the scenario construction carries `effectiveMarginDeltaPp`, and the
+construction table, the price-target basis and each scenario's inputs print the
+shift that remains beside the one requested (NVDA bull: +10.12pp requested,
+0pp after the cap, because the base year-one margin already sits at the
+ceiling; bear −10.12pp). The weighted margin then reconciles to the shifts
+shown: it sits below the base by a quarter of the bear shift. The decay-and-cap
+paragraph is stated once, as that table's note; the price-target basis points
+to it.
 
 The versioned `UNBACKTESTED_SCENARIO_PRIOR_2026_07` weighted projection is
-25% bull + 50% base + 25% bear. These are display weights, not estimated
-probabilities. The orchestrator supplies `capital.fcf.series[].fcf` as the
-chart's historical FCF: levered cash flow after the house SBC deduction where
-disclosed, unadjusted where SBC is absent. Its forward FCF is unlevered FCFF;
-the seam is disclosed
-as a change of basis, not a forecast improvement. Scenario FCF paths can
+25% bull + 50% base + 25% bear, a fixed display prior on the operating
+projections only. The orchestrator supplies `capital.fcf.series[].fcf` as the
+chart's historical FCF: levered free cash flow **after** the house SBC
+deduction where disclosed, unadjusted where SBC is absent, and the series
+assumptions say so (D-60); the FCF CAGR row is labelled before SBC because it
+runs on the vendor figure. Forward FCF is unlevered FCFF, also after SBC
+because SBC is an expense inside the projected EBIT; the seam is disclosed as
+a change of leverage basis, not a forecast improvement. Scenario FCF paths can
 cross because growth also requires reinvestment.
 
 `src/pipeline/stageB/scenarioTargets.ts` reruns the same DCF and base equity
-bridge for two joint shocks. It labels the more valuable extreme bull and
-the less valuable one bear, retaining the deltas that produced each. Negative
-correlation can therefore make the bull target's growth delta negative.
-The base target reuses the DCF per-share. Perturbed targets are floored at
-zero with a warning. A non-positive base DCF per-share suppresses the entire
-target block; thin dispersion, unavailable WACC/bridge and non-DCF routes
-also suppress it. Sigma rounding to 0.00pp in either series makes target
-correlation unavailable and gives a degenerate-dispersion disclosure. The fan
-and targets share the dispersion helper. When targets are available, chart
-paths use the same value-ordered labels; weights move with their paths, leaving
-the base and weighted projections unchanged. A disclosure identifies reversals
-where a lower-growth shock produces the higher valuation.
+bridge (including any non-operating assets) for two joint shocks. It labels the
+more valuable extreme bull and the less valuable one bear, retaining the deltas
+that produced each. Negative correlation can therefore make the bull target's
+growth delta negative, although with decaying shocks only a margin dispersion
+far above the growth dispersion still inverts the order. The base target reuses
+the DCF per-share. Perturbed targets are floored at zero with a warning. A
+non-positive base DCF per-share suppresses the entire target block; thin
+dispersion, unavailable WACC/bridge and non-DCF routes also suppress it. Sigma
+rounding to 0.00pp in either series makes target correlation unavailable and
+gives a degenerate-dispersion disclosure. The fan and targets share the
+dispersion helper. When targets are available, chart paths use the same
+value-ordered labels; weights move with their paths, leaving the base and
+weighted projections unchanged. A disclosure identifies reversals where a
+lower-growth shock produces the higher valuation.
 
 Both consumers use the same effective-shock rule when either dispersion rounds
-to 0.00pp: the margin shock is zero and correlation is unavailable. This fixes
-an earlier edge case where the chart still used a large margin shock despite
-the target suppressing it. Only affected perturbed and weighted operating paths
-change; the base DCF and valuation targets retain their existing calculations.
+to 0.00pp: the margin shock is zero and correlation is unavailable.
 
-New reports replace model-selected scenario odds with the projection display
-weights and explicitly identify them as uncalibrated. Scenario inputs describe
-the computed shocks and paths; model-authored assumptions are preserved as
-qualitative commentary. Sensitivity conclusions summarize the actual grid
-against the comparable quote. An incomplete grid cannot establish robustness,
-and no grid is described as an empirical prediction interval.
+**Price targets carry no weight (D-60).** A 25/50/25 weight beside each target
+implied a weighted per-share value (NVDA report #34: about $284, above the
+quote) that the report never showed and its grade contradicted. New reports set
+every scenario's weight to null and the scenario-weight basis says once that
+targets carry no weight and that the projection prior is not a calibrated
+probability; a stored report that recorded weights still renders them.
+Scenario inputs describe the computed shocks and paths; model-authored
+assumptions are preserved as qualitative commentary. Sensitivity conclusions
+summarize the actual grids against the comparable quote. D-65: both grids
+decide — the WACC × terminal-growth grid and the year-one growth × sustained
+margin grid (its cells withheld above the margin ceiling are outside its tested
+range). "Robust" requires every valid cell of both on one side of the price;
+otherwise the conclusion counts the cells at or below the price in each grid and
+names the growth × margin cells (NVDA report #34 rerun called the value robust
+because every WACC × g cell sat above $217.23 while four growth × margin cells
+sat below it). An incomplete WACC grid cannot establish robustness, and no grid
+is described as an empirical prediction interval.
 
 Model-derived thesis review conditions disclose a threshold, horizon, source,
-fixed assumptions and the consequence of crossing it. Reverse-DCF conditions
-ask the reader to re-estimate valuation; projection milestones are model
-benchmarks, not automatic trading instructions. Unsupported routes or missing
-values produce no fabricated triggers. The same details appear in the app,
-Markdown and printable report. See [report evaluation](REPORT-EVALUATION.md)
-for immutable snapshots and eligible realized-outcome comparisons.
+fixed assumptions and the consequence of crossing it, and (D-60) each is
+observable. The reverse-DCF condition also names the first modeled year's
+revenue the price implies, beside the base case, consensus and the guided
+run-rate; guidance adds the guided quarter's revenue and GAAP gross-margin low
+ends, each citing the registered guidance-table record it reads
+(`payload.issuer-filings.<period>-<metric>-guidance-low`, D-65) rather than the
+8-K accession, which no registry record carries. The first-year projection
+milestones restated the base path and are no longer emitted. Unsupported routes or missing values produce no fabricated
+triggers. The same details appear in the app, Markdown and printable report.
+See [report evaluation](REPORT-EVALUATION.md) for immutable snapshots and
+eligible realized-outcome comparisons.
+
+The payload sets the reverse-DCF implied year-one growth beside the base-case
+year one, the guided run-rate, the guided sequential pace, consensus year one
+and the latest quarter's year-over-year growth, all over the same TTM revenue,
+so "demanding" is a comparison rather than an adjective.
 
 `src/pipeline/stageB/fairValue.ts` resolves the deterministic route value:
 FCFF DCF for general companies and excess-return equity value for financial
@@ -1456,7 +1876,8 @@ See `tests/stageB.projections.test.ts`, `tests/stageB.scenarioTargets.test.ts`,
 ## Numeric grades and completeness
 
 `src/pipeline/stageB/grading.ts` owns versioned house bands
-(`SCORE_BANDS_2026_10`). Each metric is mapped to 0–100 by piecewise-linear
+(`SCORE_BANDS_VERSION`, currently `SCORE_BANDS_2026_10_NVDA_AUDIT`, stamped
+when D-61 changed the durability and buyback-timing bands). Each metric is mapped to 0–100 by piecewise-linear
 interpolation between the source's named breakpoints and held at endpoint
 scores beyond them. A/B/C/D/F thresholds are 85/70/55/40; there is no E.
 These bands have not been outcome-backtested.
@@ -1467,8 +1888,8 @@ These bands have not been outcome-backtested.
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
 | Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
-| Moat | 15 | 15 | 15 | ROIC level/stability and gross margin; financials substitute ROTE level/stability |
-| Leadership | 10 | 7 | 10 | Buyback-price proxy, applicable return spread, net share-count trend (scored only here, D-49); SBC/revenue is displayed, not scored |
+| Moat | 15 | 15 | 15 | Latest ROIC (0.45), durability as the lowest annual ROIC in the window (0.30, D-61) and gross margin (0.25); financials substitute ROTE level and floor |
+| Leadership (capital stewardship) | 10 | 7 | 10 | Repurchase timing, the price actually paid against the same year's average price (0.30, only when the company repurchased; D-61), and net share-count trend (0.25, scored only here, D-49). ROIC − WACC is scored once, under quality (D-61); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, distance below the 52-week high 0.35, SMA50/200 gap 0.20 (D-48); RSI-14, the six-month window and the 52-week range position are displayed, not scored |
 
 The financial vector covers banks, insurers and mortgage REITs. For insurers
@@ -1493,6 +1914,26 @@ shown when tagged and never graded, and no supervisory rating is used; the
 aspect note says all three. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
 Moat and leadership scores are quantitative proxies, not a finding about the
 company's competitive advantage or management competence.
+
+D-61 changed four signals:
+- **Moat durability** was the population standard deviation of the ROIC
+  series. That read a rising return as instability: NVDA's 23% → 198% scored
+  12. It is now the worst year's ROIC (ROTE on financial routes), banded on
+  the level band, because a moat is the persistence of returns above the cost
+  of capital, not their steadiness.
+- **Leadership** no longer re-scores the ROIC − WACC spread that quality
+  already scores (same number, same band). Its buyback signal is timing,
+  not the appreciation of today's quote over the proxy paid price. A company
+  that repurchased nothing has no timing signal, so the share-count trend is
+  its whole stewardship score. A company that repurchased without tagged
+  execution prices is missing that evidence, and its completeness shows it.
+  The score is labelled "Leadership (capital stewardship)". Management
+  quality, guidance execution and governance are not inputs; they belong to
+  the analyst grade alone.
+- **Beneish.** A Beneish flag that the sales-growth index alone carries over
+  −1.78 is graded on M with SGI at neutral 1.0 (`beneishMSgiNeutral`).
+- **Accruals** use the financial-asset-adjusted construction described under
+  "Forensic batteries by route".
 
 An aspect is the weighted mean of available, route-permitted signal scores.
 Its `dataCompleteness` is used signal weight / all intended signal weight,
@@ -1770,9 +2211,9 @@ Fresh reports distinguish business quality, price attractiveness and evidence av
 
 Capital metrics use complete compatible TTM flows and a matching balance sheet when available, with an explicit annual fallback. Annual history remains available. Cash bridges distinguish operating cash flow minus cash capital expenditure, lease-principal-adjusted FCF, an explicitly supplied issuer definition, and after-SBC economic adjustments. Historical levered FCF and forecast unlevered FCFF are different measures. Debt, liquidity, lease liabilities, enterprise value, equity and diluted shares are reconciled separately.
 
-Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Persistent shocks and terminal transitions are disclosed alongside an illustrative decaying-growth alternative. EPS uses flat shares when historical shrinkage lacks future funding evidence; an unfunded historical-share-trend sensitivity is labeled hypothetical.
+Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Since D-60 scenario shocks decay to the base path by year 10 and scenario margins stay below gross margin less the leanest operating-expense ratio on record (the decaying shock is the main construction, so no alternative is listed). EPS uses flat shares because an authorization is not a committed schedule; the authorization-funded share change is stated and an unfunded historical-share-trend sensitivity is labeled hypothetical.
 
-Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility without attributable supporting evidence is not assessed. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
+Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. A typed record's metric is its registry label, with time words ("latest", "quarter end") and common abbreviations (FCF, SBC, capex) normalized; a named window must be the record's own, a bare "trailing" means twelve months, and an exact date names a window record's endpoint. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content, and the headline states how many unchecked claims carry no figure to check. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility is assessed only from a FACT in that executive's evidence that names them and whose figure the verifier matched to its cited record; otherwise it is not assessed (D-59). A reported-earnings reconciliation for an FMP quarter without SEC start dates is bounded by the issuer's preceding fiscal quarter in the same statement. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
 
 ### Offline outcome evaluation
 

@@ -254,6 +254,31 @@ function isoDay(value: unknown): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
+/**
+ * The session a vendor's adjusted closes are stated on when the vendor sends
+ * no split list of its own: the newest bar's session, unless a regular US
+ * session could have opened between that bar and the fetch — then the fetch's
+ * calendar day, which keeps the share-basis check conservative. The fetch
+ * date alone overstated it: a pull after 00:00 UTC (a US evening) or on a
+ * weekend named a session that had not traded, and every market-cap day was
+ * withheld because no split list can cover a session that has not happened.
+ * The opening bell is taken as 13:30 UTC (09:30 EDT), the earlier of the two
+ * daylight-saving cases, so the rule errs toward the fetch day.
+ */
+export function eodBasisSession(lastBar: string | null, fetchedAt: string): string | null {
+  const fetchDay = isoDay(fetchedAt);
+  const fetchedMs = Date.parse(fetchedAt);
+  if (lastBar === null || fetchDay === null || Number.isNaN(fetchedMs) || lastBar > fetchDay) return fetchDay;
+  let next = addDays(lastBar, 1);
+  for (let guard = 0; guard < 7; guard += 1) {
+    const weekday = new Date(`${next}T00:00:00Z`).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) break;
+    next = addDays(next, 1);
+  }
+  const nextOpenMs = Date.parse(`${next}T13:30:00Z`);
+  return fetchedMs < nextOpenMs ? lastBar : fetchDay;
+}
+
 function addDays(date: string, days: number): string {
   const ms = Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(ms)) return date;
@@ -1357,7 +1382,13 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     ? null
     : eodEvidence !== undefined && eodEvidence.status === "retrieved"
       ? (eodEvidence.coverage[eodEvidence.coverage.length - 1]?.to ?? null)
-      : isoDay(members.eodPrices.value.fetchedAt);
+      : eodBasisSession(
+          eodRows.reduce<string | null>((newest, bar) => {
+            const day = isoDay(bar.date);
+            return day !== null && (newest === null || day > newest) ? day : newest;
+          }, null),
+          members.eodPrices.value.fetchedAt,
+        );
   const metaAsOf = metaResult !== null && metaResult.ok ? metaResult.value.asOf : null;
   const quoteAsOf = quoteResult !== null && quoteResult.ok ? quoteResult.value.asOf : null;
   const priceBasisDay = metaPrice !== null ? metaAsOf : quotePrice !== null ? quoteAsOf : eodBasisDay;
@@ -1743,7 +1774,14 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         publicFloat !== null && floatPrice !== null && floatPrice > 0 && floatIssue === null
           ? publicFloat.value / floatPrice
           : null;
-      const freeFloat = floatShares !== null && outstanding.value > 0 ? (floatShares / outstanding.value) * 100 : null;
+      const ratio = floatShares !== null && outstanding.value > 0 ? (floatShares / outstanding.value) * 100 : null;
+      const sameFloatDate = publicFloat?.asOf === outstanding.asOf && floatPriceBasis === "measurement date";
+      const freeFloat = sameFloatDate && ratio !== null && ratio >= 0 && ratio <= 100 ? ratio : null;
+      if (ratio !== null && freeFloat === null) {
+        gaps.push({ field: "keyless.sharesFloat.freeFloat", severity: "warn", reason:
+          `Free-float percentage withheld: ${!sameFloatDate ? "float and outstanding shares have different dates or the conversion lacks a measurement-date price" : "the inferred ratio is outside 0–100%"}. ` +
+          `The float measurement (${publicFloat?.asOf ?? "unknown"}) and outstanding shares (${outstanding.asOf}) remain separately dated; the outstanding count is unchanged.` });
+      }
       const floatAge = describePublicFloatAge(publicFloat, floatPrice, floatPriceBasis, inputs.today, floatIssue);
       gaps.push(floatAge.gap);
       if (floatAge.note !== null) notes.push(`keyless shares float: ${floatAge.note}`);

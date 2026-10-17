@@ -4,6 +4,7 @@ import {
   PRODUCT_TEST_INCLUDE,
   SHARED_RESOLVE_ALIAS,
   SHARED_SETUP_FILES,
+  SHARED_TEST_RUNNER,
 } from "./vitest.shared";
 
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
     include: PRODUCT_TEST_INCLUDE,
     exclude: PRODUCT_TEST_EXCLUDE,
     setupFiles: SHARED_SETUP_FILES,
+    runner: SHARED_TEST_RUNNER,
     environment: "node",
     // Keep forks: threads are unsafe with the native better-sqlite3 addon.
     pool: "forks",

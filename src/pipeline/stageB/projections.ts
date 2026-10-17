@@ -9,9 +9,11 @@
  * model, so the projection page can never contradict the valuation page:
  *  - the BASE path IS the DCF's forward `DcfYearRow[]` (already analyst-anchored
  *    near-term by buildDcfAssumptions, fading to terminal growth);
- *  - BULL / BEAR re-run the exported `runDcf` with growth shifted by sample σ
- *    from consecutive company history; the margin shift is scaled by the
- *    observed growth/margin correlation rather than assuming perfect covariance;
+ *  - BULL / BEAR re-run the exported `runDcf` with year-one growth shifted by
+ *    sample σ from consecutive company history; the margin shift is scaled by
+ *    the observed growth/margin correlation rather than assuming perfect
+ *    covariance; both shocks decay to the base path by the final year and the
+ *    margin is capped at gross margin less the leanest opex ratio (D-60);
  *  - the WEIGHTED path uses an explicitly versioned 25/50/25 display prior.
  *    These weights are not presented as empirically calibrated probabilities.
  * Thin or irregular history suppresses the fan instead of inventing dispersion.
@@ -31,6 +33,7 @@
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { yearsBetweenDates } from "@/pipeline/stageB/growth";
 import {
+  consensusYearsText,
   forecastYearPeriod,
   type DcfYearRow,
   type ValuationResult,
@@ -92,14 +95,6 @@ function correlation(pairs: Array<{ x: number; y: number }>): number | null {
   return clamp(covariance / Math.sqrt(varianceX * varianceY), -1, 1);
 }
 
-/** Median over finite values, or null. */
-function median(values: number[]): number | null {
-  const xs = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
-  if (xs.length === 0) return null;
-  const mid = Math.floor(xs.length / 2);
-  return xs.length % 2 === 0 ? (xs[mid - 1] + xs[mid]) / 2 : xs[mid];
-}
-
 /* ------------------------------------------------------------------------ *
  * Inputs
  * ------------------------------------------------------------------------ */
@@ -111,6 +106,10 @@ export interface ProjectionIncomeRow {
   ebit: number | null;
   netIncome: number | null;
   epsDiluted: number | null;
+  /** D-60: interest expense (positive), deducted before tax in forecast EPS. */
+  interestExpense?: number | null;
+  /** A zero is usable only when direct filing evidence distinguishes it from a vendor placeholder. */
+  interestExpenseDisclosed?: boolean;
 }
 
 export interface ProjectionFcfRow {
@@ -128,6 +127,8 @@ export interface ProjectionsInputs {
    * for the bull/bear re-runs is `valuation.dcf.bridge`, the base result's own.
    */
   dilutedShares: number | null;
+  /** A known ownership refusal; historical reported EPS remains displayable. */
+  forecastEpsWithheldReason?: string | null;
   /** Annual income history (any order). */
   incomeHistory: ProjectionIncomeRow[];
   /** Annual FCF history (any order) — for the FCF fan's historical half. */
@@ -137,6 +138,41 @@ export interface ProjectionsInputs {
   /** Currency label for revenue/FCF/EPS units. */
   currency: string | null;
   asOf: string;
+  /** D-60: the latest release's remaining repurchase authorization and the quote, for the EPS capital-return disclosure. */
+  capitalReturn?: { authorizationRemaining: number | null; source: string | null; currentPrice: number | null } | null;
+  /**
+   * D-65: the annual interest expense forecast EPS deducts, from the latest
+   * quarter (its effective rate on the quarter-end debt, else the quarter × 4).
+   * NVDA's FY2026 $0.26B predates $25B of notes issued in Q2 FY2027. Absent:
+   * the latest annual interest expense.
+   */
+  interestRunRate?: { value: number; basis: string } | null;
+  /** Established financing debt at the DCF statement anchor; zero can establish a debt-free interest assumption. */
+  debtAtAnchor?: { date: string; debt: number | null } | null;
+}
+
+/**
+ * D-65: annual interest expense at the latest quarter's run-rate. The
+ * quarter's interest over its average debt (opening and closing balances,
+ * operating leases excluded: their cost is in operating expenses) is the
+ * issuer's own effective rate; applied to the closing debt it prices debt
+ * issued during the quarter for a full year. Without both balances, the
+ * quarter × 4. Null without a nonnegative disclosed quarterly interest figure.
+ */
+export function interestRunRate(quarter: { date: string; interestExpense: number | null; interestExpenseDisclosed?: boolean } | null,
+  closing: { date: string; debt: number | null } | null, opening: { date: string; debt: number | null } | null): { value: number; basis: string } | null {
+  if (quarter === null || !isNum(quarter.interestExpense) || quarter.interestExpense < 0) return null;
+  if (quarter.interestExpense === 0 && quarter.interestExpenseDisclosed !== true) return null;
+  const q = quarter.interestExpense;
+  const b = (v: number) => `${round2(v / 1e9)}B`;
+  if (closing !== null && opening !== null && closing.date === quarter.date && isNum(closing.debt) && isNum(opening.debt) && closing.debt > 0 && opening.debt >= 0) {
+    const average = (closing.debt + opening.debt) / 2;
+    const rate = (q / average) * 4;
+    if (average > 0 && rate > 0 && rate < 0.25) {
+      return { value: rate * closing.debt, basis: `the quarter ending ${quarter.date}'s interest ${b(q)} over its average debt ${b(average)} (${opening.date} and ${quarter.date}, operating leases excluded) = ${round2(rate * 100)}% a year, on the closing debt ${b(closing.debt)}` };
+    }
+  }
+  return { value: q * 4, basis: `the quarter ending ${quarter.date}'s interest ${b(q)} × 4` };
 }
 
 /* ------------------------------------------------------------------------ *
@@ -330,7 +366,8 @@ export type ScenarioPointPaths = Pick<ProjectionSeries, "bull" | "base" | "bear"
 export type AuditableProjectionSeries = ProjectionSeries & {
   flatShare?: ScenarioPointPaths;
   shareTrend?: ScenarioPointPaths;
-  capitalReturn?: { shareCountAnnualizedPct: number | null; appliedShareCountAnnualizedPct: number; policy: "flat-share-conservative" | "dilution-trend"; basis: string; netIncomeToEbit: number };
+  capitalReturn?: { shareCountAnnualizedPct: number | null; appliedShareCountAnnualizedPct: number; policy: "flat-share-conservative" | "dilution-trend"; basis: string; netIncomeToEbit: number;
+    authorizationRemaining?: number; authorizationAnnualizedPct?: number | null };
 };
 export type AuditableProjections = Projections & { scenarioAssumptions?: ScenarioAssumptions; series: AuditableProjectionSeries[] };
 
@@ -402,6 +439,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       dilutedShares: baseDcf.bridge.dilutedShares,
       minorityInterest: baseDcf.bridge.minorityInterest,
       preferred: baseDcf.bridge.preferred,
+      nonOperatingAssets: baseDcf.bridge.nonOperatingAssets ?? null,
     }, { sigmaGrowth: dg, sigmaMargin: DISPERSION_K * rawDisp.sigmaMargin, growthMarginCorrelation: shocks.growthMarginCorrelation });
   const bullRows = shared.bull.result.yearRows;
   const bearRows = shared.bear.result.yearRows;
@@ -428,20 +466,43 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // substring of the basis string: that string names every method including
   // the unavailable ones, so "analyst consensus" was printed for every
   // keyless report that had no analyst estimates at all.
+  // D-60: the clamped near-term rate is printed as the clamped rate, with the
+  // median it came from; it is named as a year-one input only when it set year one.
   const anchorMethods = assumptions.growthAnchor.methods.filter((m) => m.valuePct !== null);
+  const preClamp = assumptions.growthAnchor.preClampMedianPct;
   const anchorText =
-    `${round2(assumptions.growthAnchor.pointPct)}%, the median of ${anchorMethods.length} method${anchorMethods.length === 1 ? "" : "s"}` +
+    `${round2(assumptions.growthAnchor.pointPct)}%` +
+    (preClamp === undefined
+      ? `, the median of ${anchorMethods.length} method${anchorMethods.length === 1 ? "" : "s"}`
+      : `, the house clamp of the ${round2(preClamp)}% median of ${anchorMethods.length} method${anchorMethods.length === 1 ? "" : "s"}`) +
     ` (${anchorMethods.map((m) => m.name).join(", ")})` +
     (assumptions.growthAnchor.unavailable.length > 0
       ? `; unavailable: ${assumptions.growthAnchor.unavailable.join(", ")}`
       : "");
+  const revenueAnchor = assumptions.revenueAnchor;
+  const anchorWindowEnd = assumptions.forecastPeriod?.anchorEndDate ?? null;
+  // D-65: name the years consensus set, never "consensus-anchored" alone.
+  const anchored = revenueAnchor?.anchoredGrowthPct ?? (revenueAnchor ? [revenueAnchor.yearOneGrowthPct, ...(revenueAnchor.yearTwoGrowthPct === null ? [] : [revenueAnchor.yearTwoGrowthPct])] : []);
+  const consensusYears = revenueAnchor?.consensusYears ?? (revenueAnchor ? [...(revenueAnchor.source === "consensus" ? [1] : []), ...(revenueAnchor.yearTwoGrowthPct === null ? [] : [2])] : []);
+  const laterText = anchored.length <= 1 ? "" : `; years 2–${anchored.length} ${anchored.slice(1).map((g) => `${round2(g)}%`).join(", ")} on consensus growth`;
+  const consensusText = consensusYears.length === 0 ? "" : `; consensus sets ${consensusYearsText(consensusYears)} of ${assumptions.years}`;
+  // The decay and cap paragraph is the scenario-construction table's note; the
+  // effective shift after the cap is stated here once.
+  const scenarios = shared.scenarioAssumptions.scenarios;
+  const capped = scenarios.filter((s) => s.effectiveMarginDeltaPp !== undefined);
+  const effectiveText = capped.length === 0 ? "" :
+    ` After the scenario margin cap the year-one margin shift is ${scenarios.filter((s) => s.name !== "base").map((s) => `${round2(s.effectiveMarginDeltaPp ?? s.marginDeltaPp)}pp for ${s.name}`).join(" and ")}, ` +
+    "so the shocks are not symmetric and the weighted margin differs from the base margin by the display weights times the shifts that remain.";
   const assumptionLines: string[] = [
-    `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift growth by ±${round2(dg)}pp and margin by ±${round2(dm)}pp; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}).`,
-    "Forward periods are modeled 12-month anniversary windows of the DCF revenue anchor, not company-issued fiscal guidance; a TTM anchor remains rolling for every forecast year. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+    revenueAnchor === undefined
+      ? `Base path is the DCF forward trajectory (near-term growth ${anchorText}, fading to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`
+      : `Base path is the DCF forward trajectory (year-one revenue from ${revenueAnchor.source}, ${round2(revenueAnchor.yearOneGrowthPct)}% growth${laterText}` +
+        `${revenueAnchor.source === "run-rate" || revenueAnchor.source === "ttm" ? `, carried at the near-term growth rate ${anchorText}` : ""}${consensusText}; ` +
+        `then a convergent fade to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
+    `Bull/bear shift year-one growth by ±${round2(dg)}pp and the year-one margin by ±${round2(dm)}pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}).${effectiveText}`,
+    `Forward periods are 12-month windows ending on anniversaries of the latest statement date${anchorWindowEnd === null ? "" : ` (${anchorWindowEnd})`}, not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.`,
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
-    shared.scenarioAssumptions.terminalTransition,
-    `Weighted path uses the coarse unbacktested display prior ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear; these are not empirical probabilities.`,
+    `Weighted path = ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear, the fixed display prior.`,
   ];
 
   // --- Build series --------------------------------------------------------
@@ -501,9 +562,9 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       fwdPeriod,
       [
         ...assumptionLines,
-        "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment).",
-        "HISTORICAL FCF on this series is the reported levered figure (freeCashFlow, or operatingCashFlow + capitalExpenditure), which is stated AFTER interest. The two segments are therefore different measures: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
-        "Scenario paths can cross: the higher-growth shock reinvests more up front, so its near-term FCF may sit below the lower-growth shock. The shaded band is the scenario range; bull/bear labels do not imply an ordering of each operating metric.",
+        "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment); stock-based compensation is an expense inside that EBIT, so FCFF is after stock-based compensation.",
+        "HISTORICAL FCF on this series is levered free cash flow after stock-based compensation (house default: operating cash flow + capital expenditure − SBC; unadjusted only where SBC was not disclosed), stated AFTER interest. It is not the before-SBC vendor figure behind the FCF CAGR. The two segments share the SBC treatment but differ on leverage: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
+        "Scenario paths can cross: the higher-growth shock reinvests more up front, so its near-term FCF may sit below the lower-growth shock. The bull-to-bear spread is the scenario range; bull/bear labels do not imply an ordering of each operating metric.",
       ],
       disclosures,
       asOf,
@@ -517,7 +578,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
     series.find((candidate) => candidate.metric === "fcf")?.disclosures.push({
       field: "projections.fcf.basisChange",
       reason:
-        "Historical FCF is the reported levered figure (after interest) while projected FCF is unlevered FCFF; the history→forecast step reflects that change of basis, not a forecast improvement.",
+        "Historical FCF is levered (after interest) and after stock-based compensation, while projected FCF is unlevered FCFF; the history→forecast step reflects that change of basis, not a forecast improvement.",
       severity: "info",
     });
   }
@@ -533,6 +594,13 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // Diluted EPS (derived; disclosed + skipped when inputs missing)
   const epsSeries = buildEpsSeries(inputs, { bullRows, baseRows, bearRows }, H, incomeAsc, fwdPeriod, assumptionLines, asOf);
   if (epsSeries) series.push(epsSeries);
+  else if (isNum(inputs.dilutedShares) && inputs.dilutedShares > 0) {
+    series.find((candidate) => candidate.metric === "revenue")?.disclosures.push({
+      field: "projections.eps.interestExpense",
+      reason: "Forecast EPS withheld: no established quarterly or annual interest expense and no matching debt-free balance anchor.",
+      severity: "warn",
+    });
+  }
 
   const dated = (points: ProjectionPoint[]) => points.map((pt, i) => {
     const period = periodsVerified ? baseRows[i]?.period : undefined;
@@ -603,16 +671,51 @@ function buildEpsSeries(
   assumptionLines: string[],
   asOf: string,
 ): AuditableProjectionSeries | null {
+  const unit = perShareUnit(inputs.currency);
+  const historical = incomeAsc.filter(r => isNum(r.epsDiluted)).slice(-4)
+    .map(r => point(fyLabel(r.date), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
+  // Pure callers inherit the valuation's refusal too. A positive raw count
+  // cannot restore a denominator that the shared valuation already rejected.
+  const scopeGap = inputs.valuation.gaps.find(g => ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
+    "valuation.dcf.noncontrollingOwnership", "valuation.multiples.peTtm.commonIncome"].includes(g.field));
+  const nci = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.minorityInterest : null;
+  const preferred = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.preferred : null;
+  const reason = inputs.forecastEpsWithheldReason ?? scopeGap?.reason ??
+    (isNum(nci) && nci !== 0 ? "Noncontrolling ownership is evidenced but a future common-earnings allocation is unestablished. Book NCI and historical NCI income do not allocate forecast operating profit to common holders." : null) ??
+    (isNum(preferred) && preferred !== 0 ? "A preferred claim is evidenced but a future common-earnings allocation is unestablished. Preferred book value is not a dividend forecast and is not subtracted from forecast operating earnings." : null);
+  if (reason !== null) return {
+    metric: "epsDiluted", unit, historical, bull: [], base: [], bear: [], weighted: [],
+    assumptions: [...assumptionLines, "Reported historical diluted EPS is retained. Future operating EPS and every share-count alternative are withheld; consolidated/entity revenue, operating margin and FCFF do not establish common-holder per-share earnings."],
+    disclosures: [{ field: "projections.eps.ownershipScope", reason: `Forecast operating EPS withheld: ${reason}`, severity: "warn" }],
+  };
   const shares0 = inputs.dilutedShares;
-  const niToEbit = median(
-    incomeAsc
-      .filter((r) => isNum(r.netIncome) && isNum(r.ebit) && (r.ebit as number) > 0)
-      .map((r) => (r.netIncome as number) / (r.ebit as number)),
-  );
-  // EPS requires both a positive share anchor and a historical profitability conversion.
-  if (!isNum(shares0) || shares0 <= 0 || niToEbit === null) {
+  // EPS requires a positive share anchor.
+  if (!isNum(shares0) || shares0 <= 0) {
     return null;
   }
+  // D-60: net income from the DCF's own operating path. The former median
+  // historical net-income/EBIT ratio (NVDA 0.9525) carried low-tax years and
+  // investment gains into every forecast year, overstating EPS against the
+  // 16-18% guided tax rate. Net income is now operating EBIT less the latest
+  // annual interest expense (held flat), taxed at that year's DCF rate; interest
+  // income, investment gains and other non-operating items are excluded.
+  const latestInterest = incomeAsc
+    .filter((r) => isNum(r.interestExpense) && (r.interestExpense > 0 || (r.interestExpense === 0 && r.interestExpenseDisclosed === true)))
+    .at(-1);
+  // D-65: the latest quarter's run-rate when supplied; the annual figure otherwise.
+  const runRate = inputs.interestRunRate && isNum(inputs.interestRunRate.value) && inputs.interestRunRate.value >= 0 ? inputs.interestRunRate : null;
+  const debtFree = inputs.valuation.kind === "dcf" && inputs.debtAtAnchor?.debt === 0 &&
+    inputs.debtAtAnchor.date === inputs.valuation.assumptions?.asOf.statements;
+  if (runRate === null && latestInterest === undefined && !debtFree) return null;
+  const interest = runRate ? runRate.value : latestInterest ? (latestInterest.interestExpense as number) : 0;
+  const interestText = runRate
+    ? `interest expense ${round2(interest / 1e9)}B a year at the latest quarter's run-rate (${runRate.basis})`
+    : latestInterest ? `latest annual interest expense ${round2(interest / 1e9)}B`
+      : `zero interest expense from the evidenced debt-free balance as of ${inputs.debtAtAnchor!.date}`;
+  const netIncomeOf = (r: DcfYearRow): number => {
+    const pretax = r.ebit - interest;
+    return pretax > 0 ? pretax * (1 - r.taxRatePct / 100) : pretax;
+  };
   // Historical repurchases are not a funded forward capital-return schedule.
   // The conservative base never shrinks shares; positive dilution still applies.
   const observedTrend = isNum(inputs.shareCountAnnualizedPct) ? inputs.shareCountAnnualizedPct : null;
@@ -621,7 +724,7 @@ function buildEpsSeries(
   const sharesAt = (t: number): number => shares0 * Math.pow(1 + g, t); // t = 1..H
 
   const epsPath = (dcfRows: DcfYearRow[]): number[] =>
-    dcfRows.slice(0, H).map((r, i) => (r.ebit * niToEbit) / sharesAt(i + 1));
+    dcfRows.slice(0, H).map((r, i) => netIncomeOf(r) / sharesAt(i + 1));
 
   const bull = epsPath(rows.bullRows);
   const base = epsPath(rows.baseRows);
@@ -632,16 +735,34 @@ function buildEpsSeries(
     .slice(-4)
     .map((r) => ({ period: fyLabel(r.date), value: r.epsDiluted as number }));
 
-  const unit = perShareUnit(inputs.currency);
   const weighted = weightedPath(bull, base, bear);
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>
     arr.map((v, i) => point(fwdPeriod(i + 1), v, unit, "epsDiluted", scenario, asOf));
   const alternate = (trend: number, name: string): ScenarioPointPaths => {
-    const values = (rs: DcfYearRow[]) => rs.slice(0, H).map((r, i) => r.ebit * niToEbit / (shares0 * (1 + trend / 100) ** (i + 1)));
+    const values = (rs: DcfYearRow[]) => rs.slice(0, H).map((r, i) => netIncomeOf(r) / (shares0 * (1 + trend / 100) ** (i + 1)));
     const b = values(rows.bullRows), m = values(rows.baseRows), d = values(rows.bearRows);
     return { bull: mk(b, `${name}.bull`), base: mk(m, `${name}.base`), bear: mk(d, `${name}.bear`), weighted: mk(weightedPath(b, m, d), `${name}.weighted`) };
   };
-  const capitalBasis = "Historical share shrinkage has no funded future repurchase schedule in these inputs, so it is excluded from the base. A positive dilution trend is retained. The historical-share-trend alternative is hypothetical, unfunded and does not deduct repurchase cash from equity value; flat-share EPS isolates operating performance. Net income uses the historical EBIT conversion, separate from DCF NOPAT tax rates, and is not a forecast statutory tax reconciliation.";
+  // D-60 (P1-G): say what the authorization would buy instead of claiming no
+  // repurchase evidence exists. Spent evenly over the horizon at the current
+  // quote, the remaining authorization retires a share count the reader can
+  // set against the historical trend; it is discretionary, so the base stays flat.
+  const auth = inputs.capitalReturn ?? null;
+  const authRemaining = auth && isNum(auth.authorizationRemaining) && auth.authorizationRemaining > 0 ? auth.authorizationRemaining : null;
+  const authPrice = auth && isNum(auth.currentPrice) && auth.currentPrice > 0 ? auth.currentPrice : null;
+  const authRetiredPct = authRemaining !== null && authPrice !== null ? (authRemaining / authPrice / shares0) * 100 : null;
+  const authAnnualPct = authRetiredPct !== null && authRetiredPct < 100 ? (Math.pow(1 - authRetiredPct / 100, 1 / H) - 1) * 100 : null;
+  const authorizationText = authRemaining === null
+    ? "No remaining repurchase authorization was read from the filings."
+    : `The latest earnings release reports ${round2(authRemaining / 1e9)}B of repurchase authorization remaining${auth?.source ? ` (${auth.source})` : ""}` +
+      (authRetiredPct === null || authAnnualPct === null
+        ? "."
+        : `; spent evenly over the ${H}-year horizon at the current quote it would retire ${round2(authRetiredPct)}% of diluted shares (${round2(authAnnualPct)}%/yr), against the observed ${observedTrend === null ? "unavailable" : `${round2(observedTrend)}%/yr`} trend.`);
+  const capitalBasis =
+    "The base holds the diluted share count flat: a repurchase authorization is discretionary capacity, not a committed schedule, and future repurchases depend on cash and price. A positive dilution trend is retained. " +
+    `${authorizationText} The historical-share-trend alternative is hypothetical and does not deduct repurchase cash from equity value; flat-share EPS isolates operating performance.`;
+  const yearOne = rows.baseRows[0];
+  const conversion = yearOne && yearOne.ebit > 0 ? netIncomeOf(yearOne) / yearOne.ebit : 0;
   return {
     metric: "epsDiluted",
     unit,
@@ -653,11 +774,14 @@ function buildEpsSeries(
     flatShare: alternate(0, "flatShare"),
     ...(observedTrend !== null && observedTrend > -100 ? { shareTrend: alternate(observedTrend, "shareTrend") } : {}),
     capitalReturn: { shareCountAnnualizedPct: observedTrend, appliedShareCountAnnualizedPct: appliedTrend,
-      policy: appliedTrend > 0 ? "dilution-trend" : "flat-share-conservative", basis: capitalBasis, netIncomeToEbit: niToEbit },
+      policy: appliedTrend > 0 ? "dilution-trend" : "flat-share-conservative", basis: capitalBasis, netIncomeToEbit: conversion,
+      ...(authRemaining !== null ? { authorizationRemaining: authRemaining, authorizationAnnualizedPct: authAnnualPct } : {}) },
+    // D-65: the flat-share paragraph is the capital-return table's note; it is
+    // not repeated here.
     assumptions: [
       ...assumptionLines,
-      `EPS = forward EBIT × median historical net-income/EBIT ratio (${round2(niToEbit)}) ÷ diluted shares with applied change ${round2(g * 100)}%/yr.`,
-      capitalBasis,
+      `Operating EPS = (forward operating EBIT − ${interestText}, held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change ${round2(g * 100)}%/yr ` +
+        `(year-one net income / EBIT ${round2(conversion)}). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS.`,
     ],
     disclosures: [],
   };

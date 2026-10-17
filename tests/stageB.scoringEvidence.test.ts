@@ -75,17 +75,19 @@ describe("score evidence follows the actual metric basis", () => {
     expect(operand(result, "evToEbitda current multiple").value).toBe(20);
     expect(result.fallbackReason).toMatch(/dates.*unavailable|unavailable.*dates/i);
   });
-  it("uses the contributing repurchase-price years rather than the share-count trend window", () => {
+  it("uses the years with a tagged repurchase price rather than the share-count trend window (D-61 timing)", () => {
     const i = inputs();
     i.capital.shareCount.startDate = "2015-12-31"; i.capital.shareCount.endDate = "2025-12-31";
     i.capital.buybackPriceAnalysis.years = [
       { date: "2021-12-31", repurchased: 100, avgMarketCap: null, avgPriceProxy: null, sharesProxy: null },
-      { date: "2023-12-31", repurchased: 100, avgMarketCap: 1000, avgPriceProxy: 10, sharesProxy: 10 },
-      { date: "2025-12-31", repurchased: 120, avgMarketCap: 1200, avgPriceProxy: 12, sharesProxy: 10 },
+      { date: "2023-12-31", repurchased: 100, avgMarketCap: 1000, avgPriceProxy: 10, sharesProxy: 10, actualPricePaid: 9.5 },
+      { date: "2025-12-31", repurchased: 120, avgMarketCap: 1200, avgPriceProxy: 12, sharesProxy: 10, actualPricePaid: 12.4 },
     ];
-    const result = describeScoreEvidence(i, "leadership", "buybackDiscipline");
+    const result = describeScoreEvidence(i, "leadership", "buybackTiming");
     expect(result.startDate).toBe("2023-12-31"); expect(result.endDate).toBe("2025-12-31");
     expect(result.windowYears).toBeCloseTo(2, 2);
+    expect(operand(result, "price paid, year ending 2023-12-31").value).toBe(9.5);
+    expect(operand(result, "average price, year ending 2025-12-31").value).toBe(12);
   });
   it("rejects rollover-invalid dates while preserving grade numeric values", () => {
     const i = inputs();

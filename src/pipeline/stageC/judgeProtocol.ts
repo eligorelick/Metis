@@ -732,8 +732,11 @@ export function buildJudgeProtocolNote(
       `The judge ran on the ${protocol.sharedModelFamily.judgeFamily} model family and the analysts on ${protocol.sharedModelFamily.analystFamily}.`,
     );
   }
+  sentences.push("Both analyst cases start from the same retained inputs; shared omissions can affect both. Adjudication is not independent factual validation.");
   if (protocol.reconciliation !== undefined) {
     sentences.push(protocol.reconciliation.note);
+  } else {
+    sentences.push("No mirrored-order comparison is recorded, so order sensitivity is unmeasured.");
   }
   return sentences.join(" ");
 }

@@ -73,6 +73,12 @@ export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
 ];
 
+/** Consolidated earnings concepts, before the parent-only NetIncomeLoss fallback. */
+export const CONSOLIDATED_NET_INCOME_TAGS: readonly string[] = [
+  "ProfitLoss",
+  "NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest",
+];
+
 /**
  * `InterestExpenseOperating` is LAST among the income-statement tags: for a
  * bank it is the whole interest expense, but for a non-bank that tags both,
@@ -223,7 +229,9 @@ export const LINE_ITEM_TAGS = {
   // As filed: this standard element does not establish a universal tax basis.
   equityMethodIncomeLoss: entry(["IncomeLossFromEquityMethodInvestments"]),
   totalOtherIncomeExpensesNet: entry(["NonoperatingIncomeExpense"]),
-  netIncome: entry(["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]),
+  netIncome: entry(["NetIncomeLoss", ...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLossAvailableToCommonStockholdersBasic"]),
+  netIncomeConsolidated: entry(CONSOLIDATED_NET_INCOME_TAGS),
+  netIncomeAttributableToNoncontrollingInterest: entry(["NetIncomeLossAttributableToNoncontrollingInterest"]),
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeFromContinuingOperations: entry(["IncomeLossFromContinuingOperations"]),
   netIncomeFromDiscontinuedOperations: entry(["IncomeLossFromDiscontinuedOperationsNetOfTax"]),
@@ -242,8 +250,9 @@ export const LINE_ITEM_TAGS = {
     "CashAndCashEquivalentsAtCarryingValue",
     "CashAndDueFromBanks",
     "Cash",
-    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
   ]),
+  cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
+  restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
   shortTermInvestments: entry([
     "ShortTermInvestments",
     "MarketableSecuritiesCurrent",
@@ -285,6 +294,10 @@ export const LINE_ITEM_TAGS = {
   /** The current portion of long-term debt; the maturity-schedule figure stands in only when both miss. */
   currentMaturitiesOfLongTermDebt: entry(["LongTermDebtCurrent", COMBINED_CURRENT_DEBT_TAG], [MATURITIES_STAND_IN]),
   longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt"]),
+  /** Completeness evidence only: this aggregate can be gross principal, not carrying debt. */
+  debtInstrumentAggregate: entry(["DebtInstrumentCarryingAmount"]),
+  /** Scope evidence for a fiscal maturity schedule; never a carrying-debt stand-in. */
+  debtMaturitiesFiscalRemainder: entry(["LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear"]),
   totalCurrentLiabilities: entry(["LiabilitiesCurrent"]),
   totalLiabilities: entry(["Liabilities"]),
   deferredRevenue: entry(["ContractWithCustomerLiabilityCurrent", "DeferredRevenueCurrent"]),
@@ -312,12 +325,12 @@ export const LINE_ITEM_TAGS = {
   accumulatedOtherComprehensiveIncomeLoss: entry(["AccumulatedOtherComprehensiveIncomeLossNetOfTax"]),
   totalStockholdersEquity: entry(["StockholdersEquity"]),
   totalEquity: entry(["StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"]),
-  minorityInterest: entry(["MinorityInterest"]),
+  minorityInterest: entry(["MinorityInterest", "NonredeemableNoncontrollingInterest"]),
   deposits: entry(["Deposits"]),
   sharesOutstandingBalanceSheet: entry([BALANCE_SHEET_SHARES_TAG]),
 
   // --- cash flow ------------------------------------------------------------
-  cashflowNetIncome: entry(["NetIncomeLoss", "ProfitLoss"]),
+  cashflowNetIncome: entry([...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLoss"]),
   stockBasedCompensation: entry(["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"]),
   changeInWorkingCapital: entry(["IncreaseDecreaseInOperatingCapital"]),
   operatingCashFlow: entry([

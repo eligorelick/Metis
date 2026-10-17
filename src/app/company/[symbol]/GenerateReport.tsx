@@ -28,6 +28,7 @@ import { ExportButtons } from "@/components/report/ExportButtons";
 import {
   deriveReportCompletenessPresentation,
   type DataCompleteness,
+  type CompletenessSource,
 } from "@/report/completeness";
 import {
   DATA_COMPLETENESS_FIELD_ORDER,
@@ -85,6 +86,8 @@ interface ReportSummary {
   dataOnly: boolean | null;
   dataCompleteness: DataCompleteness | null;
   missingData: ManifestEntry[] | null;
+  /** Older responses omit this field and supply no retained-source evidence. */
+  retainedSources?: CompletenessSource[] | null;
 }
 
 type Phase = "idle" | "starting" | "running" | "done" | "error" | "unsupported";
@@ -388,6 +391,11 @@ function decodeReportSummary(
     summary.verificationRate < 0 || summary.verificationRate > 1
   )) return null;
   if (!Array.isArray(summary.grades)) return null;
+  if (summary.retainedSources !== undefined && summary.retainedSources !== null && (
+    !Array.isArray(summary.retainedSources) || !summary.retainedSources.every((source) =>
+      source !== null && typeof source === "object" && hasExactKeys(source, ["provider", "endpoint"]) &&
+      typeof source.provider === "string" && typeof source.endpoint === "string")
+  )) return null;
   const gradeKeys: string[] = [];
   for (const grade of summary.grades) {
     if (
@@ -405,7 +413,8 @@ function decodeReportSummary(
     if (
       gradeKeys.length !== 0 ||
       summary.dataCompleteness !== null ||
-      summary.missingData !== null
+      summary.missingData !== null ||
+      (summary.retainedSources !== undefined && summary.retainedSources !== null)
     ) return null;
     return summary as ReportSummary;
   }
@@ -414,6 +423,7 @@ function decodeReportSummary(
   }
   if (
     !(summary.dataCompleteness === null || validCompleteness(summary.dataCompleteness)) ||
+    summary.retainedSources === null ||
     !Array.isArray(summary.missingData) ||
     !summary.missingData.every(validManifestEntry)
   ) return null;
@@ -985,9 +995,10 @@ export function ReportReadyPanel({
   const completeness = deriveReportCompletenessPresentation(
     summary?.dataCompleteness ?? undefined,
     missingData,
+    summary?.retainedSources ?? [],
   );
   const completenessText = completeness.metadataStatus === "confirmed"
-    ? `completeness confirmed · ${completeness.state} · ${completeness.criticalCount} critical · ${completeness.warningCount} warning · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
+    ? `completeness confirmed · ${completeness.state} · ${completeness.dataCriticalCount} critical · ${completeness.dataWarningCount} warning${completeness.processDisclosureCount > 0 ? ` · ${completeness.processDisclosureCount} process disclosure` : ""} · EDGAR ${completeness.edgar} · XBRL ${completeness.xbrl} · forensic validation ${completeness.forensicValidation}`
     : completeness.statusText.replace(/^Completeness/, "completeness");
   const persistedDataOnlyText = summary !== null ? completeness.bannerText : null;
 

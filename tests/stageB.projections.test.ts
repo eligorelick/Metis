@@ -47,11 +47,11 @@ function route(base: SectorRoute = "general"): CompanyRouteResult {
 }
 
 const INCOME_HISTORY = [
-  { date: "2021-12-31", revenue: 700, ebit: 196, netIncome: 140, epsDiluted: 1.3 },
-  { date: "2022-12-31", revenue: 780, ebit: 226, netIncome: 160, epsDiluted: 1.5 },
-  { date: "2023-12-31", revenue: 850, ebit: 251, netIncome: 178, epsDiluted: 1.7 },
-  { date: "2024-12-31", revenue: 920, ebit: 276, netIncome: 196, epsDiluted: 1.9 },
-  { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1 },
+  { date: "2021-12-31", revenue: 700, ebit: 196, netIncome: 140, epsDiluted: 1.3, interestExpense: 20 },
+  { date: "2022-12-31", revenue: 780, ebit: 226, netIncome: 160, epsDiluted: 1.5, interestExpense: 20 },
+  { date: "2023-12-31", revenue: 850, ebit: 251, netIncome: 178, epsDiluted: 1.7, interestExpense: 20 },
+  { date: "2024-12-31", revenue: 920, ebit: 276, netIncome: 196, epsDiluted: 1.9, interestExpense: 20 },
+  { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1, interestExpense: 20 },
 ];
 
 function buildDcf(anchor = "2025-12-31"): { assumptions: DcfAssumptions; dcf: DcfResult } {
@@ -111,6 +111,42 @@ const byMetric = (p: ReturnType<typeof computeProjections>, m: string) => p.seri
 /* ------------------------------------------------------------------------ */
 
 describe("projections — structure", () => {
+  it.each(["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis", "valuation.dcf.noncontrollingOwnership"])("preserves reported EPS but withholds every modeled EPS path after %s refusal", field => {
+    const valuation = dcfValuation();
+    valuation.gaps.push({ field, reason: "Ownership or diluted security allocation is unresolved", severity: "warn" });
+    const result = computeProjections(makeInputs({ valuation }));
+    const eps = byMetric(result, "epsDiluted");
+    expect(eps.historical.map(p => p.value.value)).toEqual([1.5, 1.7, 1.9, 2.1]);
+    for (const path of [eps.bull, eps.base, eps.bear, eps.weighted, eps.flatShare?.base ?? [], eps.shareTrend?.base ?? []]) expect(path).toEqual([]);
+    expect(eps.disclosures).toContainEqual(expect.objectContaining({ field: "projections.eps.ownershipScope" }));
+    expect(byMetric(result, "revenue").base.length).toBeGreaterThan(0);
+    expect(byMetric(result, "fcf").base.length).toBeGreaterThan(0);
+  });
+
+  it.each([30, -30])("does not turn a signed NCI claim %s into a future common-earnings allocation", minority => {
+    const valuation = dcfValuation();
+    if (valuation.kind !== "dcf" || !valuation.dcf) throw new Error("Expected fixture DCF");
+    valuation.dcf.bridge.minorityInterest = minority;
+    const eps = byMetric(computeProjections(makeInputs({ valuation })), "epsDiluted");
+    expect(eps.base).toEqual([]);
+    expect(eps.historical.length).toBe(4);
+    expect(eps.disclosures[0]?.reason).toMatch(/noncontrolling.*future.*allocation/i);
+  });
+  it.each([10, 0])("requires a future common-earnings allocation for a nonzero preferred claim (%s)", preferred => {
+    const valuation = dcfValuation();
+    if (valuation.kind !== "dcf" || !valuation.dcf) throw new Error("Expected fixture DCF");
+    valuation.dcf.bridge.preferred = preferred;
+    const result = computeProjections(makeInputs({ valuation }));
+    const eps = byMetric(result, "epsDiluted");
+    expect(eps.historical.length).toBe(4);
+    if (preferred === 0) expect(eps.base.length).toBeGreaterThan(0);
+    else {
+      for (const path of [eps.base, eps.bull, eps.bear, eps.weighted, eps.flatShare?.base ?? [], eps.shareTrend?.base ?? []]) expect(path).toEqual([]);
+      expect(eps.disclosures[0]?.reason).toMatch(/preferred.*future.*allocation/i);
+      expect(byMetric(result, "revenue").base.length).toBeGreaterThan(0);
+    }
+  });
+
   it("evaluates a newly generated modeled period only against that exact published window", () => {
     const inputs = makeInputs({ asOf: "2024-07-06", valuation: dcfValuation("2024-03-31") });
     const generated = { meta: { symbol: "TEST", generatedAt: "2024-07-06T12:00:00.000Z", specVersion: "1.11.0", pipelineVersion: "test" }, projections: computeProjections(inputs) };

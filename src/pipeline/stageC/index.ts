@@ -30,7 +30,7 @@
  */
 
 import type { DataBundle } from "@/pipeline/types";
-import { CHATGPT_EFFORTS, parseSubscriptionModel, type ChatGptRunOptions } from "@/ai/contracts";
+import { parseSubscriptionModel } from "@/ai/contracts";
 import { runSubscriptionPass } from "@/ai/transport";
 import { createSectionCheckpoint } from "./sectionCheckpoint";
 import type { ComputedMetrics } from "@/pipeline/compute";
@@ -245,20 +245,6 @@ const runPassStreaming: RunPassStreamingFn = (args) => {
  * thinking tokens are billed as output and dominate per-pass cost, so this is
  * the user's cost/quality knob; the default stays "high".
  */
-/**
- * The selected subscription options with the reasoning effort lowered by
- * `steps`, floored at the lowest level. Only a captured explicit effort is
- * lowered: the provider default is not a known level to step down from.
- */
-export function steppedDownOptions(
-  options: ChatGptRunOptions | undefined,
-  steps: number | undefined,
-): ChatGptRunOptions | undefined {
-  if (!steps || steps <= 0 || options?.effort === undefined) return options;
-  const index = CHATGPT_EFFORTS.indexOf(options.effort);
-  return { ...options, effort: CHATGPT_EFFORTS[Math.max(0, index - steps)] };
-}
-
 function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
   if (parseSubscriptionModel(deps.analysisModel)) {
     const connectionId = deps.connectionId;
@@ -273,7 +259,7 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
       runPass: (args) => {
         const field = args.field ?? "llm";
         if (!owners.has(field)) owners.set(field, deps.passAttemptFor?.(field === "llm.judge" ? "synthesize" : field === "llm.bull" ? "bull" : "bear"));
-        return runSubscriptionPass(args, connectionId, steppedDownOptions(deps.subscriptionOptions, args.effortStepDown));
+        return runSubscriptionPass(args, connectionId, deps.subscriptionOptions);
       },
       validateRunPass: (args) => {
         if (args.model !== deps.analysisModel || JSON.stringify(args.messages).length > 2_000_000) {
@@ -446,6 +432,7 @@ function bindDeterministicReportProvenance(
     id: string,
     period: string | null,
     useComputationDate = false,
+    retainReaderSource = false,
   ): void => {
     if (!number) return;
     const record = byId.get(id);
@@ -465,13 +452,31 @@ function bindDeterministicReportProvenance(
     );
     if (!match.ok) return;
 
-    number.source = id;
+    if (retainReaderSource) number.sourceId = id;
+    else number.source = id;
     number.asOf = record.asOf;
     number.currency = record.currency;
     number.period = record.period;
     number.verified = null;
-    delete number.verificationNote;
+    if (!retainReaderSource) delete number.verificationNote;
   };
+
+  // Primary annual geography is injected after synthesis. Its filing URL is
+  // the reader link, while the named payload figure owns numeric identity.
+  // Exact origin includes both issuer CIK and filing document; a URL alone
+  // cannot admit a number or bypass the normal dimensional verifier.
+  for (const row of report.business.segments.geographic) {
+    const number = row.revenue;
+    if (!/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/\d+\/\d{18}\/[A-Za-z0-9_.-]+\.html?$/.test(number.source)) continue;
+    const figures = payload.segments.figures.filter(figure => figure.label === `geographic: ${row.name}` &&
+      figure.source === number.source && figure.value === number.value && figure.asOf === number.asOf &&
+      figure.period === number.period && figure.unit === number.unit && figure.currency === number.currency);
+    if (figures.length !== 1 || !figures[0]!.provenanceId) continue;
+    const figure = figures[0]!;
+    const record = byId.get(figure.provenanceId!);
+    if (record?.label !== figure.label || record.kind !== "provider" || record.value !== figure.value) continue;
+    bind(number, record.id, number.period ?? null, false, true);
+  }
 
   if (report.projections) {
     for (const series of report.projections.series) {

@@ -3,12 +3,14 @@ import {
   INTEGRATION_TEST_INCLUDE,
   SHARED_RESOLVE_ALIAS,
   SHARED_SETUP_FILES,
+  SHARED_TEST_RUNNER,
 } from "./vitest.shared";
 
 export default defineConfig({
   test: {
     include: INTEGRATION_TEST_INCLUDE,
     setupFiles: SHARED_SETUP_FILES,
+    runner: SHARED_TEST_RUNNER,
     environment: "node",
     pool: "forks",
     isolate: true,

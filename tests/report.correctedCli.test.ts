@@ -19,6 +19,8 @@ const ROOT = path.resolve(__dirname, "..");
 const CLI_SOURCE = path.join(ROOT, "src", "report", "export", "correctedCli.ts");
 const TSX_CLI = path.join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const REPORT_FIXTURE = path.join(ROOT, "fixtures", "report", "DEMO-sample.json");
+// Match the corrected-export path tests' native SQLite/filesystem I/O budget.
+const EXPORT_IO_TIMEOUT_MS = 15_000;
 
 interface CorrectedCliArguments {
   dbFile: string;
@@ -134,7 +136,7 @@ describe("corrected report CLI", () => {
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
-  });
+  }, EXPORT_IO_TIMEOUT_MS);
 
   it("is import-safe and exposes callable parsing/export entry points", async () => {
     const tempRoot = path.join(ROOT, "tmp");
@@ -346,7 +348,7 @@ describe("corrected report CLI", () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
     expect(existsSync(tempDir)).toBe(false);
-  });
+  }, EXPORT_IO_TIMEOUT_MS);
 
   it("closes the database and cleans safely after missing-report, schema, and write failures", async () => {
     const cli = await loadCli();
@@ -396,7 +398,7 @@ describe("corrected report CLI", () => {
       }
       expect(existsSync(tempDir)).toBe(false);
     }
-  });
+  }, EXPORT_IO_TIMEOUT_MS);
 
   it("keeps the package export:corrected entry point executable", () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "thesis-corrected-cli-"));

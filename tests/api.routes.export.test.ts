@@ -21,6 +21,9 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportReadyPanel } from "@/app/company/[symbol]/GenerateReport";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +37,7 @@ import { buildDataCompleteness } from "@/report/completeness";
 import { ReportSchema, REPORT_SPEC_VERSION, type Report } from "@/report/schema";
 
 import { GET as exportGET } from "@/app/api/export/[reportId]/route";
-import { GET as viewGET } from "@/app/api/report/view/[reportId]/route";
+import { GET as viewGET, type ReportSummary } from "@/app/api/report/view/[reportId]/route";
 import { task28SentinelReport } from "./helpers/task28Report";
 
 /* ------------------------------------------------------------------------ *
@@ -177,23 +180,33 @@ describe("GET /api/export/[reportId]", () => {
 
     const markdownResponse = await exportGET(...exportReq(String(id), "md"));
     const printResponse = await exportGET(...exportReq(String(id), "pdf"));
+    const auditResponse = await exportGET(...exportReq(String(id), "audit"));
     expect(markdownResponse.status).toBe(200);
     expect(printResponse.status).toBe(200);
+    expect(auditResponse.status).toBe(200);
+    expect(auditResponse.headers.get("Content-Type")).toBe("text/markdown; charset=utf-8");
+    expect(auditResponse.headers.get("Content-Disposition")).toBe(`attachment; filename="DEMO-report-${id}-audit.md"`);
     const markdown = await markdownResponse.text();
     const print = await printResponse.text();
+    const audit = await auditResponse.text();
+    // D-62: the report (Markdown and print) carries the reader-facing leaves;
+    // the audit export carries the raw registry leaves the body no longer prints.
     for (const output of [markdown, print]) {
       for (const sentinel of [
         "TASK28:composite:methodology",
-        "TASK28:fundamentals:driver:duplicate-identity-note",
         "TASK28:evidence:guidanceVsActuals:source-id",
         "TASK28:evidence:compensation:source-display",
-        "TASK28:revenue:historical:0:source-id",
-        "TASK28:epsDiluted:weighted:1:citation-note",
-        "TASK28:PROJECTION-WEIGHTS:VERSION",
-        "TASK28.verification.computed.path",
-        "TASK28.asOfMap.alpha",
       ]) expect(output).toContain(sentinel);
     }
+    for (const sentinel of [
+      "TASK28:composite:methodology",
+      "TASK28:fundamentals:driver:duplicate-identity-note",
+      "TASK28:revenue:historical:0:source-id",
+      "TASK28:epsDiluted:weighted:1:citation-note",
+      "TASK28:PROJECTION-WEIGHTS:VERSION",
+      "TASK28.verification.computed.path",
+      "TASK28.asOfMap.alpha",
+    ]) expect(audit).toContain(sentinel);
 
     const stored = handle.db.select({ reportJson: reports.reportJson })
       .from(reports)
@@ -211,7 +224,8 @@ describe("GET /api/export/[reportId]", () => {
     expect(markdownResponse.status).toBe(200);
     const markdown = await markdownResponse.text();
     expect(markdown).not.toContain(entityConflict);
-    expect(markdown).toContain("legacy.entityValidation");
+    // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+    expect(markdown).toContain("Legacy entity validation");
     expect(markdown).toContain("critical");
 
     const stored = handle.sqlite
@@ -229,7 +243,8 @@ describe("GET /api/export/[reportId]", () => {
     expect(printResponse.status).toBe(200);
     const printHtml = await printResponse.text();
     expect(printHtml).not.toContain(entityConflict);
-    expect(printHtml).toContain("legacy.entityValidation");
+    // D-67: the body names a gap by its reader label; the manifest field is in the audit export.
+    expect(printHtml).toContain("Legacy entity validation");
     expect(printHtml).toContain("critical");
 
     const stored = handle.sqlite
@@ -348,6 +363,34 @@ describe("GET /api/export/[reportId]", () => {
  * ------------------------------------------------------------------------ */
 
 describe("GET /api/report/view/[reportId]", () => {
+  it.each([
+    { source: { provider: "edgar", endpoint: "10-Q notes" }, expected: "partial" },
+    { source: { provider: "fmp", endpoint: "balance-sheet-statement" }, expected: "missing" },
+    { source: { provider: "edgar", endpoint: " " }, expected: "missing" },
+    { source: null, expected: "missing" },
+  ])("carries compact source evidence into the ready panel ($expected, $source)", async ({ source, expected }) => {
+    const report = task28SentinelReport();
+    report.appendix.missingData = [
+      { field: "edgar.tenKNotes(QCOM)", reason: "Requested annual notes unavailable", severity: "warn" },
+      { field: "validation.xbrlCrossCheck", reason: "XBRL skipped", severity: "info" },
+    ];
+    report.appendix.sources = source ? [{ ...source, asOf: "2026-06-28", fetchedAt: report.meta.generatedAt }] : [];
+    report.meta.dataCompleteness = buildDataCompleteness(report.appendix.missingData);
+    expect(report.meta.dataCompleteness.edgar).toBe("missing");
+    const storedBytes = JSON.stringify(report);
+    const id = seedReport(report);
+    const response = await viewGET(...viewReq(String(id)));
+    const body = await response.json() as ReportSummary;
+    expect(body.retainedSources).toEqual(source ? [source] : []);
+    const markup = renderToStaticMarkup(createElement(ReportReadyPanel, { summary: body, dataOnly: false, totalCost: 0, steps: [] }));
+    expect(markup).toContain(`EDGAR ${expected}`);
+    expect(markup).toContain("XBRL skipped");
+    expect(markup).toContain("forensic validation provisional");
+    expect(body.dataCompleteness).toEqual(report.meta.dataCompleteness);
+    expect(body.missingData).toEqual(report.appendix.missingData);
+    expect(handle.db.select({ reportJson: reports.reportJson }).from(reports).where(eq(reports.id, id)).get()?.reportJson).toBe(storedBytes);
+  });
+
   it("withholds current and legacy placeholder grades in compact summaries without rewriting the report", async () => {
     const report = task28SentinelReport();
     report.appendix.missingData.push({ field: "analysis.llm", reason: "No completed assessment", severity: "critical" });
@@ -630,6 +673,7 @@ describe("GET /api/report/view/[reportId]", () => {
     expect(body.dataOnly).toBeNull();
     expect(body.dataCompleteness).toBeNull();
     expect(body.missingData).toBeNull();
+    expect(body).toHaveProperty("retainedSources", null);
     expect(body.synthesis).toContain("unavailable");
   });
 });

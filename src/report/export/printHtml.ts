@@ -1,4 +1,7 @@
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
+import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
+import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -12,6 +15,11 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
  *   - the print page route builds a React tree, but reuses this module's body
  *     renderer + CSS so both surfaces are byte-identical in content.
  *
+ * D-62: the same reader-facing structure as the Markdown export — a short run
+ * header, the key-data box, the verdict with the bull/bear debate, reader
+ * labels and rounded values, one source marker per claim, a methodology box
+ * stated once. The audit material is the separate audit export.
+ *
  * DETERMINISTIC and pure — no timestamps, no server-only imports. Every figure
  * carries its as-of; the disclaimer and FRED attribution appear verbatim.
  *
@@ -20,13 +28,12 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
  * user-controlled markup is ever injected.
  */
 
-import { formatExecutionMetadata } from "@/report/execution";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { gradeDisplayLabel, gradeForDisplay } from "@/report/assessment";
-import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText, type ReportAuditTable } from "@/report/auditTables";
+import { gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
-import { evidenceTimingRows, EVIDENCE_TIMING_NOTE, type EvidenceTimingRow } from "@/report/evidenceTiming";
 import type {
   Appendix,
   BalanceSheet,
@@ -40,9 +47,6 @@ import type {
   Macro,
   MetricRow,
   Projections,
-  ProvenanceCoverage,
-  CheckRate,
-  ConsistencyChecks,
   Quality,
   Report,
   RouteMetrics,
@@ -52,7 +56,6 @@ import type {
   Scoring,
   SegmentRow,
   SourcedClaim,
-  Technicals,
   TracedNumber,
   Valuation,
 } from "@/report/schema";
@@ -61,41 +64,73 @@ import {
   type ReportCompletenessPresentation,
 } from "@/report/completeness";
 import {
-  ASPECT_SCORE_FIELDS,
-  AS_OF_MAP_FIELDS,
-  COMPOSITE_SCORE_FIELDS,
   EXECUTIVE_EVIDENCE_GROUPS,
-  MANIFEST_ENTRY_FIELDS,
   PROJECTION_METRIC_BY_KEY,
   PROJECTION_PATHS,
-  PROJECTION_POINT_FIELD_BY_KEY,
-  PROJECTION_ROOT_FIELDS,
-  PROJECTION_SCENARIO_WEIGHTS,
-  PROJECTION_SERIES_FIELD_BY_KEY,
-  PROJECTION_DISCLOSURE_FIELDS,
-  SCORE_WEIGHTS,
-  SCORE_SURFACE_BY_KEY,
-  SCORE_SURFACES,
   SOURCE_ENTRY_FIELDS,
-  TRACED_NUMBER_FIELDS,
-  VERIFICATION_LOG_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
-import { verificationEntryOutcomeLabel } from "@/report/schema";
 import {
-  formatCostUsd,
+  formatFinancialAmount,
   formatFinancialValue,
-  numericCitationTraceLabel,
   tracedPeriodLabel,
   formatMoneyAmount,
   establishedCurrency,
   peerColumnKeys,
   formatPct,
-  roundedDisplayedCostTotal,
 } from "@/report/format";
+import {
+  annualSegmentHeading,
+  assessmentLine,
+  auditExportPath,
+  citedMark,
+  claimCitation,
+  compactLongIntegers,
+  confidenceText,
+  consensusTables,
+  dataGapTables,
+  dataStateText,
+  displayProse,
+  executiveGradeText,
+  executiveGroups,
+  ratioPercentText,
+  showAnnualSegments,
+  withoutChartReferences,
+  factorExposureTable,
+  factorContributionSensitivityTable,
+  figureRows,
+  figureValueText,
+  gapCountText,
+  gapSummary,
+  geographyLabel,
+  geographicBasisNote,
+  indicatorLabel,
+  keyDataRows,
+  methodologyNotes,
+  metricRowsWithoutTabled,
+  moatHeading,
+  passLine,
+  priceTiming,
+  pruneTable,
+  reverseDcfValueText,
+  runSummary,
+  scoreDriverTable,
+  scorecardTable,
+  seeAlsoText,
+  sourceLabel,
+  splitCommonLines,
+  trustHeadline,
+  trustRows,
+  usageSummary,
+  withoutTabled,
+  type BodyTable,
+  type FigureRow,
+} from "@/report/presentation";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -108,71 +143,6 @@ import {
 
 const DASH = "—"; // em dash
 
-function coverageCellHtml(
-  supported: number,
-  total: number,
-  rate: number | null,
-): string {
-  return `${supported}/${total} (${
-    rate === null ? "n/a &mdash; no items" : `${(rate * 100).toFixed(0)}%`
-  })`;
-}
-
-function provenanceCoverageHtml(coverage: ProvenanceCoverage): string {
-  return `<p>${esc(factualValidationText(coverage) ?? "")}</p>` + table(
-    ["Evidence class", "Supported / total"],
-    [
-      [
-        "Numeric provenance",
-        coverageCellHtml(
-          coverage.numeric.supported,
-          coverage.numeric.total,
-          coverage.numeric.rate,
-        ),
-      ],
-      [
-        "Factual-claim citations",
-        coverageCellHtml(
-          coverage.factualClaims.supported,
-          coverage.factualClaims.total,
-          coverage.factualClaims.rate,
-        ),
-      ],
-      [
-        "Judgment citations",
-        coverageCellHtml(
-          coverage.judgments.cited,
-          coverage.judgments.total,
-          coverage.judgments.rate,
-        ),
-      ],
-    ],
-  );
-}
-
-// WS7 (D-20): CHECKED, printed beside CITED and never folded into it. The row
-// shows passed of checked, because a rate alone would hide how few pairs were
-// eligible; "0/0" means the check found nothing it could evaluate.
-const CONSISTENCY_CHECK_LABELS: readonly [keyof ConsistencyChecks, string][] = [
-  ["direction", "Direction word vs the sign of the cited change"],
-  ["period", "Period phrase vs the cited figure's period"],
-  ["unit", "Unit word vs the cited figure's registry unit"],
-  ["namedIndividual", "Claims naming a person: filings/transcripts only"],
-];
-
-function checkCellHtml(rate: CheckRate): string {
-  return `${rate.passed}/${rate.checked} (${
-    rate.rate === null ? "n/a &mdash; nothing eligible" : `${(rate.rate * 100).toFixed(0)}%`
-  })`;
-}
-
-function consistencyChecksHtml(checks: ConsistencyChecks): string {
-  return table(
-    ["Deterministic check", "Passed / checked"],
-    CONSISTENCY_CHECK_LABELS.map(([key, label]) => [esc(label), checkCellHtml(checks[key])]),
-  );
-}
-
 /** HTML-escape a string for safe interpolation into the print document. */
 export function esc(s: string): string {
   return s
@@ -181,6 +151,11 @@ export function esc(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/** Escaped stored prose: registry ids under reader labels, figures at reader precision (D-67). */
+function prose(text: string, source?: string): string {
+  return esc(displayProse(text, source));
 }
 
 function num(v: number | null | undefined, digits = 2): string {
@@ -201,33 +176,8 @@ function asOfTag(asOf: string | null): string {
   return asOf ? ` <span class="asof">as of ${esc(asOf)}</span>` : "";
 }
 
-// Citation-coverage marker (PROVENANCE, not correctness — audit 2026-07-11
-// finding #2): a check when the number traced to a citation or a payload value,
-// an "untraced" flag when it did not, a hollow dot when the pass has not run.
-// Never claims a number is "verified".
-function verifiedTag(n: TracedNumber): string {
-  if (n.verified === true)
-    return `<span class="v ok" title="citation-traced (provenance, not correctness)">✓</span>`;
-  if (n.verified === false)
-    return `<span class="v warn" title="not traced to a citation or payload figure">${numericCitationTraceLabel(n.verified)}</span>`;
-  return `<span class="v faint" title="citation coverage not computed">○</span>`;
-}
-
 function gradeClass(grade: string): string {
   return `g-${grade.toLowerCase()}`;
-}
-
-function auditValue(value: unknown): string {
-  if (value === null || value === undefined) return "n/a";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function tracedAuditCells(trace: TracedNumber): string[] {
-  return TRACED_NUMBER_FIELDS.map((field) => {
-    if (field.key === "verified") return esc(numericCitationTraceLabel(trace.verified));
-    return esc(auditValue(trace[field.key]));
-  });
 }
 
 /* ======================================================================== *
@@ -245,62 +195,69 @@ function sectionHeading(key: ReportSectionKey): string {
 
 /** A table from escaped header + body cells (cells may carry inner markup). */
 function table(headers: string[], rows: string[][]): string {
-  const head = `<thead><tr>${headers
-    .map((h) => `<th>${esc(h)}</th>`)
-    .join("")}</tr></thead>`;
+  const head = `<thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>`;
   const body =
     rows.length === 0
       ? `<tbody><tr><td colspan="${headers.length}" class="empty">${DASH}</td></tr></tbody>`
-      : `<tbody>${rows
-          .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`)
-          .join("")}</tbody>`;
+      : `<tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
   return `<table>${head}${body}</table>`;
 }
 
+/**
+ * A body table (D-62): always-empty columns are dropped and an empty table is
+ * not printed. Cells are raw text and escaped here.
+ */
+function bodyTable(headers: readonly string[], rows: readonly (readonly string[])[], keep: readonly string[] = []): string {
+  const pruned = pruneTable(headers, rows, keep);
+  return pruned === null ? "" : table(pruned.headers, pruned.rows.map((row) => row.map(esc)));
+}
+
+function subsection(heading: string, body: string, level = "h3"): string {
+  return body ? `<${level}>${esc(heading)}</${level}>${body}` : "";
+}
+
+/** Claims with ONE source marker each (D-62). */
 function claimList(claims: readonly SourcedClaim[]): string {
-  if (claims.length === 0) return `<p class="faint">${DASH}</p>`;
+  if (claims.length === 0) return "";
   return `<ul class="claims">${claims
-    .map(
-      (c) =>
-        `<li><span class="label ${c.label.toLowerCase()}">${esc(
-          c.label,
-        )}</span> ${esc(c.text)}${asOfTag(c.asOf)} <span class="src">src: ${esc(
-          c.source,
-        )}</span> <span class="src">source id: ${esc(c.sourceId ?? "n/a")}</span></li>`,
-    )
+    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${prose(c.text, c.source)} <span class="src">${esc(claimCitation(c))}</span></li>`)
     .join("")}</ul>`;
 }
 
-function gradeBlock(title: string, block: GradeBlock): string {
-  const parts: string[] = [];
-  parts.push(
-    `<div class="gradehead"><span class="chip ${gradeClass(
-      gradeForDisplay(block) ?? "unavailable",
-    )}">${esc(gradeDisplayLabel(block))}</span> <strong>${esc(
-      title,
-    )}</strong> <span class="conf">confidence: ${esc(block.confidence)}</span></div>`,
-  );
-  parts.push(`<p class="why">${esc(block.oneLineWhy)}</p>`);
-  if (block.interpretation) {
-    parts.push(`<p class="interp">${esc(block.interpretation)}</p>`);
-  }
-  if (block.reasoning.length > 0) {
-    parts.push(claimList(block.reasoning));
-  }
-  if (block.keyNumbers.length > 0) {
-    parts.push(
-      table(
-        ["Metric", "Value", "Measurement period", "As of", "Cited"],
-        block.keyNumbers.map((n) => [
-          esc(n.source),
-          `<span class="mono">${esc(tracedValue(n))}</span>`,
-          esc(tracedPeriodLabel(n.period, n.periodContext)),
-          esc(n.asOf ?? DASH),
-          verifiedTag(n),
-        ]),
-      ),
-    );
-  }
+function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): string {
+  return bodyTable([metricHeader, "Value", "Period", "As of", "Cited"], rows.map((r) => [r.label, r.value, r.period ?? DASH, r.asOf ?? DASH, r.cited]), ["Cited"]);
+}
+
+function bodyTables(tables: readonly (ReportAuditTable | BodyTable | null)[], level = "h3"): string {
+  return tables.map((t) => {
+    if (!t) return "";
+    const body = bodyTable(t.headers, t.rows);
+    return body ? `<${level}>${esc(t.heading)}</${level}>${body}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}` : "";
+  }).join("");
+}
+
+/** D-67: the aspect's deterministic score (limited-evidence label) and the data state (confidence cap). */
+interface GradeContext {
+  aspect?: AspectEvidence | null;
+  completeness?: ReportCompletenessPresentation;
+}
+
+function gradeContext(report: Report, key: keyof NonNullable<Report["scores"]>["aspects"]): GradeContext {
+  return { aspect: report.scores?.aspects[key] ?? null, completeness: deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources) };
+}
+
+function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRow>, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
+  const confidence = ctx.completeness ? confidenceText(block.confidence, ctx.completeness) : block.confidence;
+  const parts: string[] = [
+    `<div class="gradehead"><span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block, ctx.aspect))}</span> <strong>${esc(title)}</strong> <span class="conf">confidence: ${esc(confidence)}</span></div>`,
+    `<p class="why">${prose(block.oneLineWhy)}</p>`,
+  ];
+  if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
+  if (block.reasoning.length > 0) parts.push(claimList(block.reasoning));
+  const { kept, homes } = withoutTabled(report, block.keyNumbers);
+  parts.push(figureTable(figureRows(kept, seen)));
+  const also = seeAlsoText(homes);
+  if (also) parts.push(`<p class="faint">${esc(also)}</p>`);
   return `<div class="gradeblock">${parts.join("")}</div>`;
 }
 
@@ -308,47 +265,63 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
   const body: string[][] = [];
   for (const row of rows) {
     for (const v of row.values) {
-      body.push([
-        esc(row.label),
-        esc(v.period),
-        `<span class="mono">${esc(tracedValue(v.value))}</span>`,
-        esc(tracedPeriodLabel(v.value.period, v.value.periodContext)),
-        esc(v.value.asOf ?? DASH),
-        esc(numericCitationTraceLabel(v.value.verified)),
-      ]);
+      const window = tracedPeriodLabel(v.value.period, v.value.periodContext);
+      const periodCell = window === "not supplied" || v.period.includes(window) ? v.period : window.includes(v.period) ? window : `${v.period} (${window})`;
+      body.push([row.label, periodCell, figureValueText(v.value), v.value.asOf ?? DASH, citedMark(v.value.verified)]);
     }
   }
-  return table(["Metric", "Period", "Value", "Measurement period", "As of", "Citation traced"], body);
+  return bodyTable(["Metric", "Period", "Value", "As of", "Cited"], body, ["Cited"]);
 }
 
-function segmentTable(rows: readonly SegmentRow[]): string {
-  return table(
-    ["Segment", "Revenue", "Share", "As of"],
-    rows.map((s) => [
-      esc(s.name),
-      `<span class="mono">${esc(tracedValue(s.revenue))}</span>`,
-      s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`,
-      esc(s.revenue.asOf ?? DASH),
-    ]),
-  );
-}
-
-function numbersTable(numbers: readonly TracedNumber[]): string {
-  return table(
-    ["Metric", "Value", "Measurement period", "As of", "Cited"],
-    numbers.map((n) => [
-      esc(n.source),
-      `<span class="mono">${esc(tracedValue(n))}</span>`,
-      esc(tracedPeriodLabel(n.period, n.periodContext)),
-      esc(n.asOf ?? DASH),
-      verifiedTag(n),
-    ]),
+function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
+  return bodyTable(
+    ["Segment", "Revenue", "Share"],
+    rows.map((s) => [geographic ? geographyLabel(s.name) : s.name, formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency), s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`]),
   );
 }
 
 /* ======================================================================== *
- * Section renderers
+ * Header, key data, verdict
  * ======================================================================== */
+
+function headerBlock(report: Report, completeness: ReportCompletenessPresentation): string {
+  const m = report.meta;
+  const meta = table(
+    ["Report", "Detail"],
+    [
+      ["Generated", m.generatedAt],
+      ["Model", runSummary(report)],
+      ["Usage", usageSummary(report)],
+      ["Data completeness", dataStateText(completeness)],
+      ["Verification", trustHeadline(m.provenanceCoverage) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+      ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
+    ].map((r) => r.map((c) => esc(String(c)))),
+  );
+  return `<header class="report-header">
+    <div class="metis-print-brand">${METIS_LOCKUP_SVG}</div>
+    <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
+    <p class="subtitle">Equity Research Report</p>
+    ${meta}
+    <p class="disclaimer">${esc(m.disclaimer)}</p>
+  </header>`;
+}
+
+function keyDataBlock(report: Report): string {
+  const rows = keyDataRows(report);
+  if (rows.length === 0) return "";
+  return `<section class="block keydata"><h3>Key data</h3>${bodyTable(["Key data", "Value", "Basis"], rows.map((row) => [row.label, row.value, row.note ?? DASH]))}</section>`;
+}
+
+function disagreementsBlock(disagreements: readonly Disagreement[]): string {
+  if (disagreements.length === 0) return "";
+  const items = disagreements
+    .map((d) => `<li><strong>${esc(d.topic)}</strong> (${esc(d.kind)})<ul>
+        <li>Bull: ${prose(d.bullView)}</li>
+        <li>Bear: ${prose(d.bearView)}</li>
+        <li>Judge: ${prose(d.judgeResolution)}</li></ul></li>`)
+    .join("");
+  return `<h3>Bull/bear disagreements</h3><ul class="disagreements">${items}</ul>`;
+}
 
 function sectionVerdict(report: Report): string {
   const v = report.verdict;
@@ -356,202 +329,75 @@ function sectionVerdict(report: Report): string {
     ["Section", "Grade", "Why"],
     gradeSurfaceEntries(v.gradeStrip).map(({ descriptor, block }) => [
       esc(descriptor.label),
-      `<span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block))}</span>`,
-      esc(block.oneLineWhy),
+      `<span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block, report.scores?.aspects[descriptor.key]))}</span>`,
+      prose(block.oneLineWhy),
     ]),
   );
-  const execSummary =
-    v.executiveSummary && v.executiveSummary.length > 0
-      ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}`
-      : "";
-  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${esc(
-    v.synthesis,
-  )}</p>${execSummary}${strip}</section>`;
-}
-
-function auditTablesHtml(tables: ReportAuditTable[]): string {
-  return tables.map(t=>`<h3>${esc(t.heading)}</h3>${table(t.headers,t.rows.map(row=>row.map(esc)))}${t.note ? `<p class="faint">${esc(t.note)}</p>` : ""}`).join("");
+  const execSummary = v.executiveSummary && v.executiveSummary.length > 0 ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}` : "";
+  // D-62: the debate sits with the verdict it informs.
+  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${execSummary}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
 }
 
 function sectionScores(scores: Scoring): string {
   const c = scores.composite;
-  const aspectDescriptors = SCORE_SURFACES.filter((descriptor) => descriptor.kind === "aspect");
-  const compositeFields = COMPOSITE_SCORE_FIELDS.filter((field) => field.key !== "weights");
-  const aspectFields = ASPECT_SCORE_FIELDS.filter((field) => field.key !== "drivers" && field.key !== "signals");
-  const compositeChip = c.band
-    ? `<span class="chip ${gradeClass(c.band)}">${esc(c.band)}</span>`
-    : DASH;
+  const card = scorecardTable(scores);
+  const assessment = assessmentLine(scores);
+  const compositeChip = c.band ? `<span class="chip ${gradeClass(c.band)}">${esc(c.band)}</span>` : DASH;
   return `<section class="block"><h3>Scorecard (deterministic)</h3>
-    <p>Composite: <strong class="mono">${
-      c.score === null ? DASH : Math.round(c.score)
-    } / 100</strong> ${compositeChip}</p>
-    ${table(
-      ["Score identity", ...compositeFields.map((field) => field.label)],
-      [[
-        esc(SCORE_SURFACE_BY_KEY.composite.label),
-        ...compositeFields.map((field) => {
-          if (field.key === "score") return esc(auditValue(c.score));
-          if (field.key === "band") return esc(auditValue(c.band));
-          return esc(c.methodology);
-        }),
-      ]],
-    )}
-    <h3>Composite weights</h3>${table(
-      ["Aspect", "Weight"],
-      SCORE_WEIGHTS.map((descriptor) => [
-        esc(descriptor.label),
-        esc(String(c.weights[descriptor.aspect])),
-      ]),
-    )}
-    <h3>Aspect scores</h3>${table(
-      ["Aspect", ...aspectFields.map((field) => field.label)],
-      aspectDescriptors.map((descriptor) => {
-        const aspect = scores.aspects[descriptor.key];
-        return [
-          esc(descriptor.label),
-          ...aspectFields.map((field) => {
-            if (field.key === "dataCompleteness") {
-              return esc(String(aspect.dataCompleteness));
-            }
-            return esc(auditValue(aspect[field.key]));
-          }),
-        ];
-      }),
-    )}
-    <h3>Score drivers</h3>${table(
-      ["Aspect", ...TRACED_NUMBER_FIELDS.map((field) => field.label)],
-      aspectDescriptors.flatMap((descriptor) =>
-        scores.aspects[descriptor.key].drivers.map((driver) => [
-          esc(descriptor.label),
-          ...tracedAuditCells(driver),
-        ])),
-    )}
-    ${auditTablesHtml(scoreAuditTables(scores))}<p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
+    <p>Composite: <strong class="mono">${c.score === null ? DASH : Math.round(c.score)} / 100</strong> ${compositeChip}</p>
+    ${assessment ? `<p>${esc(assessment)}</p>` : ""}
+    ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
+    ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
+    <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
 }
 
-function sectionProjections(p: Projections): string {
-  const series = orderedProjectionSeries(p.series);
-  const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
-  const blocks = series
-    .map((s) => {
-      const rows = projectionPeriodRows(s).flatMap((row) => {
-        const points = forwardPaths.map((descriptor) =>
-          projectionCellPoint(row, descriptor.key, s.unit));
-        if (points.every((point) => point === null)) return [];
-        return [[
-          esc(row.period),
-          ...points.map((point) => `<span class="mono">${
-            point === null ? DASH : esc(tracedValue(point.value))
-          }</span>`),
-        ]];
-      });
-      const assumptions =
-        s.assumptions.length > 0
-          ? `<ul class="claims">${s.assumptions.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>`
-          : "";
-      return `<h3>${esc(PROJECTION_METRIC_BY_KEY[s.metric].label)} (${esc(s.unit)})</h3>${table(
-        ["Period", ...forwardPaths.map((descriptor) => descriptor.label)],
-        rows,
-      )}${assumptions}`;
-    })
-    .join("");
-  const rootAudit = table(
-    ["Field", "Value"],
-    PROJECTION_ROOT_FIELDS.flatMap((field) => {
-      if (field.key === "scenarioWeights") {
-        return PROJECTION_SCENARIO_WEIGHTS.map((descriptor) => [
-          esc(`${descriptor.label} scenario weight`),
-          esc(String(p.scenarioWeights[descriptor.key])),
-        ]);
-      }
-      if (field.key === "horizonYears") return [[esc(field.label), esc(String(p.horizonYears))]];
-      if (field.key === "weightsVersion") return [[esc(field.label), esc(p.weightsVersion)]];
-      if (field.key === "series") return [[esc(field.label), esc(String(p.series.length))]];
-      return [[esc(field.label), esc(auditValue(p[field.key]))]];
-    }),
-  );
-  const seriesAudit = series.map((s) => {
-    const metric = PROJECTION_METRIC_BY_KEY[s.metric];
-    const points = table(
-      [
-        PROJECTION_SERIES_FIELD_BY_KEY.metric.label,
-        "Path",
-        PROJECTION_POINT_FIELD_BY_KEY.period.label,
-        PROJECTION_POINT_FIELD_BY_KEY.periodStart.label, PROJECTION_POINT_FIELD_BY_KEY.periodEnd.label, PROJECTION_POINT_FIELD_BY_KEY.periodBasis.label,
-        "Series unit",
-        ...TRACED_NUMBER_FIELDS.map((field) => field.label),
-      ],
-      PROJECTION_PATHS.flatMap((path) =>
-        s[path.key].map((point) => [
-          esc(metric.label),
-          esc(path.label),
-          esc(point.period),
-          esc(auditValue(point.periodStart)), esc(auditValue(point.periodEnd)), esc(auditValue(point.periodBasis)),
-          esc(s.unit),
-          ...tracedAuditCells(point.value),
-        ])),
-    );
-    const assumptions = table(
-      [PROJECTION_SERIES_FIELD_BY_KEY.assumptions.label],
-      s.assumptions.map((assumption) => [esc(assumption)]),
-    );
-    const disclosures = table(
-      PROJECTION_DISCLOSURE_FIELDS.map((field) => field.label),
-      s.disclosures.map((disclosure) =>
-        PROJECTION_DISCLOSURE_FIELDS.map((field) => {
-          if (field.key === "attemptedSources") {
-            return esc(disclosure.attemptedSources?.join(", ") ?? "n/a");
-          }
-          if (field.key === "expected") {
-            return disclosure.expected === undefined
-              ? "unknown"
-              : disclosure.expected ? "yes" : "no";
-          }
-          return esc(disclosure[field.key]);
-        })),
-    );
-    return `<h4>${esc(metric.label)} projection series</h4>${points}${assumptions}${disclosures}`;
-  }).join("");
-  return `<section class="block">${sectionHeading("projections")}
-    <p class="faint">Horizon ${p.horizonYears}y · unbacktested display prior weights ${p.scenarioWeights.bull}/${p.scenarioWeights.base}/${p.scenarioWeights.bear} (bull/base/bear). Forward figures are ESTIMATEs, not facts or empirically calibrated odds.</p>
-    ${series.length === 0 ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
-    ${blocks}${auditTablesHtml(projectionAuditTables(p))}<h3>Projection audit trail</h3>${rootAudit}${seriesAudit}</section>`;
-}
+/* ======================================================================== *
+ * Section renderers
+ * ======================================================================== */
 
-function sectionBusiness(b: Business): string {
+function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
+  const quarterly = bodyTables(extra);
+  // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
+  const annual = (showAnnualSegments(quarterly.length > 0)
+    ? subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product)) : "") +
+    (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)
+      ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
   return `<section class="block">${sectionHeading("business")}
-    <h3>What they sell</h3>${claimList(b.whatTheySell)}
-    <h3>Product segments</h3>${segmentTable(b.segments.product)}
-    <h3>Geographic segments</h3>${segmentTable(b.segments.geographic)}
-    <h3>Concentration risks</h3>${claimList(b.concentrationRisks)}</section>`;
+    ${subsection("What they sell", claimList(b.whatTheySell))}
+    ${quarterly}
+    ${annual}
+    ${subsection("Concentration risks", claimList(b.concentrationRisks))}</section>`;
 }
 
-function sectionFundamentals(f: Fundamentals, summary?: SourceFactSummary): string {
-  return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock(
-    "Fundamentals",
-    f.graded,
-  )}
-    <h3>Growth</h3>${metricRowsTable(f.growthTable)}
-    <h3>Margin trend</h3>${metricRowsTable(f.marginTrend)}
-    <h3>Returns</h3>${metricRowsTable(f.returns)}
-    <h3>Free cash flow</h3>${metricRowsTable(f.fcf)}
-    ${f.commentary.length > 0 ? `<h3>Commentary</h3>${claimList(f.commentary)}` : ""}${auditTablesHtml(sourceFactAuditTables(summary))}</section>`;
+function sectionFundamentals(f: Fundamentals, summary: SourceFactSummary | undefined, extra: ReportAuditTable[], report: Report): string {
+  const seen = new Map<string, FigureRow>();
+  const homes: string[] = [];
+  const group = (heading: string, rows: readonly MetricRow[]): string => {
+    const split = metricRowsWithoutTabled(report, rows);
+    for (const home of split.homes) if (!homes.includes(home)) homes.push(home);
+    return subsection(heading, metricRowsTable(split.kept));
+  };
+  const groups = [group("Growth", f.growthTable), group("Margin trend", f.marginTrend), group("Returns", f.returns), group("Free cash flow", f.fcf)].join("");
+  const also = seeAlsoText(homes);
+  return `<section class="block">${sectionHeading("fundamentals")}${gradeBlock("Fundamentals", f.graded, seen, report, gradeContext(report, "fundamentals"))}
+    ${groups}${also ? `<p class="faint">${esc(also)}</p>` : ""}${bodyTables(extra)}
+    ${subsection("Commentary", claimList(f.commentary))}${bodyTables(sourceFactAuditTables(summary, false))}</section>`;
 }
 
-function sectionBalanceSheet(bs: BalanceSheet): string {
-  const group = (
-    title: string,
-    g: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] },
-  ): string =>
-    `<h3>${esc(title)}</h3>${claimList(g.commentary)}${
-      g.numbers.length > 0 ? numbersTable(g.numbers) : ""
-    }`;
+function sectionBalanceSheet(bs: BalanceSheet, report: Report): string {
+  const seen = new Map<string, FigureRow>();
+  const grade = bs.graded ? gradeBlock("Balance Sheet & Capital", bs.graded, seen, report, gradeContext(report, "balanceSheet")) : "";
+  const group = (title: string, g: { commentary: readonly SourcedClaim[]; numbers: readonly TracedNumber[] }): string => {
+    const body = `${claimList(g.commentary)}${figureTable(figureRows(withoutTabled(report, g.numbers).kept, seen))}`;
+    return subsection(title, body);
+  };
   return `<section class="block">${sectionHeading("balanceSheet")}
-    ${bs.graded ? gradeBlock("Balance Sheet & Capital", bs.graded) : ""}
+    ${grade}
     ${group("Debt profile", bs.debtProfile)}
     ${group("Coverage", bs.coverage)}
     ${group("Capex trajectory", bs.capexTrajectory)}
-    <h3>Capital allocation</h3>${claimList(bs.capitalAllocation)}</section>`;
+    ${bodyTables(filingDisclosureTables(report.filingDisclosures, "balanceSheet"))}
+    ${subsection("Capital allocation", claimList(bs.capitalAllocation))}</section>`;
 }
 
 /** WS5 (D-17): route metrics, with the withheld reason beside every blank. */
@@ -572,199 +418,141 @@ function routeMetricsBlock(rm: RouteMetrics): string {
 
 function sectionValuation(
   v: Valuation,
-  scenarioTargets?: ScenarioTargets,
-  fairValue?: FairValue,
-  routeMetrics?: RouteMetrics,
-  review: ValuationReviewInputs = {},
-  timing: readonly EvidenceTimingRow[] = [],
+  scenarioTargets: ScenarioTargets | undefined,
+  fairValue: FairValue | undefined,
+  routeMetrics: RouteMetrics | undefined,
+  review: ValuationReviewInputs,
+  report: Report,
 ): string {
-  const parts: string[] = [];
-  if (timing.length) parts.push("<h3>Evidence timing</h3>", table(["Event", "Established timing"], timing.map((row) => [esc(row.label), esc(row.value)])), `<p>${esc(EVIDENCE_TIMING_NOTE)}</p>`);
-  parts.push(gradeBlock("Valuation", v.graded));
-
-  // perShare is null when the deterministic fair value was suppressed — show
-  // "unavailable", never a fabricated number.
+  const seen = new Map<string, FigureRow>();
+  const parts: string[] = [gradeBlock("Valuation", v.graded, seen, report, gradeContext(report, "valuation"))];
   const dcfPs = v.dcf.perShare;
   parts.push(
     dcfPs
-      ? `<h3>DCF</h3><p>Intrinsic value per share: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${
-          v.dcf.upsidePct === null
-            ? ""
-            : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`
-        }</p>`
-      : `<h3>DCF</h3><p>Intrinsic value per share: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see missing-data).</p>`,
+      ? `<h3>DCF</h3><p>Intrinsic value per share: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
+      : `<h3>DCF</h3><p>Intrinsic value per share: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
   );
-  // Honest disclosure: computed-derived, route-appropriate method (or why suppressed).
   if (fairValue) {
     parts.push(
       fairValue.status === "available"
-        ? `<p class="faint">${esc(fairValue.basis.join(" "))}</p>`
+        ? `<p class="faint">${prose(fairValue.basis.join(" "))}</p>`
         : `<p class="faint">Intrinsic value per share suppressed &mdash; ${esc(fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" "))}</p>`,
     );
   }
-  parts.push(
-    table(
-      ["Assumption", "Value", "Basis"],
-      v.dcf.assumptions.map((a) => [esc(a.name), esc(a.value), esc(a.basis)]),
-    ),
-  );
+  parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
+  parts.push(bodyTables(valuationAuditTables(v.dcf)));
 
   const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
-  parts.push(auditTablesHtml(valuationAuditTables(v.dcf)));
   const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
   if (waccs.length > 0 && gterms.length > 0) {
     const lookup = new Map<string, number | null>();
-    for (const c of v.dcf.sensitivityGrid)
-      lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
+    for (const c of v.dcf.sensitivityGrid) lookup.set(`${c.waccPct}|${c.gTermPct}`, c.perShare);
     const headers = ["WACC \\ g", ...gterms.map((g) => `${g.toFixed(1)}%`)];
     const rows = waccs.map((w) => [
       `${w.toFixed(1)}%`,
       ...gterms.map((g) => {
         const ps = lookup.get(`${w}|${g}`);
-        // In the currency of the per-share value beside it (see markdown.ts).
-        return ps === undefined || ps === null ? DASH : esc(formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0));
+        // In the currency of the per-share value beside it.
+        return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
       }),
     ]);
-    parts.push(
-      `<h3>Sensitivity (per share &mdash; rows = WACC, cols = terminal g)</h3>`,
-      table(headers, rows.map((r) => r.map((c) => `<span class="mono">${esc(c)}</span>`))),
-    );
+    parts.push(`<h3>Sensitivity (per share &mdash; rows = WACC, cols = terminal g)</h3>`, table(headers, rows.map((r) => r.map((c) => `<span class="mono">${esc(c)}</span>`))));
   }
 
-  parts.push(
-    `<h3>Reverse DCF</h3><p>Implied ${esc(
-      v.reverseDcf.impliedMetric,
-    )}: <strong class="mono">${
-      v.reverseDcf.impliedValue === null
-        ? DASH
-        : esc(v.reverseDcf.impliedValue.toFixed(1))
-    }</strong></p><p>${esc(v.reverseDcf.narrative)}</p>`,
-  );
+  parts.push(`<h3>Reverse DCF</h3><p>Implied ${esc(v.reverseDcf.impliedMetric)}: <strong class="mono">${esc(reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue))}</strong></p><p>${prose(v.reverseDcf.narrative)}</p>`);
 
-  parts.push(
-    `<h3>Multiples</h3>`,
-    table(
-      // WS6 (D-19): a rank among N quarters, not a percentile.
-      ["Multiple", "Current", "Peer median", "Own-history rank", "Sector"],
-      v.multiples.map((m) => [
-        esc(m.name),
-        m.current === null ? DASH : num(m.current, 1),
-        `${m.peerMedian === null ? DASH : num(m.peerMedian, 1)}${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
-        m.own5yPercentile === null
-          ? DASH
-          : esc(
-              `rank ${m.own5yPercentile.toFixed(0)}/100${
-                typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""
-              }`,
-            ),
-        m.sectorAppropriate ? "yes" : "no",
-      ]),
-    ),
-  );
+  parts.push(subsection("Multiples", bodyTable(
+    // Empirical percentile within the retained sample; N is separate from its scale.
+    ["Multiple", "Basis and limitations", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
+    v.multiples.map((m) => [
+      m.name,
+      m.basis ?? DASH,
+      m.current === null ? DASH : `${num(m.current, 1)}×`,
+      m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
+      m.own5yPercentile === null ? DASH : ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations),
+      m.sectorAppropriate ? "yes" : "no",
+    ]),
+  )));
+  if (v.multiplesBasis) parts.push(`<p class="faint">${esc(v.multiplesBasis)}</p>`);
+  // D-62: consensus and market data, once, beside the multiples.
+  parts.push(bodyTables(consensusTables(report)));
 
   parts.push(`<h3>Scenarios</h3>`);
-  parts.push(
-    `<p class="faint">${esc(review.scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable.")}</p>`,
-  );
-  // Honest disclosure: computed-derived DCF sensitivity, not analyst targets (or why suppressed).
+  if (review.scenarioPresentation?.weightBasis) parts.push(`<p class="faint">${esc(review.scenarioPresentation.weightBasis)}</p>`);
   if (scenarioTargets) {
-    if (scenarioTargets.status === "available") {
-      parts.push(
-        `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${esc(scenarioTargets.basis.join(" "))}</p>`,
-      );
-    } else {
-      const reasons = scenarioTargets.missingReasons.map((m) => m.reason).join("; ");
-      parts.push(
-        `<p class="faint">Scenario price targets suppressed — ${esc(reasons || scenarioTargets.basis.join(" "))}</p>`,
-      );
-    }
+    parts.push(scenarioTargets.status === "available"
+      ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
+      : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
   }
   for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
-    parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${esc(p)}</p>`));
-    for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${esc(p)}</p>`));
+    parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${prose(p)}</p>`));
+    for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${prose(p)}</p>`));
+    if (block.table) parts.push(bodyTable(block.table.headers, block.table.rows));
   }
-  for (const sc of v.scenarios) parts.push(scenarioCard(sc, review.scenarioPresentation !== undefined));
+  const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
+  if (common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
+  v.scenarios.forEach((sc, index) => parts.push(scenarioCard(sc, specific[index] ?? [], review.scenarioPresentation !== undefined)));
   if (routeMetrics) parts.push(routeMetricsBlock(routeMetrics));
-
   return `<section class="block">${sectionHeading("valuation")}${parts.join("")}</section>`;
 }
 
-function scenarioCard(sc: Scenario, computedWeights = false): string {
-  const list = (items: readonly string[]): string =>
-    items.length > 0
-      ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`
-      : `<p class="faint">${DASH}</p>`;
-  const probability = sc.probability === null
-    ? "n/a"
-    : `${(sc.probability * 100).toFixed(0)}%`;
+function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeights = false): string {
+  const list = (items: readonly string[]): string => `<ul>${items.map((i) => `<li>${prose(i)}</li>`).join("")}</ul>`;
+  const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
+  const blocks = [
+    assumptions.length > 0 ? `<div><em>Assumptions</em>${list(assumptions)}</div>` : "",
+    sc.whatWouldHaveToBeTrue.length > 0 ? `<div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue)}</div>` : "",
+    sc.qualitativeCommentary?.length ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(sc.qualitativeCommentary)}</div>` : "",
+  ].join("");
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
-      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "target unavailable"}</span>
-      <span class="prob">${computedWeights ? "Display weight" : "p"} = ${probability}</span>
+      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "per-share target unavailable"}</span>
+      ${computedWeights && sc.probability === null ? "" : `<span class="prob">${computedWeights ? "display weight" : "p"} ${probability}</span>`}
       <span class="asof">${esc(sc.horizon)}</span></div>
-    <div class="scenariobody">
-      <div><em>Assumptions</em>${list(sc.assumptions)}</div>
-      <div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue)}</div>
-      ${sc.qualitativeCommentary?.length ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(sc.qualitativeCommentary)}</div>` : ""}
-    </div></div>`;
+    <div class="scenariobody">${blocks}</div></div>`;
 }
 
-function sectionQuality(q: Quality): string {
+function sectionQuality(q: Quality, report: Report): string {
   const fs = q.forensicScores;
-  // "Not applicable" carries the reason a battery was skipped for this route,
-  // which the on-screen report shows and the export previously dropped.
-  const forensic = table(
+  // "Not applicable" carries the reason a battery was skipped for this route;
+  // the column is dropped when no battery was skipped.
+  const forensic = bodyTable(
     ["Battery", "Variant", "Score", "Zone", "Not applicable"],
-    (
-      [
-        ["Altman Z", fs.altman, num(fs.altman.score, 2)],
-        ["Beneish M", fs.beneish, num(fs.beneish.score, 2)],
-        ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)],
-        ["Accruals", fs.accruals, num(fs.accruals.score, 2)],
-      ] as const
-    ).map(([label, entry, score]) =>
-      [label, entry.variant, score, entry.zone ?? DASH, entry.notApplicableReason ?? DASH].map(
-        (c) => esc(String(c)),
-      ),
-    ),
+    ([
+      ["Altman Z", fs.altman, num(fs.altman.score, 2)],
+      ["Beneish M", fs.beneish, num(fs.beneish.score, 2)],
+      ["Piotroski F", fs.piotroski, num(fs.piotroski.score, 0)],
+      // D-67: the accrual ratio prints in percent, as the score drivers and key numbers print it.
+      ["Accruals", fs.accruals, fs.accruals.score === null ? DASH : ratioPercentText(fs.accruals.score)],
+    ] as const).map(([label, entry, score]) => [label, entry.variant, score, entry.zone ?? DASH, entry.notApplicableReason ?? DASH]),
   );
-  const flags =
-    q.flags.length > 0
-      ? table(
-          ["Severity", "Flag", "Source"],
-          q.flags.map((f) => [esc(f.severity), esc(f.text), esc(f.source)]),
-        )
-      : `<p class="faint">No forensic flags raised.</p>`;
-  return `<section class="block">${sectionHeading("quality")}${gradeBlock(
-    "Quality",
-    q.graded,
-  )}<h3>Forensic scores</h3>${forensic}<h3>Flags</h3>${flags}</section>`;
+  const flags = q.flags.length > 0
+    ? table(["Severity", "Flag", "Source"], q.flags.map((f) => [esc(f.severity), prose(f.text), esc(sourceLabel(f.source))]))
+    : `<p class="faint">No forensic flags raised.</p>`;
+  // D-68: methodology and context notes sit under the table; flags are findings.
+  const notes = (q.notes ?? []).length > 0 ? `<div><em>Notes</em><ul>${(q.notes ?? []).map((note) => `<li>${prose(note)}</li>`).join("")}</ul></div>` : "";
+  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
 }
 
-function sectionTechnicals(t: Technicals): string {
+function sectionTechnicals(report: Report): string {
+  const t = report.technicals;
+  const timing = priceTiming(report);
+  const seen = new Map<string, FigureRow>();
   const read = `<ul class="read">
-    <li><strong>Trend:</strong> ${esc(t.read.trend)}</li>
-    <li><strong>Momentum:</strong> ${esc(t.read.momentum)}</li>
-    <li><strong>Key levels:</strong> ${esc(t.read.keyLevels)}</li>
-    <li><strong>Relative strength:</strong> ${esc(t.read.relativeStrength)}</li></ul>`;
-  const indicators = t.indicators.length > 0 ? numbersTable(t.indicators) : "";
-  const flags =
-    t.flags.length > 0
-      ? table(
-          ["Severity", "Flag", "Source"],
-          t.flags.map((f) => [esc(f.severity), esc(f.text), esc(f.source)]),
-        )
-      : "";
-  return `<section class="block">${sectionHeading("technicals")}${gradeBlock(
-    "Technicals",
-    t.graded,
-  )}<h3>Structured read</h3>${read}${
-    indicators ? `<h3>Indicators</h3>${indicators}` : ""
-  }${flags ? `<h3>Flags</h3>${flags}` : ""}</section>`;
+    <li><strong>Trend:</strong> ${prose(t.read.trend)}</li>
+    <li><strong>Momentum:</strong> ${prose(t.read.momentum)}</li>
+    <li><strong>Key levels:</strong> ${prose(t.read.keyLevels)}</li>
+    <li><strong>Relative strength:</strong> ${prose(t.read.relativeStrength)}</li></ul>`;
+  const grade = gradeBlock("Technicals", t.graded, seen, report, gradeContext(report, "technicals"));
+  const indicators = figureTable(figureRows(t.indicators, seen).map((row) => ({ ...row, label: indicatorLabel(row.trace, timing) })), "Indicator");
+  const flags = t.flags.length > 0 ? table(["Severity", "Flag", "Source"], t.flags.map((f) => [esc(f.severity), prose(f.text), esc(sourceLabel(f.source))])) : "";
+  return `<section class="block">${sectionHeading("technicals")}${grade}<h3>Structured read</h3>${read}${subsection("Indicators", indicators)}${subsection("Flags", flags)}</section>`;
 }
 
-function sectionLeadership(l: Leadership): string {
-  const execs = l.executives
+function sectionLeadership(l: Leadership, report: Report): string {
+  // D-67: one card per assessed officer; the not-assessed officers share one line.
+  const groups = executiveGroups(l.executives);
+  const execs = groups.assessed
     .map((e) => {
       const evidence = EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => {
         const claims = e.evidence[descriptor.key];
@@ -772,35 +560,23 @@ function sectionLeadership(l: Leadership): string {
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
-        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(
-          e.grade,
-        )}</span> &middot; credibility <span class="chip ${gradeClass(
-          e.credibilityGrade,
-        )}">${esc(e.credibilityGrade)}</span>${
-          e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`
-        }</p>${e.assessmentReason ? `<p>${esc(e.assessmentReason)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
+        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${e.assessmentReason ? `<p>${prose(e.assessmentReason)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
     })
     .join("");
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock(
-    "Leadership",
-    l.graded,
-  )}<h3>Executives</h3>${execs}<h3>Insider activity</h3>${claimList(
-    l.insiderSummary,
-  )}<h3>Governance</h3>${claimList(l.governanceNotes)}</section>`;
+  const others = groups.notAssessed.length > 0
+    ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
+    : "";
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
-function sectionCompetitive(c: Competitive): string {
+function sectionCompetitive(c: Competitive, report: Report): string {
   let peers = `<p class="faint">No peer data.</p>`;
   if (c.peerTable.length > 0) {
     // Columns keyed by the metric, not by position — see peerMetricKey.
     const metricKeys: string[] = [];
     for (const p of c.peerTable) {
-      for (const key of peerColumnKeys(p.metrics)) {
-        if (!metricKeys.includes(key)) metricKeys.push(key);
-      }
+      for (const key of peerColumnKeys(p.metrics)) if (!metricKeys.includes(key)) metricKeys.push(key);
     }
-    // `table` escapes headers itself; escaping here too double-encoded them.
-      const headers = ["Peer", "Symbol", ...metricKeys];
     const rows = c.peerTable.map((p) => {
       const rowKeys = peerColumnKeys(p.metrics);
       const byKey = new Map(p.metrics.map((metric, i) => [rowKeys[i], metric]));
@@ -809,223 +585,118 @@ function sectionCompetitive(c: Competitive): string {
         esc(p.symbol ?? DASH),
         ...metricKeys.map((key) => {
           const metric = byKey.get(key);
-          return metric ? `<span class="mono">${esc(tracedValue(metric))}</span>` : DASH;
+          return metric ? `<span class="mono">${esc(formatFinancialAmount(metric.value, metric.unit, metric.currency))}</span>` : DASH;
         }),
       ];
     });
-    peers = table(headers, rows);
+    peers = table(["Peer", "Symbol", ...metricKeys], rows);
   }
-  // Moat reasoning is a model JUDGMENT. Joining the claim texts dropped every
-  // label, as-of date and citation, so it rendered as a sourced fact; route it
-  // through the shared claim renderer instead.
-  const moat = c.moatAssessment
-    .map(
-      (m) =>
-        `<li><strong>${esc(m.source)}</strong> (${esc(m.strength)}):${claimList(m.reasoning)}</li>`,
-    )
-    .join("");
-  return `<section class="block">${sectionHeading("competitive")}${gradeBlock(
-    "Moat",
-    c.moatGraded,
-  )}<h3>Peer table</h3>${peers}<h3>Moat assessment</h3><ul>${moat}</ul>
-    <h3>Market-share direction</h3><p>${esc(c.marketShareDirection)}</p></section>`;
+  // D-62: "Scale — narrow", not the raw enums.
+  const moat = c.moatAssessment.map((m) => `<h4>${esc(moatHeading(m))}</h4>${claimList(m.reasoning)}`).join("");
+  return `<section class="block">${sectionHeading("competitive")}${gradeBlock("Moat", c.moatGraded, new Map(), report, gradeContext(report, "moat"))}<h3>Peer table</h3>${peers}${subsection("Moat assessment", moat)}
+    <h3>Market-share direction</h3><p>${prose(c.marketShareDirection)}</p></section>`;
 }
 
-function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false): string {
-  const catalysts = table(
+function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: ReportAuditTable[] = []): string {
+  const catalysts = bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [
-      esc(c.title),
-      esc(c.expectedDate ?? DASH),
-      esc(c.direction),
-      esc(c.significance),
-      esc(c.reasoning.text),
-    ]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, displayProse(c.reasoning.text, c.reasoning.source)]),
   );
-  const risks = table(
+  const risks = bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [
-      esc(r.title),
-      esc(r.severity),
-      esc(r.probability),
-      esc(r.source),
-      esc(r.reasoning.text),
-    ]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    ["Probability"],
   );
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
-  return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}<h3>Catalysts</h3>${catalysts}<h3>Risks</h3>${risks}</section>`;
+  return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}${subsection("Catalysts", catalysts)}${subsection("Risks", risks)}${bodyTables(extra)}</section>`;
 }
 
 function sectionOutlook(report: Report): string {
   const o = report.outlook;
+  const horizons: Array<[string, readonly SourcedClaim[]]> = [["1-year", o.scenarioNarratives.y1], ["3-year", o.scenarioNarratives.y3], ["5-year", o.scenarioNarratives.y5]];
+  const narratives = horizons.map(([label, claims]) => subsection(label, claimList(claims), "h4")).join("");
   return `<section class="block">${sectionHeading("outlook")}
-    <h3>Segment trajectories</h3>${claimList(o.segmentTrajectories)}
-    ${o.tam && o.tam.length > 0 ? `<h3>TAM</h3>${claimList(o.tam)}` : ""}
-    <h3>Estimate-revision trend</h3>${claimList(o.estimateRevisionTrend)}
-    <h3>Guidance credibility</h3>${claimList(o.guidanceCredibility)}
-    <h3>Scenario narratives</h3>
-    <h4>1-year</h4>${claimList(o.scenarioNarratives.y1)}
-    <h4>3-year</h4>${claimList(o.scenarioNarratives.y3)}
-    <h4>5-year</h4>${claimList(o.scenarioNarratives.y5)}</section>`;
+    ${subsection("Segment trajectories", claimList(o.segmentTrajectories))}
+    ${o.tam && o.tam.length > 0 ? subsection("TAM", claimList(o.tam)) : ""}
+    ${subsection("Estimate-revision trend", claimList(o.estimateRevisionTrend))}
+    ${subsection("Guidance credibility", claimList(o.guidanceCredibility))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "outlook"))}
+    ${narratives ? `<h3>Scenario narratives</h3>${narratives}` : ""}</section>`;
+}
+
+function sectionProjections(p: Projections): string {
+  const series = orderedProjectionSeries(p.series);
+  const available = projectionAvailability(series);
+  const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
+  // D-67: no chart is rendered here, so a sentence pointing at one is dropped.
+  const { common, specific } = splitCommonLines(series.map((s) => projectionDisplayAssumptions(s).map((line) => withoutChartReferences(displayProse(line)))));
+  const blocks = series
+    .map((s, index) => {
+      const rows = projectionPeriodRows(s).flatMap((row) => {
+        const points = forwardPaths.map((descriptor) => projectionCellPoint(row, descriptor.key, s.unit));
+        if (points.every((point) => point === null)) return [];
+        return [[esc(row.period), ...points.map((point) => `<span class="mono">${point === null ? DASH : esc(tracedValue(point.value))}</span>`)]];
+      });
+      const own = specific[index] ?? [];
+      const assumptions = own.length > 0 ? `<ul class="claims">${own.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : "";
+      return `<h3>${esc(PROJECTION_METRIC_BY_KEY[s.metric].forecastLabel)} (${esc(s.unit)})</h3>${table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows)}${assumptions}`;
+    })
+    .join("");
+  const pct = (w: number) => `${Math.round(w * 100)}%`;
+  return `<section class="block">${sectionHeading("projections")}
+    ${available.forward ? `<p class="faint">Horizon ${p.horizonYears}y${available.weighted ? ` · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear)` : ""}.</p>` : ""}
+    ${!available.forward ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
+    ${!available.weighted ? `<p class="faint">No weighted projection points are available; no projection weights are applied.</p>` : ""}
+    ${bodyTables(projectionAuditTables(p))}
+    ${common.length > 0 ? `<p><em>Assumptions common to every series</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
+    ${blocks}</section>`;
 }
 
 function sectionMacro(m: Macro): string {
   const series = table(
     ["Series", "Name", "Latest", "As of", "Relevance"],
-    m.relevantSeries.map((s) => [
-      esc(s.seriesId),
-      esc(s.name),
-      `<span class="mono">${esc(tracedValue(s.latest))}</span>`,
-      esc(s.latest.asOf ?? DASH),
-      esc(s.relevance),
-    ]),
+    m.relevantSeries.map((s) => [esc(s.seriesId), esc(s.name), `<span class="mono">${esc(tracedValue(s.latest))}</span>`, esc(s.latest.asOf ?? DASH), prose(s.relevance)]),
   );
-  return `<section class="block">${sectionHeading("macro")}${series}${
-    m.sensitivityNotes.length > 0
-      ? `<h3>Sensitivity notes</h3>${claimList(m.sensitivityNotes)}`
-      : ""
-  }<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
+  return `<section class="block">${sectionHeading("macro")}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
 }
 
-function disagreementsBlock(disagreements: readonly Disagreement[]): string {
-  if (disagreements.length === 0) return "";
-  const items = disagreements
-    .map(
-      (d) =>
-        `<li><strong>${esc(d.topic)}</strong> (${esc(d.kind)})<ul>
-        <li>Bull: ${esc(d.bullView)}</li>
-        <li>Bear: ${esc(d.bearView)}</li>
-        <li>Judge: ${esc(d.judgeResolution)}</li></ul></li>`,
-    )
-    .join("");
-  return `<h3>Bull/bear disagreements</h3><ul class="disagreements">${items}</ul>`;
-}
-
-function sectionAppendix(
-  a: Appendix,
-  disagreements: readonly Disagreement[],
-  asOfMap: Report["meta"]["asOfMap"],
-  completeness: ReportCompletenessPresentation,
-): string {
-  const sources = table(
-    SOURCE_ENTRY_FIELDS.map((field) => field.label),
-    a.sources.map((source) =>
-      SOURCE_ENTRY_FIELDS.map((field) => {
-        if (field.key === "stale") {
-          return source.stale === undefined ? "unknown" : source.stale ? "yes" : "no";
-        }
-        return esc(source[field.key]);
-      })),
-  );
-  const missing =
-    a.missingData.length > 0
-      ? table(
-          MANIFEST_ENTRY_FIELDS.map((field) => field.label),
-          a.missingData.map((gap) =>
-            MANIFEST_ENTRY_FIELDS.map((field) => {
-              if (field.key === "attemptedSources") {
-                return esc(gap.attemptedSources?.join(", ") ?? "n/a");
-              }
-              if (field.key === "expected") {
-                return gap.expected === undefined ? "unknown" : gap.expected ? "yes" : "no";
-              }
-              return esc(gap[field.key]);
-            })),
-        )
-      : `<p class="faint">${esc(completeness.manifestText)}</p>`;
-  const totalCost = roundedDisplayedCostTotal(a.costBreakdown.map((entry) => entry.costUsd));
-  const cost = table(
-    ["Step", "Model", "Cost (USD)"],
-    a.costBreakdown.map((e) => [esc(e.step), esc(e.model), formatCostUsd(e.costUsd)]),
-  );
-  const vlog =
-    a.verificationLog && a.verificationLog.length > 0
-      ? table(
-          VERIFICATION_LOG_FIELDS.map((field) => field.label),
-          a.verificationLog.map((entry) =>
-            VERIFICATION_LOG_FIELDS.map((field) => {
-              if (field.key === "outcome") return esc(verificationEntryOutcomeLabel(entry));
-              return esc(auditValue(entry[field.key]));
-            })),
-        )
-      : "";
-  const asOfRows = Object.keys(asOfMap).sort().map((field) => [esc(field), esc(asOfMap[field])]);
-  const asOfTable = table(AS_OF_MAP_FIELDS.map((field) => field.label), asOfRows);
-  return `<section class="block">${sectionHeading("appendix")}
-    ${disagreementsBlock(disagreements)}
-    <h3>Sources</h3>${sources}
-    <h3>Missing-data manifest</h3>${missing}
-    <h3>Citation coverage</h3><p>Citation coverage: <strong>${
-      a.verificationRate === null
-        ? DASH
-        : `${(a.verificationRate * 100).toFixed(0)}%`
-    }</strong> <span class="muted">— share of report figures traceable to a citation or payload value; a provenance check, not a correctness/accuracy check.</span></p>${
-      a.missingData.some((gap) => gap.field === "analysis.llm")
-        ? "<p>No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.</p>"
-        : a.provenanceCoverage ? provenanceCoverageHtml(a.provenanceCoverage) : ""
-    }${
-      // WS7 (D-20): what was CHECKED, under its own heading so it is never read
-      // as part of the coverage number above it.
-      a.consistencyChecks
-        ? `<h3>Deterministic checks</h3><p class="muted">No model call. Each check evaluates only the claim/figure pairs it can locate, so a low &quot;checked&quot; count means little could be checked &mdash; not that everything passed. Failures appear in the verification log with the sentence, the cited figure and the reason.</p>${consistencyChecksHtml(a.consistencyChecks)}`
-        : ""
-    }${vlog}
-    <h3>As-of map</h3>${asOfTable}
-    <h3>Cost breakdown</h3>${cost}<p>Total: <strong>${formatCostUsd(totalCost)}</strong></p></section>`;
-}
-
-/* ======================================================================== *
- * Header + document shell
- * ======================================================================== */
-
-function headerBlock(
-  report: Report,
-  completeness: ReportCompletenessPresentation,
-): string {
+function sectionAppendix(report: Report, completeness: ReportCompletenessPresentation): string {
+  const a: Appendix = report.appendix;
   const m = report.meta;
-  const displayedCost = roundedDisplayedCostTotal(
-    report.appendix.costBreakdown.map((entry) => entry.costUsd),
-  );
-  const meta = table(
-    ["Field", "Value"],
-    [
-      ["Generated", m.generatedAt],
-      ["Model", m.model],
-      // WS7 (D-20): the sentence a reader sees — which case the judge read
-      // first, both case lengths, both self-assessments, and whether the judge
-      // shared a model family with the analysts.
-      ...(m.judgeProtocol !== undefined
-        ? [["Judgement protocol", m.judgeProtocol.note]]
-        : []),
-      ...(m.execution
-        ? [[
-            "Pass execution",
-            m.execution.map(formatExecutionMetadata).join(" | "),
-          ]]
-        : []),
-      // Legacy reports carry a verifyModel label (removed setting) — keep it.
-      ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
-      ["Spec version", m.specVersion],
-      ["Pipeline version", m.pipelineVersion],
-      ["Data completeness", completeness.statusText],
-      ["Factual validation", factualValidationText(m.provenanceCoverage) ?? "Not recorded; citation coverage alone is not factual validation."],
-      ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
-      ["Cost (USD)", formatCostUsd(displayedCost)],
-      [
-        "Citation coverage",
-        m.verificationRate === null
-          ? DASH
-          : `${(m.verificationRate * 100).toFixed(0)}%`,
-      ],
-    ].map((r) => r.map((c) => esc(String(c)))),
-  );
-  return `<header class="report-header">
-    <div class="metis-print-brand">${METIS_LOCKUP_SVG}</div>
-    <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
-    <p class="subtitle">Equity Research Report</p>
-    ${meta}
-    <p class="disclaimer">${esc(m.disclaimer)}</p>
-  </header>`;
+  const methodology = `<div class="methodology"><h3>Methodology and limitations</h3><ul>${methodologyNotes(report).map((note) => `<li>${esc(note)}</li>`).join("")}</ul></div>`;
+  const runRows: string[][] = [
+    ...(m.execution ?? []).map((entry, index) => [index === 0 ? "Passes" : "", passLine(entry)]),
+    ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
+    ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
+    ["Usage", usageSummary(report)],
+    ["Spec version", m.specVersion],
+    ["Pipeline version", m.pipelineVersion],
+    ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
+  ];
+  const run = `<h3>Run details</h3>${table(["Item", "Detail"], runRows.map((row) => row.map(esc)))}`;
+  const dataOnly = a.missingData.some((gap) => gap.field === "analysis.llm");
+  const trust = trustRows(a.provenanceCoverage ?? m.provenanceCoverage);
+  const checks = a.consistencyChecks;
+  const checkLine = checks
+    ? (() => {
+        const failed = checks.direction.failed + checks.period.failed + checks.unit.failed + checks.namedIndividual.failed;
+        const checked = checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked;
+        return `<p>Deterministic consistency checks: ${checked - failed}/${checked} passed (direction, period, unit and named-person checks; the log is in the audit export).</p>`;
+      })()
+    : "";
+  const verification = `<h3>Verification</h3>${dataOnly
+    ? "<p>No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.</p>"
+    : trust.length > 0 ? table(["Check", "Result"], trust.map((row) => [esc(row.label), esc(row.value)])) : ""}
+    <p>Citation coverage: <strong>${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(0)}%`}</strong> of report figures trace to a citation or payload value (provenance, not correctness).</p>${checkLine}`;
+  // D-67: one row per underlying data gap; process disclosures and moot entries apart.
+  const families = gapSummary(a.missingData, completeness.classification);
+  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
+  const sources = `<h3>Sources</h3>${table(
+    SOURCE_ENTRY_FIELDS.map((field) => field.label),
+    a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : esc(source[field.key])))),
+  )}`;
+  const path = auditExportPath(report);
+  const audit = `<h3>Audit trail</h3><p>The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (<span class="mono">${esc(path)}</span>)` : ""}.</p>`;
+  return `<section class="block">${sectionHeading("appendix")}${methodology}${run}${verification}${gaps}${sources}${audit}</section>`;
 }
 
 /**
@@ -1033,36 +704,28 @@ function headerBlock(
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report): string {
-  const completeness = deriveReportCompletenessPresentation(
-    report.meta.dataCompleteness,
-    report.appendix.missingData,
-  );
+  report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
-    business: sectionBusiness(report.business),
-    fundamentals: sectionFundamentals(report.fundamentals,report.sourceFactSummary),
-    balanceSheet: sectionBalanceSheet(report.balanceSheet),
-    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, evidenceTimingRows(report)),
-    quality: sectionQuality(report.quality),
-    technicals: sectionTechnicals(report.technicals),
-    leadership: sectionLeadership(report.leadership),
-    competitive: sectionCompetitive(report.competitive),
-    catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm")),
+    business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
+    fundamentals: sectionFundamentals(report.fundamentals, report.sourceFactSummary, filingDisclosureTables(report.filingDisclosures, "fundamentals"), report),
+    balanceSheet: sectionBalanceSheet(report.balanceSheet, report),
+    valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, report.routeMetrics, { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
+    quality: sectionQuality(report.quality, report),
+    technicals: sectionTechnicals(report),
+    leadership: sectionLeadership(report.leadership, report),
+    competitive: sectionCompetitive(report.competitive, report),
+    catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     outlook: sectionOutlook(report),
     projections: report.projections ? sectionProjections(report.projections) : "",
     macro: sectionMacro(report.macro),
-    appendix: sectionAppendix(
-      report.appendix,
-      report.disagreements,
-      report.meta.asOfMap,
-      completeness,
-    ),
+    appendix: sectionAppendix(report, completeness),
   };
   return [
     headerBlock(report, completeness),
-    completeness.bannerText
-      ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>`
-      : "",
+    completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
+    keyDataBlock(report),
     ...REPORT_SECTION_MANIFEST.map((section) => sections[section.key]),
   ]
     .filter((b) => b.length > 0)
@@ -1137,6 +800,10 @@ ul.claims li { margin: 3pt 0; }
 .block.prominent { border: 2px solid #785b32; padding: 6pt 10pt; background: #faf8f3; margin: 12pt 0; }
 .exec { break-inside: avoid; margin: 6pt 0; }
 .disagreements ul { margin: 2pt 0; }
+.keydata { border: 1.5px solid #181b19; padding: 4pt 10pt 6pt; margin: 0 0 12pt; break-inside: avoid; }
+.keydata h3 { margin-top: 4pt; }
+.methodology { border: 1px solid #d5cbbb; background: #faf8f3; padding: 6pt 10pt; margin: 6pt 0 10pt; }
+.methodology ul { margin: 2pt 0; padding-left: 14pt; }
 @media print {
   .print-doc { max-width: none; padding: 0; margin: 0; }
   h2.sec, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
@@ -1162,10 +829,7 @@ export interface ReportToPrintHtmlOptions {
  * Full standalone print document (`<!doctype html>` … `</html>`) for a report.
  * Self-contained: inline CSS, no external assets, escaped content.
  */
-export function reportToPrintHtml(
-  report: Report,
-  options: ReportToPrintHtmlOptions = {},
-): string {
+export function reportToPrintHtml(report: Report, options: ReportToPrintHtmlOptions = {}): string {
   const title = `${report.meta.symbol} — ${report.meta.companyName} — Metis Report`;
   return `<!doctype html>
 <html lang="en">

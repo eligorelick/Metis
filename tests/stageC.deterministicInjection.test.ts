@@ -368,6 +368,7 @@ describe("valuation.multiples — deterministic injection (assembly)", () => {
       mr.multiples.map((stat) => ({
         name: MULTIPLE_LABELS[stat.key],
         current: stat.current,
+        basis: stat.basis,
         peerMedian: stat.peers?.median ?? null,
         peerCount: stat.peers?.count ?? null,
         own5yPercentile: stat.ownHistory?.percentileRank ?? null,
@@ -403,9 +404,9 @@ describe("valuation.multiples — deterministic injection (assembly)", () => {
 
     const out = applyMultiples(jo.valuation, computedValuation);
     expect(out.multiples).toEqual([
-      { name: "P/E (TTM)", current: 11.2, peerMedian: 10.5, peerCount: 6, own5yPercentile: 62, ownHistoryObservations: 20, sectorAppropriate: true },
-      { name: "P/TBV", current: 1.4, peerMedian: null, peerCount: null, own5yPercentile: null, ownHistoryObservations: null, sectorAppropriate: true },
-      { name: "EV/EBITDA", current: null, peerMedian: 9.9, peerCount: 5, own5yPercentile: null, ownHistoryObservations: null, sectorAppropriate: false },
+      { name: "P/E (TTM)", basis: "TTM EPS", current: 11.2, peerMedian: 10.5, peerCount: 6, own5yPercentile: 62, ownHistoryObservations: 20, sectorAppropriate: true },
+      { name: "P/TBV", basis: "tangible book", current: 1.4, peerMedian: null, peerCount: null, own5yPercentile: null, ownHistoryObservations: null, sectorAppropriate: true },
+      { name: "EV/EBITDA", basis: "n/m", current: null, peerMedian: 9.9, peerCount: 5, own5yPercentile: null, ownHistoryObservations: null, sectorAppropriate: false },
     ]);
     // The judge's narrative surfaces on valuation are untouched.
     expect(out.reverseDcf).toEqual(jo.valuation.reverseDcf);
@@ -507,21 +508,24 @@ describe("quality.forensicScores — deterministic injection (assembly)", () => 
     expect(scores.altman.score).toBe(f.altman?.score ?? null);
     expect(scores.altman.zone).toBe(f.altman?.zone ?? null);
 
-    expect(scores.beneish.variant).toBe("m-score");
+    // D-61: the variant carries the eight indices whenever M exists.
+    expect(scores.beneish.variant).toMatch(/^m-score/);
+    if (f.beneish?.score != null) expect(scores.beneish.variant).toContain("DSRI");
     expect(scores.beneish.score).toBe(f.beneish?.score ?? null);
-    expect(scores.beneish.zone).toBe(f.beneish?.verdict ?? null);
+    expect(scores.beneish.zone).toBe(f.beneish?.growthLed ? "flag (growth-led; graded on SGI-neutral M)" : f.beneish?.verdict ?? null);
 
     expect(scores.piotroski.variant).toBe("f-score");
     expect(scores.piotroski.score).toBe(f.piotroski?.score ?? null);
     if (f.piotroski && f.piotroski.score !== null) {
-      expect(scores.piotroski.zone).toBe(`${f.piotroski.score}/${f.piotroski.outOf}`);
+      // D-61: the zone names the failed signals after the score.
+      expect(scores.piotroski.zone?.startsWith(`${f.piotroski.score}/${f.piotroski.outOf}; `)).toBe(true);
     } else {
       expect(scores.piotroski.zone).toBeNull();
     }
 
     // Fixture has full statements — the primary accruals ratio must be real.
     expect(f.accruals?.cashFlowAccrualRatio).not.toBeNull();
-    expect(scores.accruals.variant).toBe("cash-flow");
+    expect(scores.accruals.variant).toMatch(/^cash-flow, /);
     expect(scores.accruals.score).toBe(f.accruals?.cashFlowAccrualRatio ?? null);
     expect(scores.accruals.zone).toBe(f.accruals?.band ?? null);
     expect(() => ReportSchema.parse(report)).not.toThrow();

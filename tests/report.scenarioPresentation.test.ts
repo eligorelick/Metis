@@ -73,6 +73,28 @@ describe("modeled-grid sensitivity conclusions", () => {
     expect(JSON.stringify(result)).not.toContain("99%");
   });
 
+  it("does not describe an unused projection prior when there are no projection series", () => {
+    const computed = computedFixture();
+    computed.projections.series = [];
+    const before = JSON.stringify(computed.projections);
+    const presentation = buildScenarioPresentation(computed);
+    expect(presentation.weightBasis).not.toContain("25/50/25");
+    expect(presentation.weightBasis).not.toContain("display prior applies");
+    expect(presentation.weightBasis).toContain("No weighted operating projections are available");
+    expect(presentation.weightBasis).toContain("no probability-weighted value is implied");
+    expect(JSON.stringify(computed.projections)).toBe(before);
+  });
+
+  it("retains the uncalibrated projection prior only alongside real projection series", () => {
+    const computed = computedFixture();
+    expect(computed.projections.series.length).toBeGreaterThan(0);
+    const before = JSON.stringify(computed.projections);
+    const presentation = buildScenarioPresentation(computed);
+    expect(presentation.weightBasis).toContain("25/50/25");
+    expect(presentation.weightBasis).toContain("not a calibrated probability");
+    expect(JSON.stringify(computed.projections)).toBe(before);
+  });
+
   it("uses the actual quote near rounding boundaries and withholds a currency-incomparable quote", () => {
     const computed = { fairValue: { status: "available", perShare: { value: 0.01 }, upsidePct: -99.985 } } as unknown as ComputedMetrics;
     const bundle = { quote: { ok: true, value: { data: { rows: [{ price: 99.99 }] } } } } as DataBundle;
@@ -108,10 +130,11 @@ describe("modeled-grid sensitivity conclusions", () => {
     input.scenarios[0].qualitativeCommentary = ["previous qualitative comment"];
     const before = JSON.stringify(computed);
     const result = applyScenarioPresentation(input, computed);
-    expect(result.scenarios.map((scenario) => scenario.probability)).toEqual([0.25, 0.5, 0.25]);
-    expect(result.scenarios[0].assumptions.join(" ")).toContain("12.13, 8, 4");
+    // Re-pinned for D-60: targets carry no weight, and the ±2pp shock decays (weights 1, 0.44, 0 over three years).
+    expect(result.scenarios.map((scenario) => scenario.probability)).toEqual([null, null, null]);
+    expect(result.scenarios[0].assumptions.join(" ")).toContain("12.13, 6.88, 2");
     expect(result.scenarios[1].assumptions.join(" ")).toContain("10.13, 6, 2");
-    expect(result.scenarios[2].assumptions.join(" ")).toContain("8.13, 4, 0");
+    expect(result.scenarios[2].assumptions.join(" ")).toContain("8.13, 5.12, 2");
     expect(result.scenarios[0].assumptions.join(" ")).toContain(`mid-year discounting ${midYear ? "on" : "off"}`);
     expect(result.scenarios[0].assumptions.join(" ")).toContain("minority interest not disclosed");
     expect(result.scenarios[0].assumptions.join(" ")).toContain("preferred equity 0");
@@ -136,7 +159,10 @@ describe("modeled-grid sensitivity conclusions", () => {
   it.each(["assumptions", "dcf", "target"] as const)("does not display numerical scenario inputs without the %s", (missing) => {
     const computed = computedFixture();
     if (computed.valuation.kind !== "dcf") throw new Error("fixture DCF");
-    if (missing === "target") computed.scenarioTargets.targets[0].perShare = null;
+    if (missing === "target") {
+      computed.scenarioTargets.targets[0].perShare = null;
+      delete computed.projections.scenarioAssumptions;
+    }
     else computed.valuation[missing] = null;
     const result = applyScenarioPresentation(narrativeValuation(), computed);
     expect(result.scenarios[0].assumptions.join(" ")).toMatch(/inputs unavailable/);
@@ -147,10 +173,15 @@ describe("modeled-grid sensitivity conclusions", () => {
     const computed = computedFixture();
     if (computed.valuation.kind !== "dcf") throw new Error("fixture DCF");
     computed.valuation.sensitivity = { waccPcts: [8, 9], gTermPcts: [2, 3], perShare: [[110, 120], [115, 125]], notes: [], gaps: [] };
+    // D-65: the growth × margin grid now joins the conclusion (tests/stageB.valuationD65.test.ts);
+    // this test pins the WACC × g rule alone, so the fixture's second grid is removed.
+    computed.valuation.growthMarginGrid = null;
     const available = buildScenarioPresentation(computed, 100);
     expect(available.sensitivity).toMatchObject({ status: "robust-above", minPerShare: 110, maxPerShare: 125, validCells: 4 });
     expect(available.interpretation).toMatch(/present-value DCF sensitivities/);
-    expect(available.weightBasis).toMatch(/uncalibrated/);
+    // Re-pinned for D-60: the basis says targets carry no weight and the projection prior is not calibrated.
+    expect(available.weightBasis).toMatch(/carry no weight/);
+    expect(available.weightBasis).toMatch(/not a calibrated probability/);
     const unavailable = buildScenarioPresentation({} as ComputedMetrics);
     expect(unavailable.sensitivity).toMatchObject({ status: "unavailable", minPerShare: null, maxPerShare: null });
     expect(unavailable.interpretation).toMatch(/scenarios are unavailable/);

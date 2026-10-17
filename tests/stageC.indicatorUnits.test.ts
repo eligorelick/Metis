@@ -7,7 +7,7 @@
  * report 26's "evidence-completeness fraction" 0.4 / 0.45, which cited the
  * quality/leadership SCORE records — completeness had no record of its own.
  * The bank fixture's quality and leadership completeness were 0.4 and 0.45,
- * the same as report 26's (leadership is 0.31 since D-49). Since D-48 RSI-14
+ * the same as report 26's (leadership is 0.31 since D-49, 0.45 since D-61). Since D-48 RSI-14
  * is no longer a scored driver, so only its payload row carries it.
  */
 
@@ -41,13 +41,13 @@ async function verifyNumbers(payload: ContextPayload, numbers: object[]) {
 }
 
 describe("indicator and completeness rows (D-44)", () => {
-  it("prints a bare unit on every numeric technicals row and registers them under unchanged ids and units", () => {
+  it("prints the actual dimensions on technicals rows and preserves their registry ids", () => {
     const payload = build();
     const prompt = serializePayloadForPrompt(payload);
     expect(prompt).toMatch(/RSI-14: [\d.-]+ index \[computed\.technicals\.rsi-14 · /);
-    expect(prompt).toMatch(/MACD histogram: [\d.e-]+ index \[computed\.technicals\.macd-histogram · /);
+    expect(prompt).toMatch(/MACD histogram: [\d.e-]+ currency\/share/);
     expect(record(payload, "computed.technicals.rsi-14").unit).toBe("index");
-    expect(record(payload, "computed.technicals.macd-histogram").unit).toBe("index");
+    expect(record(payload, "computed.technicals.macd-histogram")).toMatchObject({ unit: "currency-per-share", currency: "USD" });
     // The excess-return horizon is in years, as its label says.
     expect(record(payload, "computed.valuation.excess-return-horizon-years").unit).toBe("years");
     // No numeric figure in any section prints without a unit.
@@ -67,7 +67,10 @@ describe("indicator and completeness rows (D-44)", () => {
     const quality = record(payload, "computed.deterministic-aspect-scores.quality-evidence-completeness");
     expect(quality.unit).toBe("ratio");
     expect(quality.value).toBeCloseTo(0.39888888888888885, 14);
-    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.3125, unit: "ratio" });
+    // D-61: capitalDeployment (0.25) left the aspect, so the observed share-
+    // count trend (0.25) is read against 0.55, not 0.8; buyback timing has
+    // no tagged execution price in this fixture.
+    expect(record(payload, "computed.deterministic-aspect-scores.leadership-evidence-completeness")).toMatchObject({ value: 0.25 / 0.55, unit: "ratio" });
   });
 
   it("verifies report 25/26's indicator spellings on their own records and rejects them on another indicator's", async () => {
@@ -81,7 +84,7 @@ describe("indicator and completeness rows (D-44)", () => {
       at(macd, macd.value, "MACD histogram"),
       at(macd, macd.value, "index"),
       at(rsi, rsi.value, "rsi"),
-    ])).toEqual(["supported", "supported", "supported", "supported", "supported"]);
+    ])).toEqual(["supported", "supported", "supported", "unit-mismatch", "supported"]);
     // D-48: RSI-14 is displayed, not scored, so no driver record exists.
     expect((payload.provenanceRegistry ?? []).some((entry) => entry.id === "computed.scores.technicals.rsi14")).toBe(false);
     // The same values under the other indicator's name: id, value and as-of

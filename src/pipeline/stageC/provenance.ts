@@ -56,10 +56,17 @@ export interface NumericProvenanceRecord {
   id: string;
   /** Metric identity for numeric prose; omitted only by older payloads. */
   label?: string;
+  /** Exact recipient of a parsed officer appointment-package amount. */
+  subject?: string;
   kind: "provider" | "computed";
   value: number;
   unit: CanonicalUnit;
   currency: string | null;
+  /**
+   * D-57: the source row carried no currency; `currency` is the issuer's,
+   * inherited because the statements and the listing agree (not an ADR).
+   */
+  currencyBasis?: "inherited";
   period: string | null;
   periodContext?: PeriodContext;
   /**
@@ -165,14 +172,14 @@ const CANONICAL_UNITS = new Set<CanonicalUnit>([
 
 /**
  * Dimensionless indicator spellings read as the `index` bucket. Grading emits
- * rank/pctile/z/m/rsi on scores.aspects[*].drivers; "RSI", "RSI index" and
- * "MACD histogram" are what the judge wrote for the payload's technicals rows
+ * rank/pctile/z/m/rsi on scores.aspects[*].drivers; "RSI" and "RSI index"
+ * are what the judge wrote for the payload's technicals rows
  * in reports 25/26 (2026-10-13). They are tested BEFORE the bare-ISO-code
  * branch: "RSI" is three capitals and used to be read as a currency code,
  * failing every RSI key number as unit-mismatch while id, value and as-of
  * matched (D-44).
  */
-const INDICATOR_UNIT_SPELLINGS = new Set(["rank", "pctile", "z", "m", "rsi", "rsi index", "macd histogram"]);
+const INDICATOR_UNIT_SPELLINGS = new Set(["rank", "pctile", "z", "m", "rsi", "rsi index"]);
 
 /**
  * Spellings that NAME one indicator, and the record-id segment that indicator
@@ -218,13 +225,16 @@ export function canonicalizeTracedUnit(
 
   // Stage-B aspect-score SIGNAL unit spellings (grading.ts) and the indicator
   // names the judge writes for the technicals rows: dimensionless readings
-  // (percentile rank, Altman Z, Beneish M, RSI, MACD histogram). Mapping them
+  // (percentile rank, Altman Z, Beneish M, RSI). Mapping them
   // to the dimensionless `index` bucket lets a figure trace to its registered
   // record; a spelling that names one indicator is additionally bound to that
   // indicator's record (namedUnitMatchesRecord). "pctile" is the retired
   // spelling, kept so persisted reports still trace; "rank" is what grading
   // emits now (WS6 review, SHOULD-FIX 3).
   if (INDICATOR_UNIT_SPELLINGS.has(normalized)) return { unit: "index", currency: null };
+  // A MACD histogram is a difference of price-scale EMAs, not an index.
+  // Keep its named alias source-bound, and never supply a default currency.
+  if (normalized === "macd histogram") return { unit: "currency-per-share", currency: declaredCurrency };
 
   // A bare ISO code in the unit ("EUR", "EUR/share") names the currency
   // itself; when the number ALSO declares a currency, the two must agree — a

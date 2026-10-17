@@ -542,3 +542,45 @@ issuer) and a diff against this report.
 
 Target length is 15–25 printed pages. The verification log and payload belong
 in an attached JSON/HTML audit file, not the report body.
+
+---
+
+## Integration result: live NVDA rerun (2026-10-15 23:31Z)
+
+Branch `claude/nvda-audit-integration` contains:
+- D-57 and D-58 (currency inheritance, DCF anchoring)
+- D-59 (peer/executive gates, verifier)
+- WP3 (8-K guidance, events, quarterly segments)
+- The guidance → DCF wiring
+
+Typecheck and lint pass. The test suite passes: 274 files, 5,983 tests, 3 skipped.
+
+Run conditions:
+- One live run on chatgpt/gpt-6.1-sol, effort medium.
+- Isolated database.
+- Live FMP, SEC EDGAR and FRED data.
+- Data state: "degraded; critical 0; warnings 4; EDGAR available".
+
+| Finding | Report #34 | Rerun | Status |
+| --- | --- | --- | --- |
+| P0-1/P0-3 year-one anchor | TTM × 1.25 = $378.7B | Guidance $108.0B × 4, carried 4.5 months = $469.7B; year two on consensus (+46.9%); convergent fade | **Fixed** |
+| DCF base value / valuation grade | $143.96 (−33.7%) / F | $235.21 (+8.3%) / C | **Fixed**; composite C 68 → B 73 |
+| P0-1 margin step-down | 62.42% from year 1 | 65.48% guided, fading to the 62.42% cap by year 5 | **Fixed** (cap now binds only from year 5) |
+| P0-4 terminal tax | 16% → 8.9% | 16% → 21% (statutory floor) | **Fixed** |
+| P0-2 currency suppression | Consensus, peer caps and pay suppressed | Consensus case included (76.1%); no "currency not established" text | **Fixed** |
+| P1-1 guidance | Absent | Guidance table plus 3-quarter results-vs-guidance (above range each quarter) | **Fixed** |
+| P1-2/P1-3 quarterly trend, segments | FY26 annual only | 8-quarter trend; XBRL Hyperscale / ACIE / Edge with QoQ and YoY | **Fixed** (the old FMP annual tables remain alongside; remove them) |
+| P0-11 issuer FCF, capital return, events | "Not in filings"; flat shares; Puri current | Issuer FCF table; $99B authorization; $0.25 dividend; Puri retirement; Hugging Face; $105B RVG event | **Fixed** |
+| P0-7 false contradiction | 1 contradicted (false positive) | 0 contradicted | **Fixed** |
+| P0-7 validation headline | 0/90 validated | 0/30 validated (all 30 FACT claims are qualitative) | **Open**: the headline is still unreadable to an institutional reader |
+| P1-6 peer medians | 0 eligible | 4 eligible (AMD, AVGO, INTC, MRVL; AVGO and MRVL via SEC fallback); P/B median 12.5 only | **Partial**: P/E, EV and cash-flow medians still withheld |
+| P1-10 executive assessment | All not-assessed | All not-assessed (gate reachable, but the judge supplied no admissible evidence) | **Open** |
+| P0-5 scenarios | Bull $814 / bear $32 | Bull $1,233 / bear $52 | **Open** (WP8), and wider than before |
+| P0-6, P2-1…P2-3 forensics and grade signals | Accruals 0.91 red; Beneish flag; ROIC SD penalty | Unchanged | **Open** (WP5) |
+| P2-0 WACC | 13.25% | 13.25% | **Open** |
+| P0-9 net cash with locked-up equity | −$66.0B bridge | Unchanged | **Open** (WP7) |
+| P1-8 thesis topics | No CUDA, TSMC, OpenAI | Rubin ×1; still no CUDA, TSMC, OpenAI (the RVG event omits the tenant's name) | **Open**: needs 10-K Item 1 and notes ingestion |
+| P3 presentation | 413 KB, 2,003 "n/a" | 367 KB, 1,728 "n/a" | **Open** (WP10) |
+
+The rerun report is kept at `data/recovery/nvda-integration-20261015/NVDA-integration-report.md`
+(ignored by git).

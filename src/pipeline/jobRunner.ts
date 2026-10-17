@@ -506,7 +506,7 @@ export interface ReportMetaInput {
  * ------------------------------------------------------------------------ */
 
 /** pipelineVersion stamped into meta (bump when the orchestration changes). */
-export const PIPELINE_VERSION = "stage-c-1.1.1" as const;
+export const PIPELINE_VERSION = "stage-c-1.1.5" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -3061,8 +3061,7 @@ export async function runJob<TPayload = unknown>(
       // regenerating (and running into the provider's time limit again).
       let carriedSections: Record<string, unknown> = {};
       // Attempts that ran into the provider's response time limit. Each one
-      // lowers the next attempt's reasoning effort a step: re-sending the same
-      // request is the request that just hit the wall.
+      // shrinks the next section batch, keeping the captured run settings.
       let timeLimitCutoffs = 0;
       let lastFailedRawOutput = "";
       let lastJudgeFailureRetryable = true;
@@ -3094,7 +3093,7 @@ export async function runJob<TPayload = unknown>(
           }
           const continuation: PassContinuation | undefined =
             Object.keys(carriedSections).length > 0 || timeLimitCutoffs > 0
-              ? { completed: carriedSections, ...(timeLimitCutoffs > 0 ? { effortStepDown: timeLimitCutoffs } : {}) }
+              ? { completed: carriedSections, ...(timeLimitCutoffs > 0 ? { sectionRetryCount: timeLimitCutoffs } : {}) }
               : undefined;
           const attemptStartedAt = now().getTime();
           const feedback =
@@ -3166,7 +3165,7 @@ export async function runJob<TPayload = unknown>(
               }
               if (now().getTime() - attemptStartedAt >= SUBSCRIPTION_TIME_LIMIT_NEAR_MS) {
                 timeLimitCutoffs += 1;
-                keptNote += ` (the response ran into the provider's time limit; the retry lowers reasoning effort by ${timeLimitCutoffs} step${timeLimitCutoffs === 1 ? "" : "s"} where an explicit effort was chosen)`;
+                keptNote += " (the response ran into the provider's time limit; the retry reduces section batch size while preserving the selected model, reasoning effort and speed)";
               }
             }
             lastJudgeFailureRetryable = isRetryableJudgeError(err);
@@ -3872,9 +3871,10 @@ export async function runJob<TPayload = unknown>(
           const kept = recoveryOf(side) === "retry"
             ? completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? "")
             : {};
+          const subscriptionRetry = recoveryOf(side) === "retry" && parseSubscriptionModel(analysisModel) !== null;
           let continuation: PassContinuation | undefined =
-            Object.keys(kept).length > 0 ? { completed: kept } : undefined;
-          let mode: AnalystRecovery = continuation !== undefined ? "continue" : recoveryOf(side);
+            Object.keys(kept).length > 0 || subscriptionRetry ? { completed: kept, ...(subscriptionRetry ? { sectionRetryCount: 1 } : {}) } : undefined;
+          let mode: AnalystRecovery = Object.keys(kept).length > 0 ? "continue" : recoveryOf(side);
           let feedback = mode !== "repair"
             ? undefined
             : raw.length > 0
@@ -3921,8 +3921,10 @@ export async function runJob<TPayload = unknown>(
             }
             // Keep whatever this attempt finished, beside what was kept before.
             const keptNow = { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) };
-            continuation = Object.keys(keptNow).length > 0 ? { completed: keptNow } : undefined;
-            mode = continuation !== undefined ? "continue" : "retry";
+            const sectionRetryCount = parseSubscriptionModel(analysisModel) !== null ? (continuation?.sectionRetryCount ?? 0) + 1 : 0;
+            continuation = Object.keys(keptNow).length > 0 || sectionRetryCount > 0
+              ? { completed: keptNow, ...(sectionRetryCount > 0 ? { sectionRetryCount } : {}) } : undefined;
+            mode = Object.keys(keptNow).length > 0 ? "continue" : "retry";
             feedback = undefined;
             currentDetail = errMessage(out.error);
           }

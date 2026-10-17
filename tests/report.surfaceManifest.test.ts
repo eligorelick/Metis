@@ -212,6 +212,7 @@ const VERIFICATION_LOG_ORDER = [
   "sourceSpans",
   "numericSupportStatus",
   "claimSupportStatus",
+  "executiveEvidenceKind",
 ] as const;
 const AS_OF_MAP_ORDER = ["field", "asOf"] as const;
 const DATA_COMPLETENESS_ORDER = [
@@ -283,7 +284,8 @@ describe("shared report surface manifest", () => {
       { id: "score:quality", key: "quality", kind: "aspect", label: "Quality", sectionKey: "quality" },
       { id: "score:balanceSheet", key: "balanceSheet", kind: "aspect", label: "Balance Sheet", sectionKey: "balanceSheet" },
       { id: "score:moat", key: "moat", kind: "aspect", label: "Moat", sectionKey: "competitive" },
-      { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership", sectionKey: "leadership" },
+      // D-61: the deterministic score is a capital-stewardship proxy.
+      { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
       { id: "score:technicals", key: "technicals", kind: "aspect", label: "Technicals", sectionKey: "technicals" },
     ]);
     expect(SCORE_WEIGHTS).toEqual(
@@ -294,11 +296,13 @@ describe("shared report surface manifest", () => {
         sectionKey,
       })),
     );
+    // Re-pinned for D-65: forecast-only tables name the forecast measure (FCFF,
+    // operating EPS), and the chart's EPS label says history is GAAP and the forecast operating.
     expect(PROJECTION_METRICS).toEqual([
-      { id: "projection-metric:revenue", key: "revenue", label: "Revenue" },
-      { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin" },
-      { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)" },
-      { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "Diluted EPS" },
+      { id: "projection-metric:revenue", key: "revenue", label: "Revenue", forecastLabel: "Revenue" },
+      { id: "projection-metric:operatingMargin", key: "operatingMargin", label: "Operating margin", forecastLabel: "Operating margin" },
+      { id: "projection-metric:fcf", key: "fcf", label: "Cash flow (historical FCF; forecast FCFF)", forecastLabel: "Free cash flow to the firm (FCFF)" },
+      { id: "projection-metric:epsDiluted", key: "epsDiluted", label: "EPS (historical GAAP diluted; forecast operating)", forecastLabel: "Operating EPS (diluted shares)" },
     ]);
     expect(PROJECTION_PATHS).toEqual([
       { id: "projection-path:historical", key: "historical", label: "Historical", kind: "historical" },
@@ -512,6 +516,7 @@ describe("shared report surface manifest", () => {
       { id: "verification-log-field:sourceSpans", key: "sourceSpans", label: "Supporting source passages", optional: true },
       { id: "verification-log-field:numericSupportStatus", key: "numericSupportStatus", label: "Numeric support", optional: true },
       { id: "verification-log-field:claimSupportStatus", key: "claimSupportStatus", label: "Prose support", optional: true },
+      { id: "verification-log-field:executiveEvidenceKind", key: "executiveEvidenceKind", label: "Executive assessment evidence", optional: true },
     ]);
     expect(AS_OF_MAP_FIELDS).toEqual([
       { id: "as-of-map-field:field", key: "field", label: "Field", optional: false },

@@ -3,27 +3,33 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {describe,expect,it} from 'vitest';
 import {VerificationLogEntrySchema,verificationEntryOutcomeLabel} from '@/report/schema';
 import {ReportView} from '@/components/report/ReportView';
-import {reportToMarkdown} from '@/report/export/markdown';
-import {reportToPrintBody} from '@/report/export/printHtml';
+import {reportToAuditMarkdown} from '@/report/export/auditMarkdown';
 import {loadTask28Fixture} from './helpers/task28Report';
 
+// D-62: the verification log is part of the separate audit export; the live
+// report links to it instead of rendering the log inline.
 describe('numeric support never implies whole-prose verification',()=>{
- it('counts log entries without mislabeling supported prose as uncited in the summary',()=>{
+ it('counts log entries without mislabeling supported prose as uncited in the audit export',()=>{
   const report=loadTask28Fixture();
+  report.meta.reportId=7;
   report.appendix.verificationLog=[{claim:'Numeric provenance',outcome:'verified'},{claim:'Cited qualitative prose',outcome:'unverified',claimSupportStatus:'cited'},{claim:'Unchecked',outcome:'unverified',claimSupportStatus:'unreviewed'}];
-  expect(renderToStaticMarkup(createElement(ReportView,{report}))).toContain('citation-coverage log (3 entries)');
+  const audit=reportToAuditMarkdown(report);
+  expect(audit).toContain('### Verification log');
+  expect(audit).toContain('| Cited qualitative prose | Cited; prose unchecked |');
+  expect(audit).not.toContain('| Cited qualitative prose | uncited |');
+  expect(renderToStaticMarkup(createElement(ReportView,{report}))).toContain('href="/api/export/7?format=audit"');
  });
  it('labels cited unchecked prose consistently while retaining removed and legacy outcomes',()=>{
   const entry=VerificationLogEntrySchema.parse({claim:'A cited qualitative claim',outcome:'unverified',claimSupportStatus:'cited'});
   const report=loadTask28Fixture();report.appendix.verificationLog=[entry];
-  for(const output of [reportToMarkdown(report),reportToPrintBody(report),renderToStaticMarkup(createElement(ReportView,{report}))])expect(output).toContain('Cited; prose unchecked');
+  expect(reportToAuditMarkdown(report)).toContain('Cited; prose unchecked');
   expect(verificationEntryOutcomeLabel({...entry,outcome:'removed'})).toBe('removed');
   expect(verificationEntryOutcomeLabel({claim:'Legacy',outcome:'unverified'})).toBe('uncited');
  });
- it('retains separate support dimensions and expresses them on all three surfaces',()=>{
+ it('retains separate support dimensions and expresses them in the audit export',()=>{
   const entry=VerificationLogEntrySchema.parse({claim:'Revenue100; unrelated allegation',outcome:'unverified',validationStatus:'validated',numericSupportStatus:'validated',claimSupportStatus:'numeric-only'});
   expect(entry.numericSupportStatus).toBe('validated');
   const report=loadTask28Fixture();report.appendix.verificationLog=[entry];
-  for(const output of [reportToMarkdown(report),reportToPrintBody(report),renderToStaticMarkup(createElement(ReportView,{report}))])expect(output).toContain('Numeric match; prose unchecked');
+  expect(reportToAuditMarkdown(report)).toContain('Numeric match; prose unchecked');
  });
 });

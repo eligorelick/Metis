@@ -65,6 +65,9 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-03-repository-audit.md",
   "docs/audit/2026-10-04-recommendations.md",
   "docs/audit/2026-10-15-amzn-integrity.md",
+  "docs/audit/2026-10-15-nvda-report-34-audit.md",
+  "docs/audit/2026-10-17-expe-issue-disposition.md",
+  "docs/audit/2026-10-17-expe-remediation-plan.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
@@ -78,8 +81,11 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/REPORT-EVALUATION.md",
   "docs/VALIDATION-STATUS.md",
   "docs/superpowers/plans/2026-10-13-research-reliability.md",
+  "docs/superpowers/plans/2026-10-14-evidence-reliability-roadmap.md",
+  "docs/superpowers/plans/2026-10-14-research-validation-roadmap.md",
   "docs/superpowers/plans/2026-10-15-amzn-integrity-audit.md",
   "docs/superpowers/plans/2026-10-15-evidence-methodology-followup.md",
+  "docs/superpowers/plans/2026-10-15-nvda-round3-recovery.md",
 ]);
 const VERIFY_GATES = [
   "npm run check:dependencies",
@@ -547,9 +553,21 @@ describe("public release contract", () => {
       // WS4 follow-up: the four RECORDED xom_successor_* payloads, and the
       // end-to-end scan that reads them.
       read("tests/dataBundle.successor.test.ts"),
+      // NVDA report #34 audit, WP3: the nine recorded NVDA 8-K exhibit, 8-K
+      // item and XBRL instance/label samples the current-report parsers read.
+      // D-63 adds three: the Q2 FY2027 CFO commentary (EX-99.2) and the
+      // extracted 10-K Item 1 and 10-Q notes text (nvda-periodic-sections).
+      read("tests/currentReports.test.ts"),
+      // D-74: the overlapping CRWV option clause and full retained NVDA issuance section.
+      read("tests/currentReports.principalAggregation.test.ts"),
+      // D-66: extracted annual notes, interim statements/Item 2/Item 5 and governance/commentary samples.
+      read("tests/edgar.filingFacts.test.ts"),
+      read("tests/edgar.debtPresentation.test.ts"),
+        // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
+        read("tests/edgar.operatingExpenseScope.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(21);
+    expect(edgarFixtures).toHaveLength(44);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

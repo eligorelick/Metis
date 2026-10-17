@@ -10,6 +10,10 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.resolve(__dirname, "..");
 const require = createRequire(pathToFileURL(path.join(ROOT, "package.json")));
 const manifest = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+const CHILD_TIMEOUT_MS = 20_000;
+// These cases start real Node/tsx processes. Allow each bounded cold start to
+// finish before Vitest's outer deadline, including on a busy Windows runner.
+const CLI_TEST_OVERHEAD_MS = 5_000;
 
 // Run real maintenance entrypoints with synthetic env files and a fetch guard.
 // No child inherits provider keys or points at the user's application-data DB.
@@ -26,7 +30,7 @@ function run(script: string, directory: string, extra: string[] = [], env: Parti
   return spawnSync(process.execPath, ["--import", pathToFileURL(guard).href, ...absoluteArgs, ...extra], {
     cwd: directory,
     encoding: "utf8",
-    timeout: 20_000,
+    timeout: CHILD_TIMEOUT_MS,
     env: {
       PATH: process.env.PATH,
       SystemRoot: process.env.SystemRoot,
@@ -74,7 +78,7 @@ describe("maintenance CLI environment", () => {
       expect(count(shell)).toBe(0);
       expect(count(base)).toBe(1);
     } finally { rmSync(directory, { recursive: true, force: true }); }
-  });
+  }, 2 * CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 
   it("uses the canonical database for standalone maintenance without touching the legacy selection", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "metis-cli-env-"));
@@ -88,7 +92,7 @@ describe("maintenance CLI environment", () => {
       expect(count(canonical)).toBe(0);
       expect(count(legacy)).toBe(1);
     } finally { rmSync(directory, { recursive: true, force: true }); }
-  });
+  }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 
   it("loads the model-list key from .env before the guarded provider read", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "thesis-model-env-"));
@@ -98,7 +102,7 @@ describe("maintenance CLI environment", () => {
       expect(child.status).toBe(1);
       expect(child.stderr).toContain("offline-model-key-loaded");
     } finally { rmSync(directory, { recursive: true, force: true }); }
-  });
+  }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 
   it("reconciles only the configured temporary DB without any paid-account read", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "thesis-cost-env-"));
@@ -112,5 +116,5 @@ describe("maintenance CLI environment", () => {
       expect(existsSync(path.join(directory, "Thesis", "thesis.db"))).toBe(false);
       expect(existsSync(path.join(directory, "thesis", "thesis.db"))).toBe(false);
     } finally { rmSync(directory, { recursive: true, force: true }); }
-  });
+  }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 });

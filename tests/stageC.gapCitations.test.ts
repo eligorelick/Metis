@@ -30,7 +30,7 @@ import {
 } from "@/pipeline/stageC/payload";
 import type { JudgeOutput } from "@/report/schema";
 
-import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { completeCurrencyBundle, type CurrencyBundleOptions } from "./helpers/currencyBundle";
 
 const VALIDATION = { checks: [], flags: [], gaps: [] } as unknown as ValidationReport;
 
@@ -41,8 +41,8 @@ function fmpRows<T>(rows: T[], asOf: string, endpoint: string) {
   };
 }
 
-function build(bank: boolean, edit: (bundle: DataBundle) => void = () => {}): ContextPayload {
-  const bundle = completeCurrencyBundle({ bank });
+function build(bank: boolean, edit: (bundle: DataBundle) => void = () => {}, opts: CurrencyBundleOptions = {}): ContextPayload {
+  const bundle = completeCurrencyBundle({ bank, ...opts });
   edit(bundle);
   return assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
 }
@@ -50,6 +50,9 @@ function build(bank: boolean, edit: (bundle: DataBundle) => void = () => {}): Co
 async function verify(payload: ContextPayload, root: object) {
   return runVerifyPass({} as PassDeps, payload, root as unknown as JudgeOutput, { fetchedUrls: [] });
 }
+
+/** A listing currency nothing establishes: provider rows inherit no issuer currency (D-57). */
+const UNINHERITED: CurrencyBundleOptions = { profileCurrency: null };
 
 function fact(text: string, source: string, asOf: string | null) {
   return { text, label: "FACT", source, asOf };
@@ -198,8 +201,19 @@ describe("rows of unestablished currency support number-free prose only (D-43)",
     ], "2026-07-01", "executive-compensation");
   };
 
+  it("with the issuer's reporting and listing currencies agreeing, the same rows are inherited money (D-57)", () => {
+    const payload = build(false, withRows);
+    const inherited = (payload.provenanceRegistry ?? []).filter((r) => r.currencyBasis === "inherited");
+    expect(inherited).toEqual(expect.arrayContaining([
+      expect.objectContaining({ origin: "fmp:stock-peers", value: 221_304_234_781, currency: "USD" }),
+      expect.objectContaining({ origin: "fmp:executive-compensation", value: 20_062_612, currency: "USD", asOf: "2026-04-06" }),
+      expect.objectContaining({ origin: "fmp:price-target-consensus", currency: "USD" }),
+    ]));
+    expect(serializePayloadForPrompt(payload)).toMatch(/C — Citigroup Inc\.: 221304234781 currency mkt cap \(USD, inherited\)/);
+  });
+
   it("registers the printed tags as unestablished, with the currency flagged unknown", () => {
-    const citations = build(false, withRows).citationRegistry ?? [];
+    const citations = build(false, withRows, UNINHERITED).citationRegistry ?? [];
     for (const [id, asOf] of [
       ["fmp:stock-peers", "2026-07-01"],
       ["fmp:executive-compensation", "2026-04-06"],
@@ -210,7 +224,7 @@ describe("rows of unestablished currency support number-free prose only (D-43)",
   });
 
   it("verifies report 26's number-free claims and rejects a number or a currency on the same rows", async () => {
-    const payload = build(false, withRows);
+    const payload = build(false, withRows, UNINHERITED);
     const claims = [
       // Report 26 competitive.moatGraded.reasoning[4] and valuation.graded.reasoning[5], verbatim.
       { text: "Peer records disclose market capitalization with unspecified currencies, not comparable profitability or valuation multiples. They do not establish a relative-valuation premium or discount.", label: "JUDGMENT", source: "fmp:stock-peers", asOf: null },
@@ -242,7 +256,7 @@ describe("rows of unestablished currency support number-free prose only (D-43)",
   // was invisible, and a title written "is the CEO" or before the name was
   // never read.
   it("rejects a person the compensation rows do not list, or a title they do not give, however it is written", async () => {
-    const payload = build(false, withRows);
+    const payload = build(false, withRows, UNINHERITED);
     const texts = [
       "Sheryl Sandberg is CEO.",
       "Douglas Petno is the CEO.",

@@ -88,7 +88,29 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // reconstruction; historical reports retain their original conventions.
 // 1.17.0 (D-56 review): actual statement-provider attribution, qualifier-safe
 // references, standalone parity and runner-owned final timing reconciliation.
-export const REPORT_SPEC_VERSION = "1.17.0" as const;
+// 1.18.0 (D-57, D-58): issuer-currency inheritance for single-currency provider
+// rows; the DCF year-one revenue anchor, convergent fade, year-one margin and
+// terminal tax floor. Saved reports keep their original conventions.
+// 1.19.0 (D-65..D-68): consensus-covered forecast windows, quote-date DCF,
+// non-operating investments, consistent EV and effective scenario inputs.
+// Earlier reports retain their saved conventions and are not like-for-like.
+// 1.19.1 (D-72): exhibit-bound disclosures, restatement/currency selection,
+// conservative missing-interest EPS, acquisition cash and segment provenance.
+// 1.19.2 (D-73): withhold incomplete debt carrying values and dependent metrics.
+// 1.19.3 (D-74, D-75): source-scoped principal summaries, immutable legacy
+// presentation corrections and source-bound preceding-table scale verification.
+// 1.19.4 (D-76): distinguish explicit total/per-share dividend restatements;
+// identify/refuse unsupported historical EV bridges and qualify partial EDGAR views.
+// 1.20.0: scoped economic equity, NCI earnings reconciliation, historical
+// observation provenance and explicitly unknown risk probabilities.
+// 1.21.0: dated primary class inventories, explicit quote observation dates,
+// matched guidance/operating evidence and source-preserving disclosure surfaces.
+// 1.22.0: admission of complete debt and applicable class/geography scope;
+// officer agreement/announcement/completion distinctions and per-share labels.
+// 1.23.0 (D-81): pipeline-owned multiple bases, price-unit MACD evidence and
+// projection availability presentation; legacy reports retain their own stamps.
+// 1.23.1 (D-82): exact source-labeled ISO durations in deterministic claim verification.
+export const REPORT_SPEC_VERSION = "1.23.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -426,10 +448,12 @@ export const ProvenanceCoverageSchema = z
       validated: z.number().int().nonnegative(),
       unchecked: z.number().int().nonnegative(),
       contradicted: z.number().int().nonnegative(),
+      /** Cited claims that state no figure: part of `unchecked`, with nothing to check. Absent on older reports. */
+      qualitative: z.number().int().nonnegative().optional(),
       total: z.number().int().nonnegative(),
       rate: z.number().min(0).max(1).nullable(),
     }).strict().superRefine((v, ctx) => {
-      if (v.validated + v.unchecked + v.contradicted !== v.total || v.cited > v.total || v.validated > v.cited) {
+      if (v.validated + v.unchecked + v.contradicted !== v.total || v.cited > v.total || v.validated > v.cited || (v.qualitative ?? 0) > v.unchecked) {
         ctx.addIssue({ code: "custom", message: "Factual validation counts must partition total and validated must be cited" });
       }
       const expected = v.total === 0 ? null : v.validated / v.total;
@@ -677,13 +701,13 @@ export type JudgeProtocol = z.infer<typeof JudgeProtocolSchema>;
 
 // WS6 (D-19) begin: the disclaimer now names WHAT the report actually emits.
 // "Informational only" alone did not describe a document that grades six
-// aspects A-F and prints three scenario price targets; a reader could
+// aspects A-F and can print scenario price targets; a reader could
 // reasonably read those as a call. The rating-safety scan skips this key
 // (NON_NARRATIVE_STRING_KEYS), so the words it must disclaim can be named.
 // It contains no HTML-sensitive characters, so the print renderer's esc() is
 // a no-op on it and it appears byte-for-byte.
 export const DISCLAIMER_TEXT =
-  "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security." as const;
+  "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security." as const;
 // WS6 (D-19) end.
 
 export const DataCompletenessSchema = z
@@ -965,6 +989,25 @@ export const DcfSchema = z
       preferredEquity: z.number().nullable(), equityValue: z.number().nullable(), dilutedShares: z.number().nullable(),
       presentValueExplicit: z.number().nullable(), presentValueTerminal: z.number().nullable(),
       currency: z.string().nullable(), asOf: IsoDateSchema.nullable(),
+      /** D-60: marketable equity securities added as a non-operating asset (absent when none). */
+      nonOperatingAssets: z.number().optional(),
+      /** D-65: the non-operating assets one row each (equity securities, long-term investments). */
+      nonOperatingComponents: z.array(z.object({ label: z.string(), value: z.number() }).strict()).optional(),
+      /** D-65: the quote date the value is rolled forward to, and the factor applied. */
+      valuationDate: IsoDateSchema.optional(),
+      rollForwardFactor: z.number().optional(),
+      /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
+      sharesOutstandingAtQuote: z.number().optional(),
+    }).strict().optional(),
+    /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
+    consensusPath: z.array(z.object({
+      period: z.string(), modelRevenue: z.number(), consensusRevenue: z.number().nullable(), gapPct: z.number().nullable(),
+      anchored: z.boolean(), fiscalYears: z.string(), status: z.string(),
+    }).strict()).optional(),
+    /** D-60: year-one growth × sustained margin per-share grid (null cells withheld). */
+    growthMarginGrid: z.object({
+      growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
+      perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
     }).strict().optional(),
     forecastRows: z.array(z.object({
       year: z.number().int().positive(), period: z.string(), revenue: z.number(), growthPct: z.number(),
@@ -988,32 +1031,23 @@ export type ReverseDcf = z.infer<typeof ReverseDcfSchema>;
 export const MultipleRowSchema = z
   .object({
     name: z.string(),
+    /** Deterministic StageB numerator/denominator scope; optional for legacy reports. */
+    basis: z.string().optional(),
     current: z.number().nullable(),
     peerMedian: z.number().nullable(),
     /** Number of eligible peers after metric-specific outlier filtering. */
     peerCount: z.number().int().nonnegative().nullable().optional(),
     // WS6 (D-19) begin -------------------------------------------------------
-    /**
-     * RANK AMONG N QUARTERS, 0-100: where the current multiple sits within the
-     * issuer's OWN observed quarterly history, by linear interpolation between
-     * order statistics. It is NOT a percentile of a distribution: the window is
-     * 8-20 quarterly observations, which is far too few to estimate
-     * percentiles, and the CFA Institute's own guidance is to describe such a
-     * figure as a rank within the observed sample. The FIELD NAME is kept for
-     * backward compatibility with persisted reports; every rendered label says
-     * "rank among N quarters".
-     */
+    /** Empirical percentile rank (0-100) within the retained finite sample, not an ordinal rank. */
     own5yPercentile: z.number().nullable(),
-    /**
-     * N — the number of quarters the rank is taken among. WS6 review
-     * (SHOULD-FIX 3): "rank 62" with no N is not a rank a reader can read, and
-     * N reached only the Stage C payload notes before. OPTIONAL, so persisted
-     * pre-review reports still parse; the judge never authors this table
-     * (applyMultiples replaces it wholesale from computed data), and an
-     * optional field costs one slot of the guarded JSON-schema
-     * optional-parameter budget, which the schema test still holds under.
-     */
+    /** Sample size, separate from the percentile scale; optional for legacy reports. */
     ownHistoryObservations: z.number().nullable().optional(),
+    /** Pipeline-owned audit detail, optional for reports serialized before its introduction. */
+    ownHistoryDetails: z.array(z.object({
+      periodEnd: z.string(), marketDate: z.string().nullable(), value: z.number(),
+      source: z.enum(["raw-statements", "vendor-ratio"]), marketCapSourceId: z.string().optional(),
+    }).strict()).optional(),
+    ownHistoryBasis: z.string().optional(),
     // WS6 (D-19) end ---------------------------------------------------------
     sectorAppropriate: z.boolean(),
   })
@@ -1081,6 +1115,18 @@ export const ValuationSchema = z
     dcf: DcfSchema,
     reverseDcf: ReverseDcfSchema,
     multiples: z.array(MultipleRowSchema),
+    /** Deterministic current-equity/EV scope disclosure; optional for legacy reports. */
+    multiplesBasis: z.string().optional(),
+    /** Pipeline-owned admitted market values; optional for legacy reports. */
+    marketValueScope: z.object({
+      status: z.enum(["resolved", "unresolved", "unverified-vendor-scope"]),
+      marketCap: z.number().nullable(), economicShares: z.number().nullable(),
+      currency: z.string().nullable(), shareCountAsOf: z.string().nullable(),
+      priceAsOf: z.string().nullable().optional(),
+      approximate: z.boolean(), basis: z.string(),
+      classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
+      enterpriseValue: z.number().nullable(), enterpriseValueBasis: z.string(),
+    }).strict().optional(),
     scenarios: ScenariosSchema,
     peerCoverage: PeerCoverageSchema.optional(),
   })
@@ -1141,7 +1187,16 @@ export const QualitySchema = z
   .object({
     graded: GradeBlockSchema,
     forensicScores: ForensicScoresSchema,
+    /** Findings only: what the screens or the analysis flagged. */
     flags: z.array(QualityFlagSchema),
+    /**
+     * D-68: pipeline-owned methodology and context notes for the forensic
+     * screens (accrual definition, house bands, growth and acquisition
+     * context, the statement figures behind AQI and GMI). Not findings, so
+     * not flags. Removed from the judge request schema; absent on reports
+     * written before D-68, which carried them as "low" flags.
+     */
+    notes: z.array(z.string()).optional(),
   })
   .strict();
 export type Quality = z.infer<typeof QualitySchema>;
@@ -1267,7 +1322,9 @@ export const RiskSchema = z
   .object({
     title: z.string(),
     severity: SeverityLowMedHighSchema,
-    probability: SeverityLowMedHighSchema,
+    // Unknown likelihood is distinct from medium likelihood and from impact.
+    // The existing labels remain valid for persisted reports.
+    probability: z.enum(["high", "medium", "low", "unknown"]),
     source: z.string(),
     reasoning: SourcedClaimSchema,
   })
@@ -1379,6 +1436,8 @@ export const VerificationLogEntrySchema = z
     validationStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
     numericSupportStatus: z.enum(["validated", "cited", "unchecked", "contradicted"]).optional(),
     claimSupportStatus: z.enum(["numeric-only", "cited", "unreviewed", "contradicted"]).optional(),
+    /** Pipeline-derived eligibility of the matched typed metric for executive assessment. */
+    executiveEvidenceKind: z.enum(["guidance-track-record", "execution"]).optional(),
     sourceSpans: z.array(z.object({
       source: z.string(), asOf: IsoDateSchema.nullable(),
       start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string(),
@@ -1697,9 +1756,11 @@ export type ProjectionPoint = z.infer<typeof ProjectionPointSchema>;
 
 const ProjectionPathsSchema = z.object({ bull: z.array(ProjectionPointSchema), base: z.array(ProjectionPointSchema), bear: z.array(ProjectionPointSchema), weighted: z.array(ProjectionPointSchema) }).strict();
 export const ScenarioAssumptionsSchema = z.object({
-  methodVersion: z.string(), shockPersistence: z.literal("persistent-explicit-horizon"), terminalTransition: z.string(),
+  methodVersion: z.string(), shockPersistence: z.enum(["mean-reverting-convergent", "persistent-explicit-horizon"]), terminalTransition: z.string(),
   growthMarginCorrelation: z.number().min(-1).max(1).nullable(),
-  scenarios: z.array(z.object({ name: z.enum(["bull", "base", "bear"]), growthDeltaPp: z.number(), marginDeltaPp: z.number() }).strict()),
+  scenarios: z.array(z.object({ name: z.enum(["bull", "base", "bear"]), growthDeltaPp: z.number(), marginDeltaPp: z.number(),
+    /** D-65: the year-one margin shift left after the scenario cap, when the cap cut the requested shock. */
+    effectiveMarginDeltaPp: z.number().optional() }).strict()),
   alternatives: z.array(z.object({ name: z.literal("decaying-growth-shock"), bullPerShare: z.number().nullable(), bearPerShare: z.number().nullable(), basis: z.string() }).strict()),
 }).strict();
 export type ScenarioAssumptions = z.infer<typeof ScenarioAssumptionsSchema>;
@@ -1720,6 +1781,8 @@ export const ProjectionSeriesSchema = z
     capitalReturn: z.object({
       shareCountAnnualizedPct: z.number().nullable(), appliedShareCountAnnualizedPct: z.number(),
       policy: z.enum(["flat-share-conservative", "dilution-trend"]), basis: z.string(), netIncomeToEbit: z.number(),
+      /** D-60: remaining repurchase authorization and the annual share change it would fund at the quote. */
+      authorizationRemaining: z.number().optional(), authorizationAnnualizedPct: z.number().nullable().optional(),
     }).strict().optional(),
     /** Human-readable basis lines (from DcfAssumptions.notes + dispersion). */
     assumptions: z.array(ratingSafeString()),
@@ -1924,6 +1987,363 @@ export const RouteMetricsSchema = z
 export type RouteMetrics = z.infer<typeof RouteMetricsSchema>;
 
 /* ------------------------------------------------------------------------ *
+ * Filing disclosures — pipeline-filled from 8-K exhibits/items, periodic
+ * XBRL segment facts and the quarterly statements (NVDA report #34 audit,
+ * work package 3 and the data-depth part of 9). Deterministic: never
+ * judge-authored. Money is in base units of `currency`.
+ * ------------------------------------------------------------------------ */
+
+const IsoDaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const IsoCurrencySchema = z.string().regex(/^[A-Z]{3}$/);
+
+export const FilingRefSchema = z
+  .object({
+    form: z.string(),
+    accession: z.string(),
+    exhibit: z.string().nullable(),
+    filingDate: IsoDaySchema,
+    url: z.string().nullable(),
+  })
+  .strict();
+export type FilingRef = z.infer<typeof FilingRefSchema>;
+
+const GuidanceMetricSchema = z.enum([
+  "revenue",
+  "adjusted-ebitda",
+  "adjusted-ebitda-margin-expansion",
+  "gross-margin",
+  "operating-expenses",
+  "operating-margin",
+  "operating-income",
+  "other-income",
+  "tax-rate",
+  "eps",
+  "capital-expenditures",
+]);
+const GuidanceBasisSchema = z.enum(["gaap", "non-gaap", "unspecified"]);
+
+export const GuidanceRowSchema = z
+  .object({
+    period: z.string(),
+    metric: GuidanceMetricSchema,
+    basis: GuidanceBasisSchema,
+    unit: z.enum(["currency", "currency-per-share", "%", "percentage-points"]),
+    low: z.number(),
+    mid: z.number(),
+    high: z.number(),
+    form: z.enum(["point", "range", "plus-minus", "approximate"]),
+    previous: z.object({ low: z.number(), mid: z.number(), high: z.number() }).strict().optional(),
+    growth: z.object({ low: z.number(), high: z.number() }).strict().optional(),
+    previousGrowth: z.object({ low: z.number(), high: z.number() }).strict().optional(),
+    span: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict().optional(),
+    headerSpan: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict().optional(),
+  })
+  .strict();
+export type GuidanceRow = z.infer<typeof GuidanceRowSchema>;
+
+export const GuidanceCheckSchema = z
+  .object({
+    period: z.string(),
+    periodEnd: IsoDaySchema,
+    metric: z.enum(["revenue", "gross-margin"]),
+    basis: GuidanceBasisSchema,
+    guidedLow: z.number(),
+    guidedMid: z.number(),
+    guidedHigh: z.number(),
+    actual: z.number(),
+    /** Revenue: % above (+) / below (−) the midpoint. Gross margin: percentage points. */
+    difference: z.number(),
+    position: z.enum(["above", "within", "below"]),
+    guidance: FilingRefSchema,
+    actualSource: z.string(),
+  })
+  .strict();
+export type GuidanceCheck = z.infer<typeof GuidanceCheckSchema>;
+
+export const FilingDisclosuresSchema = z
+  .object({
+    version: z.literal("1.0.0"),
+    /** ISO currency of every money figure below; null when not established. */
+    currency: IsoCurrencySchema.nullable(),
+    currencyBasis: z.string(),
+    guidance: z
+      .object({
+        source: FilingRefSchema,
+        /** The quarter the release reported ("Q2 FY2027") and its end date. */
+        reportedPeriod: z.string().nullable(),
+        reportedPeriodEnd: IsoDaySchema.nullable(),
+        rows: z.array(GuidanceRowSchema),
+        qualifiers: z.array(z.string()),
+      })
+      .strict()
+      .nullable(),
+    guidanceChecks: z.array(GuidanceCheckSchema),
+    freeCashFlow: z.array(
+      z.object({ periodEnd: IsoDaySchema, months: z.number().int(), value: z.number(), source: FilingRefSchema }).strict(),
+    ),
+    freeCashFlowDefinition: z.string().nullable(),
+    capitalReturn: z
+      .object({
+        source: FilingRefSchema,
+        returned: z.number().nullable(),
+        returnedPeriod: z.string().nullable(),
+        /** D-62: the release qualified the amount ("approximately $26.0 billion"). Absent on older reports. */
+        returnedApproximate: z.boolean().optional(),
+        /** D-62: "approximately $99.0 billion remaining". Absent on older reports. */
+        authorizationRemainingApproximate: z.boolean().optional(),
+        authorizationRemaining: z.number().nullable(),
+        authorizationAdded: z.number().nullable(),
+        dividendPerShare: z.number().nullable(),
+        dividendPayDate: IsoDaySchema.nullable(),
+        dividendRecordDate: IsoDaySchema.nullable(),
+        dividendChangeFrom: z.number().nullable(),
+        dividendChangeTo: z.number().nullable(),
+      })
+      .strict()
+      .nullable(),
+    events: z.array(
+      z
+        .object({
+          filingDate: IsoDaySchema,
+          eventDate: IsoDaySchema.nullable(),
+          accession: z.string(),
+          form: z.string(),
+          items: z.array(z.string()),
+          summary: z.string(),
+          summaryCorrection: z.enum(["legacy-principal-total-withheld", "source-principal-summary-rederived"]).optional(),
+          url: z.string(),
+        })
+        .strict(),
+    ),
+    /** Pipeline-owned official company statements; these are not SEC filings. */
+    companyStatements: z.array(z.object({
+      form: z.null(), symbol: z.string(), category: z.enum(["acquisition", "executive-transition"]),
+      status: z.enum(["issuer-stated-completed", "issuer-announced"]), title: z.string(), text: z.string(),
+      url: z.string().regex(/^https:\/\/[^\s]+$/), publishedAt: z.string(), observedAt: z.string(),
+      sourceHash: z.string().regex(/^[a-f0-9]{64}$/), authorityChain: z.array(z.string()),
+      originalChars: z.number().int().nonnegative(),
+      span: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict(),
+      consideration: z.null(), funding: z.null(), limitations: z.string(),
+    }).strict()).optional(),
+    segments: z.array(
+      z
+        .object({
+          axis: z.string(),
+          axisLabel: z.string(),
+          currency: IsoCurrencySchema,
+          /** Quarter end dates, newest first. */
+          quarters: z.array(IsoDaySchema),
+          rows: z.array(
+            z
+              .object({ label: z.string(), childOf: z.string().nullable(), values: z.array(z.number().nullable()) })
+              .strict(),
+          ),
+          total: z.array(z.number().nullable()),
+          priorPresentation: z.array(z.string()),
+          derivedCells: z.number().int().nonnegative(),
+          /** D-63: cells filled as the quarter's total less the other top-level rows. Optional on older reports. */
+          residualCells: z.number().int().nonnegative().optional(),
+          sources: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    /** Matched quarterly issuer segment tables; adjusted EBITDA is not consolidated GAAP profit. */
+    segmentPerformance: z.array(z.object({
+      segment: z.string(), metric: z.literal("adjusted-ebitda"), months: z.literal(3),
+      periodEnd: IsoDaySchema, comparisonPeriodEnd: IsoDaySchema, currency: IsoCurrencySchema, scale: z.number().positive(),
+      revenue: z.number(), priorRevenue: z.number(), profit: z.number(), priorProfit: z.number(),
+      marginPct: z.number(), priorMarginPct: z.number(), changeBasisPoints: z.number(),
+      spans: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict()),
+      source: FilingRefSchema,
+    }).strict()).optional(),
+    quarterlyTrend: z.array(
+      z
+        .object({
+          periodEnd: IsoDaySchema,
+          fiscalLabel: z.string().nullable(),
+          revenue: z.number().nullable(),
+          revenueYoyPct: z.number().nullable(),
+          revenueQoqPct: z.number().nullable(),
+          grossMarginPct: z.number().nullable(),
+          operatingExpenses: z.number().nullable(),
+          operatingMarginPct: z.number().nullable(),
+          epsDiluted: z.number().nullable(),
+          operatingCashFlow: z.number().nullable(),
+          /** Operating cash flow less capital expenditure (standardized, not the issuer's definition). */
+          freeCashFlow: z.number().nullable(),
+          /**
+           * D-63: the quarter's net gains (losses) from equity securities and
+           * non-GAAP diluted EPS, from the issuer's reconciliation (8-K EX-99).
+           * Optional: absent on reports written before them.
+           */
+          equitySecuritiesGains: z.number().nullable().optional(),
+          nonGaapEpsDiluted: z.number().nullable().optional(),
+        })
+        .strict(),
+    ),
+    /**
+     * D-63: the latest release's GAAP-to-non-GAAP reconciliation rows (the
+     * free-cash-flow bridge, equity-securities gains, their tax effect, GAAP
+     * and non-GAAP diluted EPS) by column. Optional on older reports.
+     */
+    reconciliation: z.array(
+      z.object({
+        metric: z.enum(["operating-cash-flow", "total-capital-expenditures", "purchases-property-equipment", "principal-payments-property-equipment",
+          "equity-securities-gains", "non-gaap-tax-impact", "gaap-diluted-eps", "non-gaap-diluted-eps"]),
+        periodEnd: IsoDaySchema,
+        months: z.number().int(),
+        value: z.number(),
+        unit: z.enum(["currency", "currency-per-share"]),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    /** D-63: commitments and guarantees tables (row totals) from the latest CFO commentary or release. Optional. */
+    commitments: z.array(
+      z.object({
+        kind: z.enum(["commitments", "guarantees"]),
+        /** Which table: "future commitments", "additional commitments" or "guarantees (maximum gross exposure)". */
+        table: z.string(),
+        asOf: IsoDaySchema.nullable(),
+        label: z.string(),
+        total: z.number(),
+        tableTotal: z.boolean(),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
+    nonGaapBasisNote: z.string().nullable().optional(),
+    /**
+     * D-66: figures the notes, the condensed statements and the CFO
+     * commentary print that no typed statement row carries (investment scale,
+     * lock-ups, commitments, a deal's consideration and goodwill, DSO), in the
+     * statements' currency. Optional on older reports.
+     */
+    filingFacts: z.array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        value: z.number(),
+        unit: z.enum(["currency", "days", "shares", "count", "percent"]),
+        asOf: IsoDaySchema.nullable(),
+        period: z.string().nullable(),
+        qualifier: z.string().nullable(),
+        computed: z.string().nullable(),
+        /** The excerpt or exhibit tag the fact is read from ("edgar:10-Q notes"). */
+        sourceTag: z.string(),
+        source: FilingRefSchema,
+        text: z.string(),
+      }).strict(),
+    ).optional(),
+    /** D-66: the CFO commentary's stated outlook for a working-capital measure ("We expect our DSO to return to more normal levels next quarter."). */
+    commentaryOutlook: z.array(z.object({ topic: z.string(), text: z.string(), source: FilingRefSchema }).strict()).optional(),
+    /**
+     * D-66: officer and director changes from 8-K Item 5.02, with whether the
+     * filing-specified date has elapsed by the bundle date. Optional on older reports.
+     */
+    officerChanges: z.array(
+      z.object({
+        kind: z.enum(["departure", "appointment"]),
+        person: z.string(),
+        role: z.string(),
+        board: z.boolean(),
+        announced: IsoDaySchema.nullable(),
+        agreedDate: IsoDaySchema.optional(),
+        effective: IsoDaySchema.nullable(),
+        anticipated: z.boolean(),
+        /** Legacy field: date comparison only, not evidence of actual completion. */
+        inEffect: z.boolean(),
+        completionStatus: z.literal("unconfirmed").optional(),
+        note: z.string().nullable(),
+        package: z.array(z.object({ component: z.string(), value: z.number() }).strict()),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    /** D-66: the advisory vote on named-executive-officer pay (8-K Item 5.07). */
+    sayOnPay: z.object({
+      meetingDate: IsoDaySchema.nullable(),
+      approved: z.boolean(),
+      votesFor: z.number(),
+      votesAgainst: z.number(),
+      abstentions: z.number(),
+      brokerNonVotes: z.number().nullable(),
+      /** Votes for over votes for, against and abstaining, percent (computed). */
+      supportPct: z.number(),
+      source: FilingRefSchema,
+    }).strict().optional(),
+    /** D-66: officers' and directors' Rule 10b5-1 trading arrangements (10-Q/10-K "Other Information"). */
+    tradingArrangements: z.array(
+      z.object({
+        person: z.string(),
+        role: z.string(),
+        action: z.enum(["adoption", "modification", "termination"]),
+        date: IsoDaySchema,
+        shares: z.number().nullable(),
+        includesFutureAwards: z.boolean(),
+        expires: IsoDaySchema.nullable(),
+        source: FilingRefSchema,
+      }).strict(),
+    ).optional(),
+    notes: z.array(z.string()),
+  })
+  .strict();
+export type FilingDisclosures = z.infer<typeof FilingDisclosuresSchema>;
+
+/**
+ * D-62: provider market and consensus data, carried as served (no analysis).
+ * Money is in `currency` (the listing's trading currency) for the quote and
+ * EV, and in `estimateCurrency` for estimates and price targets — the issuer
+ * currency those rows inherit under D-57, or null when not established.
+ * Analyst grades are stored as counts only; no rating word is carried.
+ */
+const NullableNumber = z.number().nullable();
+export const MarketDataSchema = z
+  .object({
+    version: z.literal("1"),
+    currency: IsoCurrencySchema.nullable(),
+    estimateCurrency: IsoCurrencySchema.nullable(),
+    estimateCurrencyBasis: z.string().nullable(),
+    quote: z.object({
+      price: NullableNumber, marketCap: NullableNumber, yearHigh: NullableNumber, yearLow: NullableNumber,
+      volume: NullableNumber, priceAvg50: NullableNumber, priceAvg200: NullableNumber, asOf: z.string().nullable(),
+    }).strict().nullable(),
+    shares: z.object({
+      outstanding: NullableNumber, float: NullableNumber, freeFloatPct: NullableNumber, asOf: z.string().nullable(),
+      /** The float measurement can predate the separately reported outstanding count. */
+      floatAsOf: z.string().nullable().optional(),
+    }).strict().nullable(),
+    enterpriseValue: z.object({
+      value: z.number(), periodEnd: IsoDaySchema, marketCap: NullableNumber, totalDebt: NullableNumber, cash: NullableNumber,
+    }).strict().nullable(),
+    /** Absent on older reports; do not infer a vendor from a legacy value alone. */
+    enterpriseValueOrigin: z.enum(["computed", "provider"]).optional(),
+    /** Output-only explanation when a local historical bridge is withheld. */
+    enterpriseValueNote: z.string().optional(),
+    estimates: z.array(z.object({
+      fiscalYearEnd: IsoDaySchema,
+      revenueAvg: NullableNumber, revenueLow: NullableNumber, revenueHigh: NullableNumber,
+      epsAvg: NullableNumber, epsLow: NullableNumber, epsHigh: NullableNumber,
+      analystsRevenue: NullableNumber, analystsEps: NullableNumber,
+    }).strict()),
+    estimatesAsOf: z.string().nullable(),
+    priceTarget: z.object({
+      consensus: NullableNumber, median: NullableNumber, high: NullableNumber, low: NullableNumber, asOf: z.string().nullable(),
+      lastMonthCount: NullableNumber, lastMonthAverage: NullableNumber,
+      lastQuarterCount: NullableNumber, lastQuarterAverage: NullableNumber,
+    }).strict().nullable(),
+    /** Analyst grade counts, most positive first; no consensus word is stored. */
+    gradeCounts: z.object({
+      strongPositive: z.number(), positive: z.number(), neutral: z.number(), negative: z.number(), strongNegative: z.number(),
+      asOf: z.string().nullable(),
+    }).strict().nullable(),
+    shortInterest: z.object({
+      shares: z.number(), daysToCover: NullableNumber, averageDailyVolume: NullableNumber, settlementDate: IsoDaySchema,
+      changePct: NullableNumber,
+    }).strict().nullable(),
+  })
+  .strict();
+export type MarketData = z.infer<typeof MarketDataSchema>;
+
+/* ------------------------------------------------------------------------ *
  * The judge output — everything the judge/synthesis pass must emit.
  *
  * This is the full report MINUS `meta` and `appendix`, which the pipeline
@@ -1939,7 +2359,8 @@ const JudgeOutputObjectSchema = z
     business: BusinessSchema,
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true }) }),
+    // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,
@@ -2041,6 +2462,20 @@ const ReportObjectSchema = z
      * parses, and absent entirely on routes that have no route metrics.
      */
     routeMetrics: RouteMetricsSchema.optional(),
+    /**
+     * Guidance, issuer FCF, capital return, 8-K events, segment revenue by
+     * quarter and the eight-quarter trend (pipeline-filled from the bundle).
+     * Optional so every persisted report still parses.
+     */
+    filingDisclosures: FilingDisclosuresSchema.optional(),
+    /**
+     * D-62: market and consensus data as the providers served it (quote,
+     * share count, period-end EV, FY+1/FY+2 estimates, price-target and
+     * analyst-grade distributions, FINRA short interest), pipeline-filled
+     * from the bundle for the page-1 key-data box. Optional so every
+     * persisted report still parses.
+     */
+    marketData: MarketDataSchema.optional(),
   })
   .strict();
 export const ReportSchema = ReportObjectSchema.superRefine(
@@ -2520,7 +2955,7 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       // optional only for older saved reports. Keep them off provider schemas.
       // Exact period contexts come from source evidence; the model uses the
       // registry ID and existing period field instead of guessing boundaries.
-        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming"]) {
+        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
       }
@@ -2528,6 +2963,11 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       if (Array.isArray(scenarioName?.enum) && scenarioName.enum.join(",") === "bull,base,bear" && "probability" in props) {
         delete props.probability;
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== "probability");
+      }
+      if ("graded" in props && "forensicScores" in props && "flags" in props && "notes" in props) {
+        // D-68: forensic methodology notes are written by the pipeline.
+        delete props.notes;
+        if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((key) => key !== "notes");
       }
       if ("grade" in props && "oneLineWhy" in props && "assessmentStatus" in props) {
         // A deterministic data-only display decision, never model-authored.
@@ -2549,8 +2989,11 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         "ownHistoryObservations" in props
       ) {
         delete props.ownHistoryObservations;
+        delete props.ownHistoryDetails;
+        delete props.ownHistoryBasis;
+        delete props.basis;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => key !== "ownHistoryObservations");
+          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis", "basis"].includes(key));
         }
       }
     }

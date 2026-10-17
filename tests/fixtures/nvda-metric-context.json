@@ -1,0 +1,398 @@
+{
+  "sourceCommit": "3ca810e740e21ba941e6a15b764476a619f3a878",
+  "reportId": 3,
+  "payloadFingerprint": "1.24.0:aceb7317",
+  "cases": [
+    {
+      "path": "verdict.gradeStrip.leadership.reasoning[0]",
+      "claim": {
+        "text": "The quantitative leadership score is 61.6 out of 100.",
+        "label": "FACT",
+        "sourceId": "computed.deterministic-aspect-scores.leadership-score",
+        "source": "computed.deterministic-aspect-scores.leadership-score",
+        "asOf": "2026-10-16"
+      },
+      "record": {
+        "id": "computed.deterministic-aspect-scores.leadership-score",
+        "label": "leadership score",
+        "kind": "computed",
+        "value": 61.64,
+        "unit": "score",
+        "currency": null,
+        "period": null,
+        "asOf": "2026-10-16",
+        "origin": "computed.scores.leadership",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "fundamentals.commentary[12]",
+      "claim": {
+        "text": "Q3 FY2027 revenue guidance midpoint issued on 2026-08-26 was USD 108.00 billion.",
+        "label": "ESTIMATE",
+        "sourceId": "payload.issuer-filings.q3-fy2027-revenue-guidance-midpoint",
+        "source": "payload.issuer-filings.q3-fy2027-revenue-guidance-midpoint",
+        "asOf": "2026-08-26"
+      },
+      "record": {
+        "id": "payload.issuer-filings.q3-fy2027-revenue-guidance-midpoint",
+        "label": "Q3 FY2027 revenue guidance midpoint",
+        "kind": "provider",
+        "value": 108000000000,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "Q3 FY2027",
+        "asOf": "2026-08-26",
+        "origin": "edgar:8-K EX-99.1",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "fundamentals.commentary[13]",
+      "claim": {
+        "text": "Q3 FY2027 gross margin (GAAP) guidance midpoint issued on 2026-08-26 was 74.0%.",
+        "label": "ESTIMATE",
+        "sourceId": "payload.issuer-filings.q3-fy2027-gross-margin-gaap-guidance-midpoint",
+        "source": "payload.issuer-filings.q3-fy2027-gross-margin-gaap-guidance-midpoint",
+        "asOf": "2026-08-26"
+      },
+      "record": {
+        "id": "payload.issuer-filings.q3-fy2027-gross-margin-gaap-guidance-midpoint",
+        "label": "Q3 FY2027 gross margin (GAAP) guidance midpoint",
+        "kind": "provider",
+        "value": 74,
+        "unit": "percent",
+        "currency": null,
+        "period": "Q3 FY2027",
+        "asOf": "2026-08-26",
+        "origin": "edgar:8-K EX-99.1",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "fundamentals.commentary[14]",
+      "claim": {
+        "text": "Q3 FY2027 operating expenses (GAAP) guidance issued on 2026-08-26 was approximately USD 9.20 billion.",
+        "label": "ESTIMATE",
+        "sourceId": "payload.issuer-filings.q3-fy2027-operating-expenses-gaap-guidance-approximately",
+        "source": "payload.issuer-filings.q3-fy2027-operating-expenses-gaap-guidance-approximately",
+        "asOf": "2026-08-26"
+      },
+      "record": {
+        "id": "payload.issuer-filings.q3-fy2027-operating-expenses-gaap-guidance-approximately",
+        "label": "Q3 FY2027 operating expenses (GAAP) guidance (approximately)",
+        "kind": "provider",
+        "value": 9200000000,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "Q3 FY2027",
+        "asOf": "2026-08-26",
+        "origin": "edgar:8-K EX-99.1",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "fundamentals.commentary[15]",
+      "claim": {
+        "text": "FY2027 tax rate (GAAP) guidance midpoint issued on 2026-08-26 was 17.0%.",
+        "label": "ESTIMATE",
+        "sourceId": "payload.issuer-filings.fy2027-tax-rate-gaap-guidance-midpoint",
+        "source": "payload.issuer-filings.fy2027-tax-rate-gaap-guidance-midpoint",
+        "asOf": "2026-08-26"
+      },
+      "record": {
+        "id": "payload.issuer-filings.fy2027-tax-rate-gaap-guidance-midpoint",
+        "label": "FY2027 tax rate (GAAP) guidance midpoint",
+        "kind": "provider",
+        "value": 17,
+        "unit": "percent",
+        "currency": null,
+        "period": "FY2027",
+        "asOf": "2026-08-26",
+        "origin": "edgar:8-K EX-99.1",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "balanceSheet.debtProfile.commentary[4]",
+      "claim": {
+        "text": "Investments subject to short-term lock-up restrictions as of 2026-07-26 were USD 36.90 billion.",
+        "label": "FACT",
+        "sourceId": "payload.filing-facts.investments-subject-to-short-term-lock-up-restrictions-as-of-2026-07-26",
+        "source": "payload.filing-facts.investments-subject-to-short-term-lock-up-restrictions-as-of-2026-07-26",
+        "asOf": "2026-08-26"
+      },
+      "record": {
+        "id": "payload.filing-facts.investments-subject-to-short-term-lock-up-restrictions-as-of-2026-07-26",
+        "label": "investments subject to short-term lock-up restrictions, as of 2026-07-26",
+        "kind": "provider",
+        "value": 36900000000,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "2026-07-26",
+        "asOf": "2026-08-26",
+        "origin": "edgar:10-Q notes",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "balanceSheet.capexTrajectory.commentary[4]",
+      "claim": {
+        "text": "Standardized free cash flow, operating cash flow less capex, for the quarter ended 2026-07-26 was USD 21.40 billion.",
+        "label": "FACT",
+        "sourceId": "computed.quarterly-trend.free-cash-flow-operating-cash-flow-less-capex-quarter-ended-2026-07-26",
+        "source": "computed.quarterly-trend.free-cash-flow-operating-cash-flow-less-capex-quarter-ended-2026-07-26",
+        "asOf": "2026-07-26"
+      },
+      "record": {
+        "id": "computed.quarterly-trend.free-cash-flow-operating-cash-flow-less-capex-quarter-ended-2026-07-26",
+        "label": "free cash flow (operating cash flow less capex), quarter ended 2026-07-26",
+        "kind": "computed",
+        "value": 21400000000,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "2026-07-26",
+        "asOf": "2026-07-26",
+        "origin": "fmp:income-statement(quarter)",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "valuation.graded.reasoning[1]",
+      "claim": {
+        "text": "Current P/E TTM is 27.5x.",
+        "label": "FACT",
+        "sourceId": "computed.valuation.pettm-current",
+        "source": "computed.valuation.pettm-current",
+        "asOf": "2026-10-16"
+      },
+      "record": {
+        "id": "computed.valuation.pettm-current",
+        "label": "peTtm (current)",
+        "kind": "computed",
+        "value": 27.462705436156764,
+        "unit": "ratio",
+        "currency": null,
+        "period": null,
+        "asOf": "2026-10-16",
+        "origin": "computed.valuation.multiples.peTtm",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "quality.graded.reasoning[3]",
+      "claim": {
+        "text": "Beneish M with the sales-growth index at neutral for the fiscal year ended 2026-01-25 was negative 1.7 score.",
+        "label": "FACT",
+        "sourceId": "computed.forensics.beneish-m-with-the-sales-growth-index-at-neutral-1-0",
+        "source": "computed.forensics.beneish-m-with-the-sales-growth-index-at-neutral-1-0",
+        "asOf": "2026-01-25"
+      },
+      "record": {
+        "id": "computed.forensics.beneish-m-with-the-sales-growth-index-at-neutral-1-0",
+        "label": "Beneish M with the sales-growth index at neutral 1.0",
+        "kind": "computed",
+        "value": -1.716103361856859,
+        "unit": "score",
+        "currency": null,
+        "period": null,
+        "asOf": "2026-01-25",
+        "origin": "computed.forensics.beneish.sgiNeutralScore",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "technicals.graded.reasoning[4]",
+      "claim": {
+        "text": "Relative strength versus SPY over the latest-month-skipped medium-horizon window was 4.1 percentage points.",
+        "label": "FACT",
+        "sourceId": "computed.technicals.relative-strength-vs-spy-12-1-month-latest-month-skipped",
+        "source": "computed.technicals.relative-strength-vs-spy-12-1-month-latest-month-skipped",
+        "asOf": "2026-09-15"
+      },
+      "record": {
+        "id": "computed.technicals.relative-strength-vs-spy-12-1-month-latest-month-skipped",
+        "label": "relative strength vs SPY, 12-1 month (latest month skipped)",
+        "kind": "computed",
+        "value": 4.1195262656216,
+        "unit": "percentage-points",
+        "currency": null,
+        "period": null,
+        "asOf": "2026-09-15",
+        "origin": "computed.technicals.relativeStrength.12m1m",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "technicals.graded.reasoning[5]",
+      "claim": {
+        "text": "Relative strength versus SPY over six months was negative 1.0 percentage points.",
+        "label": "FACT",
+        "sourceId": "computed.technicals.relative-strength-vs-spy-6-month",
+        "source": "computed.technicals.relative-strength-vs-spy-6-month",
+        "asOf": "2026-10-15"
+      },
+      "record": {
+        "id": "computed.technicals.relative-strength-vs-spy-6-month",
+        "label": "relative strength vs SPY, 6-month",
+        "kind": "computed",
+        "value": -1.0330038719392984,
+        "unit": "percentage-points",
+        "currency": null,
+        "period": null,
+        "asOf": "2026-10-15",
+        "origin": "computed.technicals.relativeStrength.6mo",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "leadership.graded.reasoning[0]",
+      "claim": {
+        "text": "The quantitative leadership score was 61.6 out of 100.",
+        "label": "FACT",
+        "sourceId": "computed.deterministic-aspect-scores.leadership-score",
+        "source": "computed.deterministic-aspect-scores.leadership-score",
+        "asOf": "2026-10-16"
+      },
+      "record": {
+        "id": "computed.deterministic-aspect-scores.leadership-score",
+        "label": "leadership score",
+        "kind": "computed",
+        "value": 61.64,
+        "unit": "score",
+        "currency": null,
+        "period": null,
+        "asOf": "2026-10-16",
+        "origin": "computed.scores.leadership",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "leadership.executives[4].evidence.compensation[3]",
+      "claim": {
+        "text": "Nicholas Parker's new-hire restricted stock units had a target value of USD 0.04 billion.",
+        "label": "FACT",
+        "sourceId": "payload.filing-facts.nicholas-parker-new-hire-restricted-stock-units-target-value-appointment-package",
+        "source": "payload.filing-facts.nicholas-parker-new-hire-restricted-stock-units-target-value-appointment-package",
+        "asOf": "2026-07-02"
+      },
+      "record": {
+        "id": "payload.filing-facts.nicholas-parker-new-hire-restricted-stock-units-target-value-appointment-package",
+        "label": "Nicholas Parker new-hire restricted stock units, target value (appointment package)",
+        "kind": "provider",
+        "value": 35000000,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "2026-07-01",
+        "asOf": "2026-07-02",
+        "origin": "edgar:8-K 0001045810-26-000060",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "leadership.executives[4].evidence.compensation[4]",
+      "claim": {
+        "text": "Nicholas Parker's new-hire performance-based restricted stock units had a target value of USD 5,000,000.",
+        "label": "FACT",
+        "sourceId": "payload.filing-facts.nicholas-parker-new-hire-performance-based-restricted-stock-units-target-value-appointment-package",
+        "source": "payload.filing-facts.nicholas-parker-new-hire-performance-based-restricted-stock-units-target-value-appointment-package",
+        "asOf": "2026-07-02"
+      },
+      "record": {
+        "id": "payload.filing-facts.nicholas-parker-new-hire-performance-based-restricted-stock-units-target-value-appointment-package",
+        "label": "Nicholas Parker new-hire performance-based restricted stock units, target value (appointment package)",
+        "kind": "provider",
+        "value": 5000000,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "2026-07-01",
+        "asOf": "2026-07-02",
+        "origin": "edgar:8-K 0001045810-26-000060",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "leadership.governanceNotes[3]",
+      "claim": {
+        "text": "Say-on-pay support, measured as votes for divided by votes for, against and abstentions, was 93.2%.",
+        "label": "FACT",
+        "sourceId": "payload.filing-facts.say-on-pay-support-votes-for-for-against-abstentions",
+        "source": "payload.filing-facts.say-on-pay-support-votes-for-for-against-abstentions",
+        "asOf": "2026-06-30"
+      },
+      "record": {
+        "id": "payload.filing-facts.say-on-pay-support-votes-for-for-against-abstentions",
+        "label": "say-on-pay support (votes for / for + against + abstentions)",
+        "kind": "provider",
+        "value": 93.1757,
+        "unit": "percent",
+        "currency": null,
+        "period": "2026-06-24",
+        "asOf": "2026-06-30",
+        "origin": "edgar:8-K 0001045810-26-000056",
+        "formulaVersion": null,
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "outlook.scenarioNarratives.y3[1]",
+      "claim": {
+        "text": "Weighted projected FCFF for the 12M ending 2029-07-26 is USD 463.67 billion.",
+        "label": "ESTIMATE",
+        "sourceId": "computed.weighted-projections.fcf-weighted-12m-ending-2029-07-26",
+        "source": "computed.weighted-projections.fcf-weighted-12m-ending-2029-07-26",
+        "asOf": "2026-10-16"
+      },
+      "record": {
+        "id": "computed.weighted-projections.fcf-weighted-12m-ending-2029-07-26",
+        "label": "fcf weighted 12M ending 2029-07-26",
+        "kind": "computed",
+        "value": 463671038903.63,
+        "unit": "currency",
+        "currency": "USD",
+        "period": "12M ending 2029-07-26",
+        "asOf": "2026-10-16",
+        "origin": "computed.projections.fcf.weighted",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    },
+    {
+      "path": "outlook.scenarioNarratives.y5[1]",
+      "claim": {
+        "text": "Weighted projected operating EPS for the 12M ending 2031-07-26 is USD 28.40 per share.",
+        "label": "ESTIMATE",
+        "sourceId": "computed.weighted-projections.epsdiluted-weighted-12m-ending-2031-07-26",
+        "source": "computed.weighted-projections.epsdiluted-weighted-12m-ending-2031-07-26",
+        "asOf": "2026-10-16"
+      },
+      "record": {
+        "id": "computed.weighted-projections.epsdiluted-weighted-12m-ending-2031-07-26",
+        "label": "epsDiluted weighted 12M ending 2031-07-26",
+        "kind": "computed",
+        "value": 28.4,
+        "unit": "currency-per-share",
+        "currency": "USD",
+        "period": "12M ending 2031-07-26",
+        "asOf": "2026-10-16",
+        "origin": "computed.projections.epsDiluted.weighted",
+        "formulaVersion": "stage-b-v1",
+        "displayPrecision": 4
+      }
+    }
+  ]
+}

@@ -1303,7 +1303,9 @@ describe("waccDisclosure — every WACC input named with its source and date", (
     expect(d.weights.debt).toBeCloseTo(0.1, 12);
     expect(d.summary).toContain("fred:DGS10");
     expect(d.summary).toContain("observation 2026-07-03");
-    expect(d.summary).toContain("as of 2026-07-02");
+    // Re-pinned for D-60: a vendor ERP row has no vintage; its fetch date is labelled as acquisition.
+    expect(d.summary).toContain("acquired 2026-07-02");
+    expect(d.summary).toContain("vintage not published by the vendor");
     expect(d.summary).toContain("Blume-adjusted");
     expect(d.summary).toContain("E 90% / D 10%");
   });
@@ -1433,7 +1435,8 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
     const notes = r.notes.join(" ");
     expect(notes).toMatch(/no balance sheet discloses an operating-lease liability/);
     expect(notes).toMatch(/cash \+ short-term investments/);
-    expect(notes).toMatch(/NET_DEBT_V2/);
+    // Re-pinned for D-60: the net-debt convention is versioned V3.
+    expect(notes).toMatch(/NET_DEBT_V3/);
     expect(notes).not.toMatch(/§2\.2/);
   });
 });

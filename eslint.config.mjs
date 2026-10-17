@@ -7,7 +7,7 @@ import typescriptConfig from "eslint-config-next/typescript";
 const eslintConfig = [
   {
     // Patterns are `**/`-prefixed so build output is ignored wherever it sits,
-    // including inside the gitignored `.worktrees/` checkouts a contributor may
+    // including inside gitignored `.worktrees/` or `.claude/` checkouts a contributor may
     // have; a root-relative `.next/**` misses those and floods `npm run lint`.
     ignores: [
       "**/node_modules/**",
@@ -16,6 +16,7 @@ const eslintConfig = [
       "**/drizzle/**",
       "**/coverage/**",
       ".worktrees/**",
+      ".claude/**",
       "tmp/**",
       ".superpowers/**",
       "next-env.d.ts",

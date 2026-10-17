@@ -1,19 +1,25 @@
 /**
- * The currency of an analyst estimate or a price target.
+ * The currency of an analyst estimate, a price target, a peer market cap or a
+ * compensation total.
  *
- * FMP's /stable/analyst-estimates and /stable/price-target-consensus rows
- * carry no currency field, and FMP documents no convention for them: an
- * estimate for an ADR may be stated per ADR share in the listing currency or
- * in the issuer's reporting currency. A listing currency that happens to
- * match the statements' is therefore NOT evidence for an estimate — it would
- * only be a guess that turned out consistent. An estimate's currency is
- * established by its own row (a `reportedCurrency` or `currency` field) or by
- * a documented provider convention, and by nothing else; otherwise it is
- * unknown, and no calculation, registry record or verification uses it as
- * money.
+ * FMP's /stable/analyst-estimates, /stable/price-target-consensus,
+ * /stable/stock-peers and /stable/governance-executive-compensation rows carry
+ * no currency field, and FMP documents no convention for them. A row's own
+ * `reportedCurrency` or `currency` always wins. Without one, the row inherits
+ * the issuer's currency (D-57, which replaces D-28's own-row-only rule) when
+ * the evidence for that currency agrees:
  *
- * `ANALYST_ESTIMATE_PROVIDER_CONVENTION` is where a documented convention
- * would be recorded. There is none today.
+ *  - the reporting currency the statements establish (their own label or a
+ *    statement of the same filing; the currency the Stage B model runs in);
+ *  - the listing currency on the profile (the quote's currency);
+ *  - the issuer is not an ADR.
+ *
+ * An ADR is the one case where the per-symbol endpoints genuinely have two
+ * candidate currencies: an estimate may be stated per receipt in the listing
+ * currency or per ordinary share in the reporting currency. That, a reporting
+ * currency that differs from the listing currency, or either one being
+ * unknown, withholds inheritance; the row then stays "currency unknown" and is
+ * never registered or used as money.
  */
 export const ANALYST_ESTIMATE_PROVIDER_CONVENTION: string | null = null;
 
@@ -26,4 +32,62 @@ function iso(value: unknown): string | null {
 export function estimateCurrency(row: object | null | undefined): string | null {
   const fields = (row ?? {}) as { reportedCurrency?: unknown; currency?: unknown };
   return iso(fields.reportedCurrency) ?? iso(fields.currency) ?? ANALYST_ESTIMATE_PROVIDER_CONVENTION;
+}
+
+/** The issuer currency single-currency provider rows inherit, with why. */
+export interface InheritedIssuerCurrency {
+  /** ISO code rows without their own currency inherit; null when withheld. */
+  code: string | null;
+  /** One sentence for the payload note and the manifest. */
+  basis: string;
+}
+
+export function inheritedIssuerCurrency(evidence: {
+  /** The statements' established reporting currency (Stage B's model currency). */
+  reporting: string | null | undefined;
+  /** The profile's listing (trading) currency. */
+  listing: string | null | undefined;
+  isAdr: boolean;
+}): InheritedIssuerCurrency {
+  const reporting = iso(evidence.reporting);
+  const listing = iso(evidence.listing);
+  if (evidence.isAdr) {
+    return {
+      code: null,
+      basis:
+        "not inherited: the issuer is an ADR, so a provider row without a currency may be per receipt in the listing " +
+        "currency or per ordinary share in the reporting currency",
+    };
+  }
+  if (reporting === null || listing === null) {
+    return {
+      code: null,
+      basis: `not inherited: the ${reporting === null ? "reporting" : "listing"} currency is not established, so nothing confirms the issuer's currency`,
+    };
+  }
+  if (reporting !== listing) {
+    return {
+      code: null,
+      basis: `not inherited: the statements report in ${reporting} while the listing trades in ${listing}`,
+    };
+  }
+  return {
+    code: reporting,
+    basis:
+      `inherited from the issuer's reporting currency ${reporting}: the statements and the listing agree and the issuer ` +
+      "is not an ADR; the provider row carries no currency of its own (D-57)",
+  };
+}
+
+/**
+ * A provider row's currency: its own, else the inherited issuer currency.
+ * `inherited` marks the second case so every consumer can disclose it.
+ */
+export function providerRowCurrency(
+  row: object | null | undefined,
+  issuer: InheritedIssuerCurrency,
+): { code: string | null; inherited: boolean } {
+  const own = estimateCurrency(row);
+  if (own !== null) return { code: own, inherited: false };
+  return { code: issuer.code, inherited: issuer.code !== null };
 }

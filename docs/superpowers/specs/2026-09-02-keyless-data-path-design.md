@@ -143,9 +143,12 @@ Rules:
 4. Quarterly cash-flow rows: cash-flow facts are year-to-date in 10-Qs, so
    every quarter after Q1 is `YTD_n − YTD_(n−1)`, Q4 is `FY − YTD_Q3`.
 5. Balance-sheet rows: instant facts at each 10-Q/10-K period end.
-6. Per-share figures (EPS) are never derived by subtraction across periods
-   except Q4 (`FY − YTD_Q3`), matching FMP's convention; weighted share counts
-   are taken only when tagged for the period.
+6. Per-share figures (EPS) are never derived by subtraction across periods.
+   A fourth quarter with no tagged EPS gets Q4 net income ÷ a Q4 weighted
+   share count backed out of the day-weighted identity (FY shares × FY days =
+   Σ quarter shares × quarter days) when the annual and three quarterly counts
+   are tagged, else it is withheld (D-64). Weighted share counts are taken only
+   when tagged for the period and are never written back from that identity.
 6a. Stock splits (`src/edgar/splits.ts`). Companyfacts stores facts as filed,
    so a period reported only before a split keeps its pre-split EPS and share
    count (Apple FY2016 diluted EPS 8.31 against 7.46 for FY2025 read as a

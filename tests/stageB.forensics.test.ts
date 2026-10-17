@@ -832,21 +832,24 @@ describe("computeAccruals", () => {
     },
   };
 
-  it("cash-flow approach primary: (NI - CFO - CFI)/avg NOA", () => {
+  it("cash-flow approach primary; without investment components it is operating accruals (NI - CFO)/avg NOA (D-61)", () => {
     const r = computeAccruals(current, prior);
     // NOA_t = (1200-100)-(700-250) = 650; NOA_p = (1000-100)-(600-200) = 500; avg = 575.
     expect(r.noaCurrent).toBe(650);
     expect(r.noaPrior).toBe(500);
     expect(r.scaler).toBe("avgNOA");
     expect(r.scalerValue).toBe(575);
-    // aggregate CF accruals = 100 - 60 - (-20) = 60 -> 60/575.
-    expect(r.aggregateAccrualsCashFlow).toBe(60);
-    expect(r.cashFlowAccrualRatio!).toBeCloseTo(60 / 575, 12);
-    expect(r.band).toBe("elevated"); // 10.43% -> 10-20% band
+    // D-61: the fixture does not separate investment purchases from capex, so
+    // the investing flow is not charged as an accrual: 100 - 60 = 40 -> 40/575.
+    // (The pre-D-61 broad measure, 100 - 60 - (-20) = 60, counted it.)
+    expect(r.definition).toBe("operating");
+    expect(r.aggregateAccrualsCashFlow).toBe(40);
+    expect(r.cashFlowAccrualRatio!).toBeCloseTo(40 / 575, 12);
+    expect(r.band).toBe("unremarkable"); // 6.96% -> < 10% band
     // BS secondary: 150/575.
     expect(r.balanceSheetAccrualRatio!).toBeCloseTo(150 / 575, 12);
     expect(r.notes.some((n) => n.includes("House-rule bands"))).toBe(true);
-    // CF vs BS diverge by ~15.7pp > 10pp -> M&A/FX divergence note.
+    // CF vs BS diverge by ~19.1pp > 10pp -> M&A/FX divergence note.
     expect(r.notes.some((n) => n.includes("diverge"))).toBe(true);
   });
 
@@ -855,7 +858,7 @@ describe("computeAccruals", () => {
     expect(classifyAccrualBand(0.1)).toBe("elevated");
     expect(classifyAccrualBand(0.1999)).toBe("elevated");
     expect(classifyAccrualBand(0.2)).toBe("red");
-    expect(classifyAccrualBand(-0.25)).toBe("red"); // absolute value
+    expect(classifyAccrualBand(-0.25)).toBe("unremarkable"); // cash generation is not positive accrual inflation
   });
 
   it("NOA <= 0 -> rescaled by average total assets with a house-rule note", () => {
@@ -882,7 +885,7 @@ describe("computeAccruals", () => {
     expect(r.noaCurrent).toBe(-500);
     expect(r.scaler).toBe("avgTotalAssets");
     expect(r.scalerValue).toBe(1000);
-    expect(r.cashFlowAccrualRatio!).toBeCloseTo(60 / 1000, 12);
+    expect(r.cashFlowAccrualRatio!).toBeCloseTo(40 / 1000, 12); // operating accruals (D-61)
     expect(r.notes.some((n) => n.includes("average total assets"))).toBe(true);
   });
 
@@ -1025,6 +1028,10 @@ describe("computeSupportFlags", () => {
     expect(flag).toBeDefined();
     expect(flag!.severity).toBe("flag");
     expect(flag!.message).toContain("3 of the last 5 fiscal years");
+    expect(flag!.message).toMatch(/repeated material other income\/expense/i);
+    expect(flag!.message).toMatch(/2 net-expense years.*1 net-income year/);
+    expect(flag!.message).toMatch(/classification.*normaliz/i);
+    expect(flag!.message).not.toMatch(/one-time charges|profitability may be overstated/);
   });
 
   it("single current-year breach -> warn", () => {

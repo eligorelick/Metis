@@ -267,7 +267,9 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
     symbol,
     builtAt: BUILT_AT,
     profile: ok({ rows: [{ companyName: "Apple Inc.", sector: "Technology", industry: "Consumer Electronics", price: 210, marketCap: 3150000000000, beta: 1.2, currency: "USD", country: "US", ipoDate: "1980-12-12", isAdr: false, isEtf: false, isFund: false }], raw: {} }, "2026-07-01", "profile"),
-    quote: ok({ rows: [{ symbol, price: 210, marketCap: 3150000000000, dayLow: 208, dayHigh: 212, yearLow: 164, yearHigh: 260, volume: 44000000, timestamp: 1751731200 }], raw: {} }, "2026-07-05", "quote"),
+    // Match this fixture's intended 2026 quote session. The previous numeric
+    // timestamp was in 2025; envelope dates must not hide that contradiction.
+    quote: ok({ rows: [{ symbol, price: 210, marketCap: 3150000000000, dayLow: 208, dayHigh: 212, yearLow: 164, yearHigh: 260, volume: 44000000, timestamp: Date.parse("2026-07-05T16:00:00Z") / 1000 }], raw: {} }, "2026-07-05", "quote"),
     statements: {
       incomeAnnual,
       incomeQuarterly,
@@ -727,14 +729,83 @@ describe("payload determinism + provenance", () => {
       // numeric registries, IDs, projection periods and figure labels stay pinned.
       // 1.22.0 preserves statement provider origins; this all-FMP fixture
       // changes only its version-bearing fingerprint, not finance or IDs.
-      fingerprint: "1.22.0:19176142",
-      promptBytes: 123_057,
-      provenanceCount: 499,
-      provenanceHash: "1062dc43",
-      provenanceIdsHash: "2fdc2d40",
-      citationCount: 65,
-      citationHash: "13b5b365",
-      computedFigureLabelHash: "6f26c6db",
+      // 1.23.0 (audit work package 3): the fixture's quarterly statements now
+      // also yield the computed quarterly-trend section (+15 records, +3,068
+      // prompt bytes); it has no 8-K or XBRL segment data, so nothing else
+      // moves — finance, citations and projection periods stay pinned.
+      // D-59: current-capital bridge rows are labelled by their metric ("total
+      // debt including leases", not "debt Bridge total Debt Including Leases"),
+      // so their labels, registry ids and figure-label hash move (-132 prompt
+      // bytes); values, units and periods do not. financeHash moves with the
+      // peer-coverage methodology (comparability caveat, 10 candidates, 25s).
+      // 1.23.0 (D-57, D-58): the fixture's USD listing matches its USD
+      // statements, so its uncurrencied rows inherit USD: 4 estimate rows, 3
+      // price targets, 2 peer caps and 1 compensation total become numeric
+      // records (499 -> 509) and their 5 unestablished tags leave the citation
+      // registry (65 -> 60). Prompt bytes grow by the "(USD, inherited)"
+      // markers, the section notes, the new prompt line and the year-one
+      // anchor text; financeHash moves with the anchored, convergent DCF.
+      // NVDA audit integration (D-57, D-58, D-59, WP3 combined): +15 records from
+      // the computed quarterly-trend section (509 -> 524); the D-59 current-capital
+      // labels set the figure-label hash; prompt bytes add the WP3 issuer-filing
+      // bullets; financeHash moves with the combined DCF and peer coverage.
+      // D-60: the vendor cash-only "net debt" statement rows leave the extracts and the reverse-DCF context rows join (524 -> 520); the DCF, scenario, WACC and EPS text and values move financeHash and prompt bytes.
+      // D-61 (forensics and grading signals; PAYLOAD_VERSION unchanged): the
+      // forensic section gains the eight Beneish indices, the SGI-neutral M
+      // (+9 numeric records, 524 -> 535 with the two accrual growth rows), the
+      // growth-led flag, the nine Piotroski signal outcomes and the accrual
+      // definition (string rows register as citations, 60 -> 73 with the two
+      // buyback-timing rows this fixture cannot measure: no XBRL execution
+      // prices). The accrual note and the buyback premium label are reworded,
+      // and the aspect-score section says what the leadership score measures
+      // (+3,856 prompt bytes). financeHash moves with the operating-accrual
+      // fallback (this fixture does not separate investment purchases), the
+      // ROIC floor and the stewardship signals.
+      // D-63: Item 1A is read with the risk profile, whose adjacent passages
+      // print as one run instead of being split by the 29-character omission
+      // separator; the fixture's 54,000-char Item 1A stays under the 14,000
+      // floor. Its coverage now lists the risk families. Net -1,119 prompt
+      // bytes (the separators carried multi-byte ellipses); no record, citation
+      // or finance figure moved. The fixture has no Item 1, 10-Q notes or 8-K.
+      // Integration of D-60..D-64: D-61 adds 11 records and 13 citations (Beneish
+      // indices, Piotroski signals, accrual operands), D-60 removes 4 (vendor
+      // cash-only net debt) -> 531; prompt bytes add D-63 evidence, D-61 and D-60
+      // payload text (126,290 + 3,856 + 1,592 = 131,738, +4 from merged labels).
+      // D-68: the two accrual growth rows compare one fiscal year with the
+      // prior, so "over the accrual years" becomes "in the accrual fiscal year
+      // (year over year)"; their labels and registry ids move (+80 prompt
+      // bytes), values and periods do not. The fixture made no acquisition and
+      // its Beneish M (-2.49) is in the "unlikely" band, so no D-68 context row joins.
+      // D-65 (+1,045 prompt bytes; no record or citation added or removed): the
+      // year-one window takes FY2026 consensus less the $219B already reported
+      // for Q1-Q2 (2025-12-28, 2026-03-28) instead of an even share; the value is
+      // rolled forward 99 days from 2026-03-28 to the 2026-07-05 quote; forecast
+      // EPS deducts Q2's $0.95B × 4 of interest. The anchor basis names the
+      // years consensus sets (year one: FY2028 has no estimate) and the D-65
+      // gates, a consensus-anchoring note joins the valuation notes, the
+      // analyst-consensus method prints both legs, and the scenario-decay and
+      // flat-share paragraphs each appear once. Values move provenanceHash.
+      // D-66: the trend and momentum reads print their own tags
+      // (computed.technicals.trend-read / momentum-read) instead of sharing
+      // computed.technicals.read, so one more citation is registered (73 -> 74)
+      // and the two tags add 15 prompt bytes; no number moved.
+      // D-72 version stamp only; the payload fields/registries above stay pinned.
+      // D-73 changes only the version stamp for this complete-debt fixture.
+      // D-78: explicit ownership/reconciliation, SBC and growth basis; values separately pinned in audit deltas.
+      // D-79: explicit carrying-book and model-extrapolation qualifications;
+      // quote dates come from actual observations, not envelope retrieval.
+      // D-80 changes only the payload version in this complete-debt fixture;
+      // finance, all registry hashes and prompt byte count remain pinned.
+      // D-81 adds admitted per-multiple basis notes and advances payload1.28.0.
+      // Registry/finance hashes and numeric values remain pinned unchanged.
+      fingerprint: "1.28.0:7f1e29ed",
+      promptBytes: 138_416,
+      provenanceCount: 531,
+      provenanceHash: "ebdcddba",
+      provenanceIdsHash: "0dee6be6",
+      citationCount: 74,
+      citationHash: "5d7e100c",
+      computedFigureLabelHash: "7f5cbe9b",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -748,7 +819,12 @@ describe("payload determinism + provenance", () => {
       // 2026-10-12 (D-41): the quality aspect's note names the equity-side
       // value-creation measure financial routes use. This general-company
       // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      financeHash: "b17cac56",
+      // D-61: moat durability is the ROIC floor, leadership drops the second
+      // ROIC − WACC read and grades buyback timing (unmeasurable here), and the
+      // accruals signal reads operating accruals — see the comment above.
+      // D-65: the DCF (reported-half year one, quote-date roll-forward), the
+      // EPS interest run-rate and the scenario construction text — see above.
+      financeHash: "666a1ab0",
     });
   });
 
@@ -872,7 +948,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.22.0");
+    expect(first.payloadVersion).toBe("1.28.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1356,8 +1432,12 @@ describe("payload budget helpers", () => {
   it("feeds the actual aggregate accrual definition, operands and tax bridge into context", () => {
     const { payload, computed } = buildInputs();
     const forensics = payload.computed.find((section) => section.title === "Forensics (computed)")!;
-    expect(forensics.notes.join(" ")).toContain("NI - CFO - CFI");
+    // D-61: the note and the prompt name the construction actually used.
+    expect(forensics.notes.join(" ")).toContain(
+      computed.forensics.accruals?.definition === "operating" ? "operating accruals = NI - CFO" : "NI - CFO - operating CFI",
+    );
     expect(forensics.figures).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "accrual definition", value: computed.forensics.accruals?.definition }),
       expect.objectContaining({ label: "aggregate accruals (cash-flow)", value: computed.forensics.accruals?.aggregateAccrualsCashFlow }),
       expect.objectContaining({ label: "accrual scaler value", value: computed.forensics.accruals?.scalerValue }),
       expect.objectContaining({ label: "accrual ratio (balance-sheet)", value: computed.forensics.accruals?.balanceSheetAccrualRatio }),
@@ -1369,7 +1449,7 @@ describe("payload budget helpers", () => {
     const cashflow = payload.statements.find((block) => block.title === "Cash flow — annual")!;
     expect(cashflow.lineItems.map((line) => line.lineItem)).toEqual(expect.arrayContaining(["net income (cash-flow)", "cash flow from investing activities (CFI)"]));
     for (const framing of [buildBullFraming(), buildBearFraming(), buildJudgeFraming()]) {
-      expect(framing).toContain("NI - CFO - CFI");
+      expect(framing).toContain("NI - CFO - operating CFI");
       expect(framing).toContain("exceptional");
     }
     expect(buildLeadershipGuidance()).toContain("not-assessed");
@@ -1616,6 +1696,19 @@ describe("prompts embed the five non-negotiable rules verbatim", () => {
     expect(l).toContain("credibility");
     expect(l.toLowerCase()).toContain("guidance-vs-actuals");
     expect(l).toContain("SEPARATELY");
+  });
+
+  it("D-63: states the rounding, figure-bearing FACT, flag-age, evidence-search, track-record and pay rules to every pass", () => {
+    expect(SHARED_RULES_BLOCK).toContain("\"$6.1 billion\" and");
+    expect(SHARED_RULES_BLOCK).toContain("NUMERIC FACTS");
+    expect(SHARED_RULES_BLOCK).toContain("search the");
+    for (const framing of [buildBullFraming(), buildBearFraming(), buildJudgeFraming()]) {
+      expect(framing).toContain("FLAG SEVERITY AND AGE");
+      expect(framing).toContain("IMPLIED EXPECTATIONS");
+      expect(framing).toContain("GUIDANCE TRACK RECORD");
+      expect(framing).toContain("total compensation for FY2026 was USD");
+      expect(framing).not.toContain("keep the amounts out of sentences citing those rows");
+    }
   });
 });
 
@@ -2123,7 +2216,7 @@ describe("verify-pass tracing", () => {
     expect(result.coverage).toEqual({
       numeric: { supported: 0, total: 0, rate: null },
       factualClaims: { supported: 0, total: 0, rate: null },
-      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, total: 0, rate: null },
+      factualValidation: { cited: 0, validated: 0, unchecked: 0, contradicted: 0, qualitative: 0, total: 0, rate: null },
       judgments: { cited: 0, total: 0, rate: null },
     });
   });
@@ -2145,11 +2238,8 @@ describe("final assembled report verification", () => {
     const triggers = result.verifiedReport.thesisTriggers ?? [];
     const reverse = triggers.find((trigger) => trigger.id === `reverse-${method}`);
     expect(reverse?.threshold).toMatchObject({ value: method === "growth" ? 12.5 : 27.25, verified: true, asOf: "2026-07-06" });
-    for (const metric of ["revenue", "operatingMargin"]) {
-      const milestone = triggers.find((trigger) => trigger.id === `projection-${metric}`);
-      const first = computed.projections.series.find((series) => series.metric === metric)!.base[0];
-      expect(milestone?.threshold).toMatchObject({ source: projectionProvenanceId(metric, "base", first.period), period: first.period, verified: true });
-    }
+    // Re-pinned for D-60: first-year projection milestones restated the base path and are no longer emitted.
+    expect(triggers.some((trigger) => trigger.id.startsWith("projection-"))).toBe(false);
   });
   it("declares and awaits durable launch authority before deterministic verify executes", async () => {
     const bundle = fixtureBundle();
@@ -2236,7 +2326,8 @@ describe("final assembled report verification", () => {
     }
     const projectionPayload = payload.computed.find((section) => section.title.startsWith("Weighted projections"));
     expect(projectionPayload?.figures.some((figure) => figure.label.includes("flat-share EPS"))).toBe(true);
-    expect(projectionPayload?.notes.join(" ")).toContain("hypothetical, unfunded");
+    // Re-pinned for D-60: the capital-return text names the authorization instead of claiming none exists.
+    expect(projectionPayload?.notes.join(" ")).toContain("hypothetical and does not deduct repurchase cash");
     // No PIPELINE-computed number may be left unverified — the only unverified
     // numbers are the judge's deliberately-untraceable "analyst memory" fixtures.
     const unverified = numbers.filter((number) => number.verified !== true);
@@ -2348,9 +2439,9 @@ describe("assembleReport", () => {
     // WS6 (D-19): the generated disclaimer names the grades and scenario price
     // targets the report actually emits, and that neither is a recommendation.
     expect(report.meta.disclaimer).toBe(
-      "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
+      "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.17.0");
+    expect(report.meta.specVersion).toBe("1.23.1");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2455,26 +2546,30 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     computed.valuation.assumptions.ebitMarginPath.value = [20, 22, 24];
     const report = assemble(computed, judgeOutput());
     const bull = report.valuation.scenarios[0];
-    expect(bull.assumptions.join(" ")).toContain("Revenue growth shift versus base: -8 percentage points");
-    expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, -2, -6");
-    expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 25, 27");
+    // Re-pinned for D-60: shocks are year-one shifts that decay (weights 1, 0.44, 0 over this three-year path).
+    expect(bull.assumptions.join(" ")).toContain("Year-one shift versus base: revenue growth -8 percentage points, operating margin 3 percentage points");
+    expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, 2.46, 2");
+    expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 23.33, 24");
     expect(bull.qualitativeCommentary).toEqual(["strong cycle"]);
   });
   it("uses the same fixed display weights as the projection fan and separates model commentary", () => {
     const { computed } = buildInputs();
     computed.scenarioTargets = availableTargets();
     const report = assemble(computed, judgeOutput());
-    expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([0.25, 0.5, 0.25]);
+    // Re-pinned for D-60: price targets carry no weight; the fixed prior applies to the projections only.
+    expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
     const base = report.valuation.scenarios[1];
     expect(base.assumptions).not.toContain("steady");
     expect(base.qualitativeCommentary).toEqual(["steady"]);
-    expect(report.scenarioPresentation?.weightBasis).toMatch(/fixed.*uncalibrated/i);
+    expect(report.scenarioPresentation?.weightBasis).toMatch(/carry no weight.*not a calibrated probability/i);
   });
 
   it("derives sensitivity classification from available WACC-by-growth cells, ignoring null cells", () => {
     const { computed } = buildInputs();
     if (computed.valuation.kind !== "dcf") throw new Error("fixture must use DCF");
     computed.valuation.sensitivity = { waccPcts: [8, 9], gTermPcts: [2, 3], perShare: [[190, 220], [null, 180]], notes: [], gaps: [] };
+    // D-65: the growth × margin grid now joins the conclusion; this test pins the WACC × g cells alone.
+    computed.valuation.growthMarginGrid = null;
     computed.fairValue = availableFairValue(100, 0);
     const report = assemble(computed, judgeOutput());
     expect(report.scenarioPresentation?.sensitivity).toMatchObject({ status: "sensitive", validCells: 3, totalCells: 4, minPerShare: 180, maxPerShare: 220 });
@@ -3647,6 +3742,78 @@ describe("mock-driven bull/bear/judge passes", () => {
     }
     const sectioned = (runPass: PassDeps["runPass"]): PassDeps => ({ runPass, model: "chatgpt/gpt-6.1-sol", sectionedOutput: true });
 
+    it("reduces judge batches after an empty cutoff and bounds repeated retries at one section per request", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      for (const count of [1, 100]) {
+        const provider = partProvider(whole);
+        const continuation = { completed: {}, sectionRetryCount: count };
+        const run = await runJudgePass(sectioned(provider.runPass), payload, analystCase("bull"), analystCase("bear"), undefined, undefined, undefined, continuation);
+        expect(run.ok).toBe(true);
+        const sizes = provider.prompts.map((p) => /ONLY these top-level sections now: ([^.]+)\./.exec(p)![1]!.split(", ").length);
+        expect(Math.max(...sizes)).toBeLessThanOrEqual(count === 1 ? 3 : 1);
+        expect(provider.prompts.length).toBeGreaterThan(JUDGE_SECTION_PARTS);
+      }
+    });
+
+    it("reduces analyst batches after a cutoff with no completed section", async () => {
+      const { payload } = buildInputs();
+      const provider = partProvider(analystCase("bull") as unknown as Record<string, unknown>);
+      const continuation = { completed: {}, sectionRetryCount: 1 };
+      const run = await runAnalystContinuationPass(sectioned(provider.runPass), payload, "bull", continuation);
+      expect(run.ok).toBe(true);
+      const sizes = provider.prompts.map((p) => /ONLY these top-level sections now: ([^.]+)\./.exec(p)![1]!.split(", ").length);
+      expect(Math.max(...sizes)).toBeLessThanOrEqual(2);
+      expect(provider.prompts.length).toBeGreaterThan(ANALYST_SECTION_PARTS);
+    });
+
+    it.each([
+      ["different", "high", "fast", null, null],
+      ["omitted", undefined, undefined, null, null],
+      ["matching", "max", "default", "max", "default"],
+    ] as const)("aggregates %s effort and speed evidence across every completed request", async (_, firstEffort, firstTier, effort, tier) => {
+      const { payload } = buildInputs();
+      const provider = partProvider(judgeOutput() as Record<string, unknown>);
+      let calls = 0;
+      const run = await runJudgePass(sectioned(async (args) => {
+        const outcome = await provider.runPass(args);
+        if (outcome.ok) outcome.value.data.execution = {
+          requestedModel: args.model, requestedEffort: "max", requestedServiceTier: "default", modelObserved: true, usageReported: true,
+          effectiveEffort: ++calls === 1 ? firstEffort : "max", effectiveServiceTier: calls === 1 ? firstTier : "default",
+        };
+        return outcome;
+      }), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      if (run.ok) expect(run.result.execution).toMatchObject({ requestedEffort: "max", effectiveEffort: effort, requestedServiceTier: "default", effectiveServiceTier: tier });
+    });
+
+    it.each(["transport", "parse"] as const)("keeps earlier execution evidence when a later section ends in %s failure", async (failure) => {
+      const { payload } = buildInputs();
+      const provider = partProvider(judgeOutput() as Record<string, unknown>);
+      let calls = 0;
+      const run = await runJudgePass(sectioned(async (args) => {
+        const outcome = await provider.runPass(args);
+        const model = ++calls === 1 ? "chatgpt/model-a" : "chatgpt/model-b";
+        const execution = { requestedModel: args.model, requestedEffort: "max" as const, requestedServiceTier: "default" as const,
+          effectiveEffort: calls === 1 ? "max" as const : "xhigh" as const, effectiveServiceTier: calls === 1 ? "default" : "fast", modelObserved: true, usageReported: true };
+        if (failure === "transport" && calls === 2) return { ok: false, gap: { field: "llm.judge", reason: "cutoff", severity: "critical" },
+          error: { kind: "transport", message: "ChatGPT stream ended before completion", model, execution, usage: { input_tokens: 10, output_tokens: 5 }, costUsd: 0 } };
+        if (outcome.ok) {
+          outcome.value.data.model = model;
+          outcome.value.data.execution = execution;
+          if (calls > 1) outcome.value.data.message.content = [{ type: "text", text: "malformed" }];
+        }
+        return outcome;
+      }), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(false);
+      if (!run.ok) {
+        expect(run.model).toBe("chatgpt/multiple-models");
+        expect(run.execution).toMatchObject({ requestedEffort: "max", effectiveEffort: null, requestedServiceTier: "default", effectiveServiceTier: null,
+          observedModels: ["model-a", "model-b"], modelObserved: true, usageReported: true });
+        expect(run.usage).toMatchObject({ input_tokens: failure === "transport" ? 20 : 30, output_tokens: failure === "transport" ? 10 : 15 });
+      }
+    });
+
     it("keeps mirrored judge requests independent when checkpoints are enabled", async () => {
       const { payload } = buildInputs();
       const cache = new Map<string, Record<string, unknown>>();
@@ -3685,6 +3852,7 @@ describe("mock-driven bull/bear/judge passes", () => {
       const next = partProvider(whole);
       const resumed = await runJudgePass({ ...sectioned(next.runPass), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
       expect(resumed.ok).toBe(true);
+      if (resumed.ok) expect(resumed.result.execution).toMatchObject({ modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null });
       for (const prompt of next.prompts) {
         const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(prompt)![1]!.split(", ");
         expect(asked.some((key) => kept.includes(key))).toBe(false);

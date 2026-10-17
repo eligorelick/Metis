@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { formatCostUsd, roundedDisplayedCostTotal } from "@/report/format";
 import { ReportSchema, type Report } from "@/report/schema";
 
@@ -12,6 +12,9 @@ import { ReportSchema, type Report } from "@/report/schema";
  * surfaces. Markdown reimplemented both — four decimals instead of the
  * canonical six, and a total summed from UNROUNDED values — so sub-cent steps
  * printed as $0.0000 and the rows need not add up to the total.
+ *
+ * D-62: the ledger is in the audit export; the report header states usage
+ * (tokens for plan-allowance runs, the ledger total for API runs).
  */
 function reportWithCosts(costs: number[]): Report {
   const parsed = ReportSchema.parse(
@@ -36,7 +39,7 @@ function costSection(markdown: string): string {
 describe("Markdown cost appendix", () => {
   it("prints a total equal to the sum of its own displayed rows", () => {
     const costs = [0.00005, 0.00005, 0.00005];
-    const section = costSection(reportToMarkdown(reportWithCosts(costs)));
+    const section = costSection(reportToAuditMarkdown(reportWithCosts(costs)));
 
     const expectedTotal = formatCostUsd(roundedDisplayedCostTotal(costs));
     expect(section).toContain(`Total: **${expectedTotal}**`);
@@ -47,7 +50,7 @@ describe("Markdown cost appendix", () => {
   });
 
   it("does not flatten a sub-cent step to zero", () => {
-    const section = costSection(reportToMarkdown(reportWithCosts([0.000123, 1.5])));
+    const section = costSection(reportToAuditMarkdown(reportWithCosts([0.000123, 1.5])));
 
     expect(section).toContain("$0.000123");
     expect(section).not.toContain("$0.0000\n");
@@ -61,13 +64,13 @@ describe("Markdown cost appendix", () => {
     report.meta.costUsd = 0.0036;
     const markdown = reportToMarkdown(report);
     const expected = formatCostUsd(roundedDisplayedCostTotal([0.001234, 0.002345]));
-    expect(markdown).toContain(`| Cost (USD) | ${expected} |`);
-    expect(costSection(markdown)).toContain(`Total: **${expected}**`);
-    expect(markdown).not.toContain("| Cost (USD) | $0.003600 |");
+    expect(markdown).toContain(`| Usage | ${expected} API cost`);
+    expect(costSection(reportToAuditMarkdown(report))).toContain(`Total: **${expected}**`);
+    expect(markdown).not.toContain("$0.003600");
   });
 
   it("renders costs identically to the shared formatter", () => {
-    const section = costSection(reportToMarkdown(reportWithCosts([1.234567, 2])));
+    const section = costSection(reportToAuditMarkdown(reportWithCosts([1.234567, 2])));
 
     expect(section).toContain(formatCostUsd(1.234567));
     expect(section).toContain(formatCostUsd(2));

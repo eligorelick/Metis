@@ -11,6 +11,7 @@ export const INTEGRATION_TEST_INCLUDE = [DB_CLI_TEST];
  * a live provider. See `tests/setup/noLiveNetwork.ts`.
  */
 export const SHARED_SETUP_FILES = ["./tests/setup/noLiveNetwork.ts", "./tests/setup/privateCredentials.ts"];
+export const SHARED_TEST_RUNNER = "./tests/helpers/nativeSqliteRunner.ts";
 
 export const SHARED_RESOLVE_ALIAS = {
   "@": path.resolve(__dirname, "src"),
@@ -97,6 +98,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/history.ts",
   "src/report/diff.ts",
   "src/report/legacyEntitySafety.ts",
+  "src/report/principalAggregationSafety.ts",
+  "src/report/enterpriseValueSafety.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",
@@ -104,6 +107,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/export/markdownEscape.ts",
   "src/report/export/printHtml.ts",
   "src/report/format.ts",
+  "src/report/ownHistoryPresentation.ts",
   "src/settings/contracts.ts",
   "src/settings/settings.ts",
   "src/settings/writeQueue.ts",
@@ -156,6 +160,9 @@ export const RISK_SOURCE_MANIFEST = [
   // rewrites a model label at assembly; it was left out when D-50 added it.
   "src/pipeline/stageC/confidenceCeiling.ts",
   "src/edgar/financialEnrichment.ts",
+  "src/edgar/debtCompleteness.ts",
+  "src/edgar/debtPresentation.ts",
+  "src/edgar/issuerFacts.ts",
   "src/providers/companyEvents.ts",
   "src/providers/companyIr.ts",
   "src/pipeline/runInputSnapshot.ts",
@@ -178,9 +185,31 @@ export const RISK_SOURCE_MANIFEST = [
   // Research reliability: eligibility, snapshot comparisons and deterministic
   // report claims carry the same per-file coverage floors as existing logic.
   "src/pipeline/peers.ts",
+  "src/pipeline/peerFilings.ts",
   "src/report/evaluation.ts",
   "src/report/evaluationCli.ts",
   "src/report/researchReview.ts",
   "src/report/scenarioPresentation.ts",
   "src/report/thesisTriggers.ts",
+  // Added 2026-10-15 (NVDA report #34 audit, work package 3): 8-K guidance,
+  // issuer FCF, capital return, material events and XBRL segment revenue feed
+  // registered payload numbers and the report, so they carry the same floor.
+  "src/edgar/currentReports.ts",
+  "src/edgar/filingFacts.ts",
+  "src/edgar/segmentFacts.ts",
+  "src/edgar/segmentPerformance.ts",
+  "src/edgar/economicShares.ts",
+  "src/edgar/guidanceTables.ts",
+  "src/edgar/annualGeography.ts",
+  "src/pipeline/financialComposition.ts",
+  "src/pipeline/stageB/leaseScope.ts",
+  "src/providers/currentReports.ts",
+  "src/pipeline/filingDisclosures.ts",
+  "src/report/filingDisclosurePresentation.ts",
+  "src/report/filingSupplementPresentation.ts",
+  // Added 2026-10-15 (D-62): the shared presentation rules, the audit export
+  // and the provider market-data block feed every report surface.
+  "src/report/presentation.ts",
+  "src/report/export/auditMarkdown.ts",
+  "src/pipeline/marketData.ts",
 ];
