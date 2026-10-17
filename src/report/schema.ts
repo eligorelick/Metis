@@ -109,7 +109,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // officer agreement/announcement/completion distinctions and per-share labels.
 // 1.23.0 (D-81): pipeline-owned multiple bases, price-unit MACD evidence and
 // projection availability presentation; legacy reports retain their own stamps.
-export const REPORT_SPEC_VERSION = "1.23.0" as const;
+// 1.23.1 (D-82): exact source-labeled ISO durations in deterministic claim verification.
+export const REPORT_SPEC_VERSION = "1.23.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

@@ -3,6 +3,7 @@ import type { SourcedClaim } from "@/report/schema";
 import type { TextExcerpt } from "@/pipeline/stageC/payload";
 import { findDirectionWords, isDeltaRecord, proseQuantityText, quantityDirection, statesNumberWord, type QuantityDirection } from "@/pipeline/stageC/consistency";
 import { isIsoDate, periodsAgree, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
+import { PeriodContextSchema } from "@/types/periodContext";
 
 export interface ClaimSourceSpan { source: string; asOf: string | null; start: number; end: number; text: string }
 export interface ClaimNumericSupport {
@@ -409,6 +410,27 @@ function recordWindow(record: NumericProvenanceRecord): { key: string; start: st
   const match = /^\s*(ttm|ltm|ytd)\s*:\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/i.exec(record.period ?? "");
   return match ? { key: match[1].toLowerCase() === "ytd" ? "YTD" : "TTM", start: match[2], end: match[3] } : null;
 }
+/** A pipeline-owned terminal duration label can establish its start, never an arbitrary second date. */
+function explicitLabelSpan(text: string, record: NumericProvenanceRecord): { start: string; end: string } | null {
+  const span = /,\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/i.exec(record.label ?? "");
+  if (span === null || !isIsoDate(span[1]) || !isIsoDate(span[2]) || span[1] > span[2] || record.period !== span[2]) return null;
+  const sourceDates = periodLabels(record.label ?? "");
+  const claimDates = periodLabels(text);
+  const claimed = [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\b/gi)];
+  // Inspect the whole claim: a later clause must not hide another date or interval.
+  if (sourceDates.length !== 2 || claimDates.length !== 2 || claimed.length !== 1 ||
+    claimed[0][1] !== span[1] || claimed[0][2] !== span[2] ||
+    !sourceDates.every((date, i) => date.kind === "date" && date.key === span[i + 1]) ||
+    !claimDates.every((date, i) => date.kind === "date" && date.key === span[i + 1])) return null;
+  if (record.periodContext !== undefined) {
+    const parsed = PeriodContextSchema.safeParse(record.periodContext);
+    if (!parsed.success || parsed.data.kind !== "duration" || parsed.data.start !== span[1] || parsed.data.end !== span[2]) return null;
+    const fiscal = parsed.data.fiscalLabel;
+    if (fiscal !== undefined && record.fiscalPeriod !== undefined &&
+      fiscal.toLowerCase().replace(/\s+/g, "") !== record.fiscalPeriod.toLowerCase().replace(/\s+/g, "")) return null;
+  }
+  return { start: span[1], end: span[2] };
+}
 function namesMetric(claim: string[], source: string[]): boolean {
   if (claim.length === 0 || source.length === 0) return false;
   const stem = (word: string): string => word.length > 3 ? word.replace(/s$/, "") : word;
@@ -656,12 +678,18 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // A named window must be the record's own; a date against a window record
     // names one of its endpoints ("the trailing period ended 2026-07-26").
     const window = recordWindow(record);
+    const explicitSpan = explicitLabelSpan(claim.text, record);
+    if (window === null && /\b\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}\b/i.test(claim.text) && explicitSpan === null) {
+      return support(record.period === null ? "unchecked" : "contradicted", "period-mismatch",
+        "the cited numeric record does not establish the complete ordered prose date interval");
+    }
     const labelled = labelWindows(record);
     const fiscalPeriod = record.fiscalPeriod ?? record.periodContext?.fiscalLabel ?? (/^(?:Q[1-4]\s*)?FY\d{4}$/i.test(record.period ?? "") ? record.period : undefined);
     const periodAgrees = (period: PeriodReference): boolean => period.kind === "window"
       ? established.has(period.key) || labelled.has(period.key) || window?.key === period.key
       : periodsAgree(period.label, record.period, fiscalPeriod ?? null) ||
-        (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start));
+        (period.kind === "date" && window !== null && (period.key === window.end || period.key === window.start)) ||
+        (period.kind === "date" && explicitSpan !== null && (period.key === explicitSpan.start || period.key === explicitSpan.end));
     // A record that carries no period cannot contradict a prose period; it can
     // only fail to establish it (NVDA final rerun: "DCF base-case year-one
     // revenue growth over trailing revenue is 82.1353%" against a period-less

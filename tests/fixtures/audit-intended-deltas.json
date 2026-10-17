@@ -9660,14 +9660,15 @@
     {
       "name": "expe-evidence-block-and-report-basis",
       "decisions": [
-        "D-81"
+        "D-81",
+        "D-82"
       ],
-      "reason": "D-81 retains six deterministic current-multiple numerator/denominator scope and limitation strings in optional report row bases, and advances the report specification to1.23.0. Existing multiple values, financial computations, score weights, disclosure leaves and baseline assertions remain pinned; no numeric golden value is reclassified.",
+      "reason": "D-81 retains six pipeline-owned per-multiple scope/basis strings. D-82 patches deterministic ISO-duration claim verification and advances the report stamp to 1.23.1 without changing payload or financial inputs. All 1,180 preceding assertions remain represented, plus the six basis leaves; no financial numeric golden value is reclassified.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.23.0"
+          "after": "1.23.1"
         },
         {
           "path": "report.valuation.multiples.0.basis",
