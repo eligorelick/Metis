@@ -133,6 +133,9 @@ const ASPECT_LABEL: Record<string, string> = {
 };
 
 const EXACT_LABELS: Record<string, string> = {
+  // Stable legacy rule ids describe a materiality screen, not proof of one-off items.
+  "computed.forensics.flags.serial-one-time-items": "Material other income/expense",
+  "computed.forensics.flags.one-time-items": "Material other income/expense",
   "payload.quote.price": "Share price",
   "computed.technicals.last-close": "Last close",
   "computed.technicals.sma50": "50-day moving average",
@@ -711,23 +714,28 @@ export function keyDataRows(report: Report): KeyDataRow[] {
 
   const quotedCap = md?.quote?.marketCap ?? firstTrace(traces, /^payload\.quote\.market-?cap$/)?.value ?? null;
   const dilutedShares = bridge?.dilutedShares ?? null;
-  const marketCap = quotedCap ?? (price !== null && dilutedShares !== null && dilutedShares > 0 ? price * dilutedShares : null);
-  if (marketCap !== null) rows.push({ label: "Market cap", value: money(marketCap, priceCurrency), note: quotedCap !== null ? "quote" : "price × diluted shares" });
-  if (marketCap !== null && bridge && bridge.netDebt !== null) {
-    // D-65: the market EV, on the same net cash the DCF bridge and the EV
-    // multiples use; the DCF's own intrinsic EV and the provider's period-end
-    // EV carry their own labels where they print.
+  const scope = report.valuation.marketValueScope;
+  const marketCap = scope?.status === "resolved" ? scope.marketCap : quotedCap;
+  if (marketCap !== null) rows.push(scope?.status === "resolved"
+    ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}${priceAsOf ? `; main quote as of ${priceAsOf}` : ""}${scope.approximate ? "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
+    : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
+  if (scope?.status === "resolved" && scope.enterpriseValue !== null) {
+    rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: scope.enterpriseValueBasis });
+  } else if (!scope && marketCap !== null && bridge && bridge.netDebt !== null) {
+    // Legacy reports retain their stored bridge convention; new reports use
+    // the admitted Stage B EV, including its NCI, cash and lease scope guards.
     const ev = marketCap + bridge.netDebt + (bridge.minorityInterest ?? 0) + (bridge.preferredEquity ?? 0);
     rows.push({ label: "Enterprise value (market)", value: money(ev, priceCurrency), note: `market cap + net debt${bridge.asOf ? ` at ${bridge.asOf}` : ""} (equity securities are not cash); the EV multiples use the same figure` });
   }
   const outstanding = md?.shares?.outstanding ?? null;
-  if (outstanding !== null && outstanding > 0) {
+  if (scope?.status === "resolved" && scope.economicShares !== null) {
+    rows.push({ label: "Economic share units", value: formatLargeNumber(scope.economicShares), note: `equivalence-weighted outstanding units at ${scope.shareCountAsOf ?? "unavailable date"}; not diluted weighted-average shares` });
+  } else if (outstanding !== null && outstanding > 0) {
     const freeFloat = md?.shares?.freeFloatPct;
-    rows.push({ label: "Shares outstanding", value: formatLargeNumber(outstanding), note: comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
-  } else if (dilutedShares !== null && dilutedShares > 0) {
+    rows.push({ label: scope ? "Provider shares (scope unverified)" : "Shares outstanding", value: formatLargeNumber(outstanding), note: scope ? `raw provider count; class coverage unverified${md?.shares?.asOf ? `; at ${md.shares.asOf}` : ""}` : comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
+  } else if (!scope && dilutedShares !== null && dilutedShares > 0) {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
-
   const capitalReturn = report.filingDisclosures?.capitalReturn ?? null;
   if (capitalReturn?.dividendPerShare != null && price !== null && price > 0) {
     rows.push({

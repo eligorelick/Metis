@@ -344,6 +344,7 @@ const FCF_SBC_BASIS =
   "Free cash flow = operating cash flow + capital expenditure (FMP capex negative), MINUS stock-based compensation " +
   "(house default: SBC is a cash-equivalent operating expense settled in shares, not a genuine add-back — Damodaran, " +
   "\"Stock Based Compensation: The Elephant in the Room\"). Both the before- and after-SBC figures are reported; " +
+  "the deduction is the cash-flow SBC add-back for compensation expensed or amortized during the period, not all grants or capitalized awards not yet expensed. FCF remains consolidated; NCI net income is not a parent cash-flow allocation. " +
   "years with no disclosed SBC are unadjusted and say so. TWO conversion ratios are published and never conflated: " +
   "FCF-after-SBC / net income is the house-default headline, and FCF-before-SBC / net income is the ratio the " +
   "unbacktested balance-sheet grading band uses and the one that is GRADED — grading the after-SBC ratio on that " +

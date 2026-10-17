@@ -66,6 +66,8 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-04-recommendations.md",
   "docs/audit/2026-10-15-amzn-integrity.md",
   "docs/audit/2026-10-15-nvda-report-34-audit.md",
+  "docs/audit/2026-10-17-expe-issue-disposition.md",
+  "docs/audit/2026-10-17-expe-remediation-plan.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",

@@ -22,6 +22,7 @@
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -528,18 +529,19 @@ function renderValuation(
   );
 
   lines.push(...subsection("### Multiples", bodyTable(
-    // WS6 (D-19): a rank among N quarters of the issuer's own history, not a percentile.
-    ["Multiple", "Current", "Peer median", "Own-history rank", "Sector-appropriate"],
+    // Empirical percentile within the retained sample; N is separate from its scale.
+    ["Multiple", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
     v.multiples.map((m) => [
       m.name,
       m.current === null ? DASH : `${num(m.current, 1)}×`,
       m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
       m.own5yPercentile === null
         ? DASH
-        : `rank ${m.own5yPercentile.toFixed(0)}/100${typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""}`,
+        : ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations),
       m.sectorAppropriate ? "yes" : "no",
     ]),
   )));
+  if (v.multiplesBasis) lines.push(markdownProse(v.multiplesBasis), "");
 
   // D-62: consensus and market data, shown once, beside the multiples.
   if (review.report) lines.push(...auditTableBlocks(consensusTables(review.report)));
@@ -728,6 +730,7 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
     cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    ["Probability"],
   )));
   lines.push(...auditTableBlocks(extra));
   return lines.join("\n").trimEnd();

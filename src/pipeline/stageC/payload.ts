@@ -375,7 +375,9 @@ export interface ContextPayload {
 // 1.24.1 (D-72): revised financial evidence and source-bound filing facts.
 // 1.24.2 (D-73): incomplete debt is withheld, including downstream valuation
 // context. Analysts from earlier conventions cannot resume as equivalent.
-export const PAYLOAD_VERSION = "1.24.2" as const;
+// 1.25.0 (D-78): ownership-specific earnings rows, class/EV scope and current
+// source form/exhibit context change analyst evidence; prior passes cannot resume.
+export const PAYLOAD_VERSION = "1.25.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1247,6 +1249,8 @@ const INCOME_LINE_ITEMS: { key: keyof FmpIncomeStatementRow; label: string; unit
   { key: "operatingIncome", label: "operating income", unit: "currency" },
   { key: "ebit", label: "EBIT", unit: "currency" },
   { key: "netIncome", label: "net income", unit: "currency" },
+  { key: "netIncomeConsolidated", label: "consolidated net income", unit: "currency" },
+  { key: "netIncomeAttributableToNoncontrollingInterest", label: "noncontrolling interest net income", unit: "currency" },
   { key: "epsDiluted", label: "diluted EPS", unit: "currency/share" },
   { key: "weightedAverageShsOutDil", label: "diluted shares", unit: "shares" },
   { key: "interestExpense", label: "interest expense", unit: "currency" },
@@ -1871,7 +1875,8 @@ function currentReportExcerpts(bundle: DataBundle): TextExcerpt[] {
     const periodEnd = latest.reported.periodEnd !== null && isIsoDate(latest.reported.periodEnd) ? latest.reported.periodEnd : null;
     const period = fiscal !== null && periodEnd !== null ? `${fiscal}, quarter ended ${periodEnd}` : fiscal ?? periodEnd ?? "latest quarter";
     const where = `8-K ${latest.accession}; filed ${latest.filingDate}`;
-    narrative(latest.releaseNarrative, `8-K EX-99.1 — earnings release, ${period} (${where})`, "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
+    const primaryRelease = latest.releaseExhibit === null && latest.releaseUrl !== null;
+    narrative(latest.releaseNarrative, `${primaryRelease ? "8-K primary document" : "8-K EX-99.1"} - earnings release, ${period} (${where})`, primaryRelease ? `edgar:8-K ${latest.accession}` : "edgar:8-K EX-99.1", PAYLOAD_BUDGETS.earningsReleaseChars);
     narrative(latest.commentaryNarrative, `8-K EX-99.2 — CFO commentary, ${period} (${where})`, "edgar:8-K EX-99.2", PAYLOAD_BUDGETS.cfoCommentaryChars);
   }
   let used = 0;
@@ -1968,7 +1973,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   const currency = disclosures.currency;
   const g = disclosures.guidance;
   if (g !== null) {
-    const source = `edgar:8-K ${g.source.exhibit ?? "EX-99"}`;
+    const source = `edgar:${g.source.form} ${g.source.exhibit ?? g.source.accession}`;
     for (const row of g.rows) {
       const name = guidanceFigureName(row);
       const base = { unit: guidanceUnit(row.unit), currency: row.unit === "%" ? null : currency, period: row.period, source, asOf: g.source.filingDate };
@@ -1989,7 +1994,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       unit,
       currency: unit === "currency" ? currency : null,
       period: check.period,
-      source: `edgar:8-K ${check.guidance.exhibit ?? "EX-99"}`,
+      source: `edgar:${check.guidance.form} ${check.guidance.exhibit ?? check.guidance.accession}`,
       asOf: check.guidance.filingDate,
     });
   }
@@ -2000,7 +2005,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   if (disclosures.freeCashFlowDefinition) notes.push(`Issuer free-cash-flow definition (issuer text): ${disclosures.freeCashFlowDefinition}`);
   const cr = disclosures.capitalReturn;
   if (cr !== null) {
-    const base = { unit: "currency", currency, source: "edgar:8-K EX-99.1", asOf: cr.source.filingDate };
+    const base = { unit: "currency", currency, source: `edgar:${cr.source.form} ${cr.source.exhibit ?? cr.source.accession}`, asOf: cr.source.filingDate };
     if (cr.returned !== null) figures.push({ ...base, label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
     if (cr.authorizationRemaining !== null) figures.push({ ...base, label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
@@ -2036,7 +2041,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       unit: "currency",
       currency,
       period: c.asOf,
-      source: `edgar:8-K ${c.source.exhibit ?? "EX-99.1"}`,
+      source: `edgar:${c.source.form} ${c.source.exhibit ?? c.source.accession}`,
       asOf: c.source.filingDate,
     });
   }

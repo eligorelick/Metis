@@ -1,6 +1,6 @@
 import type { ScoreAspect, ScoreSignal } from "@/report/schema";
 import type { ScoringInputs } from "./grading";
-import { windowCagr, yearsBetweenDates, type CagrPoint } from "./growth";
+import { scoringMargin, windowCagr, yearsBetweenDates, type CagrPoint } from "./growth";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const day = (value: string | null | undefined): string | null => {
@@ -37,6 +37,26 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       const source = `computed.growth.${collection}[${growthRows.indexOf(row)}]`;
       operand("start value", row.startValue, `${source}.startValue`, result.startDate);
       operand("end value", row.endValue, `${source}.endValue`, result.endDate);
+      // Historical endpoint rates are not durability forecasts. Retain the
+      // scored window and disclose same-end alternatives, without silently
+      // replacing it with an invented "normalized" growth assumption.
+      const alternatives = [5, 3, 1].flatMap(window => {
+        const value = windowCagr(growthRows, window).cagrPct;
+        const point = growthRows.find(r => r.windowYears === window);
+        if (value === null || !point || point.endDate !== row.endDate) return [];
+        const alternativeSource = `computed.growth.${collection}[${growthRows.indexOf(point)}]`;
+        operand(`${window}-year historical CAGR`, value, `${alternativeSource}.cagrPct`, day(point.endDate));
+        if (point !== row) {
+          operand(`${window}-year start value`, point.startValue, `${alternativeSource}.startValue`, day(point.startDate));
+          operand(`${window}-year end value`, point.endValue, `${alternativeSource}.endValue`, day(point.endDate));
+        }
+        return [{ window, value }];
+      });
+      const short = alternatives.find(p => p.window === 3);
+      const sensitivity = years === 5 && short
+        ? ` Window sensitivity: historical 5-year CAGR ${row.cagrPct!.toFixed(2)}% versus 3-year CAGR ${short.value.toFixed(2)}% (${(row.cagrPct! - short.value).toFixed(2)} percentage-point difference); recovery or base effects may affect endpoint growth. These historical rates do not establish a durable growth forecast.`
+        : " Historical endpoint growth does not establish a durable growth forecast.";
+      result.fallbackReason = `${result.fallbackReason ?? ""}${sensitivity}`.trim();
       break;
     }
   } else if (id === "equityReturnVsCoeSpread" || id === "roeImpliedVsAchievable") {
@@ -200,8 +220,9 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     result.family = "profitability";
     const rows = (id === "grossMarginLevel" ? i.growth.margins.gross.series : i.growth.margins.operating.series).filter(r => finite(r.pct));
     if (id === "grossMarginLevel") {
-      const latest = rows.at(-1); dates(null, latest?.date);
-      operand("gross margin", latest?.pct, "computed.growth.margins.gross.series");
+      const latest = scoringMargin(i.growth.margins.gross.series, i.growth.asOf);
+      dates(null, latest.date); result.fallbackReason = latest.reason;
+      operand("gross margin", latest.pct, "computed.growth.margins.gross.series");
     } else {
       dates(rows[0]?.date, rows.at(-1)?.date);
       for (const row of rows) operand(`operating margin at ${row.date}`, row.pct, "computed.growth.margins.operating.series", day(row.date));

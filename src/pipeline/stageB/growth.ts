@@ -110,6 +110,26 @@ export interface MarginPoint {
   pct: number | null;
 }
 
+/**
+ * A current margin score may use at most the preceding annual reporting cycle.
+ * The 1.25-year house tolerance accommodates 52/53-week years and period-end
+ * shifts. Compare fiscal observations, not the replay/analysis clock. Missing,
+ * future or older evidence stays in the historical series but is not scored.
+ */
+export function scoringMargin(
+  series: readonly MarginPoint[],
+  latestStatementDate: string | null,
+): { pct: number | null; date: string | null; reason: string | null } {
+  const latest = [...series].reverse().find(row => isFiniteNumber(row.pct));
+  if (!latest) return { pct: null, date: null, reason: "Gross margin unavailable." };
+  const age = latestStatementDate ? yearsBetweenDates(latest.date, latestStatementDate) : null;
+  if (age === null || age < 0 || age > 1.25) {
+    return { pct: null, date: latest.date,
+      reason: `Gross margin at ${latest.date} withheld from current scoring: observation must be dated, not future, and within one annual reporting cycle (1.25-year tolerance) of the latest statement ${latestStatementDate ?? "unavailable"}.` };
+  }
+  return { pct: latest.pct, date: latest.date, reason: null };
+}
+
 export interface MarginTrend {
   /** Oldest → newest, up to MARGIN_SERIES_MAX_YEARS annual observations. */
   series: MarginPoint[];

@@ -110,10 +110,11 @@ function currentReportsOf(bundle: DataBundle): CurrentReports | null {
 }
 
 function releaseRef(release: EarningsReleaseRecord, exhibit: "EX-99.1" | "EX-99.2" | null): FilingRef {
+  const documentType = exhibit === "EX-99.2" ? release.commentaryExhibit : exhibit === "EX-99.1" ? release.releaseExhibit : null;
   return {
     form: release.form ?? "8-K",
     accession: release.accession,
-    exhibit: exhibit === "EX-99.2" ? release.commentaryExhibit ?? exhibit : exhibit === "EX-99.1" ? release.releaseExhibit ?? exhibit : null,
+    exhibit: documentType === undefined ? exhibit : documentType,
     filingDate: release.filingDate,
     url: exhibit === "EX-99.2" ? release.commentaryUrl : release.releaseUrl,
   };

@@ -2629,10 +2629,10 @@ describe("valueCompany — the DCF equity bridge follows the same lease conventi
 });
 
 // ---------------------------------------------------------------------------
-// WS6 (D-19) — "rank among N quarters", never "percentile"
+// Empirical percentile rank in a disclosed finite sample
 // ---------------------------------------------------------------------------
 
-describe("multiplesFramework — own-history figure is a rank among N quarters", () => {
+describe("multiplesFramework — own-history empirical percentile rank", () => {
   const quarters = (count: number): QuarterlyFundamentalsRow[] => {
     const suffixes = ["12-31", "09-30", "06-30", "03-31"] as const;
     return Array.from({ length: count }, (_, index) => ({
@@ -2680,17 +2680,18 @@ describe("multiplesFramework — own-history figure is a rank among N quarters",
     enterpriseValuesHistory: evHistory(12),
   };
 
-  it("states the window size and calls the figure a rank, not a percentile", () => {
+  it("states the empirical percentile scale and sample size", () => {
     const r = multiplesFramework("general", inputs);
     const pe = r.multiples.find((m) => m.key === "peTtm");
     // 12 quarters yield 9 rolling four-quarter TTM windows.
     expect(pe?.ownHistory?.observations).toBe(9);
-    expect(pe?.ownHistory?.basis).toContain("RANK AMONG 9 QUARTERS");
+    expect(pe?.ownHistory?.basis).toContain("empirical percentile rank");
+    expect(pe?.ownHistory?.basis).toContain("9 observations");
     expect(pe?.ownHistory?.basis).not.toMatch(/percentile of a distribution\.(?! )/);
     // The window size reaches the report through the valuation notes, because
     // the report's multiples row carries the rank but not N.
     expect(
-      r.notes.some((n) => n.startsWith("peTtm:") && n.includes("RANK AMONG 9 QUARTERS")),
+      r.notes.some((n) => n.startsWith("peTtm:") && n.includes("empirical percentile rank (9 observations)")),
     ).toBe(true);
   });
 

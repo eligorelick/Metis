@@ -11,6 +11,7 @@
  */
 
 import type { StockSplits } from "@/edgar/splits";
+import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import type { PeerCollection } from "@/pipeline/peers";
 import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type {
@@ -311,6 +312,8 @@ export function sourceManifestEntries(
  * deterministically emit them.
  */
 export interface DataBundle {
+  /** Retained, dated class inventory and economic rights; issuerId = CIK10, securityId = symbol. */
+  economicShareEvidence?: EconomicShareEvidence[];
   symbol: string;
   /** ISO timestamp of the bundle build (clock injectable in tests). */
   builtAt: string;

@@ -293,8 +293,11 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "  proof. Before calling a Beneish flag, name the indices that carry it and the SGI-neutral M.",
   "- Reconcile reported operating income, income before tax, tax expense and net income/EPS for the same",
   "  period. Identify applicable disclosed exceptional tax, legal, severance and impairment items with their source",
-  "  and date. Separate reported results from any explicitly labelled analytical adjustment; quantify only",
-  "  when all operands and tax treatment are available. If they are missing, state the missing bridge.",
+  "  and date. Keep reported GAAP results, issuer-reconciled non-GAAP results, and analytical sensitivities",
+  "  separately labelled. An issuer adjustment is not an independently established recurring result.",
+  "  Quantify an analytical adjustment only when all operands and tax treatment are available.",
+  "  Never infer an item-specific tax effect from the consolidated effective tax rate or a statutory rate.",
+  "  If an item's tax effect is not disclosed, leave its after-tax adjustment unavailable and state the missing bridge.",
   "  Omit generic normalization boilerplate for item types the evidence does not report.",
   "- Distinguish issuer-defined FCF, standardized CFO minus cash capex, after-SBC FCF and unlevered FCFF.",
   "  Reconcile lease principal and liquidity/debt definitions where supplied. Never equate those measures.",
@@ -332,7 +335,8 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "  headquarters versus end-customer location, and China revenue versus guidance excluding China Data Center compute.",
   "  Keep these definitions distinct; use the dated product milestones the release states, including production status.",
   "RISK PROBABILITY: justify each low/medium/high likelihood with its own dated evidence and trigger; do not default all",
-  "risks to medium or confuse impact with probability. Where evidence cannot distinguish likelihood, say it is uncertain.",
+  "risks to medium or confuse impact with probability. Where evidence cannot distinguish likelihood, set probability",
+  "to unknown and explain the uncertainty. A likelihood label is a JUDGMENT, not a calibrated probability.",
   "FLAG SEVERITY AND AGE: date every quality flag and risk. An item from a period that ended more than four quarters",
   "before the latest reported quarter (an 18-month-old inventory charge) is historical context, at most low or medium",
   "severity, unless the filings show it recurring or still affecting current results. Grade severity by materiality to",
@@ -364,6 +368,7 @@ function analystCommon(capChars: number): string {
     "You are building the STRONGEST GOOD-FAITH case for your assigned side. Not a caricature —",
     "the best case a rigorous analyst who genuinely held this view could make, grounded entirely",
     "in the payload and the sources you fetch. A weak case you can knock down is worthless here.",
+    "Opposing roles start from shared retained inputs and can share omissions; they are not independent factual validation.",
     "",
     "You may use web search for recent catalysts, news, and management commentary NOT in the payload",
     "(the payload's transcript/filings are as-of their filing dates). Every web-sourced number and",
@@ -470,8 +475,9 @@ export function buildJudgeFraming(
 ): string {
   return [
     "YOUR ROLE: JUDGE / synthesizer.",
-    "You receive the payload and TWO independent analyst cases (bull and bear). Produce the final",
+    "You receive the payload and TWO separately written opposing analyst cases (bull and bear). Produce the final",
     "report content as the JUDGE_OUTPUT structured schema.",
+    "The cases start from shared retained inputs and can share omissions; adjudication is not independent factual validation.",
     "",
     // WS7 (D-20): the two cases used to arrive in a fixed BULL-then-BEAR order
     // with no stated lengths, so position and volume were silent advantages.

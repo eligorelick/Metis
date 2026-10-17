@@ -1,6 +1,7 @@
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -456,16 +457,17 @@ function sectionValuation(
   parts.push(`<h3>Reverse DCF</h3><p>Implied ${esc(v.reverseDcf.impliedMetric)}: <strong class="mono">${esc(reverseDcfValueText(v.reverseDcf.impliedMetric, v.reverseDcf.impliedValue))}</strong></p><p>${prose(v.reverseDcf.narrative)}</p>`);
 
   parts.push(subsection("Multiples", bodyTable(
-    // WS6 (D-19): a rank among N quarters, not a percentile.
-    ["Multiple", "Current", "Peer median", "Own-history rank", "Sector-appropriate"],
+    // Empirical percentile within the retained sample; N is separate from its scale.
+    ["Multiple", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
     v.multiples.map((m) => [
       m.name,
       m.current === null ? DASH : `${num(m.current, 1)}×`,
       m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
-      m.own5yPercentile === null ? DASH : `rank ${m.own5yPercentile.toFixed(0)}/100${typeof m.ownHistoryObservations === "number" ? ` of ${m.ownHistoryObservations} quarters` : ""}`,
+      m.own5yPercentile === null ? DASH : ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations),
       m.sectorAppropriate ? "yes" : "no",
     ]),
   )));
+  if (v.multiplesBasis) parts.push(`<p class="faint">${esc(v.multiplesBasis)}</p>`);
   // D-62: consensus and market data, once, beside the multiples.
   parts.push(bodyTables(consensusTables(report)));
 
@@ -597,6 +599,7 @@ function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: Repo
   const risks = bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
     cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    ["Probability"],
   );
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
   return `<section class="block prominent">${sectionHeading("catalystsRisks")}${disclosure}${subsection("Catalysts", catalysts)}${subsection("Risks", risks)}${bodyTables(extra)}</section>`;

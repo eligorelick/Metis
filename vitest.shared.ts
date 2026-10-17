@@ -107,6 +107,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/export/markdownEscape.ts",
   "src/report/export/printHtml.ts",
   "src/report/format.ts",
+  "src/report/ownHistoryPresentation.ts",
   "src/settings/contracts.ts",
   "src/settings/settings.ts",
   "src/settings/writeQueue.ts",

@@ -73,6 +73,12 @@ export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
 ];
 
+/** Consolidated earnings concepts, before the parent-only NetIncomeLoss fallback. */
+export const CONSOLIDATED_NET_INCOME_TAGS: readonly string[] = [
+  "ProfitLoss",
+  "NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest",
+];
+
 /**
  * `InterestExpenseOperating` is LAST among the income-statement tags: for a
  * bank it is the whole interest expense, but for a non-bank that tags both,
@@ -223,7 +229,9 @@ export const LINE_ITEM_TAGS = {
   // As filed: this standard element does not establish a universal tax basis.
   equityMethodIncomeLoss: entry(["IncomeLossFromEquityMethodInvestments"]),
   totalOtherIncomeExpensesNet: entry(["NonoperatingIncomeExpense"]),
-  netIncome: entry(["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]),
+  netIncome: entry(["NetIncomeLoss", ...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLossAvailableToCommonStockholdersBasic"]),
+  netIncomeConsolidated: entry(CONSOLIDATED_NET_INCOME_TAGS),
+  netIncomeAttributableToNoncontrollingInterest: entry(["NetIncomeLossAttributableToNoncontrollingInterest"]),
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeFromContinuingOperations: entry(["IncomeLossFromContinuingOperations"]),
   netIncomeFromDiscontinuedOperations: entry(["IncomeLossFromDiscontinuedOperationsNetOfTax"]),
@@ -316,12 +324,12 @@ export const LINE_ITEM_TAGS = {
   accumulatedOtherComprehensiveIncomeLoss: entry(["AccumulatedOtherComprehensiveIncomeLossNetOfTax"]),
   totalStockholdersEquity: entry(["StockholdersEquity"]),
   totalEquity: entry(["StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"]),
-  minorityInterest: entry(["MinorityInterest"]),
+  minorityInterest: entry(["MinorityInterest", "NonredeemableNoncontrollingInterest"]),
   deposits: entry(["Deposits"]),
   sharesOutstandingBalanceSheet: entry([BALANCE_SHEET_SHARES_TAG]),
 
   // --- cash flow ------------------------------------------------------------
-  cashflowNetIncome: entry(["NetIncomeLoss", "ProfitLoss"]),
+  cashflowNetIncome: entry([...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLoss"]),
   stockBasedCompensation: entry(["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"]),
   changeInWorkingCapital: entry(["IncreaseDecreaseInOperatingCapital"]),
   operatingCashFlow: entry([

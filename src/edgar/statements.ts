@@ -591,6 +591,8 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),
   netIncome: lineItemChain("netIncome", "money"),
+  netIncomeConsolidated: lineItemChain("netIncomeConsolidated", "money"),
+  netIncomeAttributableToNoncontrollingInterest: lineItemChain("netIncomeAttributableToNoncontrollingInterest", "money"),
   netIncomeAvailableToCommon: lineItemChain("netIncomeAvailableToCommon", "money"),
   netIncomeFromContinuingOperations: lineItemChain("netIncomeFromContinuingOperations", "money"),
   netIncomeFromDiscontinuedOperations: lineItemChain("netIncomeFromDiscontinuedOperations", "money"),
@@ -666,7 +668,7 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
         unit: "money",
         steps: [
           { kind: "first", tags: tagsFor("operatingLeaseLiability"), unit: "money" },
-          { kind: "sumAny", tags: tagsFor("operatingLeaseLiabilityParts"), unit: "money" },
+          { kind: "sum", tags: tagsFor("operatingLeaseLiabilityParts"), unit: "money" },
         ],
       },
     },
@@ -677,7 +679,7 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
         unit: "money",
         steps: [
           { kind: "first", tags: tagsFor("financeLeaseLiability"), unit: "money" },
-          { kind: "sumAny", tags: tagsFor("financeLeaseLiabilityParts"), unit: "money" },
+          { kind: "sum", tags: tagsFor("financeLeaseLiabilityParts"), unit: "money" },
         ],
       },
     },
@@ -804,14 +806,14 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
     unit: "money",
     steps: [
       { kind: "first", tags: tagsFor("totalStockholdersEquity"), unit: "money" },
-      {
+      ...tagsFor("minorityInterest").map((minus): ChainSpec => ({
         kind: "diff",
         plus: tagsFor("totalEquity")[0] as string,
-        minus: tagsFor("minorityInterest")[0] as string,
+        minus,
         unit: "money",
         disclose:
           "stockholders' equity derived as total equity including noncontrolling interest minus the noncontrolling interest: the filer tags no StockholdersEquity line",
-      },
+      })),
       {
         kind: "first",
         tags: tagsFor("totalEquity"),
@@ -1877,8 +1879,17 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     `totalDebt ${ctx}`,
   );
   const refusedCurrent = notes.withheld.find((held) => held.field === "shortTermDebt" && held.periods.includes(ctx));
-  const incomplete = refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
+  const partialLease = (["Operating", "Finance"] as const).find(prefix =>
+    cc.resolved.get("capitalLeaseObligations")?.parts?.[`${prefix.toLowerCase()}LeaseLiability`] === undefined &&
+    ((cc.money(`${prefix}LeaseLiabilityCurrent`) === null) !== (cc.money(`${prefix}LeaseLiabilityNoncurrent`) === null)));
+  const incomplete = partialLease !== undefined
+    ? `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`
+    : refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
     : incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount"));
+  if (partialLease !== undefined) {
+    v.capitalLeaseObligations = null;
+    notes.withhold("capitalLeaseObligations", ctx, incomplete!);
+  }
   if (incomplete !== null) {
     v.totalDebt = null;
     v.netDebt = null;
@@ -1897,6 +1908,8 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   // liability, which is what the EV bridge treats as "not separable".
   v.operatingLeaseLiability ??=
     cc.resolved.get("capitalLeaseObligations")?.parts?.["operatingLeaseLiability"] ?? null;
+  v.financeLeaseLiability ??=
+    cc.resolved.get("capitalLeaseObligations")?.parts?.["financeLeaseLiability"] ?? null;
 }
 
 /**
@@ -2524,7 +2537,7 @@ const BALANCE_DEF: StatementDef = {
   anchors: ["totalAssets"],
   aliases: BALANCE_ALIASES,
   unsourced: BALANCE_UNSOURCED,
-  computed: ["cashAndShortTermInvestments", "totalEquity", "totalLiabilities", "totalDebt", "netDebt", "operatingLeaseLiability"],
+  computed: ["cashAndShortTermInvestments", "totalEquity", "totalLiabilities", "totalDebt", "netDebt", "operatingLeaseLiability", "financeLeaseLiability"],
   compute: computeBalance,
 };
 

@@ -29,7 +29,7 @@
 
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
-import { windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
+import { scoringMargin, windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
 import type { CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
@@ -47,7 +47,7 @@ import type {
 import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_NVDA_AUDIT" as const;
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_FRESHNESS_AUDIT" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives
@@ -578,14 +578,6 @@ function bestCagr(
   return cagr(rows, 5) ?? cagr(rows, 3) ?? cagr(rows, 1);
 }
 
-/** Latest non-null margin from an oldest→newest series. */
-function latestMarginPct(series: { pct: number | null }[]): number | null {
-  for (let i = series.length - 1; i >= 0; i--) {
-    if (isNum(series[i].pct)) return series[i].pct;
-  }
-  return null;
-}
-
 /** Own-history percentile of a named multiple (valuation, any route). */
 function multipleOwnHistoryRank(valuation: ValuationResult, keys: string[]): number | null {
   if (valuation.kind === "pre-revenue") return null;
@@ -934,6 +926,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   // moat a point-in-time profitability read with no durability dimension —
   // precisely what a moat proxy is supposed to measure.
   const roteFloor = floorOf(rote.series.map((y) => y.rotePct).filter(isNum));
+  const grossMargin = scoringMargin(growth.margins.gross.series, growth.asOf);
   const moatReturnSignals: Signal[] = scoresRote
     ? [
         { name: "roteLevel", raw: rote.latestRotePct, unit: "%", weight: 0.45, band: ROTE_LEVEL_BAND },
@@ -952,11 +945,12 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       // no meaningful revenue base). Tagged so the route policy drops this signal
       // rather than scoring moat on a number the policy forbids displaying — a bank
       // with no ROIC framing then reads moat as not-applicable, not a garbage grade.
-      { name: "grossMarginLevel", raw: latestMarginPct(growth.margins.gross.series), unit: "%", weight: 0.25, band: GROSS_MARGIN_BAND, suppressedBy: "grossMargin" },
+      { name: "grossMarginLevel", raw: grossMargin.pct, unit: "%", weight: 0.25, band: GROSS_MARGIN_BAND, suppressedBy: "grossMargin" },
     ],
     weights.moat,
     inputs.asOf,
-    "Quantitative moat proxy: the latest ROIC, its durability — the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) — and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
+    "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)." +
+      (!policy.suppress.includes("grossMargin") && grossMargin.reason ? ` ${grossMargin.reason}` : ""),
     policy,
   );
 

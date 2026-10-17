@@ -171,6 +171,10 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
   netIncome?: number;
+  /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */
+  netIncomeConsolidated?: number;
+  /** Signed earnings allocated to NCI; a loss is negative. */
+  netIncomeAttributableToNoncontrollingInterest?: number;
   /** SEC-derived earnings attributable to common, after preferred distributions/adjustments. */
   netIncomeAvailableToCommon?: number;
   bottomLineNetIncome?: number;

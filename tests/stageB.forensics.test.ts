@@ -858,7 +858,7 @@ describe("computeAccruals", () => {
     expect(classifyAccrualBand(0.1)).toBe("elevated");
     expect(classifyAccrualBand(0.1999)).toBe("elevated");
     expect(classifyAccrualBand(0.2)).toBe("red");
-    expect(classifyAccrualBand(-0.25)).toBe("red"); // absolute value
+    expect(classifyAccrualBand(-0.25)).toBe("unremarkable"); // cash generation is not positive accrual inflation
   });
 
   it("NOA <= 0 -> rescaled by average total assets with a house-rule note", () => {
@@ -1028,6 +1028,10 @@ describe("computeSupportFlags", () => {
     expect(flag).toBeDefined();
     expect(flag!.severity).toBe("flag");
     expect(flag!.message).toContain("3 of the last 5 fiscal years");
+    expect(flag!.message).toMatch(/repeated material other income\/expense/i);
+    expect(flag!.message).toMatch(/2 net-expense years.*1 net-income year/);
+    expect(flag!.message).toMatch(/classification.*normaliz/i);
+    expect(flag!.message).not.toMatch(/one-time charges|profitability may be overstated/);
   });
 
   it("single current-year breach -> warn", () => {

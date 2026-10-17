@@ -40,7 +40,8 @@ export function cashFlowBridge(row: CapitalCashFlowRow | null): CashFlowBridge {
   const sbc = finite(row?.stockBasedCompensation);
   return { operatingCashFlow, cashCapitalExpenditure: capex, standardizedFcf, financeLeasePrincipalPayments: principal,
     leaseAdjustedFcf: sub(standardizedFcf, principal), issuerFcf: issuer, stockBasedCompensation: sbc, afterSbcStandardizedFcf: sub(standardizedFcf, sbc), afterSbcIssuerFcf: sub(issuer, sbc),
-    definition: row?.issuerFreeCashFlowDefinition ?? "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC is a separate economic adjustment; historical FCF is levered, forecast FCFF is unlevered.",
+    definition: (row?.issuerFreeCashFlowDefinition ?? "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison.") +
+      " SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
   };
 }
 export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {

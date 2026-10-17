@@ -3345,14 +3345,29 @@ export function applyMultiples(
           peerMedian: stat.peers?.median ?? null,
           peerCount: stat.peers?.count ?? null,
           own5yPercentile: stat.ownHistory?.percentileRank ?? null,
-          // WS6 review (SHOULD-FIX 3): N travels with the rank so every render
-          // surface can print "rank 62 of 12 quarters" instead of a bare 62.
+          // N is sample size, separate from the normalized percentile scale.
           ownHistoryObservations: stat.ownHistory?.observations ?? null,
+          ...(stat.ownHistory?.observationDetails ? { ownHistoryDetails: stat.ownHistory.observationDetails } : {}),
+          ...(typeof stat.ownHistory?.basis === "string" ? { ownHistoryBasis: stat.ownHistory.basis } : {}),
           sectorAppropriate: mr.sectorAppropriate.includes(stat.key),
         }));
-  const { peerCoverage: _modelCoverage, ...rest } = valuation;
+  const { peerCoverage: _modelCoverage, multiplesBasis: _modelMultiplesBasis, marketValueScope: _modelMarketValueScope, ...rest } = valuation;
   void _modelCoverage;
-  return { ...rest, multiples: rows, ...(mr?.peerCoverage ? { peerCoverage: mr.peerCoverage } : {}) };
+  void _modelMultiplesBasis;
+  void _modelMarketValueScope;
+  const scope = mr?.enterpriseValue?.equityScope;
+  const headline = scope?.status === "resolved"
+    ? `Issuer-common equity: ${scope.economicShares} economic shares outstanding at ${scope.shareCountAsOf}; capitalization ${scope.marketCap} ${scope.currency ?? "(currency unavailable)"}. ` : "";
+  const multiplesBasis = mr?.enterpriseValue?.basis ? headline + mr.enterpriseValue.basis +
+    (scope && !mr.enterpriseValue.basis.includes(scope.basis) ? ` ${scope.basis}` : "") : undefined;
+  const marketValueScope = scope && mr?.enterpriseValue ? {
+    status: scope.status, marketCap: scope.marketCap, economicShares: scope.economicShares,
+    currency: scope.currency ?? null, shareCountAsOf: scope.shareCountAsOf,
+    approximate: scope.approximate, basis: scope.basis,
+    ...(scope.classPriceDates ? { classPriceDates: scope.classPriceDates } : {}),
+    enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: mr.enterpriseValue.basis,
+  } : undefined;
+  return { ...rest, multiples: rows, ...(multiplesBasis ? { multiplesBasis } : {}), ...(marketValueScope ? { marketValueScope } : {}), ...(mr?.peerCoverage ? { peerCoverage: mr.peerCoverage } : {}) };
 }
 
 /**

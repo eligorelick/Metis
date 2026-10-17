@@ -827,12 +827,12 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     ];
     expect(ReportSchema.safeParse(report).success).toBe(true);
     const markdown = reportToMarkdown(report);
-    expect(markdown).toContain("rank 62/100 of 12 quarters");
+    expect(markdown).toContain("empirical percentile 62/100 (n = 12 quarters)");
     // The legacy row (no N persisted) still renders, without inventing one.
-    expect(markdown).toContain("rank 40/100");
-    expect(markdown).not.toContain("rank 40/100 of");
+    expect(markdown).toContain("empirical percentile 40/100 (sample size unavailable)");
+    expect(markdown).not.toContain("percentile 40/100 (n =");
     const html = reportToPrintHtml(report, { autoPrint: false });
-    expect(html).toContain("rank 62/100 of 12 quarters");
+    expect(html).toContain("empirical percentile 62/100 (n = 12 quarters)");
   });
 
   it("remains deterministic, non-mutating, and terminated by exactly one LF", () => {

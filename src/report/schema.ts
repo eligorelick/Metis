@@ -101,7 +101,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // presentation corrections and source-bound preceding-table scale verification.
 // 1.19.4 (D-76): distinguish explicit total/per-share dividend restatements;
 // identify/refuse unsupported historical EV bridges and qualify partial EDGAR views.
-export const REPORT_SPEC_VERSION = "1.19.4" as const;
+// 1.20.0: scoped economic equity, NCI earnings reconciliation, historical
+// observation provenance and explicitly unknown risk probabilities.
+export const REPORT_SPEC_VERSION = "1.20.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1027,27 +1029,16 @@ export const MultipleRowSchema = z
     /** Number of eligible peers after metric-specific outlier filtering. */
     peerCount: z.number().int().nonnegative().nullable().optional(),
     // WS6 (D-19) begin -------------------------------------------------------
-    /**
-     * RANK AMONG N QUARTERS, 0-100: where the current multiple sits within the
-     * issuer's OWN observed quarterly history, by linear interpolation between
-     * order statistics. It is NOT a percentile of a distribution: the window is
-     * 8-20 quarterly observations, which is far too few to estimate
-     * percentiles, and the CFA Institute's own guidance is to describe such a
-     * figure as a rank within the observed sample. The FIELD NAME is kept for
-     * backward compatibility with persisted reports; every rendered label says
-     * "rank among N quarters".
-     */
+    /** Empirical percentile rank (0-100) within the retained finite sample, not an ordinal rank. */
     own5yPercentile: z.number().nullable(),
-    /**
-     * N — the number of quarters the rank is taken among. WS6 review
-     * (SHOULD-FIX 3): "rank 62" with no N is not a rank a reader can read, and
-     * N reached only the Stage C payload notes before. OPTIONAL, so persisted
-     * pre-review reports still parse; the judge never authors this table
-     * (applyMultiples replaces it wholesale from computed data), and an
-     * optional field costs one slot of the guarded JSON-schema
-     * optional-parameter budget, which the schema test still holds under.
-     */
+    /** Sample size, separate from the percentile scale; optional for legacy reports. */
     ownHistoryObservations: z.number().nullable().optional(),
+    /** Pipeline-owned audit detail, optional for reports serialized before its introduction. */
+    ownHistoryDetails: z.array(z.object({
+      periodEnd: z.string(), marketDate: z.string().nullable(), value: z.number(),
+      source: z.enum(["raw-statements", "vendor-ratio"]), marketCapSourceId: z.string().optional(),
+    }).strict()).optional(),
+    ownHistoryBasis: z.string().optional(),
     // WS6 (D-19) end ---------------------------------------------------------
     sectorAppropriate: z.boolean(),
   })
@@ -1115,6 +1106,17 @@ export const ValuationSchema = z
     dcf: DcfSchema,
     reverseDcf: ReverseDcfSchema,
     multiples: z.array(MultipleRowSchema),
+    /** Deterministic current-equity/EV scope disclosure; optional for legacy reports. */
+    multiplesBasis: z.string().optional(),
+    /** Pipeline-owned admitted market values; optional for legacy reports. */
+    marketValueScope: z.object({
+      status: z.enum(["resolved", "unresolved", "unverified-vendor-scope"]),
+      marketCap: z.number().nullable(), economicShares: z.number().nullable(),
+      currency: z.string().nullable(), shareCountAsOf: z.string().nullable(),
+      approximate: z.boolean(), basis: z.string(),
+      classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
+      enterpriseValue: z.number().nullable(), enterpriseValueBasis: z.string(),
+    }).strict().optional(),
     scenarios: ScenariosSchema,
     peerCoverage: PeerCoverageSchema.optional(),
   })
@@ -1310,7 +1312,9 @@ export const RiskSchema = z
   .object({
     title: z.string(),
     severity: SeverityLowMedHighSchema,
-    probability: SeverityLowMedHighSchema,
+    // Unknown likelihood is distinct from medium likelihood and from impact.
+    // The existing labels remain valid for persisted reports.
+    probability: z.enum(["high", "medium", "low", "unknown"]),
     source: z.string(),
     reasoning: SourcedClaimSchema,
   })
@@ -2913,7 +2917,7 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       // optional only for older saved reports. Keep them off provider schemas.
       // Exact period contexts come from source evidence; the model uses the
       // registry ID and existing period field instead of guessing boundaries.
-        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming"]) {
+        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
       }
@@ -2947,8 +2951,10 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         "ownHistoryObservations" in props
       ) {
         delete props.ownHistoryObservations;
+        delete props.ownHistoryDetails;
+        delete props.ownHistoryBasis;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => key !== "ownHistoryObservations");
+          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis"].includes(key));
         }
       }
     }

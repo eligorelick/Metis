@@ -124,6 +124,8 @@ import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
+import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
+import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
@@ -450,6 +452,8 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
     totalStockholdersEquity: num(r.totalStockholdersEquity),
+    totalEquity: num(r.totalEquity),
+    minorityInterest: num(r.minorityInterest),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     // Invested capital nets the same cash the house net-debt resolver does.
     shortTermInvestments: num(r.shortTermInvestments),
@@ -529,6 +533,8 @@ function toForensicsIncome(r: FmpIncomeStatementRow): ForensicsIncomeRow {
     interestExpense: num(r.interestExpense),
     incomeTaxExpense: num(r.incomeTaxExpense),
     netIncome: num(r.netIncome),
+    netIncomeConsolidated: num(r.netIncomeConsolidated),
+    netIncomeAttributableToNoncontrollingInterest: num(r.netIncomeAttributableToNoncontrollingInterest),
     netIncomeFromContinuingOperations: num(r.netIncomeFromContinuingOperations),
     netIncomeFromDiscontinuedOperations: num(r.netIncomeFromDiscontinuedOperations),
     totalOtherIncomeExpensesNet: num(r.totalOtherIncomeExpensesNet),
@@ -655,6 +661,8 @@ export interface TtmIncome {
   operatingIncome: number | null;
   depreciationAndAmortization: number | null;
   netIncome: number | null;
+  netIncomeConsolidated?: number | null;
+  netIncomeAttributableToNoncontrollingInterest?: number | null;
   /** Complete four-quarter common-holder flow; never the latest quarter alone. */
   netIncomeAvailableToCommon?: number | null;
   epsDiluted: number | null;
@@ -1134,6 +1142,8 @@ function ttmIncomeFromNormalized(
     operatingIncome: gateComplete("operatingIncome"),
     depreciationAndAmortization: gateComplete("depreciationAndAmortization"),
     netIncome: gateComplete("netIncome"),
+    netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
+    netIncomeAttributableToNoncontrollingInterest: gateComplete("netIncomeAttributableToNoncontrollingInterest"),
     netIncomeAvailableToCommon: gateComplete("netIncomeAvailableToCommon"),
     epsDiluted: gateComplete("epsDiluted"),
     ebit: gateComplete("ebit"),
@@ -1909,11 +1919,18 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
     str(inc0?.reportedCurrency),
   );
+  const forensicClassAmbiguity = retainedCommonClassAmbiguity(bundle);
+  const forensicEquityScope = resolveEconomicEquityScope({
+    price: num(quote?.price ?? profile?.price), marketCap: num(profile?.marketCap ?? quote?.marketCap),
+    currency: str(profile?.currency),
+    issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
+    ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
+  }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
   const forensics = runForensics(route, {
     income: forensicContext.income,
     balance: balanceAnnual.map(toForensicsBalance),
     cashFlow: forensicContext.cashFlow,
-    marketCap: num(profile?.marketCap ?? quote?.marketCap),
+    marketCap: forensicEquityScope.marketCap,
     // The as-of of a datum is its OBSERVATION date — the envelope of whichever
     // source supplied the figure — not the fiscal-year end of the statement it
     // sits beside, which stamped today's market cap with a date months old in
@@ -1929,6 +1946,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       sicCode: str(bundle.edgar?.sic),
     },
   });
+  if (forensicEquityScope.status === "unresolved") {
+    forensics.gaps.push({ field: "forensics.economicClassBasis", reason: forensicEquityScope.basis, severity: "warn", attemptedSources: forensicEquityScope.sourceIds });
+  }
 
   // --- Technicals ------------------------------------------------------------
   // EOD rows are date DESC in the bundle; the module re-sorts ASC defensively.
@@ -2522,6 +2542,14 @@ function computeReturns(
   );
   const keylessBeta = profile !== null && num(profile.betaMonths) !== null;
 
+  const classAmbiguity = retainedCommonClassAmbiguity(bundle);
+  const equityScope = resolveEconomicEquityScope({
+    price: num(quote?.price ?? profile?.price), marketCap: num(quote?.marketCap ?? profile?.marketCap),
+    currency: str(profile?.currency),
+    issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
+    ...(classAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: classAmbiguity } : {}),
+  }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+
   const wacc = computeWacc({
     beta: num(profile?.beta),
     riskFreePct: rf.pct,
@@ -2550,7 +2578,7 @@ function computeReturns(
     totalDebtLatestBasis: debtSnapshot.latestBasis ?? null,
     currentCoverageBasis: coverageBasis,
     negativeTotalDebtObservation: debtSnapshot.negativeObservation,
-    marketCap: num(quote?.marketCap ?? profile?.marketCap),
+    marketCap: equityScope.marketCap,
     // FMP's ratios-ttm endpoint suffixes every metric name with "TTM"
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
     // keeps the bare name. Try both so a live vendor rename doesn't silently
@@ -2591,6 +2619,10 @@ function computeReturns(
       marketCap: sourcedOf(bundle.quote)?.asOf,
     },
   });
+
+  if (equityScope.status === "unresolved") {
+    wacc.gaps.push({ field: "returns.wacc.economicClassBasis", reason: equityScope.basis, severity: "warn", attemptedSources: equityScope.sourceIds });
+  }
 
   // Preferred dividends live on the CASH-FLOW statement; ROTE nets them out of
   // its numerator because its denominator already excludes preferred.
@@ -2836,6 +2868,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         basis: balPointBasis,
         totalDebt: num(balPoint.totalDebt),
         totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
+        totalEquity: num(balPoint.totalEquity),
+        minorityInterest: num(balPoint.minorityInterest),
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
         longTermInvestments: num(balPoint.longTermInvestments),
       }
@@ -2964,11 +2998,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       : null;
 
   // --- Multiples framework ---------------------------------------------------
+  const commonClassAmbiguity = retainedCommonClassAmbiguity(bundle);
   const multiplesQuote: MultiplesQuoteInputs = {
     price: currentPrice,
     marketCap,
     currency: str(profile?.currency),
     isAdr: route.overlays.includes("adr") || profile?.isAdr === true,
+    issuerId: bundle.edgar.registrant?.cik10,
+    securityId: bundle.symbol,
+    ...(commonClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: commonClassAmbiguity } : {}),
   };
   // Preferred distributions are period flows. They may accompany a TTM only
   // when all four EXACT income-quarter ends resolve on the cash-flow feed.
@@ -3037,6 +3075,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         // D-65: the multiples' EV nets the same canonical (D-60) net cash as the DCF bridge.
         marketableEquitySecurities: num(balPoint.marketableEquitySecurities),
         totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
+        totalEquity: num(balPoint.totalEquity),
         goodwill: num(balPoint.goodwill),
         intangibleAssets: num(balPoint.intangibleAssets),
         minorityInterest: num(balPoint.minorityInterest),
@@ -3068,6 +3107,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     date: String(r.date ?? ""),
     marketCapitalization: num(r.marketCapitalization),
     enterpriseValue: num(r.enterpriseValue),
+    sourceId: bundle.enterpriseValues.ok ? bundle.enterpriseValues.value.endpoint : undefined,
   }));
   // D-60 (P1-K): the vendor's enterprise-values history stops at five
   // quarters, so the own-history bands never reached their eight-quarter
@@ -3082,7 +3122,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       const date = isoDay(r.date);
       const marketCapitalization = num(r.marketCap);
       return date === null || marketCapitalization === null || marketCapitalization <= 0 || vendorEvDates.has(date)
-        ? [] : [{ date, marketCapitalization, enterpriseValue: null }];
+        ? [] : [{ date, marketCapitalization, enterpriseValue: null,
+          sourceId: bundle.marketCapHistory.ok ? bundle.marketCapHistory.value.endpoint : undefined }];
     }),
   ];
 
@@ -3113,6 +3154,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   const multiples: MultiplesFrameworkInputs = {
     quote: multiplesQuote,
+    economicShareEvidence: bundle.economicShareEvidence,
+    securityBasisAsOf: bundle.builtAt.slice(0, 10),
     reportedCurrency: ctx.modelCurrency,
     incomeTtm: multiplesIncomeTtm,
     cashFlowTtm: multiplesCashFlowTtm,
@@ -3244,6 +3287,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     waccPct: wacc.waccPct,
     netDebt: netDebtDerived,
     dilutedShares,
+    noncontrollingOwnershipUnresolved: balPoint !== null && num(balPoint.minorityInterest) === null &&
+      num(balPoint.totalEquity) !== null && num(balPoint.totalStockholdersEquity) !== null &&
+      Math.abs((num(balPoint.totalEquity) as number) - (num(balPoint.totalStockholdersEquity) as number)) >
+        1e-9 * Math.max(1, Math.abs(num(balPoint.totalEquity) as number), Math.abs(num(balPoint.totalStockholdersEquity) as number)),
     minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
     preferred: balPoint ? num(balPoint.preferredStock) : null,
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
@@ -3552,6 +3599,7 @@ function mergeQuarterly(
       operatingCashFlow: cf ? num(cf.operatingCashFlow) : null,
       capitalExpenditure: cf ? num(cf.capitalExpenditure) : null,
       totalStockholdersEquity: bal ? num(bal.totalStockholdersEquity) : null,
+      totalEquity: bal ? num(bal.totalEquity) : null,
       equityOwnershipBasis: "parent",
       // House-EV components, so own-history EV matches the current definition.
       totalDebt: bal ? num(bal.totalDebt) : null,

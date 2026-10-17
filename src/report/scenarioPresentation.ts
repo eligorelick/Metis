@@ -13,7 +13,7 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
  * belongs to the weighted operating projections alone, and this is the one
  * place the report says it is not a calibrated probability.
  */
-const WEIGHT_BASIS = "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied. The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability.";
+const WEIGHT_BASIS = "Scenario price targets carry no weight: bull and bear are DCF sensitivities around the base value, so no probability-weighted value is implied.";
 
 /** D-65: the year-one growth × sustained margin grid, as the DCF display carries it. */
 export interface GrowthMarginCells { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][] }
@@ -93,7 +93,9 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
   const cells = display?.sensitivityGrid ?? [];
   return {
     methodVersion: "SCENARIO_PRESENTATION_2026_10",
-    weightBasis: WEIGHT_BASIS,
+    weightBasis: `${WEIGHT_BASIS} ${computed.projections?.series.length
+      ? "The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability."
+      : "No weighted operating projections are available; no projection weights are applied."}`,
     interpretation: computed.scenarioTargets?.status === "available"
       ? "Scenario values are present-value DCF sensitivities over the explicit operating horizon. Growth and margin paths use the shifts that generated each labeled target; all other model inputs remain at base. Model commentary is qualitative and does not set those inputs."
       : "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",

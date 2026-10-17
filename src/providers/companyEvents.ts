@@ -148,11 +148,13 @@ export async function discoverFiledEarningsAnnouncement(edgar: EdgarClient, cik:
   const out: FetchResult<FmpEarningsRow>[] = [];
   for (const filing of selected) {
     try {
-      const primary = await edgar.fetchFilingDocument(cik, filing, { asOf: filing.filingDate });
-      if (!primary.ok) continue;
       const extract = (document: FetchResult<string>) => document.ok ? companyEarningsAnnouncement({ text: parseDocument(document.value.data.slice(0, 500_000)).fullText, publishedAt: filing.acceptanceDateTime ?? filing.filingDate, observedAt: document.value.fetchedAt || observedAt, url: document.value.endpoint, authority: "sec_filing", issuer, sourceHash: createHash("sha256").update(document.value.data).digest("hex") }, symbol, today) : null;
-      const event = extract(primary);
-      if (event) { out.push(event); continue; }
+      // Cover documents and exhibits are independent primary sources. A
+      // missing cover must not suppress an available, CIK-bound EX-99.
+      try {
+        const event = extract(await edgar.fetchFilingDocument(cik, filing, { asOf: filing.filingDate }));
+        if (event) { out.push(event); continue; }
+      } catch { /* Try the bounded exhibit alternative below. */ }
       const index = await edgar.filingIndexHeaders(cik, filing.accessionNumber);
       const exhibit = index.ok ? findDocumentByType(index.value.data, "EX-99") : null;
       if (!exhibit) continue;

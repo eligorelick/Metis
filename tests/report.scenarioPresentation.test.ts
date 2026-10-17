@@ -73,6 +73,28 @@ describe("modeled-grid sensitivity conclusions", () => {
     expect(JSON.stringify(result)).not.toContain("99%");
   });
 
+  it("does not describe an unused projection prior when there are no projection series", () => {
+    const computed = computedFixture();
+    computed.projections.series = [];
+    const before = JSON.stringify(computed.projections);
+    const presentation = buildScenarioPresentation(computed);
+    expect(presentation.weightBasis).not.toContain("25/50/25");
+    expect(presentation.weightBasis).not.toContain("display prior applies");
+    expect(presentation.weightBasis).toContain("No weighted operating projections are available");
+    expect(presentation.weightBasis).toContain("no probability-weighted value is implied");
+    expect(JSON.stringify(computed.projections)).toBe(before);
+  });
+
+  it("retains the uncalibrated projection prior only alongside real projection series", () => {
+    const computed = computedFixture();
+    expect(computed.projections.series.length).toBeGreaterThan(0);
+    const before = JSON.stringify(computed.projections);
+    const presentation = buildScenarioPresentation(computed);
+    expect(presentation.weightBasis).toContain("25/50/25");
+    expect(presentation.weightBasis).toContain("not a calibrated probability");
+    expect(JSON.stringify(computed.projections)).toBe(before);
+  });
+
   it("uses the actual quote near rounding boundaries and withholds a currency-incomparable quote", () => {
     const computed = { fairValue: { status: "available", perShare: { value: 0.01 }, upsidePct: -99.985 } } as unknown as ComputedMetrics;
     const bundle = { quote: { ok: true, value: { data: { rows: [{ price: 99.99 }] } } } } as DataBundle;

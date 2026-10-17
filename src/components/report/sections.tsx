@@ -15,6 +15,7 @@
 
 import type { ReactNode } from "react";
 import { MIN_HEADLINE_EVIDENCE, type AspectEvidence } from "@/report/assessment";
+import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
   annualSegmentHeading,
@@ -789,10 +790,8 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
     },
     {
       key: "pct",
-      // WS6 (D-19): a RANK among the issuer's own quarters, never a percentile
-      // - the window is 8-20 observations. WS6 review (SHOULD-FIX 3): N is
-      // printed beside the rank, not left in the computed valuation notes.
-      header: "own-history rank",
+      // The normalized empirical percentile scale and sample size are separate.
+      header: "own-history percentile (sample)",
       align: "right",
       render: (m) =>
         m.own5yPercentile === null ? (
@@ -808,9 +807,7 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
                   // the Markdown and print exports print it; "rank 85 of 12
                   // quarters" read as an impossible ordinal (audit
                   // 2026-09-06, F214).
-                  typeof m.ownHistoryObservations === "number"
-                    ? `rank ${m.own5yPercentile.toFixed(0)}/100 of ${m.ownHistoryObservations} quarters`
-                    : `rank ${m.own5yPercentile.toFixed(0)}`
+                  ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations)
                 }
               />
             </div>
@@ -1012,6 +1009,7 @@ export function ValuationSection({
 
       <SubBlock label="multiples vs peers & own 5-yr history">
         <MultiplesTable rows={valuation.multiples} />
+        {valuation.multiplesBasis && <p className="mt-2 text-xs leading-relaxed text-faint">{valuation.multiplesBasis}</p>}
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 
@@ -1600,11 +1598,12 @@ export function CatalystsRisksPanel({
   extraTables?: ReportAuditTable[];
 }) {
   const { catalysts, risks } = catalystsRisks;
-  const matrixItems: MatrixItem[] = risks.map((r) => ({
+  const matrixItems: MatrixItem[] = risks.flatMap((r) => r.probability === "unknown" ? [] : [{
     title: r.title,
     severity: r.severity,
     probability: r.probability,
-  }));
+  }]);
+  const unknownProbabilityCount = risks.filter((r) => r.probability === "unknown").length;
   const sortedCatalysts = [...catalysts].sort((a, b) => {
     // Undated last; otherwise ascending by expected date.
     if (a.expectedDate === null && b.expectedDate === null) return 0;
@@ -1703,6 +1702,11 @@ export function CatalystsRisksPanel({
           {dataOnly && risks.length === 0
             ? <p className="text-[11px] text-faint">Not assessed — an empty list does not establish that no risks exist.</p>
             : <SeverityProbMatrix items={matrixItems} />}
+          {unknownProbabilityCount > 0 && (
+            <p className="text-[11px] text-faint">
+              {unknownProbabilityCount} {unknownProbabilityCount === 1 ? "risk has" : "risks have"} unknown probability and {unknownProbabilityCount === 1 ? "is" : "are"} not placed in the matrix; see the risk list below.
+            </p>
+          )}
           <div className="mt-1 flex flex-col gap-1.5">
             {risks.map((r, i) => (
               <div

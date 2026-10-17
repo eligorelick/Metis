@@ -135,8 +135,15 @@ export async function discoverCompanyIrEarnings(website: string, symbol: string,
       } else if (page.stage !== "release") {
         const sameOrigin = all.filter((l) => new URL(l.url).origin === new URL(page.url).origin);
         const releases = sameOrigin.filter((l) => /\b(?:results|earnings)\b/i.test(l.text) && /\b(?:announce|report|release|quarter|financial)\b/i.test(l.text));
-        releases.slice(0, 3).forEach((l) => add(l, "release"));
-        if (releases.length === 0 && page.stage === "ir") sameOrigin.filter((l) => /news|press releases/i.test(l.text)).slice(0, 1).forEach((l) => add(l, "news"));
+        // Old results commonly sit beside the news link on IR homepages.
+        // Reserve the path through that index instead of spending all six
+        // requests on those historical releases. Index discoveries go first
+        // so already queued homepage releases cannot starve the next hop.
+        if (page.stage === "ir") sameOrigin.filter((l) => /news|press releases/i.test(l.text)).slice(0, 1).forEach((l) => add(l, "news"));
+        const ordered = [...releases].sort((a, b) => Number(/\b(?:to|will)\s+(?:announce|report|release|publish)\b/i.test(b.text)) - Number(/\b(?:to|will)\s+(?:announce|report|release|publish)\b/i.test(a.text)));
+        const pending = queue.length;
+        ordered.slice(0, 3).forEach((l) => add(l, "release"));
+        if (page.stage === "news") queue.unshift(...queue.splice(pending));
       }
     } catch { /* Rate limit, unsafe resolution, parse or transport failure is an honest evidence gap. */ }
   }

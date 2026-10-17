@@ -18,8 +18,9 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
-import { commonHolderCapital, resolveSecurityBasis, type SecurityBasisEvidence } from "@/pipeline/stageB/securityBasis";
+import { commonHolderCapital, resolveSecurityBasis, resolveEconomicEquityScope, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
@@ -517,6 +518,9 @@ export interface DcfBalanceRow {
   basis: "quarter" | "annual";
   totalDebt: number | null;
   totalStockholdersEquity: number | null;
+  /** Consolidated equity is used once; otherwise parent equity plus signed NCI. */
+  totalEquity?: number | null;
+  minorityInterest?: number | null;
   cashAndShortTermInvestments: number | null;
   /** D-60: non-operating long-term investments, removed from the sales-to-capital denominator when reported. */
   longTermInvestments?: number | null;
@@ -1748,15 +1752,16 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // --- Sales-to-capital ------------------------------------------------------
   const bal = inputs.balance;
+  const equity = resolveConsolidatedEquity(bal ?? {});
   const ic =
-    bal && isNum(bal.totalDebt) && isNum(bal.totalStockholdersEquity) && isNum(bal.cashAndShortTermInvestments)
-      ? bal.totalDebt + bal.totalStockholdersEquity - bal.cashAndShortTermInvestments
+    bal && isNum(bal.totalDebt) && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
+      ? bal.totalDebt + equity.value - bal.cashAndShortTermInvestments
       : null;
   if (bal === null || ic === null || ic <= 0) {
     gaps.push(
       gapEntry(
         "valuation.dcf.salesToCapital",
-        `${ic === null ? "balance-sheet fields missing for invested capital" : "invested capital <= 0"} — DCF suppressed instead of using a universal capital-efficiency default`,
+        `${ic === null ? "balance-sheet fields missing for invested capital" : "invested capital <= 0"} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
         "critical",
       ),
     );
@@ -1771,8 +1776,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const s2c = clampWithNote(startRev / (operatingIc ?? ic), S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
   const s2cBasis = operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)`
-    : `${periodBasis} revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}` +
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)`
+    : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
 
   // --- Terminal economics ----------------------------------------------------
@@ -2692,7 +2697,8 @@ export interface MultiplesQuoteInputs {
   issuerId?: string;
   securityId?: string;
   /** Aggregate common cap; ADR quote class alone does not establish this scope. */
-  marketCapSecurityBasis?: "issuer-common" | "quoted-security";
+  marketCapSecurityBasis?: "issuer-common" | "quoted-security" | "unresolved";
+  marketCapScopeEvidence?: { reason: string; sourceIds: string[] };
 }
 
 /** TTM income statement slice (FMP names). */
@@ -2749,6 +2755,8 @@ export interface MultiplesBalance {
    */
   marketableEquitySecurities?: number | null;
   totalStockholdersEquity: number | null;
+  /** Consolidated equity can establish outside ownership without sizing a market NCI claim. */
+  totalEquity?: number | null;
   goodwill: number | null;
   intangibleAssets: number | null;
   minorityInterest: number | null;
@@ -2795,6 +2803,7 @@ export interface QuarterlyFundamentalsRow {
   operatingCashFlow: number | null;
   capitalExpenditure: number | null;
   totalStockholdersEquity: number | null;
+  totalEquity?: number | null;
   commonEquity?: number | null;
   equityOwnershipBasis?: "parent" | "consolidated";
   /**
@@ -2836,6 +2845,7 @@ export interface EnterpriseValuesRow {
   date: string;
   marketCapitalization: number | null;
   enterpriseValue: number | null;
+  sourceId?: string;
 }
 
 /** Pre-baked vendor ratio history (FMP key-metrics / ratios quarterly rows). */
@@ -2865,6 +2875,7 @@ export interface MultiplesFrameworkInputs {
   /** Retained, effective-dated evidence only; never a static guessed ratio. */
   securityBasis?: SecurityBasisEvidence[];
   securityBasisAsOf?: string;
+  economicShareEvidence?: EconomicShareEvidence[];
   /** Quarterly merged fundamentals (>= 8 rows enables derived TTM history). */
   quarterlyFundamentals?: QuarterlyFundamentalsRow[];
   enterpriseValuesHistory?: EnterpriseValuesRow[];
@@ -2904,6 +2915,10 @@ export interface MultiplesFrameworkInputs {
 /** WS6 (D-19): the EV bridge, both ways, with the convention stated. Only the
  * OPERATING slice ever moves between the two (WS6 review, BLOCKER 1). */
 export interface EnterpriseValueBridge {
+  /** Optional for reports serialized before scope metadata was introduced. */
+  equityScope?: EconomicEquityScope;
+  noncontrollingInterestBasis?: "book-value-proxy" | "none-disclosed" | "unknown-allocation";
+  nonOperatingHoldingsScope?: "not-comprehensively-resolved";
   /** The EV actually used by the EV multiples. */
   value: number | null;
   /** EV with the OPERATING lease liability removed (the house default). */
@@ -2925,11 +2940,7 @@ export interface EnterpriseValueBridge {
 }
 
 export interface OwnHistoryBand {
-  /**
-   * WS6 (D-19): RANK AMONG `observations` QUARTERS (0-100), not a percentile.
-   * The field name is kept for backward compatibility; every label built from
-   * it says "rank among N quarters", with N = `observations`.
-   */
+  /** Empirical percentile rank (0-100) in this finite sample, not an ordinal rank. */
   percentileRank: number | null;
   /**
    * 5th percentile of up to 20 quarterly observations. NOTE: because the window
@@ -2944,12 +2955,23 @@ export interface OwnHistoryBand {
   /** 95th percentile — same caveat as p5: tracks the near-maximum at these sizes. */
   p95: number | null;
   observations: number;
+  /** Optional for legacy serialized results; values are in the original sample order. */
+  observationDetails?: OwnHistoryObservation[];
   basis: string;
   /**
    * True when the window is shorter than a full 5 years (< 20 quarters), i.e. the
    * p5/p95 tails are especially thin. When true the basis carries a LOW SAMPLE note.
    */
   lowSample?: boolean;
+}
+
+export interface OwnHistoryObservation {
+  periodEnd: string;
+  /** Actual dated market-cap observation; vendor ratios do not establish it. */
+  marketDate: string | null;
+  value: number;
+  source: "raw-statements" | "vendor-ratio";
+  marketCapSourceId?: string;
 }
 
 export interface PeerStats {
@@ -3008,6 +3030,7 @@ type HistorySeries = Partial<Record<MultipleKey, number[]>>;
 
 interface OwnHistoryDerivation {
   series: HistorySeries;
+  details: Partial<Record<MultipleKey, OwnHistoryObservation[]>>;
   observations: number;
   rejectedPeriods: Array<{ period: string; reason: string }>;
   rejectedWindows: Array<{ anchor: string; reason: string }>;
@@ -3029,6 +3052,12 @@ const DERIVED_HISTORY_KEYS: readonly MultipleKey[] = [
 ];
 const OWN_HISTORY_EV_MAX_AGE_DAYS = 45;
 
+/** A consolidated/parent difference proves outside ownership, never its market value. */
+function unknownNoncontrollingAllocation(balance: { totalEquity?: number | null; totalStockholdersEquity?: number | null; minorityInterest?: number | null } | null): boolean {
+  return isNum(balance?.totalEquity) && isNum(balance?.totalStockholdersEquity) && !isNum(balance?.minorityInterest) &&
+    Math.abs(balance.totalEquity - balance.totalStockholdersEquity) > Math.max(1, Math.abs(balance.totalEquity) * 1e-10);
+}
+
 /** Rolling-4-quarter TTM multiples derived from raw statements + EV history. */
 function deriveOwnHistory(
   quarters: QuarterlyFundamentalsRow[] | undefined,
@@ -3042,11 +3071,13 @@ function deriveOwnHistory(
   currentCommonAllocation: { preferred: boolean; nci: boolean } = { preferred: false, nci: false },
 ): OwnHistoryDerivation {
   const series: HistorySeries = {};
+  const details: Partial<Record<MultipleKey, OwnHistoryObservation[]>> = {};
   const normalized = normalizeQuarterRows(quarters ?? []);
   const candidates = contiguousQuarterWindows(normalized.rows, normalized.rows.length);
   if (candidates.windows.length === 0) {
     return {
       series,
+      details,
       observations: 0,
       rejectedPeriods: normalized.rejected,
       rejectedWindows: candidates.rejected,
@@ -3122,7 +3153,7 @@ function deriveOwnHistory(
     if (!leaseBasisMatches) leaseBasisMismatchWindows.push(b.date);
     const historicalNetDebt = resolveNetDebt(b);
     const evVal =
-      leaseBasisMatches && isNum(mcap) && historicalNetDebt.value !== null
+      leaseBasisMatches && !unknownNoncontrollingAllocation(b) && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
           historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
@@ -3163,7 +3194,11 @@ function deriveOwnHistory(
     });
     for (const key of stillNeeded) {
       const value = values[key];
-      if (value !== null && value !== undefined && value > 0) push(key, value);
+      if (value !== null && value !== undefined && value > 0) {
+        push(key, value);
+        (details[key] ??= []).push({ periodEnd: window[0].date, marketDate: ev.date, value,
+          source: "raw-statements", ...(ev.sourceId ? { marketCapSourceId: ev.sourceId } : {}) });
+      }
     }
     if (unavailable.length > 0) {
       unusableWindows.push({
@@ -3175,6 +3210,7 @@ function deriveOwnHistory(
   const observations = Math.max(0, ...DERIVED_HISTORY_KEYS.map((key) => series[key]?.length ?? 0));
   return {
     series,
+    details,
     observations,
     rejectedPeriods: normalized.rejected,
     rejectedWindows: candidates.rejected,
@@ -3218,7 +3254,7 @@ function vendorHistory(rows: VendorMultiplesRow[] | undefined): HistorySeries {
   return series;
 }
 
-function bandFor(values: number[] | undefined, current: number | null, basis: string): OwnHistoryBand | null {
+function bandFor(values: number[] | undefined, current: number | null, basis: string, details: OwnHistoryObservation[] = []): OwnHistoryBand | null {
   if (!values || values.length < MIN_HISTORY_OBS_FOR_BAND) return null;
   // With the derivation capped at 20 quarterly obs, quantile idx 0.05·(n−1) < 1 for
   // all n ≤ 20, so p5/p95 are interpolated within the outermost cell — they track the
@@ -3226,12 +3262,10 @@ function bandFor(values: number[] | undefined, current: number | null, basis: st
   // windows so p5/p95 aren't over-read; the median/quartiles stay robust.
   const lowSample = values.length < FULL_OWN_HISTORY_OBS;
   const flat = percentileRank(values, values[0]) === null;
-  // WS6 (D-19): the headline figure is a RANK AMONG N QUARTERS, never a
-  // percentile of a distribution - 8-20 observations cannot estimate one.
   const observationBasis =
-    `${basis} (${values.length} observations). The reported figure is a RANK AMONG ${values.length} QUARTERS ` +
-    "(0-100 by linear interpolation between order statistics, tied values receive their midrank within a relative tolerance of 1e-9), not a percentile of a distribution: " +
-    "the sample is far too small for that, and a rank within the observed sample is what it actually measures.";
+    `${basis} (${values.length} observations). The reported figure is an empirical percentile rank within this sample ` +
+    "(0-100 by linear interpolation between order statistics; tied values receive their midrank within a relative tolerance of 1e-9). " +
+    "It is not an ordinal position or an estimate of a population percentile; small samples and input comparability limit interpretation.";
   const notedBasis = lowSample
     ? `${observationBasis} LOW SAMPLE (${values.length} quarterly observations < 5y): p5/p95 track the tail observations (≈ observed range), not stable quantiles.`
     : observationBasis;
@@ -3243,6 +3277,7 @@ function bandFor(values: number[] | undefined, current: number | null, basis: st
     p75: quantile(values, 0.75),
     p95: quantile(values, 0.95),
     observations: values.length,
+    observationDetails: details,
     basis: notedBasis + (flat ? " Flat history is uninformative; no own-history rank or grade signal is available." : ""),
     lowSample,
   };
@@ -3277,11 +3312,12 @@ export function multiplesFramework(
   // the price inputs are withheld, so every multiple reads n/m. Peer stats
   // describe other issuers and stay.
   const priceCurrency = comparePriceCurrency(inputs.reportedCurrency, inputs.quote.currency);
-  const marketCapSecurityKnown = inputs.quote.isAdr !== true || inputs.quote.marketCapSecurityBasis === "issuer-common";
-  const mcap = priceCurrency.comparable && marketCapSecurityKnown ? posOrNull(inputs.quote.marketCap) : null;
+  const equityScope = resolveEconomicEquityScope(inputs.quote, inputs.economicShareEvidence ?? [], inputs.securityBasisAsOf ?? "");
+  const marketCapSecurityKnown = equityScope.status !== "unresolved";
+  const mcap = priceCurrency.comparable && marketCapSecurityKnown ? posOrNull(equityScope.marketCap) : null;
   const price = priceCurrency.comparable ? posOrNull(inputs.quote.price) : null;
   if (!marketCapSecurityKnown) {
-    const reason = "ADR market-cap security scope unavailable: issuer-common capitalization is not established, so common-income/book and enterprise-value multiples are withheld";
+    const reason = equityScope.basis;
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.marketCap.securityBasis", reason, "warn"));
   }
@@ -3326,12 +3362,18 @@ export function multiplesFramework(
   // short-term investments. FMP's totalDebt already contains the lease
   // liability, so the default (leases NOT in EV) subtracts it back out.
   const netDebt = resolveNetDebt(bal ?? {});
+  const unknownNciAllocation = unknownNoncontrollingAllocation(bal);
+  const unknownNciReason = "Consolidated equity differs from parent equity but the NCI allocation is unavailable; outside ownership cannot be zero-filled or valued from the book-equity difference. EV-dependent multiples withheld.";
+  if (!financialsRoute && unknownNciAllocation) {
+    notes.push(unknownNciReason);
+    gaps.push(gapEntry("valuation.multiples.enterpriseValue.noncontrollingOwnership", unknownNciReason, "warn"));
+  }
   if (!financialsRoute && bal && netDebt.value === null) {
     gaps.push(gapEntry("valuation.multiples.netDebt", netDebt.reason, "warn"));
     notes.push(`EV withheld: ${netDebt.reason}. Equity-only multiples are evaluated separately.`);
   }
   const evIncludingLeases =
-    mcap !== null && bal && netDebt.value !== null
+    mcap !== null && bal && netDebt.value !== null && !unknownNciAllocation
       ? mcap +
         netDebt.value +
         (isNum(bal.preferredStock) ? bal.preferredStock : 0) +
@@ -3388,10 +3430,17 @@ export function multiplesFramework(
       ? ", and keeping the operating-lease liability in EV pairs a lease-INCLUSIVE numerator with a lease-EXPENSED denominator — not comparable to the default basis, and the caller's explicit choice."
       : ", so removing the operating-lease liability keeps numerator and denominator on the same basis.") +
     " Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed." +
+    ` ${equityScope.basis} ` +
+    (unknownNciAllocation ? `${unknownNciReason} ` : "") +
+    (isNum(bal?.minorityInterest) && bal.minorityInterest !== 0 ? "Noncontrolling interest is a filed book-value proxy, not an established market value. " : "") +
+    "Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value. " +
     (evIncludingLeases === null || evExcludingLeases === null
       ? ""
       : ` EV excluding the operating-lease liability ${fmtNum(evExcludingLeases)}; EV as reported ${fmtNum(evIncludingLeases)}.`);
   const enterpriseValue: EnterpriseValueBridge = {
+    equityScope,
+    noncontrollingInterestBasis: unknownNciAllocation ? "unknown-allocation" : isNum(bal?.minorityInterest) && bal.minorityInterest !== 0 ? "book-value-proxy" : "none-disclosed",
+    nonOperatingHoldingsScope: "not-comprehensively-resolved",
     value: financialsRoute ? null : ev,
     excludingLeases: financialsRoute ? null : evExcludingLeases,
     includingLeases: financialsRoute ? null : evIncludingLeases,
@@ -3518,6 +3567,7 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.ownHistory.evLeaseBasis", detail, "info"));
   }
   const history: HistorySeries = {};
+  const historyDetails: Partial<Record<MultipleKey, OwnHistoryObservation[]>> = {};
   const historyBasisByKey: Partial<Record<MultipleKey, string>> = {};
   const derivedBasis =
     "per-quarter TTM multiples derived from four normalized contiguous fiscal quarters of raw statements + the latest enterprise value and market capitalization on or before each TTM period end (maximum age 45 calendar days; future observations are ineligible)";
@@ -3537,6 +3587,12 @@ export function multiplesFramework(
   // the adjustment fired the vendor EV bands are withheld rather than published
   // on a basis the current number does not share.
   const vendorEvKeys: readonly MultipleKey[] = ["evToEbitda", "evToSales"];
+  if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(unknownNoncontrollingAllocation)) {
+    for (const key of vendorEvKeys) delete vendor[key];
+    const reason = "Known outside ownership has an unavailable NCI allocation in current or historical balance evidence; affected historical EV windows and vendor EV-ratio fallback without ownership allocation evidence are withheld. Equity-only history is evaluated separately.";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.ownHistory.noncontrollingOwnership", reason, "info"));
+  }
   if (removeOperatingLease && vendorEvKeys.some((key) => (vendor[key]?.length ?? 0) > 0)) {
     for (const key of vendorEvKeys) delete vendor[key];
     const reason =
@@ -3574,6 +3630,7 @@ export function multiplesFramework(
     const vendorValues = vendor[key];
     if ((ownValues?.length ?? 0) >= MIN_HISTORY_OBS_FOR_BAND) {
       history[key] = ownValues;
+      historyDetails[key] = derived.details[key];
       historyBasisByKey[key] =
         derivedBasis +
         (removeOperatingLease && vendorEvKeys.includes(key)
@@ -3584,6 +3641,12 @@ export function multiplesFramework(
           : "");
     } else if ((vendorValues?.length ?? 0) >= MIN_HISTORY_OBS_FOR_BAND) {
       history[key] = vendorValues;
+      const vendorField: Partial<Record<MultipleKey, keyof VendorMultiplesRow>> = { evToSales: "evToSales", evToEbitda: "evToEBITDA", peTtm: "priceToEarningsRatio", priceToBook: "priceToBookRatio", priceToFcf: "priceToFreeCashFlowRatio" };
+      const field = vendorField[key];
+      historyDetails[key] = (inputs.keyMetricsHistory ?? []).flatMap(row => {
+        const value = field ? row[field] : undefined;
+        return typeof value === "number" && Number.isFinite(value) && value > 0 ? [{ periodEnd: row.date, marketDate: null, value, source: "vendor-ratio" as const }] : [];
+      }).slice(0, FULL_OWN_HISTORY_OBS);
       historyBasisByKey[key] = vendorBasis;
       usedVendor = true;
     }
@@ -3669,7 +3732,7 @@ export function multiplesFramework(
       current: cur,
       basis: basisByKey[key],
       ownHistory: priceCurrency.comparable && marketCapSecurityKnown
-        ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history")
+        ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history", historyDetails[key])
         : null,
       peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
@@ -3681,13 +3744,12 @@ export function multiplesFramework(
     const band = m.ownHistory;
     if (band === null) continue;
     if (band.percentileRank === null) {
-      notes.push(`${m.key}: own-history RANK AMONG ${band.observations} QUARTERS unavailable; ${percentileRank(history[m.key] ?? [], history[m.key]?.[0] ?? NaN) === null ? "flat history is uninformative" : "current multiple is unavailable"}, so no own-history grade signal is available.`);
+      notes.push(`${m.key}: own-history empirical percentile rank (${band.observations} observations) unavailable; ${percentileRank(history[m.key] ?? [], history[m.key]?.[0] ?? NaN) === null ? "flat history is uninformative" : "current multiple is unavailable"}, so no own-history grade signal is available.`);
       continue;
     }
     notes.push(
-      `${m.key}: the own-history figure is a RANK AMONG ${band.observations} QUARTERS of this issuer's own history ` +
-        `(${fmtNum(band.percentileRank)} on a 0-100 scale), not a percentile of a distribution - ${band.observations} observations ` +
-        "cannot estimate percentiles, and a rank within the observed sample is what it measures.",
+      `${m.key}: own-history empirical percentile rank ${fmtNum(band.percentileRank)} on a 0-100 scale, based on ${band.observations} observations. ` +
+        "This is a relative position in the retained sample, not an ordinal quarter rank; input comparability and the small sample limit interpretation.",
     );
   }
 
@@ -4531,7 +4593,9 @@ export interface ValuationBundleInputs {
   netDebt: number | null;
   dilutedShares: number | null;
   /** Required for an ADR per-share bridge, along with dated ADS evidence. */
-  dilutedShareSecurityBasis?: "ordinary" | "quoted";
+  dilutedShareSecurityBasis?: "ordinary" | "quoted" | "issuer-economic";
+  /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
+  noncontrollingOwnershipUnresolved?: boolean;
   /** Minority interest / preferred equity for the DCF equity bridge (0 when absent). */
   minorityInterest?: number | null;
   preferred?: number | null;
@@ -4636,6 +4700,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
 
+  if (inputs.noncontrollingOwnershipUnresolved === true && inputs.dcfInputs !== null) {
+    const reason = "Consolidated equity differs from parent equity, establishing outside ownership, but its NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
+    gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
+    notes.push(reason);
+    inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
+  }
+
   if (route.overlays.includes("pre-revenue")) {
     notes.push(
       "pre-revenue: DCF, reverse DCF and multiples suppressed (denominators zero/negative); runway + scenario framing handled elsewhere",
@@ -4664,7 +4735,28 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     }
   }
 
+  const economicScope = resolveEconomicEquityScope(inputs.multiples.quote,
+    inputs.multiples.economicShareEvidence ?? [], inputs.multiples.securityBasisAsOf ?? "");
+  const multiclassEvidence = inputs.multiples.economicShareEvidence?.some(row => row.classes.length > 1) === true;
+  if (economicScope.status === "unresolved" ||
+    (multiclassEvidence && inputs.dilutedShareSecurityBasis !== "issuer-economic")) {
+    const reason = "Per-share intrinsic valuation withheld: common-class coverage or the economic basis of weighted-average diluted shares is unresolved. Outstanding class counts do not establish the diluted denominator; no class ratio is guessed.";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.perShare.economicClassBasis", reason, "warn"));
+    inputs = { ...inputs, dilutedShares: null,
+      excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, dilutedShares: null } : null,
+      reit: inputs.reit ? { ...inputs.reit, shares: null, sharePrice: null } : null };
+  }
+  if (economicScope.status !== "unverified-vendor-scope") inputs = { ...inputs,
+    excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
+
   const multiples = multiplesFramework(route.base, inputs.multiples);
+  if (route.base === "reit" && inputs.reit && multiples.enterpriseValue.noncontrollingInterestBasis === "unknown-allocation") {
+    const reason = "REIT enterprise value and implied cap rate withheld: consolidated equity establishes outside ownership but the NCI allocation is unavailable; no market NCI value is inferred from the book-equity difference. FFO figures are evaluated separately.";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.reit.noncontrollingOwnership", reason, "warn"));
+    inputs = { ...inputs, reit: { ...inputs.reit, netDebt: null } };
+  }
   // The one rule every comparison with the quote obeys (priceCurrency.ts):
   // statements and quote in ONE KNOWN currency, or no comparison at all.
   const quoteComparison = comparePriceCurrency(inputs.multiples.reportedCurrency, inputs.multiples.quote.currency);
