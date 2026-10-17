@@ -598,7 +598,7 @@ function technicalsSection(computed: ComputedMetrics, graded: GradeBlock, curren
     traced(t.smaCross.sma50, "currency/share", "computed.technicals.smaCross", asOf, { currency, period: "SMA50" }),
     traced(t.smaCross.sma200, "currency/share", "computed.technicals.smaCross", asOf, { currency, period: "SMA200" }),
     traced(t.rsi14, "index", "computed.technicals.rsi14", asOf, { period: "RSI-14" }),
-    traced(t.macd.histogram, "points", "computed.technicals.macd", asOf, { period: "MACD histogram" }),
+    traced(t.macd.histogram, "currency/share", "computed.technicals.macd", asOf, { currency, period: "MACD histogram" }),
     traced(t.range52w.high52w, "currency/share", "computed.technicals.range52w", asOf, { currency, period: "52-week high" }),
     traced(t.range52w.low52w, "currency/share", "computed.technicals.range52w", asOf, { currency, period: "52-week low" }),
     traced(t.range52w.pctFromHigh, "%", "computed.technicals.range52w", asOf, { period: "% from 52-week high" }),

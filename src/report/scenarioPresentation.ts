@@ -4,6 +4,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import type { Scenario, ScenarioPresentation, SensitivityCell, Valuation } from "@/report/schema";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
+import { projectionAvailability } from "@/report/surfaceManifest";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 /**
@@ -92,16 +93,16 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
   const display = computed.valuation ? computeDcfDisplay(computed.valuation) : null;
   const cells = display?.sensitivityGrid ?? [];
   const entityAvailable = finite(display?.bridge?.enterpriseValue) && (display?.forecastRows?.length ?? 0) > 0;
-  const operatingPathsAvailable = computed.projections?.series.some(s => s.base.length > 0 && s.bull.length > 0 && s.bear.length > 0) ?? false;
+  const projections = projectionAvailability(computed.projections?.series ?? []);
   return {
     methodVersion: "SCENARIO_PRESENTATION_2026_10",
-    weightBasis: `${WEIGHT_BASIS} ${computed.projections?.series.length
+    weightBasis: `${WEIGHT_BASIS} ${projections.weighted
       ? "The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability."
       : "No weighted operating projections are available; no projection weights are applied."}`,
     interpretation: computed.scenarioTargets?.status === "available"
       ? "Scenario values are present-value DCF sensitivities over the explicit operating horizon. Growth and margin paths use the shifts that generated each labeled target; all other model inputs remain at base. Model commentary is qualitative and does not set those inputs."
       : entityAvailable
-        ? `${operatingPathsAvailable ? "Entity DCF and numerical operating scenario paths are available" : "Entity DCF is available; numerical operating scenario paths are unavailable"}; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.`
+        ? `${projections.forward ? "Entity DCF and numerical operating scenario paths are available" : "Entity DCF is available; numerical operating scenario paths are unavailable"}; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.`
         : "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",
     sensitivity: summarizeSensitivity(cells, currentPrice, display?.growthMarginGrid ?? null),
   };

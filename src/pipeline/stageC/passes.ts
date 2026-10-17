@@ -3343,6 +3343,7 @@ export function applyMultiples(
       : mr.multiples.map((stat) => ({
           name: stat.key === "priceToFcf" && stat.ownershipScope ? "P/FCF (before SBC; cash attribution unresolved)" : MULTIPLE_LABELS[stat.key],
           current: stat.current,
+          ...(typeof stat.basis === "string" && stat.basis.trim() ? { basis: stat.basis } : {}),
           peerMedian: stat.peers?.median ?? null,
           peerCount: stat.peers?.count ?? null,
           own5yPercentile: stat.ownHistory?.percentileRank ?? null,

@@ -107,7 +107,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // matched guidance/operating evidence and source-preserving disclosure surfaces.
 // 1.22.0: admission of complete debt and applicable class/geography scope;
 // officer agreement/announcement/completion distinctions and per-share labels.
-export const REPORT_SPEC_VERSION = "1.22.0" as const;
+// 1.23.0 (D-81): pipeline-owned multiple bases, price-unit MACD evidence and
+// projection availability presentation; legacy reports retain their own stamps.
+export const REPORT_SPEC_VERSION = "1.23.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1028,6 +1030,8 @@ export type ReverseDcf = z.infer<typeof ReverseDcfSchema>;
 export const MultipleRowSchema = z
   .object({
     name: z.string(),
+    /** Deterministic StageB numerator/denominator scope; optional for legacy reports. */
+    basis: z.string().optional(),
     current: z.number().nullable(),
     peerMedian: z.number().nullable(),
     /** Number of eligible peers after metric-specific outlier filtering. */
@@ -2986,8 +2990,9 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         delete props.ownHistoryObservations;
         delete props.ownHistoryDetails;
         delete props.ownHistoryBasis;
+        delete props.basis;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis"].includes(key));
+          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis", "basis"].includes(key));
         }
       }
     }

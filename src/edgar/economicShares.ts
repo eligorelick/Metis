@@ -121,30 +121,120 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     if (invalid || !classes.length || classes.filter(cls => cls.label === quotedLabel).length !== 1) { result.reason = "Cover inventory has ambiguous, invalid or unaccounted common-class rows"; return result; }
     // Both distribution modes and exactly the enumerated classes must be explicit
     // in one bounded sentence. Equal EPS or conversion rights alone are insufficient.
-    // Preserve row/paragraph boundaries: a financial table's class heading
-    // must not attach to an unrelated dividend cash-flow row. Layout-table
-    // rights assertions remain visible rather than disappearing wholesale.
+    // Retain complete local passages. Generic layout headings and numeric
+    // tables do not establish a change of accounting topic or end a qualifier.
+    const ownershipAssertion = (value: string): boolean => /\b(?:distributions?|dividends?|liquidation|rights|recapitalization|amendment|charter|terms|provisions|appl(?:y|ies)|effective|operative|commenc(?:e|es|ing))\b/i.test(value);
+    const strongAccountingBoundary = (value: string): boolean => {
+      if (ownershipAssertion(value)) return false;
+      return /^notes?\s+\d+\s*[-\u2013\u2014:]\s+\S/i.test(value) ||
+        /^part\s+[ivx]+$/i.test(value) ||
+        /^item\s+\d+[a-z]?\.\s*(?:financial statements|management.s discussion and analysis|market risk|risk factors)\s*$/i.test(value);
+    };
     const rightsHtml = (parsed?.pre ?? html).replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, "")
-      .replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, table => `${htmlToText(table.replace(/<\/tr>/gi, ". "))}. `)
-      .replace(/<\/(?:p|div)>/gi, ". ");
-    const text = htmlToText(rightsHtml);
-    const sentences = text.split(/[.!?]\s+/);
-    const supportedCurrentEquality = (sentence: string): boolean => sentence.length <= 1600 &&
-      /\bequal\s+per[- ]share\s+distributions\s+(?:whether\s+)?through\s+dividends?\s+(?:or|and)\s+(?:in\s+)?liquidation\b/i.test(sentence) &&
-      /\breceive\b|\bare\s+(?:legally\s+)?entitled\b/i.test(sentence) &&
-      !/[;:]|\b(?:no|not|unequal|except|unless|without|denied|if|would|will|may|might|could|should|proposed|proposal|amendment|approval|approved|subject|upon|provided|contingent|conditional|future|prior|previous|previously|former|formerly|historical|historically|received|were|had|before|until)\b/i.test(sentence) &&
-      // This bounded prose parser establishes only unqualified present rights.
-      // Dated/relative applicability requires independent typed interval proof;
-      // neither the filing date nor the inventory day supplies that interval.
-      !/\b\d{4}\b|\b(?:effective|beginning|starting|commencing|from|next|following|after|when)\b|\bas\s+of\b/i.test(sentence) &&
-      /\b(?:holders|entitled)\b/i.test(sentence) &&
-      (() => { const labels = new Set(classLabels(sentence)); return labels.size === classes.length && classes.every(cls => labels.has(cls.label)); })();
+      .replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, table => [...table.matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)]
+        .map(row => "\uE003" + htmlToText(row[0]) + "\uE000").join(""))
+      .replace(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi, (_heading, _level, inner: string) => {
+        const value = htmlToText(inner);
+        return strongAccountingBoundary(value) ? "\uE001" + value + "\uE001" : "\uE000" + value + "\uE000";
+      })
+      .replace(/<\/(?:p|div)>/gi, "\uE000");
+    let row = false;
+    const blocks = htmlToText(rightsHtml).split(/([\uE000\uE001\uE003])/).reduce<{ text: string; boundary: boolean; row: boolean }[]>((all, part) => {
+      const value = part.trim();
+      if (value === "\uE003") row = true;
+      else if (value === "\uE000") row = false;
+      else if (value === "\uE001") { all.push({ text: "", boundary: true, row: false }); row = false; }
+      else if (value) all.push({ text: value, boundary: strongAccountingBoundary(value), row });
+      return all;
+    }, []);
+    const blockSentences = (block: typeof blocks[number]): string[] => block.row ? [block.text] : block.text.split(/[.!?]\s+/);
+    const statements = blocks.flatMap((block, blockIndex) => block.boundary ? [] : blockSentences(block).map(sentence => ({ sentence, blockIndex })));
+    const sentences = statements.map(statement => statement.sentence);
+    const supportedCurrentEquality = (sentence: string): boolean => {
+      const value = sentence.trim().replace(/[.]$/, "").replace(/\s+/g, " ");
+      if (value.length > 1600) return false;
+      const distribution = "equal per[- ]share distributions (?:whether )?through dividends? (?:or|and) (?:in )?liquidation";
+      const predicate = "(?:receive|are (?:legally )?entitled to) " + distribution;
+      const forms = [
+        new RegExp("^For (.+), (?:the )?holders of each class " + predicate + "$", "i"),
+        new RegExp("^(?:The )?holders of (.+) " + predicate + "$", "i"),
+        new RegExp("^The earnings per share amounts are the same for (.+) because the holders of each class are (?:legally )?entitled to " + distribution + "$", "i"),
+      ];
+      const named = forms.map(form => form.exec(value)?.[1]).find(Boolean);
+      if (!named) return false;
+      // Validate the entire subject, not merely class-name substrings within an
+      // attributed, negated or hypothetical assertion.
+      const className = "(?:class [a-z0-9]{1,8} )?(?:common (?:stock|shares)|ordinary shares)";
+      if (!new RegExp("^" + className + "(?:(?:,? and |, )" + className + ")*$", "i").test(named)) return false;
+      const labels = classLabels(named);
+      return labels.length === classes.length && new Set(labels).size === classes.length && classes.every(cls => labels.includes(cls.label));
+    };
     // Every additional-class economic assertion must be supported. An unknown
     // assertion can conflict with equality regardless of its ratio wording.
     const economicAssertions = sentences.filter(sentence => /\b(?:distributions?|dividends?|liquidation)\b/i.test(sentence) &&
       classLabels(sentence).some(label => label !== quotedLabel && classes.some(cls => cls.label === label)));
     const unsupportedRights = economicAssertions.some(sentence => !supportedCurrentEquality(sentence));
-    const rights = !unsupportedRights ? sentences.find(supportedCurrentEquality) : undefined;
+    const currentIntro = (sentence: string): boolean => /^(?:the\s+)?following\s+(?:describes?|sets?\s+out|are)\s+(?:the\s+)?current\s+(?:distribution\s+)?rights[.]?$/i.test(sentence.trim());
+    // The bounded passage grammar admits known accounting facts/methods and
+    // neutral class introductions. Every other assertion is unresolved; unknown
+    // pronouns or applicability clauses cannot disappear for lacking a class name.
+    const neutralAccounting = (sentence: string, isRow: boolean): boolean => {
+      const value = sentence.trim().replace(/[.:]$/, "");
+      if (!value) return true;
+      if (ownershipAssertion(value)) return false;
+      if (/^(?:(?:the\s+)?company|common stock)\s+has\s+(?:one|two|three|four|\d+)\s+classes(?:\s+of\s+common\s+(?:stock|shares))?$/i.test(value)) return true;
+      if (/^(?:financial|accounting)\s+(?:statements?\s+)?(?:discussion|information|data|statements|notes)$/i.test(value)) return true;
+      if (/^(?:shares issued|treasury shares):\s*[\d,.]+$/i.test(value)) return true;
+      if (/^(?:\d+|F-\s*\d+|Table of Contents|Notes to Consolidated Financial Statements\s*[-\u2013\u2014]?\s*\(Continued\))$/i.test(value)) return true;
+      if (/^(?:Basic|Diluted)\s+Earnings\s+Per\s+Share$/i.test(value)) return true;
+      if (/^The following table (?:represents|presents|shows) (?:our|the) basic and diluted earnings per share$/i.test(value)) return true;
+      // Supported EPS methods are whole clauses. An accounting phrase cannot
+      // absorb a second assertion about class participation or applicability.
+      const method = value.replace(/\s+/g, " ");
+      const years = "(?:the )?years? ended [A-Za-z]+ \\d{1,2}, \\d{4}(?:, \\d{4})*(?: and \\d{4})?";
+      const methods = [
+        /^(?:Basic |Diluted )?earnings per share is calculated using (?:our |the )?weighted[- ]average (?:outstanding common shares|shares)(?: including the dilutive effect of stock awards and common stock warrants as determined under the treasury stock method and of our Convertible Notes using the if-converted method prior to the date of our irrevocable election to settle in cash discussed in Note \d+ [–—-] Debt)?$/i,
+        new RegExp("^Basic earnings per share was calculated for " + years + " using the weighted average number of common and Class [A-Za-z0-9]+ common shares outstanding during the period excluding restricted stock and stock held in escrow$", "i"),
+        new RegExp("^For " + years + ", we computed diluted earnings per share using \\(i\\) the number of shares of common stock and Class [A-Za-z0-9]+ common stock used in the basic earnings per share calculation as indicated above, \\(ii\\) if dilutive, the incremental common stock that we would issue upon the assumed exercise or vesting of stock-based awards and common stock warrants using the treasury stock method, \\(iii\\) if dilutive, our Convertible Notes using the if-converted method prior to the date of our irrevocable election to settle in cash as discussed in NOTE \\d+ [–—-] Debt, and \\(iv\\) other stock-based commitments$", "i"),
+        /^(?:In )?periods when we recognize a net loss, we exclude the impact of outstanding stock awards and the potential share settlement impact related to our Convertible Notes, if applicable, from the diluted loss per share calculation as their inclusion would have an antidilutive effect$/i,
+        /^(?:For the (?:three|six|nine|twelve)(?: and (?:three|six|nine|twelve))? months ended [A-Za-z]+ \d{1,2}, \d{4}, (?:less than |approximately )?\d+(?: million)?|For the years? ended [A-Za-z]+ \d{1,2}, \d{4}(?:, \d{4})*(?: and \d{4})?, a minimal number of shares) of outstanding stock[- ](?:based )?awards (?:have been|were) excluded from the calculations of diluted earnings per share attributable to common stockholders because their effect would have been antidilutive$/i,
+        /^For the (?:three|six|nine|twelve)(?: and (?:three|six|nine|twelve))? months ended [A-Za-z]+ \d{1,2}, \d{4}, approximately \d+(?: million)?(?: of outstanding stock awards| shares)? were excluded$/i,
+        /^For the years? ended [A-Za-z]+ \d{1,2}, \d{4}(?:, \d{4})*(?: and \d{4})?, approximately \d+(?: million)?(?: and approximately \d+(?: million)?)?(?: shares)? were excluded$/i,
+      ];
+      if (methods.some(pattern => pattern.test(method))) return true;
+      // Pagination may split the financial-method paragraph after its preposition.
+      if (value === "In") return true;
+      if (!isRow) return false;
+      if (/^(?:Basic|Diluted|Convertible Notes|Stock[- ]based awards)\s+[$\d\s,.\u2014()\-]+$/i.test(value)) return true;
+      if (/^(?:\d{4}\s*)+$/.test(value) || /^\(In (?:millions|thousands), except (?:share and )?per share data\)$/i.test(value)) return true;
+      if (/^(?:(?:Three|Six|Nine|Twelve) months ended [A-Za-z]+\s+\d{1,2},?\s*)+$/i.test(value) || /^Year Ended [A-Za-z]+\s+\d{1,2},?$/i.test(value)) return true;
+      // A numeric row must have a bounded noun label, not arbitrary prose before
+      // its figures. Proper issuer-name tokens and the plain parent label are
+      // supported; compound assertions and unknown lower-case clauses refuse.
+      const issuerLabel = "(?:parent|[A-Z][A-Za-z0-9&'’.-]*(?:[ ,]+[A-Z][A-Za-z0-9&'’.-]*){0,11})";
+      if (new RegExp("^Net income attributable to " + issuerLabel + " \\$?\\s*[\\d,.]+[\\d$\\s,.()\\-]*$").test(value)) return true;
+      if (new RegExp("^Earnings per share attributable to " + issuerLabel + " available to common stockholders$").test(value)) return true;
+      if (/^Weighted average number of shares outstanding\s*\(000['\u2019]s\)$/i.test(value) || /^Dilutive effect of$/i.test(value)) return true;
+      return false;
+    };
+    const supportedPassage = (selectedBlock: number): boolean => {
+      let first = selectedBlock, last = selectedBlock;
+      let chars = blocks[selectedBlock].text.length, count = 1;
+      if (chars > 12000) return false;
+      for (const direction of [-1, 1]) {
+        let index = selectedBlock + direction;
+        while (index >= 0 && index < blocks.length && !blocks[index].boundary) {
+          chars += blocks[index].text.length; count++;
+          // Reaching a budget is unresolved context, not permission to discard it.
+          if (chars > 12000 || count > 64) return false;
+          if (direction < 0) first = index; else last = index;
+          index += direction;
+        }
+      }
+      return blocks.slice(first, last + 1).every(block => blockSentences(block).every(sentence =>
+        supportedCurrentEquality(sentence) || currentIntro(sentence) || neutralAccounting(sentence, block.row)));
+    };
+    const rights = !unsupportedRights ? statements.find(statement => supportedCurrentEquality(statement.sentence) && supportedPassage(statement.blockIndex))?.sentence : undefined;
     result.passages.rights = rights ?? null;
     if (classes.length > 1 && !rights) { result.reason = "Outstanding common classes retained; equivalent dividend and liquidation economics are not established"; return result; }
     result.evidence = { issuerId: identity.issuerId, securityId: identity.securityId, asOf: inventoryDay, filed: identity.filingDate,

@@ -1,5 +1,6 @@
 import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
 import { formatFinancialValue, formatLargeNumber } from "./format";
+import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
 
 export interface ReportAuditTable { heading: string; headers: string[]; rows: string[][]; note?: string }
 const n = (value: number | null | undefined, digits = 2) => typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "unavailable";
@@ -119,6 +120,7 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
 }
 
 export function projectionAuditTables(p: Projections): ReportAuditTable[] {
+  if (!projectionAvailability(p.series).forward) return [];
   const tables: ReportAuditTable[] = [];
   const a = p.scenarioAssumptions;
   if (a) {
@@ -142,6 +144,16 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
       ]),
     ],note:s.capitalReturn.basis});
     if (s.flatShare && s.shareTrend) tables.push({heading:"EPS share-count sensitivity",headers:["Period","Base EPS, flat shares","Historical-trend hypothetical EPS"],rows:s.base.map((point,index)=>[point.period,n(s.flatShare?.base[index]?.value.value),n(s.shareTrend?.base[index]?.value.value)]),note:"Historical-trend EPS is an unfunded hypothetical. A past share-count decline does not establish affordable future repurchases."});
+  }
+  const mainWeighted = p.series.some(s => admittedProjectionPoints(s, "weighted").length > 0);
+  if (!mainWeighted) {
+    const alternatives = p.series.flatMap(s => (["flatShare", "shareTrend"] as const).flatMap(kind =>
+      admittedProjectionPoints(s, "weighted", kind).map(point => [
+        kind === "flatShare" ? "Flat-share sensitivity" : "Historical-share-trend sensitivity", s.metric, point.period,
+        formatFinancialValue(point.value.value, point.value.unit, point.value.currency ?? null),
+      ])));
+    if (alternatives.length > 0) tables.push({ heading: "Available weighted share-count sensitivity paths", headers: ["Alternative", "Metric", "Period", "Weighted value"], rows: alternatives,
+      note: "These admitted alternative paths use the displayed prior even when the main weighted path is unavailable. Share-count sensitivities do not establish funded future repurchases." });
   }
   return tables;
 }

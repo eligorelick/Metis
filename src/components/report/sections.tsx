@@ -117,6 +117,8 @@ import {
   SOURCE_ENTRY_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
 } from "@/report/surfaceManifest";
 
 import { SensitivityHeatmap } from "@/components/charts/SensitivityHeatmap";
@@ -432,24 +434,25 @@ export function ProjectionsSection({
 }) {
   const weights = projections.scenarioWeights;
   const series = orderedProjectionSeries(projections.series);
+  const available = projectionAvailability(series);
   return (
     <SectionFrame
       id="projections"
       index={index}
       title="Weighted Projections"
-      right={
+      right={available.forward ? (
         <span className="mono text-[10px] text-faint">
-          {projections.horizonYears}y · {Math.round(weights.bull * 100)}/{Math.round(weights.base * 100)}/
-          {Math.round(weights.bear * 100)} bull/base/bear
+          {projections.horizonYears}y{available.weighted ? ` · ${Math.round(weights.bull * 100)}/${Math.round(weights.base * 100)}/${Math.round(weights.bear * 100)} bull/base/bear` : ""}
         </span>
-      }
+      ) : null}
     >
-      {series.length === 0 ? (
+      {!available.forward ? (
         <div className="text-[11px] text-faint">
           Projections not applicable
           {projections.notApplicableReason ? `: ${projections.notApplicableReason}` : "."}
         </div>
-      ) : (
+      ) : null}
+      {series.length > 0 ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {series.map((s, seriesIndex) => (
             <div key={`${s.metric}:${seriesIndex}`} className="border border-edge bg-bg p-2">
@@ -457,9 +460,9 @@ export function ProjectionsSection({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
       {(() => {
-        const { common, specific } = splitCommonLines(series.map((s) => s.assumptions));
+        const { common, specific } = splitCommonLines(series.map(projectionDisplayAssumptions));
         const lines = [...common, ...specific.flat().filter((line, i, all) => all.indexOf(line) === i)];
         return lines.length > 0 ? (
           <SubBlock label="method & assumptions">
@@ -472,7 +475,8 @@ export function ProjectionsSection({
         ) : null;
       })()}
       <ExtraAuditTables tables={projectionAuditTables(projections)}/>
-      {series.length > 0 && (
+      {!available.weighted && <p className="text-[10px] leading-snug text-faint">No weighted projection points are available; no projection weights are applied.</p>}
+      {available.weighted && (
         <p className="text-[10px] leading-snug text-faint">
           Forward figures are model ESTIMATEs, not facts. The weighted path uses a
           versioned, unbacktested display prior—not empirical outcome probabilities or a point prediction.
@@ -776,6 +780,11 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
       key: "name",
       header: "multiple",
       render: (m) => <span className="mono text-muted">{m.name}</span>,
+    },
+    {
+      key: "basis",
+      header: "basis and limitations",
+      render: (m) => <span className="text-xs leading-relaxed text-faint">{m.basis ?? "-"}</span>,
     },
     {
       key: "cur",

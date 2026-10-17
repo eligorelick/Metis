@@ -207,7 +207,6 @@ describe("canonical traced units", () => {
   it.each([
     ["RSI", null],
     ["RSI index", null],
-    ["MACD histogram", null],
     ["rsi", null],
     ["RSI", "USD"],
   ])("reads the indicator spelling %s (declared currency %s) as index", (unit, currency) => {

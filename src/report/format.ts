@@ -207,7 +207,7 @@ function formatPipelineUnit(value: number, unit: string): string | null {
     case "rank":
     case "pctile":
       return `${formatNumber(value, Number.isInteger(value) ? 0 : 1)} ${unit.trim().toLowerCase()}`;
-    // D-62: a score, an index reading (RSI, MACD) and a 0-100 score carry no
+    // D-62: a score, an index reading (RSI) and a 0-100 score carry no
     // unit word a reader needs ("-1.1 score", "40.25 index", "95.00 0-100").
     case "score":
     case "index":

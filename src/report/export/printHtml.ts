@@ -70,6 +70,8 @@ import {
   SOURCE_ENTRY_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -461,9 +463,10 @@ function sectionValuation(
 
   parts.push(subsection("Multiples", bodyTable(
     // Empirical percentile within the retained sample; N is separate from its scale.
-    ["Multiple", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
+    ["Multiple", "Basis and limitations", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
     v.multiples.map((m) => [
       m.name,
+      m.basis ?? DASH,
       m.current === null ? DASH : `${num(m.current, 1)}×`,
       m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
       m.own5yPercentile === null ? DASH : ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations),
@@ -622,9 +625,10 @@ function sectionOutlook(report: Report): string {
 
 function sectionProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
+  const available = projectionAvailability(series);
   const forwardPaths = PROJECTION_PATHS.filter((descriptor) => descriptor.kind !== "historical");
   // D-67: no chart is rendered here, so a sentence pointing at one is dropped.
-  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions.map((line) => withoutChartReferences(displayProse(line)))));
+  const { common, specific } = splitCommonLines(series.map((s) => projectionDisplayAssumptions(s).map((line) => withoutChartReferences(displayProse(line)))));
   const blocks = series
     .map((s, index) => {
       const rows = projectionPeriodRows(s).flatMap((row) => {
@@ -639,8 +643,9 @@ function sectionProjections(p: Projections): string {
     .join("");
   const pct = (w: number) => `${Math.round(w * 100)}%`;
   return `<section class="block">${sectionHeading("projections")}
-    <p class="faint">Horizon ${p.horizonYears}y · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear).</p>
-    ${series.length === 0 ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
+    ${available.forward ? `<p class="faint">Horizon ${p.horizonYears}y${available.weighted ? ` · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear)` : ""}.</p>` : ""}
+    ${!available.forward ? `<p class="faint">Not applicable${p.notApplicableReason ? `: ${esc(p.notApplicableReason)}` : "."}</p>` : ""}
+    ${!available.weighted ? `<p class="faint">No weighted projection points are available; no projection weights are applied.</p>` : ""}
     ${bodyTables(projectionAuditTables(p))}
     ${common.length > 0 ? `<p><em>Assumptions common to every series</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
     ${blocks}</section>`;

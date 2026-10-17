@@ -449,6 +449,7 @@ export function reportToAuditMarkdown(report: Report): string {
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),
     report.valuation.multiplesBasis ? `## Current multiple equity and enterprise-value basis\n\n${markdownProse(report.valuation.multiplesBasis)}` : "",
+    report.valuation.multiples.some(row => row.basis) ? `## Current multiple row bases and limitations\n\n${table(["Multiple", "Current (unrounded)", "Basis and limitations"], report.valuation.multiples.filter(row => row.basis).map(row => [row.name, row.current === null ? "unavailable" : String(row.current), row.basis!]))}` : "",
     renderOwnHistory(report),
     renderTiming(report),
     report.projections ? renderProjections(report.projections) : "",

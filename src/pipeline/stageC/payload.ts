@@ -52,6 +52,9 @@ import {
   PROJECTION_PATH_ORDER,
   SCORE_ASPECT_ORDER,
   orderedProjectionSeries,
+  admittedProjectionPoints,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -384,7 +387,10 @@ export interface ContextPayload {
 // source form/exhibit context change analyst evidence; prior passes cannot resume.
 // Primary disclosure composition and quote measurement dates change the
 // admitted model context; earlier evidence fingerprints cannot resume.
-export const PAYLOAD_VERSION = "1.27.0" as const;
+// 1.28.0 (D-81): complete passage-level applicability, price-unit MACD and
+// admitted per-multiple bases change the analyst context. Earlier reusable
+// analyst/judge passes cannot resume as equivalent; completed reports stay readable.
+export const PAYLOAD_VERSION = "1.28.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -944,14 +950,11 @@ function computedSections(
     { label: "last close", value: t.lastClose, unit: "currency/share", currency: currencies.trading, source: "computed.technicals", asOf: t.asOf },
     { label: "SMA50", value: t.smaCross.sma50, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
     { label: "SMA200", value: t.smaCross.sma200, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.smaCross", asOf: t.asOf },
-    // D-44: these rows printed no unit at all, so the judge wrote one of its
-    // own ("RSI", "RSI index", "MACD histogram") and 8 of reports 25/26's key
-    // numbers failed as unit-mismatch. "index" is the registry's existing
-    // dimensionless bucket for them (the record is unchanged); for the MACD
-    // histogram, a difference of price averages, it is that bucket and not
-    // the figure's true dimension.
+    // RSI is dimensionless; MACD subtracts price EMAs and their signal EMA,
+    // retaining the source price currency/share. An unknown currency cannot
+    // support a numeric MACD quotation or a dimensionless substitute.
     { label: "RSI-14", value: t.rsi14, unit: "index", source: "computed.technicals.rsi14", asOf: t.asOf },
-    { label: "MACD histogram", value: t.macd.histogram, unit: "index", source: "computed.technicals.macd", asOf: t.asOf },
+    { label: "MACD histogram", value: currencies.trading === null ? null : t.macd.histogram, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.macd", asOf: t.asOf },
     { label: "52w high", value: t.range52w.high52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "52w low", value: t.range52w.low52w, unit: "currency/share", currency: currencies.trading, source: "computed.technicals.range52w", asOf: t.asOf },
     { label: "% from 52w high", value: t.range52w.pctFromHigh, unit: "%", source: "computed.technicals.range52w", asOf: t.asOf },
@@ -967,7 +970,9 @@ function computedSections(
     { label: "trend read", value: t.read.trend, unit: "", source: "computed.technicals.trend-read", asOf: t.asOf },
     { label: "momentum read", value: t.read.momentum, unit: "", source: "computed.technicals.momentum-read", asOf: t.asOf },
   ];
-  sections.push(payloadSection({ title: "Technicals (computed)", figures: techFigures, notes: t.notes }));
+  sections.push(payloadSection({ title: "Technicals (computed)", figures: techFigures, notes: [...t.notes,
+    ...(currencies.trading === null ? ["MACD price currency is unknown; the numeric histogram is withheld rather than treated as a dimensionless index."] : []),
+  ] }));
 
   // --- Valuation -----------------------------------------------------------
   const val = computed.valuation;
@@ -1057,6 +1062,7 @@ function computedSections(
   ];
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => stat.basis?.trim() ? [`${stat.key}: ${stat.basis}`] : [])),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string"))),
     ...consensusNote,
     ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
@@ -1128,18 +1134,17 @@ function computedSections(
   }
 
   // --- Weighted projections (feature 1.1.0) --------------------------------
-  if (computed.projections && computed.projections.series.length > 0) {
+  const projectionPoints = projectionAvailability(computed.projections?.series ?? []);
+  if (computed.projections && projectionPoints.forward) {
     const pr = computed.projections;
     const projFigures: PayloadFigureInput[] = [];
     const projectionSeries = orderedProjectionSeries(pr.series);
     for (const s of projectionSeries) {
       const periodRows = projectionPeriodRows(s);
       const pointsFor = (path: (typeof PROJECTION_PATH_ORDER)[number]) =>
-        periodRows.flatMap((row) => {
-          const point = projectionCellPoint(row, path, s.unit);
-          return point === null ? [] : [point];
-        });
+        admittedProjectionPoints(s, path);
       const w = pointsFor("weighted");
+      const endpoint = [w, pointsFor("base"), pointsFor("bull"), pointsFor("bear")].find(points => points.length > 0) ?? [];
       const at = (arr: typeof w, i: number) => arr[i];
       const y5 = w.length - 1;
       const idxs = [0, Math.min(2, y5), y5];
@@ -1147,8 +1152,8 @@ function computedSections(
         const pt = at(w, i);
         if (pt) projFigures.push({ label: `${s.metric} weighted ${pt.period}`, value: pt.value.value, unit: s.unit, currency: pt.value.currency, period: pt.period, source: `computed.projections.${s.metric}.weighted`, asOf: pt.value.asOf });
       }
-      const endpointRow = w[y5]
-        ? periodRows.find((row) => row.period === w[y5]!.period)
+      const endpointRow = endpoint.at(-1)
+        ? periodRows.find((row) => row.period === endpoint.at(-1)!.period)
         : undefined;
       const b5 = endpointRow
         ? projectionCellPoint(endpointRow, "bull", s.unit)
@@ -1158,10 +1163,14 @@ function computedSections(
         : null;
       if (b5) projFigures.push({ label: `${s.metric} bull ${b5.period}`, value: b5.value.value, unit: s.unit, currency: b5.value.currency, period: b5.period, source: `computed.projections.${s.metric}.bull`, asOf: b5.value.asOf });
       if (be5) projFigures.push({ label: `${s.metric} bear ${be5.period}`, value: be5.value.value, unit: s.unit, currency: be5.value.currency, period: be5.period, source: `computed.projections.${s.metric}.bear`, asOf: be5.value.asOf });
+      const baseEnd = !projectionPoints.weighted && endpointRow ? projectionCellPoint(endpointRow, "base", s.unit) : null;
+      if (baseEnd) projFigures.push({ label: `${s.metric} base ${baseEnd.period}`, value: baseEnd.value.value, unit: s.unit, currency: baseEnd.value.currency, period: baseEnd.period, source: `computed.projections.${s.metric}.base`, asOf: baseEnd.value.asOf });
       for (const alternative of ["flatShare", "shareTrend"] as const) {
-        for (const i of idxs) {
-          const point = s[alternative]?.weighted[i];
-          if (!point) continue;
+        const points = admittedProjectionPoints(s, "weighted", alternative);
+        const last = points.length - 1;
+        for (const i of new Set([0, Math.min(2, last), last])) {
+          const point = points[i];
+          if (point === undefined) continue;
           projFigures.push({ label: `${alternative === "flatShare" ? "flat-share EPS" : "hypothetical historical-share-trend EPS"} weighted ${point.period}`,
             value: point.value.value, unit: s.unit, currency: point.value.currency, period: point.period,
             source: `computed.projections.${s.metric}.${alternative}.weighted`, asOf: point.value.asOf });
@@ -1174,7 +1183,7 @@ function computedSections(
     // the three numbers, which become the only numbers a sentence citing it
     // may state (attachProvenanceRegistry, allowedNumbers).
     const pct = (w: number): number => Math.round(w * 1000) / 10;
-    projFigures.push({
+    if (projectionPoints.weighted) projFigures.push({
       label: "scenario weights bull/base/bear in percent (fixed, unbacktested prior; not calibrated probabilities)",
       value: `${pct(pr.scenarioWeights.bull)}/${pct(pr.scenarioWeights.base)}/${pct(pr.scenarioWeights.bear)}`,
       unit: "",
@@ -1182,23 +1191,25 @@ function computedSections(
       asOf: null,
     });
     sections.push(payloadSection({
-      title: `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`,
+      title: projectionPoints.weighted
+        ? `Weighted projections (computed — ${pr.horizonYears}y forward, fixed display weights ${pr.scenarioWeights.bull}/${pr.scenarioWeights.base}/${pr.scenarioWeights.bear} bull/base/bear; ESTIMATE, interpret — never restate as fact)`
+        : `Operating projections (computed - ${pr.horizonYears}y forward; weighted path unavailable; ESTIMATE, interpret - never restate as fact)`,
       figures: projFigures,
       // D-65: the capital-return basis left the EPS series' assumptions (the
       // report states it once, under its table); the model still reads it here.
       notes: [...new Set(projectionSeries.flatMap((series) => [
-        ...series.assumptions,
+        ...projectionDisplayAssumptions(series),
         ...(series.capitalReturn?.basis ? [series.capitalReturn.basis] : []),
-      ]))],
+      ])), ...(projectionPoints.weighted ? [] : ["No weighted projection points are available; no projection weights are applied."])],
     }));
-  } else if (computed.projections && computed.projections.notApplicableReason) {
+  } else if (computed.projections) {
     // No weights here: nothing is weighted on this route, so none are shown.
     // The n/a row gives "probability-weighted forecasts are unavailable" a
     // gap tag to cite (D-43; report 26 cited "unsupported" for it).
     sections.push(payloadSection({
       title: "Weighted projections (computed)",
       figures: [{ label: "weighted projections", value: null, unit: "", source: "computed.projections", asOf: null }],
-      notes: [`not applicable: ${computed.projections.notApplicableReason}`],
+      notes: [`not applicable: ${computed.projections.notApplicableReason ?? "No actual forward projection points are available."}`],
     }));
   }
 
@@ -2740,10 +2751,8 @@ function attachProvenanceRegistry(
         }
       }
       for (const alternative of ["flatShare", "shareTrend"] as const) {
-        const paths = series[alternative];
-        if (!paths) continue;
         for (const scenario of ["bull", "base", "bear", "weighted"] as const) {
-          for (const point of paths[scenario]) {
+          for (const point of admittedProjectionPoints(series, scenario, alternative)) {
             registerStageBNumber(projectionProvenanceId(series.metric, `${alternative}.${scenario}`, point.period),
               point.value, point.period, projections.weightsVersion);
           }

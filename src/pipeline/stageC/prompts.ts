@@ -277,7 +277,8 @@ export const TRACED_NUMBER_UNIT_RULE = [
   "- A TracedNumber `unit` is the bare registered unit exactly as the payload shows it (\"x\", \"%\",",
   "  \"currency\", \"currency/share\", \"index\", \"0-100\") — never a description such as \"x current P/TBV\" or",
   "  \"stockholders equity\". Put the description in the figure label, not the unit. Indicator readings",
-  "  (RSI, MACD histogram) use \"index\" as shown, never the indicator's name. The one exception is a number",
+  "  are distinct: RSI uses \"index\"; MACD histogram uses the admitted price currency/share, never index points.",
+  "  If the MACD price currency is unknown, withhold its numeric quote; never infer USD. The one exception is a number",
   "  cited to a filing or transcript excerpt, which follows the EXCERPT NUMBERS rule.",
 ].join("\n");
 
@@ -337,6 +338,9 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "RISK PROBABILITY: justify each low/medium/high likelihood with its own dated evidence and trigger; do not default all",
   "risks to medium or confuse impact with probability. Where evidence cannot distinguish likelihood, set probability",
   "to unknown and explain the uncertainty. A likelihood label is a JUDGMENT, not a calibrated probability.",
+  "Observed current conditions do not by themselves establish the likelihood of a future adverse outcome;",
+  "do not infer forward probability solely from an observed expense or margin pressure. Without a distinct",
+  "forward-likelihood basis, set that risk's probability to unknown and state what evidence would resolve it.",
   "FLAG SEVERITY AND AGE: date every quality flag and risk. An item from a period that ended more than four quarters",
   "before the latest reported quarter (an 18-month-old inventory charge) is historical context, at most low or medium",
   "severity, unless the filings show it recurring or still affecting current results. Grade severity by materiality to",

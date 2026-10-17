@@ -39,5 +39,7 @@ describe("analytical framing contract", () => {
     expect(prompt).toContain("not independent factual validation");
     expect(prompt).toContain("not a calibrated probability");
     expect(prompt).toContain("to unknown and explain the uncertainty");
+    expect(prompt).toContain("Observed current conditions do not by themselves establish the likelihood of a future adverse outcome");
+    expect(prompt).toContain("do not infer forward probability solely from an observed expense or margin pressure");
   });
 });

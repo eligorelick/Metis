@@ -127,6 +127,8 @@ import {
   SOURCE_ENTRY_FIELDS,
   gradeSurfaceEntries,
   orderedProjectionSeries,
+  projectionAvailability,
+  projectionDisplayAssumptions,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -537,9 +539,10 @@ function renderValuation(
 
   lines.push(...subsection("### Multiples", bodyTable(
     // Empirical percentile within the retained sample; N is separate from its scale.
-    ["Multiple", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
+    ["Multiple", "Basis and limitations", "Current", "Peer median", "Own-history percentile (sample)", "Sector-appropriate"],
     v.multiples.map((m) => [
       m.name,
+      m.basis ?? DASH,
       m.current === null ? DASH : `${num(m.current, 1)}×`,
       m.peerMedian === null ? DASH : `${num(m.peerMedian, 1)}×${typeof m.peerCount === "number" ? ` (n = ${m.peerCount})` : ""}`,
       m.own5yPercentile === null
@@ -765,20 +768,24 @@ function renderOutlook(report: Report): string {
 
 function renderProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
+  const available = projectionAvailability(series);
   const pct = (w: number) => `${Math.round(w * 100)}%`;
   const lines: string[] = [
     sectionHeading("projections"),
     "",
-    `Horizon ${p.horizonYears}y · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear).`,
-    "",
   ];
+  if (available.forward) lines.push(
+    `Horizon ${p.horizonYears}y${available.weighted ? ` · unbacktested display prior weights ${pct(p.scenarioWeights.bull)} / ${pct(p.scenarioWeights.base)} / ${pct(p.scenarioWeights.bear)} (bull / base / bear)` : ""}.`,
+    "",
+  );
   lines.push(...auditTableBlocks(projectionAuditTables(p)));
-  if (series.length === 0) {
+  if (!available.forward) {
     lines.push(`_Not applicable${p.notApplicableReason ? `: ${markdownProse(p.notApplicableReason)}` : "."}_`, "");
   }
+  if (!available.weighted) lines.push("No weighted projection points are available; no projection weights are applied.", "");
   // D-62: the assumption block every series repeats is stated once. D-67: no
   // chart is rendered here, so a sentence pointing at one is dropped.
-  const { common, specific } = splitCommonLines(series.map((s) => s.assumptions.map((line) => withoutChartReferences(displayProse(line)))));
+  const { common, specific } = splitCommonLines(series.map((s) => projectionDisplayAssumptions(s).map((line) => withoutChartReferences(displayProse(line)))));
   if (common.length > 0) {
     lines.push("**Assumptions common to every series:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
   }

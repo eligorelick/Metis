@@ -645,7 +645,13 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
 
   it("serializes one Task 28 projection assumption once in its list and once in its audit table", () => {
     const path = "projections.series[0].assumptions[0]";
-    const markdown = markdownExports(consumerReport(true, [path]));
+    const report = consumerReport(true, [path]);
+    // This case tests assumption escaping, so retain an admitted forward path.
+    // The consumer fixture otherwise overwrites the series unit with its safe
+    // unit-poison marker while leaving its point units unchanged.
+    const series = report.projections!.series[0]!;
+    series.unit = series.base[0]!.value.unit;
+    const markdown = markdownExports(report);
     const listLine = String.raw`- P30PROJASSUME \<script data-p30=projection-assumption\>bad\</script\> | ASSUMPTIONPIPE`;
     const tableLine = String.raw`| P30PROJASSUME \<script data-p30=projection-assumption\>bad\</script\> \| ASSUMPTIONPIPE |`;
 

@@ -240,11 +240,63 @@ describe("annual primary-filing geography fallback", () => {
     ["wrong-unit", (h: string) => h.replace('unitRef="usd"', 'unitRef="missing"')],
     ["wrong-scale", (h: string) => h.replace('scale="6"', 'scale="3"')],
     ["wrong-issuer", (h: string) => h.replaceAll(">1234567</xbrli:identifier>", ">9999999</xbrli:identifier>")],
+    ["duplicate-context-identity", (h: string) => h.replace("<h2>", `${h.match(/<xbrli:context id="u2025">[\s\S]*?<\/xbrli:context>/)![0].replace(">1234567</xbrli:identifier>", ">9999999</xbrli:identifier>")}<h2>`)],
     ["mismatched-total", (h: string) => h.replace("14,733", "14,734")],
     ["property-table", (h: string) => h.replace("<td>Revenue</td>", "<td>Property and equipment, net</td>")],
     ["duplicate-table", (h: string) => h + h],
   ] as const)("retains the gap for %s evidence", async (_name, change) => {
     const { result } = await bundle(change(annualGeographyHtml()));
     expect(result.segmentation.geographic.ok).toBe(false);
+  });
+});
+
+
+describe("annual geography complete evidence-block scope", () => {
+  const html = annualGeographyHtml();
+  const narrow = "These amounts include only the B2B segment.";
+  const whole = definition.split(" with the exception of")[0]!;
+  const propertyTable = '<table><tr><td>As of December 31, 2025 2024 (In millions)</td></tr><tr><td>Property and equipment</td><td><ix:nonFraction name="us-gaap:PropertyPlantAndEquipmentNet" unitRef="usd" contextRef="c2025" scale="6">100</ix:nonFraction></td><td><ix:nonFraction name="us-gaap:PropertyPlantAndEquipmentNet" unitRef="usd" contextRef="c2024" scale="6">90</ix:nonFraction></td></tr></table>';
+  const cases: { name: string; html: string; expected: boolean }[] = [
+    { name: "population-exclusion-exception", html: html.replace(definition, `${whole} with the exception of B2B revenue, which is excluded from these amounts.`), expected: false },
+    { name: "subsidiary-omission-exception", html: html.replace(definition, `${whole} except for subsidiary revenue, which is omitted.`), expected: false },
+    { name: "unknown-selected-operations-exception", html: html.replace(definition, `${whole} except for selected operations.`), expected: false },
+    { name: "exclusion-without-exception-keyword", html: html.replace(definition, `${whole}, excluding revenue from selected operations.`), expected: false },
+    { name: "inline-anaphoric-exclusion", html: html.replace(definition, `${whole}, but these amounts exclude consumer revenue.`), expected: false },
+    { name: "unqualified-whole-company", html, expected: true },
+    { name: "same-paragraph-scope-after-definition", html: html.replace(definition, `${definition} ${narrow}`), expected: false },
+    { name: "separate-paragraph-before-table", html: html.replace(`</p><table>`, `</p><p>${narrow}</p><table>`), expected: false },
+    { name: "separate-paragraph-before-definition", html: html.replace(`<p>${definition}`, `<p>${narrow}</p><p>${definition}`), expected: false },
+    { name: "adjacent-scope-after-table", html: html.replace("</table></body>", `</table><p>${narrow}</p></body>`), expected: false },
+    { name: "adjacent-scope-before-heading", html: html.replace("<h2>Geographic", `<p>${narrow}</p><h2>Geographic`), expected: false },
+    { name: "unknown-channel-qualification", html: html.replace(definition, `${definition} These amounts cover only customers booked through one channel.`), expected: false },
+    { name: "ambiguous-population-qualification", html: html.replace(definition, `${definition} The scope of this table differs from consolidated revenue.`), expected: false },
+    { name: "excluded-population-after-table", html: html.replace("</table></body>", "</table><p>These figures exclude revenue from outside this business.</p></body>"), expected: false },
+    { name: "positive-consolidated-qualifier-after-table", html: html.replace("</table></body>", "</table><p>These amounts include all consolidated revenue.</p></body>"), expected: true },
+    { name: "heading-is-not-an-ownership-fence", html: html.replace("</table></body>", `</table><h2>Other disclosure</h2><p>${narrow}</p></body>`), expected: false },
+    { name: "narrow-before-next-table-introduction", html: html.replace("</table></body>", `</table><p>${narrow}</p><p>The following table presents property and equipment:</p><table></table></body>`), expected: false },
+    { name: "separate-next-data-table", html: html.replace("</table></body>", `</table><p>The following table presents property and equipment:</p>${propertyTable}</body>`), expected: true },
+    { name: "xbrl-block-does-not-erase-anaphoric-qualification", html: html.replace("<h2>Geographic", `<p>${narrow}</p><ix:nonNumeric name="us-gaap:ScheduleOfRevenueFromExternalCustomersAttributedToForeignCountriesByGeographicAreaTextBlock" contextRef="c2025"><h2>Geographic`).replace("</table></body>", "</table></ix:nonNumeric></body>"), expected: false },
+    { name: "post-table-layout-qualifier", html: html.replace("</table></body>", `</table><table><tr><td>${narrow}</td></tr></table></body>`), expected: false },
+    { name: "pre-heading-layout-qualifier", html: html.replace("<h2>Geographic", `<table><tr><td>${narrow}</td></tr></table><h2>Geographic`), expected: false },
+    { name: "scope-heading-refers-back", html: html.replace("</table></body>", `</table><h4>Scope of the amounts above</h4><p>${narrow}</p></body>`), expected: false },
+    { name: "neutral-paragraph-does-not-sever-limit", html: html.replace("<h2>Geographic", `<p>${narrow}</p><p>These amounts include all consolidated revenue.</p><h2>Geographic`), expected: false },
+    { name: "selected-operations-without-scope-noun", html: html.replace(definition, `${definition} These amounts represent selected operations.`), expected: false },
+    { name: "forward-reference-before-xbrl-block", html: html.replace("<h2>Geographic", '<p>The figures below exclude consumer revenue.</p><ix:nonNumeric name="us-gaap:ScheduleOfRevenueFromExternalCustomersAttributedToForeignCountriesByGeographicAreaTextBlock" contextRef="c2025"><h2>Geographic').replace("</table></body>", "</table></ix:nonNumeric></body>"), expected: false },
+    { name: "scope-after-xbrl-block-close", html: html.replace("<h2>Geographic", '<ix:nonNumeric name="us-gaap:ScheduleOfRevenueFromExternalCustomersAttributedToForeignCountriesByGeographicAreaTextBlock" contextRef="c2025"><h2>Geographic').replace("</table></body>", `</table></ix:nonNumeric><p>${narrow}</p></body>`), expected: false },
+  ];
+  it.each(cases)("$name", async test => {
+    const { result } = await bundle(test.html);
+    expect(result.edgar.annualGeography?.ok).toBe(test.expected);
+    expect(result.segmentation.geographic.ok).toBe(test.expected);
+    const extracted = result.edgar.annualGeography;
+    if (test.expected && extracted?.ok) {
+      expect(extracted.value.data.periods[0]).toMatchObject({ end: "2025-12-31", total: 14733000000,
+        values: { "United States": 8710000000, "All other countries": 6023000000 } });
+      for (const span of extracted.value.data.spans) expect(span.html).toBe(test.html.slice(span.start, span.end));
+      if (test.name === "positive-consolidated-qualifier-after-table") {
+        expect(extracted.value.data.definition).toContain("These amounts include all consolidated revenue.");
+        expect(extracted.value.data.spans.some(span => span.html.includes("These amounts include all consolidated revenue."))).toBe(true);
+      }
+    }
   });
 });

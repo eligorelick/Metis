@@ -211,3 +211,71 @@ it("does not discard a conflicting economic-rights assertion carried in a layout
   expect(bundle.economicShareEvidence).toEqual([]);
   expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
 });
+
+const boundedEquality = "Holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation.";
+const withRightsPassage = (passage: string): string => primaryHtml({ rights: boundedEquality }).replace(`<p>${boundedEquality}</p>`, passage);
+it.each([
+  ["future introductory sentence", `<p>The rights described below apply starting January 1, 2027. ${boundedEquality}</p>`],
+  ["historical introductory sentence", `<p>The following describes rights in force before the July 2026 recapitalization. ${boundedEquality}</p>`],
+  ["conditional introduction", `<p>Upon completion of the proposed recapitalization, distributions will be made as follows. ${boundedEquality}</p>`],
+  ["same-paragraph anaphora", `<p>${boundedEquality} The latter class instead receives twice the distributions of the former.</p>`],
+  ["same-paragraph future suffix", `<p>${boundedEquality} These rights become effective January 1, 2027.</p>`],
+  ["classless applicability suffix", `<p>${boundedEquality} This applies beginning January 1, 2027.</p>`],
+  ["classless conditional prefix", `<p>This applies only after approval. ${boundedEquality}</p>`],
+  ["following paragraph anaphora", `<p>${boundedEquality}</p><p>The latter class instead receives twice the distributions of the former.</p>`],
+  ["plural governing paragraph", `<p>Distributions commence in 2027.</p><p>${boundedEquality}</p>`],
+  ["governing clause across neutral paragraph", `<p>The following rights become effective January 1, 2027.</p><p>Common stock has two classes.</p><p>${boundedEquality}</p>`],
+  ["future applicability heading", `<h4>The rights described below apply starting January 1, 2027.</h4><p>${boundedEquality}</p>`],
+  ["following scope heading and anaphora", `<p>${boundedEquality}</p><h4>Distribution limitations</h4><p>The latter class instead receives twice the distributions of the former.</p>`],
+  ["governing div", `<div>The following distribution rights become effective January 1, 2027. ${boundedEquality}</div>`],
+  ["governing layout row", `<table><tr><td>The following distribution rights become effective January 1, 2027.</td><td>${boundedEquality}</td></tr></table>`],
+  ["numeric layout is not an applicability reset", `<table><tr><td>Distributions commence in 2027.</td><td><ix:nonFraction name="us-gaap:Assets" contextRef="issuer" unitRef="shares">1</ix:nonFraction></td></tr></table><p>${boundedEquality}</p>`],
+  ["unsupported coreference grammar", `<p>${boundedEquality} Their participation differs.</p>`],
+  ["selected paragraph budget", `<p>${"The company has two classes of common stock. ".repeat(400)}${boundedEquality}</p>`],
+  ["passage budget across neutral paragraphs", `<p>Distributions commence in 2027.</p>${"<p>The company has two classes of common stock.</p>".repeat(70)}<p>${boundedEquality}</p>`],
+])("refuses unresolved complete-passage context: %s", async (_name, passage) => {
+  const bundle = await productionBundle(withRightsPassage(passage));
+  expect(bundle.economicShareEvidence).toEqual([]);
+  const result = runStageB(bundle);
+  expect(result.valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+  expect(result.valuation.multiples?.enterpriseValue.value).toBeNull();
+});
+it.each([
+  "The company has two classes of common stock. ",
+  "The following describes current rights. ",
+])("retains supported current-rights passage: %s", async introduction => {
+  const bundle = await productionBundle(primaryHtml({ rights: introduction + boundedEquality }));
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("resolved");
+});
+it.each([
+  "It is false that holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation.",
+  "Some investors incorrectly assume that holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation.",
+  "Management disputes that holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation.",
+  "According to an unadopted draft, holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation.",
+  boundedEquality + " Earnings per share is calculated using weighted-average shares; the latter class instead receives twice the amount.",
+  boundedEquality + " Earnings per share is calculated using weighted-average shares and the latter class instead receives twice the amount.",
+  boundedEquality + " Earnings per share is calculated using weighted-average shares, while the latter class instead receives twice the amount.",
+])("requires an entire supported affirmative assertion and accounting clause: %s", async description => {
+  const bundle = await productionBundle(primaryHtml({ rights: description }));
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+it("preserves a whole neutral EPS-method clause alongside current equality", async () => {
+  const bundle = await productionBundle(primaryHtml({ rights: boundedEquality + " Earnings per share is calculated using weighted-average shares." }));
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("resolved");
+});
+it.each([
+  "Net income attributable to parent; the latter class instead receives twice the amount.",
+  "Net income attributable to parent and the latter class instead receives twice the amount.",
+  "Earnings per share attributable to parent; the latter class instead receives twice the amount. available to common stockholders",
+])("refuses compound assertions in a neutral financial row: %s", async label => {
+  const passage = `<p>${boundedEquality}</p><table><tr><td>${label}</td><td>$100</td></tr></table>`;
+  const bundle = await productionBundle(withRightsPassage(passage));
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+it("retains a supported numeric income row with a plain issuer label", async () => {
+  const passage = `<p>${boundedEquality}</p><table><tr><td>Net income attributable to Example Issuer</td><td>$100</td></tr></table>`;
+  const bundle = await productionBundle(withRightsPassage(passage));
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("resolved");
+});
