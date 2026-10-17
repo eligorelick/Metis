@@ -503,7 +503,7 @@ function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeig
   ].join("");
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
-      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "target unavailable"}</span>
+      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "per-share target unavailable"}</span>
       ${computedWeights && sc.probability === null ? "" : `<span class="prob">${computedWeights ? "display weight" : "p"} ${probability}</span>`}
       <span class="asof">${esc(sc.horizon)}</span></div>
     <div class="scenariobody">${blocks}</div></div>`;

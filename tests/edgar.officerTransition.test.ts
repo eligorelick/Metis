@@ -32,7 +32,7 @@ describe("retained primary-source CFO transition", () => {
   it("retains the outgoing and incoming officer, distinct announcement dates, and source-defined effective date", () => {
     const changes = parseOfficerChanges(retained.text);
     expect(changes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "departure", person: "Scott Schenkel", role: "Chief Financial Officer", announced: "2026-04-17", effective: "2026-05-11", anticipated: false }),
+      expect.objectContaining({ kind: "departure", person: "Scott Schenkel", role: "Chief Financial Officer", announced: null, agreedDate: "2026-04-17", effective: "2026-05-11", anticipated: false }),
       expect.objectContaining({ kind: "appointment", person: "Derek Andersen", role: "Chief Financial Officer", announced: "2026-04-23", effective: "2026-05-11", anticipated: false }),
     ]));
     expect(changes).toHaveLength(2);

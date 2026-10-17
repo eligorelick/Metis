@@ -105,7 +105,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // observation provenance and explicitly unknown risk probabilities.
 // 1.21.0: dated primary class inventories, explicit quote observation dates,
 // matched guidance/operating evidence and source-preserving disclosure surfaces.
-export const REPORT_SPEC_VERSION = "1.21.0" as const;
+// 1.22.0: admission of complete debt and applicable class/geography scope;
+// officer agreement/announcement/completion distinctions and per-share labels.
+export const REPORT_SPEC_VERSION = "1.22.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2231,7 +2233,7 @@ export const FilingDisclosuresSchema = z
     commentaryOutlook: z.array(z.object({ topic: z.string(), text: z.string(), source: FilingRefSchema }).strict()).optional(),
     /**
      * D-66: officer and director changes from 8-K Item 5.02, with whether the
-     * change was effective by the bundle date. Optional on older reports.
+     * filing-specified date has elapsed by the bundle date. Optional on older reports.
      */
     officerChanges: z.array(
       z.object({
@@ -2240,10 +2242,12 @@ export const FilingDisclosuresSchema = z
         role: z.string(),
         board: z.boolean(),
         announced: IsoDaySchema.nullable(),
+        agreedDate: IsoDaySchema.optional(),
         effective: IsoDaySchema.nullable(),
         anticipated: z.boolean(),
-        /** The effective date is on or before the bundle date. */
+        /** Legacy field: date comparison only, not evidence of actual completion. */
         inEffect: z.boolean(),
+        completionStatus: z.literal("unconfirmed").optional(),
         note: z.string().nullable(),
         package: z.array(z.object({ component: z.string(), value: z.number() }).strict()),
         source: FilingRefSchema,

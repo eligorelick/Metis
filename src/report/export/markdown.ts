@@ -587,7 +587,7 @@ function renderScenario(sc: Scenario, assumptions: readonly string[], computedWe
   // priceTarget is null when the deterministic computation suppressed it —
   // show "unavailable", never a fabricated value.
   const pt = sc.priceTarget;
-  const target = pt ? markdownHeading(tracedValue(pt)) : "unavailable";
+  const target = pt ? markdownHeading(tracedValue(pt)) : "per-share target unavailable";
   const targetAsOf = pt ? asOfSuffix(pt.asOf) : "";
   const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
   // D-60: computed targets carry no weight; a stored report that recorded one still shows it.

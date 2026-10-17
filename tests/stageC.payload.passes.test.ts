@@ -794,7 +794,9 @@ describe("payload determinism + provenance", () => {
       // D-78: explicit ownership/reconciliation, SBC and growth basis; values separately pinned in audit deltas.
       // D-79: explicit carrying-book and model-extrapolation qualifications;
       // quote dates come from actual observations, not envelope retrieval.
-      fingerprint: "1.26.0:7e4a551e",
+      // D-80 changes only the payload version in this complete-debt fixture;
+      // finance, all registry hashes and prompt byte count remain pinned.
+      fingerprint: "1.27.0:166baf37",
       promptBytes: 134_622,
       provenanceCount: 531,
       provenanceHash: "ebdcddba",
@@ -944,7 +946,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.26.0");
+    expect(first.payloadVersion).toBe("1.27.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2437,7 +2439,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.21.0");
+    expect(report.meta.specVersion).toBe("1.22.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

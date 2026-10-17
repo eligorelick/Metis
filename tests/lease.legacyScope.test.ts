@@ -22,6 +22,7 @@ function fixture() {
     operatingLeaseLiability: 226e6, financeLeaseLiability: undefined, cashAndCashEquivalents: 6682e6, shortTermInvestments: 445e6, cashAndShortTermInvestments: 7127e6 });
   row.fieldProvenance = { capitalLeaseObligations: { source: "edgar", unit: "USD", periodStart: null, periodEnd: row.date!, observedAt: bundle.builtAt,
     tags: ["us-gaap/OperatingLeaseLiabilityNoncurrent"], filings: [{ accn: "0000000001-26-000001", filed: "2026-05-01", form: "10-Q" }] } };
+  for (const [field, tag] of [["shortTermDebt", "LongTermDebtCurrent"], ["longTermDebt", "LongTermDebtNoncurrent"]]) row.fieldProvenance[field!] = { ...row.fieldProvenance.capitalLeaseObligations!, tags: [`us-gaap/${tag}`] };
   return { bundle, row };
 }
 describe("legacy lease operands retain their disclosed maturity scope", () => {
@@ -65,7 +66,8 @@ describe("legacy lease operands retain their disclosed maturity scope", () => {
     expect(computed.capital.current?.debtBridge.operatingLeases).toBeNull();
     expect(computed.capital.current?.debtBridge.operatingLeasesNoncurrent).toBe(226e6);
     const ev = computed.valuation.multiples!.enterpriseValue;
-    expect(ev.excludingLeases).toBe(ev.includingLeases! - 226e6);
+    expect(ev.excludingLeases).not.toBeNull();
+    expect(ev.includingLeases).toBeNull();
     expect(ev.basis).toMatch(/disclosed operating-lease portion/i);
     let report = loadTask28Fixture();
     report.valuation = applyMultiples(report.valuation, computed.valuation);
@@ -84,14 +86,14 @@ describe("legacy lease operands retain their disclosed maturity scope", () => {
     expect(section?.figures.some(f => f.label === "total debt including leases" && f.value !== null)).toBe(false);
     expect(payload.statements.find(s => /^Balance sheet.*quarterly$/.test(s.title))?.notes.join(" ")).toContain("current portion is unverified");
   });
-  it("carries the retained debt scope into the sales-to-capital assumption without changing its numeric inputs", () => {
+  it("withholds sales-to-capital when retained debt has incomplete lease-inclusive coverage", () => {
     const note = incompleteLeaseCoverage(fixture().row)!.note;
     const result = buildDcfAssumptions({ revenueCagr3yPct: 8, revenueCagr5yPct: 8, analystEstimates: null, waccPct: 10, riskFreePct: 4, marketCap: 20e9,
       incomeTtm: { date: "2026-03-31", revenue: 1000e6, operatingIncome: 200e6, incomeBeforeTax: 180e6, incomeTaxExpense: 36e6 },
       incomeHistory: [2023, 2024, 2025].map(y => ({ date: `${y}-12-31`, revenue: 900e6, operatingIncome: 180e6, incomeBeforeTax: 160e6, incomeTaxExpense: 32e6 })),
-      balance: { date: "2026-03-31", basis: "quarter", totalDebt: 5685e6, totalStockholdersEquity: 3000e6, cashAndShortTermInvestments: 7127e6, leaseCoverageNote: note },
+      balance: { ...fixture().row, date: "2026-03-31", basis: "quarter", totalDebt: 5685e6, totalStockholdersEquity: 3000e6, cashAndShortTermInvestments: 7127e6, leaseCoverageNote: note },
     });
-    expect(result.assumptions?.salesToCapital.basis).toContain("current portion is unverified");
-    expect(result.assumptions?.salesToCapital.basis).toContain("totalDebt operand 5685000000");
+    expect(result.assumptions).toBeNull();
+    expect(result.gaps.find(g => g.field === "valuation.dcf.salesToCapital")?.reason).toContain("current portion is unverified");
   });
 });

@@ -30,6 +30,7 @@ import { leaseDebtConflict, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { leaseDebtScopeRefusal } from "./leaseScope";
 
 // ---------------------------------------------------------------------------
 // SPREADS_2026_01 — Damodaran synthetic-rating spread table (verbatim)
@@ -1198,6 +1199,9 @@ export interface ReturnsIncomeRow {
 }
 
 export interface ReturnsBalanceRow {
+  fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
   leaseCoverageNote?: string;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
@@ -1341,6 +1345,8 @@ function investedCapital(
   includeOperatingLeases: boolean,
 ): number | null {
   const equity = resolveConsolidatedEquity(b);
+  const scopeRefusal = leaseDebtScopeRefusal(b, includeOperatingLeases);
+  if (scopeRefusal) { notes.push(`${b.date}: ${scopeRefusal} ROIC withheld.`); return null; }
   if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
   notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
   if (equity.value === null) {
@@ -1709,6 +1715,8 @@ export function computeRoic(
     const balPrev = findPriorAnnualBalance(bal, balNow, prevIncomeDate, "roic", yearNotes, gaps);
     let icAvg: number;
     if (balPrev !== null && balPrev !== balNow) {
+      const priorScopeRefusal = leaseDebtScopeRefusal(balPrev, includeOperatingLeases);
+      if (priorScopeRefusal) { yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`); continue; }
       const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases);
       if (icPrev !== null) {
         icAvg = (icNow + icPrev) / 2;

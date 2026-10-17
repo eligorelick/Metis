@@ -341,8 +341,10 @@ export interface OfficerChange {
   role: string;
   /** A Board seat rather than an executive office. */
   board: boolean;
-  /** The date the filing says the change was decided or notified. */
+  /** An explicit announcement date, distinct from a private decision or notice. */
   announced: string | null;
+  /** The filing's dated agreement to a departure, when explicitly stated. */
+  agreedDate?: string;
   /** The effective date, when the filing states one or ties it to a successor's start. */
   effective: string | null;
   /** The effective date is an expected one ("anticipated to be on …"). */
@@ -397,7 +399,7 @@ export function parseOfficerChanges(itemText: string): OfficerChange[] {
   for (const paragraph of paragraphs) {
     const lead = new RegExp(String.raw`^On (${MONTH_DATE}),\s+`).exec(paragraph);
     if (lead === null) continue;
-    const announced = isoFromMonthDate(lead[1]!);
+    const actionDate = isoFromMonthDate(lead[1]!);
     const rest = paragraph.slice(lead[0].length);
     const appointed = new RegExp(String.raw`\bappointed\s+${NAME},(?:\s+age\s+\d+,)?\s+as\s+(a member of the Board|[^.]+?)\s+of\s+the\s+Company\b`).exec(rest) ??
       new RegExp(String.raw`\bappointed\s+${NAME},(?:\s+age\s+\d+,)?\s+as\s+(a member of the Board|[^.,]+)`).exec(rest) ??
@@ -421,6 +423,7 @@ export function parseOfficerChanges(itemText: string): OfficerChange[] {
       component("new-hire restricted stock units, grant value", /\bgrant of[^.]{0,100}?restricted stock units\s*\([“"]\s*RSUs\s*[”"]\)\s+with an aggregate value of\s+(\$)\s?([\d,]+)/i);
       component("annual equity awards, target value", /\bannual equity awards with a target value of\s+(\$)\s?([\d,]+)/i);
       const usesEffectiveAlias = /\bas of the Effective Date\b/.test(splitSentences(rest)[0] ?? "");
+      const announced = /\bannounced\b/i.test(rest.slice(0, appointed.index + appointed[0].length)) ? actionDate : null;
       out.push({ kind: "appointment", person: appointed[1]!, role: cleanRole(appointed[2]!), board: /Board/.test(appointed[2]!), announced,
         effective: usesEffectiveAlias ? effectiveAlias : start === null ? null : isoFromMonthDate(start[1]!), anticipated, note: null, package: pkg });
       continue;
@@ -437,8 +440,10 @@ export function parseOfficerChanges(itemText: string): OfficerChange[] {
       const immediately = /\beffective immediately\b/i.test(rest);
       const after = /\b(?:Following such date|Thereafter|After (?:that|such) date),?\s+(?:he|she|they) will\s+([^.]+)\./i.exec(rest)?.[1] ??
         /\b(is expected to remain with the Company\s+[^.]+)\./i.exec(rest)?.[1] ?? null;
+      const announced = departing !== null && /\bannounced\b/i.test(departing[0]) ? actionDate : null;
       const change: OfficerChange = { kind: "departure", person, role: cleanRole(role), board: /Board/.test(role), announced,
-        effective: dated !== null ? isoFromMonthDate(dated[1]!) : immediately ? announced : null, anticipated: false,
+        ...(departing === null && agreed !== null && actionDate !== null ? { agreedDate: actionDate } : {}),
+        effective: dated !== null ? isoFromMonthDate(dated[1]!) : immediately ? actionDate : null, anticipated: false,
         note: after === null ? null : clip(after, 160), package: [] };
       if (onSuccessor && change.effective === null) tiedToSuccessor.add(change);
       out.push(change);

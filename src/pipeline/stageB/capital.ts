@@ -14,6 +14,7 @@
  */
 
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { leaseDebtScopeRefusal } from "./leaseScope";
 import type { ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import {
@@ -72,6 +73,8 @@ export interface CapitalCashFlowRow {
 }
 
 export interface CapitalBalanceRow {
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
   fieldProvenance?: Record<string, { tags: string[] }>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
@@ -654,7 +657,9 @@ export function computeCapital(
       marketableEquitySecurities: latestBal?.marketableEquitySecurities,
       vendorNetDebt: latestBal?.netDebt,
     });
-    const netDebt = resolution.value;
+    const debtScopeRefusal = leaseDebtScopeRefusal(latestBal, true);
+    const netDebt = debtScopeRefusal ? null : resolution.value;
+    if (debtScopeRefusal) ndNotes.push(debtScopeRefusal);
     ndNotes.push(`${resolution.version}: ${resolution.reason}`);
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;

@@ -18,6 +18,7 @@ export interface FilingSupplements {
   officerChanges?: Array<{
     kind: "departure" | "appointment"; person: string; role: string; board: boolean;
     announced: string | null; effective: string | null; anticipated: boolean; inEffect: boolean;
+    agreedDate?: string; completionStatus?: "unconfirmed";
     note: string | null; package: Array<{ component: string; value: number }>; source: FilingRef;
   }>;
   sayOnPay?: {
@@ -73,13 +74,14 @@ export function filingCommentaryOutlookTables(d: FilingSupplements): ReportAudit
 export function filingGovernanceTables(d: FilingSupplements): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   if (d.officerChanges?.length) {
-    tables.push({ heading: "Officer and director changes disclosed in filings", headers: ["Person / role", "Change", "Announced", "Effective timing", "Terms / context", "Source"],
+    const showAgreement = d.officerChanges.some(r => r.agreedDate !== undefined);
+    tables.push({ heading: "Officer and director changes disclosed in filings", headers: ["Person / role", "Change", "Public announcement", ...(showAgreement ? ["Agreement date"] : []), "Effective timing stated in filing", "Terms / context", "Source"],
       rows: d.officerChanges.map((r) => [
         `${r.person} — ${r.role}${r.board ? " (board)" : ""}`, r.kind === "departure" ? "Departure" : "Appointment", r.announced ?? "Not recorded",
-        r.anticipated ? `Anticipated ${r.effective ?? "date not recorded"}; effective status unconfirmed`
-          : `${r.inEffect ? "Effective" : "Scheduled"} ${r.effective ?? "date not recorded"}`,
+        ...(showAgreement ? [r.agreedDate ?? "Not recorded"] : []),
+        `${r.anticipated ? "Anticipated" : "Scheduled"} ${r.effective ?? "date not recorded"}; specified by filing; ${r.effective !== null && r.inEffect ? "date elapsed; " : ""}completion unconfirmed`,
         [r.note, ...r.package.map((p) => `${p.component}: ${formatFinancialValue(p.value, "currency", d.currency)}`)].filter(Boolean).join("; ") || "Not recorded", sourceText(r.source),
-      ]), note: "An anticipated date remains anticipated until a filing confirms the event; elapsed time alone does not confirm a departure or appointment." });
+      ]), note: "Agreement, public announcement and filing dates are distinct. Effective timing is the date specified by the filing; the elapsed-date flag is a calendar comparison only. Elapsed time alone does not confirm a departure or appointment." });
   }
   if (d.sayOnPay) {
     const r = d.sayOnPay;

@@ -384,7 +384,7 @@ export interface ContextPayload {
 // source form/exhibit context change analyst evidence; prior passes cannot resume.
 // Primary disclosure composition and quote measurement dates change the
 // admitted model context; earlier evidence fingerprints cannot resume.
-export const PAYLOAD_VERSION = "1.26.0" as const;
+export const PAYLOAD_VERSION = "1.27.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1655,6 +1655,7 @@ function segmentsSection(bundle: DataBundle): PayloadSection {
           currency,
           source: res.ok && res.value.source === "edgar" ? res.value.endpoint : `fmp:revenue-${kind}-segmentation`,
           asOf,
+          ...(kind === "geographic" && selectedGeographyNotes(res).length > 0 ? { period: asOf } : {}),
         });
       }
     }
@@ -2129,8 +2130,9 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
   // the later compensation paragraph. Keep parsed governance facts explicitly.
   for (const officer of officers) {
     const source = `edgar:8-K ${officer.source.accession}`;
-    const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective}`;
-    figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${when}${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
+    const when = officer.effective === null ? "effective date not stated" : `${officer.anticipated ? "anticipated " : ""}effective date ${officer.effective} specified by filing`;
+    const dated = [officer.agreedDate === undefined ? null : `agreement date ${officer.agreedDate}`, officer.announced === null ? "public announcement date not stated" : `public announcement date ${officer.announced}`].filter(Boolean).join("; ");
+    figures.push({ label: `${officer.person} ${officer.kind}`, value: `${officer.role}; ${dated}; ${when}; completion unconfirmed${officer.note === null ? "" : `; ${officer.note}`}`, unit: "", source, asOf: officer.source.filingDate });
     for (const component of officer.package) figures.push({ label: `${officer.person} ${component.component} (appointment package)`, value: component.value,
       unit: "currency", currency: currency === "USD" ? "USD" : null, period: officer.announced, subject: officer.person, source, asOf: officer.source.filingDate });
   }

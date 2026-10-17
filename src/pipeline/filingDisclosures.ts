@@ -745,7 +745,7 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
 
 type OfficerChangeRow = NonNullable<FilingDisclosures["officerChanges"]>[number];
 
-/** D-66: Item 5.02 officer and director changes, newest filing first, in effect when dated on or before the bundle date. */
+/** Item 5.02 dates as specified by filings; elapsed dates do not prove completion. */
 function officerChangeRows(reports: CurrentReports | null, bundle: DataBundle): OfficerChangeRow[] {
   const asOf = day(bundle.builtAt) ?? day(bundle.asOf?.["quote"]) ?? null;
   const out: OfficerChangeRow[] = [];
@@ -756,7 +756,9 @@ function officerChangeRows(reports: CurrentReports | null, bundle: DataBundle): 
       for (const change of parseOfficerChanges(section.text)) {
         out.push({
           kind: change.kind, person: change.person, role: safeText(change.role, "(role withheld)"), board: change.board, announced: change.announced,
+          ...(change.agreedDate === undefined ? {} : { agreedDate: change.agreedDate }),
           effective: change.effective, anticipated: change.anticipated, inEffect: change.effective !== null && asOf !== null && change.effective <= asOf,
+          completionStatus: "unconfirmed",
           note: change.note === null ? null : safeText(change.note, "(note withheld)"),
           package: change.package.filter((p) => p.symbol === "$").map((p) => ({ component: p.component, value: p.value })),
           source: { form: event.form, accession: event.accession, exhibit: null, filingDate: filed, url: event.url },

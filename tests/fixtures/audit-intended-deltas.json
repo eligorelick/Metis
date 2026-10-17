@@ -8718,11 +8718,6 @@
           "after": "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security."
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.21.0"
-        },
-        {
           "path": "report.scenarioPresentation",
           "beforeMissing": true,
           "after": {
@@ -9659,6 +9654,20 @@
           "path": "stageB.valuation.notes.0",
           "before": "EBIT margin regime improving: dated 5y slope 1pp/year; target 20% versus current 20% and median 19%",
           "after": "Year-one revenue anchor: year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
+        }
+      ]
+    },
+    {
+      "name": "expe-adversarial-admission-review",
+      "decisions": [
+        "D-80"
+      ],
+      "reason": "Report spec 1.22.0 marks stricter applicable rights, consolidated geography and numerical lease-debt admission plus officer-date and per-share availability semantics. This ordinary complete-debt fixture changes only report.meta.specVersion; all numerical and disclosure leaves remain pinned.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.22.0"
         }
       ]
     }

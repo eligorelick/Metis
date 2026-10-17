@@ -4,17 +4,16 @@ import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 
 export interface FilingEconomicShares {
   source: { form: string; accession: string; filingDate: string; documentUrl: string; hash: string };
-  classes: { classId: string; label: string; shares: number; asOf: string; sourceId: string }[];
+  classes: { classId: string; label: string; shares: number | null; asOf: string; sourceId: string }[];
   evidence: EconomicShareEvidence | null;
   reason: string;
   passages: { inventory: string; rights: string | null };
 }
 interface FilingIdentity { issuerId: string; securityId: string; form: string; accession: string; filingDate: string; documentUrl: string; primaryDocument: string }
 const attr = (tag: string, key: string): string => decodeEntities(new RegExp(`\\b${key}\\s*=\\s*["']([^"']*)["']`, "i").exec(tag)?.[1] ?? "");
-const classLabel = (text: string): string | null => {
-  const matches = [...text.toLowerCase().matchAll(/\b(?:class\s+[a-z0-9]{1,8}\s+)?(?:common\s+(?:stock|shares)|ordinary\s+shares)\b/g)];
-  return matches.length === 1 ? matches[0][0].replace(/\s+/g, " ").replace(/common shares$/, "common stock") : null;
-};
+const classLabels = (text: string): string[] => [...text.toLowerCase().matchAll(/\b(?:class\s+[a-z0-9]{1,8}\s+)?(?:common\s+(?:stock|shares)|ordinary\s+shares)\b/g)]
+  .map(match => match[0].replace(/\s+/g, " ").replace(/common shares$/, "common stock"));
+const classLabel = (text: string): string | null => { const labels = classLabels(text); return labels.length === 1 ? labels[0] : null; };
 const validDay = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 
 /** Deliberately narrow cover inventory parser. No class-name-to-economic-rights inference. */
@@ -67,7 +66,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
   for (const table of tables) {
     if (!/name\s*=\s*["']dei:EntityCommonStockSharesOutstanding["']/i.test(table[0])) continue;
     const before = htmlToText(html.slice(Math.max(0, table.index! - 6000), table.index));
-    const caption = /As of ([A-Za-z]+\s+\d{1,2},?\s+\d{4}),?\s+the following shares of the registrant['’]s common stock were outstanding:\s*$/i.exec(before);
+    const caption = /As of ([A-Za-z]+\s+\d{1,2},?\s+\d{4}),?\s+the following shares of the registrant['\u2019]s (?:common\s+(?:stock|shares)|ordinary\s+shares) were outstanding:\s*$/i.exec(before);
     const tableHeader = htmlToText(table[0].slice(0, table[0].indexOf("<ix:nonFraction")));
     const datedHeader = /^Class\s+Outstanding Shares at ([A-Za-z]+\s+\d{1,2},?\s+\d{4})\s+were(?: approximately)?,/i.exec(tableHeader);
     if (!caption && !datedHeader) continue;
@@ -77,10 +76,24 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     result.passages.inventory = `${caption?.[0] ?? ""} ${htmlToText(table[0])}`.slice(0, 2500);
     const classes: FilingEconomicShares["classes"] = [];
     let invalid = false;
-    for (const row of table[0].matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)) {
+    // Adjacent tables with no intervening text can be one visually continuous
+    // cover enumeration. Retain their class rows even if only some are tagged.
+    let inventoryHtml = table[0];
+    let inventoryEnd = table.index! + table[0].length;
+    for (const next of tables.filter(next => next.index! > table.index!)) {
+      if (htmlToText(html.slice(inventoryEnd, next.index)) || !classLabels(htmlToText(next[0])).length) break;
+      inventoryHtml += next[0]; inventoryEnd = next.index! + next[0].length;
+    }
+    for (const row of inventoryHtml.matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)) {
       const facts = [...row[0].matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/gi)];
       const counts = facts.filter(fact => attr(fact[1], "name") === "dei:EntityCommonStockSharesOutstanding");
-      if (!counts.length) { if (/\b(?:common stock|ordinary shares)\b/i.test(htmlToText(row[0]))) invalid = true; continue; }
+      if (!counts.length) {
+        for (const label of classLabels(htmlToText(row[0]))) {
+          invalid = true;
+          if (!classes.some(cls => cls.label === label)) classes.push({ classId: `unresolved:${label}`, label, shares: null, asOf: inventoryDay, sourceId: identity.documentUrl });
+        }
+        continue;
+      }
       const fact = counts[0];
       const context = contexts.get(attr(fact[1], "contextRef"));
       const label = classLabel(htmlToText(row[0]));
@@ -108,19 +121,37 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     if (invalid || !classes.length || classes.filter(cls => cls.label === quotedLabel).length !== 1) { result.reason = "Cover inventory has ambiguous, invalid or unaccounted common-class rows"; return result; }
     // Both distribution modes and exactly the enumerated classes must be explicit
     // in one bounded sentence. Equal EPS or conversion rights alone are insufficient.
-    const text = parsed?.fullText ?? htmlToText(html.replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, ""));
-    const rights = text.split(/[.!?]\s+/).find(sentence => sentence.length <= 1600 &&
+    // Preserve row/paragraph boundaries: a financial table's class heading
+    // must not attach to an unrelated dividend cash-flow row. Layout-table
+    // rights assertions remain visible rather than disappearing wholesale.
+    const rightsHtml = (parsed?.pre ?? html).replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, "")
+      .replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, table => `${htmlToText(table.replace(/<\/tr>/gi, ". "))}. `)
+      .replace(/<\/(?:p|div)>/gi, ". ");
+    const text = htmlToText(rightsHtml);
+    const sentences = text.split(/[.!?]\s+/);
+    const supportedCurrentEquality = (sentence: string): boolean => sentence.length <= 1600 &&
       /\bequal\s+per[- ]share\s+distributions\s+(?:whether\s+)?through\s+dividends?\s+(?:or|and)\s+(?:in\s+)?liquidation\b/i.test(sentence) &&
-      !/[;:]|\b(?:no|not|unequal|except|unless|without|denied|if|would|will|may|might|could|should|proposed|proposal|amendment|approval|approved|subject|upon|provided|contingent|conditional|future)\b/i.test(sentence) &&
+      /\breceive\b|\bare\s+(?:legally\s+)?entitled\b/i.test(sentence) &&
+      !/[;:]|\b(?:no|not|unequal|except|unless|without|denied|if|would|will|may|might|could|should|proposed|proposal|amendment|approval|approved|subject|upon|provided|contingent|conditional|future|prior|previous|previously|former|formerly|historical|historically|received|were|had|before|until)\b/i.test(sentence) &&
+      // This bounded prose parser establishes only unqualified present rights.
+      // Dated/relative applicability requires independent typed interval proof;
+      // neither the filing date nor the inventory day supplies that interval.
+      !/\b\d{4}\b|\b(?:effective|beginning|starting|commencing|from|next|following|after|when)\b|\bas\s+of\b/i.test(sentence) &&
       /\b(?:holders|entitled)\b/i.test(sentence) &&
-      (() => { const labels = new Set([...sentence.toLowerCase().matchAll(/\b(?:class\s+[a-z0-9]{1,8}\s+)?(?:common\s+(?:stock|shares)|ordinary\s+shares)\b/g)].map(match => match[0].replace(/\s+/g, " ").replace(/common shares$/, "common stock"))); return labels.size === classes.length && classes.every(cls => labels.has(cls.label)); })());
+      (() => { const labels = new Set(classLabels(sentence)); return labels.size === classes.length && classes.every(cls => labels.has(cls.label)); })();
+    // Every additional-class economic assertion must be supported. An unknown
+    // assertion can conflict with equality regardless of its ratio wording.
+    const economicAssertions = sentences.filter(sentence => /\b(?:distributions?|dividends?|liquidation)\b/i.test(sentence) &&
+      classLabels(sentence).some(label => label !== quotedLabel && classes.some(cls => cls.label === label)));
+    const unsupportedRights = economicAssertions.some(sentence => !supportedCurrentEquality(sentence));
+    const rights = !unsupportedRights ? sentences.find(supportedCurrentEquality) : undefined;
     result.passages.rights = rights ?? null;
     if (classes.length > 1 && !rights) { result.reason = "Outstanding common classes retained; equivalent dividend and liquidation economics are not established"; return result; }
     result.evidence = { issuerId: identity.issuerId, securityId: identity.securityId, asOf: inventoryDay, filed: identity.filingDate,
       effectiveFrom: identity.filingDate, effectiveTo: null, complete: true, sourceHash: source.hash,
       sourceIds: [...classes.map(cls => cls.sourceId), ...(rights ? [identity.documentUrl] : [])],
       classes: classes.map(cls => ({ classId: cls.label === quotedLabel ? identity.securityId : cls.classId,
-        shares: cls.shares, countBasis: "outstanding", economicUnitsPerQuotedShare: 1,
+        shares: cls.shares!, countBasis: "outstanding", economicUnitsPerQuotedShare: 1,
         priceBasis: registeredLabels.has(cls.label) ? "quoted-market-price" : "economic-equivalence-proxy" })) };
     result.reason = classes.some(cls => cls.label !== quotedLabel && registeredLabels.has(cls.label)) ? "Complete dated inventory includes another registered trading class; an independent same-session class price is still required" : classes.length > 1 ? "Complete dated cover inventory and explicit equal dividend/liquidation distributions; classes without a registered trading symbol use a same-price approximation" : "Dated single-class cover inventory bound to registered trading symbol";
     return result;

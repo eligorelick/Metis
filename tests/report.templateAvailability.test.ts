@@ -30,13 +30,15 @@ describe("report availability labels follow the retained data", () => {
     const report = loadTask28Fixture();
     report.valuation.dcf = { ...report.valuation.dcf, ...computeDcfDisplay(computed.valuation, "USD") };
     report.valuation = applyScenarioPresentation(report.valuation, computed, false);
-    report.valuation.scenarios.forEach(s => { s.priceTarget = null; });
+    report.valuation.scenarios.forEach(s => { s.priceTarget = null; s.horizon = "n/a"; });
     report.scenarioPresentation = buildScenarioPresentation(computed);
     report.projections = computed.projections;
     const text = render(report);
     expect(text).toContain("Entity DCF and numerical operating scenario paths are available");
     expect(text).toContain("per-share scenario targets are withheld");
     expect(text).toContain("Revenue growth path");
+    expect(text).toContain("per-share target unavailable");
+    expect(/Bull - unavailable \(n\/a\)/.test(text)).toBe(false);
     expect(text).not.toContain("Computational DCF scenarios are unavailable");
     expect(text).not.toContain("Deterministic scenario inputs unavailable");
   });

@@ -1,7 +1,7 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { leaseDebtConflict, resolveNetDebt } from "./netDebt";
-import { incompleteLeaseCoverage } from "./leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 
 export interface CashFlowBridge {
@@ -67,7 +67,7 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
     ...(incomplete.finance === "noncurrent" ? { financeLeasesNoncurrent: finance } : incomplete.finance === "current" ? { financeLeasesCurrent: finance } : {}),
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
-    netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null,
+    netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null && leaseDebtScopeRefusal(row, false) === null ? sub(net, operating) : null,
     leaseScopeNote: incomplete.note,
   };
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,

@@ -127,7 +127,7 @@ import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
-import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
@@ -462,6 +462,8 @@ function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): numb
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
     leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
+    fieldProvenance: r.fieldProvenance,
+    shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -524,6 +526,7 @@ function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
 function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
   return {
     fieldProvenance: r.fieldProvenance,
+    shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),
     capitalLeaseObligations: num(r.capitalLeaseObligations),
@@ -1427,6 +1430,7 @@ const WACC_HISTORY_RF_SERIES_ID = "fred:DGS10";
 function withMarketableEquity(rows: FmpBalanceSheetRow[], facts: CompanyFacts | null, observedAt: string): FmpBalanceSheetRow[] {
   if (facts === null) return rows;
   return rows.map((row) => {
+    row = restoreLeaseFinancingProvenance(row, facts, observedAt);
     const resolved = marketableEquityInCash(facts, {
       date: isoDay(row.date), reportedCurrency: str(row.reportedCurrency),
       cashAndCashEquivalents: num(row.cashAndCashEquivalents), shortTermInvestments: num(row.shortTermInvestments),
@@ -1477,6 +1481,7 @@ function bookDebtOnLeaseBasis(
   const total = row ? num(row.totalDebt) : null;
   if (total === null) return { value: null, leaseRemoved: false };
   if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
+  if (leaseDebtScopeRefusal(row, includeOperatingLeases) !== null) return { value: null, leaseRemoved: false };
   const operatingLease = row ? num(row.operatingLeaseLiability) : null;
   if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total) {
     return { value: total - operatingLease, leaseRemoved: true };
@@ -1603,6 +1608,8 @@ function totalDebtSnapshot(
     .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
   const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
   if (refused !== undefined) return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency };
+  const scopeRefusal = [...pair, newestBalance].map(row => leaseDebtScopeRefusal(row, includeOperatingLeases)).find(reason => reason !== null);
+  if (scopeRefusal) return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency };
   // Invalid supplied balances are not missing observations that the other
   // year may replace. Preserve the raw negative sentinel before lease guards
   // null the adjusted values, and reject contradictory lease compositions.
@@ -2903,6 +2910,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis
     ? {
         leaseCoverageNote: incompleteLeaseCoverage(balPoint)?.note,
+        fieldProvenance: balPoint.fieldProvenance,
+        operatingLeaseLiability: num(balPoint.operatingLeaseLiability), financeLeaseLiability: num(balPoint.financeLeaseLiability), capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
         date: String(balPoint.date ?? ""),
         basis: balPointBasis,
         totalDebt: num(balPoint.totalDebt),
@@ -3130,6 +3139,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability),
         financeLeaseLiability: num(balPoint.financeLeaseLiability),
         fieldProvenance: balPoint.fieldProvenance,
+        shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
       }
     : null;
 
@@ -3654,6 +3664,9 @@ function mergeQuarterly(
       totalEquity: bal ? num(bal.totalEquity) : null,
       equityOwnershipBasis: statementEquityOwnershipBasis(bal),
       // House-EV components, so own-history EV matches the current definition.
+      fieldProvenance: bal?.fieldProvenance,
+      shortTermDebt: bal ? num(bal.shortTermDebt) : null,
+      longTermDebt: bal ? num(bal.longTermDebt) : null,
       totalDebt: bal ? num(bal.totalDebt) : null,
       cashAndCashEquivalents: bal ? num(bal.cashAndCashEquivalents) : null,
       shortTermInvestments: bal ? num(bal.shortTermInvestments) : null,

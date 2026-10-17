@@ -84,20 +84,20 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.21.0");
-    expect(PAYLOAD_VERSION).toBe("1.26.0");
+    expect(REPORT_SPEC_VERSION).toBe("1.22.0");
+    expect(PAYLOAD_VERSION).toBe("1.27.0");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.21.0");
+    expect(newReport().meta.specVersion).toBe("1.22.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.26.0");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.26\.0:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.26\.0\)/);
+    expect(payload.payloadVersion).toBe("1.27.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.27\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.27\.0\)/);
   });
 
-  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
+  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     const prior = payloadFingerprint({ ...payload, payloadVersion: version });
@@ -105,7 +105,7 @@ describe("new version stamps", () => {
     expect(payloadFingerprint(payload)).not.toBe(prior);
   });
 
-  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20.0"])("does not compare a prior %s report as the same financial convention", (version) => {
+  it.each(["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.13.0", "1.14.0", "1.16.0", "1.18.0", "1.19.0", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20.0", "1.21.0"])("does not compare a prior %s report as the same financial convention", (version) => {
     const before = newReport();
     before.meta.specVersion = version;
     const after = newReport();

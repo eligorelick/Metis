@@ -160,3 +160,54 @@ it("does not ignore an unresolved competing filing on the same disclosure day", 
   const evidence = economicEvidenceFromInventories([known, unknown]);
   expect(resolveEconomicEquityScope({price:100,marketCap:10e9,priceAsOf:"2026-10-14",issuerId:identity.issuerId,securityId:identity.securityId,currency:"USD"},evidence,"2026-10-15").status).toBe("unresolved");
 });
+
+it.each([
+  "Prior to the July 2026 recapitalization, holders of common stock and Class B common stock received equal per share distributions through dividends or liquidation.",
+  "Prior to the July 2026 recapitalization, holders of common stock and Class B common stock received equal per share distributions through dividends or liquidation. Following the recapitalization, Class B common stock receives twice the distributions of common stock.",
+  rights + " Class B common stock receives twice the distributions of common stock.",
+])("does not admit historical or contradictory class economics: %s", async description => {
+  const bundle=await productionBundle(primaryHtml({rights:description}));
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+it.each(["common stock","common shares","ordinary shares"])("retains an untagged outstanding class row as ambiguity (%s)", async alias => {
+  const html=primaryHtml().replace(/<tr><td>Class B common stock[\s\S]*?<\/tr>/,`<tr><td>Class B ${alias}, $0.001 par value</td><td>20,000,000</td><td>shares</td></tr>`);
+  const bundle=await productionBundle(html);
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+it("admits consistently tagged common-share aliases as a complete inventory", () => {
+  const html=primaryHtml().replaceAll("common stock","common shares");
+  expect(parsePrimaryEconomicShares(html,identity,"2026-10-15").evidence?.classes).toHaveLength(2);
+});
+
+it.each(["common shares","ordinary shares"])("refuses an adjacent fragmented untagged %s class", async alias => {
+  const html=primaryHtml().replace(/<tr><td>Class B common stock[\s\S]*?<\/tr>/,`</table><table><tr><td>Class B ${alias}</td><td>20,000,000 shares</td></tr>`);
+  const bundle=await productionBundle(html);
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+it("does not present a former charter's equality as current economics", () => {
+  const html=primaryHtml({rights:"Under the former charter, holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation."});
+  expect(parsePrimaryEconomicShares(html,identity,"2026-10-15").evidence).toBeNull();
+});
+
+it.each(["Effective January 1, 2027", "Beginning January1,2027", "From 2027-01-01", "Starting next fiscal year"])("does not infer current applicability for dated or relative rights (%s)", async qualifier => {
+  const description=qualifier+", holders of common stock and Class B common stock receive equal per share distributions through dividends or liquidation.";
+  const bundle=await productionBundle(primaryHtml({rights:description}));
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+it.each(["half", "one-half", "0.5 times", "a preferential share of"])("does not ignore unsupported additional-class distribution assertions (%s)", async amount => {
+  const description=rights+` Class B common stock receives ${amount} the distributions of common stock.`;
+  const bundle=await productionBundle(primaryHtml({rights:description}));
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});
+
+it("does not discard a conflicting economic-rights assertion carried in a layout table", async () => {
+  const html=primaryHtml().replace("<h2>Item 3. Market Risk</h2>","<table><tr><td>Class B common stock</td><td>receives half the distributions of common stock.</td></tr></table><h2>Item 3. Market Risk</h2>");
+  const bundle=await productionBundle(html);
+  expect(bundle.economicShareEvidence).toEqual([]);
+  expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("unresolved");
+});

@@ -15,18 +15,19 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BusinessSegments } from "@/components/report/sections";
 import { applySegmentShares } from "@/pipeline/stageC/passes";
+import { pipelinePasses } from "@/pipeline/stageC/index";
 
 const now = "2026-07-06T00:00:00.000Z";
 const years = [2025, 2024, 2023];
 const definition = "The following table presents revenue by geographic area based on the geographic location of our websites or points of sale with the exception of SearchUnit, which has all been allocated to Germany, the location of its corporate headquarters.";
 export function annualGeographyHtml(): string {
-  const fact = (value: number, year: number) => `<ix:nonFraction unitRef="usd" contextRef="c${year}" name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" scale="6">${value.toLocaleString("en-US")}</ix:nonFraction>`;
-  const row = (name: string, values: number[]) => `<tr><td>${name}</td>${values.map((v, i) => `<td>$ ${fact(v, years[i]!)}</td>`).join("")}</tr>`;
+  const fact = (value: number, year: number, scope: string) => `<ix:nonFraction unitRef="usd" contextRef="${scope}${year}" name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" scale="6">${value.toLocaleString("en-US")}</ix:nonFraction>`;
+  const row = (name: string, values: number[], scope: string) => `<tr><td>${name}</td>${values.map((v, i) => `<td>$ ${fact(v, years[i]!, scope)}</td>`).join("")}</tr>`;
   return `<html><body><xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
-    ${years.map(year => `<xbrli:context id="c${year}"><xbrli:entity><xbrli:identifier>1234567</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:startDate>${year}-01-01</xbrli:startDate><xbrli:endDate>${year}-12-31</xbrli:endDate></xbrli:period></xbrli:context>`).join("")}
+    ${years.flatMap(year => ["c", "u", "o"].map(scope => `<xbrli:context id="${scope}${year}"><xbrli:entity><xbrli:identifier scheme="http://www.sec.gov/CIK">1234567</xbrli:identifier>${scope === "c" ? "" : `<xbrli:segment><xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">${scope === "u" ? "country:US" : "us-gaap:NonUsMember"}</xbrldi:explicitMember></xbrli:segment>`}</xbrli:entity><xbrli:period><xbrli:startDate>${year}-01-01</xbrli:startDate><xbrli:endDate>${year}-12-31</xbrli:endDate></xbrli:period></xbrli:context>`)).join("")}
     <h2>Geographic Information</h2><p>${definition}</p><table><tr><td>Year Ended December 31,</td></tr>
     <tr>${years.map(y => `<td>${y}</td>`).join("")}</tr><tr><td>(In millions)</td></tr><tr><td>Revenue</td></tr>
-    ${row("United States", [8710, 8372, 8147])}${row("All other countries", [6023, 5319, 4692])}${row("", [14733, 13691, 12839])}</table></body></html>`;
+    ${row("United States", [8710, 8372, 8147], "u")}${row("All other countries", [6023, 5319, 4692], "o")}${row("", [14733, 13691, 12839], "c")}</table></body></html>`;
 }
 
 async function bundle(html = annualGeographyHtml(), vendor?: FetchResult<FmpPayload<FmpSegmentationRow>>) {
@@ -51,6 +52,115 @@ async function bundle(html = annualGeographyHtml(), vendor?: FetchResult<FmpPayl
 }
 
 describe("annual primary-filing geography fallback", () => {
+  it("admits exact primary geography through full assembly and numeric verification while retaining its reader URL", async () => {
+    const { result: input } = await bundle();
+    const computed = runStageB(input, { evIncludeLeases: false });
+    const payload = pipelinePasses.assembleContextPayload(input, computed, { checks: [], flags: [], gaps: [] });
+    const figure = payload.segments.figures.find(f => f.label === "geographic: United States")!;
+    expect(figure.period).toBe("2025-12-31");
+    const verified = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, loadTask28Fixture());
+    for (const row of verified.verifiedReport.business.segments.geographic) {
+      const record = payload.provenanceRegistry!.find(r => r.label === `geographic: ${row.name}`)!;
+      expect(row.revenue).toMatchObject({ source: record.origin, sourceId: record.id, value: record.value, verified: true,
+        currency: "USD", period: "2025-12-31", asOf: "2025-12-31", verificationNote: expect.stringContaining(definition) });
+      expect(record.origin).toContain("/1234567/000123456726000001/annual.htm");
+      expect(verified.verifiedReport.appendix.verificationLog?.find(entry => entry.path === `business.segments.geographic[${verified.verifiedReport.business.segments.geographic.indexOf(row)}].revenue`)?.reason).toBe("supported");
+    }
+  });
+
+  it.each([
+    ["foreign-identifier-scheme", (h: string) => h.replaceAll('scheme="http://www.sec.gov/CIK"', 'scheme="urn:example:foreign-entity-id"')],
+    ["missing-identifier-scheme", (h: string) => h.replaceAll(' scheme="http://www.sec.gov/CIK"', "")],
+    ["business-segment-scope", (h: string) => h.replaceAll("</xbrli:identifier>", '</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementBusinessSegmentsAxis">ex:B2BMember</xbrldi:explicitMember></xbrli:segment>').replace("The following table presents revenue", "The following table presents B2B segment revenue")],
+    ["product-scope", (h: string) => h.replaceAll("</xbrli:identifier>", '</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">ex:ProductMember</xbrldi:explicitMember></xbrli:segment>')],
+    ["scenario-scope", (h: string) => h.replaceAll("</xbrli:period>", '</xbrli:period><xbrli:scenario><xbrldi:explicitMember dimension="ex:ScenarioAxis">ex:ForecastMember</xbrldi:explicitMember></xbrli:scenario>')],
+    ["typed-scope", (h: string) => h.replaceAll("</xbrli:identifier>", '</xbrli:identifier><xbrli:segment><xbrldi:typedMember dimension="ex:CustomAxis"><ex:Scope>B2B</ex:Scope></xbrldi:typedMember></xbrli:segment>')],
+    ["dimensioned-total", (h: string) => h.replaceAll('contextRef="c', 'contextRef="u')],
+    ["undimensioned-geography", (h: string) => h.replaceAll(/<xbrli:segment>[\s\S]*?<\/xbrli:segment>/g, "")],
+    ["inconsistent-geographic-member", (h: string) => h.replace('contextRef="u2024"', 'contextRef="o2024"')],
+    ["duplicate-geographic-scope", (h: string) => h.replace('<xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">country:US</xbrldi:explicitMember>', '<xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">country:US</xbrldi:explicitMember><xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">country:US</xbrldi:explicitMember>')],
+  ] as const)("withholds %s instead of promoting a partial scope to company geography", async (_name, change) => {
+    const { result } = await bundle(change(annualGeographyHtml()));
+    expect(result.edgar.annualGeography?.ok).toBe(false);
+    expect(result.segmentation.geographic.ok).toBe(false);
+  });
+
+  it.each([
+    ["geographic-label-member-mismatch", (h: string) => h.replaceAll('>country:US</xbrldi:explicitMember>', '>ex:B2BMember</xbrldi:explicitMember>')],
+    ["same-end-quarter-duration", (h: string) => h.replaceAll(/(\d{4})-01-01/g, "$1-10-01")],
+    ["different-annual-start", (h: string) => h.replace(/(<xbrli:context id="o2025">[\s\S]*?<xbrli:startDate>)2025-01-01/, (_match, prefix: string) => `${prefix}2025-01-02`)],
+  ] as const)("requires %s compatibility", async (_name, change) => {
+    const { result } = await bundle(change(annualGeographyHtml()));
+    expect(result.edgar.annualGeography?.ok).toBe(false);
+    expect(result.segmentation.geographic.ok).toBe(false);
+  });
+
+  it.each([
+    "The following table presents B2B segment revenue by geographic area based on customer location.",
+    "The following table presents B2B revenue by geographic area based on customer location.",
+    "The following table presents revenue from our corporate customers by geographic area based on customer location.",
+    "The following table presents revenue for the Consumer division by geographic area based on customer location.",
+    "The following table presents Product A product revenue by geographic area based on customer location.",
+    "The following table presents revenue by geographic area based on customer location for the B2B business unit.",
+    "The following table presents revenue by geographic area, for our corporate customers, based on customer location.",
+    "The following table presents revenue by geographic area, the United States and Canada, based on customer location.",
+  ])("withholds explicitly narrowed prose even with contradictory consolidated XBRL: %s", async narrowed => {
+    const { result } = await bundle(annualGeographyHtml().replace(definition, narrowed));
+    expect(result.edgar.annualGeography?.ok).toBe(false);
+    expect(result.segmentation.geographic.ok).toBe(false);
+  });
+
+  it.each([
+    definition.replace("by geographic area based", "by geographic area, the United States and all other countries, based"),
+    definition.replace("The following table presents revenue", "Our revenue"),
+    definition.replace("SearchUnit, which", "our SearchUnit brand, which"),
+  ])("keeps a supported whole-issuer definition and its allocation exception: %s", async supported => {
+    const { result } = await bundle(annualGeographyHtml().replace(definition, supported));
+    expect(result.edgar.annualGeography?.ok).toBe(true);
+    expect(result.segmentation.geographic.ok).toBe(true);
+    expect(selectedGeographyNotes(result.segmentation.geographic).join(" ")).toContain(supported);
+  });
+
+  it("accepts a consistent 53-week annual window and matching custom geographic members", async () => {
+    const html = annualGeographyHtml().replaceAll(/(\d{4})-01-01/g, (_match, year: string) => `${Number(year) - 1}-12-26`)
+      .replaceAll("country:US", "example:EuropeMember").replaceAll("United States", "Europe")
+      .replaceAll("srt:StatementGeographicalAxis", "us-gaap:StatementGeographicalAxis");
+    const { result } = await bundle(html);
+    expect(result.segmentation.geographic.ok).toBe(true);
+    if (result.segmentation.geographic.ok) expect(result.segmentation.geographic.value.data.rows[0]?.data).toHaveProperty("Europe", 8710000000);
+  });
+
+  it.each([
+    ["cross-issuer", { origin: "https://www.sec.gov/Archives/edgar/data/9999999/000999999926000001/annual.htm" }],
+    ["cross-document", { origin: "https://www.sec.gov/Archives/edgar/data/1234567/000123456726000002/other.htm" }],
+    ["cross-period", { period: "2024-12-31" }],
+    ["cross-unit", { unit: "shares" }],
+    ["cross-currency", { currency: "EUR" }],
+    ["cross-value", { value: 1 }],
+    ["cross-date", { asOf: "2024-12-31" }],
+  ] as const)("does not admit %s geography evidence merely because a filing URL is present", async (_name, change) => {
+    const { result: input } = await bundle();
+    const payload = pipelinePasses.assembleContextPayload(input, runStageB(input), { checks: [], flags: [], gaps: [] });
+    const record = payload.provenanceRegistry!.find(r => r.label === "geographic: United States")!;
+    Object.assign(record, change);
+    const verified = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, loadTask28Fixture());
+    const number = verified.verifiedReport.business.segments.geographic.find(row => row.name === "United States")!.revenue;
+    expect(number.verified).toBe(false);
+    expect(number.sourceId).not.toBe(record.id);
+    expect(number.source).toContain("/1234567/000123456726000001/annual.htm");
+  });
+
+  it("keeps primary geography unverified without a numeric payload record", async () => {
+    const { result: input } = await bundle();
+    const payload = pipelinePasses.assembleContextPayload(input, runStageB(input), { checks: [], flags: [], gaps: [] });
+    payload.provenanceRegistry = payload.provenanceRegistry!.filter(r => !r.id.startsWith("payload.segments.geographic-"));
+    const verified = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, loadTask28Fixture());
+    expect(verified.verifiedReport.business.segments.geographic.every(row => row.revenue.verified === false)).toBe(true);
+    const logs = (verified.verifiedReport.appendix.verificationLog ?? []).filter(entry => /^business\.segments\.geographic\[\d+\]\.revenue$/.test(entry.path ?? ""));
+    expect(logs).toHaveLength(2);
+    expect(logs.every(entry => entry.reason === "unknown-source")).toBe(true);
+  });
+
   it("fills missing geography from one matched annual revenue table and retains the actual allocation basis", async () => {
     const { result, requests } = await bundle();
     const geo = result.segmentation.geographic;
@@ -129,7 +239,7 @@ describe("annual primary-filing geography fallback", () => {
     ["wrong-year", (h: string) => h.replace("<td>2025</td>", "<td>2026</td>")],
     ["wrong-unit", (h: string) => h.replace('unitRef="usd"', 'unitRef="missing"')],
     ["wrong-scale", (h: string) => h.replace('scale="6"', 'scale="3"')],
-    ["wrong-issuer", (h: string) => h.replaceAll("<xbrli:identifier>1234567", "<xbrli:identifier>9999999")],
+    ["wrong-issuer", (h: string) => h.replaceAll(">1234567</xbrli:identifier>", ">9999999</xbrli:identifier>")],
     ["mismatched-total", (h: string) => h.replace("14,733", "14,734")],
     ["property-table", (h: string) => h.replace("<td>Revenue</td>", "<td>Property and equipment, net</td>")],
     ["duplicate-table", (h: string) => h + h],

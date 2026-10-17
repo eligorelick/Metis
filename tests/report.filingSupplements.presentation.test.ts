@@ -50,16 +50,16 @@ describe("deterministic filing supplements", () => {
     ]);
   });
 
-  it("distinguishes confirmed and scheduled appointments from anticipated changes", () => {
+  it("keeps filing-specified elapsed and anticipated dates separate from actual completion", () => {
     const base = disclosures().officerChanges[0]!;
     const tables = filingGovernanceTables({ currency: "USD", officerChanges: [
       { ...base, kind: "appointment", board: true, anticipated: false, inEffect: true, effective: "2026-09-30", announced: null, note: null, package: [] },
       { ...base, kind: "appointment", anticipated: false, inEffect: false, effective: null, note: null, package: [] },
       { ...base, anticipated: true, effective: null },
     ] });
-    expect(tables[0]?.rows[0]).toEqual(["Example Officer — EVP (board)", "Appointment", "Not recorded", "Effective 2026-09-30", "Not recorded", expect.any(String)]);
-    expect(tables[0]?.rows[1]?.[3]).toBe("Scheduled date not recorded");
-    expect(tables[0]?.rows[2]?.[3]).toBe("Anticipated date not recorded; effective status unconfirmed");
+    expect(tables[0]?.rows[0]).toEqual(["Example Officer \u2014 EVP (board)", "Appointment", "Not recorded", "Scheduled 2026-09-30; specified by filing; date elapsed; completion unconfirmed", "Not recorded", expect.any(String)]);
+    expect(tables[0]?.rows[1]?.[3]).toBe("Scheduled date not recorded; specified by filing; completion unconfirmed");
+    expect(tables[0]?.rows[2]?.[3]).toBe("Anticipated date not recorded; specified by filing; completion unconfirmed");
   });
 
   it("retains a negative pay vote and plan changes when share capacity or expiration is absent", () => {

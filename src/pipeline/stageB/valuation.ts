@@ -21,7 +21,7 @@ import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, resolveSecurityBasis, resolveEconomicEquityScope, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
-import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
+import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
@@ -515,6 +515,10 @@ export interface DcfIncomeRow {
 
 /** Selected whole balance-sheet slice used by the DCF builder (FMP field names). */
 export interface DcfBalanceRow {
+  fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
+  operatingLeaseLiability?: number | null;
+  financeLeaseLiability?: number | null;
+  capitalLeaseObligations?: number | null;
   leaseCoverageNote?: string;
   date: string;
   basis: "quarter" | "annual";
@@ -1775,6 +1779,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // --- Sales-to-capital ------------------------------------------------------
   const bal = inputs.balance;
+  const debtScopeRefusal = leaseDebtScopeRefusal(bal, true);
+  if (debtScopeRefusal) {
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${debtScopeRefusal} Raw lease-inclusive invested capital cannot support sales-to-capital; DCF withheld.`, "critical"));
+    return { assumptions: null, notes, gaps };
+  }
   const equity = resolveConsolidatedEquity(bal ?? {});
   const ic =
     bal && isNum(bal.totalDebt) && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
@@ -2764,6 +2773,8 @@ export interface MultiplesCashFlowTtm {
 
 /** Latest balance sheet slice (FMP names). */
 export interface MultiplesBalance {
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
   fieldProvenance?: Record<string, { tags: string[] }>;
   date: string;
   /**
@@ -2819,6 +2830,9 @@ export interface MultiplesBalance {
 
 /** Quarterly fundamentals merged per quarter by the caller (FMP names). */
 export interface QuarterlyFundamentalsRow {
+  fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
   date: string;
   acceptedDate?: unknown;
   filingDate?: unknown;
@@ -3080,6 +3094,7 @@ interface OwnHistoryDerivation {
    * sheet while the current EV removes one). Their EV multiples are dropped.
    */
   leaseBasisMismatchWindows: string[];
+  leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }>;
   cashOwnershipRejectedWindows: string[];
 }
 
@@ -3134,11 +3149,13 @@ function deriveOwnHistory(
       rejectedWindows: candidates.rejected,
       unusableWindows: [],
       leaseBasisMismatchWindows: [],
+      leaseScopeRejectedWindows: [],
       cashOwnershipRejectedWindows: [],
     };
   }
   const unusableWindows: Array<{ anchor: string; reason: string }> = [];
   const leaseBasisMismatchWindows: string[] = [];
+  const leaseScopeRejectedWindows: Array<{ anchor: string; reason: string }> = [];
   const cashOwnershipRejectedWindows: string[] = [];
   const push = (key: MultipleKey, value: number): void => {
     const values = (series[key] ??= []);
@@ -3146,6 +3163,8 @@ function deriveOwnHistory(
   };
   for (const window of candidates.windows) {
     if (derivedKeys.every((key) => (series[key]?.length ?? 0) >= FULL_OWN_HISTORY_OBS)) break;
+    const leaseScopeRefusal = leaseDebtScopeRefusal(window[0], !removeOperatingLease);
+    if (leaseScopeRefusal) leaseScopeRejectedWindows.push({ anchor: window[0].date, reason: leaseScopeRefusal });
     const ev = latestOnOrBeforeWithin(
       evRows ?? [],
       window[0].date,
@@ -3209,7 +3228,7 @@ function deriveOwnHistory(
     if (!leaseBasisMatches) leaseBasisMismatchWindows.push(b.date);
     const historicalNetDebt = resolveNetDebt(b);
     const evVal =
-      leaseBasisMatches && !unknownNoncontrollingAllocation(b) && isNum(mcap) && historicalNetDebt.value !== null
+      leaseBasisMatches && leaseScopeRefusal === null && !unknownNoncontrollingAllocation(b) && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
           historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
@@ -3272,6 +3291,7 @@ function deriveOwnHistory(
     rejectedWindows: candidates.rejected,
     unusableWindows,
     leaseBasisMismatchWindows,
+    leaseScopeRejectedWindows,
     cashOwnershipRejectedWindows,
   };
 }
@@ -3444,7 +3464,7 @@ export function multiplesFramework(
     gaps.push(gapEntry("valuation.multiples.netDebt", netDebt.reason, "warn"));
     notes.push(`EV withheld: ${netDebt.reason}. Equity-only multiples are evaluated separately.`);
   }
-  const evIncludingLeases =
+  const rawEvIncludingLeases =
     mcap !== null && bal && netDebt.value !== null && !unknownNciAllocation
       ? mcap +
         netDebt.value +
@@ -3474,14 +3494,18 @@ export function multiplesFramework(
           : null;
   const includeLeases = inputs.includeLeasesInEv === true;
   const incompleteLeases = incompleteLeaseCoverage(bal);
+  const inclusiveRefusal = leaseDebtScopeRefusal(bal, true);
+  const excludedRefusal = leaseDebtScopeRefusal(bal, false);
+  const evIncludingLeases = inclusiveRefusal ? null : rawEvIncludingLeases;
   const evExcludingLeases =
-    evIncludingLeases === null
+    excludedRefusal || rawEvIncludingLeases === null
       ? null
       : leaseLiability === null
-        ? evIncludingLeases
-        : evIncludingLeases - leaseLiability;
+        ? rawEvIncludingLeases
+        : rawEvIncludingLeases - leaseLiability;
   const ev = includeLeases ? evIncludingLeases : evExcludingLeases;
   const evBridgeBasis =
+    ((includeLeases ? inclusiveRefusal : excludedRefusal) ? `${includeLeases ? inclusiveRefusal : excludedRefusal} ` : "") +
     (incompleteLeases !== null
       ? `Enterprise value ${includeLeases ? "keeps" : "removes"} the disclosed operating-lease portion embedded in retained debt. ${incompleteLeases.note} `
       : includeLeases
@@ -3685,6 +3709,14 @@ export function multiplesFramework(
   // the adjustment fired the vendor EV bands are withheld rather than published
   // on a basis the current number does not share.
   const vendorEvKeys: readonly MultipleKey[] = ["evToEbitda", "evToSales"];
+  if (derived.leaseScopeRejectedWindows.length) {
+    for (const key of vendorEvKeys) delete vendor[key];
+    const reason = `${derived.leaseScopeRejectedWindows.length} historical quarter window(s) have a known incomplete lease/debt scope: ` +
+      derived.leaseScopeRejectedWindows.slice(0, 3).map(({ anchor, reason }) => `${anchor}: ${reason}`).join("; ") +
+      ". Affected raw-statement EV windows are excluded. Vendor EV/EBITDA and EV/sales history lacks the component evidence needed to cure these refusals and cannot restore an own-history band; supported raw-statement windows remain eligible.";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.ownHistory.evLeaseScope", reason, "warn"));
+  }
   if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(unknownNoncontrollingAllocation)) {
     for (const key of vendorEvKeys) delete vendor[key];
     const reason = "Known outside ownership has an unavailable NCI allocation in current or historical balance evidence; affected historical EV windows and vendor EV-ratio fallback without ownership allocation evidence are withheld. Equity-only history is evaluated separately.";
@@ -5014,8 +5046,10 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         ),
       );
     }
+    const reitDebtRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
+    if (reitDebtRefusal) gaps.push(gapEntry("valuation.reit.enterpriseValue.leaseScope", reitDebtRefusal, "critical"));
     const reit = inputs.reit
-      ? reitValuation(quoteComparison.comparable ? inputs.reit : { ...inputs.reit, sharePrice: null })
+      ? reitValuation({ ...inputs.reit, ...(!quoteComparison.comparable ? { sharePrice: null } : {}), ...(reitDebtRefusal ? { netDebt: null } : {}) })
       : reitValuation({ ffoApprox: null, affoApprox: null, sharePrice: null, shares: null, netDebt: null });
     if (!inputs.reit) {
       gaps.push(gapEntry("valuation.reit", "REIT inputs not provided by caller", "critical"));
@@ -5117,7 +5151,9 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         financeLeaseLiability: inputs.multiples.balance?.financeLeaseLiability,
       });
       if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
-      const netDebtIncludingLeases = leaseConflict === null ? inputs.netDebt : null;
+      const bridgeScopeRefusal = leaseDebtScopeRefusal(inputs.multiples.balance, inputs.includeLeasesInEv === true);
+      if (bridgeScopeRefusal) { notes.push(bridgeScopeRefusal); gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", bridgeScopeRefusal, "critical")); }
+      const netDebtIncludingLeases = leaseConflict === null && bridgeScopeRefusal === null ? inputs.netDebt : null;
       const netDebtExcludingLeases =
         isNum(netDebtIncludingLeases) && leaseLiability !== null
           ? netDebtIncludingLeases - leaseLiability
