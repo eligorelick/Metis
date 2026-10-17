@@ -1,4 +1,5 @@
 import {
+  ENTITY_WITHHELD_STATEMENT_PREFIX,
   getEntityRegistry,
   validateEntityText,
   type EntityIssue,
@@ -6,6 +7,7 @@ import {
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
 import { applyReportAssessmentStatus } from "@/report/assessment";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { attributeJudgeProtocolDisclosures } from "@/report/execution";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
@@ -62,7 +64,7 @@ export function parseStoredReportWithSafety(
       parsed,
       getEntityRegistry(parsed.meta.symbol),
     );
-    const assessed = applyReportAssessmentStatus(safety.report);
+    const assessed = applyReportAssessmentStatus(applyGradeOverrideContract(safety.report, safety.report.appendix.verificationLog ?? []));
     const view = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety({
       ...assessed,
       appendix: {
@@ -116,7 +118,7 @@ export function sanitizeLegacyEntityConflicts(
       withheldTexts.add(value);
       const canonical = [...new Set(found.map((issue) => issue.canonicalName))].join(", ");
       const codes = [...new Set(found.map((issue) => issue.code))].join(", ");
-      return `Legacy statement withheld: unresolved ${codes} conflict. Canonical primary-source reference: ${canonical}. See the missing-data manifest.`;
+      return `${ENTITY_WITHHELD_STATEMENT_PREFIX}${codes} conflict. Canonical primary-source reference: ${canonical}. See the missing-data manifest.`;
     }
     if (Array.isArray(value)) return value.map(walk);
     if (value === null || typeof value !== "object") return value;
@@ -125,7 +127,7 @@ export function sanitizeLegacyEntityConflicts(
     // design (prompts.ts: "every supplied deterministic entity conflict must
     // appear as kind=entity"). Withholding it (before the 2026-09-06 audit,
     // F184) blocked every clean report whose judge had done exactly that.
-    const entry = value as { kind?: unknown; judgeResolution?: unknown };
+    const entry = value as { kind?: unknown; judgeResolution?: unknown; claim?: unknown; outcome?: unknown };
     if (entry.kind === "entity" && typeof entry.judgeResolution === "string") {
       return structuredClone(value);
     }
@@ -135,6 +137,19 @@ export function sanitizeLegacyEntityConflicts(
     const normalizedAsOf = hasCitationShape ? citationAsOf(carrier) : null;
     const output: Record<string, unknown> = {};
     for (const [key, nested] of Object.entries(value)) output[key] = walk(nested);
+    if (typeof entry.claim === "string" && output.claim !== entry.claim &&
+      (entry.outcome === "verified" || entry.outcome === "unverified" || entry.outcome === "removed")) {
+      // A sanitized log claim can now equal the section's same placeholder.
+      // Its prior support belongs to the withheld original, never this text.
+      output.outcome = "removed";
+      output.traceKind = "untraced";
+      output.validationStatus = "contradicted";
+      output.claimSupportStatus = "contradicted";
+      output.note = "Legacy entity/trial conflict: claim withheld and its original verification support invalidated.";
+      delete output.reason;
+      delete output.numericSupportStatus;
+      delete output.executiveEvidenceKind;
+    }
     if (hasCitationShape) {
       if (normalizedSource !== null) {
         const sourceNeedsNormalization =

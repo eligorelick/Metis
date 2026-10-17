@@ -329,13 +329,52 @@ The first two forms read the local application database (`METIS_DB_PATH` may sel
 
 Replay uses the snapshot's build date and explicit calculation options, independent of the present clock, cache or lease configuration. It checks digest integrity and requires the installed calculation/report/score-band versions to match. An unavailable historical implementation fails explicitly; running today's changed rules on yesterday's input is not labeled an exact replay. These version stamps must be bumped when their calculation meanings change.
 
-An acquisition adapter can supply actual method/dependency bytes through
+`npm run build` retains a frozen offline Stage B replay bundle and writes
+`.next/runtime-artifact-identity.json` after compilation. The manifest binds the
+compiled server module/manifest file set, captured methodology bytes, dependency
+lock digest and available Git metadata to a build token embedded in the server.
+Source, method or lock changes during compilation fail identity generation.
+Ordinary jobs validate these retained artifacts before attaching local content
+identity to their snapshots. A later checkout change does not identify an older
+build. Missing, changed or symlinked build evidence leaves identity incomplete;
+legacy snapshots remain readable and replay output labels them `legacy-unverified`.
+
+For a snapshot captured by an ordinary built runtime, preserve its `.next` build
+and replay with the retained engine:
+
+```powershell
+node --conditions=react-server --import tsx scripts/replay-run-inputs.ts --snapshot frozen-inputs.json --runtime-build .next --trust-local-build yes --output replayed-stageb.json
+```
+
+`--runtime-build DIR` requires explicit `--trust-local-build yes`: it executes
+code from a local build that you trust. Never use it with an untrusted or
+downloaded artifact. The snapshot file never selects an executable path. The
+CLI validates snapshot integrity, the manifest and the exact compiled file set
+before importing the retained bundle. Importing evaluates its module code;
+the exported build token is checked after that evaluation, followed by its
+version checks and Stage B calculation. Content hashes are not signatures or
+authentication and cannot make an untrusted build safe to execute.
+
+The frozen compiler specializes the same Stage B functions to require explicit
+captured calculation options. It omits evaluation effects of unused live
+provider imports and refuses emitted credential-store, database, cache, ambient
+configuration and external I/O dependencies. The retained bundle may import only
+Node's cryptographic hashing module; it does not reproduce provider/environment
+side effects. Parity tests compare complete computed outputs across synthetic
+general, bank, REIT and cash-burning inputs with ambient lease settings reversed.
+Preserve `BUILD_ID`, `runtime-artifact-identity.json` and `server/` together.
+Git metadata may be unavailable in a packaged build. These are local content
+hashes, not attestation of provider provenance or the installed application.
+The build uses the explicitly pinned development dependency `esbuild` to freeze
+the replay graph; this adds no new resolved dependency package.
+
+An acquisition adapter can still supply actual method/dependency bytes through
 `createSnapshotArtifactIdentity` and the fourth `captureRunInputSnapshot` argument.
-Identity-bearing replay also requires matching `--method-artifact FILE` and
+For those identities, use matching `--method-artifact FILE` and
 `--dependency-lock FILE`, plus the recorded `--code-commit SHA` and
-`--dirty-diff FILE` when present. These checks include recorded null values.
-Ordinary jobs retain the legacy normalized-input format because deployed artifact
-collection is not established; no method hashes are inferred from version labels.
+`--dirty-diff FILE` when present. These checks include recorded null values and
+verify supplied byte identities; they do not attest an executing dependency graph.
+Raw artifact flags cannot be combined with `--runtime-build`.
 
 Trusted server embeddings may set `RunJobOptions.aiSelection` for a single run.
 The runner copies that selection once and uses the existing connection, admission,

@@ -1,6 +1,13 @@
 export type CanonicalEntityKind = "drug" | "trial-program" | "acquisition-target";
 export type EntityAliasStatus = "supported" | "unsupported";
 
+/** Stable pipeline marker used when an immutable stored view withholds a statement. */
+export const ENTITY_WITHHELD_STATEMENT_PREFIX = "Legacy statement withheld: unresolved ";
+
+export function isEntityWithheldStatement(text: string): boolean {
+  return text.startsWith(ENTITY_WITHHELD_STATEMENT_PREFIX);
+}
+
 export interface EntityAlias {
   value: string;
   status: EntityAliasStatus;

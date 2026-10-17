@@ -166,6 +166,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/companyEvents.ts",
   "src/providers/companyIr.ts",
   "src/pipeline/runInputSnapshot.ts",
+  "src/pipeline/runtimeArtifactIdentity.ts",
+  "src/pipeline/stageC/gradeContract.ts",
   "src/pipeline/runInputSnapshotStore.ts",
   "src/pipeline/replayRunInput.ts",
   "src/pipeline/stageC/claimEvidence.ts",

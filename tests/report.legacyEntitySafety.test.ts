@@ -2,13 +2,21 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import type { EntityRegistry } from "@/pipeline/stageC/entityValidation";
+import { isEntityWithheldStatement, type EntityRegistry } from "@/pipeline/stageC/entityValidation";
 import {
   parseStoredReportWithSafety,
   sanitizeLegacyEntityConflicts,
   validateStoredReportInReadMode,
 } from "@/report/legacyEntitySafety";
 import { ReportSchema, type Report } from "@/report/schema";
+import { GRADE_SURFACES } from "@/report/surfaceManifest";
+import { gradeForDisplay } from "@/report/assessment";
+import { extractGradeStrip } from "@/report/history";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintHtml } from "@/report/export/printHtml";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { GradeReasoning } from "@/components/report/primitives";
 
 const ENTITY_CONFLICT = "TRIUMPH evaluates Foundayo";
 
@@ -136,6 +144,101 @@ describe("read-only legacy export safety", () => {
     expect(entry?.reason).toContain("1 legacy statement(s)");
   });
 
+  it("invalidates log support when an entity-conflict claim is withheld instead of admitting the shared placeholder", () => {
+    const report = fixtureReport("LLY");
+    const text = ENTITY_CONFLICT;
+    const source = "filing:trial-primary";
+    Object.assign(report.scores!.aspects.fundamentals, { score: 70, band: "B", dataCompleteness: 1 });
+    for (const block of [report.fundamentals.graded, report.verdict.gradeStrip.fundamentals]) {
+      block.grade = "C";
+      delete block.gradeContract;
+      delete block.assessmentStatus;
+    }
+    report.fundamentals.graded.reasoning = [{ text, label: "JUDGMENT", source, sourceId: source, asOf: "2026-06-30" }];
+    report.fundamentals.graded.overrideRationale = { reason: "The trial attribution warrants a lower grade.", evidenceSources: [source] };
+    report.appendix.verificationLog = [{
+      path: "fundamentals.graded.reasoning[0]", claim: text, source, outcome: "unverified",
+      evidenceKind: "judgment", reason: "supported", traceKind: "source-cited",
+      validationStatus: "cited", claimSupportStatus: "cited",
+    }];
+    const stored = JSON.stringify(report);
+
+    const result = parseStoredReportWithSafety(stored)!;
+    expect(result.withheldCount).toBe(1);
+    const safe = result.report;
+    expect(safe.fundamentals.graded.reasoning[0].text).toContain("Legacy statement withheld");
+    expect(safe.appendix.verificationLog?.[0]).toMatchObject({
+      outcome: "removed", traceKind: "untraced", validationStatus: "contradicted", claimSupportStatus: "contradicted",
+    });
+    expect(safe.appendix.verificationLog?.[0].reason).not.toBe("supported");
+    expect(safe.fundamentals.graded.gradeContract).toMatchObject({ status: "rejected", reason: "unadmitted-override-evidence", proposedGrade: "C" });
+    expect(gradeForDisplay(safe.fundamentals.graded)).toBeNull();
+    expect(gradeForDisplay(safe.verdict.gradeStrip.fundamentals)).toBeNull();
+    expect(extractGradeStrip(safe).find(cell => cell.key === "fundamentals")?.grade).toBeNull();
+    expect(renderToStaticMarkup(createElement(GradeReasoning, { title: "Fundamentals", block: safe.fundamentals.graded }))).toContain('aria-label="not assessed"');
+    for (const output of [reportToMarkdown(safe), reportToPrintHtml(safe)]) {
+      expect(output).toContain("unadmitted-override-evidence");
+      expect(output).not.toContain("Fundamentals — Grade C");
+      expect(output).not.toContain('>C</span> <strong>Fundamentals');
+    }
+    expect(JSON.stringify(report)).toBe(stored);
+    const reread = parseStoredReportWithSafety(JSON.stringify(safe));
+    expect(reread?.report).toEqual(safe);
+    expect(reread?.withheldCount).toBe(0);
+  });
+
+  it("withholds a rationale-only entity conflict while preserving the clean cited claim and log", () => {
+    const report = fixtureReport("LLY");
+    const text = "The supplied evidence warrants a cautious interpretation.";
+    const source = "filing:trial-primary";
+    Object.assign(report.scores!.aspects.fundamentals, { score: 70, band: "B", dataCompleteness: 1 });
+    for (const block of [report.fundamentals.graded, report.verdict.gradeStrip.fundamentals]) {
+      block.grade = "C";
+      delete block.gradeContract;
+      delete block.assessmentStatus;
+    }
+    report.fundamentals.graded.reasoning = [{ text, label: "JUDGMENT", source, sourceId: source, asOf: "2026-06-30" }];
+    report.fundamentals.graded.overrideRationale = { reason: ENTITY_CONFLICT, evidenceSources: [source] };
+    report.appendix.verificationLog = [{
+      path: "fundamentals.graded.reasoning[0]", claim: text, source, outcome: "unverified",
+      evidenceKind: "judgment", reason: "supported", traceKind: "source-cited",
+      validationStatus: "cited", claimSupportStatus: "cited",
+    }];
+    const stored = JSON.stringify(report);
+    const result = parseStoredReportWithSafety(stored)!;
+    const safe = result.report;
+
+    expect(result.withheldCount).toBe(1);
+    expect(isEntityWithheldStatement(safe.fundamentals.graded.overrideRationale!.reason)).toBe(true);
+    expect(safe.fundamentals.graded.reasoning).toEqual(report.fundamentals.graded.reasoning);
+    expect(safe.appendix.verificationLog).toEqual(report.appendix.verificationLog);
+    expect(safe.fundamentals.graded.gradeContract).toMatchObject({ status: "rejected", reason: "unadmitted-override-evidence" });
+    expect(gradeForDisplay(safe.fundamentals.graded)).toBeNull();
+    expect(gradeForDisplay(safe.verdict.gradeStrip.fundamentals)).toBeNull();
+    expect(extractGradeStrip(safe).find(cell => cell.key === "fundamentals")?.grade).toBeNull();
+    for (const target of [report, safe]) {
+      for (const output of [reportToMarkdown(target), reportToPrintHtml(target)]) {
+        expect(output).toContain("unadmitted-override-evidence");
+        expect(output).not.toContain("Fundamentals - Grade C");
+        expect(output).not.toContain('>C</span> <strong>Fundamentals');
+      }
+    }
+    expect(renderToStaticMarkup(createElement(GradeReasoning, { title: "Fundamentals", block: safe.fundamentals.graded }))).toContain('aria-label="not assessed"');
+    expect(JSON.stringify(report)).toBe(stored);
+    const reread = parseStoredReportWithSafety(JSON.stringify(safe));
+    expect(reread?.report).toEqual(safe);
+    expect(reread?.withheldCount).toBe(0);
+    // Already-sanitized records may carry old accepted metadata and unchanged
+    // cited logs. The declared withholding marker must still defeat admission.
+    const stale = structuredClone(safe);
+    for (const block of [stale.fundamentals.graded, stale.verdict.gradeStrip.fundamentals]) {
+      block.gradeContract!.status = "accepted";
+      block.gradeContract!.reason = "admitted-one-step-override";
+      delete block.assessmentStatus;
+    }
+    expect(parseStoredReportWithSafety(JSON.stringify(stale))?.report).toEqual(safe);
+  });
+
   it("does not withhold prose that merely uses an acronym alias as an ordinary verb", () => {
     // The real LLY registry carries trial acronyms that are also English verbs
     // (ACHIEVE, ATTAIN, TRIUMPH, TRANSCEND). Matching them case-insensitively
@@ -220,7 +323,7 @@ describe("read-only legacy export safety", () => {
     expect(validateStoredReportInReadMode(result?.report, "strict")).toBeNull();
   });
 
-  it("leaves a clean LLY report idempotent and an uncovered AAPL report unchanged", () => {
+  it("keeps clean entity content and original bytes intact while adding idempotent grade validation", () => {
     for (const symbol of ["LLY", "AAPL"]) {
       const report = fixtureReport(symbol);
       const insertedJson = JSON.stringify(ReportSchema.parse(report));
@@ -231,7 +334,19 @@ describe("read-only legacy export safety", () => {
       expect(first?.readMode).toBe("strict");
       expect(first?.withheldCount).toBe(0);
       expect(first?.issues).toEqual([]);
-      expect(first?.report).toEqual(ReportSchema.parse(JSON.parse(insertedJson)));
+      const original = ReportSchema.parse(JSON.parse(insertedJson));
+      const content = structuredClone(first!.report);
+      for (const { key, sectionKey } of GRADE_SURFACES) {
+        const section = sectionKey === "competitive" ? content.competitive.moatGraded : content[sectionKey].graded;
+        for (const block of [content.verdict.gradeStrip[key], section]) {
+          if (!block) continue;
+          expect(block.gradeContract).toBeDefined();
+          delete block.gradeContract;
+          delete block.assessmentStatus;
+        }
+      }
+      expect(content).toEqual(original);
+      expect(JSON.stringify(ReportSchema.parse(report))).toBe(insertedJson);
       expect(second?.report).toEqual(first?.report);
       expect(second?.withheldCount).toBe(0);
     }

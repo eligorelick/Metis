@@ -2215,6 +2215,31 @@ Forward and reverse DCF use the same growth-path family. Rolling forecasts retai
 
 Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. A typed record's metric is its registry label, with time words ("latest", "quarter end") and common abbreviations (FCF, SBC, capex) normalized; a named window must be the record's own, a bare "trailing" means twelve months, and an exact date names a window record's endpoint. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content, and the headline states how many unchecked claims carry no figure to check. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility is assessed only from a FACT in that executive's evidence that names them and whose figure the verifier matched to its cited record; otherwise it is not assessed (D-59). A reported-earnings reconciliation for an FMP quarter without SEC start dates is bounded by the issuer's preceding fiscal quarter in the same statement. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
 
+### Grade and reproducibility safeguards
+
+Section grades are anchored to the deterministic A/B/C/D/F band. A different
+letter requires a structured reason, admitted reasoning citations and at most
+one band of distance; D to F is one step. Conflicting section/strip letters,
+excessive changes and unsupported overrides remain raw audit proposals with
+withheld headlines. Citation admission and numeric contradiction checks do not
+establish the entire reasoning as true. Accepted overrides still obey the
+independent evidence floor. Saved-report views apply this validation without
+rewriting their stored bytes or original analyst-generation metadata.
+
+TTM diluted EPS preserves the sum of four eligible quarterly observations.
+P/E explanations identify this convention when used. Share-count changes and
+period-specific dilution can make that sum differ from full-period EPS; the
+calculation does not reconstruct missing numerator, instrument or split data.
+See the [EPS definition and fixtures](audit/2026-10-17-ttm-eps-convention.md).
+
+Production input snapshots include local build custody only when the retained
+compiled artifacts and build identity can be verified. A current checkout is
+not proof of which build ran. Missing identity is not retrospectively filled
+with present code, and a lock hash does not attest installed dependencies.
+See the [implementation disposition](audit/2026-10-17-book-to-code-disposition.md)
+and [verification record](audit/2026-10-17-safeguard-verification.md) for the
+bounded scope, evidence and remaining analytical work.
+
 ### Offline outcome evaluation
 
 `npm run research:evaluate -- frozen-evaluation.json [report.json]` consumes the versioned `research-evaluation-v1` contract without provider, model or database calls. Inputs require immutable snapshot identity, information availability dates, a point-in-time universe including delisting coverage, exact forecast periods, currency/share basis, and frozen baselines. Outcome labels are separate first-reported filing values or benchmark-relative total returns including distributions and delistings. Future restatements, unavailable training labels, mismatched periods and current-constituent-only cohorts fail closed.

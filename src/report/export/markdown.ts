@@ -133,7 +133,8 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /* ======================================================================== *
  * Deterministic value formatting (no locale, no grouping — stable text)
@@ -241,6 +242,8 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `_${prose(block.oneLineWhy)}_`,
   ];
   if (block.interpretation) lines.push("", prose(block.interpretation));
+  const contractText = gradeContractText(block);
+  if (contractText) lines.push("", prose(contractText));
   if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   const numbers = figureTable(figureRows(kept, seen));
@@ -909,6 +912,7 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report): string {
+  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,

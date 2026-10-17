@@ -110,7 +110,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.23.0 (D-81): pipeline-owned multiple bases, price-unit MACD evidence and
 // projection availability presentation; legacy reports retain their own stamps.
 // 1.23.1 (D-82): exact source-labeled ISO durations in deterministic claim verification.
-export const REPORT_SPEC_VERSION = "1.23.1" as const;
+// 1.24.0 (D-83): versioned grade contract and explicit quarter-sum EPS basis.
+export const REPORT_SPEC_VERSION = "1.24.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -247,6 +248,7 @@ const NON_NARRATIVE_STRING_KEYS = new Set([
   // string as `source` and was scanned while `source` was exempt: a cited
   // article slug such as ".../is-nvidia-a-strong-buy/" failed a whole pass.
   "sourceId",
+  "evidenceSources",
   "attemptedSources",
   "symbol",
   "companyName",
@@ -392,6 +394,20 @@ export const GradeBlockSchema = z
     grade: GradeSchema,
     /** Pipeline-owned evidence limit for headline grades; raw letters remain auditable. */
     assessmentStatus: z.enum(["not-assessed", "limited-evidence", "deterministic"]).optional(),
+    /** Explicit model proposal; sources must identify admitted section reasoning. */
+    overrideRationale: z.object({
+      reason: ratingSafeString(),
+      evidenceSources: z.array(z.string().trim().min(1)),
+    }).strict().optional(),
+    /** Pipeline-owned validation. Raw proposed letters remain intact for audit. */
+    gradeContract: z.object({
+      version: z.literal("GRADE_OVERRIDE_1"),
+      originalBand: GradeSchema.nullable(),
+      proposedGrade: GradeSchema,
+      distance: z.number().int().nonnegative().nullable(),
+      status: z.enum(["unchanged", "accepted", "rejected", "unavailable"]),
+      reason: z.enum(["matches-deterministic-band", "admitted-one-step-override", "grade-distance-exceeded", "inconsistent-grade-surfaces", "missing-override-rationale", "unadmitted-override-evidence", "no-deterministic-band"]),
+    }).strict().optional(),
     oneLineWhy: ratingSafeString(),
     reasoning: z.array(SourcedClaimSchema),
     confidence: ConfidenceSchema,
@@ -2841,6 +2857,9 @@ export function collapseNullableComplexity<T>(schema: T): T {
  * honest as omitting the key).
  */
 const ALWAYS_FILLED_BY_GENERATION = new Set([
+  // Empty reason/sources for an unchanged grade; optional only on persisted
+  // records. Required on the wire to preserve the provider complexity margin.
+  "overrideRationale",
   "assessmentReason",
   "executiveSummary",
   "interpretation",
@@ -2974,9 +2993,10 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         delete props.assessmentStatus;
         // D-50: the confidence ceiling is applied at assembly, never model-authored.
         delete props.confidenceCap;
+        delete props.gradeContract;
         if (Array.isArray(obj.required)) {
           obj.required = (obj.required as string[]).filter(
-            (key) => key !== "assessmentStatus" && key !== "confidenceCap",
+            (key) => key !== "assessmentStatus" && key !== "confidenceCap" && key !== "gradeContract",
           );
         }
       }

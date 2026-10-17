@@ -529,6 +529,11 @@ describe("payload determinism + provenance", () => {
       fairValue: computed.fairValue,
       scenarioTargets: computed.scenarioTargets,
     };
+    // D-83 changes only this exact P/E definition string, not any financial
+    // leaf. Removing that disclosed text reproduces the entire preceding pin.
+    const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
+    const precedingFinance = JSON.parse(JSON.stringify(finance, (_key, value) => typeof value === "string" ? value.replace(epsDisclosure, "") : value));
+    expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -798,8 +803,9 @@ describe("payload determinism + provenance", () => {
       // finance, all registry hashes and prompt byte count remain pinned.
       // D-81 adds admitted per-multiple basis notes and advances payload1.28.0.
       // Registry/finance hashes and numeric values remain pinned unchanged.
-      fingerprint: "1.28.0:7f1e29ed",
-      promptBytes: 138_416,
+      // D-83: exact EPS convention text adds 283 bytes; registries unchanged.
+      fingerprint: "1.29.0:00c157e0",
+      promptBytes: 138_699,
       provenanceCount: 531,
       provenanceHash: "ebdcddba",
       provenanceIdsHash: "0dee6be6",
@@ -824,7 +830,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "666a1ab0",
+      financeHash: "cb9d0f56",
     });
   });
 
@@ -948,7 +954,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.28.0");
+    expect(first.payloadVersion).toBe("1.29.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2362,6 +2368,7 @@ describe("assembleReport", () => {
   it("attaches deterministic assessment limits to both full-AI grade surfaces without changing analyst output", () => {
     const { bundle, computed } = buildInputs();
     const output = judgeOutput();
+    output.quality.graded.grade = output.verdict.gradeStrip.quality.grade = "A";
     output.balanceSheet.graded = { ...output.quality.graded, grade: "C" };
     output.verdict.gradeStrip.balanceSheet = { ...output.balanceSheet.graded };
     const original = JSON.stringify(output);
@@ -2371,8 +2378,9 @@ describe("assembleReport", () => {
       verify: { verificationRate: 0.9, log: [] }, costEntries: [], model: "chatgpt/gpt-6.1-sol" }, GENERATED_AT);
     // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
     const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of the inputs its route supports" };
-    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
-    expect(report.quality.graded).toEqual({ ...output.quality.graded, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    const gradeContract = { version: "GRADE_OVERRIDE_1", originalBand: "A", proposedGrade: "A", distance: 0, status: "unchanged", reason: "matches-deterministic-band" };
+    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, gradeContract, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.quality.graded).toEqual({ ...output.quality.graded, gradeContract, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(report.verdict.gradeStrip.balanceSheet?.assessmentStatus).toBe("not-assessed");
     expect(ReportSchema.safeParse(report).success).toBe(true);
@@ -2441,7 +2449,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.23.1");
+    expect(report.meta.specVersion).toBe("1.24.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

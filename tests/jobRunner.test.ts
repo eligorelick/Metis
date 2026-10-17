@@ -15,7 +15,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
@@ -119,6 +119,7 @@ import { costLog, jobLlmLeases, jobPassArtifacts, jobs, reports } from "@/db/sch
 import { setSetting } from "@/settings/settings";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { createRuntimeArtifactManifest } from "../scripts/runtime-artifact-manifest.mjs";
 import { explainAnalysisModel } from "@/settings/contracts";
 import {
   ACTIVE_JOB_STALE_MS,
@@ -6135,14 +6136,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.23.1");
+    expect(repRow?.specVersion).toBe("1.24.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.1.5");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.2.0");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -9468,6 +9469,29 @@ describe("analyst repair attempt after schema-invalid output", () => {
 });
 
 describe("immutable normalized run input persistence", () => {
+  it("binds ordinary job captures to the executing build artifacts before Stage B", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "metis-job-build-identity-"));
+    try {
+      const distDir = join(directory, ".next");
+      mkdirSync(join(distDir, "server"), { recursive: true });
+      writeFileSync(join(distDir, "BUILD_ID"), "job-build");
+      writeFileSync(join(distDir, "server", "compute.js"), "compiled calculation");
+      const manifest = createRuntimeArtifactManifest({ distDir, buildId: "job-build", methodArtifactBytes: "method", dependencyLockBytes: "lock" });
+      writeFileSync(join(distDir, "runtime-artifact-identity.json"), JSON.stringify(manifest));
+      vi.spyOn(process, "cwd").mockReturnValue(directory);
+      vi.stubEnv("METIS_RUNTIME_BUILD_ID", "job-build");
+      const { jobId } = createJob("AAPL");
+      const result = await runJob(jobId, mockPasses().passes, { bundle: fakeBundle(), hasAnthropicKey: false, now: NOW });
+      expect(result.status).toBe("done");
+      const ref = readJobRunSnapshotRef(jobId, 0);
+      expect(ref).not.toBeNull();
+      expect(readRunInputSnapshot(ref!.hash)?.content.custody).toMatchObject({ status: "local-content-identity", ...manifest.identity });
+    } finally {
+      vi.restoreAllMocks(); vi.unstubAllEnvs();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("retains the original frozen inputs when a durable verification resume skips fetch", async () => {
     const { jobId } = createJob("AAPL");
     const snapshot = captureRunInputSnapshot(fakeBundle(), { evIncludeLeases: false });

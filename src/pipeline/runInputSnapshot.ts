@@ -10,7 +10,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // effective scenario shocks. Earlier snapshots require their original engine.
 // D-72: missing interest, acquisition payments and segment-history safeguards.
 // D-73: preserve debt refusals instead of using incomplete or older balances.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_OWNERSHIP_FRESHNESS_4" as const;
+// D-83 adds explicit EPS-convention metadata; financial arithmetic is retained.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_TTM_EPS_BASIS_5" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

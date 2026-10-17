@@ -113,6 +113,7 @@ import {
   type EntityIssue,
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import {
   completedTopLevelFields,
   continuationInstruction,
@@ -3744,7 +3745,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   }
   // D-50: cap each section's confidence label at the deterministic data-coverage
   // ceiling (the model may go lower, never higher). Runs before verification.
-  return applyReportAssessmentStatus(applyConfidenceCeilings(parsed.data));
+  return applyReportAssessmentStatus(applyGradeOverrideContract(applyConfidenceCeilings(parsed.data), args.verify.log));
 }
 
 function firstProfileName(bundle: DataBundle): string | null {

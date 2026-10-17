@@ -37,8 +37,9 @@ describe("assessment presentation", () => {
       expect(section!.assessmentStatus).toBe(strip!.assessmentStatus);
       expect(renderToStaticMarkup(createElement(GradeReasoning, { title: "Assessment", block: section! }))).toContain('aria-label="not assessed"');
     }
-    expect(safe.quality.graded).toEqual({ ...report.quality.graded, assessmentStatus: "limited-evidence" });
-    expect(safe.verdict.gradeStrip.quality).toEqual({ ...report.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence" });
+    const gradeContract = { version: "GRADE_OVERRIDE_1", originalBand: "A", proposedGrade: "A", distance: 0, status: "unchanged", reason: "matches-deterministic-band" };
+    expect(safe.quality.graded).toEqual({ ...report.quality.graded, gradeContract, assessmentStatus: "limited-evidence" });
+    expect(safe.verdict.gradeStrip.quality).toEqual({ ...report.verdict.gradeStrip.quality, gradeContract, assessmentStatus: "limited-evidence" });
     expect(safe.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(safe.scores).toEqual(report.scores);
     expect(extractGradeStrip(safe).filter((cell) => ["quality", "balanceSheet", "moat"].includes(cell.key)).every((cell) => cell.grade === null)).toBe(true);

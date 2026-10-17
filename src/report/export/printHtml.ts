@@ -31,7 +31,8 @@ import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
@@ -253,6 +254,8 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `<p class="why">${prose(block.oneLineWhy)}</p>`,
   ];
   if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
+  const contractText = gradeContractText(block);
+  if (contractText) parts.push(`<p class="faint">${prose(contractText)}</p>`);
   if (block.reasoning.length > 0) parts.push(claimList(block.reasoning));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   parts.push(figureTable(figureRows(kept, seen)));
@@ -704,6 +707,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report): string {
+  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {

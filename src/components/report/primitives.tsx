@@ -23,7 +23,7 @@
 import type { ReactNode } from "react";
 
 import { Badge, GradeChip, type Tone } from "@/components/ui";
-import { gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, type AspectEvidence } from "@/report/assessment";
+import { gradeContractText, gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, type AspectEvidence } from "@/report/assessment";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import type {
   GradeBlock,
@@ -300,6 +300,7 @@ export function GradeReasoning({
       </div>
       <div className="px-2.5 py-2">
         <p className="text-[12px] leading-snug text-fg">{displayProse(block.oneLineWhy)}</p>
+          {gradeContractText(block) && <p className="mono mt-1 text-[10px] text-faint">{displayProse(gradeContractText(block)!)}</p>}
         {block.confidenceCap && (
           <p className="mono mt-1 text-[10px] text-faint">
             Confidence capped at {block.confidenceCap.to}: {block.confidenceCap.reason}

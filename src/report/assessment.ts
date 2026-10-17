@@ -34,6 +34,7 @@ export function applyReportAssessmentStatus(report: Report): Report {
 }
 
 export function gradeForDisplay(block: GradeBlock): Grade | null {
+  if (block.gradeContract?.status === "rejected" || block.gradeContract?.status === "unavailable") return null;
   if (block.assessmentStatus === "not-assessed" || block.assessmentStatus === "limited-evidence") return null;
   // Previously saved data-only reports used required placeholder letters. Do not
   // promote those canonical disclosures back into an apparent assessment.
@@ -41,6 +42,15 @@ export function gradeForDisplay(block: GradeBlock): Grade | null {
   const legacyCoverage = /on (\d+)% of intended signals; no analyst pass ran/.exec(block.oneLineWhy);
   if (legacyCoverage && Number(legacyCoverage[1]) < MIN_HEADLINE_EVIDENCE * 100) return null;
   return block.grade;
+}
+
+/** Display the validation limit beside the raw reasoning, across all exports. */
+export function gradeContractText(block: GradeBlock): string | null {
+  if (!block.gradeContract) return null;
+  const audit = block.gradeContract;
+  // Only the section's rationale is adjudicated. A strip may retain its own
+  // raw proposal for audit, so do not label that prose as admitted here.
+  return `Grade contract: ${audit.status} (${audit.reason}).`;
 }
 
 /** The deterministic score fields a limited-evidence label reads. */

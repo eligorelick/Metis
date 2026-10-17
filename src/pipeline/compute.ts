@@ -668,8 +668,9 @@ function toOhlcv(r: FmpRawRow): OhlcvRow {
 }
 
 // ---------------------------------------------------------------------------
-// TTM synthesis: sum the latest 4 quarters for flow fields, take latest for
-// stock/per-share fields. Returns null when fewer than 4 quarters available.
+// TTM synthesis: sum the latest 4 quarters for flow fields. Diluted EPS uses
+// the separately labeled quarter-sum convention, not a reconstructed annual EPS.
+// Returns null when fewer than 4 quarters are available.
 // ---------------------------------------------------------------------------
 
 export interface TtmIncome {
@@ -689,7 +690,9 @@ export interface TtmIncome {
   netIncomeAttributableToNoncontrollingInterest?: number | null;
   /** Complete four-quarter common-holder flow; never the latest quarter alone. */
   netIncomeAvailableToCommon?: number | null;
+  /** Sum of four reported quarterly diluted EPS observations, not full-period GAAP EPS. */
   epsDiluted: number | null;
+  epsDilutedBasis: "sum-quarterly-diluted-eps" | null;
   ebit: number | null;
   interestExpense: number | null;
   incomeBeforeTax: number | null;
@@ -1157,6 +1160,12 @@ function ttmIncomeFromNormalized(
     return null;
   };
 
+  // EPS is a per-share observation, not an additive earnings numerator. Keep
+  // the existing analytical sum and identify it explicitly: the available net
+  // income/share fields cannot reconstruct full-period dilution or verify a
+  // common split basis across the observations.
+  const epsDiluted = gateComplete("epsDiluted");
+
   return {
     date: String(q[0].date ?? ""),
     // One established code for all four quarters (the gate above).
@@ -1169,7 +1178,8 @@ function ttmIncomeFromNormalized(
     netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
     netIncomeAttributableToNoncontrollingInterest: gateComplete("netIncomeAttributableToNoncontrollingInterest"),
     netIncomeAvailableToCommon: gateComplete("netIncomeAvailableToCommon"),
-    epsDiluted: gateComplete("epsDiluted"),
+    epsDiluted,
+    epsDilutedBasis: epsDiluted === null ? null : "sum-quarterly-diluted-eps",
     ebit: gateComplete("ebit"),
     interestExpense: gateComplete("interestExpense"),
     incomeBeforeTax,
@@ -3082,6 +3092,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
         preferredDividendsPaid: preferredDividendsTtm,
         epsDiluted: ttmInc.epsDiluted,
+        epsDilutedBasis: ttmInc.epsDilutedBasis,
       }
     : inc0
       ? {

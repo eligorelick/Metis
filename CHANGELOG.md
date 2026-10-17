@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.17.0** and
-payload **1.22.0** (source periods and reporting evidence, 2026-10-15). The checked-in
+Current source declares application **0.1.0**, report spec **1.24.0** and
+payload **1.29.0** (research safeguard contracts, 2026-10-17). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,22 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - research safeguard contracts (2026-10-17)
+
+- Enforce the existing one-band grade contract on ordinary generation, verification,
+  fallback assembly and immutable saved-report views. Preserve raw proposals and
+  withhold rejected headlines; citation admission does not establish semantic truth.
+- Bind ordinary normalized-input snapshots to production build artifacts when
+  retained build evidence is available. Missing identity remains unverified.
+- Label the existing sum-of-quarterly diluted EPS convention in P/E explanations;
+  preserve financial arithmetic and refusal behavior.
+- Reconcile the book-derived recommendations and historical decisions with current
+  implementations and explicit gates for further analytical models. No calibrated
+  scores, case probabilities or return claims are introduced.
+
+See the [disposition](docs/audit/2026-10-17-book-to-code-disposition.md) and
+[verification record](docs/audit/2026-10-17-safeguard-verification.md).
 
 ## Unreleased - source periods and reporting evidence (2026-10-15)
 

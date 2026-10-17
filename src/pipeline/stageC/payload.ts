@@ -390,7 +390,8 @@ export interface ContextPayload {
 // 1.28.0 (D-81): complete passage-level applicability, price-unit MACD and
 // admitted per-multiple bases change the analyst context. Earlier reusable
 // analyst/judge passes cannot resume as equivalent; completed reports stay readable.
-export const PAYLOAD_VERSION = "1.28.0" as const;
+// D-83: quarter-sum EPS basis and changed grade-override prompt contract.
+export const PAYLOAD_VERSION = "1.29.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

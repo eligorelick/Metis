@@ -3808,11 +3808,6 @@
           "after": 92
         },
         {
-          "path": "report.valuation.graded.assessmentStatus",
-          "beforeMissing": true,
-          "after": "limited-evidence"
-        },
-        {
           "path": "report.valuation.graded.confidence",
           "before": "medium",
           "after": "low"
@@ -3825,11 +3820,6 @@
             "to": "low",
             "reason": "the deterministic valuation score rests on under half of the inputs its route supports"
           }
-        },
-        {
-          "path": "report.verdict.gradeStrip.valuation.assessmentStatus",
-          "beforeMissing": true,
-          "after": "limited-evidence"
         },
         {
           "path": "report.verdict.gradeStrip.valuation.confidence",
@@ -5575,11 +5565,6 @@
       "reason": "D-61 (NVDA report #34 audit, WP5: P0-6, P2-1 to P2-5). Accruals: DEMO's cash-flow statement separates purchases (-500M) and sales/maturities (+400M) of investments and its balance sheet reports long-term investments (500M / 450M), so the ratio is the Richardson et al. (2005) financial-asset-adjusted construction: operating CFI -700M, aggregate accruals 150M -> 50M, NOA 4.70B/4.40B -> 4.20B/3.95B, cash-flow ratio 0.033 -> 0.012 (band unchanged), balance-sheet ratio 0.066 -> 0.061; the definition, financial-asset flows, long-term investments and growth rates are new fields, the definition note leads the forensic notes and quality flags, the pipeline's accrual explanation flag names the adjusted construction instead of the broad NI - CFO - CFI screen, and the quality key numbers carry the accrual operands, now including the financial-asset (-100M) and operating (-700M) investing flows. Beneish: the SGI-neutral M (-2.76) and growth-led flag (false) are new fields, and the variant string prints all eight indices; the score is unchanged. Piotroski: the zone names the outcome ('7/7; every evaluable signal passed'). Moat: durability is the lowest annual ROIC (36.3%) instead of the population SD (1.58pp), moat 86.65 -> 90.13. Leadership: capitalDeployment (the ROIC - WACC spread already scored under quality) is dropped and the buyback signal is timing against the same year's average price, which DEMO cannot measure (no companyfacts, so no tagged execution prices): the aspect rests on the share-count trend alone, 76.97 -> 63.77 (B -> C), completeness 0.70 -> 0.45, which caps the leadership grade's confidence at low; the note says the aspect is a capital-stewardship proxy, not an assessment of executives, and the buyback note says the premium to today's quote is appreciation, not timing. Quality 88.62 -> 88.85; composite 77.59 -> 74.53. The scores block also gains the signal, assessment and factor-exposure metadata that the baseline predates.",
       "deltas": [
         {
-          "path": "report.leadership.graded.assessmentStatus",
-          "beforeMissing": true,
-          "after": "limited-evidence"
-        },
-        {
           "path": "report.leadership.graded.confidence",
           "before": "high",
           "after": "low"
@@ -6032,11 +6017,6 @@
               "aboveNeutralPoints": 0.44509803921568614
             }
           ]
-        },
-        {
-          "path": "report.verdict.gradeStrip.leadership.assessmentStatus",
-          "beforeMissing": true,
-          "after": "limited-evidence"
         },
         {
           "path": "report.verdict.gradeStrip.leadership.confidence",
@@ -9666,11 +9646,6 @@
       "reason": "D-81 retains six pipeline-owned per-multiple scope/basis strings. D-82 patches deterministic ISO-duration claim verification and advances the report stamp to 1.23.1 without changing payload or financial inputs. All 1,180 preceding assertions remain represented, plus the six basis leaves; no financial numeric golden value is reclassified.",
       "deltas": [
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.23.1"
-        },
-        {
           "path": "report.valuation.multiples.0.basis",
           "beforeMissing": true,
           "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; net income less disclosed preferred distributions (parent income; no second NCI deduction))"
@@ -9699,6 +9674,218 @@
           "path": "report.valuation.multiples.5.basis",
           "beforeMissing": true,
           "after": "marketCap / (common equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
+        }
+      ]
+    },
+    {
+      "name": "d83-safeguard-contracts",
+      "decisions": [
+        "D-83"
+      ],
+      "reason": "D-83 adds versioned grade-contract audits and withholds raw multi-step proposals on both section/strip surfaces; economic calculations and raw letters remain pinned. The report version advances to 1.24.0. All preceding assertions remain represented; added numeric distances are validation metadata, not changed financial quantities.",
+      "deltas": [
+        {
+          "path": "report.balanceSheet.graded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "B",
+            "proposedGrade": "B",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.competitive.moatGraded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "A",
+            "proposedGrade": "A",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.fundamentals.graded.assessmentStatus",
+          "beforeMissing": true,
+          "after": "not-assessed"
+        },
+        {
+          "path": "report.fundamentals.graded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "C",
+            "proposedGrade": "A",
+            "distance": 2,
+            "status": "rejected",
+            "reason": "grade-distance-exceeded"
+          }
+        },
+        {
+          "path": "report.leadership.graded.assessmentStatus",
+          "beforeMissing": true,
+          "after": "not-assessed"
+        },
+        {
+          "path": "report.leadership.graded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "C",
+            "proposedGrade": "A",
+            "distance": 2,
+            "status": "rejected",
+            "reason": "grade-distance-exceeded"
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.24.0"
+        },
+        {
+          "path": "report.quality.graded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "A",
+            "proposedGrade": "A",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.technicals.graded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "B",
+            "proposedGrade": "B",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.valuation.graded.assessmentStatus",
+          "beforeMissing": true,
+          "after": "not-assessed"
+        },
+        {
+          "path": "report.valuation.graded.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "A",
+            "proposedGrade": "C",
+            "distance": 2,
+            "status": "rejected",
+            "reason": "grade-distance-exceeded"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.balanceSheet.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "B",
+            "proposedGrade": "B",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.fundamentals.assessmentStatus",
+          "beforeMissing": true,
+          "after": "not-assessed"
+        },
+        {
+          "path": "report.verdict.gradeStrip.fundamentals.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "C",
+            "proposedGrade": "A",
+            "distance": 2,
+            "status": "rejected",
+            "reason": "grade-distance-exceeded"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.assessmentStatus",
+          "beforeMissing": true,
+          "after": "not-assessed"
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "C",
+            "proposedGrade": "A",
+            "distance": 2,
+            "status": "rejected",
+            "reason": "grade-distance-exceeded"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.moat.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "A",
+            "proposedGrade": "A",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.quality.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "A",
+            "proposedGrade": "A",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.technicals.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "B",
+            "proposedGrade": "B",
+            "distance": 0,
+            "status": "unchanged",
+            "reason": "matches-deterministic-band"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.valuation.assessmentStatus",
+          "beforeMissing": true,
+          "after": "not-assessed"
+        },
+        {
+          "path": "report.verdict.gradeStrip.valuation.gradeContract",
+          "beforeMissing": true,
+          "after": {
+            "version": "GRADE_OVERRIDE_1",
+            "originalBand": "A",
+            "proposedGrade": "C",
+            "distance": 2,
+            "status": "rejected",
+            "reason": "grade-distance-exceeded"
+          }
         }
       ]
     }

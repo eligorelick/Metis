@@ -2754,6 +2754,8 @@ export interface MultiplesIncomeTtm {
   depreciationAndAmortization?: number | null;
   netIncome: number | null;
   epsDiluted: number | null;
+  /** Explicit construction from the adapter; absent for reported annual EPS. */
+  epsDilutedBasis?: "sum-quarterly-diluted-eps" | null;
   netIncomeAvailableToCommon?: number | null;
   preferredDividendsPaid?: number | null;
   noncontrollingIncome?: number | null;
@@ -3833,7 +3835,10 @@ export function multiplesFramework(
         ? `latest annual balance sheet ${bal.date}`
         : "latest";
   const basisByKey: Record<MultipleKey, string> = {
-    peTtm: `${epsBasis} (${incomeBasisLabel}); fallback marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis})`,
+    peTtm: `${epsBasis} (${incomeBasisLabel}); fallback marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis})` +
+      (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
+        ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
+        : ""),
     evToEbitda: `EV / (operatingIncome + D&A), ${incomeBasisLabel}-computed — vendor ebitda field not trusted. ${evBridgeBasis} Balance basis: ${balanceBasisLabel}.`,
     evToSales: `EV / revenue (${incomeBasisLabel}). ${evBridgeBasis}`,
     priceToFcf:

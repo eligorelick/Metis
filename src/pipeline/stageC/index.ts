@@ -45,6 +45,8 @@ import type {
 } from "@/report/schema";
 import { ReportSchema } from "@/report/schema";
 import { buildDataCompleteness } from "@/report/completeness";
+import { applyReportAssessmentStatus } from "@/report/assessment";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { PROJECTION_PATH_ORDER } from "@/report/surfaceManifest";
 import {
   runPass as providerRunPass,
@@ -738,7 +740,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
     // Stamp the metrics produced from that full object, then parse the final
     // persisted shape once more so no post-verification mutation can bypass the
     // report contract.
-    const verifiedReport = ReportSchema.parse({
+      const verifiedReport = applyReportAssessmentStatus(applyGradeOverrideContract(ReportSchema.parse({
       ...verify.verifiedReport,
       meta: {
         ...verify.verifiedReport.meta,
@@ -764,7 +766,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
         verificationLog: verify.log,
         missingData,
       },
-    });
+      }), verify.log));
 
     await invokePassSettlementHook(settlement, {
       outcome: "success",
