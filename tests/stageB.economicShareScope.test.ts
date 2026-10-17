@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
+import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
+import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import { multiplesFramework, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
-import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
+import { commonHolderCapital, type EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import { runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
@@ -16,7 +19,7 @@ import { loadTask28Fixture } from "./helpers/task28Report";
 import { keyDataRows } from "@/report/presentation";
 
 const base = (): MultiplesFrameworkInputs => ({
-  quote: { price: 288.95, marketCap: 114_473_000 * 288.95, currency: "USD" }, reportedCurrency: "USD",
+  quote: { price: 288.95, priceAsOf: "2026-10-14", marketCap: 114_473_000 * 288.95, currency: "USD" }, reportedCurrency: "USD",
   incomeTtm: { date: "2026-06-30", revenue: 10e9, operatingIncome: 2e9, depreciationAndAmortization: 1e9, netIncome: 1e9, epsDiluted: 10 },
   cashFlowTtm: { date: "2026-06-30", operatingCashFlow: 2e9, capitalExpenditure: -1e9 },
   balance: { date: "2026-06-30", totalDebt: 5e9, cashAndShortTermInvestments: 4e9, totalStockholdersEquity: 2e9, minorityInterest: 0.487e9, preferredStock: 0, goodwill: 0, intangibleAssets: 0 },
@@ -48,6 +51,8 @@ describe("issuer economic-share scope", () => {
       expect(rows.find(row => row.label === "Issuer-common capitalization")?.value).toBe("$34.67B");
       expect(rows.find(row => row.label === "Economic share units")?.note).toContain("2026-06-30");
       expect(rows.find(row => row.label === "Issuer-common capitalization")?.note).toContain("approximation");
+      expect(rows.find(row => row.label === "Issuer-common capitalization")?.note).toContain("main quote as of 2026-10-14");
+      expect(rows.find(row => row.label === "Issuer-common capitalization")?.note).not.toContain("2026-10-15");
       expect(rows.find(row => row.label === "Economic share units")?.note).not.toContain("free float");
       expect(rows.find(row => row.label === "Enterprise value (market)")?.value).toBe("$36.16B");
       args.balance = { ...args.balance!, totalStockholdersEquity: 100, totalEquity: 130, minorityInterest: null };
@@ -145,7 +150,7 @@ describe("issuer economic-share scope", () => {
 
   it("values independently quoted common classes at their own source-bound prices", () => {
     const args = base();
-    args.quote = { price: 10, marketCap: 1000, currency: "USD", issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
+    args.quote = { price: 10, priceAsOf: "2026-10-14", marketCap: 1000, currency: "USD", issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
     const row = evidence();
     row.classes[0].shares = 100;
     row.classes[1] = { ...row.classes[1], shares: 20, priceBasis: "quoted-market-price",
@@ -168,6 +173,17 @@ describe("issuer economic-share scope", () => {
     expect(result.enterpriseValue.value).toBeCloseTo(33_589_973_350, 2);
     expect(result.enterpriseValue.noncontrollingInterestBasis).toBe("book-value-proxy");
     expect(result.enterpriseValue.basis).toMatch(/book-value proxy/);
+  });
+
+  it.each(["old-other-price", "missing-main-date"])("rejects separately quoted classes on incompatible or unknown valuation sessions: %s", condition => {
+    const args = base();
+    args.quote = { ...args.quote, issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
+    const row = evidence();
+    row.asOf = "2019-06-30"; row.filed = "2019-08-06"; row.effectiveFrom = "2019-06-30";
+    row.classes[1] = { ...row.classes[1], priceBasis: "quoted-market-price", observedPrice: { value: 12, currency: "USD", asOf: condition === "old-other-price" ? "2019-10-14" : "2026-10-14", sourceIds: ["separate:quote"], sourceHash: "quote-hash" } };
+    if (condition === "missing-main-date") args.quote.priceAsOf = undefined;
+    args.economicShareEvidence = [row];
+    expect(multiplesFramework("general", args).enterpriseValue.value).toBeNull();
   });
 
   it("persists the economic-share and EV basis through all actual report surfaces", () => {
@@ -216,4 +232,62 @@ describe("issuer economic-share scope", () => {
     expect(result.valuation.reit.pToFfo).not.toBeNull();
     expect(result.valuation.gaps.some(gap => gap.field === "valuation.reit.noncontrollingOwnership")).toBe(true);
   });
+
+  it.each(["missing-parent", "consolidated-stand-in"])("withholds EV for an unresolved consolidated equity split: %s", condition => {
+    const args = base();
+    args.balance = { ...args.balance!, totalStockholdersEquity: condition === "missing-parent" ? null : 130, totalEquity: 130, minorityInterest: null, equityOwnershipBasis: condition === "missing-parent" ? "parent" : "consolidated" };
+    expect(multiplesFramework("general", args).enterpriseValue.noncontrollingInterestBasis).toBe("unknown-allocation");
+    expect(multiplesFramework("general", args).enterpriseValue.value).toBeNull();
+  });
+
+  it("requires an explicit common-income ownership basis beside signed negative NCI", () => {
+    expect(commonHolderCapital({ netIncome: 100 }, { totalStockholdersEquity: 100, minorityInterest: -30 }).commonIncome).toBeNull();
+  });
+});
+
+describe("parent-common P/FCF cash attribution", () => {
+  it.each([487e6,-487e6,null])("withholds parent interpretation without attributing consolidated cash flows (NCI %s)", nci => {
+    const args = base();
+    args.balance!.minorityInterest = nci;
+    if (nci === null) args.balance = {...args.balance!, totalStockholdersEquity:100,totalEquity:130};
+    args.keyMetricsHistory = Array.from({length:8},(_,i)=>({date:`202${5-Math.floor(i/4)}-${["12-31","09-30","06-30","03-31"][i%4]}`,priceToFreeCashFlowRatio:10+i}));
+    const stat = multiplesFramework("general", args).multiples.find(row=>row.key==="priceToFcf");
+    expect(stat?.current).toBeNull();
+    expect(stat?.ownHistory).toBeNull();
+    expect(stat?.peers).toBeNull();
+    expect(stat?.ownershipScope).toContain("Parent-common cash-flow attribution unresolved");
+    expect(stat?.basis).toContain("consolidated operating cash flow");
+  });
+  it("preserves ordinary zero-NCI P/FCF arithmetic", () => {
+    const args = base();args.balance!.minorityInterest=0;
+    expect(multiplesFramework("general",args).multiples.find(row=>row.key==="priceToFcf")?.current).toBeCloseTo(args.quote.marketCap!/1e9);
+  });
+  it("carries the cash-scope qualifier through scoring, payload and stored report surfaces", () => {
+    const bundle=completeCurrencyBundle({});
+    for(const member of [bundle.statements.balanceAnnual,bundle.statements.balanceQuarterly]) if(member.ok) for(const row of member.value.data.rows) row.minorityInterest=487e6;
+    const c=runStageB(bundle);
+    if(c.valuation.kind==="pre-revenue") throw new Error("multiple fixture");
+    const stat=c.valuation.multiples.multiples.find(row=>row.key==="priceToFcf")!;
+    expect(stat.current).toBeNull();
+    const qualifier="Parent-common cash-flow attribution unresolved";
+    expect(c.scores.aspects.valuation.note).toContain(qualifier);
+    const scoring={route:c.route,policy:metricPolicy(c.route),growth:c.growth,...c.returns,capital:c.capital,forensics:c.forensics,technicals:c.technicals,valuation:c.valuation,financialMetrics:c.financialMetrics,currentPrice:100,asOf:"2026-07-06"};
+    expect(describeScoreEvidence(scoring,"valuation","peOwnHistoryRank").fallbackReason).toContain(qualifier);
+    const payload=assembleContextPayload(bundle,c,{checks:[],flags:[],gaps:[]});
+    expect(serializePayloadForPrompt(payload)).toContain(qualifier);
+    const report=loadTask28Fixture();report.valuation=applyMultiples(report.valuation,c.valuation);
+    const stored=ReportSchema.parse(report);
+    expect(stored.valuation.multiples.find(row=>row.name.startsWith("P/FCF"))?.name).toContain("cash attribution unresolved");
+    for(const surface of [renderToStaticMarkup(createElement(ReportView,{report:stored})),reportToMarkdown(stored),reportToPrintHtml(stored,{autoPrint:false}),reportToAuditMarkdown(stored)]) expect(surface).toContain(qualifier);
+  });
+});
+
+it.each(["preferredStock", "preferredDividendsPaid"] as const)("withholds current P/FCF beside known preferred cash claims (%s)", field => {
+  const args=base();args.balance!.minorityInterest=0;args.balance!.preferredStock=0;
+  if(field==="preferredStock") args.balance!.preferredStock=10;
+  else args.incomeTtm!.preferredDividendsPaid=-10;
+  const stat=multiplesFramework("general",args).multiples.find(row=>row.key==="priceToFcf")!;
+  expect(stat.current).toBeNull();expect(stat.basis).toContain("preferred claims");
+  args.balance!.preferredStock=0;args.incomeTtm!.preferredDividendsPaid=0;
+  expect(multiplesFramework("general",args).multiples.find(row=>row.key==="priceToFcf")?.current).toBeCloseTo(args.quote.marketCap!/1e9);
 });

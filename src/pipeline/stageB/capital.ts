@@ -72,6 +72,7 @@ export interface CapitalCashFlowRow {
 }
 
 export interface CapitalBalanceRow {
+  fieldProvenance?: Record<string, { tags: string[] }>;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   acceptedDate?: string | null;

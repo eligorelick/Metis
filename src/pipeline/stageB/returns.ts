@@ -1198,6 +1198,7 @@ export interface ReturnsIncomeRow {
 }
 
 export interface ReturnsBalanceRow {
+  leaseCoverageNote?: string;
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   /** Restatement recency (see ReturnsIncomeRow). */
@@ -1340,6 +1341,7 @@ function investedCapital(
   includeOperatingLeases: boolean,
 ): number | null {
   const equity = resolveConsolidatedEquity(b);
+  if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
   notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
   if (equity.value === null) {
     notes.push(`totalStockholdersEquity/consolidated equity missing on ${b.date} - invested capital uncomputable`);
@@ -1375,7 +1377,7 @@ function investedCapital(
     if (operatingLease <= b.totalDebt) {
       debt = b.totalDebt - operatingLease;
       notes.push(
-        `${b.date}: operating-lease liability ${fmt(operatingLease)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
+        `${b.date}: ${b.leaseCoverageNote ? "disclosed operating-lease portion" : "operating-lease liability"} ${fmt(operatingLease)} excluded from invested capital (NOPAT is after operating-lease cost under ASC 842; the EV bridge applies the same rule)`,
       );
     } else {
       notes.push(

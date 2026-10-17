@@ -15,6 +15,7 @@ import { parseSubscriptionModel } from "@/ai/contracts";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
 import { EXECUTIVE_EVIDENCE_GROUPS } from "@/report/surfaceManifest";
@@ -133,6 +134,16 @@ const ASPECT_LABEL: Record<string, string> = {
 };
 
 const EXACT_LABELS: Record<string, string> = {
+  ...Object.fromEntries([
+    ["debtIncludingDisclosedLeasePortion", "Debt including disclosed lease portion (full coverage unverified)"],
+    ["operatingLeasesNoncurrent", "Operating leases (noncurrent only)"],
+    ["operatingLeasesCurrent", "Operating leases (current only)"],
+    ["financeLeasesNoncurrent", "Finance leases (noncurrent only)"],
+    ["financeLeasesCurrent", "Finance leases (current only)"],
+    ["netDebtIncludingDisclosedLeasePortion", "Net debt including disclosed lease portion (full coverage unverified)"],
+    ["netDebtExcludingDisclosedOperatingLeasePortion", "Net debt excluding disclosed operating-lease portion"],
+  ].flatMap(([field, label]) => [[`computed.capital.current.debtBridge.${field}`, label],
+    [`computed.current-capital.${field!.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`, label]])),
   // Stable legacy rule ids describe a materiality screen, not proof of one-off items.
   "computed.forensics.flags.serial-one-time-items": "Material other income/expense",
   "computed.forensics.flags.one-time-items": "Material other income/expense",
@@ -581,6 +592,15 @@ export function annualSegmentHeading(kind: "Product" | "Geographic", rows: reado
   return `${kind} segments — annual${asOf ? `, fiscal year ended ${asOf}` : ""} (prior presentation)`;
 }
 
+/** A primary geography definition travels with every row, including exceptions. */
+export function geographicBasisNote(rows: readonly { revenue: TracedNumber }[]): string | null {
+  const first = rows[0]?.revenue;
+  const note = first?.verificationNote;
+  return first && typeof note === "string" && note.startsWith("Annual geographic revenue (") &&
+    first.source.startsWith("https://www.sec.gov/Archives/edgar/data/") &&
+    rows.every(row => row.revenue.source === first.source && row.revenue.verificationNote === note) ? note : null;
+}
+
 /** A technical indicator's label, naming an intraday quote "latest price" rather than "last close". */
 export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; detail: string | null }): string {
   if (n.source === "computed.technicals.last-close" && timing.intraday) return `Latest price (${timing.detail})`;
@@ -704,9 +724,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const priceCurrency = md?.currency ?? (priceTrace ? establishedCurrency(priceTrace.unit, priceTrace.currency) ?? modelCurrency : modelCurrency);
   const timing = priceTiming(report);
   const price = md?.quote?.price ?? priceTrace?.value ?? null;
-  const priceAsOf = md?.quote?.asOf ?? priceTrace?.asOf ?? null;
+  const priceAsOf = md?.quote ? md.quote.asOf : priceTrace?.asOf ?? null;
   if (price !== null) {
-    rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : undefined });
+    rows.push({ label: `${timing.label}${timing.detail ? ` (${timing.detail})` : ""}`, value: money(price, priceCurrency, true), note: priceAsOf ? `as of ${priceAsOf}` : "observation date unavailable" });
   }
   const high = md?.quote?.yearHigh ?? firstTrace(traces, /^computed\.technicals\.52w-high$/)?.value ?? null;
   const low = md?.quote?.yearLow ?? firstTrace(traces, /^computed\.technicals\.52w-low$/)?.value ?? null;
@@ -715,9 +735,10 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const quotedCap = md?.quote?.marketCap ?? firstTrace(traces, /^payload\.quote\.market-?cap$/)?.value ?? null;
   const dilutedShares = bridge?.dilutedShares ?? null;
   const scope = report.valuation.marketValueScope;
+  const admittedPriceAsOf = scope?.priceAsOf ?? null;
   const marketCap = scope?.status === "resolved" ? scope.marketCap : quotedCap;
   if (marketCap !== null) rows.push(scope?.status === "resolved"
-    ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}${priceAsOf ? `; main quote as of ${priceAsOf}` : ""}${scope.approximate ? "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
+    ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}; main quote as of ${admittedPriceAsOf ?? "unavailable date"}${scope.approximate ? "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
     : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
   if (scope?.status === "resolved" && scope.enterpriseValue !== null) {
     rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: scope.enterpriseValueBasis });

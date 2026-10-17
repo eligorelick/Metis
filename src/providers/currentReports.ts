@@ -115,6 +115,9 @@ export interface MaterialEventSection {
   summary: string;
   text: string;
   incorporates: string | null;
+  /** Present when bounded retention omitted part of the supplying item. */
+  truncated?: boolean;
+  originalChars?: number;
 }
 
 export interface MaterialEventFiling {
@@ -250,8 +253,9 @@ export function buildMaterialEventFiling(
       item: s.item,
       title: s.title,
       summary: s.incorporates !== null ? `Incorporates Item ${s.incorporates} by reference.` : summarizeItem(s),
-      text: s.text.slice(0, ITEM_TEXT_CHARS),
+      text: s.text.slice(0, s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS),
       incorporates: s.incorporates,
+      ...(s.text.length > (s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS) ? { truncated: true, originalChars: s.text.length } : {}),
     }));
   return { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, eventDate: eventDateOf(text), items: itemsOf(filing.items), url, sections };
 }
@@ -444,6 +448,7 @@ export async function collectCurrentReports(
     }
     fetchedAt ??= doc.fetchedAt;
     const event = buildMaterialEventFiling(filing, plain(doc.text), doc.url);
+    for (const section of event.sections.filter((s) => s.truncated)) notes.push(`8-K ${filing.accessionNumber} Item ${section.item}: retained ${section.text.length} of ${section.originalChars} source characters; omitted officer/event terms remain unreviewed.`);
     if (event.sections.length === 0) notes.push(`8-K ${filing.accessionNumber} (${filing.filingDate}) lists Items ${event.items.join(", ")} but no item heading could be read in its primary document`);
     events.push(event);
   }

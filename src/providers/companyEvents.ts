@@ -20,7 +20,16 @@ export interface CompanyAnnouncementEvidence {
 }
 const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function issuerAliases(issuer: ConfirmedIssuerIdentity): string[] {
-  return [...new Set([issuer.canonicalName, ...(issuer.validAliases ?? [])].map((s) => s.trim()).filter((s) => s.length >= 3))];
+  const canonical = issuer.canonicalName.trim();
+  const core = canonical.replace(/,?\s+(?:incorporated|inc|corporation|corp|limited|ltd|plc|llc)\.?$/i, "");
+  // Legal-form punctuation and omission do not invent a business alias. Keep
+  // multiword cores only; short brands still require a verified alias.
+  const variants = [canonical.replace(/,\s*(?=(?:incorporated|inc|corporation|corp|limited|ltd|plc|llc)\.?$)/i, " ")];
+  if (core !== canonical) {
+    variants.push(canonical.replace(/\.$/, ""), variants[0]!.replace(/\.$/, ""));
+    if (core.split(/\s+/).length >= 2) variants.push(core);
+  }
+  return [...new Set([canonical, ...variants, ...(issuer.validAliases ?? [])].map((s) => s.trim()).filter((s) => s.length >= 3))];
 }
 function mentionsIssuer(text: string, issuer: ConfirmedIssuerIdentity): boolean {
   return issuerAliases(issuer).some((alias) => new RegExp(`(?:^|[^a-z0-9])${escapeRegex(alias)}(?:$|[^a-z0-9])`, "i").test(text));
@@ -44,11 +53,16 @@ function sourceBoundToIssuer(evidence: CompanyAnnouncementEvidence, url: URL, is
 // Only recognized places are datelines. Arbitrary uppercase/wire/issuer
 // prefixes must not move an unrelated issuer mention to the clause's start.
 const LOCATION_DATELINE_PREFIX = /^(?:SEATTLE|REDMOND|NEW YORK|SAN FRANCISCO|BOSTON|CHICAGO|LONDON|DUBLIN)\s*(?:--|[–—])\s*/i;
+function announcementBody(sentence: string, publishedAt: string): string {
+  const dated = new RegExp(`^(?:SEATTLE|REDMOND|NEW YORK|SAN FRANCISCO|BOSTON|CHICAGO|LONDON|DUBLIN),\\s*(${DATE_RE.source})\\s*(?:--|[–—])\\s*`, "i").exec(sentence.trimStart());
+  if (dated && Number.isFinite(Date.parse(dated[1]!)) && new Date(dated[1]!).toISOString().slice(0, 10) === publishedAt.slice(0, 10)) return sentence.trimStart().slice(dated[0].length);
+  return sentence.trimStart().replace(LOCATION_DATELINE_PREFIX, "");
+}
 function eventSubject(sentence: string, evidence: CompanyAnnouncementEvidence, issuer: ConfirmedIssuerIdentity): { alias: string | null; method: "named-subject" | "issuer-document" } | null {
   if (/\b(?:subsidiary|subsidiaries|parent company|on behalf of)\b/i.test(sentence)) return null;
   // Normalize only for subject recognition; retained evidence spans and the
   // publication/event-date ambiguity checks still use the original sentence.
-  const subjectSentence = sentence.trimStart().replace(LOCATION_DATELINE_PREFIX, "");
+  const subjectSentence = announcementBody(sentence, evidence.publishedAt);
   const dateAt = new RegExp(DATE_RE.source, "i").exec(subjectSentence)?.index ?? subjectSentence.length;
   const action = [...subjectSentence.matchAll(/\b(?:will|to)\s+(?:report|release|announce|publish)\b|\bwill\s+be\s+(?:reported|released|announced|published)\b/gi)].filter((m) => m.index < dateAt).at(-1);
   if (!action) return null;
@@ -99,9 +113,14 @@ export function companyEarningsAnnouncement(evidence: CompanyAnnouncementEvidenc
     if (/\b(?:expect(?:s|ed)?|estimat(?:e[sd]?|ed)|may|might|tentative|subject to)\b/i.test(sentence)) continue;
     const subject = eventSubject(sentence, evidence, evidence.issuer);
     if (subject === null) continue;
-    const dates = [...sentence.matchAll(DATE_RE)].map((m) => `${m[3]}-${String(MONTHS.indexOf(m[1]!.toLowerCase()) + 1).padStart(2, "0")}-${m[2]!.padStart(2, "0")}`);
-    // Every date in the sentence remains a possible event date. Equality with
-    // the publication date does not prove that a date is merely a dateline.
+    const body = announcementBody(sentence, evidence.publishedAt);
+    const dates = [...body.matchAll(DATE_RE)].flatMap((m) => {
+      const date = `${m[3]}-${String(MONTHS.indexOf(m[1]!.toLowerCase()) + 1).padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
+      // Only an explicitly completed reporting-period clause removes a date
+      // from the action's candidates; past release/conference dates remain.
+      const reportingPeriod = /\bfor\s+(?:the\s+)?(?:period|quarter|year)\s+ended\s*$/i.test(body.slice(0, m.index));
+      return reportingPeriod && validDay(date) && date <= published ? [] : [date];
+    });
     const unique = [...new Set(dates)];
     if (unique.length !== 1) continue;
     const date = unique[0]!;

@@ -100,11 +100,13 @@ import {
   showAnnualSegments,
   withoutChartReferences,
   factorExposureTable,
+  factorContributionSensitivityTable,
   figureRows,
   figureValueText,
   gapCountText,
   gapSummary,
   geographyLabel,
+  geographicBasisNote,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -343,7 +345,7 @@ function sectionScores(scores: Scoring): string {
     <p>Composite: <strong class="mono">${c.score === null ? DASH : Math.round(c.score)} / 100</strong> ${compositeChip}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
-    ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores)])}
+    ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
     <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
 }
 
@@ -354,9 +356,10 @@ function sectionScores(scores: Scoring): string {
 function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
   const quarterly = bodyTables(extra);
   // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
-  const annual = showAnnualSegments(quarterly.length > 0)
-    ? `${subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product))}${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}`
-    : "";
+  const annual = (showAnnualSegments(quarterly.length > 0)
+    ? subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product)) : "") +
+    (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)
+      ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
     ${quarterly}

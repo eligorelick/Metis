@@ -712,11 +712,21 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   /**
    * Bank tagging (JPM): `CashAndCashEquivalentsAtCarryingValue` goes stale — its
    * last point is 2018 — while `CashAndDueFromBanks` carries the operating cash.
-   * The restricted-cash catch-all stays last: at a bank it equals cash + the
-   * interest-bearing deposits that `shortTermInvestments` below claims, so
-   * letting it win here would double-count them in cashAndShortTermInvestments.
+   * A combined restricted/unrestricted total is not a synonym for available
+   * cash. It can establish unrestricted cash only with a same-filing tagged
+   * restricted component, validated below before it supplies liquidity.
    */
-  cashAndCashEquivalents: lineItemChain("cashAndCashEquivalents", "money"),
+  cashAndCashEquivalents: {
+    kind: "chain", unit: "money", steps: [
+      lineItemChain("cashAndCashEquivalents", "money"),
+      ...tagsFor("restrictedCashAndCashEquivalents").map((minus): ChainSpec => ({
+        kind: "diff", plus: tagsFor("cashAndCashEquivalentsIncludingRestricted")[0]!, minus, unit: "money",
+        disclose: "unrestricted cash derived as combined restricted/unrestricted cash minus the separately tagged restricted balance; restrictions are not deducted from directly tagged unrestricted cash",
+      })),
+    ],
+  },
+  cashAndCashEquivalentsIncludingRestricted: lineItemChain("cashAndCashEquivalentsIncludingRestricted", "money"),
+  restrictedCashAndCashEquivalents: lineItemChain("restrictedCashAndCashEquivalents", "money"),
   shortTermInvestments: lineItemChain("shortTermInvestments", "money"),
   cashAndShortTermInvestments: lineItemChain("cashAndShortTermInvestments", "money"),
   netReceivables: lineItemChain("netReceivables", "money"),
@@ -798,8 +808,9 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
    * Caterpillar tags no StockholdersEquity line — only the total including
    * noncontrolling interest — so invested capital, the DCF and the multiples
    * EV bridge were all suppressed. Parent equity is that total less the
-   * noncontrolling interest when the filer tags one (exact), else the total
-   * itself stands in (disclosed; the noncontrolling slice is usually small).
+   * noncontrolling interest when the filer tags one. Without either a parent
+   * line or an NCI allocation, parent equity remains unavailable; consolidated
+   * totalEquity can still support consolidated operating returns.
    */
   totalStockholdersEquity: {
     kind: "chain",
@@ -814,13 +825,6 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
         disclose:
           "stockholders' equity derived as total equity including noncontrolling interest minus the noncontrolling interest: the filer tags no StockholdersEquity line",
       })),
-      {
-        kind: "first",
-        tags: tagsFor("totalEquity"),
-        unit: "money",
-        disclose:
-          "total equity including noncontrolling interest stands in for stockholders' equity: the filer tags neither a StockholdersEquity line nor a MinorityInterest to net out",
-      },
     ],
   },
   minorityInterest: lineItemChain("minorityInterest", "money"),
@@ -1807,14 +1811,13 @@ interface ComputeContext {
 
 function computeIncome(v: FieldValues, notes: NoteSink, ctx: string): void {
   v.grossProfit ??= sub(v.revenue ?? null, v.costOfRevenue ?? null);
-  v.operatingExpenses ??= sumAnyValues(
-    [
-      ["researchAndDevelopmentExpenses", v.researchAndDevelopmentExpenses ?? null],
-      ["sellingGeneralAndAdministrativeExpenses", v.sellingGeneralAndAdministrativeExpenses ?? null],
-    ],
-    notes,
-    `operatingExpenses ${ctx}`,
-  );
+  if (v.operatingExpenses == null && (v.researchAndDevelopmentExpenses != null || v.sellingGeneralAndAdministrativeExpenses != null)) {
+    // These components do not establish a complete expense perimeter: an
+    // issuer may separately report technology, indirect marketing, D&A,
+    // restructuring or other operating costs outside its standard tags.
+    v.operatingExpenses = null;
+    notes.add(`operatingExpenses ${ctx} WITHHELD: R&D and SG&A components do not establish a complete operating-expense total; individual components remain available.`);
+  }
   v.ebitda ??= add(v.operatingIncome ?? null, v.depreciationAndAmortization ?? null);
   // EBIT follows operating income, and only operating income.
   //
@@ -1847,6 +1850,19 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string): void {
 }
 
 function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
+  const cashResolution = cc.resolved.get("cashAndCashEquivalents");
+  const restrictionDerived = cashResolution?.tags.some(tag => tagsFor("cashAndCashEquivalentsIncludingRestricted").includes(tag)) === true;
+  if (restrictionDerived && cashResolution) {
+    const filings = new Set((cashResolution.evidencePoints ?? [cashResolution.point]).map(point => `${point.accn}|${point.filed}`));
+    if (cashResolution.value < 0 || (v.restrictedCashAndCashEquivalents ?? 0) < 0 || filings.size !== 1) {
+      v.cashAndCashEquivalents = null;
+      const reason = "unrestricted cash derivation unavailable: a restriction amount is negative or exceeds its combined total, or the operands come from different filings";
+      notes.withhold("cashAndCashEquivalents", ctx, reason);
+      notes.add(`cashAndCashEquivalents ${ctx}: ${reason}`);
+    }
+  }
+  const cashScopeUnknown = v.cashAndCashEquivalents == null && v.cashAndCashEquivalentsIncludingRestricted != null &&
+    !cc.resolved.has("cashAndShortTermInvestments");
   // A strict `add` here returned null for every filer that presents a single
   // "Cash and cash equivalents" line and tags no short-term-investment concept
   // (Home Depot, McDonald's, UPS, Costco and hundreds like them). That
@@ -1860,6 +1876,12 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `cashAndShortTermInvestments ${ctx}`,
   );
+  if (cashScopeUnknown) {
+    v.cashAndShortTermInvestments = null;
+    const reason = "combined cash includes restricted cash but unrestricted cash is unestablished; liquidity and net debt are withheld rather than treating restrictions as available cash";
+    for (const field of ["cashAndShortTermInvestments", "netDebt"]) notes.withhold(field, ctx, reason);
+    notes.add(`cashAndShortTermInvestments ${ctx}: ${reason}`);
+  }
   // `totalEquity` deliberately stays strict: `validate.ts` and `forensics.ts`
   // both fall back to `totalStockholdersEquity`, so nothing is suppressed.
   v.totalEquity ??= add(v.totalStockholdersEquity ?? null, v.minorityInterest ?? null);
@@ -2255,7 +2277,7 @@ function buildStatementRows<TRow>(
     }
     row.fieldProvenance = fieldProvenance;
     if (def.statement === "balance") {
-      const refused = notes.withheld.filter((held) => ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
+      const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
       if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
         { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
     }
@@ -2527,7 +2549,7 @@ const INCOME_DEF = (bankRevenue: boolean): StatementDef => ({
   anchors: ["revenue", "netIncome"],
   aliases: {},
   unsourced: INCOME_UNSOURCED,
-  computed: ["grossProfit", "operatingExpenses", "ebitda", "ebit"],
+  computed: ["grossProfit", "ebitda", "ebit"],
   compute: computeIncome,
 });
 

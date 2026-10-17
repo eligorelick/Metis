@@ -250,8 +250,9 @@ export const LINE_ITEM_TAGS = {
     "CashAndCashEquivalentsAtCarryingValue",
     "CashAndDueFromBanks",
     "Cash",
-    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
   ]),
+  cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
+  restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
   shortTermInvestments: entry([
     "ShortTermInvestments",
     "MarketableSecuritiesCurrent",

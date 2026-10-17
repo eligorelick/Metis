@@ -1,3 +1,4 @@
+import { quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
  * pure Stage B module's own input types, runs sector routing FIRST, then feeds
@@ -25,6 +26,7 @@ import type {
   FmpMarketRiskPremiumRow,
   FmpRawRow,
 } from "@/providers/fmp";
+import { tagsFor } from "@/edgar/tagSynonyms";
 
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
 import {
@@ -125,6 +127,7 @@ import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
+import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
 import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
@@ -440,8 +443,25 @@ function toReturnsIncome(
   };
 }
 
+/** A legacy consolidated-total stand-in never establishes parent ownership. */
+function statementEquityOwnershipBasis(row: FmpBalanceSheetRow | null | undefined): "parent" | "consolidated" | undefined {
+  if (!row) return undefined;
+  const parentTags = row.fieldProvenance?.totalStockholdersEquity?.tags ?? [];
+  const fromConsolidatedTotal = tagsFor("totalEquity").some(tag => parentTags.includes(`us-gaap/${tag}`));
+  const parentEstablished = tagsFor("totalStockholdersEquity").some(tag => parentTags.includes(`us-gaap/${tag}`)) ||
+    tagsFor("minorityInterest").some(tag => parentTags.includes(`us-gaap/${tag}`));
+  if (fromConsolidatedTotal && !parentEstablished) return "consolidated";
+  if (num(row.totalStockholdersEquity) !== null) return "parent";
+  return num(row.totalEquity) !== null ? "consolidated" : undefined;
+}
+
+function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): number | null {
+  return statementEquityOwnershipBasis(row) === "consolidated" ? null : num(row?.totalStockholdersEquity);
+}
+
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
+    leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
@@ -451,7 +471,7 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     capitalLeaseObligations: num(r.capitalLeaseObligations),
     operatingLeaseLiability: num(r.operatingLeaseLiability),
     financeLeaseLiability: num(r.financeLeaseLiability),
-    totalStockholdersEquity: num(r.totalStockholdersEquity),
+    totalStockholdersEquity: statementParentEquity(r),
     totalEquity: num(r.totalEquity),
     minorityInterest: num(r.minorityInterest),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
@@ -503,6 +523,7 @@ function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
 
 function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
   return {
+    fieldProvenance: r.fieldProvenance,
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),
     capitalLeaseObligations: num(r.capitalLeaseObligations),
@@ -1572,7 +1593,8 @@ function totalDebtSnapshot(
       : includeOperatingLeases
         ? "book totalDebt with the operating-lease liability kept in (THESIS_EV_INCLUDE_LEASES=1)"
         : "book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it)";
-  const basis = `${leaseText}, average of ${which}`;
+  const scopeNotes = pair.flatMap(row => { const coverage = incompleteLeaseCoverage(row); return coverage ? [`${isoDay(row?.date)}: ${coverage.note}`] : []; });
+  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? `; retained lease coverage: ${scopeNotes.join(" ")}` : ""}`;
   const used = [a.value !== null ? pair[0] : undefined, b.value !== null ? pair[1] : undefined].filter(
     (row): row is FmpBalanceSheetRow => row !== undefined,
   );
@@ -1599,7 +1621,7 @@ function totalDebtSnapshot(
   const newestDebt = newestRow === undefined ? null : bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).value;
   const newestCurrency = newestRow === undefined ? null : establishedRowsCurrency([newestRow], currencyEvidence);
   const latest = newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
-    ? { latest: newestDebt, latestBasis: `${leaseText}, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets` }
+    ? { latest: newestDebt, latestBasis: `${leaseText}, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets${incompleteLeaseCoverage(newestRow)?.note ? `; ${incompleteLeaseCoverage(newestRow)!.note}` : ""}` }
     : {};
   if (a.value !== null && b.value !== null) {
     return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency, ...latest };
@@ -1921,8 +1943,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   );
   const forensicClassAmbiguity = retainedCommonClassAmbiguity(bundle);
   const forensicEquityScope = resolveEconomicEquityScope({
-    price: num(quote?.price ?? profile?.price), marketCap: num(profile?.marketCap ?? quote?.marketCap),
+    price: num(quote?.price) ?? num(profile?.price), marketCap: num(profile?.marketCap ?? quote?.marketCap),
     currency: str(profile?.currency),
+    priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
@@ -1931,13 +1954,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balance: balanceAnnual.map(toForensicsBalance),
     cashFlow: forensicContext.cashFlow,
     marketCap: forensicEquityScope.marketCap,
-    // The as-of of a datum is its OBSERVATION date — the envelope of whichever
-    // source supplied the figure — not the fiscal-year end of the statement it
-    // sits beside, which stamped today's market cap with a date months old in
-    // the stored Altman provenance.
-    marketCapAsOf: num(profile?.marketCap) !== null
-      ? (sourcedOf(bundle.profile)?.asOf ?? null)
-      : (sourcedOf(bundle.quote)?.asOf ?? null),
+    // Derived class capitalization belongs to its admitted price session;
+    // a vendor cap belongs to its own source row, never its fetch envelope.
+    marketCapAsOf: forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
+      : forensicEquityScope.status === "unresolved" ? null
+        : quotePriceObservationDay(num(profile?.marketCap) !== null ? profile : quote),
     reportedCurrency: str(inc0?.reportedCurrency),
     quoteCurrency: str(profile?.currency),
     classification: {
@@ -2168,6 +2189,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const latestIncomeQuarter = incomeQuarterly[0];
   const projectionQuarterDate = isoDay(latestIncomeQuarter?.date);
   const projectionAnchorDate = valuation.kind === "dcf" ? valuation.assumptions?.asOf.statements ?? null : null;
+  // Future EBIT/interest/tax is consolidated/entity scope. A historical NCI
+  // amount cannot allocate those future earnings to the quoted common holder.
+  const projectionOwnershipBalance = [...balanceQuarterly, ...balanceAnnual]
+    .filter(row => projectionAnchorDate !== null && isoDay(row.date) !== null && isoDay(row.date)! <= projectionAnchorDate)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  const projectionOwnershipIncome = [...incomeQuarterly, ...incomeAnnual]
+    .filter(row => projectionAnchorDate !== null && isoDay(row.date) !== null && isoDay(row.date)! <= projectionAnchorDate)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  const projectionOutsideOwnership = [num(projectionOwnershipBalance?.minorityInterest), num(projectionOwnershipIncome?.netIncomeAttributableToNoncontrollingInterest)]
+    .some(value => value !== null && value !== 0);
   // A rejected TTM can leave an older annual DCF anchor. Its EPS must not
   // import a newer quarter, or interest in an unestablished/different currency.
   const projectionInterest = latestIncomeQuarter !== undefined && projectionQuarterDate !== null && projectionAnchorDate !== null
@@ -2185,6 +2216,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     valuation,
     waccPct: returns.wacc.waccPct,
     dilutedShares: dilutedSharesProj,
+    ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." } : {}),
     incomeHistory: projectionIncomeHistory,
     fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf })),
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
@@ -2544,8 +2576,9 @@ function computeReturns(
 
   const classAmbiguity = retainedCommonClassAmbiguity(bundle);
   const equityScope = resolveEconomicEquityScope({
-    price: num(quote?.price ?? profile?.price), marketCap: num(quote?.marketCap ?? profile?.marketCap),
+    price: num(quote?.price) ?? num(profile?.price), marketCap: num(quote?.marketCap ?? profile?.marketCap),
     currency: str(profile?.currency),
+    priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
     ...(classAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: classAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
@@ -2616,7 +2649,9 @@ function computeReturns(
     asOf: {
       riskFreeRate: rf.asOf ?? undefined,
       statements: isoDay(incomeAnnual[0]?.date) ?? undefined,
-      marketCap: sourcedOf(bundle.quote)?.asOf,
+      marketCap: (equityScope.status === "resolved" ? equityScope.priceAsOf ?? null
+        : equityScope.status === "unresolved" ? null
+          : quotePriceObservationDay(num(quote?.marketCap) !== null ? quote : profile)) ?? undefined,
     },
   });
 
@@ -2734,6 +2769,9 @@ export function dcfGuidance(bundle: DataBundle, modelCurrency: string | null): D
     source: `sec:8-K EX-99.1 ${outlook.accession}`,
     operatingMarginPct: outlook.impliedOperatingMarginPct,
     revenueLow: outlook.low,
+    ...(outlook.annualRevenueComparison === undefined ? {} : { revenueHigh: outlook.high, currency: outlook.currency, fiscalYear: outlook.fiscalYear,
+      annualRevenueComparison: { ...outlook.annualRevenueComparison,
+      source: `sec:8-K EX-99.1 ${outlook.accession}`, asOf: outlook.filingDate } }),
     taxRatePct: outlook.taxRatePct ?? null,
     taxRatePeriod: outlook.taxRatePeriod ?? null,
     grossMarginLowPct: outlook.grossMarginLowPct ?? null,
@@ -2864,10 +2902,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
 
   const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis
     ? {
+        leaseCoverageNote: incompleteLeaseCoverage(balPoint)?.note,
         date: String(balPoint.date ?? ""),
         basis: balPointBasis,
         totalDebt: num(balPoint.totalDebt),
-        totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
+        totalStockholdersEquity: statementParentEquity(balPoint),
         totalEquity: num(balPoint.totalEquity),
         minorityInterest: num(balPoint.minorityInterest),
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
@@ -2993,7 +3032,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           domicileCountry: str(profile?.country),
           // D-65: the fiscal year's reported revenue so far, and the quote date the value is stated at.
           fiscalYearToDate,
-          valuationDate: bundle.quote.ok ? isoDay(bundle.quote.value.asOf) : null,
+          valuationDate: quotePriceObservationDay(quote),
         }
       : null;
 
@@ -3001,6 +3040,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const commonClassAmbiguity = retainedCommonClassAmbiguity(bundle);
   const multiplesQuote: MultiplesQuoteInputs = {
     price: currentPrice,
+    priceAsOf: quotePriceObservationDay(quote),
     marketCap,
     currency: str(profile?.currency),
     isAdr: route.overlays.includes("adr") || profile?.isAdr === true,
@@ -3074,13 +3114,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
         // D-65: the multiples' EV nets the same canonical (D-60) net cash as the DCF bridge.
         marketableEquitySecurities: num(balPoint.marketableEquitySecurities),
-        totalStockholdersEquity: num(balPoint.totalStockholdersEquity),
+        totalStockholdersEquity: statementParentEquity(balPoint),
         totalEquity: num(balPoint.totalEquity),
         goodwill: num(balPoint.goodwill),
         intangibleAssets: num(balPoint.intangibleAssets),
         minorityInterest: num(balPoint.minorityInterest),
         preferredStock: num(balPoint.preferredStock),
-        equityOwnershipBasis: "parent",
+        equityOwnershipBasis: statementEquityOwnershipBasis(balPoint),
         // WS6 (D-19): lease liabilities for the EV bridge. The TOTAL is
         // disclosure context; only the OPERATING slice is netted out of EV
         // (WS6 review, BLOCKER 1), and the EDGAR route is the only one that
@@ -3089,6 +3129,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability),
         financeLeaseLiability: num(balPoint.financeLeaseLiability),
+        fieldProvenance: balPoint.fieldProvenance,
       }
     : null;
 
@@ -3108,6 +3149,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     marketCapitalization: num(r.marketCapitalization),
     enterpriseValue: num(r.enterpriseValue),
     sourceId: bundle.enterpriseValues.ok ? bundle.enterpriseValues.value.endpoint : undefined,
+    stockPrice: num(r.stockPrice),
+    priceCurrency: str(r.currency ?? r.reportedCurrency),
   }));
   // D-60 (P1-K): the vendor's enterprise-values history stops at five
   // quarters, so the own-history bands never reached their eight-quarter
@@ -3288,9 +3331,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     netDebt: netDebtDerived,
     dilutedShares,
     noncontrollingOwnershipUnresolved: balPoint !== null && num(balPoint.minorityInterest) === null &&
-      num(balPoint.totalEquity) !== null && num(balPoint.totalStockholdersEquity) !== null &&
-      Math.abs((num(balPoint.totalEquity) as number) - (num(balPoint.totalStockholdersEquity) as number)) >
-        1e-9 * Math.max(1, Math.abs(num(balPoint.totalEquity) as number), Math.abs(num(balPoint.totalStockholdersEquity) as number)),
+      (statementEquityOwnershipBasis(balPoint) === "consolidated" ||
+        (num(balPoint.totalEquity) !== null && num(balPoint.totalStockholdersEquity) !== null &&
+          Math.abs((num(balPoint.totalEquity) as number) - (num(balPoint.totalStockholdersEquity) as number)) >
+            1e-9 * Math.max(1, Math.abs(num(balPoint.totalEquity) as number), Math.abs(num(balPoint.totalStockholdersEquity) as number)))),
     minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
     preferred: balPoint ? num(balPoint.preferredStock) : null,
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
@@ -3461,8 +3505,14 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   const older: TRow | null = newer === quarterly ? annual : quarterly;
   if (newer === null) return { row: null, basis: undefined, fallback: null };
   const basisOf = (r: TRow): "quarter" | "annual" => (r === quarterly ? "quarter" : "annual");
-  const refusedDebt = (newer as { fieldConflicts?: Record<string, { usable?: boolean }> }).fieldConflicts?.totalDebt?.usable === false;
-  if (refusedDebt) return { row: newer, basis: basisOf(newer), fallback: null };
+  // Missing coverage may justify a disclosed older whole row. A known
+  // integrity or ownership refusal cannot be cured by changing the date:
+  // doing so would restore EV/DCF inputs that the current filing withholds.
+  const conflicts = (newer as FmpBalanceSheetRow).fieldConflicts;
+  const refusedAnchor = ["totalDebt", "netDebt", "cashAndCashEquivalents", "cashAndShortTermInvestments", "totalStockholdersEquity", "totalEquity"]
+    .some(field => conflicts?.[field]?.usable === false);
+  const consolidatedOnly = statementEquityOwnershipBasis(newer as FmpBalanceSheetRow) === "consolidated";
+  if (refusedAnchor || consolidatedOnly) return { row: newer, basis: basisOf(newer), fallback: null };
   const lacking = missing(newer);
   if (older !== null && lacking.length > 0 && missing(older).length === 0) {
     const list = lacking.length === 1 ? lacking[0] : `${lacking.slice(0, -1).join(", ")} and ${lacking[lacking.length - 1]}`;
@@ -3592,15 +3642,17 @@ function mergeQuarterly(
       // current ffoApprox, which reads the income statement only.
       incomeDepreciationAndAmortization: num(i.depreciationAndAmortization),
       netIncome: num(i.netIncome),
+      epsDiluted: num(i.epsDiluted),
+      ...(i.epsSecurityBasis === "quoted" ? { epsSecurityBasis: "quoted" as const } : {}),
       netIncomeAvailableToCommon: num(i.netIncomeAvailableToCommon),
       // Allocation flows require the exact fiscal quarter, unlike a balance
       // anchor: a nearby cash-flow period is not the same earnings window.
       preferredDividendsPaid: num(cfByDate.get(d)?.preferredDividendsPaid),
       operatingCashFlow: cf ? num(cf.operatingCashFlow) : null,
       capitalExpenditure: cf ? num(cf.capitalExpenditure) : null,
-      totalStockholdersEquity: bal ? num(bal.totalStockholdersEquity) : null,
+      totalStockholdersEquity: statementParentEquity(bal),
       totalEquity: bal ? num(bal.totalEquity) : null,
-      equityOwnershipBasis: "parent",
+      equityOwnershipBasis: statementEquityOwnershipBasis(bal),
       // House-EV components, so own-history EV matches the current definition.
       totalDebt: bal ? num(bal.totalDebt) : null,
       cashAndCashEquivalents: bal ? num(bal.cashAndCashEquivalents) : null,

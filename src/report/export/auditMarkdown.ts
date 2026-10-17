@@ -24,7 +24,7 @@ import {
   numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { trustRows } from "@/report/presentation";
+import { geographicBasisNote, trustRows } from "@/report/presentation";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -350,9 +350,10 @@ function renderBodyReading(report: Report): string {
     lines.push(
       "### Annual provider segments",
       "",
-      "The provider's annual segment rows as served (FMP names). The report body shows them only when no quarterly XBRL segment table is available.",
+      "Annual segment rows retain their source's labels and allocation basis. The report body shows them only when no quarterly XBRL segment table is available.",
       "",
       table(["Kind", "Segment", "Revenue", "Unit", "As of", "Share %", "Registry id"], segmentRows),
+      ...(geographicBasisNote(segments.geographic) ? ["", markdownProse(geographicBasisNote(segments.geographic)!)] : []),
       "",
     );
   }
@@ -368,6 +369,7 @@ function renderBodyReading(report: Report): string {
       officerChanges: disclosures.officerChanges,
       sayOnPay: disclosures.sayOnPay,
       tradingArrangements: disclosures.tradingArrangements,
+      companyStatements: report.filingDisclosures?.companyStatements,
     }).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length > 0)));
     if (Object.keys(supplements).length > 0) {
       lines.push("### Filing disclosure supplements (raw record)", "", "Stored values, periods, source identities and issuer text, before display rounding.", "", "```json", JSON.stringify(supplements, null, 2), "```", "");

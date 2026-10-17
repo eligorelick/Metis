@@ -16,6 +16,7 @@ import { admitHistoricalEnterpriseValue, DERIVED_EV_ENDPOINT } from "@/report/en
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import type { DataBundle } from "@/pipeline/types";
 import type { MarketData } from "@/report/schema";
+import { quotePriceObservationDay } from "@/providers/fmp";
 
 type Row = Record<string, unknown>;
 
@@ -64,7 +65,7 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean }
   const quote: MarketData["quote"] = q
     ? {
         price: n(q.price), marketCap: n(q.marketCap), yearHigh: n(q.yearHigh), yearLow: n(q.yearLow),
-        volume: n(q.volume), priceAvg50: n(q.priceAvg50), priceAvg200: n(q.priceAvg200), asOf: asOfOf(bundle.quote),
+        volume: n(q.volume), priceAvg50: n(q.priceAvg50), priceAvg200: n(q.priceAvg200), asOf: quotePriceObservationDay(q),
       }
     : null;
 

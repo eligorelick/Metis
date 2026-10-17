@@ -201,7 +201,7 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
     ? []
     : [{
         name: "year-one revenue anchor",
-        value: `${big(revenueAnchor.yearOneRevenue)} (${revenueAnchor.source}${revenueAnchor.clampedFrom === null ? "" : `, clamped from ${big(revenueAnchor.clampedFrom)}`})`,
+        value: `${big(revenueAnchor.yearOneRevenue)} (${revenueAnchor.source === "guidance" ? "model extrapolation of quarterly guidance" : revenueAnchor.source}${revenueAnchor.clampedFrom === null ? "" : `, clamped from ${big(revenueAnchor.clampedFrom)}`})`,
         basis: revenueAnchor.basis,
       }];
   // D-65 (P2-9): the near-term rate is a row only when it set year one. Under

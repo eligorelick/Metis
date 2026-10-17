@@ -15,6 +15,8 @@ const DASH = "—";
 
 const METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
   revenue: "Revenue",
+  "adjusted-ebitda": "Adjusted EBITDA",
+  "adjusted-ebitda-margin-expansion": "Adjusted EBITDA margin expansion",
   "gross-margin": "Gross margin",
   "operating-expenses": "Operating expenses",
   "operating-margin": "Operating margin",
@@ -35,7 +37,7 @@ function pct(value: number | null, signed = false, digits = 1): string {
 }
 
 function value(row: { unit: GuidanceRow["unit"] }, v: number, currency: string | null): string {
-  return row.unit === "%" ? pct(v, false, 1) : money(v, currency, row.unit === "currency-per-share");
+  return row.unit === "percentage-points" ? `${v} pp` : row.unit === "%" ? pct(v, false, 1) : money(v, currency, row.unit === "currency-per-share");
 }
 
 /** "≈$26B": an issuer-qualified amount without decimals the release did not print. */
@@ -65,9 +67,11 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
   if (d.guidance !== null && d.guidance.rows.length > 0) {
     const g = d.guidance;
+    const revisions = g.rows.some((row) => row.previous !== undefined);
+    const growth = g.rows.some((row) => row.growth !== undefined);
     tables.push({
       heading: `Management guidance${g.reportedPeriod ? ` (issued with ${g.reportedPeriod} results)` : ""}`,
-      headers: ["Period", "Metric", "Basis", "Low", "Midpoint", "High", "Stated as"],
+      headers: ["Period", "Metric", "Basis", "Low", "Midpoint", "High", "Stated as", ...(revisions ? ["Previous guidance"] : []), ...(growth ? ["Current growth", "Previous growth"] : [])],
       rows: g.rows.map((row) => [
         row.period,
         METRIC_LABELS[row.metric],
@@ -76,6 +80,8 @@ function guidanceTables(d: FilingDisclosures): ReportAuditTable[] {
         value(row, row.mid, d.currency),
         row.form === "range" || row.form === "plus-minus" ? value(row, row.high, d.currency) : DASH,
         row.form === "plus-minus" ? "point ± tolerance" : row.form === "approximate" ? "approximately" : row.form,
+        ...(revisions ? [row.previous ? `${value(row, row.previous.low, d.currency)} - ${value(row, row.previous.high, d.currency)}` : DASH] : []),
+        ...(growth ? [row.growth ? `${row.growth.low}% - ${row.growth.high}%` : DASH, row.previousGrowth ? `${row.previousGrowth.low}% - ${row.previousGrowth.high}%` : DASH] : []),
       ]),
       note: [`Source: ${filingLabel(g.source)}. Guidance is the company's projection, not a result.`, ...g.qualifiers.map((q) => `Issuer caveat: ${q}`)].join(" "),
     });
@@ -172,6 +178,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
 type ReconciliationMetric = NonNullable<FilingDisclosures["reconciliation"]>[number]["metric"];
 const RECONCILIATION_LABEL: Record<ReconciliationMetric, string> = {
   "operating-cash-flow": "Net cash provided by operating activities",
+  "total-capital-expenditures": "Total capital expenditures (positive outflow)",
   "purchases-property-equipment": "Purchases of property, equipment and intangible assets",
   "principal-payments-property-equipment": "Principal payments on property, equipment and intangible assets",
   "gaap-diluted-eps": "GAAP diluted EPS",
@@ -220,10 +227,10 @@ function reconciliationTables(d: FilingDisclosures): ReportAuditTable[] {
     return gaap === undefined || nonGaap === undefined ? DASH : money(decimalRound(nonGaap - gaap, 2), d.currency, true);
   }));
   const perShareNote = [
-    adjustment.length > 0 ? "The adjustment line is the difference of the two reported per-share figures, so it includes every adjustment the release makes and the table foots." : "",
+    adjustment.length > 0 ? "The adjustment line is the difference of the two reported per-share figures, so it includes every adjustment the release makes and the table foots. Any issuer share-denominator adjustments are included in this per-share difference; this is not an allocation of item-level taxes." : "",
     d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
   ].filter((n) => n !== "").join(" ");
-  const fcfLines = [...metricRow("operating-cash-flow"), ...metricRow("purchases-property-equipment"), ...metricRow("principal-payments-property-equipment")];
+  const fcfLines = [...metricRow("operating-cash-flow"), ...metricRow("total-capital-expenditures"), ...metricRow("purchases-property-equipment"), ...metricRow("principal-payments-property-equipment")];
   return [
     table("Issuer free-cash-flow reconciliation", fcfLines.length === 0 ? [] : [...fcfLines, ...row("Free cash flow (issuer definition, as reported)", issuerFcf)]),
     table("GAAP to non-GAAP diluted EPS (issuer reconciliation, per share)", [
@@ -318,6 +325,15 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
   });
 }
 
+function segmentPerformanceTables(d: FilingDisclosures): ReportAuditTable[] {
+  if (!d.segmentPerformance?.length) return [];
+  return [{ heading: "Segment adjusted EBITDA margins (matched quarterly tables)",
+    headers: ["Segment", "Quarter ended", "Revenue", "Adjusted EBITDA", "Margin", "Prior quarter ended", "Prior revenue", "Prior adjusted EBITDA", "Prior margin", "YoY change", "Source"],
+    rows: d.segmentPerformance.map((r) => [r.segment, r.periodEnd, money(r.revenue, r.currency), money(r.profit, r.currency), pct(r.marginPct), r.comparisonPeriodEnd,
+      money(r.priorRevenue, r.currency), money(r.priorProfit, r.currency), pct(r.priorMarginPct), `${decimalRound(r.changeBasisPoints, 1).toFixed(1)} bp`, filingLabel(r.source)]),
+    note: "Issuer segment adjusted EBITDA divided by the same segment's revenue for matching quarterly columns, currency and scale. Prior margin uses the comparative column in the same filing. These are not consolidated GAAP margins and do not establish that investment spending will succeed.",
+  }];
+}
 function eventTable(d: FilingDisclosures): ReportAuditTable[] {
   if (d.events.length === 0) return [];
   const corrected = d.events.some((e) => e.summaryCorrection !== undefined || withoutLegacyPrincipalAnnotation(e.summary) !== e.summary);
@@ -329,10 +345,26 @@ function eventTable(d: FilingDisclosures): ReportAuditTable[] {
   }];
 }
 
+function companyStatementTables(d: FilingDisclosures): ReportAuditTable[] {
+  return (d.companyStatements ?? []).map((statement) => ({
+    heading: `Official company statement: ${statement.title}`,
+    headers: ["Item", "Evidence"],
+    rows: [
+      ["Authority", `Official company ${statement.category === "acquisition" ? "acquisition" : "executive-transition"} statement`],
+      ["Statement status", statement.status === "issuer-stated-completed" ? "Issuer states completed" : "Issuer announced"],
+      ["Published", statement.publishedAt], ["Observed", statement.observedAt],
+      ["Statement", statement.text], ["Source URL", statement.url],
+      ["Source SHA-256", statement.sourceHash], ["Authority path", statement.authorityChain.join(" -> ")],
+      ["Consideration and funding", "Not established by this reader"],
+    ],
+    note: statement.limitations,
+  }));
+}
+
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return [];
   switch (section) {
-    case "business": return segmentTables(d);
+    case "business": return [...segmentTables(d), ...segmentPerformanceTables(d)];
     case "fundamentals": return trendTables(d);
     case "balanceSheet": return [...commitmentTables(d), ...filingFactTables(d)];
     case "leadership": return filingGovernanceTables(d);
@@ -343,9 +375,9 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
-      const notes = [d.currencyBasis, ...d.notes.filter((n) => (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
+      const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
       return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No guidance could be read from the latest earnings releases."]], note: notes }] : [];
     }
-    case "catalystsRisks": return eventTable(d);
+    case "catalystsRisks": return [...eventTable(d), ...companyStatementTables(d)];
   }
 }

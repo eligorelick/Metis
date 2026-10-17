@@ -267,7 +267,9 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
     symbol,
     builtAt: BUILT_AT,
     profile: ok({ rows: [{ companyName: "Apple Inc.", sector: "Technology", industry: "Consumer Electronics", price: 210, marketCap: 3150000000000, beta: 1.2, currency: "USD", country: "US", ipoDate: "1980-12-12", isAdr: false, isEtf: false, isFund: false }], raw: {} }, "2026-07-01", "profile"),
-    quote: ok({ rows: [{ symbol, price: 210, marketCap: 3150000000000, dayLow: 208, dayHigh: 212, yearLow: 164, yearHigh: 260, volume: 44000000, timestamp: 1751731200 }], raw: {} }, "2026-07-05", "quote"),
+    // Match this fixture's intended 2026 quote session. The previous numeric
+    // timestamp was in 2025; envelope dates must not hide that contradiction.
+    quote: ok({ rows: [{ symbol, price: 210, marketCap: 3150000000000, dayLow: 208, dayHigh: 212, yearLow: 164, yearHigh: 260, volume: 44000000, timestamp: Date.parse("2026-07-05T16:00:00Z") / 1000 }], raw: {} }, "2026-07-05", "quote"),
     statements: {
       incomeAnnual,
       incomeQuarterly,
@@ -790,8 +792,10 @@ describe("payload determinism + provenance", () => {
       // D-72 version stamp only; the payload fields/registries above stay pinned.
       // D-73 changes only the version stamp for this complete-debt fixture.
       // D-78: explicit ownership/reconciliation, SBC and growth basis; values separately pinned in audit deltas.
-      fingerprint: "1.25.0:d2f8e61e",
-      promptBytes: 134_225,
+      // D-79: explicit carrying-book and model-extrapolation qualifications;
+      // quote dates come from actual observations, not envelope retrieval.
+      fingerprint: "1.26.0:7e4a551e",
+      promptBytes: 134_622,
       provenanceCount: 531,
       provenanceHash: "ebdcddba",
       provenanceIdsHash: "0dee6be6",
@@ -816,7 +820,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "7d4328be",
+      financeHash: "666a1ab0",
     });
   });
 
@@ -940,7 +944,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.25.0");
+    expect(first.payloadVersion).toBe("1.26.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2431,9 +2435,9 @@ describe("assembleReport", () => {
     // WS6 (D-19): the generated disclaimer names the grades and scenario price
     // targets the report actually emits, and that neither is a recommendation.
     expect(report.meta.disclaimer).toBe(
-      "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
+      "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.20.0");
+    expect(report.meta.specVersion).toBe("1.21.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

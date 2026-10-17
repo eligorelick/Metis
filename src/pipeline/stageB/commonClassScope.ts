@@ -8,6 +8,8 @@ export interface CommonClassAmbiguity {
 /** Detect scope ambiguity only. Filing class labels do not establish counts or economic equivalence. */
 export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmbiguity | null {
   const cutoff = bundle.builtAt.slice(0, 10);
+  const inventory = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff && row.classes.length > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];
+  if (inventory) return { reason: `Primary ${inventory.source.form} ${inventory.source.accession} explicitly enumerates multiple outstanding common classes. ${inventory.reason}`, sourceIds: [inventory.source.documentUrl] };
   const notes = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(member =>
     member?.ok && member.value.data.filingDate <= cutoff && member.value.data.reportDate <= cutoff ? [member.value] : []);
   // An omitted capital description never proves a previously filed class disappeared.

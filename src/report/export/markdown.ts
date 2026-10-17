@@ -87,11 +87,13 @@ import {
   withoutTabled,
   dataStateText,
   factorExposureTable,
+  factorContributionSensitivityTable,
   figureRows,
   figureValueText,
   gapCountText,
   gapSummary,
   geographyLabel,
+  geographicBasisNote,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -378,6 +380,7 @@ function renderScores(scores: Scoring): string {
     ...(card.note ? [`_${markdownProse(card.note)}_`, ""] : []),
     ...(drivers ? auditTableBlocks([drivers]) : []),
     ...(exposure ? auditTableBlocks([exposure]) : []),
+    ...auditTableBlocks([factorContributionSensitivityTable(scores)]),
     `_${markdownProse(c.methodology)}_ _(bands ${markdownProse(scores.bandsVersion)})_`,
   ].join("\n");
 }
@@ -394,7 +397,11 @@ function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): s
   // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
   if (showAnnualSegments(quarterly.length > 0)) {
     lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, false)}`, segmentTable(b.segments.product)));
+  }
+  if (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)) {
     lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, false)}`, segmentTable(b.segments.geographic, true)));
+    const geographicBasis = geographicBasisNote(b.segments.geographic);
+    if (geographicBasis) lines.push("", markdownProse(geographicBasis), "");
   }
   lines.push(...subsection("### Concentration risks", claimList(b.concentrationRisks)));
   return lines.join("\n").trimEnd();

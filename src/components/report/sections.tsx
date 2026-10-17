@@ -31,10 +31,12 @@ import {
   showAnnualSegments,
   sourceLabel,
   factorExposureTable,
+  factorContributionSensitivityTable,
   figureRows,
   gapCountText,
   gapSummary,
   geographyLabel,
+  geographicBasisNote,
   indicatorLabel,
   keyDataRows,
   methodologyNotes,
@@ -390,7 +392,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
       </div>
       <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
-        <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores)]} />
+        <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />
       </div>
       <div className="border-t border-edge px-3 py-1.5">
         <p className="text-[10px] leading-snug text-faint">{c.methodology}</p>
@@ -538,18 +540,19 @@ export function BusinessSegments({
       </SubBlock>
       <ExtraAuditTables tables={extraTables} />
       {/* D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export. */}
-      {showAnnualSegments(extraTables.length > 0) && <div className="grid gap-4 lg:grid-cols-2">
-        <SubBlock label={annualSegmentHeading("Product", business.segments.product, false).toLowerCase()}>
+      {(showAnnualSegments(extraTables.length > 0) || geographicBasisNote(business.segments.geographic)) && <div className="grid gap-4 lg:grid-cols-2">
+        {showAnnualSegments(extraTables.length > 0) && <SubBlock label={annualSegmentHeading("Product", business.segments.product, false).toLowerCase()}>
           <SegmentTable
             rows={business.segments.product}
             emptyLabel="no product segmentation reported"
           />
-        </SubBlock>
+        </SubBlock>}
         <SubBlock label={annualSegmentHeading("Geographic", business.segments.geographic, false).toLowerCase()}>
           <SegmentTable
             rows={business.segments.geographic.map((row) => ({ ...row, name: geographyLabel(row.name) }))}
             emptyLabel="no geographic segmentation reported"
           />
+          {geographicBasisNote(business.segments.geographic) && <p className="mt-2 text-[11px] leading-snug text-muted">{geographicBasisNote(business.segments.geographic)}</p>}
         </SubBlock>
       </div>}
       <SubBlock label="concentration risks">

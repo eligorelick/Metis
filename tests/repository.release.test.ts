@@ -561,9 +561,11 @@ describe("public release contract", () => {
       // D-66: extracted annual notes, interim statements/Item 2/Item 5 and governance/commentary samples.
       read("tests/edgar.filingFacts.test.ts"),
       read("tests/edgar.debtPresentation.test.ts"),
+        // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
+        read("tests/edgar.operatingExpenseScope.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(43);
+    expect(edgarFixtures).toHaveLength(44);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }

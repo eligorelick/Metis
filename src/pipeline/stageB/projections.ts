@@ -127,6 +127,8 @@ export interface ProjectionsInputs {
    * for the bull/bear re-runs is `valuation.dcf.bridge`, the base result's own.
    */
   dilutedShares: number | null;
+  /** A known ownership refusal; historical reported EPS remains displayable. */
+  forecastEpsWithheldReason?: string | null;
   /** Annual income history (any order). */
   incomeHistory: ProjectionIncomeRow[];
   /** Annual FCF history (any order) — for the FCF fan's historical half. */
@@ -669,6 +671,23 @@ function buildEpsSeries(
   assumptionLines: string[],
   asOf: string,
 ): AuditableProjectionSeries | null {
+  const unit = perShareUnit(inputs.currency);
+  const historical = incomeAsc.filter(r => isNum(r.epsDiluted)).slice(-4)
+    .map(r => point(fyLabel(r.date), r.epsDiluted as number, unit, "epsDiluted", "historical", asOf));
+  // Pure callers inherit the valuation's refusal too. A positive raw count
+  // cannot restore a denominator that the shared valuation already rejected.
+  const scopeGap = inputs.valuation.gaps.find(g => ["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis",
+    "valuation.dcf.noncontrollingOwnership", "valuation.multiples.peTtm.commonIncome"].includes(g.field));
+  const nci = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.minorityInterest : null;
+  const preferred = inputs.valuation.kind === "dcf" ? inputs.valuation.dcf?.bridge.preferred : null;
+  const reason = inputs.forecastEpsWithheldReason ?? scopeGap?.reason ??
+    (isNum(nci) && nci !== 0 ? "Noncontrolling ownership is evidenced but a future common-earnings allocation is unestablished. Book NCI and historical NCI income do not allocate forecast operating profit to common holders." : null) ??
+    (isNum(preferred) && preferred !== 0 ? "A preferred claim is evidenced but a future common-earnings allocation is unestablished. Preferred book value is not a dividend forecast and is not subtracted from forecast operating earnings." : null);
+  if (reason !== null) return {
+    metric: "epsDiluted", unit, historical, bull: [], base: [], bear: [], weighted: [],
+    assumptions: [...assumptionLines, "Reported historical diluted EPS is retained. Future operating EPS and every share-count alternative are withheld; consolidated/entity revenue, operating margin and FCFF do not establish common-holder per-share earnings."],
+    disclosures: [{ field: "projections.eps.ownershipScope", reason: `Forecast operating EPS withheld: ${reason}`, severity: "warn" }],
+  };
   const shares0 = inputs.dilutedShares;
   // EPS requires a positive share anchor.
   if (!isNum(shares0) || shares0 <= 0) {
@@ -716,7 +735,6 @@ function buildEpsSeries(
     .slice(-4)
     .map((r) => ({ period: fyLabel(r.date), value: r.epsDiluted as number }));
 
-  const unit = perShareUnit(inputs.currency);
   const weighted = weightedPath(bull, base, bear);
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>
     arr.map((v, i) => point(fwdPeriod(i + 1), v, unit, "epsDiluted", scenario, asOf));

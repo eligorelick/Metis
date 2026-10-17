@@ -1,3 +1,4 @@
+import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 /**
  * Stage A composition root: buildDataBundle(symbol) — turns a ticker into the
  * DataBundle everything downstream consumes .
@@ -39,10 +40,11 @@ import {
   type FmpRawRow,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
+import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
 import { debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
 import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
-import { discoverCompanyIrEarnings, type CompanyIrOptions } from "@/providers/companyIr";
+import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, type CompanyIrOptions } from "@/providers/companyIr";
 import { loadPeerFundamentals } from "@/pipeline/peers";
 import { loadPeerFromFilings } from "@/pipeline/peerFilings";
 import {
@@ -1216,6 +1218,7 @@ async function buildEdgarBundle(
     ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10)))
     : null;
 
+  const economicShareInventory: FilingEconomicShares[] = [];
   let latestTenK: FetchResult<EdgarFiling>;
   let latestTenQ: FetchResult<EdgarFiling>;
   let auditorChange8Ks: FetchResult<EdgarFiling[]>;
@@ -1231,6 +1234,7 @@ async function buildEdgarBundle(
   // D-66: the annual notes and the 10-Q's Part II Item 5, from the same parses.
   let tenKNotes: FetchResult<ExtractedSection> | undefined;
   let tenQOther: FetchResult<ExtractedSection> | undefined;
+  let annualGeography: EdgarBundle["annualGeography"];
   const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[]): void => {
     if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted);
     if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted);
@@ -1278,6 +1282,8 @@ async function buildEdgarBundle(
         const html = doc.value.data;
         const t0 = Date.now();
         const parsedDoc = parseDocument(html);
+        economicShareInventory.push(parsePrimaryEconomicShares(html, { issuerId: cikRes.value.data.cik10, securityId: symbol, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10), parsedDoc));
+        annualGeography = parseAnnualGeography(html, { cik: cikRes.value.data.cik10, filing, documentUrl: docUrl, fetchedAt: doc.value.fetchedAt, cutoff: nowIso.slice(0, 10) });
         item1a = await runExtraction(
           edgar,
           cik,
@@ -1371,7 +1377,8 @@ async function buildEdgarBundle(
       if (doc.ok) {
         const docUrl = doc.value.endpoint;
         // One parse for the MD&A and (D-63) the financial-statement notes.
-        const parsedQ = filingDisclosures ? parseDocument(doc.value.data) : undefined;
+        const parsedQ = parseDocument(doc.value.data);
+        economicShareInventory.push(parsePrimaryEconomicShares(doc.value.data, { issuerId: cikRes.value.data.cik10, securityId: symbol, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10), parsedQ));
         tenQMdna = await runExtraction(
           edgar,
           cik,
@@ -1467,6 +1474,7 @@ async function buildEdgarBundle(
 
   return {
     cik: cikRes,
+    economicShareInventory,
     earningsAnnouncements: (await pCompanyEvents).flatMap((event) => event.ok ? [event.value] : []),
     latestTenK,
     latestTenQ,
@@ -1477,6 +1485,7 @@ async function buildEdgarBundle(
     ...(tenQNotes === undefined ? {} : { tenQNotes }),
     ...(tenKNotes === undefined ? {} : { tenKNotes }),
     ...(tenQOther === undefined ? {} : { tenQOther }),
+    ...(annualGeography === undefined ? {} : { annualGeography }),
     auditorChange8Ks,
     nonReliance8Ks,
     ...(currentReports === null ? {} : { currentReports }),
@@ -1958,7 +1967,7 @@ export async function buildDataBundle(
   const peers = await pPeers;
   const peerFundamentals = await pPeerFundamentals;
   const segProduct = markSegmentationGapExpected(sortRows(await pSegProduct));
-  const segGeo = markSegmentationGapExpected(sortRows(await pSegGeo));
+  let segGeo = markSegmentationGapExpected(sortRows(await pSegGeo));
   const executives = await pExecs;
   const compensation = sortRowsNumeric(await pComp, "year");
   let marketCapHistory = sortRows(await pMcapHist);
@@ -2022,6 +2031,7 @@ export async function buildDataBundle(
     edgarBundle.cik.ok &&
     (edgarBundle.cik.value.source === "edgar" ||
       edgarBundle.registrant?.tickers.some((t) => t.trim().toUpperCase() === sym) === true);
+  if (edgarConfirmedIssuer) segGeo = annualGeographyFallback(segGeo, edgarBundle.annualGeography);
   // Disclose the identity gate even when the layer is wholly skipped or only
   // the benchmarks run. A log note alone leaves the report unable to explain
   // why SEC/Yahoo did not replace refused FMP data. Reserved fixtures retain
@@ -2207,6 +2217,11 @@ export async function buildDataBundle(
   if (earningsCalendarNext.ok && earningsCalendarNext.value.data.confirmation !== "company_confirmed") {
     keylessGaps.push({ field: "earningsCalendarNext.confirmation", reason: "No unambiguous company earnings announcement was established from company-owned press releases or bounded recent SEC 8-K/exhibit reads; next earnings date is a vendor estimate", severity: "info", expected: true, attemptedSources: ["company-owned press releases", "edgar:recent 8-K/EX-99"] });
   }
+  let companyIrMaterialEvents: DataBundle["companyIrMaterialEvents"];
+  if (!reserved && edgarConfirmedIssuer && website && opts.companyIr !== false && (opts.fmp === undefined || opts.companyIr !== undefined)) {
+    companyIrMaterialEvents = await discoverCompanyIrMaterialEvents(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal, issuer: announcementIssuer });
+    if (companyIrMaterialEvents.ok) keylessGaps.push({ field: "companyIrMaterialEvents.coverage", reason: companyIrMaterialEvents.value.data.notes.join(" "), severity: "info", attemptedSources: companyIrMaterialEvents.value.data.events.map((event) => event.url) });
+  }
 
   const benchmarkPrices: BenchmarkPrices = {
     spy: spyPrices,
@@ -2224,6 +2239,7 @@ export async function buildDataBundle(
   const bundleCore: DataBundleCore = {
     symbol: sym,
     builtAt,
+    economicShareEvidence: economicEvidenceFromInventories(edgarBundle.economicShareInventory ?? []),
     profile,
     quote,
     statements,
@@ -2260,6 +2276,7 @@ export async function buildDataBundle(
     secFilings,
     news,
     pressReleases,
+    ...(companyIrMaterialEvents === undefined ? {} : { companyIrMaterialEvents }),
     eodPrices,
     benchmarkPrices,
     shortInterest: shortInterestRes,

@@ -618,7 +618,7 @@ describe("buildStatementsFromCompanyFacts — chain and derivation coverage", ()
     expect(built.incomeAnnual.rows[0]).toMatchObject({
       sellingGeneralAndAdministrativeExpenses: 75, // 30 + 45 (sum step)
       researchAndDevelopmentExpenses: 60,
-      operatingExpenses: 135,
+      operatingExpenses: null, // R&D + SG&A does not establish a complete expense perimeter.
       eps: 2.5,
       weightedAverageShsOut: 40_000,
       ebit: null,
@@ -1852,10 +1852,10 @@ describe("buildStatementsFromCompanyFacts — Caterpillar-style balance sheets",
     ]);
   });
 
-  it("lets the total including noncontrolling interest stand in when no interest is tagged", () => {
+  it("preserves consolidated equity without substituting it for unavailable parent equity", () => {
     const built = build(catLike({ StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest: at(21_318) }));
-    expect(built.balanceAnnual.rows[0]).toMatchObject({ totalStockholdersEquity: 21_318 });
-    expect(built.balanceAnnual.substitutions[0]?.text).toMatch(/^total equity including noncontrolling interest stands in/);
+    expect(built.balanceAnnual.rows[0]).toMatchObject({ totalStockholdersEquity: null, totalEquity: 21_318 });
+    expect(built.balanceAnnual.substitutions.some(row => row.field === "totalStockholdersEquity")).toBe(false);
   });
 
   it("prefers the filed StockholdersEquity line and records nothing", () => {

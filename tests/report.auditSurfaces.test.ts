@@ -55,7 +55,9 @@ describe("audit disclosures across live, Markdown and print reports",()=>{
   });
   it("does not manufacture legacy evidence, bridges or sensitivity paths",()=>{
     const report=loadTask28Fixture();
-    expect(scoreAuditTables(report.scores!)).toEqual([]);
+    expect(scoreAuditTables(report.scores!)).toEqual([expect.objectContaining({
+      heading: "Factor contribution sensitivity", rows: [["Unavailable", expect.stringMatching(/complete.*reconcile/i)]],
+    })]);
     expect(valuationAuditTables(report.valuation.dcf)).toEqual([]);
     expect(projectionAuditTables(report.projections!)).toEqual([]);
     expect(factualValidationText()).toBeNull();

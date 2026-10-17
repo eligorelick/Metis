@@ -103,7 +103,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // identify/refuse unsupported historical EV bridges and qualify partial EDGAR views.
 // 1.20.0: scoped economic equity, NCI earnings reconciliation, historical
 // observation provenance and explicitly unknown risk probabilities.
-export const REPORT_SPEC_VERSION = "1.20.0" as const;
+// 1.21.0: dated primary class inventories, explicit quote observation dates,
+// matched guidance/operating evidence and source-preserving disclosure surfaces.
+export const REPORT_SPEC_VERSION = "1.21.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -694,13 +696,13 @@ export type JudgeProtocol = z.infer<typeof JudgeProtocolSchema>;
 
 // WS6 (D-19) begin: the disclaimer now names WHAT the report actually emits.
 // "Informational only" alone did not describe a document that grades six
-// aspects A-F and prints three scenario price targets; a reader could
+// aspects A-F and can print scenario price targets; a reader could
 // reasonably read those as a call. The rating-safety scan skips this key
 // (NON_NARRATIVE_STRING_KEYS), so the words it must disclaim can be named.
 // It contains no HTML-sensitive characters, so the print renderer's esc() is
 // a no-op on it and it appears byte-for-byte.
 export const DISCLAIMER_TEXT =
-  "Informational only — not investment advice. This report contains A-F letter grades and scenario price targets; both are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security." as const;
+  "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security." as const;
 // WS6 (D-19) end.
 
 export const DataCompletenessSchema = z
@@ -1113,6 +1115,7 @@ export const ValuationSchema = z
       status: z.enum(["resolved", "unresolved", "unverified-vendor-scope"]),
       marketCap: z.number().nullable(), economicShares: z.number().nullable(),
       currency: z.string().nullable(), shareCountAsOf: z.string().nullable(),
+      priceAsOf: z.string().nullable().optional(),
       approximate: z.boolean(), basis: z.string(),
       classPriceDates: z.array(z.object({ classId: z.string(), asOf: z.string() }).strict()).optional(),
       enterpriseValue: z.number().nullable(), enterpriseValueBasis: z.string(),
@@ -1999,6 +2002,8 @@ export type FilingRef = z.infer<typeof FilingRefSchema>;
 
 const GuidanceMetricSchema = z.enum([
   "revenue",
+  "adjusted-ebitda",
+  "adjusted-ebitda-margin-expansion",
   "gross-margin",
   "operating-expenses",
   "operating-margin",
@@ -2015,11 +2020,16 @@ export const GuidanceRowSchema = z
     period: z.string(),
     metric: GuidanceMetricSchema,
     basis: GuidanceBasisSchema,
-    unit: z.enum(["currency", "currency-per-share", "%"]),
+    unit: z.enum(["currency", "currency-per-share", "%", "percentage-points"]),
     low: z.number(),
     mid: z.number(),
     high: z.number(),
     form: z.enum(["point", "range", "plus-minus", "approximate"]),
+    previous: z.object({ low: z.number(), mid: z.number(), high: z.number() }).strict().optional(),
+    growth: z.object({ low: z.number(), high: z.number() }).strict().optional(),
+    previousGrowth: z.object({ low: z.number(), high: z.number() }).strict().optional(),
+    span: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict().optional(),
+    headerSpan: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict().optional(),
   })
   .strict();
 export type GuidanceRow = z.infer<typeof GuidanceRowSchema>;
@@ -2098,6 +2108,16 @@ export const FilingDisclosuresSchema = z
         })
         .strict(),
     ),
+    /** Pipeline-owned official company statements; these are not SEC filings. */
+    companyStatements: z.array(z.object({
+      form: z.null(), symbol: z.string(), category: z.enum(["acquisition", "executive-transition"]),
+      status: z.enum(["issuer-stated-completed", "issuer-announced"]), title: z.string(), text: z.string(),
+      url: z.string().regex(/^https:\/\/[^\s]+$/), publishedAt: z.string(), observedAt: z.string(),
+      sourceHash: z.string().regex(/^[a-f0-9]{64}$/), authorityChain: z.array(z.string()),
+      originalChars: z.number().int().nonnegative(),
+      span: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict(),
+      consideration: z.null(), funding: z.null(), limitations: z.string(),
+    }).strict()).optional(),
     segments: z.array(
       z
         .object({
@@ -2120,6 +2140,15 @@ export const FilingDisclosuresSchema = z
         })
         .strict(),
     ),
+    /** Matched quarterly issuer segment tables; adjusted EBITDA is not consolidated GAAP profit. */
+    segmentPerformance: z.array(z.object({
+      segment: z.string(), metric: z.literal("adjusted-ebitda"), months: z.literal(3),
+      periodEnd: IsoDaySchema, comparisonPeriodEnd: IsoDaySchema, currency: IsoCurrencySchema, scale: z.number().positive(),
+      revenue: z.number(), priorRevenue: z.number(), profit: z.number(), priorProfit: z.number(),
+      marginPct: z.number(), priorMarginPct: z.number(), changeBasisPoints: z.number(),
+      spans: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), text: z.string() }).strict()),
+      source: FilingRefSchema,
+    }).strict()).optional(),
     quarterlyTrend: z.array(
       z
         .object({
@@ -2152,7 +2181,7 @@ export const FilingDisclosuresSchema = z
      */
     reconciliation: z.array(
       z.object({
-        metric: z.enum(["operating-cash-flow", "purchases-property-equipment", "principal-payments-property-equipment",
+        metric: z.enum(["operating-cash-flow", "total-capital-expenditures", "purchases-property-equipment", "principal-payments-property-equipment",
           "equity-securities-gains", "non-gaap-tax-impact", "gaap-diluted-eps", "non-gaap-diluted-eps"]),
         periodEnd: IsoDaySchema,
         months: z.number().int(),

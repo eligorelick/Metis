@@ -1,6 +1,7 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
 import { leaseDebtConflict, resolveNetDebt } from "./netDebt";
+import { incompleteLeaseCoverage } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 
 export interface CashFlowBridge {
@@ -9,6 +10,12 @@ export interface CashFlowBridge {
   afterSbcStandardizedFcf: number | null; afterSbcIssuerFcf: number | null; definition: string;
 }
 export interface DebtBridge {
+  leaseScopeNote?: string;
+  debtIncludingDisclosedLeasePortion?: number | null;
+  operatingLeasesNoncurrent?: number | null; operatingLeasesCurrent?: number | null;
+  financeLeasesNoncurrent?: number | null; financeLeasesCurrent?: number | null;
+  netDebtIncludingDisclosedLeasePortion?: number | null;
+  netDebtExcludingDisclosedOperatingLeasePortion?: number | null;
   totalDebtIncludingLeases: number | null; operatingLeases: number | null; financeLeases: number | null;
   cashAndShortTermInvestments: number | null;
   /**
@@ -51,6 +58,18 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
   const resolution = resolveNetDebt(row ?? {});
   const net = resolution.value;
   const equity = resolution.nonOperatingEquitySecurities;
+  const incomplete = incompleteLeaseCoverage(row);
+  if (incomplete !== null) return {
+    totalDebtIncludingLeases: null, operatingLeases: incomplete.operating === null ? operating : null,
+    financeLeases: incomplete.finance === null ? finance : null, cashAndShortTermInvestments: liquidity,
+    debtIncludingDisclosedLeasePortion: debt, netDebtIncludingDisclosedLeasePortion: net,
+    ...(incomplete.operating === "noncurrent" ? { operatingLeasesNoncurrent: operating } : incomplete.operating === "current" ? { operatingLeasesCurrent: operating } : {}),
+    ...(incomplete.finance === "noncurrent" ? { financeLeasesNoncurrent: finance } : incomplete.finance === "current" ? { financeLeasesCurrent: finance } : {}),
+    ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
+    netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
+    netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null,
+    leaseScopeNote: incomplete.note,
+  };
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null };

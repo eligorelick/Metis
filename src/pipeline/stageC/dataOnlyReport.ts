@@ -49,6 +49,7 @@ import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
+import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
   applyDcfDisplay,
   applyFairValue,
@@ -727,8 +728,10 @@ function segmentRows(
   const total = entries.reduce((acc, [, value]) => acc + value, 0);
   const rows: Report["business"]["segments"]["product"] = [];
   for (const [name, value] of entries) {
-    const revenue = traced(value, "currency", source, asOf, { currency, period: asOf });
+    const revenue = traced(value, "currency", result.value.source === "edgar" ? result.value.endpoint : source, asOf, { currency, period: asOf });
     if (revenue === null) continue;
+    const primaryBasis = selectedGeographyNotes(result)[0];
+    if (primaryBasis) revenue.verificationNote = primaryBasis;
     const pct = total > 0 ? (value / total) * 100 : null;
     rows.push({
       name,

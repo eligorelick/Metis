@@ -9,6 +9,7 @@ import type { FilingRef } from "@/report/schema";
 export interface FilingSupplements {
   currency: string | null;
   filingFacts?: Array<{
+    key?: string;
     label: string; value: number; unit: "currency" | "days" | "shares" | "count" | "percent";
     asOf: string | null; period: string | null; qualifier: string | null;
     computed: string | null; source: FilingRef; text: string;
@@ -35,18 +36,29 @@ const count = (value: number): string => formatNumber(value, 0);
 /** Filing facts retain their distinct periods, qualifications and derivations. */
 export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
   if (!d.filingFacts?.length) return [];
-  return [{
-    heading: "Filing notes: customer, investment and transaction disclosures",
-    headers: ["Disclosure", "Value as stated", "Period / as of", "Basis / issuer context", "Source"],
-    rows: d.filingFacts.map((f) => {
-      const amount = f.unit === "currency" ? formatFinancialValue(f.value, "currency", d.currency)
-        : f.unit === "percent" ? formatPct(f.value)
-          : `${formatNumber(f.value, Number.isInteger(f.value) ? 0 : 1)}${f.unit === "days" ? " days" : f.unit === "shares" ? " shares" : ""}`;
-      return [f.label, `${f.qualifier ? `${f.qualifier} ` : ""}${amount}`, [f.period, f.asOf ? `as of ${f.asOf}` : null].filter(Boolean).join("; ") || "Not recorded",
-        [f.computed ? `Derived: ${f.computed}.` : null, f.text].filter(Boolean).join(" "), sourceText(f.source)];
-    }),
-    note: "Each row retains its own period and issuer qualification. Customer shares, investment balances, commitments, financing capacity and transaction consideration describe different exposures; they are not additive. Reported customers are unnamed: matching positions across periods do not establish common identities. Separately stated indirect-customer and payment-term context does not identify those counterparties as the reported direct customers.",
-  }];
+  const groups = [
+    { prefix: "composition-sbc-", heading: "SBC composition: separately reported expense and capitalization", note: "Each row retains the nonadditivity and unavailable current-service-cost qualification; these amounts do not change FCF." },
+    { prefix: "composition-cash-", heading: "Cash composition: restrictions and reported combined balance", note: "Each balance retains its own date and primary filing. A combined balance including restrictions is not available liquidity." },
+    { prefix: "composition-working-capital-", heading: "Working capital: identified standard cash-flow components (partial)", note: "Signed components and the partial subtotal do not establish total merchant float or a normalized cash-flow estimate." },
+    { prefix: "composition-tax-", heading: "Income-tax balances: gross receivable and current payable", note: "Separate gross balances do not establish receivable maturity, an occupancy-tax pair or legal netting." },
+    { prefix: "", heading: "Filing notes: customer, investment and transaction disclosures", note: "Each row retains its own period and issuer qualification. Customer shares, investment balances, commitments, financing capacity and transaction consideration describe different exposures; they are not additive. Reported customers are unnamed: matching positions across periods do not establish common identities. Separately stated indirect-customer and payment-term context does not identify those counterparties as the reported direct customers." },
+  ];
+  return groups.flatMap(group => {
+    const facts = d.filingFacts!.filter(f => group.prefix === "" ? !f.key?.startsWith("composition-") : f.key?.startsWith(group.prefix));
+    if (facts.length === 0) return [];
+    return [{
+      heading: group.heading,
+      headers: ["Disclosure", "Value as stated", "Period / as of", "Basis / issuer context", "Source"],
+      rows: facts.map((f) => {
+        const amount = f.unit === "currency" ? formatFinancialValue(f.value, "currency", d.currency)
+          : f.unit === "percent" ? formatPct(f.value)
+            : `${formatNumber(f.value, Number.isInteger(f.value) ? 0 : 1)}${f.unit === "days" ? " days" : f.unit === "shares" ? " shares" : ""}`;
+        return [f.label, `${f.qualifier ? `${f.qualifier} ` : ""}${amount}`, [f.period, f.asOf ? `as of ${f.asOf}` : null].filter(Boolean).join("; ") || "Not recorded",
+          [f.computed ? `Derived: ${f.computed}.` : null, f.text].filter(Boolean).join(" "), sourceText(f.source)];
+      }),
+      note: group.note,
+    }];
+  });
 }
 
 /** Management's stated outlook remains an issuer expectation. */

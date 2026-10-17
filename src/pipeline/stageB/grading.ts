@@ -798,6 +798,12 @@ export function computeScores(inputs: ScoringInputs): Scoring {
           policy,
         );
 
+  if (valuation.kind !== "pre-revenue") {
+    const cashStat = valuation.multiples.multiples.find(stat => stat.key === "priceToFcf");
+    const cashScope = [cashStat?.ownershipScope, cashStat?.historyScope].filter(Boolean).join(" ");
+    if (cashScope) valuationScore.aspect.note += ` ${cashScope}`;
+  }
+
   // --- Quality (value creation + accounting integrity) --------------------
   const piotroskiFrac =
     forensics.piotroski && isNum(forensics.piotroski.score) && forensics.piotroski.outOf > 0

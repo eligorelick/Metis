@@ -2,7 +2,7 @@ import { materialCreditSupportClauses } from "@/edgar/currentReports";
 
 /** Pure, bounded source selection. Offsets always refer to the original source. */
 export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
-export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity"] as const;
+export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
  * figures, so the financial families above found almost nothing in it; these
@@ -51,6 +51,7 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   fcf: /\b(?:free cash flow|reconcil(?:e|iation)|principal payments|purchases of property)\b/i,
   "earnings-quality": /\b(?:other income(?:\s*\(expense\))?|other expense(?:\s*\(income\))?|non[- ]operating|(?:unrealized|non[- ]cash|investment) (?:gains?|losses?)|equity (?:securities|warrant) valuations?|(?:upward|downward|reclassification|fair[- ]value) adjustments?)\b/i,
   "subsequent-liquidity": /^(?=[\s\S]*\b(?:subsequent(?:ly)?|(?:after|following|since) (?:the )?(?:quarter|period|year)[ -]end)\b)(?=[\s\S]*\b(?:funded|funding|paid|repaid|repayment|borrowed|issued|issuance|acquired|acquisition|invested|investment|commitment)\b)(?=[\s\S]*\d)/i,
+  "distribution-costs": /\b(?:selling and marketing|marketing (?:spend|expense|cost)|(?:partner|affiliate|distribution) (?:program )?commissions?|traffic (?:generation|acquisition) costs?)\b/i,
   "platform-software": /\b(?:software|platforms?|ecosystems?|developers?|librar(?:y|ies)|SDKs?|frameworks?|APIs?|CUDA|operating systems?|installed base)\b/i,
   "products-roadmap": /\b(?:architectures?|roadmap|launch(?:ed|es)?|introduc(?:ed|es)|unveil(?:ed|s)?|next[- ]generation|new products?|product (?:transitions?|cycles?|lines?)|production shipments?|commence production)\b/i,
   customers: /\b(?:customers?|clients?|end markets?|hyperscalers?|cloud service providers?|CSPs)\b/i,
@@ -86,6 +87,7 @@ const NOTES_PRIORITY: readonly RegExp[] = [
 ];
 /** D-66: the same concentration statements where an MD&A states them ("Concentration of Revenue"). */
 const CONCENTRATION_PRIORITY = NOTES_PRIORITY.slice(0, 4);
+const DISTRIBUTION_COST_PRIORITY = /\b(?:selling and marketing|marketing spend|(?:partner|affiliate) (?:program )?commissions?)\b/i;
 interface ProfileSpec {
   categories: readonly EvidenceCategory[];
   /** Passages that are always kept first, within the budget (in source order). */
@@ -112,11 +114,11 @@ const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\
 /** An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …"). */
 const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
-  financial: { categories: MATERIAL_CATEGORIES },
+  financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
   // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
   // statements first (the quarter's 16% direct customer, the indirect AI
   // customer), within an eighth of the budget.
-  interim: { categories: MATERIAL_CATEGORIES, priority: (passage) => CONCENTRATION_PRIORITY.some((pattern) => pattern.test(passage)), priorityShare: 0.125 },
+  interim: { categories: MATERIAL_CATEGORIES, priority: (passage) => CONCENTRATION_PRIORITY.some((pattern) => pattern.test(passage)) || DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.25 },
   business: {
     categories: BUSINESS_CATEGORIES,
     prose: { bonus: /\b(?:expected to (?:commence|begin|ship|launch|be available)|roadmap|unveiled|next[- ]generation|joined [A-Z][\w.&-]* in (?:19|20)\d{2}|(?:has|have) served as|co-founded|foundr(?:y|ies)|competitors include|customers include)\b/i },
@@ -218,9 +220,12 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
     // sentence. Keep that adjacent, bounded context atomically with its funding
     // disclosure, rather than presenting an unbound amount or dropping its date.
     const previous = all[all.indexOf(passage) - 1];
-    const needsContext = passage.categories.includes("subsequent-liquidity") &&
+    const fundingContext = passage.categories.includes("subsequent-liquidity") &&
       /\b(?:remaining|commitment|this|these|such|additional)\b/i.test(passage.text) && previous &&
       /\b(?:invested|investment|acquired|acquisition|purchase|agreement|commitment|loan|notes?)\b/i.test(previous.text);
+    const marketingContext = passage.categories.includes("distribution-costs") && /^\s*(?:the|this)\s+(?:increase|decrease|change)\b/i.test(passage.text) &&
+      previous?.categories.includes("distribution-costs");
+    const needsContext = fundingContext || marketingContext;
     const additions = (needsContext ? [previous, passage] : [passage]).filter((candidate) => !selected.includes(candidate));
     const cost = profile === "financial"
       ? additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +

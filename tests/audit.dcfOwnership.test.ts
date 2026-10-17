@@ -79,6 +79,9 @@ describe("DCF and Stage B ownership propagation", () => {
   it("passes quoted-class currency consistently to WACC and original Altman", () => {
     const bundle = currencyBundle({ sic: "3571" });
     bundle.edgar.registrant = { name: "Generic", cik10: "0000000042", sic: "3571", sicDescription: null, exchanges: [], tickers: [bundle.symbol], fiscalYearEnd: "1231", stateOfIncorporation: null, forms: ["10-K"] };
+    if (!bundle.quote.ok) throw new Error("fixture quote unavailable");
+    bundle.quote.value.asOf = "2026-07-06";
+    bundle.quote.value.data.rows[0].timestamp = Date.parse("2026-07-06T20:00:00Z") / 1000;
     bundle.economicShareEvidence = [{ issuerId: "0000000042", securityId: bundle.symbol, asOf: "2026-03-31", filed: "2026-05-06", effectiveFrom: "2026-03-31", effectiveTo: null,
       complete: true, sourceHash: "retained-capital-source", sourceIds: ["filed:capital"], classes: [
         { classId: bundle.symbol, shares: 100 * M, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "quoted-market-price" },

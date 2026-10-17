@@ -40,7 +40,6 @@ describe("authoritative company earnings events", () => {
     "BUSINESS WIRE -- Example Corporation will report financial results on October 28, 2026.",
     "SEATTLE (BUSINESS WIRE) -- Example Corporation will report financial results on October 28, 2026.",
     "SEATTLE -- Reuters reports Example Corporation will report financial results on October 28, 2026.",
-    "SEATTLE, September 24, 2026 -- Example Corporation will report financial results on October 28, 2026.",
   ])("keeps issuer anchoring and source-attribution boundaries after a dateline: %s", (text) => {
     expect(companyEarningsAnnouncement({ ...evidence, text }, "EXM", "2026-10-13")).toBeNull();
   });

@@ -56,7 +56,9 @@ import type { CompanyFacts } from "@/edgar/xbrl";
 import type { PredecessorFacts } from "@/edgar/successor";
 import type { ExtractMethod } from "@/edgar/extract";
 import type { QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
+import type { AnnualGeography } from "@/edgar/annualGeography";
 import type { CurrentReports } from "@/providers/currentReports";
+import type { CompanyIrMaterialEvents } from "@/providers/companyIr";
 import type { ShortInterestPoint } from "@/providers/finra";
 import type { FredObservation } from "@/providers/fred";
 import type { InsiderSentimentMonth } from "@/providers/finnhub";
@@ -142,6 +144,10 @@ export interface EdgarRegistrant {
 }
 
 export interface EdgarBundle {
+  /** Matched primary annual geography; retained even when usable vendor data wins. */
+  annualGeography?: FetchResult<AnnualGeography>;
+  /** Primary filing cover inventories, including unresolved economic rights. */
+  economicShareInventory?: import("@/edgar/economicShares").FilingEconomicShares[];
   /** Public company-confirmed future events extracted from bounded recent 8-K/EX-99 reads. */
   earningsAnnouncements?: Sourced<FmpEarningsRow>[];
   cik: FetchResult<CikMapping>;
@@ -362,6 +368,8 @@ export interface DataBundle {
   secFilings: FmpFetch<FmpSecFilingRow>;
   news: FmpFetch<FmpNewsArticleRow>;
   pressReleases: FmpFetch<FmpNewsArticleRow>;
+  /** Bounded, issuer-bound official news, separate from paid snippets and SEC filings. */
+  companyIrMaterialEvents?: FetchResult<CompanyIrMaterialEvents>;
 
   /** ~5y daily OHLCV, date desc, split-adjusted close only. */
   eodPrices: FmpFetch<FmpEodBarRow>;

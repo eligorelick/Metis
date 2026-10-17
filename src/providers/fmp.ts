@@ -97,6 +97,8 @@ export interface FmpProfileRow extends FmpRawRow {
 }
 
 export interface FmpQuoteRow extends FmpRawRow {
+  /** Actual price observation day; explicit null when the vendor supplied no date. */
+  priceAsOf?: string | null;
   symbol?: string;
   name?: string;
   price?: number;
@@ -186,6 +188,9 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
 
 export interface FmpBalanceSheetRow extends FmpStatementRow {
   cashAndCashEquivalents?: number;
+  /** SEC combined total; never a synonym for unrestricted cash. */
+  cashAndCashEquivalentsIncludingRestricted?: number;
+  restrictedCashAndCashEquivalents?: number;
   shortTermInvestments?: number;
   cashAndShortTermInvestments?: number;
   netReceivables?: number;
@@ -1106,6 +1111,15 @@ function addUtcYears(date: Date, years: number): Date {
   return d;
 }
 
+/** A fetch/envelope date never establishes when a price was observed. */
+export function quotePriceObservationDay(row: FmpRawRow | null | undefined): string | null {
+  if (!row) return null;
+  const timestamp = typeof row.timestamp === "number" ? row.timestamp : null;
+  if (timestamp !== null && Number.isFinite(timestamp) && timestamp > 0 && timestamp * 1000 <= 8.64e15) return new Date(timestamp * 1000).toISOString().slice(0, 10);
+  const date = typeof row.date === "string" ? row.date.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date ? date : null;
+}
+
 /**
  * Derive an asOf date from response rows (fiscal date / quote timestamp), else
  * fallback. Clamped to the fetch date: forward-looking endpoints
@@ -1607,7 +1621,8 @@ export class FmpClient {
       exchange.value.fetchedAt,
     ], this.now().toISOString());
     if (timestampProblem !== null) return gap(spec.gapField, timestampProblem, "warn", [endpointPath]);
-    const rows = validation.rows;
+    const rows = validation.rows.map(row => spec.method === "quote" || spec.method === "batchQuote"
+      ? { ...row, priceAsOf: quotePriceObservationDay(row) } : row);
     const sourced: Sourced<FmpPayload<TRow>> = {
       data: { rows, raw: body, ...(planLimit === undefined ? {} : { planLimit }) },
       asOf: deriveAsOf(rows, fetchedAt ?? this.now().toISOString()),

@@ -69,19 +69,9 @@ function links(html: string, base: string): Link[] {
   });
 }
 
-/** Website -> explicitly linked IR -> news index -> earnings announcement; six requests and 12 seconds maximum. */
-export async function discoverCompanyIrEarnings(website: string, symbol: string, today: string, opts: CompanyIrOptions = {}): Promise<{ announcements: FetchResult<FmpEarningsRow>[]; gaps: ManifestEntry[] }> {
-  const announcements: FetchResult<FmpEarningsRow>[] = [];
-  const seed = safeUrl(website);
-  const attempted: string[] = [];
-  if (!seed) return { announcements, gaps: [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable: company website is not a public HTTPS URL", severity: "info", expected: true }] };
-  const verified = opts.issuer ? safeUrl(opts.issuer.verifiedWebsite) : null;
-  const officialHost = verified?.hostname.replace(/^www\./, "");
-  if (!opts.issuer || !verified || !officialHost || (seed.toString() !== verified.toString() && seed.hostname !== officialHost && !seed.hostname.endsWith(`.${officialHost}`))) {
-    return { announcements, gaps: [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable: confirmed issuer name and website binding are required", severity: "info", expected: true }] };
-  }
+/** Shared bounded access for both official earnings and material-event discovery. */
+function companyIrReader(opts: CompanyIrOptions) {
   const signal = opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(12_000)]) : AbortSignal.timeout(12_000);
-  const now = opts.now ?? (() => new Date());
   const lookup = opts.lookup ?? ((hostname: string) => dnsLookup(hostname, { all: true, verbatim: true }));
   let requests = 0;
   const guardedFetch = (async (raw: string | URL | Request, init?: RequestInit) => {
@@ -93,16 +83,34 @@ export async function discoverCompanyIrEarnings(website: string, symbol: string,
     requests++;
     return opts.fetchImpl ? opts.fetchImpl(url.toString(), init) : pinnedFetch(url.toString(), init, addresses[0]!);
   }) as typeof fetch;
+  return { signal, get requests() { return requests; },
+    read: (url: string) => abortable(fetchWithPolicy(url, { cache: "no-store" }, { provider: "company-ir", timeoutMs: 3500, maxRetries: 0, maxBodyBytes: 1_000_000, fetchImpl: guardedFetch, signal }), signal) };
+}
+
+/** Website -> explicitly linked IR -> news index -> earnings announcement; six requests and 12 seconds maximum. */
+export async function discoverCompanyIrEarnings(website: string, symbol: string, today: string, opts: CompanyIrOptions = {}): Promise<{ announcements: FetchResult<FmpEarningsRow>[]; gaps: ManifestEntry[] }> {
+  const announcements: FetchResult<FmpEarningsRow>[] = [];
+  const seed = safeUrl(website);
+  const attempted: string[] = [];
+  if (!seed) return { announcements, gaps: [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable: company website is not a public HTTPS URL", severity: "info", expected: true }] };
+  const verified = opts.issuer ? safeUrl(opts.issuer.verifiedWebsite) : null;
+  const officialHost = verified?.hostname.replace(/^www\./, "");
+  if (!opts.issuer || !verified || !officialHost || (seed.toString() !== verified.toString() && seed.hostname !== officialHost && !seed.hostname.endsWith(`.${officialHost}`))) {
+    return { announcements, gaps: [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable: confirmed issuer name and website binding are required", severity: "info", expected: true }] };
+  }
+  const reader = companyIrReader(opts);
+  const { signal } = reader;
+  const now = opts.now ?? (() => new Date());
   const seedIsIr = /(?:^|\.)(?:ir|investors?)\./i.test(seed.hostname) || /\/investor(?:s|-relations)?(?:\/|$)/i.test(seed.pathname);
   const queue: { url: string; chain: string[]; stage: "company" | "ir" | "news" | "release" }[] = [{ url: seed.toString(), chain: [seed.toString()], stage: seedIsIr ? "ir" : "company" }];
   const seen = new Set<string>();
-  while (queue.length && requests < 6 && !signal.aborted) {
+  while (queue.length && reader.requests < 6 && !signal.aborted) {
     const page = queue.shift()!;
     if (seen.has(page.url)) continue;
     seen.add(page.url);
     attempted.push(page.url);
     try {
-      const res = await abortable(fetchWithPolicy(page.url, { cache: "no-store" }, { provider: "company-ir", timeoutMs: 3500, maxRetries: 0, maxBodyBytes: 1_000_000, fetchImpl: guardedFetch, signal }), signal);
+      const res = await reader.read(page.url);
       if (!res.ok || !/html|xhtml/i.test(res.headers.get("content-type") ?? "text/html")) continue;
       const publishedAt = publicationDate(res.bodyText);
       if (publishedAt && page.stage !== "company") {
@@ -149,6 +157,149 @@ export async function discoverCompanyIrEarnings(website: string, symbol: string,
   }
   return { announcements, gaps: announcements.length ? [] : [{ field: "earningsCalendarNext.companyIr", reason: "Official IR announcement unavailable or unambiguous future event/publication evidence was not found within the bounded website and investor-link path", severity: "info", expected: true, attemptedSources: attempted }] };
 }
+
+export interface CompanyIrMaterialEvent {
+  symbol: string;
+  category: "acquisition" | "executive-transition";
+  /** What the issuer states; neither label is independent confirmation. */
+  status: "issuer-stated-completed" | "issuer-announced";
+  title: string;
+  url: string;
+  publishedAt: string;
+  observedAt: string;
+  authorityChain: string[];
+  sourceHash: string;
+  text: string;
+  originalChars: number;
+  span: { start: number; end: number; text: string };
+  /** The bounded narrative reader does not establish transaction economics. */
+  consideration: null;
+  funding: null;
+}
+export interface CompanyIrMaterialEvents { events: CompanyIrMaterialEvent[]; notes: string[] }
+
+/** Exact issuer subjects only: a name elsewhere in an article does not bind its action. */
+function materialStatement(text: string, issuer: ConfirmedIssuerIdentity): { category: CompanyIrMaterialEvent["category"]; status: CompanyIrMaterialEvent["status"]; start: number; end: number } | null {
+  const canonical = issuer.canonicalName.trim();
+  const core = canonical.replace(/,?\s+(?:incorporated|inc|corporation|corp|limited|ltd|plc|llc)\.?$/i, "");
+  const aliases = [...new Set([canonical, canonical.replace(/,\s*(?=(?:inc|corp|ltd)\.?$)/i, " "),
+    ...(core.split(/\s+/).length >= 2 ? [core] : []), ...(issuer.validAliases ?? [])])].filter((alias) => alias.length >= 3);
+  for (const sentence of splitSentences(text)) {
+    for (const alias of aliases) {
+      const subject = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // A dateline may precede the subject, but quoted commentary, a different
+      // grammatical subject, and a future/negated completion cannot establish it.
+      const lead = String.raw`(?:^|[-–—]\s+)${subject}\s+(?:today\s+)?`;
+      const completed = new RegExp(`${lead}(?:announced that it )?(?:has )?(?:acquired\\s+|completed (?:its |the )?acquisition of\\s+)`, "i");
+      const announcedDeal = new RegExp(`${lead}announced (?:an? |the |its )?(?:agreement to acquire|acquisition of)\\s+`, "i");
+      const officer = new RegExp(`${lead}announced (?:the )?(?:appointment|departure|retirement|resignation) of\\s+`, "i");
+      const completion = completed.exec(sentence);
+      const announcement = announcedDeal.exec(sentence);
+      const appointment = officer.exec(sentence);
+      // A denial such as "acquired no interest" is not a completed acquisition.
+      // Check the object immediately following the operative action, rather
+      // than interpreting a negative elsewhere in the article as a denial.
+      const deniedObject = (action: RegExpExecArray | null): boolean => {
+        if (action === null) return false;
+        const object = sentence.slice(action.index + action[0].length).trimStart()
+          .split(/[,;.!?]|\b(?:in|of|over|with|that|which|who)\b/i, 1)[0]!.trim();
+        if (/^(?:neither|nothing|none)\b/i.test(object)) return true;
+        if (!/^(?:no|zero)\s+/i.test(object)) return false;
+        // Read compound modifiers ("no direct or indirect economic interest")
+        // within this object, without scanning a later descriptive clause.
+        // Over-budget negative objects are ambiguous, so withhold the claim.
+        return object.split(/\s+/).length > 14 ||
+          /^(?:no|zero)\s+(?:[a-z][a-z-]*\s+){0,12}(?:interests?|shares?|stakes?|assets?|ownership|control|acquisitions?|percent)\b/i.test(object);
+      };
+      const announcedOfficer = appointment !== null && !deniedObject(appointment);
+      const status = completion !== null && !deniedObject(completion) ? "issuer-stated-completed"
+        : announcement !== null && !deniedObject(announcement) || announcedOfficer ? "issuer-announced" : null;
+      if (status !== null) {
+        const start = text.indexOf(sentence);
+        return { category: announcedOfficer ? "executive-transition" : "acquisition", status, start, end: start + sentence.length };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Website -> explicitly linked official IR/news -> three material headlines.
+ * Six requests, twelve seconds, one MiB/page, and a one-year publication window.
+ * No partner-site traversal, implied deal terms, or comprehensive-ledger claim.
+ */
+export async function discoverCompanyIrMaterialEvents(website: string, symbol: string, today: string, opts: CompanyIrOptions = {}): Promise<FetchResult<CompanyIrMaterialEvents>> {
+  const attempted: string[] = [];
+  const unavailable = (reason: string): FetchResult<CompanyIrMaterialEvents> => ({ ok: false, gap: { field: "companyIrMaterialEvents", severity: "info", expected: true,
+    reason: `${reason}; bounded discovery is not evidence that no material events occurred.`, attemptedSources: attempted } });
+  const seed = safeUrl(website);
+  const verified = opts.issuer ? safeUrl(opts.issuer.verifiedWebsite) : null;
+  if (!seed || !verified || !opts.issuer || seed.hostname.replace(/^www\./, "") !== verified.hostname.replace(/^www\./, "")) return unavailable("A confirmed issuer and its public HTTPS website are required");
+  const reader = companyIrReader(opts);
+  const now = opts.now ?? (() => new Date());
+  const events: CompanyIrMaterialEvent[] = [];
+  const seedIsIr = /(?:^|\.)(?:ir|investors?)\./i.test(seed.hostname) || /\/investor(?:s|-relations)?(?:\/|$)/i.test(seed.pathname);
+  const queue: { url: string; chain: string[]; stage: "company" | "ir" | "news" | "release" }[] = [{ url: seed.toString(), chain: [seed.toString()], stage: seedIsIr ? "ir" : "company" }];
+  const seen = new Set<string>();
+  while (queue.length && reader.requests < 6 && events.length < 3 && !reader.signal.aborted) {
+    const page = queue.shift()!;
+    if (seen.has(page.url)) continue;
+    seen.add(page.url);
+    attempted.push(page.url);
+    try {
+      const response = await reader.read(page.url);
+      if (!response.ok || !/html|xhtml/i.test(response.headers.get("content-type") ?? "text/html")) continue;
+      if (page.stage === "release") {
+        const publishedAt = publicationDate(response.bodyText);
+        const publishedDay = publishedAt?.slice(0, 10);
+        const observedAt = now().toISOString();
+        if (!publishedAt || !publishedDay || !/^\d{4}-\d{2}-\d{2}$/.test(publishedDay) || !Number.isFinite(Date.parse(publishedAt)) ||
+          new Date(`${publishedDay}T00:00:00Z`).toISOString().slice(0, 10) !== publishedDay || publishedDay > today ||
+          Date.parse(publishedAt) > Date.parse(observedAt) || Date.parse(today) - Date.parse(publishedDay) > 365 * 86_400_000) continue;
+        const text = parseDocument(response.bodyText).fullText;
+        // A title or publication dateline is not the subject of a following
+        // sentence. Strip these only when they are leading standalone elements.
+        const title = (response.bodyText.match(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/i)?.[1] ?? response.bodyText.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "Material event").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const prefix = text.startsWith(title) ? title.length : 0;
+        const afterTitle = text.slice(prefix).trimStart();
+        const dateline = visiblePublicationDateline(response.bodyText);
+        const body = dateline && afterTitle.startsWith(dateline) ? afterTitle.slice(dateline.length).trimStart() : afterTitle;
+        const statement = materialStatement(body, opts.issuer);
+        if (statement === null || statement.end - statement.start > 1_800) continue;
+        const start = text.indexOf(body) + statement.start;
+        let end = start + statement.end - statement.start;
+        // Keep whole following sentences while the source excerpt stays bounded.
+        for (const sentence of splitSentences(text.slice(end))) {
+          const next = text.indexOf(sentence, end);
+          if (next < 0 || next + sentence.length - start > 1_800 || /^(?:About |Forward[- ]Looking)/i.test(sentence)) break;
+          end = next + sentence.length;
+        }
+        const excerpt = text.slice(start, end);
+        events.push({ symbol, category: statement.category, status: statement.status, title, url: page.url, publishedAt, observedAt, authorityChain: page.chain,
+          sourceHash: createHash("sha256").update(response.bodyText).digest("hex"), text: excerpt, originalChars: text.length,
+          span: { start, end, text: excerpt }, consideration: null, funding: null });
+        continue;
+      }
+      const all = links(response.bodyText, page.url);
+      const sameOrigin = all.filter((link) => new URL(link.url).origin === new URL(page.url).origin);
+      const add = (link: Link, stage: (typeof queue)[number]["stage"]) => { if (!seen.has(link.url) && !queue.some((entry) => entry.url === link.url)) queue.push({ url: link.url, chain: [...page.chain, link.url], stage }); };
+      if (page.stage === "company") {
+        const ir = all.find((link) => /\binvestor(?:s| relations)?\b/i.test(link.text) || /(?:^|[/.])investors?[./-]/i.test(link.url));
+        if (ir) add(ir, "ir");
+        else sameOrigin.filter((link) => /newsroom|news|press releases/i.test(link.text)).slice(0, 1).forEach((link) => add(link, "news"));
+      } else {
+        if (page.stage === "ir") sameOrigin.filter((link) => /news|press releases/i.test(link.text)).slice(0, 1).forEach((link) => add(link, "news"));
+        const pending = queue.length;
+        sameOrigin.filter((link) => /\b(?:acquir(?:e[sd]?|ing)|acquisition|appoint(?:ment|s|ed)?|retires?|resigns?|leadership transition)\b/i.test(link.text)).slice(0, 3).forEach((link) => add(link, "release"));
+        if (page.stage === "news") queue.unshift(...queue.splice(pending));
+      }
+    } catch { /* Public source failure is a disclosed bounded evidence gap. */ }
+  }
+  if (events.length === 0) return unavailable("No dated issuer-bound material statement was retained from the bounded official website/IR path");
+  events.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || a.url.localeCompare(b.url));
+  return { ok: true, value: { data: { events, notes: ["Bounded official-news selection, not a comprehensive acquisition or executive-transition ledger. Events are issuer statements, not independently verified completion. Consideration and funding are not established by this narrative reader."] },
+    source: "computed", endpoint: "company-ir:material-events", asOf: events[0]!.publishedAt.slice(0, 10), fetchedAt: now().toISOString() } };
+}
 import { lookup as dnsLookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { request } from "node:https";
@@ -157,3 +308,4 @@ import { parseDocument } from "@/edgar/extract";
 import { companyEarningsAnnouncement, type ConfirmedIssuerIdentity } from "@/providers/companyEvents";
 import { fetchWithPolicy } from "@/providers/http";
 import { createHash } from "node:crypto";
+import { splitSentences } from "@/edgar/currentReports";

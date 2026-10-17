@@ -159,7 +159,10 @@ describe("modeled-grid sensitivity conclusions", () => {
   it.each(["assumptions", "dcf", "target"] as const)("does not display numerical scenario inputs without the %s", (missing) => {
     const computed = computedFixture();
     if (computed.valuation.kind !== "dcf") throw new Error("fixture DCF");
-    if (missing === "target") computed.scenarioTargets.targets[0].perShare = null;
+    if (missing === "target") {
+      computed.scenarioTargets.targets[0].perShare = null;
+      delete computed.projections.scenarioAssumptions;
+    }
     else computed.valuation[missing] = null;
     const result = applyScenarioPresentation(narrativeValuation(), computed);
     expect(result.scenarios[0].assumptions.join(" ")).toMatch(/inputs unavailable/);

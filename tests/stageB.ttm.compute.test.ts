@@ -1069,15 +1069,14 @@ describe("runStageB wiring — the SEC SIC reaches Altman variant selection", ()
     expect(computed.forensics.altmanSelection.variant).toBe("original");
   });
 
-  it("stamps the Altman market cap with the observation date of the envelope that supplied it", () => {
+  it("does not turn a profile envelope date into a market-cap observation date", () => {
     const bundle = wiringBundle({ sic: "3571" });
     const computed = runStageB(bundle);
 
-    // The profile supplied the market cap; its envelope is dated 2026-07-01.
-    // The fiscal-year end of the statement beside it (2025-12-31) is NOT when
-    // a market cap was observed.
+    // The profile supplied the market cap but has no actual observation date.
+    // Neither its retrieval envelope nor a neighboring fiscal-year end proves one.
     expect(bundle.profile.ok && bundle.profile.value.asOf).toBe("2026-07-01");
-    expect(computed.forensics.altman?.asOf.marketCap).toBe("2026-07-01");
+    expect(computed.forensics.altman?.asOf.marketCap).toBeNull();
     expect(computed.forensics.altman?.asOf.incomeStatement).toBe("2025-12-31");
   });
 
