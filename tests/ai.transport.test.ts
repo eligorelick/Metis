@@ -85,6 +85,24 @@ describe("provider dispatch and catalog lifecycle", () => {
 });
 describe("response validation boundaries", () => {
   const stream = (...events: unknown[]) => new Response(events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(""));
+  it("checkpoints final answer text before a stream is cut off", async () => {
+    const kept: string[] = [];
+    await expect(consumeChatGptStream(stream(
+      { type: "response.output_item.added", output_index: 0, item: { type: "message", phase: "final_answer" } },
+      { type: "response.output_text.delta", output_index: 0, delta: '{"verdict":{"synthesis":"saved"},' },
+    ), (text) => { kept.push(text); })).rejects.toThrow("before completion");
+    expect(kept).toContain('{"verdict":{"synthesis":"saved"},');
+  });
+  it("recovers completed final-answer items without deltas when the terminal event is lost", async () => {
+    const kept: string[] = [];
+    const item = { type: "message", role: "assistant", status: "completed", phase: "final_answer", content: [{ type: "output_text", text: '{"verdict":{"synthesis":"saved"}}' }] };
+    const error = await consumeChatGptStream(stream(
+      { type: "response.output_item.done", output_index: 0, item: { ...item, phase: "commentary" } },
+      { type: "response.output_item.done", output_index: 1, item },
+    ), (text) => { kept.push(text); }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ message: "ChatGPT stream ended before completion", observed: { partialText: '{"verdict":{"synthesis":"saved"}}' } });
+    expect(kept).toContain('{"verdict":{"synthesis":"saved"}}');
+  });
   it("uses completed output items when OAuth's terminal response omits output", async () => {
     const item = { type: "message", role: "assistant", status: "completed", phase: "final_answer", content: [{ type: "output_text", text: '{"ok":true}' }] };
     const result = await consumeChatGptStream(stream(

@@ -155,6 +155,7 @@ import {
   statesOnlyAllowedDates,
 } from "@/pipeline/stageC/consistency";
 import { annotateSharedModelFamily, sharedModelFamilyOf } from "@/report/execution";
+import { createHash } from "node:crypto";
 import type {
   ConsistencyChecks,
   JudgeOrder,
@@ -281,6 +282,8 @@ export interface RunPassArgs {
    * Ignored by the paid API, which has no such limit.
    */
   effortStepDown?: number;
+  /** Subscription stream recovery only; partial text is never a successful result. */
+  onPartialText?: (text: string) => void;
 }
 
 /** The injected non-streaming runner. */
@@ -321,6 +324,12 @@ export interface PassDeps {
    * such limit and keeps one request per pass.
    */
   sectionedOutput?: boolean;
+  sectionCheckpoint?: {
+    load: (field: string) => Record<string, unknown>;
+    save: (field: string, completed: Record<string, unknown>) => void;
+    /** Append-only observations remain auditable even if the worker dies before settlement. */
+    record?: (field: string, telemetry: { model: string; usage: PassUsage; costUsd: number; execution?: ProviderExecution }) => void;
+  };
   /** One job-scoped cancellation/deadline signal. */
   signal?: AbortSignal;
   /** Per-request cost admission, by pass (DECISIONS D-10). */
@@ -755,7 +764,20 @@ async function runPassInSections<T>(a: {
   field: string;
   requestedModel: string;
 }): Promise<PassRun<T>> {
-  const completed: Record<string, unknown> = { ...(a.completed ?? {}) };
+  // The mirror and schema repair are different draws even within one job.
+  const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
+  const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
+  const completed: Record<string, unknown> = {
+    ...Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key))),
+    ...(a.completed ?? {}),
+  };
+  let lastCheckpoint = JSON.stringify(stored);
+  const checkpoint = (sections: Record<string, unknown>): void => {
+    const json = JSON.stringify(sections);
+    if (json === lastCheckpoint) return;
+    a.deps.sectionCheckpoint?.save(checkpointField, sections);
+    lastCheckpoint = json;
+  };
   let last: Extract<RunPassOutcome, { ok: true }> | null = null;
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
@@ -772,6 +794,12 @@ async function runPassInSections<T>(a: {
           ...a.base.messages,
           { role: "user", content: sectionRequestInstruction(completed, keys, a.allKeys) },
         ],
+        onPartialText: (text) => {
+          const streamed = completedTopLevelFields(text);
+          const kept = { ...completed };
+          for (const key of keys) if (key in streamed) kept[key] = streamed[key];
+          if (Object.keys(kept).length > Object.keys(completed).length) checkpoint(kept);
+        },
       };
       a.deps.validateRunPass?.(request);
       const outcome = await a.deps.runPass(request);
@@ -781,34 +809,43 @@ async function runPassInSections<T>(a: {
           if (keys.includes(key)) kept[key] = value;
         }
         const partialText = Object.keys(kept).length > 0 ? JSON.stringify(kept) : undefined;
+        checkpoint(kept);
         return finishStructuredPass(
-          { ...outcome, error: { ...outcome.error, ...(partialText === undefined ? {} : { partialText }) } },
+          { ...outcome, error: { ...outcome.error, usage: sumUsage(usage, outcome.error.usage ?? { input_tokens: 0, output_tokens: 0 }), costUsd: costUsd + (outcome.error.costUsd ?? 0), ...(partialText === undefined ? {} : { partialText }) } },
           a.parse,
           a.field,
           a.requestedModel,
         );
       }
       let json: unknown;
+      a.deps.sectionCheckpoint?.record?.(checkpointField, {
+        model: outcome.value.data.model, usage: outcome.value.data.usage,
+        costUsd: outcome.value.data.costUsd, execution: outcome.value.data.execution,
+      });
+      usage = sumUsage(usage, outcome.value.data.usage);
+      costUsd += outcome.value.data.costUsd;
       try {
         json = parseJsonSalvaging(extractText(outcome.value.data.message));
       } catch {
         if (tries === 0) continue;
         // Report the unparseable part exactly as a single response would be.
-        return finishStructuredPass(outcome, a.parse, a.field, a.requestedModel);
+        return finishStructuredPass({ ...outcome, value: { data: { ...outcome.value.data, usage, costUsd } } }, a.parse, a.field, a.requestedModel);
       }
-      usage = sumUsage(usage, outcome.value.data.usage);
-      costUsd += outcome.value.data.costUsd;
       last = outcome;
       if (json !== null && typeof json === "object" && !Array.isArray(json)) {
         for (const key of keys) {
           if (key in (json as Record<string, unknown>)) completed[key] = (json as Record<string, unknown>)[key];
         }
       }
+      checkpoint(completed);
       return null;
     }
   };
 
-  for (const group of splitSections(a.allKeys, a.parts)) {
+  // A cutoff demonstrates that the original groups were too large for this
+  // connection. Keep the user's model/effort and reduce only the remaining batch size.
+  const recovering = Object.keys(stored).length > 0 || Object.keys(a.completed ?? {}).length > 0;
+  for (const group of splitSections(a.allKeys, recovering ? a.parts * 2 : a.parts)) {
     const keys = pending(group);
     if (keys.length === 0) continue;
     const ended = await requestPart(keys);
@@ -833,6 +870,7 @@ async function runPassInSections<T>(a: {
         costUsd: 0,
         fallbackUsed: false,
         model: a.requestedModel,
+        execution: { requestedModel: a.requestedModel, modelObserved: false, usageReported: false },
       };
   const merged: RunPassOutcome = {
     ok: true,
@@ -843,7 +881,10 @@ async function runPassInSections<T>(a: {
       },
     },
   };
-  return finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+  const finished = finishStructuredPass(merged, a.parse, a.field, a.requestedModel);
+  // A schema-invalid section must be repaired, not pinned forever by a checkpoint.
+  if (!finished.ok) checkpoint({});
+  return finished;
 }
 
 /** Exact provider request used by either analyst side. */
@@ -1145,6 +1186,7 @@ function settlementFromPassRun<T>(
       // The zod error, not just its category — the one thing that makes a paid
       // rejection diagnosable after the run is over.
       detail: run.validationError,
+      partialText: run.error.partialText,
     }),
     telemetry,
   };

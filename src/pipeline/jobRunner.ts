@@ -290,6 +290,8 @@ export interface PassDeps<TPayload = unknown> {
    * usage. Absent in "pass" reservation mode and in mocks.
    */
   admissionFor?: (pass: DurablePass) => RequestAdmission | undefined;
+  /** Exact launch identity, captured before a subscription request starts. */
+  passAttemptFor?: (pass: DurablePass) => { jobId: string; runGeneration: number; attemptId: string } | undefined;
 
   /** One job-scoped cancellation/deadline signal shared by every provider pass. */
   signal?: AbortSignal;
@@ -2934,6 +2936,7 @@ export async function runJob<TPayload = unknown>(
     // Each pass registers its checkpoint's admission here as it is created, so
     // the Stage C adapter can reserve every provider request the pass makes.
     const passAdmissions = new Map<DurablePass, RequestAdmission>();
+    const passAttemptIds = new Map<DurablePass, string>();
     const deps: PassDeps<TPayload> = {
       analysisModel,
       ...("connectionId" in aiSelection ? { connectionId: aiSelection.connectionId } : {}),
@@ -2944,6 +2947,10 @@ export async function runJob<TPayload = unknown>(
       effort: analysisEffort,
       payload,
       jobSeed: jobId, // WS7 (D-20): seeds the judge's case order
+      passAttemptFor: (pass) => {
+        const attemptId = passAttemptIds.get(pass);
+        return attemptId ? { jobId, runGeneration: state.runGeneration, attemptId } : undefined;
+      },
       signal: jobSignal,
       ...(usesRequestAdmission()
         ? { admissionFor: (pass: DurablePass) => passAdmissions.get(pass) }
@@ -3114,6 +3121,7 @@ export async function runJob<TPayload = unknown>(
               ...(continuation === undefined ? {} : { continuation }),
             });
             passAdmissions.set("synthesize", judgeCheckpoint.admission);
+            passAttemptIds.set("synthesize", judgeCheckpoint.attemptId);
             await judgeCheckpoint.beforeLaunch();
             judge = await awaitJobStage(
               passes.runJudgePass(
@@ -3242,6 +3250,7 @@ export async function runJob<TPayload = unknown>(
           // registration its requests went out unadmitted against a lease
           // sized for exactly one of them (D-10).
           passAdmissions.set("verify", verifyCheckpoint.admission);
+          passAttemptIds.set("verify", verifyCheckpoint.attemptId);
           await verifyCheckpoint.beforeLaunch();
           const v = await awaitJobStage(
             passes.runVerifyPass(
@@ -3518,6 +3527,7 @@ export async function runJob<TPayload = unknown>(
         try {
           await passes.preflightPass?.(deps, { pass: side });
           passAdmissions.set(side, analystCheckpoint.admission);
+          passAttemptIds.set(side, analystCheckpoint.attemptId);
           await analystCheckpoint.beforeLaunch();
           const fresh = await awaitJobStage(
             passes.runAnalystPass!(
@@ -3599,6 +3609,7 @@ export async function runJob<TPayload = unknown>(
       beforePass: async (side) => {
         const checkpoint = side === "bull" ? bullCheckpoint : bearCheckpoint;
         passAdmissions.set(side, checkpoint.admission);
+        passAttemptIds.set(side, checkpoint.attemptId);
         await checkpoint.beforeLaunch();
       },
       onPassStart: (side) => {
@@ -3666,6 +3677,7 @@ export async function runJob<TPayload = unknown>(
       try {
         await passes.preflightPass?.(deps, { pass: side });
         passAdmissions.set(side, checkpoint.admission);
+        passAttemptIds.set(side, checkpoint.attemptId);
         await checkpoint.beforeLaunch();
         const fresh = await awaitJobStage(
           passes.runAnalystPass!(

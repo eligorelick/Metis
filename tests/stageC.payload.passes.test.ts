@@ -3647,6 +3647,59 @@ describe("mock-driven bull/bear/judge passes", () => {
     }
     const sectioned = (runPass: PassDeps["runPass"]): PassDeps => ({ runPass, model: "chatgpt/gpt-6.1-sol", sectionedOutput: true });
 
+    it("keeps mirrored judge requests independent when checkpoints are enabled", async () => {
+      const { payload } = buildInputs();
+      const cache = new Map<string, Record<string, unknown>>();
+      const provider = partProvider(judgeOutput() as Record<string, unknown>);
+      const run = await runJudgePass({ ...sectioned(provider.runPass), judgeOrder: "both", sectionCheckpoint: {
+        load: (field) => cache.get(field) ?? {},
+        save: (field, sections) => { cache.set(field, structuredClone(sections)); },
+      } }, payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      expect(provider.prompts).toHaveLength(JUDGE_SECTION_PARTS * 2);
+    });
+
+    it("counts every request when a later part returns invalid JSON twice", async () => {
+      const { payload } = buildInputs();
+      const provider = partProvider(judgeOutput() as Record<string, unknown>);
+      let calls = 0;
+      const run = await runJudgePass(sectioned(async (args) => {
+        const outcome = await provider.runPass(args);
+        if (++calls > 1 && outcome.ok) outcome.value.data.message.content = [{ type: "text", text: "malformed" }];
+        return outcome;
+      }), payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(false);
+      if (!run.ok) expect(run.usage).toMatchObject({ input_tokens: 30, output_tokens: 15 });
+    });
+
+    it("checkpoints streamed sections and reuses them after a worker restart", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      let saved: Record<string, unknown> = {};
+      const checkpoint = { load: () => saved, save: (_field: string, sections: Record<string, unknown>) => { saved = structuredClone(sections); } };
+      const first = partProvider(whole, 2);
+      const failed = await runJudgePass({ ...sectioned(first.runPass), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
+      expect(failed.ok).toBe(false);
+      expect(Object.keys(saved).length).toBeGreaterThan(0);
+      const kept = Object.keys(saved);
+      const next = partProvider(whole);
+      const resumed = await runJudgePass({ ...sectioned(next.runPass), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
+      expect(resumed.ok).toBe(true);
+      for (const prompt of next.prompts) {
+        const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(prompt)![1]!.split(", ");
+        expect(asked.some((key) => kept.includes(key))).toBe(false);
+      }
+    });
+
+    it("retains earlier part usage and partial sections in the failure settlement", async () => {
+      const { payload } = buildInputs();
+      const provider = partProvider(judgeOutput() as Record<string, unknown>, 2);
+      let settled: unknown;
+      const failed = await runJudgePass(sectioned(provider.runPass), payload, analystCase("bull"), analystCase("bear"), undefined, (value) => { settled = value; });
+      expect(failed.ok).toBe(false);
+      expect(settled).toMatchObject({ outcome: "failure", telemetry: { inputTokens: 10, outputTokens: 5 }, failure: { partialText: expect.stringContaining('"verdict"') } });
+    });
+
     it("assembles a judge report from three parts, each seeing the sections already written", async () => {
       const { payload } = buildInputs();
       const whole = judgeOutput() as Record<string, unknown>;
