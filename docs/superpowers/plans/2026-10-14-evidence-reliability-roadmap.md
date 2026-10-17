@@ -1,6 +1,6 @@
 # Evidence and reliability roadmap Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax.
+> **Historical snapshot, reconciled 2026-10-17:** All task sequences, unchecked boxes and Create/Modify lists below are superseded as execution instructions. Preserve this record; write a new plan against current source and tracked regression fixtures before implementing any remaining gap. Do not recreate or overwrite existing modules from these lists.
 
 **Goal:** Close demonstrated admission, comparability and output gaps without silently changing served research.
 
@@ -8,11 +8,26 @@
 
 **Tech Stack:** Current TypeScript, Zod, Vitest, Next.js16.3.8, SQLite/Drizzle; offline fixture tooling.
 
-**Spec:** ../../../tmp/coverage-gap-20261014/audit-spec.md; evidence ../../../tmp/coverage-gap-20261014/coverage-matrix.json.
+**Tracked context:** [Methodology](../../METHODOLOGY.md), [research](../../RESEARCH.md), [validation status](../../VALIDATION-STATUS.md), and [intended audit deltas](../../../tests/fixtures/audit-intended-deltas.json). The original local audit specification and coverage matrix were not published. They are historical provenance, not acceptance dependencies; this snapshot cannot reproduce that original audit. A refreshed plan must define its exact input, expected value, eligibility and surface assertions in tracked fixtures and tests.
 
 ## Global Constraints
 
-Audit-only delivery: these are proposed future tasks; nothing below was implemented. Preserve all existing edits and stored reports; no automatic regrading/backfill. Keep grade weights/formulas unchanged except a separately versioned, demonstrated admission/rank defect fix. No paid AI tests. Use disposable DBs and isolated checkout at execution. Read relevant node_modules/next/dist/docs/ before changing app code. Node>=22.18.0, Next16.3.8, TypeScript6/Zod4/Vitest4 follow current package lock.
+Audit-only historical delivery: these tasks were proposed on 2026-10-14 and are not a current implementation-status checklist. Preserve all existing edits and stored reports; no automatic regrading/backfill. Keep grade weights/formulas unchanged except a separately versioned, demonstrated admission/rank defect fix. No paid AI tests. Use disposable DBs and isolated checkout at execution. Read relevant node_modules/next/dist/docs/ before changing app code. Node>=22.18.0, Next16.3.8, TypeScript6/Zod4/Vitest4 follow current package lock.
+
+## Current implementation reconciliation
+
+The following components already exist at the 2026-10-17 merge base. Their existence does not establish that every proposed behavior or research gate is complete. The historical instructions to create them or require their existing tests to fail must not be followed.
+
+| Historical task | Existing implementation to preserve and assess |
+| --- | --- |
+| E02 | `src/evaluation/targetDefinition.ts`; `tests/evaluation.targetDefinition.test.ts` |
+| E03 | `src/pipeline/stageB/marketAdmission.ts`; `tests/audit.marketAdmission.test.ts` |
+| E05 | `src/pipeline/stageB/valuationAssumptions.ts` |
+| E06 | `src/pipeline/stageB/securityBasis.ts` |
+| E10 | `src/evaluation/registry.ts`, `src/evaluation/artifactManifest.ts`; `tests/evaluation.registry.test.ts` |
+| E11 | `src/evaluation/pairedDiagnostics.ts`; `tests/evaluation.pairedDiagnostics.test.ts` |
+
+For each task considered for new work, run the existing tests first, record completed and still-unproven behavior separately, and replace the historical file list and acceptance steps with a current scoped plan. A passing existing counterexample is evidence to retain, not a reason to delete an implementation or force a failure. Any new defect needs its own reproducible tracked case.
 
 ## Review Focus
 
@@ -56,9 +71,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** All incompatible/future operands withheld from new eligible facts; raw values and exclusions inspectable. Same-definition positive fixtures unchanged. Source-byte hash and accession available for independent tieout.
 
 - [ ] Write named failing cases in `tests/financialEvidence.test.ts`: revenue100USD/cost60EUR/income30EUR => no derived gross profit40 and explicit mixed_unit; asOf2026-10-14 with2027-filed comparative200 => retain admissible100 and future_filing reason; two insurer annual starts Jan1/Jan11 => period_mismatch; eligible exact dimensions => eligible. Multi-accession restatement and53-week annual periods require explicit policy, not blanket365-day matching.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/financialEvidence.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/financialEvidence.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R01,R07,R10,R11); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: field evidence, unit, definition and availability contract`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -79,9 +94,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** New research counterexamples explicitly rejected with reasons; report evaluator existing identity/action gates preserved; version1 output clearly nonadmissible for validation. Hand MAE/Brier calculations unchanged for valid records.
 
 - [ ] Write named failing cases in `tests/evaluation.targetDefinition.test.ts`: wrong issuerOTHER/metricnetIncome for TESTrevenue => excluded; GAAP versusadjusted => excluded; identical security andbenchmark => rejected; unknown supplied accountingDefinition => parse failure, not strip;1year and6year leads => distinct groups; exact filed dimensions/source bytes => included; pre-release actual => future_outcome.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/evaluation.targetDefinition.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/evaluation.targetDefinition.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R01,R02,R03,R11); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: strict shared evaluation targets and observations`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -102,9 +117,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** Raw future data cannot alter new score/report; chart/calculation count and SMA agree. Cross-surface app/MD/print and StageC payload retain same admitted asOf and exclusions. Legacy stored reports unchanged.
 
 - [ ] Write named failing cases in `tests/marketAdmission.test.ts`: July6 cleanB72.16 and insertedJan1,2027close1000 => same clean score and future_bar exclusion;200unique bars+identical last => SMA50=102 both plot and calculator; conflicting duplicate => explicit exclusion; high80/low120 => reject; at TTL/zero/negative/NaN age tested; market closure/year boundary valid dates accepted.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/marketAdmission.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/marketAdmission.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R05,R09); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: shared time and market-bar admission for calculations and charts`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -125,9 +140,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** Adversarial incompatible growth not scored as full evidence; positives byte-equivalent in numeric score JSON except new metadata/version. No claim corrected JPM B/C grade until full annual+quarter reconciliation. Snapshot new version and downstream traces checked.
 
 - [ ] Write named failing cases in `tests/scoringEligibility.test.ts`: JPM historicalnet/gross endpoints => CAGR ineligible even with citations; stale but semantically valid row follows existing freshness policy without unrelated metric suppression; fully comparable positive fixture retains exact current score; one invalid field suppresses only dependent signals; absent context explicitly legacy_not_assessed.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/scoringEligibility.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/scoringEligibility.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R01,R02); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: metric eligibility from validation through scoring and displays`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -149,9 +164,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** Exact numeric parity with old model; no contradiction across payload/data-only/AI synthesis fields/app/MD/print. Generated prompt contains all material assumptions and no invented certainty.
 
 - [ ] Write named failing cases in `tests/valuationAssumptions.test.ts`: JPM preservedmodelCV128918923285.23,terminalexcess0.05 => all surfaces state continuation; zeroexcessCV0 => no continuing value accurately; synthetic18%ROE10%CoE model keeps196.0652 value; missinglegacyassumptions => unavailable; near-zero numeric CV rounded display cannot change model semantics.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/valuationAssumptions.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/valuationAssumptions.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R07,R09); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: typed valuation assumptions and consistent narrative/export basis`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -172,9 +187,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** Owner/security mismatches rejected; primary source and effective dates inspectable; eligible ordinary positive fixtures retain outputs. REIT approximate FFO remains explicitly approximate until common/JV/NCI reconciliation; no implication exact Nareit FFO.
 
 - [ ] Write named failing cases in `tests/securityBasis.test.ts`: cap1000,totalEq200,pref100 => commonPB10; totalNI10,commonNI5 => PE200 when EPSabsent; ADS50,ordinaryEPS2,ratio5 => PE5; alreadyADS EPS10 => also5 without second adjustment; pre/postratio dates select correct event; conflicting/end-shareweighted-average basis => unknown; existing preferred-aware TBV unchanged.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/securityBasis.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/securityBasis.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R05,R06,R07); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: common ownership and effective-dated security/share basis`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -194,9 +209,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** No silent nonadjacent balance averages or contradictory runway; compatible controls stable; exact dates/components and exclusions visible in three outputs.
 
 - [ ] Write named failing cases in `tests/financialPeriodLiquidity.test.ts`: 2025flow with2023opening => no average13.333%; adjacent2024opening/2025closing => positive10% fixture; combined500 versuscomponents1000+0 => liquidity null/conflict and no10quarter point; consistent500/burn50 =>10quarters; missingcash orzero/nonpositiveburn follows explicit NA path.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/financialPeriodLiquidity.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/financialPeriodLiquidity.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R07,R08); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: adjacent opening balances and shared liquidity conflicts`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -216,9 +231,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** Helper and integrated synthetic trace stable under epsilon; nondegenerate hand midranks correct; record live incidence before broader weight/ranking redesign.
 
 - [ ] Write named failing cases in `tests/valuation.rankTies.test.ts`: eight20x,current20 or20+1e-10 => degenerate/null both; history10,20,20,30,current20 =>50; current10 =>12.5; incomparable/too-short =>null; integrated frozen StageB fixture verifies no cliff through report and grade.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/valuation.rankTies.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/valuation.rankTies.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R09); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: stable and disclosed own-history rank ties`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -240,9 +255,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** New cross-issuer/compound-claim probes resolved without weakening network budgets. Matching proposition statuses in app/MD/print and evaluator labels. Legacy whole-claim statuses shown as legacy granularity, not retroactively certified.
 
 - [ ] Write named failing cases in `tests/issuerPropositionEvidence.test.ts`: TEST→OTHER IR => no company_confirmed TEST event; legitimate external issuer-hosted release => confirmed with binding; parent/subsidiary ambiguous =>gap; supportedrevenue100+unsupportedallegation =>partially-supported, allegationunreviewed; changedsourcehash => exclusion; subjectless proven issuer-specific release remains auditable.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/issuerPropositionEvidence.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/issuerPropositionEvidence.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R03,R04); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: issuer-bound sources, atomic claims and event resolution`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -263,9 +278,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** Reproducible code/input/target artifacts with explicit custody class; no production report rewrites. Disposable DB migration round-trip and restore checked; snapshot replay values unchanged.
 
 - [ ] Write named failing cases in `tests/evaluation.registry.test.ts`: changedtarget/source/report/method hash => reject; callerforgedpastcreatedAt => notexternallytimestamped; sameimmutable retry => idempotent; newgeneration => distinctrecord; deletedissuer stays denominator; legacy30 reports cannot silently join prospective validation.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/evaluation.registry.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/evaluation.registry.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R01,R02,R11); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: prospective registry and code/source/method custody`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -286,9 +301,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** No calibrated accuracy from pending/metadata-only cohorts; paired intervals and readiness reproducible from manifest; decisions reference predeclared thresholds, not best observed stratum.
 
 - [ ] Write named failing cases in `tests/evaluation.pairedDiagnostics.test.ts`: sharedsame-date sixissuers => insufficient independentperiods, not20..20 skill interval; handtwo-record MAE/RMSE/bias and pairednormalizedeffect => exact; missingdelisting/futureactual excluded with attrition;1year/6year never pooled; bootstrap deterministicseed positivefixture.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/evaluation.pairedDiagnostics.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.config.ts tests/evaluation.pairedDiagnostics.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R01,R02,R09,R11); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: comparable evaluation groups and dependence-aware uncertainty`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 
@@ -300,6 +315,7 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 
 - Create tests/integration/reliability.boundaries.test.ts, scripts/verify-disposable-flow.mjs
 - Modify tests/jobScheduler.test.ts, tests/api.routes.sameOrigin.test.ts, tests/degradation.outage.simulation.test.ts only as needed
+- Modify tests/repository.release.test.ts together with the suite configuration: update tracked-test partition assertions and the loaded product-exclude/integration-include expectations to account for both the existing database CLI test and the new reliability integration test.
 - Modify vitest.shared.ts integration include to add the new reliability test and exclude it from product selection; review src/pipeline/jobScheduler.ts, src/ai/transport.ts, src/cache/apiCache.ts, src/db/index.ts, src/app/api/*, .github/workflows/ci.yml
 
 **Interfaces:** runDisposableFlow(config:{dbPath:string,providerMode:"offline-fixture",allowPaid:false,viewport:{width:number,height:number},fault:string|null}): Promise<FlowVerification>; FlowVerification = {requestId,inputHash,artifactHash,admittedCalls,settledMicroUsd,storedReportHash,visibleChecks,failures}. Reject production DB paths and any real paid transport in harness.
@@ -309,9 +325,9 @@ All identifiers/dates/hashes/reason codes are strings; measured values are finit
 **Regression and acceptance:** The integration config discovers tests/integration/reliability.boundaries.test.ts and the product config excludes it; offline fault matrix passes, screenshot/DOM assertions and source→output hashes retained; npm run verify plus freshWindows/LinuxCI before release. No live-provider accuracy or exhaustive security claim.
 
 - [ ] Write named failing cases in `tests/integration/reliability.boundaries.test.ts`: forgedOrigin => nojob/nocharge; twoowners => onepublish; settledretry => exactonce microUSD; cancellation => nofollowoncall; corruptcachedbody => explicitrecovery; partialoutage => disclosedmissingdata; diskrestore => samepersistedhash; app/MD/print sameeligibility andvaluationbasis.
-- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts tests/integration/reliability.boundaries.test.ts`; require the specified counterexample failure before implementation.
+- [ ] Run `node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts tests/integration/reliability.boundaries.test.ts`; in a refreshed plan, preserve passing existing coverage and add a failing case only for a reproduced unresolved defect.
 - [ ] Implement the interfaces/behavior above, using existing patterns and additive schema compatibility; no unrelated refactor.
-- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Reexecute relevant audit probes from `tmp/coverage-gap-20261014` and compare exact eligibility/numeric/surface expectations.
+- [ ] Rerun the same command; require all cases pass and positive fixture invariants. Use the refreshed plan's tracked regression fixtures to compare its declared eligibility, numeric and surface expectations; do not require unpublished local audit probes.
 - [ ] Review changed source/contracts against the linked research gate (R04,R11); run typecheck and relevant consumer/export tests.
 - [ ] Commit only task files after review, with message `fix: disposable operational and product verification harness`; retain acceptance artifacts. Release only after E12 and `npm run verify` plus fresh Windows/Linux CI.
 

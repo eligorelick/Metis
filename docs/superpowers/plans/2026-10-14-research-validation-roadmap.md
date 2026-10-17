@@ -1,6 +1,6 @@
 # Research validation roadmap Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax.
+> **Historical snapshot, reconciled 2026-10-17:** The task sequences and unchecked boxes below are superseded as execution instructions. Preserve this record; write a new study plan against current source, available datasets and tracked fixtures before execution. No task box here establishes current implementation status or research validity.
 
 **Goal:** Establish admissible, independent evidence for methods before production modeling or grading changes.
 
@@ -8,11 +8,11 @@
 
 **Tech Stack:** Current TypeScript, Zod, Vitest, Next.js16.3.8, SQLite/Drizzle; offline fixture tooling.
 
-**Spec:** ../../../tmp/coverage-gap-20261014/audit-spec.md; evidence ../../../tmp/coverage-gap-20261014/coverage-matrix.json.
+**Tracked context:** [Methodology](../../METHODOLOGY.md), [research](../../RESEARCH.md), [validation status](../../VALIDATION-STATUS.md), [intended audit deltas](../../../tests/fixtures/audit-intended-deltas.json), and the [implementation reconciliation](2026-10-14-evidence-reliability-roadmap.md#current-implementation-reconciliation). The original local audit specification and coverage matrix were not published. They are historical provenance, not acceptance dependencies; this snapshot cannot reproduce that original audit. A refreshed study plan must publish its exact inputs and expected checks in tracked fixtures and manifests. Existing fixtures do not establish predictive validity.
 
 ## Global Constraints
 
-Audit-only delivery: these are proposed future tasks; nothing below was implemented. Preserve all existing edits and stored reports; no automatic regrading/backfill. Keep grade weights/formulas unchanged except a separately versioned, demonstrated admission/rank defect fix. No paid AI tests. Use disposable DBs and isolated checkout at execution. Read relevant node_modules/next/dist/docs/ before changing app code. Node>=22.18.0, Next16.3.8, TypeScript6/Zod4/Vitest4 follow current package lock.
+Audit-only historical delivery: these studies were proposed on 2026-10-14 and are not a current implementation-status checklist. Existing target, admission, security-basis, registry, artifact-manifest and paired-diagnostic modules must be preserved and assessed before planning remaining work; their existence does not validate forecasts. Preserve all existing edits and stored reports; no automatic regrading/backfill. Keep grade weights/formulas unchanged except a separately versioned, demonstrated admission/rank defect fix. No paid AI tests. Use disposable DBs and isolated checkout at execution. Read relevant node_modules/next/dist/docs/ before changing app code. Node>=22.18.0, Next16.3.8, TypeScript6/Zod4/Vitest4 follow current package lock.
 
 ## Review Focus
 
