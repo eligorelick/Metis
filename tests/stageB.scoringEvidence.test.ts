@@ -14,6 +14,23 @@ function inputs(bank = false): ScoringInputs {
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
 
 describe("score evidence follows the actual metric basis", () => {
+  it("labels the share trend's weighted-average denominator and limits the stewardship interpretation", () => {
+    const i = inputs();
+    const result = describeScoreEvidence(i, "leadership", "shareCountTrend");
+    expect(result.period).toMatch(/annualized weighted-average diluted common-share trend/i);
+    expect(result.fallbackReason).toMatch(/does not measure.*outstanding.*economic dilution/i);
+    const scores = computeScores(i);
+    expect(scores.aspects.leadership.note).toMatch(/annualized weighted-average diluted common-share trend/i);
+    expect(scores.aspects.leadership.note).not.toMatch(/net share-count change after buybacks/i);
+  });
+  it("does not raise the stewardship score when a report names a CFO", () => {
+    const i = inputs();
+    const before = computeScores(i);
+    const named = Object.assign(structuredClone(i), { executives: [{ name: "Named Officer", title: "CFO" }] });
+    const after = computeScores(named);
+    expect(after.aspects.leadership).toEqual(before.aspects.leadership);
+    expect(after.composite).toEqual(before.composite);
+  });
   it("uses the acquired quote observation for price-derived score evidence", () => {
     const bundle=completeCurrencyBundle({});
     const result=runStageB(bundle,{evIncludeLeases:false});

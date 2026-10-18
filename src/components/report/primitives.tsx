@@ -39,6 +39,7 @@ import {
   tracedPeriodLabel,
 } from "@/report/format";
 import { ClaimText } from "./ClaimText";
+import { GRADE_SURFACE_BY_KEY } from "@/report/surfaceManifest";
 
 export {
   formatCurrency,
@@ -88,9 +89,11 @@ function Disclosure({
 export function ClaimList({
   claims,
   empty = "—",
+  numbers,
 }: {
   claims: readonly SourcedClaim[];
   empty?: ReactNode;
+  numbers?: readonly TracedNumber[];
 }) {
   if (claims.length === 0) {
     return <div className="text-[11px] text-faint">{empty}</div>;
@@ -98,7 +101,7 @@ export function ClaimList({
   return (
     <div className="flex flex-col gap-2">
       {claims.map((c, i) => (
-        <ClaimText key={i} claim={c} />
+        <ClaimText key={i} claim={c} numbers={numbers} />
       ))}
     </div>
   );
@@ -287,7 +290,7 @@ export function GradeReasoning({
       <div className="flex items-center gap-2 border-b border-edge px-2.5 py-1.5">
         <HeadlineGrade block={block} aspect={aspect} />
         <span className="mono text-[11px] uppercase tracking-[0.12em] text-muted">
-          {title}
+          {title === "leadership" ? GRADE_SURFACE_BY_KEY.leadership.label : title}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
           <span className="text-[9px] uppercase tracking-[0.1em] text-faint">
@@ -328,7 +331,7 @@ export function GradeReasoning({
             <div className="mt-2 flex flex-col gap-3">
               {block.reasoning.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  <ClaimList claims={block.reasoning} />
+                  <ClaimList claims={block.reasoning} numbers={block.keyNumbers} />
                 </div>
               )}
               {rows.length > 0 && (

@@ -243,7 +243,7 @@ describe("Task 28 complete report surfaces", () => {
         "Quality",
         "Balance Sheet",
         "Moat",
-        "Leadership",
+        "Leadership (capital-stewardship proxy)",
         "Technicals",
       ]);
       assertOrder(sectionBetween(output, "Aspect scores", "Score drivers"), [
@@ -252,7 +252,7 @@ describe("Task 28 complete report surfaces", () => {
         "Quality",
         "Balance Sheet",
         "Moat",
-        "Leadership",
+        "Leadership (capital-stewardship proxy)",
         "Technicals",
       ]);
     }
@@ -283,7 +283,7 @@ describe("Task 28 complete report surfaces", () => {
             quality: "Quality",
             balanceSheet: "Balance Sheet",
             moat: "Moat",
-            leadership: "Leadership",
+            leadership: "Leadership (capital-stewardship proxy)",
             technicals: "Technicals",
           } as const)[aspect],
           surface === "markdown",

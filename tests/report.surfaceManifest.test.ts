@@ -274,7 +274,7 @@ describe("shared report surface manifest", () => {
       { id: "grade:technicals", key: "technicals", label: "Technicals", shortLabel: "T", sectionKey: "technicals", optional: false },
       { id: "grade:balanceSheet", key: "balanceSheet", label: "Balance Sheet", shortLabel: "BS", sectionKey: "balanceSheet", optional: true },
       { id: "grade:quality", key: "quality", label: "Quality / Red-Flags", shortLabel: "Q", sectionKey: "quality", optional: false },
-      { id: "grade:leadership", key: "leadership", label: "Leadership", shortLabel: "L", sectionKey: "leadership", optional: false },
+      { id: "grade:leadership", key: "leadership", label: "Leadership (capital-stewardship proxy)", shortLabel: "L", sectionKey: "leadership", optional: false },
       { id: "grade:moat", key: "moat", label: "Moat", shortLabel: "M", sectionKey: "competitive", optional: false },
     ]);
     expect(SCORE_SURFACES).toEqual([
@@ -285,7 +285,7 @@ describe("shared report surface manifest", () => {
       { id: "score:balanceSheet", key: "balanceSheet", kind: "aspect", label: "Balance Sheet", sectionKey: "balanceSheet" },
       { id: "score:moat", key: "moat", kind: "aspect", label: "Moat", sectionKey: "competitive" },
       // D-61: the deterministic score is a capital-stewardship proxy.
-      { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
+      { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital-stewardship proxy)", sectionKey: "leadership" },
       { id: "score:technicals", key: "technicals", kind: "aspect", label: "Technicals", sectionKey: "technicals" },
     ]);
     expect(SCORE_WEIGHTS).toEqual(

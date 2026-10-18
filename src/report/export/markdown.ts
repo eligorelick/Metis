@@ -77,6 +77,7 @@ import {
   consensusTables,
   dataGapTables,
   displayProse,
+  displayClaimText,
   executiveGradeText,
   executiveGroups,
   metricRowsWithoutTabled,
@@ -205,9 +206,9 @@ function subsection(heading: string, body: string): string[] {
  * ======================================================================== */
 
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
-function claimList(claims: readonly SourcedClaim[]): string {
+function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayProse(c.text, c.source))} _(${markdownProse(claimCitation(c))})_`)
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_`)
     .join("\n");
 }
 
@@ -244,7 +245,7 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
   if (block.interpretation) lines.push("", prose(block.interpretation));
   const contractText = gradeContractText(block);
   if (contractText) lines.push("", prose(contractText));
-  if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning));
+  if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning, block.keyNumbers));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   const numbers = figureTable(figureRows(kept, seen));
   if (numbers) lines.push("", "Key numbers:", "", numbers);
@@ -665,7 +666,7 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
 
 function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
-  lines.push(gradeBlock("Leadership", l.graded, new Map(), report, ctx), "");
+  lines.push(gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, ctx), "");
   lines.push("### Executives", "");
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const groups = executiveGroups(l.executives);

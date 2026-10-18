@@ -97,6 +97,7 @@ import {
   dataGapTables,
   dataStateText,
   displayProse,
+  displayClaimText,
   executiveGradeText,
   executiveGroups,
   ratioPercentText,
@@ -218,10 +219,10 @@ function subsection(heading: string, body: string, level = "h3"): string {
 }
 
 /** Claims with ONE source marker each (D-62). */
-function claimList(claims: readonly SourcedClaim[]): string {
+function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   if (claims.length === 0) return "";
   return `<ul class="claims">${claims
-    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${prose(c.text, c.source)} <span class="src">${esc(claimCitation(c))}</span></li>`)
+    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${esc(claimCitation(c))}</span></li>`)
     .join("")}</ul>`;
 }
 
@@ -256,7 +257,7 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
   if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
   const contractText = gradeContractText(block);
   if (contractText) parts.push(`<p class="faint">${prose(contractText)}</p>`);
-  if (block.reasoning.length > 0) parts.push(claimList(block.reasoning));
+  if (block.reasoning.length > 0) parts.push(claimList(block.reasoning, block.keyNumbers));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   parts.push(figureTable(figureRows(kept, seen)));
   const also = seeAlsoText(homes);
@@ -569,7 +570,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
   const others = groups.notAssessed.length > 0
     ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
     : "";
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {

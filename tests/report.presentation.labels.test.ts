@@ -30,7 +30,7 @@ describe("reader labels for registry ids", () => {
     ["payload.insiders.mspr-2026-10", "Insider sentiment (MSPR), 2026-10"],
     ["payload.statements.income-statement-quarterly.2026-07-26.net-income", "Net income (quarter ended 2026-07-26)"],
     ["payload.statements.balance-sheet-quarterly.2026-07-26.net-debt", "Net debt (at 2026-07-26)"],
-    ["computed.deterministic-aspect-scores.leadership-score", "Leadership (capital stewardship) score"],
+    ["computed.deterministic-aspect-scores.leadership-score", "Leadership (capital-stewardship proxy) score"],
     ["computed.scores.composite", "Composite score"],
   ])("%s → %s", (id, label) => {
     expect(metricLabel(id)).toBe(label);

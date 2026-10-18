@@ -231,7 +231,7 @@ function renderFigureRegistry(report: Report): string {
     ["Valuation", report.valuation.graded.keyNumbers],
     ["Quality", report.quality.graded.keyNumbers],
     ["Technicals", [...report.technicals.graded.keyNumbers, ...report.technicals.indicators]],
-    ["Leadership", report.leadership.graded.keyNumbers],
+    ["Leadership (capital-stewardship proxy)", report.leadership.graded.keyNumbers],
     ["Competitive", [...report.competitive.moatGraded.keyNumbers, ...report.competitive.peerTable.flatMap((peer) => peer.metrics)]],
   ];
   const rows = groups.flatMap(([section, numbers]) => numbers.map((n) => [section, ...tracedAuditCells(n)]));

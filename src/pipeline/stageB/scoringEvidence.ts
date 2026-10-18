@@ -234,7 +234,9 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     result.family = "capital-return-policy";
     const trend = i.capital.shareCount;
     dates(trend.startDate, trend.endDate); result.windowYears = finite(trend.actualYears) ? trend.actualYears : result.windowYears;
-    operand("start shares", trend.startShares, "computed.capital.shareCount.startShares", result.startDate); operand("end shares", trend.endShares, "computed.capital.shareCount.endShares", result.endDate);
+    result.period = `Annualized weighted-average diluted common-share trend; ${result.period ?? "window unavailable"}`;
+    result.fallbackReason = "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.";
+    operand("start weighted-average diluted common shares", trend.startShares, "computed.capital.shareCount.startShares", result.startDate); operand("end weighted-average diluted common shares", trend.endShares, "computed.capital.shareCount.endShares", result.endDate);
   } else if (id === "buybackTiming") {
     // D-61: each covered fiscal year's actual price paid against that year's
     // average price; the quote is not an input.

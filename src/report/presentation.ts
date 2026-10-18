@@ -130,7 +130,7 @@ const ASPECT_LABEL: Record<string, string> = {
   fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality",
   balancesheet: "Balance-sheet", balanceSheet: "Balance-sheet", moat: "Moat",
   // D-61: the deterministic leadership score is a capital-stewardship proxy.
-  leadership: "Leadership (capital stewardship)", technicals: "Technicals", composite: "Composite",
+  leadership: "Leadership (capital-stewardship proxy)", technicals: "Technicals", composite: "Composite",
 };
 
 const EXACT_LABELS: Record<string, string> = {
@@ -246,7 +246,7 @@ export function signalLabel(id: string): string {
     beneishMSgiNeutral: "Beneish M-score (sales growth neutral)",
     roicStability: "ROIC stability (std. dev.)", grossMarginLevel: "Gross-margin level",
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
-    shareCountTrend: "Share-count trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
+    shareCountTrend: "Annualized weighted-average diluted common-share trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
     pctFromHigh52w: "Distance from 52-week high", smaGap: "SMA 50 / SMA 200 gap",
   };
   return fixed[id] ?? sentence(segmentWords(id));
@@ -1111,17 +1111,17 @@ function smallOrTwoDecimals(value: number): string {
  * billions or trillions to two decimals, 0–100 scores to an integer. Only a
  * figure stated more precisely than that is rounded; a three-decimal coupon
  * ("4.250% Notes") or an exact-to-the-million amount ("USD 7.771 billion") is
- * left as written. `source` is the claim's citation: a ratio read as a
- * percentage (FCF conversion, accrual ratios) is shown in percent.
+ * left as written. Ratio claims (FCF conversion, accrual ratios) retain their
+ * wording; displayClaimText may disclose a compatible typed cited measure.
  */
 export function readerPrecision(text: string, source?: string): string {
-  let out = text
+  // A source name cannot recover precision rounded away by the model or
+  // identify which operand carries the ratio. Preserve these claims as written.
+  if (source !== undefined && isRatioAsPercent(source)) return text;
+  const out = text
     .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${roundedText(Number(value), 0)}${tail}`)
     // A whole compact amount in stored text ("the guided run-rate $432.00B"), as the formatter prints it.
     .replace(/(\$|\bUSD )(\d+)\.00([KMBT])\b/g, "$1$2$3");
-  if (source !== undefined && isRatioAsPercent(source)) {
-    out = out.replace(/(?<![\w.])(-?\d+(?:\.\d+)?)\s?[x×](?![A-Za-z0-9])/g, (_m, value: string) => ratioPercentText(Number(value)));
-  }
   return out.replace(
     /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
     (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
@@ -1146,6 +1146,49 @@ export function readerPrecision(text: string, source?: string): string {
 /** Stored prose for a reader: registry ids under reader labels, figures at reader precision. */
 export function displayProse(text: string, source?: string): string {
   return readerPrecision(humanizeInlineCitations(text), source);
+}
+
+/**
+ * Add the table's typed measure only beside compatible, uniquely cited scalar
+ * ratio wording. No claim is rewritten or validated. Missing/ambiguous context
+ * stays raw and retains the report's existing verification disclosures.
+ */
+export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNumber[] = []): string {
+  const text = displayProse(claim.text, claim.source);
+  if (!isRatioAsPercent(claim.source) || /(?:abs|absolute)$/i.test(claim.source)) return text;
+  const matches = numbers.filter(n => n.source === claim.source &&
+    (claim.sourceId === undefined || n.sourceId === claim.sourceId));
+  if (matches.length !== 1) return text;
+  const n = matches[0]!;
+  if (n.verified !== true || n.asOf === null || n.asOf !== claim.asOf || !n.period?.trim() ||
+      !["x", "×", "multiple", "fraction", "frac", "ratio"].includes(n.unit.trim().toLowerCase())) return text;
+  // Brackets may qualify entity/window, not merely repeat a citation. Keep
+  // them in the sentence check so unestablished bracket context stays raw.
+  const body = claim.text;
+  // Admit only a whole, bare metric/scalar sentence. Free-form prefixes,
+  // named entities, quarter modifiers and other context cannot be established
+  // from a shared citation, even when its value/date happen to match.
+  const bareMetricStatement = /^(?:The\s+)?(?:FCF conversion(?:\s+(?:before|after)\s+SBC)?|(?:(?:cash[- ]flow|balance[- ]sheet)\s+)?accrual ratio)(?:\s+(?:for\s+(?:the\s+fiscal\s+year\s+ended\s+)?|in\s+)(?:FY\d{4}|\d{4}-\d{2}-\d{2}))?\s+(?:was|is)\s+[+−-]?\d+(?:\.\d+)?\s*[x×%][.!]?$/i;
+  if (!bareMetricStatement.test(body.trim())) return text;
+  const words = (s: string) => s.replace(/[^a-z]/gi, "").toLowerCase();
+  const bodyWords = words(body);
+  const sourceWords = words(claim.source);
+  if (bodyWords.includes("fcfconversion") !== sourceWords.includes("fcfconversion")) return text;
+  for (const variant of ["before SBC", "after SBC", "cash-flow", "balance-sheet"]) {
+    if (bodyWords.includes(words(variant)) !== sourceWords.includes(words(variant))) return text;
+  }
+  const periodPattern = /\bFY\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/g;
+  if ((body.match(periodPattern) ?? []).some(p => !n.period!.includes(p) && !JSON.stringify(n.periodContext ?? {}).includes(p))) return text;
+  const scalars = [...body.replace(periodPattern, "").matchAll(/(?<![\w.])([+−-]?\d+(?:\.\d+)?)\s*([x×%])?(?![\w\d])/g)];
+  if (scalars.length !== 1 || !scalars[0]![2]) return text;
+  const scalar = scalars[0]!;
+  const raw = scalar[1]!.replace("−", "-");
+  const value = Number(raw);
+  const typed = scalar[2] === "%" ? n.value * 100 : n.value;
+  const digits = raw.split(".")[1]?.length ?? 0;
+  // Numeric compatibility at the stated precision is not factual validation.
+  if (Math.sign(value) !== Math.sign(typed) || decimalRound(typed, digits) !== value) return text;
+  return `${text} [Original rounded claim; cited measure: ${figureValueText(n)} (${metricLabel(n.source, n.unit)}; ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}).]`;
 }
 
 /**
@@ -1465,7 +1508,7 @@ export interface BodyTable {
 const SCORE_ASPECT_ORDER = ["fundamentals", "valuation", "quality", "balanceSheet", "moat", "leadership", "technicals"] as const;
 const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = {
   fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality", balanceSheet: "Balance Sheet",
-  moat: "Moat", leadership: "Leadership (capital stewardship)", technicals: "Technicals",
+  moat: "Moat", leadership: "Leadership (capital-stewardship proxy)", technicals: "Technicals",
 };
 
 /**

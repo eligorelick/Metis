@@ -300,7 +300,7 @@ describe("synthetic accounting-route integration panel", () => {
     expect(validation.checks.find((check) => check.id === "balanceSheetIdentity.2025-12-31"))
       .toMatchObject({ status: "fail", deltaPct: 25 });
     expect(report.appendix.missingData.some((gap) => gap.field === "validation.balanceSheetIdentity.2025-12-31")).toBe(true);
-    for (const surface of Object.values(surfaces)) expect(surface).toContain("identity broke by 25%");
+    for (const surface of Object.values(surfaces)) expect(surface).toContain("balance-sheet identity residual 25%");
   });
 
   it("missing Stage A denominator: reports an uncheckable balance identity rather than a pass", () => {

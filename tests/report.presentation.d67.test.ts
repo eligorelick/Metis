@@ -63,8 +63,8 @@ describe("figures in stored prose at reader precision", () => {
     expect(readerPrecision(readerPrecision("USD 296.3179 per share"))).toBe("USD 296.32 per share");
   });
 
-  it("prints FCF conversion and the accrual ratio one way, in whole percent", () => {
-    expect(readerPrecision("FCF conversion before SBC was 0.6585x.", "computed.current-capital.fcf-conversion-before-sbc")).toBe("FCF conversion before SBC was 66%.");
+  it("prints typed FCF conversion and accrual ratios in whole percent while preserving model prose", () => {
+    expect(readerPrecision("FCF conversion before SBC was 0.6585x.", "computed.current-capital.fcf-conversion-before-sbc")).toBe("FCF conversion before SBC was 0.6585x.");
     expect(figureValueText({ value: 0.6584750024626839, unit: "x", currency: null, source: "computed.capital.current.fcfConversionBeforeSbc" })).toBe("66%");
     expect(figureValueText({ value: 0.5977, unit: "x", currency: null, source: "computed.forensics.accruals.cashFlowAccrualRatio" })).toBe("60%");
     expect(signalValueText({ id: "fcfConversionBeforeSbc", raw: 0.6584750024626839, unit: "frac" })).toBe("66%");
@@ -218,11 +218,11 @@ describe("one rule for an aspect under the evidence floor", () => {
     const label = "Not assessed — limited evidence (score 61/100 on 45% of signals)";
     expect(gradeDisplayLabel(parsed.leadership.graded, parsed.scores!.aspects.leadership)).toBe(label);
     const card = scorecardTable(parsed.scores!);
-    expect(card.rows.find((row) => row[0] === "Leadership (capital stewardship)")?.slice(1, 3)).toEqual(["61", "limited evidence"]);
-    expect(card.note).toMatch(/Leadership \(capital stewardship\) has evidence for 45% of its signal weight, below the 50% floor/);
+    expect(card.rows.find((row) => row[0] === "Leadership (capital-stewardship proxy)")?.slice(1, 3)).toEqual(["61", "limited evidence"]);
+    expect(card.note).toMatch(/Leadership \(capital-stewardship proxy\) has evidence for 45% of its signal weight, below the 50% floor/);
     const markdown = reportToMarkdown(parsed);
-    expect(markdown).toContain(`| Leadership | ${label} |`);
-    expect(markdown).toContain(`**Leadership — ${label}**`);
+    expect(markdown).toContain(`| Leadership (capital-stewardship proxy) | ${label} |`);
+    expect(markdown).toContain(`**Leadership (capital-stewardship proxy) — ${label}**`);
     expect(reportToPrintBody(parsed)).toContain(label);
     expect(renderToStaticMarkup(createElement(ReportView, { report: parsed }))).toContain("61/100 · limited evidence");
     const section = renderToStaticMarkup(createElement(GradeReasoning, { title: "leadership", block: parsed.leadership.graded, aspect: parsed.scores!.aspects.leadership }));
