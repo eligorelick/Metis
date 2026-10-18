@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-17",
+  "generatedAt": "2026-10-18",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -9743,11 +9743,6 @@
           }
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.24.0"
-        },
-        {
           "path": "report.quality.graded.gradeContract",
           "beforeMissing": true,
           "after": {
@@ -9886,6 +9881,18 @@
             "status": "rejected",
             "reason": "grade-distance-exceeded"
           }
+        }
+      ]
+    },
+    {
+      "name": "d84-common-cash-refusal",
+      "decisions": ["D-84"],
+      "reason": "D-84 advances the report convention to 1.24.1 for explicit common-cash refusal custody, including aggregate zero. This general-route fixture has no affected preferred cash observations, so every economic assertion remains pinned; only report.meta.specVersion is reclassified from D-83.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.24.1"
         }
       ]
     }

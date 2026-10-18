@@ -2240,6 +2240,25 @@ See the [implementation disposition](audit/2026-10-17-book-to-code-disposition.m
 and [verification record](audit/2026-10-17-safeguard-verification.md) for the
 bounded scope, evidence and remaining analytical work.
 
+### Common-cash payout admission
+
+Aggregate cash dividends do not establish the common distribution when preferred
+claims existed during the payment window. APIC-inclusive preferred balances are
+existence evidence even when their currency differs; subtraction still requires
+compatible currency and flow periods. Direct common cash, including an explicit
+zero, remains usable. Compatible total cash less preferred cash is admitted only
+when both outflows have consistent signs and preferred does not exceed total.
+Uncontested aggregate zero remains zero; an explicit source refusal remains
+unknown through serialization and payout estimation, including when aggregate
+cash is zero. Fewer than two usable annual payout observations withhold the
+excess-return valuation rather than infer a payout. This can reduce available
+valuations while preserving separately supported TCE and earnings/returns.
+
+Cash payments are not preferred earnings allocations. The separate common-income
+fallback and annual-flow scope questions remain open; no entitlement, arrears,
+accretion or participating-security bridge is invented. See the
+[source evidence and regression record](audit/2026-10-17-preferred-payout-admission.md).
+
 ### Offline outcome evaluation
 
 `npm run research:evaluate -- frozen-evaluation.json [report.json]` consumes the versioned `research-evaluation-v1` contract without provider, model or database calls. Inputs require immutable snapshot identity, information availability dates, a point-in-time universe including delisting coverage, exact forecast periods, currency/share basis, and frozen baselines. Outcome labels are separate first-reported filing values or benchmark-relative total returns including distributions and delistings. Future restatements, unavailable training labels, mismatched periods and current-constituent-only cohorts fail closed.

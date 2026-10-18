@@ -111,7 +111,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // projection availability presentation; legacy reports retain their own stamps.
 // 1.23.1 (D-82): exact source-labeled ISO durations in deterministic claim verification.
 // 1.24.0 (D-83): versioned grade contract and explicit quarter-sum EPS basis.
-export const REPORT_SPEC_VERSION = "1.24.0" as const;
+// 1.24.1 (D-84): preserve explicit common-cash payout refusals through valuation.
+export const REPORT_SPEC_VERSION = "1.24.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

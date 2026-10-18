@@ -3261,7 +3261,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const commonPayoutRows = ctx.cashflowAnnual.map((row) => {
     // A known total cash payout with an unknown common portion cannot be
     // treated as zero common dividends merely because repurchases are known.
-    if (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0) {
+    // An explicit parser refusal also survives a zero aggregate: contradictory
+    // preferred cash prevents that aggregate from proving zero common cash.
+    if (row.fieldConflicts?.commonDividendsPaid?.usable === false ||
+      (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0)) {
       return { ...row, netIncome: undefined };
     }
     const income = financialIncome.find((inc) => inc.date === row.date);
@@ -3432,8 +3435,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       `Common-share valuation uses ${route.base === "bank" ? "tangible common equity and ROTE" : "common equity and common-equity ROE"} from FY ${commonReturns.asOf ?? "unavailable"}; ` +
         "earnings and payout exclude preferred claims. Annual return and opening equity share one dated basis; vendor total-equity ROE is not substituted.",
     );
-    if (excessReturn.payoutRatioPct === null && ctx.cashflowAnnual.some(row => num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0)) {
-      const reason = "Aggregate dividends paid are available but the common cash distribution is not separated from preferred payouts; insufficient common payout history to value common equity. Filed earnings allocations cannot substitute for cash dividends.";
+    if (excessReturn.payoutRatioPct === null && ctx.cashflowAnnual.some(row => row.fieldConflicts?.commonDividendsPaid?.usable === false ||
+      (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0))) {
+      const reason = "Common cash dividends are explicitly withheld or cannot be separated from aggregate dividends; insufficient common payout history to value common equity. An explicit refusal cannot be treated as zero, including when aggregate cash is zero. Filed earnings allocations cannot substitute for cash dividends.";
       result.notes.push(reason);
       result.gaps.push({ field: "valuation.excessReturn.commonDividends", reason, severity: "warn" });
     }
@@ -3623,6 +3627,7 @@ export function newestBalanceRow<TRow extends { date?: unknown }>(
 export function payoutRatioPct3y(cashflowAnnual: FmpCashFlowRow[]): number | null {
   const ratios: number[] = [];
   for (const r of cashflowAnnual.slice(0, 3)) {
+    if (r.fieldConflicts?.commonDividendsPaid?.usable === false) continue;
     const ni = num(r.netIncome);
     if (ni === null || ni <= 0) continue;
     const div = num(r.commonDividendsPaid);

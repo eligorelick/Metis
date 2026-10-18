@@ -391,7 +391,8 @@ export interface ContextPayload {
 // admitted per-multiple bases change the analyst context. Earlier reusable
 // analyst/judge passes cannot resume as equivalent; completed reports stay readable.
 // D-83: quarter-sum EPS basis and changed grade-override prompt contract.
-export const PAYLOAD_VERSION = "1.29.0" as const;
+// 1.29.1 (D-84): common-cash refusals cannot become zero-payout observations.
+export const PAYLOAD_VERSION = "1.29.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

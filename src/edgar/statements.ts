@@ -2280,6 +2280,12 @@ function buildStatementRows<TRow>(
       const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
       if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
         { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
+    } else if (def.statement === "cashflow" && values.commonDividendsPaid === null) {
+      // Statement-level withholding notes do not travel with a serialized row.
+      // Preserve an explicit common-cash refusal so payout cannot infer zero.
+      const refused = notes.withheld.filter((held) => held.field === "commonDividendsPaid" && held.periods.includes(slot.date));
+      if (refused.length > 0) row.fieldConflicts = { commonDividendsPaid:
+        { vendorValue: null, secValue: null, usable: false, reason: refused.map(held => held.text).join("; ") } };
     }
 
     // The superseded figure of every field a later filing changed, kept beside
@@ -2745,18 +2751,39 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     compute(values, notes, date, context) {
       CASHFLOW_DEF.compute(values, notes, date, context);
       const common = context.resolved.get("commonDividendsPaid");
-      const aggregateOnly = common?.tags.length === 1 && common.tags[0] === "PaymentsOfDividends";
-      if (!aggregateOnly || values.commonDividendsPaid === 0) return;
-      // Deliberately still the par-value element alone, not the whole
-      // `preferredStock` chain (D-42, open): resolving the chain here withholds
-      // JPM's common dividends for 2023-2025, which suppresses its entire
-      // excess-return valuation, and JPM files no cash common-dividend element
-      // (no PaymentsOfDividendsCommonStock) to establish them instead. Its
-      // aggregate PaymentsOfDividends (16,625M FY2025) therefore still carries
-      // ~1.1B of preferred dividends into the payout until the owner decides.
-      const preferred = instantResolver(index, date)("PreferredStockValue", "money")?.value ?? null;
-      if (preferred === null || preferred <= 0) return;
-      const reason = "preferred stock is outstanding but only aggregate dividends paid are tagged; common dividends are withheld until the common or preferred CASH distribution is disclosed (earnings allocations are not cash payments)";
+      if (common === undefined || common.tags.includes("PaymentsOfDividendsCommonStock")) return;
+      const aggregateOnly = common.tags.length === 1 && common.tags[0] === "PaymentsOfDividends";
+      let reason: string;
+      if (!aggregateOnly) {
+        const total = values.netDividendsPaid;
+        const preferred = values.preferredDividendsPaid;
+        if (total != null && preferred != null && total <= 0 && preferred <= 0 && preferred >= total) return;
+        reason = "common dividends are withheld: total less preferred CASH payments have contradictory components (cash outflows must be nonnegative and preferred cannot exceed total); no clamping or earnings-allocation substitution is permitted";
+      } else {
+        const start = common.periodStart ?? common.point.start;
+        if (start === undefined) return;
+        // The already cutoff-filtered, deduped index is issuer-local. Any
+        // positive monetary carrying-value synonym in this payout window (or its
+        // opening balance) establishes preferred exposure, even if par or the
+        // closing balance is zero. Distant historical balances do not.
+        const opening = dateMs(start) - DAY_MS;
+        const knownPreferred = tagsFor("preferredStock").some((tag) =>
+          (index.get(tag) ?? []).some((up) => unitMatches(up.unit, "money") && up.points.some((p) =>
+            p.start === undefined && p.val > 0 && dateMs(p.end) >= opening && p.end <= common.point.end)));
+        // Existence needs no FX conversion; only cash subtraction must share
+        // the reporting currency, as enforced by the row resolver above.
+        // A failed preferred-cash component must not silently turn the total
+        // into common cash. Period/currency mismatches remain refusals, even
+        // when no preferred carrying value was filed for the closing date.
+        const preferredCashEvidence = tagsFor("preferredDividendsPaid").some((tag) =>
+          (index.get(tag) ?? []).some((up) => up.points.some((p) => p.start !== undefined &&
+            p.start <= common.point.end && p.end >= start)));
+        // Zero total cash establishes zero common cash unless a refused cash
+        // component contradicts that inference. Never bypass a failed diff.
+        if (values.commonDividendsPaid === 0 && !preferredCashEvidence) return;
+        if (!knownPreferred && !preferredCashEvidence) return;
+        reason = "preferred stock is outstanding during the payout period or preferred cash evidence is incompatible, but only aggregate dividends paid can be used; common dividends are withheld until the common or preferred CASH distribution is disclosed on the same period and currency basis (earnings allocations are not cash payments)";
+      }
       values.commonDividendsPaid = null;
       notes.add(`commonDividendsPaid ${date}: ${reason}`);
       notes.withhold("commonDividendsPaid", date, reason);
