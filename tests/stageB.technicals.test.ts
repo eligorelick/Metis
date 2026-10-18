@@ -310,7 +310,7 @@ describe("range52w", () => {
     rows[iHigh] = { ...rows[iHigh], high: 200 };
     rows[iLow] = { ...rows[iLow], low: 50 };
     rows[399] = { ...rows[399], close: 125 };
-    const r = range52w(rows);
+    const r = range52w(rows, mkRows(range(400, () => 50)));
     expect(r.high52w).toBe(200);
     expect(r.low52w).toBe(50);
     expect(r.highDate).toBe(rows[iHigh].date);
@@ -324,7 +324,7 @@ describe("range52w", () => {
   });
 
   it("guards a degenerate zero-width range", () => {
-    const r = range52w(mkRows(range(10, () => 100)));
+    const r = range52w(mkRows(range(400, () => 100)), mkRows(range(400, () => 50)));
     expect(r.positionPct).toBeNull(); // high == low
     expect(r.pctFromHigh).toBeCloseTo(0, 12);
     expect(r.pctFromLow).toBeCloseTo(0, 12);
@@ -1033,7 +1033,7 @@ describe("technicals — window labels never overstate the history (audit 2026-0
     ];
     const res = computeTechnicals(mkRows(closes), [], [], null);
     const flag = res.read.flags.find((f) => /drawdown/i.test(f));
-    expect(flag).toMatch(/Max drawdown over the available 90-session history \(does not span 1y\)/);
+    expect(flag).toMatch(/Max drawdown over the available 90-session trailing-window sample \(partial 1y coverage\)/);
     expect(flag).not.toMatch(/Max 1y drawdown/);
   });
 

@@ -365,11 +365,17 @@ export interface Range52w {
    * statement, and `pctFromHigh` feeds the 0.35-weight 52-week-high signal (D-48).
    */
   insufficientHistory: boolean;
+  /** Why observed-session coverage could not establish the labelled year. */
+  coverageIssue?: string;
   asOf: string | null;
 }
 
-/** Position within the trailing-12-calendar-month high/low range. */
-export function range52w(rows: readonly OhlcvRow[]): Range52w {
+/**
+ * Position within a trailing year whose observed sessions are covered.
+ * Inputs are admitted, unique, ASC observations. The reference supplies dates
+ * only: no benchmark price, currency or adjustment basis enters the range.
+ */
+export function range52w(rows: readonly OhlcvRow[], sessionReferenceRows: readonly OhlcvRow[] = []): Range52w {
   const empty: Range52w = {
     high52w: null,
     low52w: null,
@@ -386,21 +392,43 @@ export function range52w(rows: readonly OhlcvRow[]): Range52w {
   if (rows.length === 0) return empty;
   const last = rows[rows.length - 1];
   const cutoff = shiftMonths(last.date, -12);
-  // The first available bar may legitimately sit a few days after the exact
-  // 12-month boundary (weekend/holiday), the same allowance relative strength
-  // makes via RS_START_TOLERANCE_DAYS.
+  const win = rows.filter(row => row.date >= cutoff);
+  const unavailable = (coverageIssue: string): Range52w => ({ ...empty, insufficientHistory: true, asOf: last.date, coverageIssue });
+  // Test the actual trailing window; an old observation outside it cannot
+  // establish coverage between that observation and a lone recent close.
   const toleratedStart = new Date(Date.parse(`${cutoff}T00:00:00Z`) + RANGE_52W_START_TOLERANCE_DAYS * CALENDAR_DAY_MS)
     .toISOString()
     .slice(0, 10);
-  if (rows[0].date > toleratedStart) {
-    return { ...empty, insufficientHistory: true, asOf: last.date };
+  if (win[0].date > toleratedStart) {
+    return unavailable(`issuer observations inside the trailing year start ${win[0].date}, after the ${cutoff} boundary plus ${RANGE_52W_START_TOLERANCE_DAYS}-day allowance`);
+  }
+  const reference = sessionReferenceRows.filter(row => row.date >= cutoff && row.date <= last.date);
+  if (reference.length < RANGE_52W_MIN_REFERENCE_OBSERVATIONS) {
+    return unavailable(`observed SPY session reference has only ${reference.length} admitted unique observations inside ${cutoff} to ${last.date} (<${RANGE_52W_MIN_REFERENCE_OBSERVATIONS}); year coverage unestablished`);
+  }
+  if (reference[0].date > toleratedStart) {
+    return unavailable(`observed SPY session reference starts ${reference[0].date}, after the trailing-year boundary allowance`);
+  }
+  const tailDays = (epochUtc(last.date) - epochUtc(reference[reference.length - 1].date)) / CALENDAR_DAY_MS;
+  if (tailDays > RANGE_52W_START_TOLERANCE_DAYS) {
+    return unavailable(`observed SPY session reference ends ${reference[reference.length - 1].date}, ${tailDays} days before issuer end ${last.date}; exceeds the ${RANGE_52W_START_TOLERANCE_DAYS}-day allowance`);
+  }
+  for (let index = 1; index < reference.length; index++) {
+    const gapDays = (epochUtc(reference[index].date) - epochUtc(reference[index - 1].date)) / CALENDAR_DAY_MS;
+    if (gapDays > RANGE_52W_START_TOLERANCE_DAYS) {
+      return unavailable(`observed SPY session reference has a ${gapDays}-day interior gap (${reference[index - 1].date} to ${reference[index].date}); year coverage unestablished`);
+    }
+  }
+  const issuerDates = new Set(win.map(row => row.date));
+  const missing = reference.filter(row => row.date >= win[0].date && !issuerDates.has(row.date));
+  if (missing.length > 0) {
+    return unavailable(`issuer is missing ${missing.length} observed SPY reference session(s) inside the trailing year, first ${missing[0].date}; 52-week range withheld rather than treating a sparse sample as the year`);
   }
   let high = Number.NEGATIVE_INFINITY;
   let low = Number.POSITIVE_INFINITY;
   let highDate: string | null = null;
   let lowDate: string | null = null;
-  for (const r of rows) {
-    if (r.date < cutoff) continue;
+  for (const r of win) {
     if (r.high >= high) {
       high = r.high;
       highDate = r.date;
@@ -473,6 +501,8 @@ export interface RelativeStrengthSet {
 
 /** Weekend/holiday allowance when testing whether history spans a full year. */
 export const RANGE_52W_START_TOLERANCE_DAYS = 7;
+/** Conservative house floor reused from the longest scored SMA window, not a claim of 252 exchange sessions. */
+export const RANGE_52W_MIN_REFERENCE_OBSERVATIONS = 200;
 export const RS_START_TOLERANCE_DAYS = 7;
 export const RS_END_TOLERANCE_DAYS = 7;
 
@@ -1055,8 +1085,12 @@ export interface DrawdownResult {
   troughDate: string | null;
   /** True when a later close regained the peak close; null when depth is 0/unknown */
   recovered: boolean | null;
-  /** True when the supplied history does not span the full window */
+  /** True when observations inside the trailing window do not establish full coverage. */
   insufficientHistory: boolean;
+  /** Admitted observations actually used inside this window, not the entire supplied series. */
+  rowsUsed?: number;
+  /** Partial-depth qualifier: an observed decline is retained even when coverage is unestablished. */
+  coverageIssue?: string;
   asOf: string | null;
 }
 
@@ -1074,20 +1108,32 @@ export function maxDrawdown(rows: readonly OhlcvRow[], windowYears: number): Dra
   if (rows.length === 0 || windowYears <= 0) return empty;
   const last = rows[rows.length - 1];
   const cutoff = shiftMonths(last.date, -Math.round(windowYears * 12));
-  // Apply the same weekend/holiday allowance range52w uses. Without it the
-  // 5-year guard was structurally ALWAYS true: the EOD price fetch window is
-  // exactly 5 years, so the first available bar can never precede a 5-year
-  // cutoff, and every report emitted a false `technicals.drawdown.5y`
-  // insufficient-history gap. The tolerance applies to the GUARD only — the
-  // window filter still uses the exact cutoff.
+  // A first-ever observation outside the trailing window cannot attest to its
+  // contents. Preserve the observed depth but qualify sparse/partial coverage.
   const toleratedStart = new Date(
     Date.parse(`${cutoff}T00:00:00Z`) + RANGE_52W_START_TOLERANCE_DAYS * CALENDAR_DAY_MS,
   )
     .toISOString()
     .slice(0, 10);
-  const insufficientHistory = rows[0].date > toleratedStart;
   const win = rows.filter((r) => r.date >= cutoff);
   if (win.length === 0) return { ...empty, asOf: last.date };
+  let coverageIssue: string | undefined;
+  const minimumRows = Math.ceil(RANGE_52W_MIN_REFERENCE_OBSERVATIONS * windowYears);
+  if (win[0].date > toleratedStart) {
+    coverageIssue = `observations inside the trailing ${windowYears}-year window start ${win[0].date}, after ${cutoff} plus the ${RANGE_52W_START_TOLERANCE_DAYS}-day allowance`;
+  } else if (win.length < minimumRows) {
+    coverageIssue = `only ${win.length} admitted observations inside the trailing ${windowYears}-year window (<${minimumRows}; house coverage floor of ${RANGE_52W_MIN_REFERENCE_OBSERVATIONS} per year)`;
+  } else {
+    for (let index = 1; index < win.length; index++) {
+      const gapDays = (epochUtc(win[index].date) - epochUtc(win[index - 1].date)) / CALENDAR_DAY_MS;
+      if (gapDays > RANGE_52W_START_TOLERANCE_DAYS) {
+        coverageIssue = `${gapDays}-day interior gap (${win[index - 1].date} to ${win[index].date}) exceeds the ${RANGE_52W_START_TOLERANCE_DAYS}-day house coverage allowance`;
+        break;
+      }
+    }
+  }
+  const insufficientHistory = coverageIssue !== undefined;
+  const coverage = { rowsUsed: win.length, ...(coverageIssue ? { coverageIssue } : {}) };
   let peak = Number.NEGATIVE_INFINITY;
   let peakDate: string | null = null;
   let bestDepth = 0;
@@ -1118,6 +1164,7 @@ export function maxDrawdown(rows: readonly OhlcvRow[], windowYears: number): Dra
       troughDate: null,
       recovered: null,
       insufficientHistory,
+      ...coverage,
       asOf: last.date,
     };
   }
@@ -1135,6 +1182,7 @@ export function maxDrawdown(rows: readonly OhlcvRow[], windowYears: number): Dra
     troughDate: bestTroughDate,
     recovered,
     insufficientHistory,
+    ...coverage,
     asOf: last.date,
   };
 }
@@ -1305,7 +1353,9 @@ export function computeTechnicals(
   const cross = smaCross(px, 50, 200);
   const rsi = rsi14(px);
   const macdSnap = macd(px);
-  const range = range52w(px);
+  const range = range52w(px, spyClean.rows);
+  if (range.coverageIssue) gaps.push({ field: "technicals.range52w", reason: range.coverageIssue, severity: "info" });
+  notes.push(`52-week range coverage is checked against admitted observed SPY session dates (house rule): at least ${RANGE_52W_MIN_REFERENCE_OBSERVATIONS} reference observations inside the year, boundary and interior gaps no longer than ${RANGE_52W_START_TOLERANCE_DAYS} calendar days, and every reference session covered by the issuer after its tolerated start. This verifies observed-session coverage, not a complete exchange calendar; an unavailable or incompatible reference withholds the range.`);
   const vol = volumeTrend(px);
   if (px.length >= 90 && vol.avg90d === null) {
     const unavailable = px
@@ -1387,11 +1437,13 @@ export function computeTechnicals(
     // window whose depth becomes a published flag (the deep-drawdown flag), so
     // it is precisely the one whose short history the reader must be told about.
     if (dd.insufficientHistory) {
+      const reason = `full ${dd.windowYears}-year coverage unestablished: ${dd.coverageIssue ?? "insufficient observed history"}; partial observed drawdown computed over ${dd.rowsUsed ?? 0} available observations inside the window only`;
       gaps.push({
         field: `technicals.drawdown.${dd.windowYears}y`,
-        reason: `history does not span the full ${dd.windowYears}-year window — drawdown computed over available rows only`,
+        reason,
         severity: "info",
       });
+      notes.push(reason);
     }
   }
 
@@ -1399,6 +1451,7 @@ export function computeTechnicals(
   notes.push(
     `House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought ≥${RSI_OVERBOUGHT}, oversold ≤${RSI_OVERSOLD}) + MACD histogram; volume trend rising/falling at ${VOLUME_TREND_RISING_RATIO}×/${VOLUME_TREND_FALLING_RATIO}× of the 90-day average; “near 52-week high/low” within ${NEAR_HIGH_PCT}%/${NEAR_LOW_PCT}%; deep-drawdown flag at ${DEEP_DRAWDOWN_FLAG_PCT}% (1y).`,
   );
+  notes.push(`Drawdown coverage is an observation-based house check: at least ${RANGE_52W_MIN_REFERENCE_OBSERVATIONS} admitted rows per labelled year, with a start allowance and maximum interior gap of ${RANGE_52W_START_TOLERANCE_DAYS} calendar days. A partial observed depth is retained with its coverage qualifier; it is not proof of a complete exchange calendar and does not depend on benchmark availability.`);
 
   // --- structured read + flags ----------------------------------------------
   const flags: string[] = [];
@@ -1470,7 +1523,7 @@ export function computeTechnicals(
     // A peak-to-trough measured over three months is not a one-year statistic
     // (the same rule range52w applies): the window label says what it spans.
     const windowLabel = dd1y.insufficientHistory
-      ? `Max drawdown over the available ${px.length}-session history (does not span 1y)`
+      ? `Max drawdown over the available ${dd1y.rowsUsed ?? px.length}-session trailing-window sample (partial 1y coverage)`
       : "Max 1y drawdown";
     flags.push(
       `${windowLabel} ${fmt1(dd1y.depthPct)}% (peak ${dd1y.peakDate ?? "n/a"} → trough ${dd1y.troughDate ?? "n/a"}), ${dd1y.recovered ? "since recovered" : "not yet recovered"}.`,

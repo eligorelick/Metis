@@ -751,7 +751,7 @@ describe("degradationPlan", () => {
     expect(all).toContain("No 5y/10y CAGRs");
     expect(all).toContain("5 quarters");
     expect(all).toContain("thin coverage");
-    expect(plan.items.some((i) => i.target === "technicals.sma200" && i.action === "suppress")).toBe(true);
+    expect(plan.items.some((i) => i.target === "technicals.sma200" && i.action === "annotate")).toBe(true);
   });
 
   it("pre-revenue: valuation replaced by runway framing", () => {
