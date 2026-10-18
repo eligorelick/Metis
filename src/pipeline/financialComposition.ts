@@ -4,10 +4,11 @@ import type { FilingDisclosures, FilingRef } from "@/report/schema";
 
 type Row = NonNullable<FilingDisclosures["filingFacts"]>[number];
 type Point = { val: number; start: string | null; tag: string };
-type CompositionSource = Pick<ExtractedSection, "reportDate" | "filingDate" | "form" | "accession" | "documentUrl"> & { metadataOnly?: boolean };
+type CompositionSource = Pick<ExtractedSection, "reportDate" | "filingDate" | "form" | "accession" | "documentUrl" | "statementsText"> & { metadataOnly?: boolean; text?: string };
 const SBC_NOTE = "Recognized expense and capitalized SBC are not additive as comprehensive current-service cost: amortization of previously capitalized SBC is unestablished, so comprehensive current-service cost is unestablished. No extra FCF deduction is made from this composition.";
-const CASH_NOTE = "Cash including restrictions is not all available liquidity. These are same-date, same-currency balances from one filing; restricted cash is not deducted again from directly tagged unrestricted cash.";
-const WC_NOTE = "Signed cash-flow contributions for identified standard components only; merchant payables and deferred merchant bookings remain unresolved. This is not total working capital, merchant float, a cash-float sensitivity or normalized FCF.";
+const CASH_NOTE = "Cash including restrictions is not all available liquidity. These are same-date, same-currency balances from one filing; restricted cash is not deducted again from directly tagged unrestricted cash. Restricted components are current and noncurrent; the reported combined aggregate and its components are not additive. Missing components remain unknown, not zero.";
+const WC_NOTE = "Signed cash-flow contributions for identified standard components only; other working-capital components remain unresolved. This is not total working capital or normalized FCF.";
+const MERCHANT_WC_NOTE = "Merchant payables and deferred merchant bookings remain unresolved; this is not merchant float or a cash-float sensitivity.";
 const TAX_NOTE = "Income-tax balances shown gross, not an occupancy-tax pair; legal netting and jurisdiction matching are unestablished. The receivable tag alone does not establish maturity. No net liquidity amount is inferred.";
 
 function day(value: unknown): string | null {
@@ -86,14 +87,20 @@ export function financialCompositionFacts(bundle: DataBundle, currency: string |
     for (const p of points("EmployeeServiceShareBasedCompensationAllocationOfRecognizedPeriodCostsCapitalizedAmount", true)) add("sbc-capitalized", "SBC costs capitalized (separately reported)", p, SBC_NOTE);
 
     const narrow = points("CashAndCashEquivalentsAtCarryingValue", false)[0];
+    // Despite its name, AtCarryingValue is the US-GAAP CURRENT restricted
+    // cash concept, not aggregate restricted cash. Never infer a missing
+    // noncurrent component is zero, or add the reported aggregate twice.
     const restricted = points("RestrictedCashAndCashEquivalentsAtCarryingValue", false)[0];
+    const noncurrent = points("RestrictedCashAndCashEquivalentsNoncurrent", false)[0];
     const combined = points("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", false)[0];
-    const reconciled = narrow !== undefined && restricted !== undefined && combined !== undefined && narrow.val >= 0 && restricted.val >= 0 && Math.abs(narrow.val + restricted.val - combined.val) < 0.01;
-    const cashNote = `${CASH_NOTE} ${reconciled ? "Narrow cash plus restricted cash reconciles to the reported combined balance." : "A complete nonnegative cash reconciliation is unestablished; no available-cash total is inferred."}`;
+    const reconciled = narrow !== undefined && restricted !== undefined && noncurrent !== undefined && combined !== undefined &&
+      narrow.val >= 0 && restricted.val >= 0 && noncurrent.val >= 0 && combined.val >= 0 && Math.abs(narrow.val + restricted.val + noncurrent.val - combined.val) < 0.01;
+    const cashNote = `${CASH_NOTE} ${reconciled ? "Narrow cash plus current and noncurrent restricted cash reconciles to the reported combined balance." : "A complete nonnegative cash reconciliation is unestablished; no available-cash total is inferred."}`;
     if (narrow) add("cash-unrestricted", "Cash and cash equivalents (excluding restrictions)", narrow, cashNote);
-    if (restricted) add("cash-restricted", "Restricted cash and cash equivalents", restricted, cashNote);
+    if (restricted) add("cash-restricted", "Restricted cash and cash equivalents, current", restricted, cashNote);
+    if (noncurrent) add("cash-restricted-noncurrent", "Restricted cash and cash equivalents, noncurrent", noncurrent, cashNote);
     if (combined) add("cash-combined", "Combined cash including restrictions (reported)", combined, cashNote,
-      reconciled ? `${narrow.val} + ${restricted.val} = ${combined.val} ${currency}; narrow cash plus restricted cash` : null);
+      reconciled ? `${narrow.val} + ${restricted.val} + ${noncurrent.val} = ${combined.val} ${currency}; narrow cash plus current and noncurrent restricted cash` : null);
 
     for (const [tag, key, label] of [["IncomeTaxesReceivable", "receivable", "Income taxes receivable (as tagged)"], ["AccruedIncomeTaxesCurrent", "payable", "Current income taxes payable"]] as const) {
       const p = points(tag, false)[0];
@@ -105,15 +112,18 @@ export function financialCompositionFacts(bundle: DataBundle, currency: string |
       ["IncreaseDecreaseInOtherAccountsPayableAndAccruedLiabilities", "other-liabilities", "Other accounts payable and accrued liabilities cash-flow contribution", 1],
       ["IncreaseDecreaseInIncomeTaxes", "income-taxes", "Income taxes cash-flow contribution", 1],
     ] as const;
+    // Merchant-specific caveats require evidence in this admitted filing;
+    // standard XBRL working-capital tags alone do not establish that model.
+    const wcNote = `${WC_NOTE}${/\b(?:merchant payables|deferred merchant bookings)\b/i.test(`${section.text ?? ""} ${section.statementsText ?? ""}`) ? ` ${MERCHANT_WC_NOTE}` : ""}`;
     const windows = new Map<string, Point[]>();
     for (const [tag, key, label, sign] of components) for (const p of points(tag, true)) {
       const signed = { ...p, val: p.val * sign };
-      add(`working-capital-${key}`, label, signed, WC_NOTE, `${p.val} ${currency} tagged change x ${sign} = ${signed.val} ${currency} cash-flow contribution`);
+      add(`working-capital-${key}`, label, signed, wcNote, `${p.val} ${currency} tagged change x ${sign} = ${signed.val} ${currency} cash-flow contribution`);
       const matches = windows.get(p.start!) ?? []; matches.push(signed); windows.set(p.start!, matches);
     }
     for (const [start, matches] of windows) if (matches.length === components.length) {
       const subtotal = matches.reduce((sum, p) => sum + p.val, 0);
-      add("working-capital-subtotal", "Identified four-component working-capital partial subtotal", { val: subtotal, start, tag: matches.map(p => p.tag).join(" + us-gaap/") }, WC_NOTE,
+      add("working-capital-subtotal", "Identified four-component working-capital partial subtotal", { val: subtotal, start, tag: matches.map(p => p.tag).join(" + us-gaap/") }, wcNote,
         `${matches.map(p => p.val).join(" + ")} = ${subtotal} ${currency}; partial subtotal of four identified signed contributions`);
     }
   }

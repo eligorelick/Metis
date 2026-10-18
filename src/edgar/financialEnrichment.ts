@@ -3,7 +3,9 @@ import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, S
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
+import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
+import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -63,6 +65,9 @@ function principal(facts: CompanyFacts, unit: string, end: string, scope: "annua
 export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps };
+  const recovered = recoverNoteCarryingDebt(row, facts, currency, observedAt, presentations);
+  if (recovered !== null) return { row: recovered, gaps: [{ field: `statements.balance.${row.date}.totalDebt`,
+    reason: "same-filing debt note reconciles principal less discounts to current and noncurrent carrying debt; recognized operating and finance leases added exactly once", severity: "info", expected: true }] };
   let out = row;
   // Preserve raw observations for audit, but an explicitly rejected financing
   // or lease component cannot establish any aggregate's carrying-value basis.
@@ -140,9 +145,57 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   return { row: out, gaps };
 }
 
+/** A missing taxonomy class is recoverable; unrelated refusals remain authoritative. */
+function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, observedAt: string, sections: readonly ExtractedSection[]): T | null {
+  const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date!, observedAt);
+  const filing = aggregate?.evidence.filings[0];
+  if (!aggregate || !filing) return null;
+  const matches = (e: StatementFieldProvenance | undefined): boolean => e?.source === "edgar" && e.unit === currency && e.periodEnd === row.date &&
+    e.periodStart === null && e.observedAt.slice(0, 10) <= observedAt.slice(0, 10) && e.filings.length > 0 &&
+    e.filings.every((f) => f.accn === filing.accn && f.filed === filing.filed && f.form === filing.form);
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
+  const currentEvidence = row.fieldProvenance?.shortTermDebt;
+  const maturity = instant(facts, maturityTag, currency, row.date!, observedAt);
+  const fiscalStandIn = matches(currentEvidence) && currentEvidence!.tags.includes(`us-gaap/${maturityTag}`) && matches(maturity?.evidence);
+  for (const field of ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"]) {
+    const conflict = row.fieldConflicts?.[field];
+    if (!conflict) continue;
+    const recoverable = field === "shortTermDebt" ? fiscalStandIn && conflict.reason.startsWith("debt maturity scope unresolved:")
+      : ["totalDebt", "netDebt"].includes(field) && (/^incomplete debt carrying value: (?:shortTermDebt is unavailable \(debt maturity scope unresolved:|debt maturity scope unresolved:|current\/noncurrent financing components do not establish the total;)/.test(conflict.reason));
+    if (!recoverable || (conflict.vendorValue !== null && !(field === "shortTermDebt" && conflict.vendorValue === maturity?.value)) ||
+        (conflict.secEvidence !== undefined && !matches(conflict.secEvidence))) return null;
+  }
+  const operating = liability(facts, "Operating", currency, row.date!, observedAt);
+  const finance = liability(facts, "Finance", currency, row.date!, observedAt);
+  if (!operating || !finance || !matches(operating.evidence) || !matches(finance.evidence) ||
+      !finite(row.capitalLeaseObligations) || !matches(row.fieldProvenance?.capitalLeaseObligations) ||
+      row.capitalLeaseObligations !== operating.value + finance.value ||
+      (row.operatingLeaseLiability != null && row.operatingLeaseLiability !== operating.value) ||
+      (row.financeLeaseLiability != null && row.financeLeaseLiability !== finance.value)) return null;
+  const sources = sections.filter((s) => s.accession === filing.accn && s.filingDate === filing.filed && s.form === filing.form);
+  if (sources.length !== 1) return null;
+  const note = reconcileDebtNoteCarrying({ text: sources[0]!.text, source: sources[0]!, periodEnd: row.date!, currency, observedAt,
+    principal: aggregate.value, principalSource: { cik: String(facts.cik), accession: filing.accn, filingDate: filing.filed, periodEnd: row.date!, unit: currency } });
+  if (!note || (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, ""))) return null;
+  const total = note.carryingDebt + row.capitalLeaseObligations;
+  const cash = row.fieldConflicts?.cashAndCashEquivalents ? null : row.cashAndCashEquivalents;
+  const netDebt = finite(cash) ? total - cash : null;
+  if ((row.shortTermDebt != null && row.shortTermDebt !== note.currentDebt && !(fiscalStandIn && row.shortTermDebt === maturity?.value)) ||
+      (row.longTermDebt != null && row.longTermDebt !== note.noncurrentDebt) || (row.totalDebt != null && row.totalDebt !== total) ||
+      (row.netDebt != null && row.netDebt !== netDebt)) return null;
+  const fieldConflicts = { ...row.fieldConflicts };
+  for (const field of ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt"]) delete fieldConflicts[field];
+  const totalEvidence = { ...note.evidence, tags: [...new Set([...note.evidence.tags, ...row.fieldProvenance!.capitalLeaseObligations!.tags])] };
+  return { ...row, shortTermDebt: note.currentDebt, longTermDebt: note.noncurrentDebt, totalDebt: total,
+    netDebt, fieldConflicts,
+    fieldProvenance: { ...row.fieldProvenance, shortTermDebt: note.evidence, longTermDebt: note.evidence, totalDebt: totalEvidence } };
+}
+
 /** Enrichs missing fields only. Conflicts preserve vendor observations and carry usable:false. */
 export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
+  const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
     if (!input.ok) return input;
     const rows = input.value.data.rows.map((row) => {
@@ -180,6 +233,11 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, exact ${scope} period ending ${row.date}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
       }
       if (kind === "balance") {
+        if (temporaryRows !== null) {
+          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik);
+          out = temporary.row;
+          gaps.push(...temporary.gaps);
+        }
         const admitted = admitDebtFields(out, facts, currency, observedAt, presentations);
         out = admitted.row;
         gaps.push(...admitted.gaps);

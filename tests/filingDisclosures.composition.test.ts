@@ -26,6 +26,7 @@ function fixture() {
     EmployeeServiceShareBasedCompensationAllocationOfRecognizedPeriodCostsCapitalizedAmount: concept(49, "2026-01-01"),
     CapitalizedComputerSoftwareAmortization1: concept(350, "2026-01-01"),
     CashAndCashEquivalentsAtCarryingValue: concept(6682), RestrictedCashAndCashEquivalentsAtCarryingValue: concept(2402),
+    RestrictedCashAndCashEquivalentsNoncurrent: concept(0),
     CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents: concept(9084),
     IncomeTaxesReceivable: concept(50), AccruedIncomeTaxesCurrent: concept(55),
     IncreaseDecreaseInAccountsReceivable: concept(1654, "2026-01-01"),
@@ -68,15 +69,16 @@ describe("source-bound financial composition disclosures", () => {
   it("reconciles same-source cash, keeps current income taxes gross, and labels working-capital subtotal partial", () => {
     const { bundle } = fixture();
     const facts = composition(bundle);
-    expect(facts.filter(f => f.key.startsWith("composition-cash-")).map(f => f.value)).toEqual([6682 * M, 2402 * M, 9084 * M]);
-    expect(facts.find(f => f.key === "composition-cash-combined")?.computed).toContain("6682000000 + 2402000000 = 9084000000 USD");
+    expect(facts.filter(f => f.key.startsWith("composition-cash-")).map(f => f.value)).toEqual([6682 * M, 2402 * M, 0, 9084 * M]);
+    expect(facts.find(f => f.key === "composition-cash-combined")?.computed).toContain("6682000000 + 2402000000 + 0 = 9084000000 USD");
     const tax = facts.filter(f => f.key.startsWith("composition-tax-"));
     expect(tax.map(f => f.value)).toEqual([50 * M, 55 * M]);
     expect(tax.every(f => /not an occupancy-tax pair.*legal netting.*unestablished/i.test(f.text))).toBe(true);
     const wc = facts.filter(f => f.key.startsWith("composition-working-capital-"));
     expect(wc.map(f => f.value)).toEqual([-1654 * M, -230 * M, 282 * M, -12 * M, -1614 * M]);
     expect(wc.at(-1)?.label).toMatch(/partial subtotal/i);
-    expect(wc.every(f => /merchant payables.*deferred merchant bookings.*unresolved/i.test(f.text))).toBe(true);
+    expect(wc.every(f => /other working-capital components remain unresolved/i.test(f.text))).toBe(true);
+    expect(wc.every(f => !/merchant/i.test(f.text))).toBe(true);
   });
   it.each(["issuer", "accession", "date", "currency", "future", "url"])("rejects unestablished %s source compatibility", kind => {
     const { bundle, gaap } = fixture();
@@ -121,11 +123,30 @@ describe("source-bound financial composition disclosures", () => {
     report.filingDisclosures = disclosures;
     for (const text of [reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
       expect(text).toContain("comprehensive current-service cost is unestablished");
-      expect(text).toContain("merchant payables and deferred merchant bookings remain unresolved");
+      expect(text).toContain("other working-capital components remain unresolved");
+      expect(text).not.toContain("merchant payables and deferred merchant bookings remain unresolved");
       expect(text).toContain("not an occupancy-tax pair");
     }
     const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
     expect(payload.filingFacts?.notes.join(" ")).toContain("comprehensive current-service cost is unestablished");
-    expect(payload.filingFacts?.notes.join(" ")).toContain("merchant payables and deferred merchant bookings remain unresolved");
+    expect(payload.filingFacts?.notes.join(" ")).toContain("other working-capital components remain unresolved");
+    expect(payload.filingFacts?.notes.join(" ")).not.toContain("merchant payables and deferred merchant bookings remain unresolved");
+  });
+  it("preserves merchant-specific warnings when the same admitted filing identifies merchant balances", () => {
+    const { bundle } = fixture();
+    if (!bundle.edgar.tenQNotes?.ok) throw new Error("fixture missing notes");
+    bundle.edgar.tenQNotes.value.data.text = "Merchant payables and deferred merchant bookings are presented in accrued liabilities.";
+    const wc = composition(bundle).filter(f => f.key.startsWith("composition-working-capital-"));
+    expect(wc).toHaveLength(5);
+    expect(wc.every(f => /merchant payables and deferred merchant bookings remain unresolved/i.test(f.text))).toBe(true);
+    expect(wc.every(f => /other working-capital components remain unresolved/i.test(f.text))).toBe(true);
+  });
+  it("retains merchant caveats supported by the same filing's statement prefix", () => {
+    const { bundle } = fixture();
+    if (!bundle.edgar.tenQNotes?.ok) throw new Error("fixture missing notes");
+    bundle.edgar.tenQNotes.value.data.statementsText = "Deferred merchant bookings are included in current liabilities.";
+    const wc = composition(bundle).filter(f => f.key.startsWith("composition-working-capital-"));
+    expect(wc).toHaveLength(5);
+    expect(wc.every(f => /merchant payables and deferred merchant bookings remain unresolved/i.test(f.text))).toBe(true);
   });
 });

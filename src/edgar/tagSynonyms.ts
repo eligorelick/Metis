@@ -253,6 +253,7 @@ export const LINE_ITEM_TAGS = {
   ]),
   cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
   restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
+  restrictedCashAndCashEquivalentsNoncurrent: entry(["RestrictedCashAndCashEquivalentsNoncurrent"]),
   shortTermInvestments: entry([
     "ShortTermInvestments",
     "MarketableSecuritiesCurrent",
@@ -326,6 +327,11 @@ export const LINE_ITEM_TAGS = {
   totalStockholdersEquity: entry(["StockholdersEquity"]),
   totalEquity: entry(["StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"]),
   minorityInterest: entry(["MinorityInterest", "NonredeemableNoncontrollingInterest"]),
+  // Mezzanine carrying amounts, never permanent preferredStock, redemption
+  // values, liquidation preferences, or share counts.
+  temporaryEquity: entry(["TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests"]),
+  temporaryEquityAttributableToParent: entry(["TemporaryEquityCarryingAmountAttributableToParent"]),
+  temporaryEquityAttributableToNoncontrollingInterest: entry(["RedeemableNoncontrollingInterestEquityCarryingAmount"]),
   deposits: entry(["Deposits"]),
   sharesOutstandingBalanceSheet: entry([BALANCE_SHEET_SHARES_TAG]),
 

@@ -187,6 +187,8 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
 }
 
 export interface FmpBalanceSheetRow extends FmpStatementRow {
+  /** Legacy estimates derived from the identity cannot independently validate it. */
+  identityDerivedFields?: string[];
   cashAndCashEquivalents?: number;
   /** SEC combined total; never a synonym for unrestricted cash. */
   cashAndCashEquivalentsIncludingRestricted?: number;
@@ -223,6 +225,12 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalStockholdersEquity?: number;
   totalEquity?: number;
   minorityInterest?: number;
+  /** Filed mezzanine total including redeemable NCI; separate from permanent equity. */
+  temporaryEquity?: number | null;
+  /** Filed parent mezzanine carrying amount; does not establish the NCI amount. */
+  temporaryEquityAttributableToParent?: number | null;
+  /** Redeemable NCI outside permanent equity; not minorityInterest. */
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
   totalInvestments?: number;
   totalDebt?: number;
   netDebt?: number;
