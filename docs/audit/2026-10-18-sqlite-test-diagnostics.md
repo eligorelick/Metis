@@ -10,6 +10,8 @@ The bootstrap test still attempts mandatory cleanup after its body. A sole failu
 
 All database, credential-stripping, and cleanup assertions remain. The 12-second child timeout and 15-second test timeout remain. There are no production, dependency, runtime, methodology, or version-stamp changes.
 
+The bounds apply to reported strings, not preprocessing memory: streams are sanitized before truncation. Fixed fields do not redact sensitive content already embedded in messages or output. The helper assumes ordinary Node/Vitest error properties; throwing property getters are outside this tested path.
+
 [Node 24.16.0, `execFileSync`](https://nodejs.org/download/release/v24.16.0/docs/api/child_process.html#child_processexecfilesyncfile-args-options) describes waiting for the directly spawned child and returning its result in a thrown error on failure. This patch preserves that result if cleanup also fails. It does not establish that every npm/Windows shell descendant has terminated before cleanup, implement a process-tree wait, or resolve the original CI failure. That would require separate ownership-aware process lifecycle evidence and tests.
 
 ## Verification
