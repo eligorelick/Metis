@@ -20,7 +20,7 @@
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
-import { commonHolderCapital, resolveSecurityBasis, resolveEconomicEquityScope, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
@@ -2740,7 +2740,7 @@ export interface MultiplesQuoteInputs {
 }
 
 /** TTM income statement slice (FMP names). */
-export interface MultiplesIncomeTtm {
+export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   date: string;
   /**
    * Period basis of this slice: "ttm" (4 complete quarters) or "annual"
@@ -2831,7 +2831,7 @@ export interface MultiplesBalance {
 }
 
 /** Quarterly fundamentals merged per quarter by the caller (FMP names). */
-export interface QuarterlyFundamentalsRow {
+export interface QuarterlyFundamentalsRow extends CommonIncomeInputs {
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
@@ -3196,12 +3196,19 @@ function deriveOwnHistory(
         : null,
     );
     const ttmNi = sum((r) => r.netIncome);
-    const ttmCommonNi = sum((r) => {
-      if (!isNum(r.netIncomeAvailableToCommon) &&
+    const commonWindow = constructCommonIncomeQuarterWindow(window);
+    // Preserve each quarter's outside-claim admission while selecting the same
+    // complete numerator branch for the entire current/historical window.
+    const fallbackRefusal = isNum(commonWindow.netIncomeAvailableToCommon) ? null : window.map(r => {
+      if (
         ((currentCommonAllocation.preferred && !isNum(r.preferredStock)) ||
-          (currentCommonAllocation.nci && !isNum(r.minorityInterest) && r.netIncomeOwnershipBasis !== "parent"))) return null;
-      return commonHolderCapital(r, r).commonIncome;
-    });
+          (currentCommonAllocation.nci && !isNum(r.minorityInterest) && r.netIncomeOwnershipBasis !== "parent"))) return "historical outside-claim allocation is unavailable";
+      return commonHolderCapital({ ...r, netIncomeAvailableToCommon: null }, r).incomeWithheldReason;
+    }).find(reason => reason !== null) ?? null;
+    const commonSelection = commonHolderCapital(commonWindow, window[0]);
+    const commonWindowRefusal = commonWindow.commonIncomeWithheldReason ?? fallbackRefusal ?? commonSelection.incomeWithheldReason;
+    if (commonWindowRefusal) unusableWindows.push({ anchor: window[0].date, reason: `historical common-income P/E withheld: ${commonWindowRefusal}` });
+    const ttmCommonNi = commonWindowRefusal ? null : commonSelection.commonIncome;
     const quotedEps = peConstruction === "price-eps" ? sum(r => r.epsSecurityBasis === "quoted" ? r.epsDiluted ?? null : null) : null;
     const ttmFcf = sum((r) => deriveFcf(r.operatingCashFlow, r.capitalExpenditure));
     const cashOwnershipUnresolved = window.some(unresolvedCashOwnership);

@@ -529,10 +529,18 @@ describe("payload determinism + provenance", () => {
       fairValue: computed.fairValue,
       scenarioTargets: computed.scenarioTargets,
     };
-    // D-83 changes only this exact P/E definition string, not any financial
-    // leaf. Removing that disclosed text reproduces the entire preceding pin.
+    // D-83 adds this exact EPS disclosure. D-85 corrects only the fallback
+    // basis wording in this unaffected fixture; restore those exact strings
+    // to retain the complete preceding financial pin without masking numbers.
     const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
-    const precedingFinance = JSON.parse(JSON.stringify(finance, (_key, value) => typeof value === "string" ? value.replace(epsDisclosure, "") : value));
+    const currentBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction)";
+    const precedingBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; net income less disclosed preferred distributions (parent income; no second NCI deduction))";
+    expect(computed.valuation.multiples?.multiples[0]?.basis).toBe(currentBasis + epsDisclosure);
+    const precedingFinance = JSON.parse(JSON.stringify(finance, (_key, value) => {
+      if (typeof value !== "string") return value;
+      const withoutEps = value.replace(epsDisclosure, "");
+      return withoutEps === currentBasis ? precedingBasis : withoutEps;
+    }));
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     expect({
       fingerprint: payloadFingerprint(payload),
@@ -805,8 +813,10 @@ describe("payload determinism + provenance", () => {
       // Registry/finance hashes and numeric values remain pinned unchanged.
       // D-83: exact EPS convention text adds 283 bytes; registries unchanged.
       // D-84: version-only change for this unaffected general-route fixture.
-      fingerprint: "1.30.0:a5202a9e",
-      promptBytes: 138_699,
+      // D-85: exact fallback basis wording removes 14 prompt bytes; financial
+      // numbers, availability and registry identities remain unchanged.
+      fingerprint: "1.30.1:bc4cf829",
+      promptBytes: 138_685,
       provenanceCount: 531,
       provenanceHash: "ebdcddba",
       provenanceIdsHash: "0dee6be6",
@@ -831,7 +841,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "cb9d0f56",
+      financeHash: "75dbcb7a",
     });
   });
 
@@ -955,7 +965,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.30.0");
+    expect(first.payloadVersion).toBe("1.30.1");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2450,7 +2460,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.25.0");
+    expect(report.meta.specVersion).toBe("1.25.1");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

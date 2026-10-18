@@ -30,6 +30,7 @@ import { leaseDebtConflict, NET_DEBT_RESOLVER_VERSION, resolveNetDebt } from "@/
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
 import { leaseDebtScopeRefusal } from "./leaseScope";
 
 // ---------------------------------------------------------------------------
@@ -1180,10 +1181,10 @@ export function waccByFiscalYear(
 // ROIC — NOPAT / average invested capital, 5-year series
 // ---------------------------------------------------------------------------
 
-export interface ReturnsIncomeRow {
+export interface ReturnsIncomeRow extends Omit<CommonIncomeInputs, "netIncome"> {
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
-  /** Preferred dividends for the period; nets out of the ROTE numerator. */
+  /** Cash paid establishes preferred exposure, never an earnings allocation. */
   preferredDividendsPaid?: number | null;
   /** Filed common earnings already reflect preferred distributions and other adjustments. */
   netIncomeAvailableToCommon?: number | null;
@@ -1199,6 +1200,7 @@ export interface ReturnsIncomeRow {
 }
 
 export interface ReturnsBalanceRow {
+  commonEquityPeriodEnd?: string | null;
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
@@ -1511,13 +1513,8 @@ export function tangibleCommonEquity(b: ReturnsBalanceRow): number | null {
 }
 
 /** Earnings belonging to common holders, shared by returns and common-equity valuation. */
-export function incomeAvailableToCommon(row: ReturnsIncomeRow, preferredStock: number | null | undefined): number | null {
-  if (isFiniteNumber(row.netIncomeAvailableToCommon)) return row.netIncomeAvailableToCommon;
-  if (!isFiniteNumber(row.netIncome)) return null;
-  const hasPreferred = isFiniteNumber(preferredStock) && preferredStock > 0;
-  const distribution = isFiniteNumber(row.preferredDividendsPaid) ? Math.abs(row.preferredDividendsPaid) : null;
-  if (distribution !== null && (distribution > 0 || !hasPreferred)) return row.netIncome - distribution;
-  return hasPreferred ? null : row.netIncome;
+export function incomeAvailableToCommon(row: ReturnsIncomeRow, preferredStock: number | null | undefined, minorityInterest?: number | null): number | null {
+  return selectCommonIncome({ ...row, netIncome: row.netIncome ?? null }, { totalStockholdersEquity: null, preferredStock, minorityInterest }).value;
 }
 
 /**
@@ -1562,26 +1559,19 @@ export function computeRote(
     // Numerator is net income available to COMMON. The denominator already
     // excludes preferred, so crediting preferred earnings to common would
     // overstate ROTE for any issuer with meaningful preferred outstanding —
-    // exactly the issuers (banks) this metric exists for. Fail closed when
-    // preferred is present but its dividend is unavailable, rather than
-    // silently returning the unadjusted ratio.
-    const prefDivRaw = isFiniteNumber(row.preferredDividendsPaid)
-      ? Math.abs(row.preferredDividendsPaid)
-      : null;
-    const hasPreferred = isFiniteNumber(cur.preferredStock) && cur.preferredStock > 0;
-    // A vendor 0 beside OUTSTANDING preferred is the zero-for-undisclosed
-    // placeholder (the convention interestExpense already gets), not a coupon
-    // of nothing: preferred that is outstanding pays. Treating it as disclosed
-    // credited the whole preferred coupon to common on exactly the issuers
-    // (banks) this metric exists for.
-    const ni = incomeAvailableToCommon(row, cur.preferredStock);
-    if (ni === null && hasPreferred && isFiniteNumber(row.netIncome)) {
-      notes.push(
-        `${row.date}: preferred stock is outstanding but preferred dividends are ${
-          prefDivRaw === 0 ? "reported as 0 (treated as undisclosed — vendor zero-for-undisclosed)" : "unavailable"
-        } — ROTE withheld rather than crediting preferred earnings to common`,
-      );
-    }
+    // exactly the issuers (banks) this metric exists for. Preferred claims
+    // require filed common earnings or a complete earnings-allocation bridge;
+    // cash paid cannot establish the earnings entitlement.
+    // A zero closing balance cannot erase preferred exposure at the opening.
+    const opening = row.incomeScope?.periodStart ? Date.parse(row.incomeScope.periodStart) - 86_400_000 : Date.parse(row.date) - 400 * 86_400_000;
+    const preferredExposure = bal.some(balance => isFiniteNumber(balance.preferredStock) && balance.preferredStock > 0 &&
+      Date.parse(balance.date) >= opening && Date.parse(balance.date) <= Date.parse(row.date));
+    const selected = selectCommonIncome({ ...row, netIncome: row.netIncome ?? null, capitalPeriodEnd: cur.commonEquityPeriodEnd ?? cur.date,
+      preferredClaimsInPeriod: row.preferredClaimsInPeriod || preferredExposure,
+    }, { ...cur, totalStockholdersEquity: cur.totalStockholdersEquity ?? null });
+    const ni = selected.value;
+    if (selected.withheldReason) notes.push(`${row.date}: ROTE withheld: ${selected.withheldReason}`);
+    else if (row.commonIncomeScope?.allocationBasis === "basic-eps-common-stockholders") notes.push(`${row.date}: ROTE numerator: ${selected.basis}`);
 
     // A non-positive tangible base makes the ratio meaningless, not merely
     // negative: it is the same category error ROIC's guard already refuses.
@@ -1608,13 +1598,13 @@ export function computeRote(
   if (series.length > 0 && series.every((y) => y.rotePct === null)) {
     gaps.push({
       field: "returns.rote",
-      reason: "return on tangible common equity not computable (common earnings, the preferred-dividend adjustment, or a positive tangible base is missing)",
+      reason: "return on tangible common equity not computable (admitted common earnings or a positive tangible base is missing)",
       severity: "warn",
     });
   }
   if (series.length > 0) {
     notes.push(
-      "ROTE = income available to common / average tangible common equity (equity − goodwill − other intangibles − preferred). Filed common earnings are used directly; otherwise net income is reduced by disclosed preferred dividends.",
+      "ROTE = income available to common / average tangible common equity (equity − goodwill − other intangibles − preferred). Filed common earnings retain their sign; preferred cash paid cannot establish the earnings allocation. Unsupported common earnings are withheld.",
     );
   }
 

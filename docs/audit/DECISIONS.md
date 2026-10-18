@@ -1952,6 +1952,14 @@ behavior; historical measured costs remain the observations recorded below.
 - **Versions:** Report `1.24.1`, payload `1.29.1`, pipeline `stage-c-1.2.1`, Stage B `STAGE_B_2026_10_COMMON_CASH_REFUSAL_6`; earlier contexts and artifact identities cannot resume as equivalent implementations. The general-route audit's economic leaves remain unchanged; only its report-spec expectation moves to this version.
 - **Separate follow-ons:** Preferred cash is not an earnings-allocation bridge; common-income selection and annual-flow matching require their own guarded investigation and fixtures. No new TCE convention or rewriting of saved reports is included.
 
+## D-85 Common-earnings allocation and flow admission (2026-10-18)
+
+- **Problem:** Preferred cash paid was subtracted as if it were the current earnings allocation. Nearby statement dates also discarded actual flow intervals, field currencies and ownership, allowing incompatible annual flows or duplicated/missing actual quarters to enter common-holder metrics.
+- **Choice:** Share deterministic common-income selection across returns, payout and multiples. Preserve admitted common numerators including zero/losses; otherwise withhold when known preferred claims lack an earnings bridge. Carry actual field scopes through joins and validate rolling coverage before summation. Preserve signed consolidated NCI allocations; refuse known nonzero allocations with unknown ownership instead of guessing a second deduction.
+- **Convention:** Admitted filed Basic numerators retain the current house return convention and are explicitly labeled where provenance establishes it. Two-class allocation can differ from issuer common-equity income, but that distinction alone is not a convention redesign. No allocation, entitlement, accretion or participating-security bridge is reconstructed. TCE is unchanged. Duration/candidate bounds are disclosed engineering admission conventions; absent vendor starts and the documented annual zero-closing-NCI inference remain limitations.
+- **Evidence:** The [source and regression record](2026-10-18-common-earnings-admission.md) cites SEC SAB 6.B and ASC 260-10-45-60B, distinguishes derived arithmetic controls from printed examples, and records red/green and positive controls. Test fixtures establish correctness properties, not investment performance.
+- **Versions:** Report `1.25.1`, payload `1.30.1`, pipeline `stage-c-1.3.1`, Stage B `STAGE_B_2026_10_COMMON_EARNINGS_SCOPE_7`. Previous contexts cannot resume as equivalent implementations. Historical reports retain their own bytes and version stamps.
+
 ## D-86 Source-bound fiscal payment evidence (2026-10-18)
 
 - **Problem:** Existing commitment tables retained totals but discarded reported fiscal payment buckets. A total alone cannot locate cash requirements or establish funding capacity.

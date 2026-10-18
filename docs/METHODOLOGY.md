@@ -2254,10 +2254,27 @@ cash is zero. Fewer than two usable annual payout observations withhold the
 excess-return valuation rather than infer a payout. This can reduce available
 valuations while preserving separately supported TCE and earnings/returns.
 
-Cash payments are not preferred earnings allocations. The separate common-income
-fallback and annual-flow scope questions remain open; no entitlement, arrears,
+Cash payments are not preferred earnings allocations. No entitlement, arrears,
 accretion or participating-security bridge is invented. See the
 [source evidence and regression record](audit/2026-10-17-preferred-payout-admission.md).
+
+### Common-earnings admission
+
+An admitted common numerator retains its sign, including zero/losses. Otherwise,
+known preferred claims require an earnings-allocation bridge; preferred cash
+does not supply that bridge. Annual and rolling-quarter joins retain actual
+field intervals, currency and ownership. Known incompatible, duplicated,
+overlapping or gapped intervals cannot become a complete TTM merely because
+their display dates look contiguous. Missing vendor starts remain unknown.
+
+Disclosed consolidated NCI allocations retain their sign and compatible scope; a known
+nonzero allocation with unknown ownership cannot be assumed already deducted
+or subtracted a second time. The existing filed-Basic common-stockholder
+numerator convention remains admitted and labeled: participating-security
+allocations can make it differ from issuer common-equity income. TCE and that
+house return convention are not redefined. Missing evidence and the retained
+annual zero-closing-NCI inference are documented limits. See the
+[admission tests, conventions and remaining limits](audit/2026-10-18-common-earnings-admission.md).
 
 ### Reported fiscal commitment payment evidence
 

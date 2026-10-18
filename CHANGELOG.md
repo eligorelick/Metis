@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.25.0** and
-payload **1.30.0** (reported commitment timing, 2026-10-18). The checked-in
+Current source declares application **0.1.0**, report spec **1.25.1** and
+payload **1.30.1** (common-earnings admission, 2026-10-18). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,18 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - common-earnings admission (2026-10-18)
+
+- Stop treating preferred cash payments as current-period earnings allocations.
+  Preserve admitted common numerators, including zero/losses, and label the
+  existing filed-Basic return convention without reconstructing allocations.
+- Preserve actual field flow intervals, currency and ownership through annual
+  and TTM admission. Refuse known incompatible or incomplete earnings bridges;
+  retain unknown-start vendor and compatible nearby-date controls.
+- Preserve signed NCI allocations on coherent consolidated TTM flows. Supported
+  capital, returns and payout controls remain unchanged; no TCE redefinition or
+  investment-scoring recalibration is introduced.
 
 ## Unreleased - reported commitment timing (2026-10-18)
 

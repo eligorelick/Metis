@@ -25,6 +25,7 @@ import type {
   FmpIncomeStatementRow,
   FmpMarketRiskPremiumRow,
   FmpRawRow,
+  FmpStatementRow,
 } from "@/providers/fmp";
 import { tagsFor } from "@/edgar/tagSynonyms";
 
@@ -128,6 +129,7 @@ import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pip
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
+import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
@@ -416,23 +418,69 @@ function toGrowthCashFlow(r: FmpCashFlowRow): GrowthCashFlowRow {
   };
 }
 
+function commonFlowScope(row: FmpStatementRow, field: string, basis: "annual" | "quarter" | "ttm"): CommonIncomeFlowScope {
+  const evidence = row.fieldProvenance?.[field];
+  return { issuerId: str(row.cik), currency: evidence?.unit ?? str(row.reportedCurrency),
+    periodStart: evidence?.periodStart ?? str(row.periodStart), periodEnd: evidence?.periodEnd ?? str(row.date), basis,
+    observedAt: evidence?.observedAt,
+    // Primary field evidence belongs to this operand; unrelated row timing
+    // cannot veto it. Vendor row timing is used only without field evidence.
+    filedAt: evidence ? evidence.filings.map(filing => filing.filed)
+      : [str(row.filingDate)].filter((date): date is string => date !== null),
+    acceptedAt: evidence ? undefined : str(row.acceptedDate),
+    allocationBasis: field === "netIncomeAvailableToCommon" && evidence?.tags.includes("us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic")
+      ? "basic-eps-common-stockholders" : "unknown" };
+}
+
+function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "quarter", admissionAsOf?: string): CommonIncomeInputs {
+  const tags = row.fieldProvenance?.netIncome?.tags ?? [];
+  const ownership = row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
+    tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`)) ? "consolidated" :
+      tags.includes("us-gaap/NetIncomeLoss") ? "parent" : undefined;
+  return { netIncome: num(row.netIncome), netIncomeAvailableToCommon: num(row.netIncomeAvailableToCommon),
+    admissionAsOf, targetScope: { issuerId: str(row.cik), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
+    incomeScope: commonFlowScope(row, "netIncome", basis), commonIncomeScope: commonFlowScope(row, "netIncomeAvailableToCommon", basis),
+    noncontrollingIncomeScope: commonFlowScope(row, "netIncomeAttributableToNoncontrollingInterest", basis),
+    noncontrollingIncome: num(row.netIncomeAttributableToNoncontrollingInterest), netIncomeOwnershipBasis: ownership,
+    netIncomeWithheldReason: row.netIncomeAttributableToNoncontrollingInterest != null && num(row.netIncomeAttributableToNoncontrollingInterest) === null ? "noncontrolling-income allocation is invalid or nonfinite in the source row" : null,
+    commonIncomeWithheldReason: row.fieldConflicts?.netIncomeAvailableToCommon?.usable === false ? row.fieldConflicts.netIncomeAvailableToCommon.reason : null };
+}
+
+/** Preferred existence is not currency arithmetic; a closing zero cannot erase the flow window. */
+function preferredClaimsInFlow(scope: CommonIncomeFlowScope | undefined, balances: readonly FmpBalanceSheetRow[], cash: readonly FmpCashFlowRow[] = []): boolean {
+  if (!scope?.periodEnd) return false;
+  const end = Date.parse(scope.periodEnd);
+  // Unknown vendor starts retain their sourced annual scope. Use the existing
+  // maximum annual duration only for conservative existence evidence, never subtraction.
+  const opening = scope.periodStart ? Date.parse(scope.periodStart) - 86_400_000 : end - (scope.basis === "quarter" ? 135 : 400) * 86_400_000;
+  return balances.some(row => num(row.preferredStock) !== null && Number(row.preferredStock) > 0 &&
+    Date.parse(String(row.date)) >= opening && Date.parse(String(row.date)) <= end) || cash.some(row => {
+      if (num(row.preferredDividendsPaid) === null || row.preferredDividendsPaid === 0) return false;
+      const cashScope = commonFlowScope(row, "preferredDividendsPaid", scope.basis === "quarter" ? "quarter" : "annual");
+      return cashScope.periodEnd != null && Date.parse(cashScope.periodEnd) >= opening &&
+        (cashScope.periodStart != null ? Date.parse(cashScope.periodStart) <= end : Date.parse(cashScope.periodEnd) <= end);
+    });
+}
+
 function toReturnsIncome(
   r: FmpIncomeStatementRow,
   /** Preferred dividends by fiscal date, joined from the cash-flow statement. */
   preferredByDate?: Map<string, FmpCashFlowRow>,
+  balances: readonly FmpBalanceSheetRow[] = [],
+  cashEvidence: readonly FmpCashFlowRow[] = [],
+  admissionAsOf?: string,
 ): ReturnsIncomeRow {
-  // Joined with the SAME +/-5-day tolerance every other statement pairing uses.
-  // An exact string match returned null whenever the cash-flow fiscal date
-  // drifted from the income one, and ROTE fails closed on a null preferred
-  // dividend when preferred is outstanding — so a one-day drift suppressed the
-  // metric entirely for every preferred issuer.
+  // Nearby cash is exposure evidence only, never an earnings allocation.
   const prefRow = preferredByDate ? matchByDate(preferredByDate, String(r.date ?? "")) : null;
+  const evidence = commonIncomeEvidence(r, "annual", admissionAsOf);
   return {
+    ...evidence,
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
     preferredDividendsPaid: prefRow ? num(prefRow.preferredDividendsPaid) : null,
-    netIncomeAvailableToCommon: num(r.netIncomeAvailableToCommon),
+    preferredCashScope: prefRow ? commonFlowScope(prefRow, "preferredDividendsPaid", "annual") : undefined,
+    preferredClaimsInPeriod: preferredClaimsInFlow(evidence.incomeScope, balances, cashEvidence),
     revenue: num(r.revenue),
     operatingIncome: num(r.operatingIncome),
     // ROIC's EBIT is operating income; raw vendor EBIT may include other income.
@@ -461,6 +509,7 @@ function statementParentEquity(row: FmpBalanceSheetRow | null | undefined): numb
 
 function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
   return {
+    commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
     leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
     fieldProvenance: r.fieldProvenance,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
@@ -690,6 +739,14 @@ export interface TtmIncome {
   netIncomeAttributableToNoncontrollingInterest?: number | null;
   /** Complete four-quarter common-holder flow; never the latest quarter alone. */
   netIncomeAvailableToCommon?: number | null;
+  commonIncomeWithheldReason?: string | null;
+  netIncomeWithheldReason?: string | null;
+  netIncomeOwnershipBasis?: "parent" | "consolidated";
+  incomeScope?: CommonIncomeFlowScope;
+  commonIncomeScope?: CommonIncomeFlowScope;
+  noncontrollingIncomeScope?: CommonIncomeFlowScope;
+  admissionAsOf?: string;
+  targetScope?: CommonIncomeFlowScope;
   /** Sum of four reported quarterly diluted EPS observations, not full-period GAAP EPS. */
   epsDiluted: number | null;
   epsDilutedBasis: "sum-quarterly-diluted-eps" | null;
@@ -1078,6 +1135,7 @@ function ttmIncomeFromNormalized(
   normalized: NormalizedQuarterSet<FmpIncomeStatementRow>,
   gaps?: ManifestEntry[],
   siblings: readonly CurrencyEvidenceRow[] = [],
+  admissionAsOf?: string,
 ): TtmIncome | null {
   const rejected = rejectedAffectsCurrentWindow(normalized);
   if (rejected) {
@@ -1165,6 +1223,13 @@ function ttmIncomeFromNormalized(
   // income/share fields cannot reconstruct full-period dilution or verify a
   // common split basis across the observations.
   const epsDiluted = gateComplete("epsDiluted");
+  const quarterEvidence = q.map(row => commonIncomeEvidence(row, "quarter", admissionAsOf));
+  const commonWindow = constructCommonIncomeQuarterWindow(quarterEvidence, windowCurrency.code);
+  // Keep the existing field-completeness disclosures; the shared constructor
+  // owns the earnings sums and source admission used by both P/E paths.
+  gateComplete("netIncome");
+  gateComplete("netIncomeAttributableToNoncontrollingInterest");
+  if (!commonWindow.commonIncomeWithheldReason) gateComplete("netIncomeAvailableToCommon");
 
   return {
     date: String(q[0].date ?? ""),
@@ -1174,10 +1239,15 @@ function ttmIncomeFromNormalized(
     revenue: sumField(q, "revenue"),
     operatingIncome: gateComplete("operatingIncome"),
     depreciationAndAmortization: gateComplete("depreciationAndAmortization"),
-    netIncome: gateComplete("netIncome"),
+    netIncome: commonWindow.netIncome,
     netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
-    netIncomeAttributableToNoncontrollingInterest: gateComplete("netIncomeAttributableToNoncontrollingInterest"),
-    netIncomeAvailableToCommon: gateComplete("netIncomeAvailableToCommon"),
+    netIncomeAttributableToNoncontrollingInterest: commonWindow.noncontrollingIncome,
+    netIncomeAvailableToCommon: commonWindow.netIncomeAvailableToCommon,
+    commonIncomeWithheldReason: commonWindow.commonIncomeWithheldReason,
+    netIncomeWithheldReason: commonWindow.netIncomeWithheldReason,
+    admissionAsOf, targetScope: commonWindow.targetScope,
+    netIncomeOwnershipBasis: commonWindow.netIncomeOwnershipBasis,
+    incomeScope: commonWindow.incomeScope, commonIncomeScope: commonWindow.commonIncomeScope, noncontrollingIncomeScope: commonWindow.noncontrollingIncomeScope,
     epsDiluted,
     epsDilutedBasis: epsDiluted === null ? null : "sum-quarterly-diluted-eps",
     ebit: gateComplete("ebit"),
@@ -1710,7 +1780,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const ttmInc = ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
-  ]);
+  ], bundle.builtAt);
   const routingIncomeTtm: RoutingIncomeRow | null = ttmInc
     ? {
         date: ttmInc.date,
@@ -2681,7 +2751,9 @@ function computeReturns(
   const preferredByDate = new Map<string, FmpCashFlowRow>(
     cashflowAnnual.map((r: FmpCashFlowRow) => [String(r.date ?? ""), r]),
   );
-  const returnsIncome = incomeAnnual.map((r) => toReturnsIncome(r, preferredByDate));
+  const returnsIncome = incomeAnnual.map((r) => toReturnsIncome(r, preferredByDate,
+    [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
+    [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt));
   const returnsBalance = balanceAnnual.map(toReturnsBalance);
 
   const roic: RoicResult = isFinancial
@@ -3090,12 +3162,25 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
         netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
+        commonIncomeWithheldReason: ttmInc.commonIncomeWithheldReason,
+        netIncomeWithheldReason: ttmInc.netIncomeWithheldReason,
+        netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis,
+        noncontrollingIncome: ttmInc.netIncomeAttributableToNoncontrollingInterest,
+        incomeScope: ttmInc.incomeScope, commonIncomeScope: ttmInc.commonIncomeScope, noncontrollingIncomeScope: ttmInc.noncontrollingIncomeScope,
+        targetScope: ttmInc.targetScope, admissionAsOf: ttmInc.admissionAsOf,
+        preferredClaimsInPeriod: preferredClaimsInFlow(ttmInc.incomeScope ?? { periodEnd: ttmInc.date, basis: "ttm" },
+          [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
+          [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
         preferredDividendsPaid: preferredDividendsTtm,
         epsDiluted: ttmInc.epsDiluted,
         epsDilutedBasis: ttmInc.epsDilutedBasis,
       }
     : inc0
       ? {
+          ...commonIncomeEvidence(inc0, "annual", bundle.builtAt),
+          preferredClaimsInPeriod: preferredClaimsInFlow(commonFlowScope(inc0, "netIncome", "annual"),
+            [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
+            [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
           date: String(inc0.date ?? ""),
           basis: "annual",
           revenue: num(inc0.revenue),
@@ -3163,6 +3248,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     historyIncome.rows,
     historyCashflow.rows,
     ctx.balanceQuarterly,
+    bundle.builtAt,
+    [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)],
   );
 
   const vendorEnterpriseValues: EnterpriseValuesRow[] = rowsOf(bundle.enterpriseValues).map((r) => ({
@@ -3251,7 +3338,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // A vendor total-equity ROE cannot be applied to common or tangible equity.
   const financialRoute = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
   const financialCashByDate = new Map(ctx.cashflowAnnual.map((row) => [String(row.date ?? ""), row]));
-  const financialIncome = ctx.incomeAnnual.map((row) => toReturnsIncome(row, financialCashByDate));
+  const financialIncome = ctx.incomeAnnual.map((row) => toReturnsIncome(row, financialCashByDate,
+    [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
+    [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt));
   const commonReturns = route.base === "bank" ? ctx.rote : computeRote(
     financialIncome,
     // Reuse the same dated common-earnings/average-equity calculation without
@@ -3267,10 +3356,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0)) {
       return { ...row, netIncome: undefined };
     }
-    const income = financialIncome.find((inc) => inc.date === row.date);
+    const income = matchByDate(new Map(financialIncome.map(inc => [inc.date, inc])), String(row.date ?? ""));
     const balance = ctx.balanceAnnual.find((bal) => bal.date === row.date);
-    const filedCommon = income ? num(income.netIncomeAvailableToCommon) : null;
-    return { ...row, netIncome: filedCommon ?? (income && balance ? incomeAvailableToCommon(income, num(balance.preferredStock)) ?? undefined : undefined) };
+    const admittedScope = income && num(income.netIncomeAvailableToCommon) !== null ? income.commonIncomeScope : income?.incomeScope;
+    const scopeRefusal = income ? commonIncomeFlowRefusal(admittedScope, commonFlowScope(row, "commonDividendsPaid", "annual")) : null;
+    return { ...row, netIncome: !scopeRefusal && income && (balance || num(income.netIncomeAvailableToCommon) !== null)
+      ? incomeAvailableToCommon(income, num(balance?.preferredStock), num(balance?.minorityInterest)) ?? undefined : undefined };
   });
 
   const excessReturn: ExcessReturnInputs | null =
@@ -3647,6 +3738,8 @@ function mergeQuarterly(
   income: FmpIncomeStatementRow[],
   cashflow: FmpCashFlowRow[],
   balance: FmpBalanceSheetRow[],
+  admissionAsOf?: string,
+  cashEvidence: readonly FmpCashFlowRow[] = cashflow,
 ): QuarterlyFundamentalsRow[] {
   const cfByDate = new Map<string, FmpCashFlowRow>();
   for (const r of cashflow) cfByDate.set(String(r.date ?? ""), r);
@@ -3658,6 +3751,7 @@ function mergeQuarterly(
     const cf = matchByDate(cfByDate, d);
     const bal = matchByDate(balByDate, d);
     return {
+      ...commonIncomeEvidence(i, "quarter", admissionAsOf),
       date: d,
       acceptedDate: i.acceptedDate,
       filingDate: i.filingDate,
@@ -3671,9 +3765,10 @@ function mergeQuarterly(
       epsDiluted: num(i.epsDiluted),
       ...(i.epsSecurityBasis === "quoted" ? { epsSecurityBasis: "quoted" as const } : {}),
       netIncomeAvailableToCommon: num(i.netIncomeAvailableToCommon),
-      // Allocation flows require the exact fiscal quarter, unlike a balance
-      // anchor: a nearby cash-flow period is not the same earnings window.
-      preferredDividendsPaid: num(cfByDate.get(d)?.preferredDividendsPaid),
+      // Nearby cash is exposure evidence only, never an earnings allocation.
+      preferredDividendsPaid: cf ? num(cf.preferredDividendsPaid) : null,
+      preferredCashScope: cf ? commonFlowScope(cf, "preferredDividendsPaid", "quarter") : undefined,
+      preferredClaimsInPeriod: preferredClaimsInFlow(commonFlowScope(i, "netIncome", "quarter"), balance, cashEvidence),
       operatingCashFlow: cf ? num(cf.operatingCashFlow) : null,
       capitalExpenditure: cf ? num(cf.capitalExpenditure) : null,
       totalStockholdersEquity: statementParentEquity(bal),

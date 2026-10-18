@@ -2356,42 +2356,6 @@
       ]
     },
     {
-      "name": "financial-common-equity-and-edgar-readiness-2026-10-03",
-      "decisions": [
-        "D-34"
-      ],
-      "reason": "EDGAR readiness now recognizes the report's positive filing evidence despite individual unavailable SEC feeds. The ROTE note names income available to common, and the P/TBV basis explicitly deducts preferred equity. This nonfinancial DEMO fixture has no preferred claims, so all numerical figures remain unchanged; readiness and these two explanatory records move. The ROTE object is reclassified because its previously pinned note changed, not because its existing numerical series changed. Report spec 1.6.0 (following D-29 through D-31) identifies the new D-34 financial calculation conventions; saved reports retain their original versions.",
-      "deltas": [
-        {
-          "path": "stageB.returns.rote",
-          "beforeMissing": true,
-          "after": {
-            "series": [
-              {
-                "date": "2024-12-31",
-                "rotePct": 40.54054054054054,
-                "tangibleCommonEquity": 3700000000,
-                "tangibleCommonEquityAvg": 3700000000
-              },
-              {
-                "date": "2025-12-31",
-                "rotePct": 42.68292682926829,
-                "tangibleCommonEquity": 4500000000,
-                "tangibleCommonEquityAvg": 4100000000
-              }
-            ],
-            "latestRotePct": 42.68292682926829,
-            "latestTangibleCommonEquity": 4500000000,
-            "asOf": "2025-12-31",
-            "notes": [
-              "ROTE = income available to common / average tangible common equity (equity − goodwill − other intangibles − preferred). Filed common earnings are used directly; otherwise net income is reduced by disclosed preferred dividends."
-            ],
-            "gaps": []
-          }
-        }
-      ]
-    },
-    {
       "name": "audit-followup-evidence-2026-10-04",
       "decisions": [
         "D-37"
@@ -4996,11 +4960,6 @@
       ],
       "reason": "P/E, common P/B and P/TBV basis text names the actual common-holder earnings and equity deductions under D-53; the fixture's numeric outputs and grading weights do not change. The later report version stamp is separately tracked under D-54.",
       "deltas": [
-        {
-          "path": "stageB.valuation.multiples.multiples.0.basis",
-          "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; net income less disclosed preferred distributions (parent income; no second NCI deduction))"
-        },
         {
           "path": "stageB.valuation.multiples.multiples.5.basis",
           "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
@@ -9646,11 +9605,6 @@
       "reason": "D-81 retains six pipeline-owned per-multiple scope/basis strings. D-82 patches deterministic ISO-duration claim verification and advances the report stamp to 1.23.1 without changing payload or financial inputs. All 1,180 preceding assertions remain represented, plus the six basis leaves; no financial numeric golden value is reclassified.",
       "deltas": [
         {
-          "path": "report.valuation.multiples.0.basis",
-          "beforeMissing": true,
-          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; net income less disclosed preferred distributions (parent income; no second NCI deduction))"
-        },
-        {
           "path": "report.valuation.multiples.1.basis",
           "beforeMissing": true,
           "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000. Balance basis: latest quarterly balance sheet 2025-12-31."
@@ -9885,16 +9839,54 @@
       ]
     },
     {
-      "name": "d86-fiscal-payment-evidence",
+      "name": "d85-common-earnings-scope",
       "decisions": [
+        "D-85",
         "D-86"
       ],
-      "reason": "Optional source-bound fiscal payment evidence changes report and model-context conventions. Only the report-spec leaf advances; all financial fixture assertions remain pinned.",
+      "reason": "Common-earnings admission changes the report convention and exact fallback basis/ROTE explanatory text. The ROTE object is reclassified only for its note; all numerical and availability fields remain pinned. Frozen-build positive controls preserve complete outputs after restoring only the two exact explanatory strings. The cumulative report stamp is 1.25.1 after D-86 source-bound timing evidence; this fixture has no payment schedule, so that intervening disclosure adds no financial or payment-data leaves.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.25.0"
+          "after": "1.25.1"
+        },
+        {
+          "path": "report.valuation.multiples.0.basis",
+          "beforeMissing": true,
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; parent income; no outside preferred claims known and no second NCI deduction)"
+        },
+        {
+          "path": "stageB.returns.rote",
+          "beforeMissing": true,
+          "after": {
+            "series": [
+              {
+                "date": "2024-12-31",
+                "rotePct": 40.54054054054054,
+                "tangibleCommonEquity": 3700000000,
+                "tangibleCommonEquityAvg": 3700000000
+              },
+              {
+                "date": "2025-12-31",
+                "rotePct": 42.68292682926829,
+                "tangibleCommonEquity": 4500000000,
+                "tangibleCommonEquityAvg": 4100000000
+              }
+            ],
+            "latestRotePct": 42.68292682926829,
+            "latestTangibleCommonEquity": 4500000000,
+            "asOf": "2025-12-31",
+            "notes": [
+              "ROTE = income available to common / average tangible common equity (equity − goodwill − other intangibles − preferred). Filed common earnings retain their sign; preferred cash paid cannot establish the earnings allocation. Unsupported common earnings are withheld."
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.0.basis",
+          "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; parent income; no outside preferred claims known and no second NCI deduction)"
         }
       ]
     }

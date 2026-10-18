@@ -393,7 +393,8 @@ export interface ContextPayload {
 // D-83: quarter-sum EPS basis and changed grade-override prompt contract.
 // 1.29.1 (D-84): common-cash refusals cannot become zero-payout observations.
 // 1.30.0 (D-86): retain source-bound fiscal payment buckets and unknown funding scope.
-export const PAYLOAD_VERSION = "1.30.0" as const;
+// 1.30.1 (D-85): distinguish earnings allocation from cash and retain actual source scope.
+export const PAYLOAD_VERSION = "1.30.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
