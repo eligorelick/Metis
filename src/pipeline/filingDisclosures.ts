@@ -28,6 +28,7 @@ import { financialCompositionFacts } from "@/pipeline/financialComposition";
 import {
   parseBusinessCombinationFacts,
   parseCommitmentFacts,
+  parseCompletedOfferingFacts,
   parseCustomerConcentrationFacts,
   parseInvestmentFacts,
   parseOfficerChanges,
@@ -831,6 +832,38 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
     if (wc.expectation !== null) outlook.push({ topic: `DSO outlook given with ${fiscal ?? `the quarter ended ${periodEnd}`} results`, text: safeText(wc.expectation, "(outlook withheld)"), source });
   }
   facts.push(...financialCompositionFacts(bundle, currency));
+  const current = bundle.edgar?.currentReports;
+  const mapping = bundle.edgar?.cik;
+  if (current?.ok && current.value.source === "edgar" && mapping?.ok && mapping.value.source === "edgar" &&
+      mapping.value.data.ticker.trim().toUpperCase() === bundle.symbol.trim().toUpperCase()) {
+    const cik = mapping.value.data.cik;
+    const cutoff = day(bundle.builtAt);
+    const registrant = bundle.edgar?.registrant;
+    const issuerName = registrant?.cik10 === mapping.value.data.cik10 && registrant.tickers.some(t => t.trim().toUpperCase() === bundle.symbol.trim().toUpperCase())
+      ? registrant.name : mapping.value.data.title;
+    for (const event of current.value.data.events) {
+      const filed = day(event.filingDate);
+      if (cutoff === null || !Number.isFinite(Date.parse(bundle.builtAt)) || filed === null || filed > cutoff || !/^8-K(?:\/A)?$/.test(event.form) ||
+          !Number.isSafeInteger(cik) || cik <= 0 || mapping.value.data.cik10 !== String(cik).padStart(10, "0") ||
+          typeof issuerName !== "string" || issuerName.trim() === "" || !/^\d{10}-\d{2}-\d{6}$/.test(event.accession)) continue;
+      let sourceUrl: URL;
+      try { sourceUrl = new URL(event.url); } catch { continue; }
+      if (sourceUrl.protocol !== "https:" || sourceUrl.hostname !== "www.sec.gov" || sourceUrl.search !== "" || sourceUrl.hash !== "" ||
+          !new RegExp(`^/Archives/edgar/data/${cik}/${event.accession.replaceAll("-", "")}/[A-Za-z0-9_.-]+\\.html?$`).test(sourceUrl.pathname)) continue;
+      const source = { form: event.form, accession: event.accession, exhibit: null, filingDate: filed, url: event.url };
+      for (const section of event.sections) {
+        if (section.item !== "1.01" || section.incorporates !== null) continue;
+        // New observations are optional on frozen legacy bundles. Do not try
+        // to reconstruct a transaction from their already clipped narrative.
+        const retained = section.financingFacts;
+        if (!Array.isArray(retained) || retained.length !== 4 || retained.some(f => typeof f?.text !== "string" || f.text.length > 1000)) continue;
+        const found = parseCompletedOfferingFacts(retained.slice(0, 3).map(f => f.text).join(" "), filed, issuerName);
+        if (found.length !== 4 || found.some((f, i) => ["key", "label", "value", "symbol", "unit", "asOf", "period", "qualifier", "computed"].some(key =>
+          f[key as keyof FilingFact] !== retained[i]![key as keyof FilingFact]))) continue;
+        add(found, `edgar:8-K ${event.accession} item1.01`, source, currency);
+      }
+    }
+  }
   return { facts, outlook };
 }
 

@@ -16,7 +16,7 @@ export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "cu
  * notes are read with the same families, and business combinations (a deal's
  * consideration, goodwill and intangibles) join them.
  */
-export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "tax", "subsequent-liquidity", "business-combinations"] as const;
+export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "internal-controls", "tax", "subsequent-liquidity", "business-combinations"] as const;
 export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number] | typeof BUSINESS_CATEGORIES[number] | typeof NOTES_CATEGORIES[number];
 /**
  * Which families a source is read for (D-63). `financial` is the original
@@ -65,6 +65,7 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   debt: /\b(?:senior (?:unsecured )?notes|notes due|commercial paper|credit (?:facility|agreement)|revolving|borrowings?|term loans?|debt issuance|issued an aggregate)\b/i,
   "capital-return": /\b(?:repurchase(?:d|s)?|buybacks?|dividends?)\b/i,
   contingencies: /\b(?:litigation|lawsuits?|legal proceedings|contingen(?:t|cy|cies)|indemnit(?:y|ies|ification))\b/i,
+  "internal-controls": /\b(?:material weaknesses?|internal control over financial reporting|segregation of duties|remediat(?:e|ion|ing))\b/i,
   "business-combinations": /\b(?:business combinations?|acquisitions? of|acquired|license agreement|(?:total|purchase) consideration|purchase price|goodwill|intangible assets?)\b/i,
 };
 /**
@@ -84,12 +85,15 @@ const NOTES_PRIORITY: readonly RegExp[] = [
   /\b(?:total|aggregate)\s+(?:purchase\s+)?consideration\b|\brecorded\s+\$\s?[\d.,]+\s*(?:billion|million)\s+of\s+goodwill\b|\bcarrying amount of goodwill\b/i,
   // The deal itself: "In December 2025, we entered into a non-exclusive license agreement with Groq, Inc.".
   /\b(?:entered into|completed)\b[^.]{0,80}?\b(?:acquisition|acquire|license agreement|merger)\b[^.]{0,40}?\bwith\s+[A-Z]/,
+  /\binvestments?\b[^.]{0,120}\baccounted for (?:using|under) the equity method\b/i,
 ];
 /** D-66: the same concentration statements where an MD&A states them ("Concentration of Revenue"). */
 const CONCENTRATION_PRIORITY = NOTES_PRIORITY.slice(0, 4);
 const DISTRIBUTION_COST_PRIORITY = /\b(?:selling and marketing|marketing spend|(?:partner|affiliate) (?:program )?commissions?)\b/i;
 interface ProfileSpec {
   categories: readonly EvidenceCategory[];
+  /** Actual control deficiencies and proceedings, including their counterqualifiers. */
+  critical?: (passage: string) => boolean;
   /** Passages that are always kept first, within the budget (in source order). */
   priority?: (passage: string) => boolean;
   /** D-66: the share of the budget priority passages may take (all of it when absent). */
@@ -113,6 +117,10 @@ interface ProfileSpec {
 const DEFINES_PARTY = /[A-Z][A-Za-z0-9.&'’-]*\.?,?\s*\((?:[^()“”"]{0,60},\s*)?(?:the\s+)?[“"][A-Z][^“”"]{0,40}[”"]\)/;
 /** An item's dated operative sentence ("(c) On July 1, 2026, the Company appointed …"). */
 const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/;
+const CONTROL_DISCLOSURE = /\b(?:(?:we|Company)\s+(?:(?:have|had|has)\s+)?(?:previously\s+)?identified material weaknesses?|material weaknesses? identified pertained|material weaknesses? (?:continued|continue) to exist|(?:deficiencies|material weaknesses?)\b[^.]{0,160}\b(?:did not|have not|has not)\b[^.]{0,100}\bmaterial misstatement|insufficient segregation of duties|lack of (?:a )?sufficient\b[^.]{0,120}\b(?:qualified|expertise))\b/i;
+const HYPOTHETICAL_CONTROL = /^\s*(?:if|should|in (?:the )?future)\b|\b(?:may|could|might)\s+(?:identify|develop)\b/i;
+const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|complaints?) (?:were|was|have been) filed|(?:filed|consolidated)\b[^.]{0,120}\b(?:Derivative Actions?|Securities Action)|claims\b[^.]{0,100}\bwithout merit|(?:loss|range of loss)\b[^.]{0,100}\bcannot be reasonably estimated|not accrued any material potential loss)\b/i;
+const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage);
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
   // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
@@ -125,11 +133,13 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   },
   risk: {
     categories: [...BUSINESS_CATEGORIES.filter((category) => category !== "officers" && category !== "platform-software"),
-      "investments", "commitments-guarantees", "results", "guidance", "capex-liquidity", "tax", "exceptional"],
+      "investments", "commitments-guarantees", "results", "guidance", "capex-liquidity", "tax", "exceptional", "internal-controls", "contingencies"],
+    critical: criticalDisclosure,
     prose: { bonus: /\b(?:depend(?:s|ent)? on|rel(?:y|ies|iant) on|concentrat\w*|sole[- ]source|single[- ]source|limited number of (?:customers|suppliers)|export controls?|significant portion of (?:our )?(?:revenue|sales))\b/i },
   },
   notes: {
     categories: NOTES_CATEGORIES,
+    critical: criticalDisclosure,
     priority: (passage) => NOTES_PRIORITY.some((pattern) => pattern.test(passage)),
     priorityShare: 0.25,
     prose: { bonus: /\b(?:lock[- ]up|restrictions? on the ability to sell|capped at|maximum (?:gross )?exposure|(?:represented|accounted for) \d[^.]{0,60}\bof (?:our )?(?:total )?(?:net )?(?:revenue|sales)|issued an? (?:aggregate|total)|supply commitments|purchase obligations|equity method|non[- ]marketable)\b/i },
@@ -156,7 +166,7 @@ const FINANCIAL_BOUNDARY = /\n+|(?<=[.!?])\s+(?=[A-Z“"(])/g;
  */
 const PROSE_BOUNDARY = new RegExp([
   String.raw`\n+`,
-  String.raw`(?<=[.!?])(?<!\b(?:[A-Z]|Inc|Co|Corp|Ltd|Mr|Ms|Mrs|Dr|No|Nos|St|Jr|Sr|vs|U\.S|U\.K|e\.g|i\.e)\.)\s+(?=[A-Z“"(])`,
+  String.raw`(?<=[.!?])(?<!\b(?:[A-Z]|Inc|Co|Corp|Ltd|Mr|Ms|Mrs|Dr|No|Nos|St|Jr|Sr|v|vs|U\.S|U\.K|e\.g|i\.e)\.)\s+(?=[A-Z“"(])`,
   String.raw`\s+(?=\(\d{1,2}\)\s+[A-Z])`,
   String.raw`\s+(?=Note \d{1,2}\s*[-–—:.]\s*[A-Z])`,
   String.raw`(?<=[\d)%])\s+(?=[A-Z][a-z]+[ ,][^.]{0,80}?\b(?:we|our|was|were|is|are|had|has|have|represented|accounted)\b)`,
@@ -239,6 +249,17 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   if (text.length <= budget) {
     selected.push({ start: 0, end: text.length, text, categories: [], score: 0, table: false });
   } else {
+    // A bounded reservation for asserted facts prevents generic, numeric risk
+    // prose from displacing a disclosed weakness or a pending case's caveats.
+    if (spec.critical !== undefined) {
+      const cap = Math.floor(budget * 0.25);
+      let used = 0;
+      for (const passage of all.filter((candidate) => !candidate.table && spec.critical!(candidate.text))) {
+        if (used + passage.text.length > cap) continue;
+        const before = remaining;
+        if (add(passage)) used += before - remaining;
+      }
+    }
     // Priority passages (a named party in an 8-K's operative paragraph) first.
     if (spec.priority !== undefined) {
       const cap = spec.priorityShare === undefined ? Number.POSITIVE_INFINITY : Math.floor(budget * spec.priorityShare);
@@ -285,5 +306,5 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   // Tiny caller budgets are valid too; do not return a marker longer than them.
   return { text: (joined + marker).slice(0, budget),
     truncated: omittedChars > 0, originalChars: text.length, spans,
-    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
+    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? "section-evidence-3" : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
 }

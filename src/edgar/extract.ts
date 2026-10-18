@@ -110,6 +110,31 @@ export interface ParsedDocument {
   fullText: string;
 }
 
+/** The actual periodic-filing signature block, not a role mentioned in prose. */
+export function periodicSignatureText(fullText: string): string | null {
+  const headings = [...fullText.matchAll(/\bSIGNATURES\b/g)];
+  const heading = headings.at(-1);
+  if (heading === undefined) return null;
+  const text = fullText.slice(heading.index).trim();
+  if (text.length > 2_500 || !/the registrant has duly caused this Quarterly Report on Form 10-Q to be signed on its behalf/i.test(text) ||
+      !/\bDate:\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b/.test(text) ||
+      !/\/s\/\s+[A-Z][A-Za-z .'-]{2,100}\s+Chief Financial Officer\b/.test(text)) return null;
+  return text;
+}
+
+/** Part I Item 4 contains the current controls conclusion and its limits. */
+export function periodicControlsText(fullText: string): string | null {
+  const headings = [...fullText.matchAll(/\bItem\s+4\.?\s+Controls and Procedures\b/gi)];
+  const heading = headings.at(-1);
+  if (heading === undefined) return null;
+  const rest = fullText.slice(heading.index);
+  // A reference to "Part II, Item 1A" inside the controls discussion is not
+  // its end. Require the actual following legal-proceedings item heading.
+  const end = /\bPART\s+II\s*[-—–:]?\s*(?:OTHER INFORMATION\s+)?Item\s+1\.?\s+Legal Proceedings\b/i.exec(rest);
+  const text = rest.slice(0, end?.index ?? rest.length).trim();
+  return text.length <= 12_000 && /\b(?:disclosure controls and procedures|internal control over financial reporting)\b/i.test(text) ? text : null;
+}
+
 export interface ExtractOptions {
   /** Stub threshold; default 2,500 chars (stubs observed 252–399; real sections ≥18k). */
   stubMinChars?: number;

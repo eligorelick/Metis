@@ -38,7 +38,7 @@ import {
   type ReconciliationFact,
   type ReportedPeriod,
 } from "@/edgar/currentReports";
-import { parseWorkingCapital, type WorkingCapitalFacts } from "@/edgar/filingFacts";
+import { parseCompletedOfferingFacts, parseWorkingCapital, type FilingFact, type WorkingCapitalFacts } from "@/edgar/filingFacts";
 import {
   buildQuarterlySegments,
   parseInstanceRevenue,
@@ -47,7 +47,7 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-export const CURRENT_REPORTS_VERSION = "current-reports-1.1.0" as const;
+export const CURRENT_REPORTS_VERSION = "current-reports-1.2.0" as const;
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;
@@ -121,6 +121,8 @@ export interface MaterialEventSection {
   /** Present when bounded retention omitted part of the supplying item. */
   truncated?: boolean;
   originalChars?: number;
+  /** Typed completed-offering facts read from the full item before text retention. */
+  financingFacts?: FilingFact[];
 }
 
 export interface MaterialEventFiling {
@@ -263,6 +265,7 @@ export function buildMaterialEventFiling(
       summary: s.incorporates !== null ? `Incorporates Item ${s.incorporates} by reference.` : summarizeItem(s),
       text: s.text.slice(0, s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS),
       incorporates: s.incorporates,
+      ...(s.item === "1.01" && s.incorporates === null ? { financingFacts: parseCompletedOfferingFacts(s.text, filing.filingDate) } : {}),
       ...(s.text.length > (s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS) ? { truncated: true, originalChars: s.text.length } : {}),
     }));
   return { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, eventDate: eventDateOf(text), items: itemsOf(filing.items), url, sections };

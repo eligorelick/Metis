@@ -38,6 +38,13 @@ export interface FilingFact {
 const SCALE: Readonly<Record<string, number>> = { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 };
 const MONTH_DATE = String.raw`(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}`;
 const AMOUNT = String.raw`(\$|US\$)\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(thousand|million|billion|trillion)`;
+// Positive subject grammar: status words between the named party and
+// "completed" are not part of an entity name. Aliases must be printed.
+const OFFERING_PARTY = String.raw`[A-Z][A-Za-z0-9&'-]*(?:\s+(?:[A-Z][A-Za-z0-9&'-]*|of|the|and)){0,8}(?:,?\s+(?:Inc|Corp|Ltd|LLC|PLC)\.?)?`;
+const offeringParty = (name: string): string => name.trim().replace(/,?\s+(?:Inc|Corp|Ltd|LLC|PLC)\.?$/i, "").replace(/\s+/g, " ").toLowerCase();
+const offeringSuffix = (name: string): string | null => /\s+(Inc|Corp|Ltd|LLC|PLC)\.?$/i.exec(name.trim())?.[1]?.toLowerCase() ?? null;
+const compatibleOfferingSuffix = (a: string, b: string): boolean => offeringSuffix(a) === null || offeringSuffix(b) === null || offeringSuffix(a) === offeringSuffix(b);
+const sameOfferingParty = (a: string, b: string): boolean => offeringParty(a) === offeringParty(b) && compatibleOfferingSuffix(a, b);
 
 function money(raw: string, scale: string): number {
   return Number((Number(raw.replace(/,/g, "")) * SCALE[scale.toLowerCase()]!).toFixed(2));
@@ -48,6 +55,40 @@ function clip(text: string, max = 320): string {
 }
 function fact(over: Partial<FilingFact> & Pick<FilingFact, "key" | "label" | "value" | "unit" | "text">, textLimit = 320): FilingFact {
   return { symbol: null, asOf: null, period: null, qualifier: null, computed: null, ...over, text: clip(over.text, textLimit) };
+}
+
+/** One completed note offering with explicit proceeds and linked capped calls.
+ * Read before item retention; this is a dated transaction, never a cash balance.
+ * Unsupported phrasing, mixed symbols and multiple transactions stay unknown.
+ */
+export function parseCompletedOfferingFacts(rawText: string, filingDate: string, expectedIssuer?: string): FilingFact[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(filingDate) || !Number.isFinite(Date.parse(filingDate)) || new Date(filingDate).toISOString().slice(0, 10) !== filingDate) return [];
+  const text = normalizeFilingText(rawText);
+  const completed = [...text.matchAll(new RegExp(String.raw`\bOn (${MONTH_DATE}), (${OFFERING_PARTY})(?:\s+\(["“](${OFFERING_PARTY})["”]\))? completed its (?:previously announced )?(?:upsized )?private offering of ${AMOUNT} aggregate principal amount of its \d(?:\.\d+)?% Convertible Senior Notes due \d{4}`, "g"))];
+  const proceeds = [...text.matchAll(new RegExp(String.raw`\bThe net proceeds from the offering were ${AMOUNT}, after deducting the initial purchasers['’] discounts but before deducting estimated offering expenses payable by (${OFFERING_PARTY})\.`, "g"))];
+  const costs = [...text.matchAll(new RegExp(String.raw`\bThe cost of the Capped Call Transactions was (approximately )?${AMOUNT}\.`, "gi"))];
+  const links = [...text.matchAll(new RegExp(String.raw`\b(${OFFERING_PARTY}) used a portion of the net proceeds from the offering to fund the cost of entering into the Capped Call Transactions\b`, "g"))];
+  if (completed.length !== 1 || proceeds.length !== 1 || costs.length !== 1 || links.length !== 1) return [];
+  const linked = links[0]!;
+  const c = completed[0]!, p = proceeds[0]!, k = costs[0]!;
+  const asOf = isoFromMonthDate(c[1]!);
+  const parties = [c[2]!, ...(c[3] === undefined ? [] : [c[3]])];
+  const matchesParty = (name: string): boolean => compatibleOfferingSuffix(c[2]!, name) && parties.some(party => sameOfferingParty(party, name));
+  if (expectedIssuer !== undefined && (typeof expectedIssuer !== "string" || !sameOfferingParty(c[2]!, expectedIssuer))) return [];
+  if (asOf === null || asOf > filingDate || c.index > p.index || p.index > linked.index || linked.index > k.index ||
+      c[4] !== p[1] || p[1] !== k[2] || !matchesParty(p[4]!) || !matchesParty(linked[1]!)) return [];
+  const principal = money(c[5]!, c[6]!), net = money(p[2]!, p[3]!), cost = money(k[3]!, k[4]!);
+  if (![principal, net, cost].every(v => Number.isFinite(v) && v > 0) || net > principal || cost >= net) return [];
+  const subtotal = Number((net - cost).toFixed(2));
+  const scope = "Completed offering transaction only; before issuer expenses and subsequent uses; not current cash, liquidity or a runway update.";
+  const shared = { unit: "currency" as const, symbol: c[4]!, asOf, period: `completed offering ${asOf}` };
+  return [
+    fact({ ...shared, key: "financing-principal", label: "completed convertible note offering principal", value: principal, text: `${c[0]}. ${scope}` }, 700),
+    fact({ ...shared, key: "financing-proceeds-before-expenses", label: "offering proceeds after purchaser discounts, before issuer expenses", value: net, text: `${p[0]} ${scope}` }, 700),
+    fact({ ...shared, key: "financing-capped-call-cost", label: "associated capped call transaction cost", value: cost, qualifier: k[1] ? "approximately" : null, text: `${linked[0]}. ${k[0]} ${scope}` }, 700),
+    fact({ ...shared, key: "financing-proceeds-less-capped-calls", label: "offering proceeds less capped calls subtotal, before issuer expenses and subsequent uses", value: subtotal,
+      qualifier: k[1] ? "approximately" : null, computed: `${net} - ${cost} = ${subtotal}`, text: `${p[0]} ${k[0]} ${scope}` }, 1000),
+  ];
 }
 
 /** Current-period customer shares; no names or common identity are inferred. */

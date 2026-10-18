@@ -65,6 +65,8 @@ import {
   notesToFinancialStatements,
   annualNotesToFinancialStatements,
   parseDocument,
+  periodicSignatureText,
+  periodicControlsText,
   type ParsedDocument,
   type SectionSpec,
 } from "@/edgar/extract";
@@ -1395,6 +1397,12 @@ async function buildEdgarBundle(
             { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
             symbol, parsedQ);
           tenQNotes = statements.ok ? notesOnly(statements) : statements;
+          const signaturesText = periodicSignatureText(parsedQ.fullText);
+          if (tenQNotes.ok && signaturesText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
+            data: { ...tenQNotes.value.data, signaturesText } } };
+          const controlsText = periodicControlsText(parsedQ.fullText);
+          if (tenQNotes.ok && controlsText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
+            data: { ...tenQNotes.value.data, controlsText } } };
           // D-66: Part II Item 5 is short by design (a few trading arrangements).
           tenQOther = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
             { member: "tenQOther", sectionName: "tenQItem5", spec: { form: "10-Q", item: "5", part: 2 }, failSeverity: "warn", stubMinChars: 120 },
