@@ -708,13 +708,17 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("contradicted", "direction-mismatch", "prose direction contradicts the signed change in its cited typed record");
     }
     if (quantity.unit === null) return support("unchecked", "text-ambiguous", "prose quantity has no established unit");
-    if (quantity.unit !== record.unit) return support("contradicted", "unit-mismatch", "prose unit contradicts the cited numeric record");
+    // A percent can state an explicitly declared unit fraction. A generic
+    // ratio (including a P/E multiple) provides no such scale evidence.
+    const normalizedQuantity = quantity.unit === "percent" && record.unit === "ratio" && record.unitScale === "fraction"
+      ? { ...quantity, value: quantity.value / 100, step: quantity.step / 100, unit: "ratio" as const } : quantity;
+    if (normalizedQuantity.unit !== record.unit) return support("contradicted", "unit-mismatch", "prose unit contradicts the cited numeric record");
     if (quantity.unit === "currency" || quantity.unit === "currency-per-share") {
       const currency = resolvedCurrency(quantity, options.reportingCurrency);
       if (currency === null) return support("unchecked", "currency-mismatch", "prose currency is not established");
       if (currency !== record.currency) return support("contradicted", "currency-mismatch", "prose currency contradicts the cited numeric record");
     }
-    const signed = direction !== null && quantity.value >= 0 ? { ...quantity, value: quantity.value * direction.polarity } : quantity;
+    const signed = direction !== null && normalizedQuantity.value >= 0 ? { ...normalizedQuantity, value: normalizedQuantity.value * direction.polarity } : normalizedQuantity;
     return equalValue(signed, record.value)
       ? support("validated", "supported", "every prose quantity matched its typed cited record; qualitative assertions remain unchecked")
       : support("contradicted", "value-mismatch", "prose quantity contradicts the cited numeric record");

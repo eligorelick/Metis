@@ -579,6 +579,16 @@ describe("payload determinism + provenance", () => {
     shareTrend.operands[0].name = "start shares";
     shareTrend.operands[1].name = "end shares";
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
+    // D-89 adds only declared fraction-scale metadata to this registry.
+    // Removing that one optional property must reproduce the preceding whole
+    // registry, preserving every value, unit, identity, date and order.
+    const precedingRegistry = (payload.provenanceRegistry ?? []).map(record => {
+      const before = { ...record };
+      if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
+      delete before.unitScale;
+      return before;
+    });
+    expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -860,10 +870,12 @@ describe("payload determinism + provenance", () => {
       // account for financeHash while retaining the preceding whole-finance pin.
       // D-88 changes only the version in this fixture: its registry, finance,
       // prompt bytes and all other preceding pins remain exactly unchanged.
-      fingerprint: "1.32.0:229d3378",
+      // D-89 retains explicit fraction scale; prompt bytes, IDs and all
+      // financial leaves remain pinned. The versioned fingerprint changes.
+      fingerprint: "1.33.0:4d140317",
       promptBytes: 139_131,
       provenanceCount: 531,
-      provenanceHash: "4c5e217d",
+      provenanceHash: "f57574b3",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -1010,7 +1022,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.32.0");
+    expect(first.payloadVersion).toBe("1.33.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2505,7 +2517,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.27.0");
+    expect(report.meta.specVersion).toBe("1.28.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

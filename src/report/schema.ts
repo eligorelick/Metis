@@ -116,7 +116,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.25.1 (D-85): common earnings retain allocation, source availability and flow scope.
 // 1.26.0 (D-87): source-bound accounting, evidence and metric presentation.
 // 1.27.0 (D-88): exact acquisition resolution and separate accrual clarifications.
-export const REPORT_SPEC_VERSION = "1.27.0" as const;
+// 1.28.0 (D-89): CFO source admission and explicit fraction-scale claim support.
+export const REPORT_SPEC_VERSION = "1.28.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

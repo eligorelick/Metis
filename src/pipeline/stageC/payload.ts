@@ -397,7 +397,8 @@ export interface ContextPayload {
 // 1.30.1 (D-85): distinguish earnings allocation from cash and retain actual source scope.
 // 1.31.0 (D-87): source-bound accounting and retained critical filing context.
 // 1.32.0 (D-88): preserve sourced duration intervals and final gap evidence.
-export const PAYLOAD_VERSION = "1.32.0" as const;
+// 1.33.0 (D-89): retain the declared unit-fraction scale in numeric provenance.
+export const PAYLOAD_VERSION = "1.33.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2613,6 +2614,7 @@ function attachProvenanceRegistry(
       kind,
       value: figure.value,
       unit,
+      ...(/^(?:fraction|frac)$/i.test(figure.unit.trim()) ? { unitScale: "fraction" as const } : {}),
       currency: resolvedCurrency,
       ...(figure.currencyInherited && resolvedCurrency !== null ? { currencyBasis: "inherited" as const } : {}),
       period: figure.period,

@@ -61,6 +61,54 @@ function principal(facts: CompanyFacts, unit: string, end: string, scope: "annua
   return out;
 }
 
+/** Signed CFO, never a positive-only principal payment or an arbitrary YTD total. */
+function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+  const tag = "NetCashProvidedByUsedInOperatingActivities";
+  const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
+  const unambiguousNewest = (candidates: FactPoint[]): FactPoint | null => {
+    const last = newest(candidates);
+    if (!last) return null;
+    return candidates.filter(p => p.filed === last.filed && p.accn === last.accn)
+      .every(p => p.start === last.start && p.end === last.end && p.val === last.val) ? last : null;
+  };
+  const directCandidates = ps.filter(p => p.end === end && span(p)! >= (scope === "annual" ? 350 : 70) && span(p)! <= (scope === "annual" ? 380 : 105));
+  const direct = unambiguousNewest(directCandidates);
+  if (directCandidates.length > 0) return direct ? resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end) : null;
+  if (scope === "annual") return null;
+  const ytd = unambiguousNewest(ps.filter(p => p.end === end && span(p)! > 105 && span(p)! <= 380));
+  if (!ytd) return null;
+  const prior = unambiguousNewest(ps.filter(p => p.start === ytd.start && p.end < end && p.filed <= ytd.filed &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY >= 70 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 105));
+  if (!prior) return null;
+  const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
+  const out = resolved(ytd.val - prior.val, [tag], [ytd, prior], unit, observedAt, start, end);
+  out.evidence.derivation = "ytd-difference";
+  return out;
+}
+
+/** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
+function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
+  const sec = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt);
+  if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
+  const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const conflict = fields.some(field => finite(row[field]) && Math.abs(row[field] - sec.value) > Math.max(1e-8, Math.abs(sec.value) * 1e-10));
+  if (!conflict) return { row, gaps: [] };
+  const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
+  const fieldConflicts = { ...row.fieldConflicts };
+  for (const field of [...fields, "freeCashFlow"]) {
+    if (fieldConflicts[field]?.usable === false) continue;
+    fieldConflicts[field] = {
+      vendorValue: finite(row[field]) ? row[field] : null,
+      secValue: field === "freeCashFlow" ? null : sec.value,
+      usable: false, reason, secEvidence: sec.evidence,
+    };
+  }
+  return { row: { ...row, operatingCashFlow: null, netCashProvidedByOperatingActivities: null, freeCashFlow: null, fieldConflicts },
+    gaps: [{ field: `statements.cashflow.${row.date}.operatingCashFlow`, reason, severity: "warn", attemptedSources: ["fmp:cash-flow-statement", "edgar:companyfacts/us-gaap/NetCashProvidedByUsedInOperatingActivities"] }] };
+}
+
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
 export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
@@ -192,7 +240,7 @@ function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: Compa
     fieldProvenance: { ...row.fieldProvenance, shortTermDebt: note.evidence, longTermDebt: note.evidence, totalDebt: totalEvidence } };
 }
 
-/** Enrichs missing fields only. Conflicts preserve vendor observations and carry usable:false. */
+/** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
 export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
@@ -231,6 +279,11 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         }
         out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence } };
         gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, exact ${scope} period ending ${row.date}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
+      }
+      if (kind === "cashflow") {
+        const admitted = admitOperatingCashFlow(out, facts, currency, scope, observedAt);
+        out = admitted.row;
+        gaps.push(...admitted.gaps);
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {

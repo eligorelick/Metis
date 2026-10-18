@@ -10035,7 +10035,7 @@
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.27.0"
+          "after": "1.28.0"
         }
       ]
     }
