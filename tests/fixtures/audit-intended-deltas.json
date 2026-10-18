@@ -30,6 +30,7 @@
         "macro.UNRATE",
         "macro.VIXCLS",
         "returns.wacc.history",
+        "technicals.range52w",
         "valuation.analystEstimates.currency",
         "valuation.dcf.growthAnchor",
         "valuation.dcf.terminalRoic.waccBasis",
@@ -77,6 +78,8 @@
         "insiderSentiment.DEMO",
         "shortInterest.DEMO",
         "shortInterest.trend.DEMO",
+        "technicals.drawdown.3y",
+        "technicals.drawdown.5y",
         "technicals.relativeStrength.SPY",
         "validation.xbrlCrossCheck"
       ]
@@ -102,6 +105,7 @@
         "macro.UNRATE",
         "macro.VIXCLS",
         "returns.wacc.history",
+        "technicals.range52w",
         "valuation.analystEstimates.currency",
         "valuation.dcf.growthAnchor",
         "valuation.dcf.terminalRoic.waccBasis",
@@ -149,6 +153,8 @@
         "insiderSentiment.DEMO",
         "shortInterest.DEMO",
         "shortInterest.trend.DEMO",
+        "technicals.drawdown.3y",
+        "technicals.drawdown.5y",
         "technicals.relativeStrength.SPY"
       ]
     }
@@ -2018,21 +2024,6 @@
           "after": 67.13
         },
         {
-          "path": "stageB.technicals.gaps.1.reason",
-          "before": "no SPY benchmark history supplied",
-          "after": "no valid SPY closes supplied for relative-strength alignment"
-        },
-        {
-          "path": "stageB.technicals.notes.1",
-          "before": "Relative strength uses split-adjusted close-to-close price returns; dividends unavailable in the EOD feed, so figures approximate total return.",
-          "after": "Relative strength uses split-adjusted close-to-close price return; dividends excluded."
-        },
-        {
-          "path": "stageB.technicals.range52w.insufficientHistory",
-          "beforeMissing": true,
-          "after": false
-        },
-        {
           "path": "stageB.technicals.relativeStrength.benchmark.asOf",
           "before": "2025-12-31",
           "after": null
@@ -2537,21 +2528,6 @@
       "reason": "D-48 grades technicals on 12-1 month relative strength vs SPY (0.45), 52-week position (0.35) and the SMA50/200 gap (0.20); RSI-14 and the 6-month window are displayed and no longer scored. DEMO has no SPY history, so the new 12-1 window is withheld (technicals.relativeStrength.benchmark.momentum12m1m is all null, a new leaf) and its 0.45 counts as missing evidence: technicals completeness 0.7 -> 0.55. The driver list loses rsi14 (93.69, which the old RSI band haircut as overbought) and re-indexes to position52w, smaGap, so the technicals score moves 72.24 -> 83.92 on the two remaining signals. The aspect note is rewritten. The composite (77.45 -> 77.6) and the route-applicable completeness in its methodology (89.5% -> 87.3%) move with it; both were pinned under score-once-dilution-sbc (D-49) and their new values are this change.",
       "deltas": [
         {
-          "path": "report.scores.aspects.technicals.dataCompleteness",
-          "before": 0.7,
-          "after": 0.55
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.1.source",
-          "before": "computed.scores.technicals.rsi14",
-          "after": "computed.scores.technicals.smaGap"
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.1.unit",
-          "before": "rsi",
-          "after": "%"
-        },
-        {
           "path": "report.scores.aspects.technicals.drivers.2",
           "before": {
             "value": 95.88,
@@ -2561,21 +2537,6 @@
             "verified": true
           },
           "afterMissing": true
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.dataCompleteness",
-          "before": 0.7,
-          "after": 0.55
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.1.source",
-          "before": "computed.scores.technicals.rsi14",
-          "after": "computed.scores.technicals.smaGap"
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.1.unit",
-          "before": "rsi",
-          "after": "%"
         },
         {
           "path": "stageB.scores.aspects.technicals.drivers.2",
@@ -2625,24 +2586,9 @@
           "after": 1
         },
         {
-          "path": "report.scores.aspects.technicals.applicableCompleteness",
-          "beforeMissing": true,
-          "after": 0.55
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.0.source",
-          "before": "computed.scores.technicals.smaGap",
-          "after": "computed.scores.technicals.pctFromHigh52w"
-        },
-        {
           "path": "report.scores.aspects.technicals.note",
           "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
           "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), distance below the 52-week high and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
-        },
-        {
-          "path": "report.scores.aspects.technicals.score",
-          "before": 72.24,
-          "after": 81.25
         },
         {
           "path": "stageB.scores.aspects.balanceSheet.applicableCompleteness",
@@ -2660,24 +2606,9 @@
           "after": 1
         },
         {
-          "path": "stageB.scores.aspects.technicals.applicableCompleteness",
-          "beforeMissing": true,
-          "after": 0.55
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.0.source",
-          "before": "computed.scores.technicals.smaGap",
-          "after": "computed.scores.technicals.pctFromHigh52w"
-        },
-        {
           "path": "stageB.scores.aspects.technicals.note",
           "before": "Trend + momentum: SMA50/200 gap, RSI-14, 52-week position, 6-month relative strength vs SPY.",
           "after": "Momentum and trend: 12-1 month relative strength vs SPY (the latest month skipped), distance below the 52-week high and the SMA50/200 gap. Momentum is a 3-12 month tilt that has reversed sharply after market rebounds (Daniel-Moskowitz 2016); it is not an entry-timing signal. RSI-14 and the 6-month relative strength are shown for context and not scored; RSI has no standalone predictive evidence."
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.score",
-          "before": 72.24,
-          "after": 81.25
         }
       ]
     },
@@ -2971,33 +2902,6 @@
               "finra"
             ],
             "expected": true
-          }
-        },
-        {
-          "path": "report.appendix.missingData.46",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.3y",
-            "reason": "history does not span the full 3-year window — drawdown computed over available rows only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.47",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.5y",
-            "reason": "history does not span the full 5-year window — drawdown computed over available rows only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.48",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.relativeStrength.sector",
-            "reason": "no XLK history supplied",
-            "severity": "info"
           }
         },
         {
@@ -3330,11 +3234,6 @@
           "after": 13.88888888888889
         },
         {
-          "path": "report.scores.aspects.balanceSheet.note",
-          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
-          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership."
-        },
-        {
           "path": "report.scores.aspects.balanceSheet.signals",
           "beforeMissing": true,
           "after": [
@@ -3646,99 +3545,6 @@
           "path": "report.scores.aspects.technicals.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.0.period",
-          "beforeMissing": true,
-          "after": "52-week range at 2025-12-31; exact first-session date not retained"
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.0.value",
-          "before": 7.5,
-          "after": -1.063566658421966
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.1.asOf",
-          "before": "2026-07-06",
-          "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.1.period",
-          "beforeMissing": true,
-          "after": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained"
-        },
-        {
-          "path": "report.scores.aspects.technicals.drivers.1.value",
-          "before": 93.69,
-          "after": 7.4995140141880245
-        },
-        {
-          "path": "report.scores.aspects.technicals.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "pctFromHigh52w",
-              "raw": -1.063566658421966,
-              "unit": "%",
-              "transformedScore": 81.8093000247341,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1.75,
-              "contributionPoints": 0.5566627504328467,
-              "family": "momentum-and-trend",
-              "asOf": "2025-12-31",
-              "period": "52-week range at 2025-12-31; exact first-session date not retained",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "last close",
-                  "value": 40,
-                  "source": "computed.technicals.lastClose",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "52-week high",
-                  "value": 40.43,
-                  "source": "computed.technicals.range52w.high52w",
-                  "asOf": "2025-12-25"
-                }
-              ]
-            },
-            {
-              "id": "smaGap",
-              "raw": 7.4995140141880245,
-              "unit": "%",
-              "transformedScore": 80.2846034610012,
-              "signalWeight": 0.2,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1,
-              "contributionPoints": 0.30284603461001197,
-              "family": "momentum-and-trend",
-              "asOf": "2025-12-31",
-              "period": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "SMA50",
-                  "value": 39.26280000000003,
-                  "source": "computed.technicals.smaCross.sma50",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "SMA200",
-                  "value": 36.523700000000034,
-                  "source": "computed.technicals.smaCross.sma200",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "report.scores.aspects.valuation.applicableCompleteness",
@@ -4105,33 +3911,6 @@
           }
         },
         {
-          "path": "stageB.gaps.45",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.3y",
-            "reason": "history does not span the full 3-year window — drawdown computed over available rows only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.46",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.drawdown.5y",
-            "reason": "history does not span the full 5-year window — drawdown computed over available rows only",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.47",
-          "beforeMissing": true,
-          "after": {
-            "field": "technicals.relativeStrength.sector",
-            "reason": "no XLK history supplied",
-            "severity": "info"
-          }
-        },
-        {
           "path": "stageB.scores.aspects.balanceSheet.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
@@ -4190,11 +3969,6 @@
           "path": "stageB.scores.aspects.balanceSheet.drivers.3.value",
           "before": 13.89,
           "after": 13.88888888888889
-        },
-        {
-          "path": "stageB.scores.aspects.balanceSheet.note",
-          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
-          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership."
         },
         {
           "path": "stageB.scores.aspects.balanceSheet.signals",
@@ -4508,99 +4282,6 @@
           "path": "stageB.scores.aspects.technicals.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.0.period",
-          "beforeMissing": true,
-          "after": "52-week range at 2025-12-31; exact first-session date not retained"
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.0.value",
-          "before": 7.5,
-          "after": -1.063566658421966
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.1.asOf",
-          "before": "2026-07-06",
-          "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.1.period",
-          "beforeMissing": true,
-          "after": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained"
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.drivers.1.value",
-          "before": 93.69,
-          "after": 7.4995140141880245
-        },
-        {
-          "path": "stageB.scores.aspects.technicals.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "pctFromHigh52w",
-              "raw": -1.063566658421966,
-              "unit": "%",
-              "transformedScore": 81.8093000247341,
-              "signalWeight": 0.35,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1.75,
-              "contributionPoints": 0.5566627504328467,
-              "family": "momentum-and-trend",
-              "asOf": "2025-12-31",
-              "period": "52-week range at 2025-12-31; exact first-session date not retained",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "last close",
-                  "value": 40,
-                  "source": "computed.technicals.lastClose",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "52-week high",
-                  "value": 40.43,
-                  "source": "computed.technicals.range52w.high52w",
-                  "asOf": "2025-12-25"
-                }
-              ]
-            },
-            {
-              "id": "smaGap",
-              "raw": 7.4995140141880245,
-              "unit": "%",
-              "transformedScore": 80.2846034610012,
-              "signalWeight": 0.2,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 1,
-              "contributionPoints": 0.30284603461001197,
-              "family": "momentum-and-trend",
-              "asOf": "2025-12-31",
-              "period": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained",
-              "startDate": null,
-              "endDate": "2025-12-31",
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "SMA50",
-                  "value": 39.26280000000003,
-                  "source": "computed.technicals.smaCross.sma50",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "SMA200",
-                  "value": 36.523700000000034,
-                  "source": "computed.technicals.smaCross.sma200",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "stageB.scores.aspects.valuation.applicableCompleteness",
@@ -5188,63 +4869,6 @@
       "reason": "D-57: DEMO analyst estimates carry no currency; with USD statements and a USD listing they inherit USD, so the analyst-consensus case and the estimates as-of return to the audited baseline and an info manifest entry says they were inherited. D-58: year one (+8.0%) and year two (+7.8%) are anchored on the calendarized consensus, later years follow the convergent fade (three-year half-life), the margin and tax bases are written after their caps and floors (DEMO is above the 21% US floor, so its tax values do not move), and the reverse DCF solves on the convergent-shift family. DCF per share 146.23 -> 143.45; every dependent year row, sensitivity cell, fair value, upside, valuation score signal, thesis trigger and report row follows from those inputs. The report spec stamp moves to 1.18.0.",
       "deltas": [
         {
-          "path": "report.appendix.missingData.49",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.analystEstimates.currency",
-            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
-            "severity": "info",
-            "attemptedSources": [
-              "fmp:/stable/analyst-estimates"
-            ]
-          }
-        },
-        {
-          "path": "report.appendix.missingData.50",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.51",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.terminalRoic.waccBasis",
-            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.52",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.53",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "report.appendix.missingData.54",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
-            "severity": "info"
-          }
-        },
-        {
           "path": "report.valuation.dcf.assumptions.1.name",
           "before": "revenue growth (yr1 → yrN)",
           "after": "year-one revenue anchor"
@@ -5295,63 +4919,6 @@
             "name": "terminal growth",
             "value": "2.5%",
             "basis": "min(2.5%, risk-free 4%) — HOUSE CONVENTION: nothing grows faster than rf forever"
-          }
-        },
-        {
-          "path": "stageB.gaps.48",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.analystEstimates.currency",
-            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
-            "severity": "info",
-            "attemptedSources": [
-              "fmp:/stable/analyst-estimates"
-            ]
-          }
-        },
-        {
-          "path": "stageB.gaps.49",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.growthAnchor",
-            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.50",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.dcf.terminalRoic.waccBasis",
-            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.51",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.enterpriseValue.leases",
-            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.52",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.ownHistory",
-            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
-            "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.gaps.53",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.multiples.peers",
-            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
-            "severity": "info"
           }
         },
         {
@@ -5699,11 +5266,6 @@
           "after": 0.45454545454545453
         },
         {
-          "path": "report.scores.aspects.leadership.drivers.0.period",
-          "beforeMissing": true,
-          "after": "2023-12-31 to 2025-12-31"
-        },
-        {
           "path": "report.scores.aspects.leadership.drivers.0.source",
           "before": "computed.scores.leadership.capitalDeployment",
           "after": "computed.scores.leadership.shareCountTrend"
@@ -5730,51 +5292,9 @@
           "afterMissing": true
         },
         {
-          "path": "report.scores.aspects.leadership.note",
-          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
-          "after": "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade."
-        },
-        {
           "path": "report.scores.aspects.leadership.score",
           "before": 76.97,
           "after": 63.77
-        },
-        {
-          "path": "report.scores.aspects.leadership.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "shareCountTrend",
-              "raw": -0.9615607948540661,
-              "unit": "%",
-              "transformedScore": 63.769364769124394,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 4.545454545454545,
-              "contributionPoints": 0.6258802167783815,
-              "family": "capital-return-policy",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "start shares",
-                  "value": 209000000,
-                  "source": "computed.capital.shareCount.startShares",
-                  "asOf": "2023-12-31"
-                },
-                {
-                  "name": "end shares",
-                  "value": 205000000,
-                  "source": "computed.capital.shareCount.endShares",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "report.scores.aspects.moat.drivers.1.period",
@@ -5897,85 +5417,6 @@
           "path": "report.scores.aspects.quality.score",
           "before": 88.62,
           "after": 88.85
-        },
-        {
-          "path": "report.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.07,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 92,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.7956212121212122,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
-          "path": "report.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 79.56% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "report.scores.composite.score",
-          "before": 77.59,
-          "after": 74.53
-        },
-        {
-          "path": "report.scores.factorExposure",
-          "beforeMissing": true,
-          "after": [
-            {
-              "family": "capital-returns",
-              "weightPct": 16.5,
-              "aboveNeutralPoints": 7.12460088691796
-            },
-            {
-              "family": "growth",
-              "weightPct": 14.000000000000002,
-              "aboveNeutralPoints": 2.2271840043786124
-            },
-            {
-              "family": "financial-strength",
-              "weightPct": 12.352941176470589,
-              "aboveNeutralPoints": 4.245798319327731
-            },
-            {
-              "family": "profitability",
-              "weightPct": 9.75,
-              "aboveNeutralPoints": 2.299383843890901
-            },
-            {
-              "family": "accounting-integrity",
-              "weightPct": 9.016666666666667,
-              "aboveNeutralPoints": 3.3382626280302823
-            },
-            {
-              "family": "valuation",
-              "weightPct": 8,
-              "aboveNeutralPoints": 3.36
-            },
-            {
-              "family": "capital-return-policy",
-              "weightPct": 4.545454545454545,
-              "aboveNeutralPoints": 0.6258802167783815
-            },
-            {
-              "family": "momentum-and-trend",
-              "weightPct": 2.75,
-              "aboveNeutralPoints": 0.8595087850428587
-            },
-            {
-              "family": "equity-compensation",
-              "weightPct": 2.6470588235294117,
-              "aboveNeutralPoints": 0.44509803921568614
-            }
-          ]
         },
         {
           "path": "report.verdict.gradeStrip.leadership.confidence",
@@ -6122,11 +5563,6 @@
           "after": 0.45454545454545453
         },
         {
-          "path": "stageB.scores.aspects.leadership.drivers.0.period",
-          "beforeMissing": true,
-          "after": "2023-12-31 to 2025-12-31"
-        },
-        {
           "path": "stageB.scores.aspects.leadership.drivers.0.source",
           "before": "computed.scores.leadership.capitalDeployment",
           "after": "computed.scores.leadership.shareCountTrend"
@@ -6153,51 +5589,9 @@
           "afterMissing": true
         },
         {
-          "path": "stageB.scores.aspects.leadership.note",
-          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
-          "after": "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade."
-        },
-        {
           "path": "stageB.scores.aspects.leadership.score",
           "before": 76.97,
           "after": 63.77
-        },
-        {
-          "path": "stageB.scores.aspects.leadership.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "shareCountTrend",
-              "raw": -0.9615607948540661,
-              "unit": "%",
-              "transformedScore": 63.769364769124394,
-              "signalWeight": 0.25,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 4.545454545454545,
-              "contributionPoints": 0.6258802167783815,
-              "family": "capital-return-policy",
-              "asOf": "2025-12-31",
-              "period": "2023-12-31 to 2025-12-31",
-              "startDate": "2023-12-31",
-              "endDate": "2025-12-31",
-              "windowYears": 2,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "start shares",
-                  "value": 209000000,
-                  "source": "computed.capital.shareCount.startShares",
-                  "asOf": "2023-12-31"
-                },
-                {
-                  "name": "end shares",
-                  "value": 205000000,
-                  "source": "computed.capital.shareCount.endShares",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "stageB.scores.aspects.moat.drivers.1.period",
@@ -6320,85 +5714,6 @@
           "path": "stageB.scores.aspects.quality.score",
           "before": 88.62,
           "after": 88.85
-        },
-        {
-          "path": "stageB.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.07,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 92,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.7956212121212122,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
-          "path": "stageB.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 79.56% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "stageB.scores.composite.score",
-          "before": 77.59,
-          "after": 74.53
-        },
-        {
-          "path": "stageB.scores.factorExposure",
-          "beforeMissing": true,
-          "after": [
-            {
-              "family": "capital-returns",
-              "weightPct": 16.5,
-              "aboveNeutralPoints": 7.12460088691796
-            },
-            {
-              "family": "growth",
-              "weightPct": 14.000000000000002,
-              "aboveNeutralPoints": 2.2271840043786124
-            },
-            {
-              "family": "financial-strength",
-              "weightPct": 12.352941176470589,
-              "aboveNeutralPoints": 4.245798319327731
-            },
-            {
-              "family": "profitability",
-              "weightPct": 9.75,
-              "aboveNeutralPoints": 2.299383843890901
-            },
-            {
-              "family": "accounting-integrity",
-              "weightPct": 9.016666666666667,
-              "aboveNeutralPoints": 3.3382626280302823
-            },
-            {
-              "family": "valuation",
-              "weightPct": 8,
-              "aboveNeutralPoints": 3.36
-            },
-            {
-              "family": "capital-return-policy",
-              "weightPct": 4.545454545454545,
-              "aboveNeutralPoints": 0.6258802167783815
-            },
-            {
-              "family": "momentum-and-trend",
-              "weightPct": 2.75,
-              "aboveNeutralPoints": 0.8595087850428587
-            },
-            {
-              "family": "equity-compensation",
-              "weightPct": 2.6470588235294117,
-              "aboveNeutralPoints": 0.44509803921568614
-            }
-          ]
         }
       ]
     },
@@ -9847,11 +9162,6 @@
       "reason": "Common-earnings admission changes the report convention and exact fallback basis/ROTE explanatory text. The ROTE object is reclassified only for its note; all numerical and availability fields remain pinned. Frozen-build positive controls preserve complete outputs after restoring only the two exact explanatory strings. The cumulative report stamp is 1.25.1 after D-86 source-bound timing evidence; this fixture has no payment schedule, so that intervening disclosure adds no financial or payment-data leaves.",
       "deltas": [
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.25.1"
-        },
-        {
           "path": "report.valuation.multiples.0.basis",
           "beforeMissing": true,
           "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; parent income; no outside preferred claims known and no second NCI deduction)"
@@ -9887,6 +9197,836 @@
           "path": "stageB.valuation.multiples.multiples.0.basis",
           "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
           "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; parent income; no outside preferred claims known and no second NCI deduction)"
+        }
+      ]
+    },
+    {
+      "name": "accounting-evidence-20261018",
+      "decisions": [
+        "D-87"
+      ],
+      "reason": "The unchanged audit fixture has no admitted SPY session reference, so the new disclosed observed-session guard withholds its previously assumed full-year range. The technical aspect retains its independently admitted SMA signal: completeness 0.55 to 0.20, score 81.25 to 80.28, composite 74.53 to 73.97. Existing weights and bands are unchanged; the associated signal/driver arrays, factor exposure, assessment status, explanatory methodology and one inserted coverage gap move accordingly. Additional drawdown changes are actual-window row counts and precise partial-coverage metadata/notes; observed depths and pre-existing sufficiency flags in this fixture stay unchanged. Other changes are report version 1.26.0 and exactly identified capital-stewardship/share-denominator wording. Nontechnical financial values, valuation, projections and source observations remain pinned; dense covered and sparse refusal controls are separately tested. Index shifts and paths returning to the historical baseline are accounted for explicitly rather than replacing the baseline.",
+      "deltas": [
+        {
+          "path": "report.appendix.missingData.46",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.3y",
+            "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.47",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.5y",
+            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.48",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.range52w",
+            "reason": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.49",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.relativeStrength.sector",
+            "reason": "no XLK history supplied",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.50",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.analystEstimates.currency",
+            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+            "severity": "info",
+            "attemptedSources": [
+              "fmp:/stable/analyst-estimates"
+            ]
+          }
+        },
+        {
+          "path": "report.appendix.missingData.51",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.growthAnchor",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.52",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.terminalRoic.waccBasis",
+            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.53",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.54",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.ownHistory",
+            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.appendix.missingData.55",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.26.0"
+        },
+        {
+          "path": "report.scores.aspects.balanceSheet.note",
+          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
+          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+        },
+        {
+          "path": "report.scores.aspects.leadership.drivers.0.period",
+          "beforeMissing": true,
+          "after": "Annualized weighted-average diluted common-share trend; 2023-12-31 to 2025-12-31"
+        },
+        {
+          "path": "report.scores.aspects.leadership.note",
+          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
+          "after": "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade."
+        },
+        {
+          "path": "report.scores.aspects.leadership.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "shareCountTrend",
+              "raw": -0.9615607948540661,
+              "unit": "%",
+              "transformedScore": 63.769364769124394,
+              "signalWeight": 0.25,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.545454545454545,
+              "contributionPoints": 0.6258802167783815,
+              "family": "capital-return-policy",
+              "asOf": "2025-12-31",
+              "period": "Annualized weighted-average diluted common-share trend; 2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2,
+              "fallbackReason": "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.",
+              "operands": [
+                {
+                  "name": "start weighted-average diluted common shares",
+                  "value": 209000000,
+                  "source": "computed.capital.shareCount.startShares",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "end weighted-average diluted common shares",
+                  "value": 205000000,
+                  "source": "computed.capital.shareCount.endShares",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.aspects.technicals.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.2
+        },
+        {
+          "path": "report.scores.aspects.technicals.dataCompleteness",
+          "before": 0.7,
+          "after": 0.2
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.0.period",
+          "beforeMissing": true,
+          "after": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained"
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.0.value",
+          "before": 7.5,
+          "after": 7.4995140141880245
+        },
+        {
+          "path": "report.scores.aspects.technicals.drivers.1",
+          "before": {
+            "value": 93.69,
+            "unit": "rsi",
+            "source": "computed.scores.technicals.rsi14",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "report.scores.aspects.technicals.score",
+          "before": 72.24,
+          "after": 80.28
+        },
+        {
+          "path": "report.scores.aspects.technicals.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "smaGap",
+              "raw": 7.4995140141880245,
+              "unit": "%",
+              "transformedScore": 80.2846034610012,
+              "signalWeight": 0.2,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 1,
+              "contributionPoints": 0.30284603461001197,
+              "family": "momentum-and-trend",
+              "asOf": "2025-12-31",
+              "period": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "SMA50",
+                  "value": 39.26280000000003,
+                  "source": "computed.technicals.smaCross.sma50",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "SMA200",
+                  "value": 36.523700000000034,
+                  "source": "computed.technicals.smaCross.sma200",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 92,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.7781212121212121,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "report.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 77.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "report.scores.composite.score",
+          "before": 77.59,
+          "after": 73.97
+        },
+        {
+          "path": "report.scores.factorExposure",
+          "beforeMissing": true,
+          "after": [
+            {
+              "family": "capital-returns",
+              "weightPct": 16.5,
+              "aboveNeutralPoints": 7.12460088691796
+            },
+            {
+              "family": "growth",
+              "weightPct": 14.000000000000002,
+              "aboveNeutralPoints": 2.2271840043786124
+            },
+            {
+              "family": "financial-strength",
+              "weightPct": 12.352941176470589,
+              "aboveNeutralPoints": 4.245798319327731
+            },
+            {
+              "family": "profitability",
+              "weightPct": 9.75,
+              "aboveNeutralPoints": 2.299383843890901
+            },
+            {
+              "family": "accounting-integrity",
+              "weightPct": 9.016666666666667,
+              "aboveNeutralPoints": 3.3382626280302823
+            },
+            {
+              "family": "valuation",
+              "weightPct": 8,
+              "aboveNeutralPoints": 3.36
+            },
+            {
+              "family": "capital-return-policy",
+              "weightPct": 4.545454545454545,
+              "aboveNeutralPoints": 0.6258802167783815
+            },
+            {
+              "family": "equity-compensation",
+              "weightPct": 2.6470588235294117,
+              "aboveNeutralPoints": 0.44509803921568614
+            },
+            {
+              "family": "momentum-and-trend",
+              "weightPct": 1,
+              "aboveNeutralPoints": 0.30284603461001197
+            }
+          ]
+        },
+        {
+          "path": "report.technicals.graded.assessmentStatus",
+          "beforeMissing": true,
+          "after": "limited-evidence"
+        },
+        {
+          "path": "report.technicals.graded.confidence",
+          "before": "medium",
+          "after": "low"
+        },
+        {
+          "path": "report.technicals.graded.confidenceCap",
+          "beforeMissing": true,
+          "after": {
+            "from": "medium",
+            "to": "low",
+            "reason": "the deterministic technicals score rests on under half of the inputs its route supports"
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.technicals.assessmentStatus",
+          "beforeMissing": true,
+          "after": "limited-evidence"
+        },
+        {
+          "path": "report.verdict.gradeStrip.technicals.confidence",
+          "before": "medium",
+          "after": "low"
+        },
+        {
+          "path": "report.verdict.gradeStrip.technicals.confidenceCap",
+          "beforeMissing": true,
+          "after": {
+            "from": "medium",
+            "to": "low",
+            "reason": "the deterministic technicals score rests on under half of the inputs its route supports"
+          }
+        },
+        {
+          "path": "stageB.gaps.45",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.3y",
+            "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.46",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.5y",
+            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.47",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.range52w",
+            "reason": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.48",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.relativeStrength.sector",
+            "reason": "no XLK history supplied",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.49",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.analystEstimates.currency",
+            "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+            "severity": "info",
+            "attemptedSources": [
+              "fmp:/stable/analyst-estimates"
+            ]
+          }
+        },
+        {
+          "path": "stageB.gaps.50",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.growthAnchor",
+            "reason": "growth-anchor method(s) unavailable: 3y revenue CAGR, 5y revenue CAGR — the point estimate is the median of the 2 that were computable",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.51",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.dcf.terminalRoic.waccBasis",
+            "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.52",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.enterpriseValue.leases",
+            "reason": "lease liabilities of 100000000 are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.53",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.ownHistory",
+            "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.gaps.54",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.multiples.peers",
+            "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.scores.aspects.balanceSheet.note",
+          "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
+          "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.drivers.0.period",
+          "beforeMissing": true,
+          "after": "Annualized weighted-average diluted common-share trend; 2023-12-31 to 2025-12-31"
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.note",
+          "before": "Capital-stewardship proxy (buyback discipline, capital deployment above cost, dilution). Qualitative leadership assessed in the analyst grade.",
+          "after": "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade."
+        },
+        {
+          "path": "stageB.scores.aspects.leadership.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "shareCountTrend",
+              "raw": -0.9615607948540661,
+              "unit": "%",
+              "transformedScore": 63.769364769124394,
+              "signalWeight": 0.25,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 4.545454545454545,
+              "contributionPoints": 0.6258802167783815,
+              "family": "capital-return-policy",
+              "asOf": "2025-12-31",
+              "period": "Annualized weighted-average diluted common-share trend; 2023-12-31 to 2025-12-31",
+              "startDate": "2023-12-31",
+              "endDate": "2025-12-31",
+              "windowYears": 2,
+              "fallbackReason": "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.",
+              "operands": [
+                {
+                  "name": "start weighted-average diluted common shares",
+                  "value": 209000000,
+                  "source": "computed.capital.shareCount.startShares",
+                  "asOf": "2023-12-31"
+                },
+                {
+                  "name": "end weighted-average diluted common shares",
+                  "value": 205000000,
+                  "source": "computed.capital.shareCount.endShares",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.2
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.dataCompleteness",
+          "before": 0.7,
+          "after": 0.2
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.0.period",
+          "beforeMissing": true,
+          "after": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained"
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.0.value",
+          "before": 7.5,
+          "after": 7.4995140141880245
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.drivers.1",
+          "before": {
+            "value": 93.69,
+            "unit": "rsi",
+            "source": "computed.scores.technicals.rsi14",
+            "asOf": "2026-07-06",
+            "verified": true
+          },
+          "afterMissing": true
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.score",
+          "before": 72.24,
+          "after": 80.28
+        },
+        {
+          "path": "stageB.scores.aspects.technicals.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "smaGap",
+              "raw": 7.4995140141880245,
+              "unit": "%",
+              "transformedScore": 80.2846034610012,
+              "signalWeight": 0.2,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 1,
+              "contributionPoints": 0.30284603461001197,
+              "family": "momentum-and-trend",
+              "asOf": "2025-12-31",
+              "period": "SMA50 / SMA200 at 2025-12-31; exact first-session dates not retained",
+              "startDate": null,
+              "endDate": "2025-12-31",
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "SMA50",
+                  "value": 39.26280000000003,
+                  "source": "computed.technicals.smaCross.sma50",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "SMA200",
+                  "value": 36.523700000000034,
+                  "source": "computed.technicals.smaCross.sma200",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 92,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.7781212121212121,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "stageB.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 77.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "stageB.scores.composite.score",
+          "before": 77.59,
+          "after": 73.97
+        },
+        {
+          "path": "stageB.scores.factorExposure",
+          "beforeMissing": true,
+          "after": [
+            {
+              "family": "capital-returns",
+              "weightPct": 16.5,
+              "aboveNeutralPoints": 7.12460088691796
+            },
+            {
+              "family": "growth",
+              "weightPct": 14.000000000000002,
+              "aboveNeutralPoints": 2.2271840043786124
+            },
+            {
+              "family": "financial-strength",
+              "weightPct": 12.352941176470589,
+              "aboveNeutralPoints": 4.245798319327731
+            },
+            {
+              "family": "profitability",
+              "weightPct": 9.75,
+              "aboveNeutralPoints": 2.299383843890901
+            },
+            {
+              "family": "accounting-integrity",
+              "weightPct": 9.016666666666667,
+              "aboveNeutralPoints": 3.3382626280302823
+            },
+            {
+              "family": "valuation",
+              "weightPct": 8,
+              "aboveNeutralPoints": 3.36
+            },
+            {
+              "family": "capital-return-policy",
+              "weightPct": 4.545454545454545,
+              "aboveNeutralPoints": 0.6258802167783815
+            },
+            {
+              "family": "equity-compensation",
+              "weightPct": 2.6470588235294117,
+              "aboveNeutralPoints": 0.44509803921568614
+            },
+            {
+              "family": "momentum-and-trend",
+              "weightPct": 1,
+              "aboveNeutralPoints": 0.30284603461001197
+            }
+          ]
+        },
+        {
+          "path": "stageB.technicals.drawdowns.0.rowsUsed",
+          "beforeMissing": true,
+          "after": 262
+        },
+        {
+          "path": "stageB.technicals.drawdowns.1.coverageIssue",
+          "beforeMissing": true,
+          "after": "observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance"
+        },
+        {
+          "path": "stageB.technicals.drawdowns.1.rowsUsed",
+          "beforeMissing": true,
+          "after": 300
+        },
+        {
+          "path": "stageB.technicals.drawdowns.2.coverageIssue",
+          "beforeMissing": true,
+          "after": "observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance"
+        },
+        {
+          "path": "stageB.technicals.drawdowns.2.rowsUsed",
+          "beforeMissing": true,
+          "after": 300
+        },
+        {
+          "path": "stageB.technicals.gaps.0.field",
+          "before": "technicals.relativeStrength.sector",
+          "after": "technicals.range52w"
+        },
+        {
+          "path": "stageB.technicals.gaps.0.reason",
+          "before": "no XLK history supplied",
+          "after": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished"
+        },
+        {
+          "path": "stageB.technicals.gaps.1.field",
+          "before": "technicals.relativeStrength.SPY",
+          "after": "technicals.relativeStrength.sector"
+        },
+        {
+          "path": "stageB.technicals.gaps.1.reason",
+          "before": "no SPY benchmark history supplied",
+          "after": "no XLK history supplied"
+        },
+        {
+          "path": "stageB.technicals.gaps.1.severity",
+          "before": "warn",
+          "after": "info"
+        },
+        {
+          "path": "stageB.technicals.gaps.2.field",
+          "before": "technicals.drawdown.3y",
+          "after": "technicals.relativeStrength.SPY"
+        },
+        {
+          "path": "stageB.technicals.gaps.2.reason",
+          "before": "history does not span the full 3-year window — drawdown computed over available rows only",
+          "after": "no valid SPY closes supplied for relative-strength alignment"
+        },
+        {
+          "path": "stageB.technicals.gaps.2.severity",
+          "before": "info",
+          "after": "warn"
+        },
+        {
+          "path": "stageB.technicals.gaps.3.field",
+          "before": "technicals.drawdown.5y",
+          "after": "technicals.drawdown.3y"
+        },
+        {
+          "path": "stageB.technicals.gaps.3.reason",
+          "before": "history does not span the full 5-year window — drawdown computed over available rows only",
+          "after": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only"
+        },
+        {
+          "path": "stageB.technicals.gaps.4",
+          "beforeMissing": true,
+          "after": {
+            "field": "technicals.drawdown.5y",
+            "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+            "severity": "info"
+          }
+        },
+        {
+          "path": "stageB.technicals.notes.1",
+          "before": "Relative strength uses split-adjusted close-to-close price returns; dividends unavailable in the EOD feed, so figures approximate total return.",
+          "after": "52-week range coverage is checked against admitted observed SPY session dates (house rule): at least 200 reference observations inside the year, boundary and interior gaps no longer than 7 calendar days, and every reference session covered by the issuer after its tolerated start. This verifies observed-session coverage, not a complete exchange calendar; an unavailable or incompatible reference withholds the range."
+        },
+        {
+          "path": "stageB.technicals.notes.2",
+          "before": "House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought ≥70, oversold ≤30) + MACD histogram; volume trend rising/falling at 1.2×/0.8× of the 90-day average; “near 52-week high/low” within 5%/10%; deep-drawdown flag at 30% (1y).",
+          "after": "Relative strength uses split-adjusted close-to-close price return; dividends excluded."
+        },
+        {
+          "path": "stageB.technicals.notes.3",
+          "beforeMissing": true,
+          "after": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2024-11-07, after 2022-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only"
+        },
+        {
+          "path": "stageB.technicals.notes.4",
+          "beforeMissing": true,
+          "after": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2024-11-07, after 2020-12-31 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only"
+        },
+        {
+          "path": "stageB.technicals.notes.5",
+          "beforeMissing": true,
+          "after": "House rules: trend = close & SMA50 vs SMA200; momentum = RSI-14 (overbought ≥70, oversold ≤30) + MACD histogram; volume trend rising/falling at 1.2×/0.8× of the 90-day average; “near 52-week high/low” within 5%/10%; deep-drawdown flag at 30% (1y)."
+        },
+        {
+          "path": "stageB.technicals.notes.6",
+          "beforeMissing": true,
+          "after": "Drawdown coverage is an observation-based house check: at least 200 admitted rows per labelled year, with a start allowance and maximum interior gap of 7 calendar days. A partial observed depth is retained with its coverage qualifier; it is not proof of a complete exchange calendar and does not depend on benchmark availability."
+        },
+        {
+          "path": "stageB.technicals.range52w.coverageIssue",
+          "beforeMissing": true,
+          "after": "observed SPY session reference has only 0 admitted unique observations inside 2024-12-31 to 2025-12-31 (<200); year coverage unestablished"
+        },
+        {
+          "path": "stageB.technicals.range52w.distanceFromHigh",
+          "before": -0.4299999999999997,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.distanceFromLow",
+          "before": 10,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.high52w",
+          "before": 40.43,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.highDate",
+          "before": "2025-12-25",
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.insufficientHistory",
+          "beforeMissing": true,
+          "after": true
+        },
+        {
+          "path": "stageB.technicals.range52w.low52w",
+          "before": 30,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.lowDate",
+          "before": "2025-01-01",
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.pctFromHigh",
+          "before": -1.063566658421966,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.pctFromLow",
+          "before": 33.33333333333333,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.range52w.positionPct",
+          "before": 95.87727708533077,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.read.flags.2",
+          "before": "Price within 1.1% of the 52-week high (40.43 on 2025-12-25).",
+          "afterMissing": true
+        },
+        {
+          "path": "stageB.technicals.read.keyLevels.high52w",
+          "before": 40.43,
+          "after": null
+        },
+        {
+          "path": "stageB.technicals.read.keyLevels.low52w",
+          "before": 30,
+          "after": null
         }
       ]
     }

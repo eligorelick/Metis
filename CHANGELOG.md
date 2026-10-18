@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.25.1** and
-payload **1.30.1** (common-earnings admission, 2026-10-18). The checked-in
+Current source declares application **0.1.0**, report spec **1.26.0** and
+payload **1.31.0** (accounting and filing evidence, 2026-10-18). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,26 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - accounting and filing evidence (2026-10-18)
+
+- Separate sourced temporary equity from permanent equity and liabilities;
+  preserve unknown components and reject conflicting accounting inputs.
+- Reconcile current and noncurrent restricted cash without making restrictions
+  available cash. Admit debt carrying values only from a compatible dated note
+  and principal reconciliation; preserve incompatible claims and lease scope.
+- Use existing actual-observation and window guards for recent-IPO technical
+  indicators, and qualify sparse-window drawdowns as observed partial samples.
+  Financial-history restrictions, score bands and weights remain.
+- Preserve original ratio prose and compare only tightly bound typed measures.
+  Label the leadership capital-stewardship proxy and weighted-average share
+  measures according to what they calculate.
+- Retain bounded source-matched controls, litigation and officer evidence, and
+  distinguish completed-financing proceeds and costs from current liquidity.
+
+See the [implementation and verification record](docs/audit/2026-10-18-accounting-evidence-remediation.md)
+for evidence, admission limits and review findings. Historical saved reports
+retain their original contents; these changes do not establish better returns.
 
 ## Unreleased - common-earnings admission (2026-10-18)
 

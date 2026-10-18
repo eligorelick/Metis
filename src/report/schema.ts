@@ -114,7 +114,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.24.1 (D-84): preserve explicit common-cash payout refusals through valuation.
 // 1.25.0 (D-86): optional sourced fiscal payment evidence and coverage disclosures.
 // 1.25.1 (D-85): common earnings retain allocation, source availability and flow scope.
-export const REPORT_SPEC_VERSION = "1.25.1" as const;
+// 1.26.0 (D-87): source-bound accounting, evidence and metric presentation.
+export const REPORT_SPEC_VERSION = "1.26.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

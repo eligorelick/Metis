@@ -541,6 +541,43 @@ describe("payload determinism + provenance", () => {
       const withoutEps = value.replace(epsDisclosure, "");
       return withoutEps === currentBasis ? precedingBasis : withoutEps;
     }));
+    // D-87 changes these seven explanatory leaves only. Assert their exact
+    // paths/content before restoring the preceding wording for the whole-finance
+    // pin. No score, weight, operand value, date, availability flag or order is
+    // normalized; any such change still breaks the preceding hash below.
+    const stewardship = precedingFinance.scores.aspects.leadership;
+    expect(stewardship.drivers).toHaveLength(1);
+    expect(stewardship.signals).toHaveLength(1);
+    const shareTrend = stewardship.signals[0];
+    expect(shareTrend.operands).toHaveLength(2);
+    expect({
+      balanceSheetNote: precedingFinance.scores.aspects.balanceSheet.note,
+      leadershipNote: stewardship.note,
+      driverSource: stewardship.drivers[0].source,
+      driverPeriod: stewardship.drivers[0].period,
+      signalId: shareTrend.id,
+      signalPeriod: shareTrend.period,
+      signalReason: shareTrend.fallbackReason,
+      operandSources: shareTrend.operands.map((operand: { source: string }) => operand.source),
+      operandNames: shareTrend.operands.map((operand: { name: string }) => operand.name),
+    }).toEqual({
+      balanceSheetNote: "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership.",
+      leadershipNote: "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
+      driverSource: "computed.scores.leadership.shareCountTrend",
+      driverPeriod: "Annualized weighted-average diluted common-share trend; 2021-09-25 to 2025-09-27",
+      signalId: "shareCountTrend",
+      signalPeriod: "Annualized weighted-average diluted common-share trend; 2021-09-25 to 2025-09-27",
+      signalReason: "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.",
+      operandSources: ["computed.capital.shareCount.startShares", "computed.capital.shareCount.endShares"],
+      operandNames: ["start weighted-average diluted common shares", "end weighted-average diluted common shares"],
+    });
+    precedingFinance.scores.aspects.balanceSheet.note = "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership.";
+    stewardship.note = "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.";
+    stewardship.drivers[0].period = "2021-09-25 to 2025-09-27";
+    shareTrend.period = "2021-09-25 to 2025-09-27";
+    shareTrend.fallbackReason = null;
+    shareTrend.operands[0].name = "start shares";
+    shareTrend.operands[1].name = "end shares";
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     expect({
       fingerprint: payloadFingerprint(payload),
@@ -815,14 +852,20 @@ describe("payload determinism + provenance", () => {
       // D-84: version-only change for this unaffected general-route fixture.
       // D-85: exact fallback basis wording removes 14 prompt bytes; financial
       // numbers, availability and registry identities remain unchanged.
-      fingerprint: "1.30.1:bc4cf829",
-      promptBytes: 138_685,
+      // D-87 (+446 prompt bytes): stewardship notes name the weighted-average
+      // diluted common-share denominator and its limits. The total-change
+      // figure is relabeled (same value/window), so its derived registry id,
+      // provenance hash/id hash and label matrix change; counts/citations and
+      // projection periods do not. The exact seven metadata leaves above
+      // account for financeHash while retaining the preceding whole-finance pin.
+      fingerprint: "1.31.0:0333a169",
+      promptBytes: 139_131,
       provenanceCount: 531,
-      provenanceHash: "ebdcddba",
-      provenanceIdsHash: "0dee6be6",
+      provenanceHash: "4c5e217d",
+      provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
-      computedFigureLabelHash: "7f5cbe9b",
+      computedFigureLabelHash: "dc5ba34e",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -841,7 +884,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "75dbcb7a",
+      financeHash: "1272966b",
     });
   });
 
@@ -965,7 +1008,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.30.1");
+    expect(first.payloadVersion).toBe("1.31.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2460,7 +2503,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.25.1");
+    expect(report.meta.specVersion).toBe("1.26.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

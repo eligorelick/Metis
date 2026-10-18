@@ -75,6 +75,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-17-preferred-payout-admission.md",
   "docs/audit/2026-10-18-common-earnings-admission.md",
   "docs/audit/2026-10-18-commitment-payment-evidence.md",
+  "docs/audit/2026-10-18-accounting-evidence-remediation.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
@@ -570,11 +571,15 @@ describe("public release contract", () => {
       // D-66: extracted annual notes, interim statements/Item 2/Item 5 and governance/commentary samples.
       read("tests/edgar.filingFacts.test.ts"),
       read("tests/edgar.debtPresentation.test.ts"),
+      // D-87: public restriction and debt-carrying reconciliations.
+      read("tests/financialComposition.cashScope.test.ts"),
+      read("tests/edgar.debtNoteCarrying.test.ts"),
         // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
         read("tests/edgar.operatingExpenseScope.test.ts"),
     ].join("\n");
 
-    expect(edgarFixtures).toHaveLength(44);
+    // D-87 adds only the referenced public cash and carrying-debt fixtures.
+    expect(edgarFixtures).toHaveLength(46);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
