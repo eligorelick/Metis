@@ -392,7 +392,8 @@ export interface ContextPayload {
 // analyst/judge passes cannot resume as equivalent; completed reports stay readable.
 // D-83: quarter-sum EPS basis and changed grade-override prompt contract.
 // 1.29.1 (D-84): common-cash refusals cannot become zero-payout observations.
-export const PAYLOAD_VERSION = "1.29.1" as const;
+// 1.30.0 (D-86): retain source-bound fiscal payment buckets and unknown funding scope.
+export const PAYLOAD_VERSION = "1.30.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2095,6 +2096,26 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       source: `edgar:${c.source.form} ${c.source.exhibit ?? c.source.accession}`,
       asOf: c.source.filingDate,
     });
+  }
+  for (const table of disclosures.commitmentPaymentTiming ?? []) {
+    notes.push(`Payment timing as reported (${table.source.form} ${table.source.exhibit ?? "exhibit unrecorded"}, ${table.source.accession}, table ${table.tableIndex + 1}): parsed-table coverage ${table.coverage}. Fiscal labels are not calendar maturity dates; thereafter has no exact maturity. This is not a complete obligation ledger: funding capacity and solvency are not assessed. Recognized debt, leases, guarantees and purchase commitments must not be added together without resolving overlap.`);
+    if (table.reason) notes.push(`Payment timing limitation: ${table.reason}`);
+    if (table.coverage !== "complete" || table.currency === null) continue;
+    for (const row of table.rows) {
+      if (row.tableTotal || row.reconciliation.status !== "reconciled-as-printed") continue;
+      for (const bucket of row.buckets) {
+        if (bucket.amount === null) continue;
+        figures.push({
+          label: `${row.label} (${table.table}, table ${table.tableIndex + 1}), fiscal payment bucket ${bucket.label}`,
+          value: bucket.amount,
+          unit: "currency",
+          currency: table.currency,
+          period: bucket.label,
+          source: `edgar:${table.source.form} ${table.source.exhibit ?? "exhibit unrecorded"} ${table.source.accession} table ${table.tableIndex + 1}`,
+          asOf: table.source.filingDate,
+        });
+      }
+    }
   }
   if (disclosures.nonGaapBasisNote) notes.push(`Non-GAAP basis (issuer text): ${disclosures.nonGaapBasisNote}`);
   for (const n of disclosures.notes) notes.push(n);

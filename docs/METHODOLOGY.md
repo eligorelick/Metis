@@ -2259,6 +2259,22 @@ fallback and annual-flow scope questions remain open; no entitlement, arrears,
 accretion or participating-security bridge is invented. See the
 [source evidence and regression record](audit/2026-10-17-preferred-payout-admission.md).
 
+### Reported fiscal commitment payment evidence
+
+The existing commitment disclosure can retain optional issuer-reported fiscal
+payment buckets, exact source-table tokens, scale/currency, supplying exhibit
+and row/category reconciliation. Coverage describes only the supplying table.
+Missing timing, unexplained dashes and ambiguous cells remain unknown; only
+complete source-bound category buckets enter the numeric model context. Raw
+evidence and independently supported totals remain distinct from that admission.
+
+Fiscal labels do not establish exact calendar maturity dates. A table Total is
+a check, not another obligation. This disclosure adds nothing to net debt or
+DCF deductions and does not assess obligor liquidity, covenant compliance,
+funding capacity or solvency. The bounded text parser can withhold legitimate
+unit-like category labels rather than guess their meaning. See the
+[source, admission policy and limits](audit/2026-10-18-commitment-payment-evidence.md).
+
 ### Offline outcome evaluation
 
 `npm run research:evaluate -- frozen-evaluation.json [report.json]` consumes the versioned `research-evaluation-v1` contract without provider, model or database calls. Inputs require immutable snapshot identity, information availability dates, a point-in-time universe including delisting coverage, exact forecast periods, currency/share basis, and frozen baselines. Outcome labels are separate first-reported filing values or benchmark-relative total returns including distributions and delistings. Future restatements, unavailable training labels, mismatched periods and current-constituent-only cohorts fail closed.

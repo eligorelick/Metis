@@ -9885,14 +9885,16 @@
       ]
     },
     {
-      "name": "d84-common-cash-refusal",
-      "decisions": ["D-84"],
-      "reason": "D-84 advances the report convention to 1.24.1 for explicit common-cash refusal custody, including aggregate zero. This general-route fixture has no affected preferred cash observations, so every economic assertion remains pinned; only report.meta.specVersion is reclassified from D-83.",
+      "name": "d86-fiscal-payment-evidence",
+      "decisions": [
+        "D-86"
+      ],
+      "reason": "Optional source-bound fiscal payment evidence changes report and model-context conventions. Only the report-spec leaf advances; all financial fixture assertions remain pinned.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.24.1"
+          "after": "1.25.0"
         }
       ]
     }

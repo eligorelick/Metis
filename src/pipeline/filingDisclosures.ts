@@ -36,7 +36,7 @@ import {
   parseTradingArrangements,
   type FilingFact,
 } from "@/edgar/filingFacts";
-import { noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
+import { CommitmentPaymentTimingSchema, noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
 
 const SYMBOL_CURRENCY: Readonly<Record<string, string>> = { "US$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY" };
 const TREND_QUARTERS = 8;
@@ -555,16 +555,71 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
       .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: earningsFactRef(latest, f.source) }))
     : [];
   const commitmentRelease = releases.find((r) => (r.commitments ?? []).length > 0);
-  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease && releaseCurrencyMatches(bundle, commitmentRelease, "$", currency)
+  const validTimingDay = (value: string | null): value is string => value !== null &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  const cutoff = bundle.builtAt.slice(0, 10);
+  const commitmentAvailable = commitmentRelease !== undefined && validTimingDay(commitmentRelease.filingDate) &&
+    validTimingDay(cutoff) && commitmentRelease.filingDate <= cutoff;
+  type CommitmentEvidence = NonNullable<EarningsReleaseRecord["commitments"]>[number];
+  const commitmentRef = (table: CommitmentEvidence): FilingRef => table.source ??
+    releaseRef(commitmentRelease!, commitmentRelease?.commitmentsExhibit ?? "EX-99.1");
+  const commitmentNarrative = (table: CommitmentEvidence): string | null | undefined => {
+    if (!table.source) return commitmentRelease?.commitmentsExhibit === "EX-99.2"
+      ? commitmentRelease.commentaryNarrative : commitmentRelease?.releaseNarrative;
+    const commentary = releaseRef(commitmentRelease!, "EX-99.2");
+    const release = releaseRef(commitmentRelease!, "EX-99.1");
+    if (table.source.exhibit === commentary.exhibit && table.source.url === commentary.url) return commitmentRelease?.commentaryNarrative;
+    if (table.source.exhibit === release.exhibit && table.source.url === release.url) return commitmentRelease?.releaseNarrative;
+    return null;
+  };
+  const sameAggregate = (candidate: NonNullable<EarningsReleaseRecord["commitments"]>[number], table: NonNullable<EarningsReleaseRecord["commitments"]>[number]): boolean =>
+    candidate.kind === table.kind && candidate.asOf === table.asOf && candidate.total === table.total &&
+    candidate.rows.length === table.rows.length && candidate.rows.every((row, index) =>
+      row.label === table.rows[index]!.label && row.total === table.rows[index]!.total);
+  const reproducedAggregate = (table: NonNullable<EarningsReleaseRecord["commitments"]>[number]) => {
+    // An optional null/primitive/corrupt schedule cannot erase independently
+    // reproducible aggregate evidence or supply an invented currency.
+    const retainedText = table.paymentTiming?.sourceText;
+    const sourceText = typeof retainedText === "string" && retainedText.length <= 2_000 ? retainedText : commitmentNarrative(table);
+    if (typeof sourceText !== "string") return undefined;
+    const explicitSymbol = table.paymentTiming?.currencySymbol;
+    return parseCommitmentTables(sourceText).find(candidate => sameAggregate(candidate, table) &&
+      (typeof explicitSymbol !== "string" || candidate.paymentTiming?.currencySymbol === explicitSymbol));
+  };
+  const timingSourceMatches = (table: CommitmentEvidence): boolean => {
+    const sourceText = table.paymentTiming?.sourceText;
+    if (typeof sourceText !== "string" || sourceText.length > 2_000) return false;
+    const retained = CommitmentPaymentTimingSchema.safeParse(table.paymentTiming);
+    if (!retained.success) return false;
+    return parseCommitmentTables(sourceText).some(candidate => {
+      if (candidate.kind !== table.kind || candidate.asOf !== table.asOf || candidate.total !== table.total ||
+        candidate.paymentTiming?.currencySymbol !== table.paymentTiming?.currencySymbol ||
+        candidate.rows.length !== table.rows.length || candidate.rows.some((row, index) =>
+          row.label !== table.rows[index]!.label || row.total !== table.rows[index]!.total)) return false;
+      const reconstructed = CommitmentPaymentTimingSchema.safeParse(candidate.paymentTiming);
+      return retained.success && reconstructed.success && JSON.stringify(reconstructed.data) === JSON.stringify(retained.data);
+    });
+  };
+  const commitmentName = (table: CommitmentEvidence, index: number, all: readonly CommitmentEvidence[]) =>
+    table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
+      : all.findIndex(t => t.kind === "commitments" && commitmentRef(t).exhibit === commitmentRef(table).exhibit &&
+        commitmentRef(t).url === commitmentRef(table).url) === index ? "future commitments" : "additional commitments";
+  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease
     ? (commitmentRelease.commitments ?? []).flatMap((table, index, all) => {
-        const name = table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
-          : all.findIndex((t) => t.kind === "commitments") === index ? "future commitments" : "additional commitments";
-        const source = releaseRef(commitmentRelease, commitmentRelease.commitmentsExhibit ?? "EX-99.1");
+        // New schedules retain the actual symbol. In particular, explicit US$
+        // cannot be rebound to EUR merely because the issuer reports in EUR.
+        // Legacy records keep their prior aggregate-only currency convention.
+        const reproduced = table.paymentTiming === undefined ? undefined : reproducedAggregate(table);
+        const symbol = table.paymentTiming === undefined ? "$" : reproduced?.paymentTiming?.currencySymbol ?? null;
+        if (!releaseCurrencyMatches(bundle, commitmentRelease, symbol, currency)) return [];
+        if (table.paymentTiming !== undefined && (!commitmentAvailable || !validTimingDay(table.asOf) ||
+          table.asOf > commitmentRelease.filingDate || reproduced === undefined)) return [];
+        const name = commitmentName(table, index, all);
+        const source = commitmentRef(table);
         // Saved bundles may carry the former parser's date borrowed from an
         // adjacent commitments table. Re-establish guarantee dates from the
         // same exhibit's own table, including during deterministic replay.
-        const sourceNarrative = commitmentRelease.commitmentsExhibit === "EX-99.2"
-          ? commitmentRelease.commentaryNarrative : commitmentRelease.releaseNarrative;
+        const sourceNarrative = commitmentNarrative(table);
         const localGuarantee = table.kind === "guarantees" ? parseCommitmentTables(sourceNarrative ?? "").find((candidate) =>
           candidate.kind === "guarantees" && candidate.total === table.total &&
           candidate.rows.length === table.rows.length && candidate.rows.every((row, i) =>
@@ -578,6 +633,41 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
           ...table.rows.map((row) => ({ kind: table.kind, table: name, asOf, label: safeText(row.label, "(row label withheld)"), total: row.total, tableTotal: false, source })),
           ...(table.total === null ? [] : [{ kind: table.kind, table: name, asOf, label: "Total", total: table.total, tableTotal: true, source }]),
         ];
+      })
+    : [];
+  const commitmentPaymentTiming: NonNullable<FilingDisclosures["commitmentPaymentTiming"]> = commitmentRelease
+    ? (commitmentRelease.commitments ?? []).flatMap((table, index, all) => {
+        if (table.paymentTiming === undefined) return [];
+        const parsed = CommitmentPaymentTimingSchema.safeParse(table.paymentTiming);
+        if (!parsed.success) {
+          notes.push("A retained commitment timing record has an invalid structure; its raw bundle evidence remains retained, but no schedule is admitted.");
+          return [];
+        }
+        const timing = parsed.data;
+        const compatibleCurrency = releaseCurrencyMatches(bundle, commitmentRelease, timing.currencySymbol, currency);
+        const dated = commitmentAvailable && validTimingDay(table.asOf) && table.asOf <= commitmentRelease.filingDate;
+        const sourceMatches = timingSourceMatches(table);
+        const scopeReason = [
+          compatibleCurrency ? null : "The table's monetary currency is not established on a compatible source-period basis; numeric payment timing is withheld.",
+          dated ? null : "The table lacks a valid as-of/filing date available by the analysis date; numeric payment timing is withheld.",
+          sourceMatches ? null : "Structured payment timing does not reproduce from the retained supplying table; numeric payment timing is withheld.",
+        ].filter((reason): reason is string => reason !== null);
+        const admitted = compatibleCurrency && dated && sourceMatches;
+        return [{
+          ...timing,
+          kind: table.kind,
+          table: commitmentName(table, index, all),
+          tableIndex: table.sourceTableIndex ?? index,
+          asOf: table.asOf,
+          currency: compatibleCurrency ? currency : null,
+          source: commitmentRef(table),
+          coverage: admitted ? timing.coverage : "unavailable" as const,
+          rows: admitted ? timing.rows : timing.rows.map(row => ({ ...row, total: null,
+            buckets: row.buckets.map(bucket => ({ ...bucket, amount: null })),
+            reconciliation: { status: "unknown" as const, bucketSum: null, residual: null },
+          })),
+          reason: [timing.reason, ...scopeReason].filter(Boolean).join(" ") || null,
+        }];
       })
     : [];
   const basisNote = releases.find((r) => typeof r.nonGaapBasisNote === "string")?.nonGaapBasisNote ?? null;
@@ -601,6 +691,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     quarterlyTrend: trend,
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),
+    ...(commitmentPaymentTiming.length === 0 ? {} : { commitmentPaymentTiming }),
     ...(basisNote === null ? {} : { nonGaapBasisNote: safeText(basisNote, "The issuer's non-GAAP basis note is withheld from display by the rating-language filter; see the release.") }),
     ...(filingFacts.length === 0 ? {} : { filingFacts }),
     ...(commentaryOutlook.length === 0 ? {} : { commentaryOutlook }),

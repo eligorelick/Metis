@@ -18,6 +18,7 @@ import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTimin
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
 import { peerCoverageAuditLines } from "@/report/researchReview";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
@@ -363,6 +364,9 @@ function renderBodyReading(report: Report): string {
   if (facts) lines.push(`### ${facts.heading}`, "", table(facts.headers, facts.rows), "");
   const disclosures: FilingSupplements | undefined = report.filingDisclosures;
   if (disclosures) {
+    for (const timing of filingDisclosureTables(report.filingDisclosures, "balanceSheet").filter(item => item.heading.startsWith("Payment timing as reported"))) {
+      lines.push(`### ${timing.heading}`, "", table(timing.headers, timing.rows), "", markdownProse(timing.note ?? ""), "");
+    }
     const supplements = Object.fromEntries(Object.entries({
       filingFacts: disclosures.filingFacts,
       commentaryOutlook: disclosures.commentaryOutlook,
@@ -370,6 +374,7 @@ function renderBodyReading(report: Report): string {
       sayOnPay: disclosures.sayOnPay,
       tradingArrangements: disclosures.tradingArrangements,
       companyStatements: report.filingDisclosures?.companyStatements,
+      commitmentPaymentTiming: report.filingDisclosures?.commitmentPaymentTiming,
     }).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length > 0)));
     if (Object.keys(supplements).length > 0) {
       lines.push("### Filing disclosure supplements (raw record)", "", "Stored values, periods, source identities and issuer text, before display rounding.", "", "```json", JSON.stringify(supplements, null, 2), "```", "");

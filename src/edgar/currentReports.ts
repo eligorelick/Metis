@@ -556,6 +556,30 @@ export interface CommitmentRow {
   total: number;
 }
 
+/** Source-table evidence only: fiscal labels never establish exact maturity dates. */
+export interface CommitmentPaymentTiming {
+  coverage: "complete" | "incomplete" | "unavailable";
+  sourceHeader: string;
+  sourceText: string;
+  scale: number | null;
+  currencySymbol: string | null;
+  rows: Array<{
+    label: string;
+    /** The source Total row is a check, never another obligation. */
+    tableTotal: boolean;
+    total: number | null;
+    totalRaw: string | null;
+    buckets: Array<{ label: string; amount: number | null; raw: string }>;
+    reconciliation: {
+      status: "reconciled-as-printed" | "mismatch" | "unknown";
+      bucketSum: number | null;
+      /** Sum of printed buckets less printed total; never used to repair a cell. */
+      residual: number | null;
+    };
+  }>;
+  reason: string | null;
+}
+
 export interface CommitmentTable {
   /** "Future commitments" or "Guarantees (maximum gross exposure)". */
   kind: "commitments" | "guarantees";
@@ -564,6 +588,177 @@ export interface CommitmentTable {
   rows: CommitmentRow[];
   /** The table's own Total row, when printed. */
   total: number | null;
+  /** Optional on retained legacy records. No schedule is inferred from a total. */
+  paymentTiming?: CommitmentPaymentTiming;
+}
+
+const COMMITMENT_NUMBER = /^(?:-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\))$/;
+// An unsupported cell spelling must not become category prose and move the
+// remaining numeric run into the payment columns. Word-led identifiers such
+// as Tier-1 or Scope3 remain labels; number-led ambiguity and detached signs
+// cannot be used to pad the category before a numeric run.
+const COMMITMENT_NUMERIC_LIKE_LABEL = /^(?:[+\u2212]$|\(?[+\-\u2212\u2013\u2014]?(?:\d|\.\d))/;
+// This is lexical ambiguity, not a guessed currency dictionary: even an unknown
+// three-letter unit or a legitimate uppercase category abbreviation can withhold
+// plaintext timing. A source label is not declared false by this refusal.
+const COMMITMENT_ATTACHED_UNIT_LABEL = /^[A-Za-z]{3}(?:[+\-\u2212\u2013\u2014]?(?:\d|\.\d)|[+\-\u2212\u2013\u2014]$)/;
+const COMMITMENT_DASH = /^[-–—]$/;
+const COMMITMENT_SYMBOL = /^(?:US\$|\$|€|£|¥|USD|EUR|GBP|JPY)$/;
+
+function commitmentAmount(raw: string, scale: number): number | null {
+  if (!COMMITMENT_NUMBER.test(raw)) return null;
+  const value = rowNumbers(raw)[0]! * scale;
+  return Number.isFinite(value) ? value : null;
+}
+
+/** Exact decimal-token arithmetic, independent of binary floating-point summation. */
+function commitmentReconciliation(raw: readonly string[], totalRaw: string, scale: number): CommitmentPaymentTiming["rows"][number]["reconciliation"] {
+  const unknown = { status: "unknown" as const, bucketSum: null, residual: null };
+  if ([...raw, totalRaw].some(cell => commitmentAmount(cell, scale) === null)) return unknown;
+  const parts = [...raw, totalRaw].map(cell => {
+    const cleaned = cell.replace(/[(),-]/g, "");
+    const [whole, fraction = ""] = cleaned.split(".");
+    return { digits: BigInt(whole! + fraction) * (/^[(-]/.test(cell) ? -1n : 1n), decimals: fraction.length };
+  });
+  const decimals = Math.max(...parts.map(part => part.decimals));
+  const ticks = parts.map(part => part.digits * 10n ** BigInt(decimals - part.decimals));
+  const totalTicks = ticks.pop()!;
+  const sum = ticks.reduce((value, next) => value + next, 0n);
+  const bucketSum = Number(sum) / 10 ** decimals * scale;
+  const residual = Number(sum - totalTicks) / 10 ** decimals * scale;
+  return Number.isFinite(bucketSum) && Number.isFinite(residual)
+    ? { status: sum === totalTicks ? "reconciled-as-printed" : "mismatch", bucketSum, residual }
+    : unknown;
+}
+
+/** Recognize only an ordered list of nonoverlapping fiscal-year labels plus Total. */
+function commitmentBucketLabels(header: string): string[] | null {
+  const labels = [...header.trim().matchAll(/(?:Remainder of )?20\d{2}(?: and thereafter)?|Total/g)].map(match => match[0]);
+  if (labels.length < 2 || labels.at(-1) !== "Total" || labels.filter(label => label === "Total").length !== 1 ||
+    labels.join(" ") !== header.trim()) return null;
+  const buckets = labels.slice(0, -1);
+  const years = buckets.map(label => Number(/20\d{2}/.exec(label)![0]));
+  if (buckets.some((label, index) => (label.startsWith("Remainder") && index !== 0) ||
+    (label.endsWith("thereafter") && index !== buckets.length - 1) || (index > 0 && years[index]! <= years[index - 1]!))) return null;
+  return buckets;
+}
+
+/** A strict row must contain the whole numeric run: never shift a missing/extra cell. */
+function parseCommitmentTiming(sourceHeader: string, header: string, suppliedBody: string, scale: number): CommitmentPaymentTiming {
+  const sourceWasBounded = sourceHeader.length + suppliedBody.length > 2000;
+  // Retain at most one look-ahead character beyond the source evidence cap.
+  const supplyingText = `${sourceHeader}${suppliedBody.slice(0, Math.max(0, 2001 - sourceHeader.length))}`;
+  const sourceText = supplyingText.slice(0, 2000);
+  const timing: CommitmentPaymentTiming = { coverage: "unavailable", sourceHeader: header.trim(), sourceText,
+    scale, currencySymbol: null, rows: [], reason: null };
+  const labels = commitmentBucketLabels(header);
+  if (labels === null) return { ...timing, reason: "Fiscal bucket header is unsupported, repeated, or ambiguous; no column assignment is inferred." };
+  // The retention boundary can bisect a number (e.g. 600000 becomes 6).
+  // Preserve that raw prefix, but never tokenize its incomplete final token.
+  const cutsToken = supplyingText.length > sourceText.length && /\S/.test(sourceText.at(-1) ?? "") && /\S/.test(supplyingText[sourceText.length]!);
+  const parseEnd = cutsToken ? sourceText.lastIndexOf(" ") : sourceText.length;
+  const body = sourceText.slice(sourceHeader.length, parseEnd);
+  const tokens = [...body.matchAll(/\S+/g)];
+  const symbols = new Set<string>();
+  let index = 0;
+  let malformed = false;
+  let ended = false;
+  let trailingContext = false;
+  let structuralProblem: string | null = null;
+  while (index < tokens.length && timing.rows.length < 12) {
+    if (body.slice(tokens[index]!.index).startsWith(header.trim())) {
+      structuralProblem = "A repeated column header makes the source table/category boundaries ambiguous.";
+      timing.rows = [];
+      break;
+    }
+    const words: string[] = [];
+    while (index < tokens.length && !COMMITMENT_NUMBER.test(tokens[index]![0]) && !COMMITMENT_DASH.test(tokens[index]![0]) && !COMMITMENT_SYMBOL.test(tokens[index]![0])) words.push(tokens[index++]![0]);
+    if (!ended && words.some(word => COMMITMENT_NUMERIC_LIKE_LABEL.test(word) || /\p{Sc}/u.test(word) || /^[A-Z]{3}$/.test(word) ||
+      // Retain the standard-style identifier control without treating its
+      // digits as a fiscal boundary or asserting that a named standard exists.
+      (COMMITMENT_ATTACHED_UNIT_LABEL.test(word) && !/^ISO-\d{4}$/.test(word)))) {
+      structuralProblem = "A numeric-like cell or unit/category token in the category span makes row/column assignment ambiguous; raw source evidence is retained.";
+      timing.rows = [];
+      break;
+    }
+    const cells: string[] = [];
+    const rowSymbols = new Set<string>();
+    while (index < tokens.length) {
+      const token = tokens[index]![0];
+      if (COMMITMENT_SYMBOL.test(token)) {
+        rowSymbols.add(token);
+        const next = tokens[index + 1]?.[0];
+        if (next === undefined || (!COMMITMENT_NUMBER.test(next) && !COMMITMENT_DASH.test(next))) { malformed = true; break; }
+        index++;
+        continue;
+      }
+      if (!COMMITMENT_NUMBER.test(token) && !COMMITMENT_DASH.test(token)) break;
+      cells.push(token); index++;
+    }
+    if (ended) {
+      // Flattened text cannot prove whether a further numeric row belongs to
+      // this table. Never choose the first Total over conflicting evidence.
+      if (!malformed && words.length > 0 && words.length <= 14 && cells.length === labels.length + 1) {
+        structuralProblem = "A row after the printed Total makes table/category boundaries or Total selection ambiguous.";
+        timing.rows = [];
+      } else trailingContext = true;
+      break;
+    }
+    for (const symbol of rowSymbols) symbols.add(symbol);
+    if (malformed || words.length === 0 || words.length > 14 || cells.length !== labels.length + 1 ||
+      (sourceWasBounded && index === tokens.length)) { malformed = true; break; }
+    const label = words.join(" ");
+    if (/^Total$/i.test(label) && timing.rows.length === 0) {
+      structuralProblem = "The printed Total precedes category rows; source table order and category coverage are unavailable.";
+      break;
+    }
+    if (timing.rows.some(row => row.label === label)) {
+      structuralProblem = "Duplicate or conflicting category rows prevent choosing one reported payment schedule.";
+      timing.rows = [];
+      break;
+    }
+    const totalRaw = cells.at(-1)!;
+    const row = { label, tableTotal: /^Total$/i.test(label), total: commitmentAmount(totalRaw, scale), totalRaw,
+      buckets: labels.map((bucket, i) => ({ label: bucket, amount: commitmentAmount(cells[i]!, scale), raw: cells[i]! })),
+      reconciliation: commitmentReconciliation(cells.slice(0, -1), totalRaw, scale) };
+    timing.rows.push(row);
+    if (row.tableTotal) ended = true;
+  }
+  if (index < tokens.length && structuralProblem === null) {
+    if (ended) trailingContext = true;
+    else malformed = true;
+  }
+  timing.sourceText = timing.sourceText.trimEnd();
+  timing.currencySymbol = symbols.size === 1 ? [...symbols][0]! : null;
+  if (structuralProblem !== null) return { ...timing, reason: structuralProblem };
+  if (symbols.size !== 1 || !["$", "US$"].includes(timing.currencySymbol!)) {
+    // The legacy totals path assumes filing dollars. Do not introduce a new
+    // numeric foreign/mixed-currency total into that path through this reader.
+    if (symbols.size > 0) timing.rows = [];
+    timing.reason = "A single supported printed currency symbol is not established; raw table evidence is retained.";
+    return timing;
+  }
+  if (timing.rows.length === 0) {
+    timing.reason = "Table row cells are missing, extra, or truncated; their column assignments and totals are unavailable.";
+    return timing;
+  }
+  const unknown = timing.rows.some(row => row.reconciliation.status === "unknown");
+  const mismatch = timing.rows.some(row => row.reconciliation.status === "mismatch");
+  const totalRow = timing.rows.find(row => row.tableTotal);
+  const categoryTotals = timing.rows.filter(row => !row.tableTotal).map(row => row.totalRaw!);
+  const categoryMismatch = totalRow !== undefined && categoryTotals.length > 0 &&
+    commitmentReconciliation(categoryTotals, totalRow.totalRaw!, scale).status === "mismatch";
+  const categories = timing.rows.filter(row => !row.tableTotal);
+  const categoryColumnMismatch = totalRow !== undefined && categories.length > 0 && totalRow.buckets.some((bucket, i) =>
+    commitmentReconciliation(categories.map(row => row.buckets[i]!.raw), bucket.raw, scale).status === "mismatch");
+  timing.coverage = !sourceWasBounded && !trailingContext && !malformed && ended && !unknown && !mismatch && !categoryMismatch && !categoryColumnMismatch ? "complete" : "incomplete";
+  timing.reason = timing.coverage === "complete" ? null : sourceWasBounded || malformed || !ended
+    ? "Table row/category coverage is incomplete or bounded/truncated; no missing payment cell or total is filled."
+    : trailingContext ? "Post-table context or qualifications are retained without assigning their conditions to payment buckets; timing coverage remains incomplete."
+    : unknown ? "An unexplained dash or nonnumeric cell leaves payment timing and reconciliation incomplete."
+      : categoryMismatch || categoryColumnMismatch ? "Printed category row totals or columns do not reconcile to the table Total; category coverage remains incomplete."
+      : "Printed payment buckets do not reconcile to their reported total; amounts and residual are retained without repair.";
+  return timing;
 }
 
 const CELL = /^(?:\$|—|–|-|\(?[\d,]+(?:\.\d+)?\)?)$/;
@@ -600,15 +795,26 @@ function tableRows(body: string, columns: number, maxRows = 12): { label: string
 export function parseCommitmentTables(rawText: string): CommitmentTable[] {
   const text = normalizeFilingText(rawText);
   const out: CommitmentTable[] = [];
-  for (const m of text.matchAll(/Future commitments by fiscal year as of ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}),? were as follows:\s*([\s\S]{0,200}?)\(In (billions|millions)\)/g)) {
+  const commitmentHeader = /Future commitments by fiscal year as of ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}),? were as follows:\s*([\s\S]{0,200}?)\(In (billions|millions)\)/g;
+  // Flattening erases heading layout. A bare section-like word can instead be
+  // a contractual qualification, so only a demonstrated next table ends this
+  // region. An immediately adjacent heading can accompany its full caption.
+  const nextTable = new RegExp(`(?:Additional Commitments\\s+)?${commitmentHeader.source}|(?:Guarantees\\s+)?The following table summarizes (?:the )?maximum gross exposure related to our guarantees[^:]{0,160}\\(in (?:billions|millions)\\):?`, "i");
+  for (const m of text.matchAll(commitmentHeader)) {
     const header = m[2]!;
-    const columns = (header.match(/\b20\d{2}\b/g) ?? []).length + (/\bTotal\b/.test(header) ? 1 : 0);
-    if (columns < 2) continue;
     const scale = m[3] === "billions" ? 1e9 : 1e6;
-    const rows = tableRows(text.slice(m.index + m[0].length, m.index + m[0].length + 2_000), columns);
-    const totalRow = rows.find((r) => /^Total$/i.test(r.label)) ?? null;
-    const items = rows.filter((r) => r !== totalRow).map((r) => ({ label: r.label, total: r.cells.at(-1)! * scale }));
-    if (items.length > 0) out.push({ kind: "commitments", asOf: isoFromMonthDate(m[1]!), rows: items, total: totalRow === null ? null : totalRow.cells.at(-1)! * scale });
+    const after = text.slice(m.index + m[0].length);
+    const boundary = nextTable.exec(after);
+    const body = boundary === null ? after : after.slice(0, boundary.index);
+    const paymentTiming = parseCommitmentTiming(m[0], header, body, scale);
+    const asOf = isoFromMonthDate(m[1]!);
+    if (asOf === null) {
+      paymentTiming.coverage = "unavailable";
+      paymentTiming.reason = "The printed table snapshot date is invalid; raw amounts and source evidence remain unbound to a usable date.";
+    }
+    const totalRow = paymentTiming.rows.find(row => row.tableTotal);
+    const items = paymentTiming.rows.filter(row => !row.tableTotal && row.total !== null).map(row => ({ label: row.label, total: row.total! }));
+    out.push({ kind: "commitments", asOf, rows: items, total: totalRow?.total ?? null, paymentTiming });
   }
   const guarantees = /maximum gross exposure related to our guarantees[^:]{0,160}\(in (billions|millions)\):?\s*/i.exec(text);
   if (guarantees) {

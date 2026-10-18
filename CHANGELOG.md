@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.24.1** and
-payload **1.29.1** (common-cash admission, 2026-10-18). The checked-in
+Current source declares application **0.1.0**, report spec **1.25.0** and
+payload **1.30.0** (reported commitment timing, 2026-10-18). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - reported commitment timing (2026-10-18)
+
+- Retain optional source-bound fiscal payment buckets with printed operands,
+  scale/currency, exact reconciliation, coverage and supplying exhibit.
+- Keep incomplete or unsupported timing explicit across reports, model context
+  and exports. Preserve independently supported totals and legacy absence.
+- Fiscal labels are not maturity dates. This adds no funding-capacity conclusion,
+  net-debt adjustment, DCF deduction or change to investment-scoring defaults.
 
 ## Unreleased - common-cash admission (2026-10-18)
 

@@ -73,6 +73,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-17-book-to-code-disposition.md",
   "docs/audit/2026-10-17-ttm-eps-convention.md",
   "docs/audit/2026-10-17-preferred-payout-admission.md",
+  "docs/audit/2026-10-18-commitment-payment-evidence.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",

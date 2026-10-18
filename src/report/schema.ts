@@ -112,7 +112,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.23.1 (D-82): exact source-labeled ISO durations in deterministic claim verification.
 // 1.24.0 (D-83): versioned grade contract and explicit quarter-sum EPS basis.
 // 1.24.1 (D-84): preserve explicit common-cash payout refusals through valuation.
-export const REPORT_SPEC_VERSION = "1.24.1" as const;
+// 1.25.0 (D-86): optional sourced fiscal payment evidence and coverage disclosures.
+export const REPORT_SPEC_VERSION = "1.25.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -281,6 +282,10 @@ function enforceRecursiveRatingSafety(value: unknown, ctx: z.RefinementCtx): voi
     path: PropertyKey[],
     field: string | null,
   ): void => {
+    // Pipeline-owned original filing-table evidence is quoted source data,
+    // not authored investment advice. Its shape remains strictly validated
+    // and the judge wire schema excludes this block.
+    if (field === "commitmentPaymentTiming") return;
     if (typeof node === "string") {
       if (
         (field === null || !NON_NARRATIVE_STRING_KEYS.has(field)) &&
@@ -2077,6 +2082,27 @@ export const GuidanceCheckSchema = z
   .strict();
 export type GuidanceCheck = z.infer<typeof GuidanceCheckSchema>;
 
+export const CommitmentPaymentTimingSchema = z.object({
+  coverage: z.enum(["complete", "incomplete", "unavailable"]),
+  sourceHeader: z.string(),
+  sourceText: z.string().max(2_000),
+  scale: z.number().finite().positive().nullable(),
+  currencySymbol: z.string().nullable(),
+  rows: z.array(z.object({
+    label: z.string(),
+    tableTotal: z.boolean(),
+    total: z.number().finite().nullable(),
+    totalRaw: z.string().nullable(),
+    buckets: z.array(z.object({ label: z.string(), amount: z.number().finite().nullable(), raw: z.string() }).strict()),
+    reconciliation: z.object({
+      status: z.enum(["reconciled-as-printed", "mismatch", "unknown"]),
+      bucketSum: z.number().finite().nullable(),
+      residual: z.number().finite().nullable(),
+    }).strict(),
+  }).strict()),
+  reason: z.string().nullable(),
+}).strict();
+
 export const FilingDisclosuresSchema = z
   .object({
     version: z.literal("1.0.0"),
@@ -2227,6 +2253,15 @@ export const FilingDisclosuresSchema = z
         source: FilingRefSchema,
       }).strict(),
     ).optional(),
+    /** Original fiscal labels and payment operands; not a funding or solvency model. */
+    commitmentPaymentTiming: z.array(CommitmentPaymentTimingSchema.extend({
+      kind: z.enum(["commitments", "guarantees"]),
+      table: z.string(),
+      tableIndex: z.number().int().nonnegative(),
+      asOf: IsoDaySchema.nullable(),
+      currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+      source: FilingRefSchema,
+    }).strict()).optional(),
     /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
     nonGaapBasisNote: z.string().nullable().optional(),
     /**
