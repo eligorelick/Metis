@@ -9301,11 +9301,6 @@
           }
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.26.0"
-        },
-        {
           "path": "report.scores.aspects.balanceSheet.note",
           "before": "Financial strength: leverage, coverage, FCF conversion, dilution, and buyback cadence.",
           "after": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
@@ -10027,6 +10022,20 @@
           "path": "stageB.technicals.read.keyLevels.low52w",
           "before": 30,
           "after": null
+        }
+      ]
+    },
+    {
+      "name": "exact-final-evidence-presentation",
+      "decisions": [
+        "D-88"
+      ],
+      "reason": "D-88 advances only the saved-report specification for exact final-field acquisition resolution and separate structured accrual notes. This deterministic audit fixture has no newly resolved acquisition field; all financial values, scoring and existing baseline pins remain unchanged.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.27.0"
         }
       ]
     }

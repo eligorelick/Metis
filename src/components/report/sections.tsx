@@ -45,6 +45,7 @@ import {
   passLine,
   priceTiming,
   pruneTable,
+  qualityAccrualClarifications,
   runSummary,
   scoreDriverTable,
   scorecardTable,
@@ -1177,6 +1178,9 @@ export function QualityFlags({
         defaultOpen={openReasoning}
         {...grading}
       />
+      {qualityAccrualClarifications(quality).map((note, i) => (
+        <p key={i} className="text-[11px] leading-snug text-muted">{note}</p>
+      ))}
       <SubBlock label="forensic scores">
         <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4">
           <ForensicCard

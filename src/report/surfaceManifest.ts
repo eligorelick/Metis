@@ -486,6 +486,7 @@ export const PROJECTION_DISCLOSURE_FIELD_ORDER = [
   "severity",
   "attemptedSources",
   "expected",
+  "resolution",
 ] as const satisfies readonly ProjectionDisclosureFieldKey[];
 export const PROJECTION_DISCLOSURE_FIELDS = [
   { id: "projection-disclosure-field:field", key: "field", label: "Field", optional: false },
@@ -493,6 +494,7 @@ export const PROJECTION_DISCLOSURE_FIELDS = [
   { id: "projection-disclosure-field:severity", key: "severity", label: "Severity", optional: false },
   { id: "projection-disclosure-field:attemptedSources", key: "attemptedSources", label: "Attempted sources", optional: true },
   { id: "projection-disclosure-field:expected", key: "expected", label: "Expected gap", optional: true },
+  { id: "projection-disclosure-field:resolution", key: "resolution", label: "Acquisition resolution", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionDisclosureFieldKey>[];
 export const PROJECTION_DISCLOSURE_FIELD_BY_KEY = {
   field: PROJECTION_DISCLOSURE_FIELDS[0],
@@ -500,6 +502,7 @@ export const PROJECTION_DISCLOSURE_FIELD_BY_KEY = {
   severity: PROJECTION_DISCLOSURE_FIELDS[2],
   attemptedSources: PROJECTION_DISCLOSURE_FIELDS[3],
   expected: PROJECTION_DISCLOSURE_FIELDS[4],
+  resolution: PROJECTION_DISCLOSURE_FIELDS[5],
 } as const satisfies Record<ProjectionDisclosureFieldKey, FieldDescriptor<ProjectionDisclosureFieldKey>>;
 
 export type SourceEntryFieldKey = keyof SourceEntry;

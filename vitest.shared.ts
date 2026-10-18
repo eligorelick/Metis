@@ -86,6 +86,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/types.ts",
   "src/instrumentation.ts",
   "src/report/completeness.ts",
+  "src/report/gapResolution.ts",
   "src/report/assessment.ts",
   "src/report/earningsReferences.ts",
   "src/report/evidenceTiming.ts",

@@ -42,6 +42,7 @@ import {
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
 import { debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { resolveAcquisitionGaps } from "@/report/gapResolution";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
 import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
 import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, type CompanyIrOptions } from "@/providers/companyIr";
@@ -2319,7 +2320,7 @@ export async function buildDataBundle(
 
   // ---- gaps ---------------------------------------------------------------------
   const allResults = Object.values(resultRegistry);
-  const gaps = mergeManifest(
+  const recordedGaps = mergeManifest(
     [
       ...allResults.filter((r): r is { ok: false; gap: ManifestEntry } => !r.ok).map((r) => r.gap),
       ...Object.entries(resultRegistry).flatMap(([name, result]): ManifestEntry[] =>
@@ -2351,6 +2352,7 @@ export async function buildDataBundle(
     ],
   );
 
+  const gaps = resolveAcquisitionGaps(recordedGaps, statements, edgarBundle.registrant?.cik10 ?? "", now().toISOString());
   progress(`done: bundle for ${sym} (${gaps.length} gap(s))`);
 
   return {

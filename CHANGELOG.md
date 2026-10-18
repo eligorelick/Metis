@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.26.0** and
-payload **1.31.0** (accounting and filing evidence, 2026-10-18). The checked-in
+Current source declares application **0.1.0**, report spec **1.27.0** and
+payload **1.32.0** (exact final evidence and interval presentation, 2026-10-18). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,20 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - exact final evidence and interval presentation (2026-10-18)
+
+- Retain failed acquisition attempts as audit history while marking only exact,
+  independently admitted final fields resolved. Missing lease or temporary-equity
+  categories remain unknown; recovered aggregate debt does not establish funding capacity.
+- Preserve an explicitly sourced duration in the filing-fact registry. Wrong
+  intervals, signs, currencies and filing dates still fail verification.
+- Show separately bound structured accrual measures beside rounded model prose
+  across web and exports. Preserve raw prose and strict claim matching.
+- Advance report, payload and pipeline versions; saved reports are not rewritten.
+
+See the [bounded follow-up record](docs/audit/2026-10-18-accounting-evidence-remediation.md#bounded-final-evidence-follow-up)
+for source scope, deterministic replay and limitations.
 
 ## Unreleased - accounting and filing evidence (2026-10-18)
 

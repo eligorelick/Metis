@@ -115,7 +115,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.25.0 (D-86): optional sourced fiscal payment evidence and coverage disclosures.
 // 1.25.1 (D-85): common earnings retain allocation, source availability and flow scope.
 // 1.26.0 (D-87): source-bound accounting, evidence and metric presentation.
-export const REPORT_SPEC_VERSION = "1.26.0" as const;
+// 1.27.0 (D-88): exact acquisition resolution and separate accrual clarifications.
+export const REPORT_SPEC_VERSION = "1.27.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1445,6 +1446,18 @@ export const ManifestEntrySchema = z
     attemptedSources: z.array(z.string()).optional(),
     /** Known structural gap (issuer doesn't report this) — counted separately. */
     expected: z.boolean().optional(),
+    resolution: z.object({
+      status: z.literal("resolved"),
+      method: z.enum(["same-filing-debt-note", "retained-sec-category"]),
+      reason: z.string().min(1),
+      evidence: z.array(z.object({
+        scope: z.enum(["balanceAnnual", "balanceQuarterly"]),
+        field: z.string().min(1), period: z.iso.date(), currency: z.string().regex(/^[A-Z]{3}$/),
+        cik: z.string().regex(/^\d{1,10}$/), value: z.number().finite(), observedAt: z.iso.datetime({ offset: true }),
+        tags: z.array(z.string().min(1)).min(1),
+        filings: z.array(z.object({ accn: z.string().min(1), filed: z.iso.date(), form: z.string().min(1) }).strict()).min(1),
+      }).strict()).min(1),
+    }).strict().optional(),
   })
   .strict();
 type _ManifestMatches = z.infer<typeof ManifestEntrySchema> extends ManifestEntry

@@ -858,7 +858,9 @@ describe("payload determinism + provenance", () => {
       // provenance hash/id hash and label matrix change; counts/citations and
       // projection periods do not. The exact seven metadata leaves above
       // account for financeHash while retaining the preceding whole-finance pin.
-      fingerprint: "1.31.0:0333a169",
+      // D-88 changes only the version in this fixture: its registry, finance,
+      // prompt bytes and all other preceding pins remain exactly unchanged.
+      fingerprint: "1.32.0:229d3378",
       promptBytes: 139_131,
       provenanceCount: 531,
       provenanceHash: "4c5e217d",
@@ -1008,7 +1010,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.31.0");
+    expect(first.payloadVersion).toBe("1.32.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2503,7 +2505,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.26.0");
+    expect(report.meta.specVersion).toBe("1.27.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

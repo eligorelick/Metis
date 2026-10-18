@@ -396,7 +396,8 @@ export interface ContextPayload {
 // 1.30.0 (D-86): retain source-bound fiscal payment buckets and unknown funding scope.
 // 1.30.1 (D-85): distinguish earnings allocation from cash and retain actual source scope.
 // 1.31.0 (D-87): source-bound accounting and retained critical filing context.
-export const PAYLOAD_VERSION = "1.31.0" as const;
+// 1.32.0 (D-88): preserve sourced duration intervals and final gap evidence.
+export const PAYLOAD_VERSION = "1.32.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2167,6 +2168,16 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
  * that no typed statement row carries, each under its own tag, and the
  * commentary's stated outlook as text.
  */
+/** Preserve a stated duration, without inferring fiscal basis from its dates. */
+function filingFactPeriod(fact: { period: string | null; asOf: string | null }): Pick<PayloadFigure, "period" | "periodContext"> {
+  const span = /^(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})$/.exec(fact.period ?? "");
+  if (span && span[2] === fact.asOf) {
+    const parsed = PeriodContextSchema.safeParse({ kind: "duration", start: span[1], end: span[2] });
+    if (parsed.success) return { period: fact.period, periodContext: parsed.data };
+  }
+  return { period: fact.asOf };
+}
+
 function filingFactsSection(disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
   const facts = disclosures?.filingFacts ?? [];
   const outlook = disclosures?.commentaryOutlook ?? [];
@@ -2180,7 +2191,7 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
     value: f.value,
     unit: f.unit === "percent" ? "%" : f.unit,
     currency: f.unit === "currency" ? currency : null,
-    period: f.asOf,
+    ...filingFactPeriod(f),
     ...(/^(?:Q[1-4]\s+)?FY\d{4}$/.test(f.period ?? "") ? { fiscalPeriod: f.period! } : {}),
     source: f.sourceTag,
     asOf: f.source.filingDate,

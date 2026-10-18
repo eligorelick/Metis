@@ -1,6 +1,7 @@
 import type { ManifestEntry } from "@/types/core";
 import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
+import { resolvedAcquisitionReason } from "@/report/gapResolution";
 
 /** Only source identity is needed to distinguish partial from missing coverage. */
 export type CompletenessSource = Pick<SourceEntry, "provider" | "endpoint">;
@@ -139,6 +140,8 @@ export function isProcessDisclosure(field: string): boolean {
  */
 function downgradeReason(gap: ManifestEntry, edgarAvailable: boolean): string | null {
   if (gap.severity !== "warn") return null;
+  const resolved = resolvedAcquisitionReason(gap);
+  if (resolved !== null) return resolved;
   // The 8-K, 10-K and 10-Q lists are read from SEC EDGAR submissions; the FMP
   // filings search is a convenience index of the same filings.
   if (/^fmp\.secFilingsSearch\(/.test(gap.field) && edgarAvailable) {

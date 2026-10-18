@@ -98,6 +98,7 @@ import {
   dataStateText,
   displayProse,
   displayClaimText,
+  qualityAccrualClarifications,
   executiveGradeText,
   executiveGroups,
   ratioPercentText,
@@ -535,7 +536,8 @@ function sectionQuality(q: Quality, report: Report): string {
     : `<p class="faint">No forensic flags raised.</p>`;
   // D-68: methodology and context notes sit under the table; flags are findings.
   const notes = (q.notes ?? []).length > 0 ? `<div><em>Notes</em><ul>${(q.notes ?? []).map((note) => `<li>${prose(note)}</li>`).join("")}</ul></div>` : "";
-  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
+  const clarification = qualityAccrualClarifications(q).map(note => `<p class="faint">${esc(note)}</p>`).join("");
+  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${clarification}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
 }
 
 function sectionTechnicals(report: Report): string {

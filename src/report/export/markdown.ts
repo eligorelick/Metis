@@ -78,6 +78,7 @@ import {
   dataGapTables,
   displayProse,
   displayClaimText,
+  qualityAccrualClarifications,
   executiveGradeText,
   executiveGroups,
   metricRowsWithoutTabled,
@@ -617,6 +618,7 @@ function renderScenario(sc: Scenario, assumptions: readonly string[], computedWe
 function renderQuality(q: Quality, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("quality"), ""];
   lines.push(gradeBlock("Quality", q.graded, new Map(), {}, ctx), "");
+  lines.push(...qualityAccrualClarifications(q).flatMap(note => [markdownProse(note), ""]));
   const fs = q.forensicScores;
   // "Not applicable" carries the reason a battery was skipped for this route;
   // the column is dropped when no battery was skipped.

@@ -25,7 +25,7 @@ import {
   numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { geographicBasisNote, trustRows } from "@/report/presentation";
+import { geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -309,6 +309,7 @@ function renderProjections(p: Projections): string {
           PROJECTION_DISCLOSURE_FIELDS.map((field) => {
             if (field.key === "attemptedSources") return disclosure.attemptedSources?.join(", ") ?? "n/a";
             if (field.key === "expected") return disclosure.expected === undefined ? "unknown" : disclosure.expected ? "yes" : "no";
+            if (field.key === "resolution") return auditValue(disclosure.resolution);
             return disclosure[field.key];
           })),
       ),
@@ -359,6 +360,8 @@ function renderBodyReading(report: Report): string {
     );
   }
   const peers = report.valuation.peerCoverage;
+  const accrualClarifications = qualityAccrualClarifications(report.quality);
+  if (accrualClarifications.length > 0) lines.push("### Quality structured measures", "", ...accrualClarifications.flatMap(note => [markdownProse(note), ""]));
   if (peers) lines.push("### Peer screen", "", ...peerCoverageAuditLines(peers).flatMap((line) => [`- ${markdownProse(line)}`]), "");
   const facts = sourceFactAuditTables(report.sourceFactSummary, true)[0];
   if (facts) lines.push(`### ${facts.heading}`, "", table(facts.headers, facts.rows), "");
@@ -399,6 +402,7 @@ function renderManifest(report: Report): string {
             MANIFEST_ENTRY_FIELDS.map((field) => {
               if (field.key === "attemptedSources") return gap.attemptedSources?.join(", ") ?? "n/a";
               if (field.key === "expected") return gap.expected === undefined ? "unknown" : gap.expected ? "yes" : "no";
+              if (field.key === "resolution") return auditValue(gap.resolution);
               return gap[field.key];
             })),
         )

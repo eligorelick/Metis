@@ -1192,6 +1192,37 @@ export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNu
 }
 
 /**
+ * A section-level disclosure, independent of free-form claim admission above.
+ * Financial diagnostics inject these canonical, full-precision records into
+ * quality key numbers. Legacy citations can instead name rounded, periodless
+ * records. Show the canonical measure separately; a recorded end date alone
+ * must never become a fiscal-year duration or validate the model's wording.
+ */
+export function qualityAccrualClarifications(quality: Report["quality"]): string[] {
+  return ([
+    ["computed.forensics.accrual-ratio-cash-flow", "computed.forensics.accruals.cashFlowAccrualRatio"],
+    ["computed.forensics.accrual-ratio-balance-sheet", "computed.forensics.accruals.balanceSheetAccrualRatio"],
+  ] as const).flatMap(([legacy, canonical]) => {
+    const cited = quality.graded.reasoning.filter(claim => claim.source === legacy || claim.sourceId === legacy);
+    if (cited.length === 0 || cited.some(claim => claim.source !== legacy || claim.sourceId !== legacy)) return [];
+    // Count all records at the canonical identity before checking validity:
+    // contradictory or duplicate records cannot be silently disambiguated.
+    const matches = quality.graded.keyNumbers.filter(n => n.source === canonical || n.sourceId === canonical);
+    if (matches.length !== 1) return [];
+    const n = matches[0]!;
+    if (n.source !== canonical || n.sourceId !== canonical || n.verified !== true ||
+        !Number.isFinite(n.value) || typeof n.asOf !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(n.asOf) || !n.period?.trim() ||
+        !["x", "×", "multiple", "fraction", "frac", "ratio"].includes(n.unit.trim().toLowerCase()) ||
+        cited.some(claim => claim.asOf !== n.asOf)) return [];
+    // Do not normalize timestamps, whitespace or rolled-over calendar dates
+    // into a different supplied as-of day.
+    const asOfDay = new Date(`${n.asOf}T00:00:00Z`);
+    if (!Number.isFinite(asOfDay.getTime()) || asOfDay.toISOString().slice(0, 10) !== n.asOf) return [];
+    return [`Structured measure clarification: ${metricLabel(n.source, n.unit)}: ${figureValueText(n)} (recorded period: ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}). Original model wording is retained; this separate quality-section measure does not validate the entity or measurement window of the original claim.`];
+  });
+}
+
+/**
  * D-67: the Markdown and print exports render no chart, so a sentence that
  * points at one ("The shaded band is the scenario range") is dropped there.
  * The live view keeps it beside its fan chart.

@@ -193,6 +193,7 @@ const PROJECTION_DISCLOSURE_ORDER = [
   "severity",
   "attemptedSources",
   "expected",
+  "resolution",
 ] as const;
 const SOURCE_ENTRY_ORDER = ["provider", "endpoint", "asOf", "fetchedAt", "stale"] as const;
 const VERIFICATION_LOG_ORDER = [
