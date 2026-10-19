@@ -283,7 +283,7 @@ describe("leadership, segments, peers, EPS bridge and charts", () => {
     const eps = tables.find((t) => t.heading.startsWith("GAAP to non-GAAP diluted EPS"))!;
     expect(eps.rows).toEqual([
       ["GAAP diluted EPS", "$2.46"],
-      ["Non-GAAP adjustments, net of tax (non-GAAP less GAAP)", "−$0.24"],
+      ["Reported EPS difference (non-GAAP less GAAP)", "−$0.24"],
       ["Non-GAAP diluted EPS", "$2.22"],
     ]);
     const amounts = tables.find((t) => t.heading === "Non-GAAP adjustments itemized in the release (amounts)")!;

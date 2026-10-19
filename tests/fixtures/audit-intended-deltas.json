@@ -10033,16 +10033,16 @@
       ]
     },
     {
-      "name": "admitted-input-wording-20261019",
+      "name": "source-bound-reconciliation-20261019",
       "decisions": [
-        "D-93"
+        "D-94"
       ],
-      "reason": "D-93: patch release for deterministic authority-source and admitted-input explanations. This audited fixture has complete operands and no remaining authority, so only the report spec stamp changes; its numeric model, scores, grids and provenance values stay pinned.",
+      "reason": "D-94: report specification 1.30.2 identifies source-bound issuer reconciliation presentation and qualified reported EPS differences. No Stage B, valuation, score or underlying report facts change; the only frozen financial-audit leaf that moves is report.meta.specVersion.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.30.1"
+          "after": "1.30.2"
         }
       ]
     }
