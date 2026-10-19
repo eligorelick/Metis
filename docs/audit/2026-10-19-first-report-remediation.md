@@ -90,3 +90,15 @@ before the source and presentation fixes. Targeted checks, all ten offline
 gates on the exact committed revision, independent code review, and a controlled
 fresh run with source/report audit are required before acceptance. No push or
 merge is authorized by these changes alone.
+
+
+### IR-04 independent-review followup before rerun
+
+The exact prior-filing negative control changes only the captured Q2 vendor
+filing date to March 25. Before the fix, cash movement was incorrectly refused
+because a dependency filing matched, while both endpoint comparisons skipped
+the row. All three comparisons now use the ending/current-flow filing anchor.
+Prior-quarter filings remain in the calculation provenance, and existing
+refusals remain authoritative. The valid June 15 comparison, absent vendor
+start date, strict scope controls and serialized refusal closure remain covered.
+No controlled rerun occurred on either earlier remediation revision.

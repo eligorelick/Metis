@@ -166,8 +166,13 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
         : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
+    // A prior-quarter filing is a calculation dependency, not authority for
+    // comparing the current vendor row. All three cash fields share the
+    // ending/current-flow filing anchor; retain every dependency in secEvidence.
+    const filingAnchor = field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
+      ? cashAmounts.cashAtEndOfPeriod ?? sec : sec;
     if (!sec || (sec.evidence.periodStart !== null && kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
-      (validDay(row.filingDate) && !(field === "cashAtBeginningOfPeriod" ? cashAmounts.cashAtEndOfPeriod : sec)?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
+      (validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
     const vendor = row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;

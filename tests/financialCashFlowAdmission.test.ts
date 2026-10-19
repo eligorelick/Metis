@@ -43,6 +43,30 @@ describe("same-definition cash flow field admission", () => {
     } }] } } });
     expect(input.ok && input.value.data.rows[0]?.cashAtEndOfPeriod).toBe(2588e6);
     expect(result.cashflow.ok && result.cashflow.value.data.raw).toEqual(fixture.vendorRow ? [fixture.vendorRow] : []);
+    expect(result.cashflow.ok && result.cashflow.value.data.rows[0]?.fieldConflicts?.netChangeInCash?.secEvidence?.filings).toEqual(expect.arrayContaining([
+      expect.objectContaining({filed:"2026-06-15",accn:"0000796343-26-000112"}),expect.objectContaining({filed:"2026-03-25",accn:"0000796343-26-000056"}),
+    ]));
+  });
+  it("does not authorize a Q2 cash movement comparison using only the prior-quarter dependency filing date",()=>{
+    const fixture=JSON.parse(readFileSync("fixtures/company-ir/adobe-20261019/q2-cash.json","utf8"));
+    fixture.vendorRow.filingDate="2026-03-25";
+    const result=enrichFinancialFields(sourced<FmpBalanceSheetRow>([]),sourced<FmpCashFlowRow>([fixture.vendorRow]),fixture.companyFacts,"quarter",at);
+    if(!result.cashflow.ok)throw Error("source row");
+    const row=result.cashflow.value.data.rows[0]!;
+    expect(row).toMatchObject({cashAtBeginningOfPeriod:6332e6,cashAtEndOfPeriod:2588e6,netChangeInCash:-3744e6});
+    for(const field of ["cashAtBeginningOfPeriod","cashAtEndOfPeriod","netChangeInCash"])expect(row.fieldConflicts?.[field]).toBeUndefined();
+  });
+  it("keeps an existing cash refusal authoritative even when only the prior dependency filing matches the vendor date",()=>{
+    const fixture=JSON.parse(readFileSync("fixtures/company-ir/adobe-20261019/q2-cash.json","utf8"));
+    const old={usable:false as const,vendorValue:2588e6,secValue:null,reason:"earlier source refusal"};
+    Object.assign(fixture.vendorRow,{filingDate:"2026-03-25",fieldConflicts:{cashAtEndOfPeriod:old}});
+    const result=enrichFinancialFields(sourced<FmpBalanceSheetRow>([]),sourced<FmpCashFlowRow>([fixture.vendorRow]),fixture.companyFacts,"quarter",at);
+    if(!result.cashflow.ok)throw Error("source row");
+    const row=result.cashflow.value.data.rows[0]!;
+    expect(row).toMatchObject({cashAtBeginningOfPeriod:6332e6,cashAtEndOfPeriod:null,netChangeInCash:null});
+    expect(row.fieldConflicts?.cashAtEndOfPeriod).toEqual(old);
+    expect(row.fieldConflicts?.netChangeInCash).toMatchObject({usable:false,secValue:null});
+    expect(row.fieldConflicts?.netChangeInCash?.secEvidence).toBeUndefined();
   });
   it.each(["issuer", "currency", "interval", "filing", "future", "restricted-scope", "ambiguous"])("does not invent a cash comparison for incompatible %s evidence", change => {
     const f = JSON.parse(readFileSync("fixtures/company-ir/adobe-20261019/q2-cash.json", "utf8"));
