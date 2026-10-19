@@ -10,7 +10,7 @@ import { admittedStatementRow } from "@/providers/fmp";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
-import { parsePrimaryCashInvestment } from "@/edgar/cashInvestment";
+import { admitCashInvestment, parsePrimaryCashInvestment, type CashInvestmentPeriod, type FilingCashInvestment } from "@/edgar/cashInvestment";
 
 const observedAt = "2026-10-19T12:00:00Z";
 const facts: CompanyFacts = { cik: 1878848, entityName: "IREN", facts: {} };
@@ -20,6 +20,56 @@ function sourced<T extends FmpBalanceSheetRow | FmpCashFlowRow>(rows: T[]): Fetc
   return { ok: true, value: { data: { rows, raw: rows }, source: "edgar", endpoint: "fixture", fetchedAt: observedAt, asOf: "2026-06-30" } };
 }
 const stale = (): FmpCashFlowRow => ({ cik: "1878848", date: "2026-06-30", reportedCurrency: "USD", operatingCashFlow: 2_100_418_000, netCashProvidedByOperatingActivities: 2_100_418_000, capitalExpenditure: -2_998_006_000, investmentsInPropertyPlantAndEquipment: -2_998_006_000, freeCashFlow: -897_588_000, stockBasedCompensation: 205_023_000 });
+
+describe("cash investment resolves observations within the requested interval", () => {
+  const quarter: CashInvestmentPeriod = { ...evidence.periods[0]!, start: "2026-04-01", capex: -500 };
+  const annual: CashInvestmentPeriod = { ...quarter, start: "2025-07-01", capex: -9000 };
+  const nineMonths: CashInvestmentPeriod = { ...quarter, start: "2025-10-01", capex: -6000 };
+  const doc = (periods: CashInvestmentPeriod[], filingDate = "2026-08-27"): FilingCashInvestment => ({ issuerId: "1878848", source: { ...source, filingDate }, periods });
+  const row = (): FmpCashFlowRow => ({ date: "2026-06-30", reportedCurrency: "USD", operatingCashFlow: 1000, capitalExpenditure: -100, freeCashFlow: 777, fcf: 777 });
+  function permutations<T>(items: T[]): T[][] {
+    return items.length < 2 ? [items] : items.flatMap((item, index) => permutations(items.filter((_, i) => i !== index)).map(rest => [item, ...rest]));
+  }
+  it("admits the direct quarter in every mixed-duration record order and preserves annual admission", () => {
+    for (const periods of permutations([annual, quarter, nineMonths])) {
+      const original = row();
+      const result = admitCashInvestment(original, [doc(periods)], 1878848, "quarter", observedAt).row;
+      expect(result).toMatchObject({ capitalExpenditure: -500, freeCashFlow: 500, fcf: 500 });
+      expect(result.fieldProvenance?.capitalExpenditure?.periodStart).toBe("2026-04-01");
+      expect(original).toEqual(row());
+      expect(admitCashInvestment(row(), [doc(periods)], 1878848, "annual", observedAt).row.capitalExpenditure).toBe(-9000);
+    }
+  });
+  it("does not let a later cumulative filing mask an earlier directly reported quarter", () => {
+    for (const documents of permutations([doc([quarter], "2026-07-15"), doc([annual, nineMonths])])) {
+      expect(admitCashInvestment(row(), documents, 1878848, "quarter", observedAt).row).toMatchObject({ capitalExpenditure: -500, freeCashFlow: 500 });
+    }
+  });
+  it("withholds conflicting latest observations for the same exact interval in every order", () => {
+    for (const periods of permutations([quarter, { ...quarter, capex: -700 }])) {
+      const result = admitCashInvestment(row(), [doc(periods)], 1878848, "quarter", observedAt);
+      expect(result.row).toMatchObject({ capitalExpenditure: null, freeCashFlow: null, fcf: null });
+      expect(result.gaps[0]?.reason).toMatch(/conflicting.*interval/i);
+    }
+    for (const documents of permutations([doc([quarter]), doc([{ ...quarter, capex: -700 }])])) {
+      expect(admitCashInvestment(row(), documents, 1878848, "quarter", observedAt).row.freeCashFlow).toBeNull();
+    }
+  });
+  it("keeps newer exact-period refusals and currency conflicts ahead of older valid evidence", () => {
+    for (const newest of [{ ...quarter, status: "withheld", capex: null, reason: "unresolved hardware scope" }, { ...quarter, currency: "EUR" }]) {
+      for (const documents of permutations([doc([quarter], "2026-07-15"), doc([newest])])) {
+        expect(admitCashInvestment(row(), documents, 1878848, "quarter", observedAt).row.freeCashFlow).toBeNull();
+      }
+    }
+    expect(admitCashInvestment(row(), [doc([quarter], "2026-07-15"), doc([{ ...quarter, capex: -700 }])], 1878848, "quarter", observedAt).row.freeCashFlow).toBe(300);
+  });
+  it("requires one actual interval unless the row explicitly identifies its start", () => {
+    for (const periods of permutations([quarter, { ...quarter, start: "2026-03-20", capex: -700 }])) {
+      expect(admitCashInvestment(row(), [doc(periods)], 1878848, "quarter", observedAt).row.freeCashFlow).toBeNull();
+      expect(admitCashInvestment({ ...row(), periodStart: quarter.start }, [doc(periods)], 1878848, "quarter", observedAt).row.freeCashFlow).toBe(500);
+    }
+  });
+});
 
 describe("cash investment scope cannot preserve pre-existing stale FCF", () => {
   it("recomputes non-null FCF and capex aliases on an established scope correction", () => {

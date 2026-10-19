@@ -123,18 +123,38 @@ export function admitCashInvestment<T extends FmpStatementRow>(row: T, documents
         ? d.periods.filter(p => p.start <= row.date! && row.date! < p.end) : [];
       if (!periods.length && d.reason && d.source.reportDate === row.date) periods.push({ start: "", end: row.date!, currency: "USD", status: "withheld", capex: null, reason: d.reason, tags: [], components: [] });
       return periods.map(p => ({ p, source: d.source }));
-    })
-    .sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate));
+    });
   if (!candidates.length) return { row, gaps: [] };
-  const { p, source } = candidates[0]!;
+  // Filing priority applies within an actual interval, never across annual,
+  // cumulative and directly reported quarter observations sharing an end date.
+  // Status, currency and amount do not filter this pool: a newer refusal or
+  // incompatible currency must not expose an older, favorable observation.
+  const intervalCandidates = candidates.filter(({ p }) => {
+    const days = (Date.parse(p.end) - Date.parse(p.start)) / 86_400_000;
+    return p.end === row.date && (scope === "annual" ? days >= 350 && days <= 380 : days >= 70 && days <= 110)
+      && (row.periodStart == null || row.periodStart === p.start);
+  });
+  const pool = intervalCandidates.length ? intervalCandidates : candidates;
+  const signature = (p: CashInvestmentPeriod): string => JSON.stringify([
+    p.start, p.end, p.currency, p.status, p.capex, p.operatingCashFlow ?? null,
+    [...new Set(p.tags)].sort(), p.components.map(c => `${c.qname}:${c.value}`).sort(),
+  ]);
+  pool.sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate)
+    || a.source.accession.localeCompare(b.source.accession) || signature(a.p).localeCompare(signature(b.p)));
+  const { p, source } = pool[0]!;
+  const latest = pool.filter(c => c.source.filingDate === source.filingDate);
+  const intervalConflict = new Set(intervalCandidates.map(c => `${c.p.start}|${c.p.end}`)).size > 1;
+  const observationConflict = intervalCandidates.length > 0 && new Set(latest.map(c => signature(c.p))).size > 1;
+  const resolutionReason = intervalConflict ? "conflicting eligible cash investment intervals; explicit period start required"
+    : observationConflict ? "conflicting latest cash investment observations for the same interval" : null;
   const days = (Date.parse(p.end) - Date.parse(p.start)) / 86_400_000;
   const exact = p.end === row.date && (scope === "annual" ? days >= 350 && days <= 380 : days >= 70 && days <= 110);
   const compatible = p.currency === row.reportedCurrency && (row.periodStart == null || row.periodStart === p.start);
-  const admitted = exact && compatible && p.status === "established" && finite(p.capex) && p.capex <= 0;
-  const reason = `cash investment ${row.date}: ${admitted || p.status === "withheld" ? p.reason : !exact ? `complete ${scope} cash investment withheld: no compatible directly reported period; source cumulative interval ${p.start} through ${p.end} requires verified component lineage before reconstruction` : !compatible ? "cash investment currency or explicit period start conflict" : p.reason}`;
+  const admitted = resolutionReason === null && exact && compatible && p.status === "established" && finite(p.capex) && p.capex <= 0;
+  const reason = `cash investment ${row.date}: ${resolutionReason ?? (admitted || p.status === "withheld" ? p.reason : !exact ? `complete ${scope} cash investment withheld: no compatible directly reported period; source cumulative interval ${p.start} through ${p.end} requires verified component lineage before reconstruction` : !compatible ? "cash investment currency or explicit period start conflict" : p.reason)}`;
   const amount = admitted ? p.capex : null;
   const provenance: StatementFieldProvenance = { source: "edgar", unit: p.currency, periodStart: p.start || null, periodEnd: p.end, observedAt, tags: p.tags,
-    filings: [{ accn: source.accession, filed: source.filingDate, form: source.form }], calculation: "cash-ppe-plus-hardware" };
+    filings: [...new Map(latest.map(({ source: s }) => [s.accession, { accn: s.accession, filed: s.filingDate, form: s.form }])).values()], calculation: "cash-ppe-plus-hardware" };
   const fieldConflicts = { ...row.fieldConflicts }, fieldProvenance = { ...row.fieldProvenance };
   const out = { ...row, fieldConflicts, fieldProvenance } as T;
   for (const field of ["capitalExpenditure", "investmentsInPropertyPlantAndEquipment", "paymentsToAcquirePropertyPlantAndEquipment"]) {

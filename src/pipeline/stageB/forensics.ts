@@ -1404,6 +1404,8 @@ export interface PiotroskiOptions {
    * against the 9-point scale.
    */
   financialsSuppressed?: boolean;
+  /** Same conservative battery, without asserting a financial business model. */
+  eligibilityUnresolved?: boolean;
   /**
    * True only for the deposit-, float- or repo-funded routes (bank, insurer,
    * mortgage REIT). Withholds ΔLEVER and ΔTURN on top of the four above,
@@ -1432,7 +1434,7 @@ export interface PiotroskiResult {
    * F-score; "financial" is the reduced battery for a bank, insurer or
    * mortgage REIT. A 3-of-3 must never be read against the 9-point scale.
    */
-  variant: "standard" | "financial";
+  variant: "standard" | "financial" | "eligibility-unresolved";
   /** WS5: display label carrying the scale, e.g. "Piotroski F (financial variant, 3 signals)". */
   label: string;
   notes: string[];
@@ -1477,7 +1479,9 @@ export function computePiotroski(
 
   // 2. F_CFO — CFO / beginning-of-year TA > 0
   const finSuppressed = options?.financialsSuppressed === true;
-  const ocfWithheld =
+  const eligibilityUnresolved = finSuppressed && options?.eligibilityUnresolved === true;
+  const unresolvedSignal = "operating-method eligibility unresolved: broad SIC 6199 alone does not validate this signal; withheld pending methodology review";
+  const ocfWithheld = eligibilityUnresolved ? unresolvedSignal :
     "operating cash flow is not a profitability or accrual signal for a financial company (loan, deposit, trading and reserve flows dominate it) — signal withheld";
   const cfoScaled = div(cfoT, taBeginT);
   const s2 = finSuppressed
@@ -1552,7 +1556,7 @@ export function computePiotroski(
   const crT = div(nv(current.balance?.totalCurrentAssets), posOrNull(current.balance?.totalCurrentLiabilities));
   const crP = div(nv(prior.balance?.totalCurrentAssets), posOrNull(prior.balance?.totalCurrentLiabilities));
   const s6 = finSuppressed
-    ? na("current ratio not meaningful for a financial company (no current/non-current split) — signal withheld")
+    ? na(eligibilityUnresolved ? unresolvedSignal : "current ratio not meaningful for a financial company (no current/non-current split) — signal withheld")
     : crT !== null && crP !== null
       ? sig(crT > crP, `current ratio ${crP.toFixed(2)} → ${crT.toFixed(2)}`)
       : na("current assets/liabilities missing");
@@ -1592,7 +1596,7 @@ export function computePiotroski(
   const gmT = grossMarginRatio(current.income, revT);
   const gmP = grossMarginRatio(prior.income, revP);
   const s8 = finSuppressed
-    ? na("gross margin not meaningful on a financial income statement — signal withheld")
+    ? na(eligibilityUnresolved ? unresolvedSignal : "gross margin not meaningful on a financial income statement — signal withheld")
     : gmT !== null && gmP !== null
       ? sig(gmT > gmP, `gross margin ${(gmP * 100).toFixed(2)}% → ${(gmT * 100).toFixed(2)}%`)
       : na("gross margin not computable (revenue/grossProfit/costOfRevenue missing)");
@@ -1647,14 +1651,14 @@ export function computePiotroski(
     );
   } else if (!prior2) {
     notes.push(
-      `Only 2 fiscal years supplied — ΔROA unavailable in addition to the withheld financial signals; F-score reported out of ${outOf}.`,
+      `Only 2 fiscal years supplied — ΔROA unavailable in addition to the ${eligibilityUnresolved ? "signals withheld pending methodology review" : "withheld financial signals"}; F-score reported out of ${outOf}.`,
     );
   }
   if (outOf < 9) {
     gaps.push(
       gapEntry(
         "forensics.piotroski",
-        `signals not evaluable: ${missing.join(", ")} — score reported out of ${outOf}`,
+        `${eligibilityUnresolved ? "operating-method eligibility unresolved; " : ""}signals not evaluable: ${missing.join(", ")} — score reported out of ${outOf}`,
         "info",
       ),
     );
@@ -1664,15 +1668,19 @@ export function computePiotroski(
   // against the paper's 9-point scale; the Stage C payload renders this string
   // as the figure's label (payload.ts), and grading weights the signal by the
   // share of the nine signals that were evaluable.
-  const variant: PiotroskiResult["variant"] = finSuppressed ? "financial" : "standard";
+  const variant: PiotroskiResult["variant"] = eligibilityUnresolved ? "eligibility-unresolved" : finSuppressed ? "financial" : "standard";
   // The count comes from the signals actually withheld, never from the gate
   // flag: a DATA gap can drop a seventh signal, and saying "six" while seven
   // are missing describes a score the reader is not looking at. Naming them
   // costs a few words and cannot go stale.
-  const label = finSuppressed
+  const label = eligibilityUnresolved
+    ? `Piotroski F (eligibility unresolved, ${outOf} of 9 signals; ${missing.length} withheld: ${missing.join(", ")})`
+    : finSuppressed
     ? `Piotroski F (financial variant, ${outOf} of 9 signals — ${missing.length} withheld: ${missing.join(", ")})`
     : `Piotroski F (${outOf} signals)`;
-  if (finSuppressed) {
+  if (eligibilityUnresolved) {
+    notes.push(`Piotroski F eligibility unresolved: broad SIC 6199 alone does not validate the operating business model. The current-ratio, gross-margin and both operating-cash-flow signals remain withheld pending methodology review; ${outOf} of 9 signals are evaluable. Retained signals do not establish a fee-based or financial business model. The score is not comparable to a 9-point F-score.`);
+  } else if (finSuppressed) {
     notes.push(
       `Piotroski F is reported on the FINANCIAL variant: ${outOf} of the paper's 9 signals. The current ratio, gross ` +
         "margin and both operating-cash-flow tests are withheld" +
@@ -2646,6 +2654,10 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     sicCode: route.evidence.sic ?? null,
   };
   const suppressed = isFinancialForensicsSuppressed(route, classification);
+  const eligibilityUnresolved = route.base === "general"
+    && Number(classification.sicCode ?? route.evidence.sic) === 6199
+    && !(classification.sector ?? route.evidence.sector)?.trim()
+    && !(classification.industry ?? route.evidence.industry)?.trim();
 
   // --- Altman ---
   const altmanSelection = selectAltmanVariant(
@@ -2728,7 +2740,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
   let beneish: BeneishResult | null = null;
   if (suppressed) {
     notes.push(
-      "Beneish M-score not computed: financial company (Beneish excluded financial institutions from the model's estimation sample, paper p.5).",
+      eligibilityUnresolved ? "Beneish M-score eligibility unresolved: broad SIC 6199 alone does not validate operating-method applicability; withheld pending methodology review." : "Beneish M-score not computed: financial company (Beneish excluded financial institutions from the model's estimation sample, paper p.5).",
     );
     // WS5 (criterion g): the reason reaches the MANIFEST, not only the notes.
     // A battery that silently produces nothing reads as missing data; this says
@@ -2736,7 +2748,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     gaps.push(
       gapEntry(
         "forensics.beneishM",
-        "Beneish M-score withheld for a financial company: Beneish (1999) excluded financial institutions from the estimation sample (paper p.5), and its eight indices read receivables, gross margin, asset quality and depreciation — none of which carries the same meaning on a bank, insurer or mortgage-REIT balance sheet",
+        eligibilityUnresolved ? "Beneish M-score eligibility unresolved: broad SIC 6199 alone does not validate the operating business model; withheld pending methodology review." : "Beneish M-score withheld for a financial company: Beneish (1999) excluded financial institutions from the estimation sample (paper p.5), and its eight indices read receivables, gross margin, asset quality and depreciation — none of which carries the same meaning on a bank, insurer or mortgage-REIT balance sheet",
         "info",
       ),
     );
@@ -2769,6 +2781,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
       // classification: the current ratio and gross margin it hard-suppresses
       // everywhere else, and the two operating-cash-flow tests.
       financialsSuppressed: suppressed,
+      eligibilityUnresolved,
       // ΔLEVER and ΔTURN go only on the deposit-, float- or repo-funded routes.
       // A FIN-OTHER issuer (asset manager, exchange, insurance broker) is
       // fee-based with ordinary debt and an ordinary asset base, so falling
@@ -2779,7 +2792,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
     });
     if (suppressed) {
       notes.push(
-        "Piotroski F-score shown for a financial company — the model was validated on non-financial value stocks (research §6.3); " +
+        eligibilityUnresolved ? "Piotroski F-score eligibility unresolved: broad SIC 6199 alone does not validate the operating business model; the current-ratio, gross-margin and both operating-cash-flow signals remain withheld, and the score uses only the remaining signals." : "Piotroski F-score shown for a financial company — the model was validated on non-financial value stocks (research §6.3); " +
           "the current-ratio, gross-margin and both operating-cash-flow signals are withheld and the score is reported out of the signals that remain.",
       );
     }
@@ -2789,13 +2802,13 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
   let accruals: AccrualsResult | null = null;
   if (suppressed) {
     notes.push(
-      "Accrual ratios suppressed for financial companies — financial-asset flows swamp operating accruals (research §6.3).",
+      eligibilityUnresolved ? "Accrual ratios eligibility unresolved: broad SIC 6199 alone does not validate operating accrual methodology; withheld pending methodology review." : "Accrual ratios suppressed for financial companies — financial-asset flows swamp operating accruals (research §6.3).",
     );
     // WS5 (criterion g): reason to the manifest as well as the notes.
     gaps.push(
       gapEntry(
         "forensics.accrualsRatio",
-        "accrual ratios withheld for a financial company: the Sloan scaler is net operating assets, which subtracts (total liabilities − total debt) — for a bank that is its deposits, i.e. its raw material, so the ratio measures funding mix rather than earnings quality",
+        eligibilityUnresolved ? "Accrual ratios eligibility unresolved: broad SIC 6199 alone does not validate the operating business model or the Sloan scaler; withheld pending methodology review." : "accrual ratios withheld for a financial company: the Sloan scaler is net operating assets, which subtracts (total liabilities − total debt) — for a bank that is its deposits, i.e. its raw material, so the ratio measures funding mix rather than earnings quality",
         "info",
       ),
     );
