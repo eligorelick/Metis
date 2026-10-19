@@ -26,7 +26,7 @@ The row is labeled **Reported EPS difference (non-GAAP less GAAP)**. It is arith
 
 An issuer FCF amount enters a reconciliation column only for the exact same reported period/duration and supplying document, without conflicting observations. Its separately sourced as-reported row remains retained when that join is unavailable. No debt service or capex is deducted again. These rows do not establish complete obligation coverage, discretionary cash or funding capacity.
 
-The underlying report facts, source identifiers, original analyst prose, persisted report bytes, scores, DCF paths and financial calculations are unchanged. The shared table builder supplies reader, Markdown, print and audit surfaces. No provider call, new credential or paid/model fallback is introduced.
+The underlying report facts, source identifiers, original analyst prose, persisted report bytes, scores, DCF paths and financial calculations are unchanged. The shared table builder supplies reader, Markdown and print surfaces. The standalone audit format retains its existing registry/check coverage and does not render these reconciliation tables; this patch does not claim to expand that format's coverage. No provider call, new credential or paid/model fallback is introduced.
 
 ## Remaining analytical work and acceptance contracts
 

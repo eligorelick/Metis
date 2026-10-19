@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { FilingDisclosures, FilingRef } from "@/report/schema";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportView } from "@/components/report/ReportView";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintHtml } from "@/report/export/printHtml";
+import { loadTask28Fixture } from "./helpers/task28Report";
 
 type Fact = NonNullable<FilingDisclosures["reconciliation"]>[number];
 const release: FilingRef = { form: "8-K", accession: "0000000000-26-000001", filingDate: "2026-08-26", exhibit: "EX-99.1", url: "https://www.sec.gov/Archives/edgar/data/1/release.htm" };
@@ -135,5 +141,26 @@ describe("source-bound issuer reconciliation presentation", () => {
     const note = tables(d).find(t => t.rows.some(r => r[0] === d.nonGaapBasisNote));
     expect(note?.note).toMatch(/does not bind.*specific supplying document/);
     expect(note?.note).not.toContain("EX-99.1");
+  });
+
+  it("keeps the cross-document EPS bridge unavailable in the reader, Markdown and print", () => {
+    const report = loadTask28Fixture();
+    report.filingDisclosures = disclosure([fact("gaap-diluted-eps", 2), fact("non-gaap-diluted-eps", 5, commentary)]);
+    const original = JSON.stringify(report);
+    const surfaces = {
+      reader: renderToStaticMarkup(createElement(ReportView, { report })),
+      markdown: reportToMarkdown(report),
+      print: reportToPrintHtml(report, { autoPrint: false }),
+    };
+    for (const [name, output] of Object.entries(surfaces)) {
+      const displayed = name === "markdown" ? output.replace(/\\(.)/g, "$1") : output;
+      expect(displayed, name).not.toContain("Reported EPS difference (non-GAAP less GAAP)");
+      expect(displayed, name).not.toContain("Non-GAAP adjustments, net of tax (non-GAAP less GAAP)");
+      expect(displayed, name).toContain("$2.00");
+      expect(displayed, name).toContain("$5.00");
+      expect(displayed, name).toContain(release.url);
+      expect(displayed, name).toContain(commentary.url);
+    }
+    expect(JSON.stringify(report)).toBe(original);
   });
 });
