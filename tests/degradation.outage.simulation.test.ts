@@ -91,7 +91,7 @@ function makeMidOutageFmp(okCalls: number): OutageFmp {
     }
     if (ep === "profile") {
       return jsonResponse([
-        { symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US", cik: "0000320193" },
+        { symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US", cik: "0000320193", isEtf: false, isFund: false },
       ]);
     }
     return jsonResponse([]);

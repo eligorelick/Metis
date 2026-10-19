@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { discoverStockSplits } from "@/edgar/splits";
 import { parsePrimaryEconomicShares } from "@/edgar/economicShares";
@@ -873,12 +873,53 @@ describe("applyKeylessFallbacks", () => {
     );
     expect(out.members.profile.ok).toBe(true);
     if (!out.members.profile.ok) return;
-    expect(out.members.profile.value.data.rows[0]).toMatchObject({ isEtf: false, isFund: false });
+    expect(out.members.profile.value.data.rows[0]).toMatchObject({ isEtf: null, isFund: null, instrumentType: null });
     const g = out.gaps.find((entry) => entry.field === "profile.instrumentType");
-    expect(g?.severity).toBe("info");
-    expect(g?.reason).toMatch(/not classified .* Yahoo meta unavailable; treated as a company/);
+    expect(g?.severity).toBe("warn");
+    expect(g?.reason).toMatch(/not classified .* metadata unavailable; company analysis is withheld/);
     expect(g?.attemptedSources).toEqual(["yahoo:chart(meta.instrumentType)"]);
     expect(out.notes.some((n) => /^profile: instrument type /.test(n))).toBe(false);
+  });
+
+  it("fills only missing security classification on an existing vendor profile from confirmed-issuer public metadata", async () => {
+    const fmp = allGaps();
+    fmp.profile = okRows([{ symbol: "AAPL", companyName: "Vendor Name", price: 123, isEtf: false }]);
+    const original = structuredClone(fmp.profile);
+    const out = await applyKeylessFallbacks(inputs({ fmp, yahoo: fakeYahoo({ instrumentType: "EQUITY" }) }));
+    expect(fmp.profile).toEqual(original);
+    if (!out.members.profile.ok) throw new Error("profile fixture absent");
+    expect(out.members.profile.value.data.rows[0]).toMatchObject({ companyName: "Vendor Name", price: 123,
+      isEtf: false, instrumentType: "EQUITY", instrumentTypeEvidence: { source: "yahoo" } });
+    expect(classifyInstrumentSupport(out.members.profile.value.data.rows[0]!)).toEqual({ supported: true, kind: "company" });
+    expect(out.gaps.some(g => g.field === "keyless.profile.instrumentType")).toBe(true);
+  });
+
+  it.each(["INDEX", "CRYPTOCURRENCY", "CURRENCY", "FUTURE", "OPTION", "NEW_TYPE"])("retains explicit %s through keyless ingestion", async instrumentType => {
+    const out = await applyKeylessFallbacks(inputs({ yahoo: fakeYahoo({ instrumentType }) }));
+    if (!out.members.profile.ok) throw new Error("profile fixture absent");
+    expect(out.members.profile.value.data.rows[0]!.instrumentType).toBe(instrumentType);
+    expect(classifyInstrumentSupport(out.members.profile.value.data.rows[0]!)).toMatchObject({ supported: false });
+  });
+
+  it("does not guess a missing vendor security type when public metadata fails", async () => {
+    const fmp = allGaps();
+    fmp.profile = okRows([{ symbol: "AAPL", companyName: "Vendor Name" }]);
+    const original = structuredClone(fmp.profile);
+    const out = await applyKeylessFallbacks(inputs({ fmp, yahoo: fakeYahoo({ fail: new Set(["AAPL"]) }) }));
+    expect(out.members.profile).toEqual(original);
+    if (!out.members.profile.ok) throw new Error("profile fixture absent");
+    expect(classifyInstrumentSupport(out.members.profile.value.data.rows[0]!)).toMatchObject({ supported: false, kind: "unknown" });
+    expect(out.gaps.some(g => g.field === "keyless.profile.instrumentType" && g.severity === "warn")).toBe(true);
+  });
+
+  it("cannot enrich unknown classification without confirmed issuer identity", async () => {
+    const fmp = allGaps();
+    fmp.profile = okRows([{ symbol: "AAPL", companyName: "Vendor Name" }]);
+    const yahoo = fakeYahoo();
+    const meta = vi.spyOn(yahoo, "meta");
+    const out = await applyKeylessFallbacks(inputs({ fmp, yahoo, edgarConfirmedIssuer: false }));
+    expect(meta).not.toHaveBeenCalled();
+    expect(out.members.profile).toEqual(fmp.profile);
   });
 
   it("builds shares, market cap and history from the balance-sheet total for a per-class reporter", async () => {

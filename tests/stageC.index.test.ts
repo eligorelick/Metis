@@ -50,7 +50,7 @@ function fakeBundle(symbol = "AAPL"): DataBundle {
   const profile = {
     ok: true as const,
     value: {
-      data: { rows: [{ companyName: "Apple Inc.", sector: "Technology", price: 200 }], raw: {} },
+      data: { rows: [{ companyName: "Apple Inc.", sector: "Technology", price: 200, isEtf: false, isFund: false }], raw: {} },
       asOf: "2026-07-01",
       source: "fmp" as const,
       endpoint: "profile",

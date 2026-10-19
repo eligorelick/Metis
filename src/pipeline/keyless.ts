@@ -4,7 +4,9 @@
  *
  * Three rules govern everything below:
  *
- *  1. FMP IS NEVER OVERWRITTEN. Only a member that is a gap, or an ok result
+ *  1. FMP VALUES ARE NEVER OVERWRITTEN. Missing security classification may be
+ *     augmented from confirmed-issuer public metadata with field-level evidence.
+ *     Otherwise only a member that is a gap, or an ok result
  *     carrying zero rows (`needsFallback`), is eligible for replacement. A
  *     vendor row always wins over a derived one.
  *
@@ -28,6 +30,7 @@
  */
 
 import { sectorIndustryForSic } from "@/edgar/sic";
+import { classifyInstrumentSupport } from "@/pipeline/stageB/instrumentSupport";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import {
   BALANCE_SHEET_SHARES_TAG,
@@ -547,27 +550,28 @@ export function sharesOutstandingSeries(facts: CompanyFacts): {
  * Yahoo's chart meta (`EQUITY`, `ETF`, `MUTUALFUND`, `INDEX`, `CRYPTOCURRENCY`,
  * `CURRENCY`, `FUTURE`, `OPTION`, and the rare `CLOSEDEND`).
  *
- * When the meta is unavailable the flags stay false — the profile still has to
- * say something — but "not classified" is filed as an `info` gap rather than
- * silently read downstream as "this is a company".
+ * Missing metadata stays unknown. The original type travels to the company
+ * admission gate; negative fund flags alone must not erase INDEX/OPTION/etc.
  */
 export function classifyInstrument(meta: YahooMeta | null): {
-  isEtf: boolean;
-  isFund: boolean;
+  isEtf: boolean | null;
+  isFund: boolean | null;
+  instrumentType: string | null;
   note: string | null;
   gap: ManifestEntry | null;
 } {
-  const type = meta?.instrumentType ?? null;
+  const type = typeof meta?.instrumentType === "string" ? meta.instrumentType.trim() || null : null;
   if (type === null) {
     return {
-      isEtf: false,
-      isFund: false,
+      isEtf: null,
+      isFund: null,
+      instrumentType: null,
       note: null,
       gap: {
         field: "profile.instrumentType",
         reason:
-          "instrument type not classified — Yahoo meta unavailable; treated as a company",
-        severity: "info",
+          "instrument type not classified - Yahoo metadata unavailable; company analysis is withheld until classification is established",
+        severity: "warn",
         attemptedSources: ["yahoo:chart(meta.instrumentType)"],
       },
     };
@@ -576,6 +580,7 @@ export function classifyInstrument(meta: YahooMeta | null): {
   return {
     isEtf: normalized === "ETF",
     isFund: normalized === "MUTUALFUND" || normalized === "CLOSEDEND",
+    instrumentType: normalized,
     note: `instrument type ${normalized} (Yahoo chart meta)`,
     gap: null,
   };
@@ -765,6 +770,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   const wantSpy = needs("spy");
   const wantSectorEtf = needs("sectorEtf") && sectorEtfSymbol !== null;
   const wantProfile = needs("profile");
+  const vendorProfile = members.profile.ok ? members.profile.value.data.rows[0] : undefined;
+  const wantInstrumentType = inputs.edgarConfirmedIssuer && vendorProfile !== undefined &&
+    !(typeof vendorProfile.instrumentType === "string" && vendorProfile.instrumentType.trim()) &&
+    classifyInstrumentSupport(vendorProfile).kind === "unknown";
   const wantQuote = needs("quote");
   // Every EDGAR share count and per-share figure is put on a price's split
   // basis, which needs the vendor's list of splits over the whole span from the
@@ -784,7 +793,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     wantSectorEtf && sectorEtfSymbol !== null
       ? attempt(`yahoo.dailyHistory(${sectorEtfSymbol})`, () => inputs.yahoo.dailyHistory(sectorEtfSymbol, inputs.eodFrom, inputs.today))
       : null,
-    wantProfile ? attempt(`yahoo.meta(${inputs.symbol})`, () => inputs.yahoo.meta(inputs.symbol)) : null,
+    wantProfile || wantInstrumentType ? attempt(`yahoo.meta(${inputs.symbol})`, () => inputs.yahoo.meta(inputs.symbol)) : null,
     wantSplitList ? attempt(`yahoo.splitHistory(${inputs.symbol})`, () => inputs.yahoo.splitHistory(inputs.symbol)) : null,
   ]);
   // `quote()` is `meta()` plus a row mapping: both read the SAME chart request
@@ -1437,6 +1446,31 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
 
   // --- Profile --------------------------------------------------------------
 
+  if (wantInstrumentType && metaResult?.ok && members.profile.ok) {
+    const instrument = classifyInstrument(meta);
+    if (instrument.instrumentType !== null) {
+      const original = members.profile;
+      const first = original.value.data.rows[0]!;
+      const evidence = { source: metaResult.value.source, endpoint: metaResult.value.endpoint,
+        asOf: metaResult.value.asOf, fetchedAt: metaResult.value.fetchedAt };
+      members.profile = { ...original, value: { ...original.value, data: { ...original.value.data,
+        rows: [{ ...first, instrumentType: instrument.instrumentType, instrumentTypeEvidence: evidence },
+          ...original.value.data.rows.slice(1)],
+      } } };
+      gaps.push({ field: "keyless.profile.instrumentType", severity: "info",
+        reason: `Missing security classification supplied by ${evidence.source} (${instrument.instrumentType}, as of ${evidence.asOf ?? "unknown"}); existing vendor profile fields are retained unchanged.`,
+        attemptedSources: [evidence.endpoint] });
+      notes.push(`profile security type: ${instrument.instrumentType} from ${evidence.source}; vendor financial/profile values retained.`);
+      replaced.push("profile");
+    } else {
+      gaps.push({ field: "keyless.profile.instrumentType", reason: "Public metadata did not establish the missing security classification; company analysis remains withheld.",
+        severity: "warn", attemptedSources: [metaResult.value.endpoint] });
+    }
+  } else if (wantInstrumentType && metaResult !== null && !metaResult.ok) {
+    gaps.push({ field: "keyless.profile.instrumentType", reason: `Public security classification unavailable: ${metaResult.gap.reason}; company analysis remains withheld.`,
+      severity: "warn", attemptedSources: attemptedOf(metaResult.gap) });
+  }
+
   if (wantProfile) {
     if (registrant === null) {
       failKeyless(
@@ -1500,14 +1534,17 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         betaRSquared: beta.rSquared,
         betaMonths: beta.months,
         betaBasis: beta.basis,
-        // The instrument guard (`classifyInstrumentSupport`) decides support
-        // from these two flags alone, so hard-coding them false meant a keyless
+        // Preserve the source type as well as fund flags. Hard-coding the flags
+        // false previously meant a keyless
         // `/company/SPY` produced a company report for a fund: ETF and
         // closed-end trusts are SEC registrants with tickers and 10-K filings,
         // so they clear the issuer gate and the whole fallback runs for them.
         // Yahoo's chart meta already carries the classification.
         isEtf: instrument.isEtf,
         isFund: instrument.isFund,
+        instrumentType: instrument.instrumentType,
+        ...(metaResult?.ok ? { instrumentTypeEvidence: { source: metaResult.value.source,
+          endpoint: metaResult.value.endpoint, asOf: metaResult.value.asOf, fetchedAt: metaResult.value.fetchedAt } } : {}),
         // The statements builder reads the form on the facts it actually used,
         // so `filesTwentyF` describes the periods this profile reports. The
         // submissions form list is only a fallback for when no statements could

@@ -3,12 +3,32 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current phase-one source declares report 1.29.1 / payload 1.34.1 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_10 (2026-10-19). Its bounded evidence fixes
+The current source declares report 1.32.0 / payload 1.37.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_14 (2026-10-19). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
+
+Company analysis requires established security classification: an explicit equity
+type, or both provider fund flags explicitly false when no explicit type is given.
+An explicit unsupported or unrecognized type cannot be erased by false flags;
+true fund flags take priority even over an equity label. Missing classification is
+unresolved, rather than proof of either company eligibility or an invalid ticker.
+Public chart metadata can augment a confirmed issuer's existing profile with its
+missing instrument type and field-level provenance; vendor values stay intact.
+Known funds and explicit non-equity instruments receive no issuer valuation.
+
+Strong financial-business evidence that conflicts with the selected route leaves
+model eligibility unresolved until consolidated scope is reconciled. Source facts
+remain visible, while industrial FCFF, debt-based WACC, leverage, EV multiples,
+ROIC, forward scenarios and related grades are withheld. No financial-company
+model is substituted by guessing. Weak single-tag evidence does not trigger this
+hold. REIT historical P/AFFO comparisons separately require compatible AFFO
+construction; compatible FFO alone does not establish AFFO comparability. The
+current approximate AFFO may remain visible without a historical percentile.
+These are implementation safeguards, not issuer-specific model validation. See
+the [cross-company audit and bounded fixes](audit/2026-10-19-company-eligibility-affo.md).
 
 D-90 compares direct and derived quarter durations using the actual emitted
 start/end interval. Exact-source cash/repurchase and income-classification

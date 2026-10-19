@@ -7,6 +7,13 @@ import {
 } from "@/app/company/[symbol]/GenerateReport";
 
 describe("GenerateReport — unsupported terminal state", () => {
+  it.each(["unknown", "non-equity"])("preserves %s reasons across live and resumed terminal states", kind => {
+    const terminal = { kind, message: "Classification is not established by the available evidence." };
+    expect(unsupportedFromSnapshot({ status: "unsupported", totalCostUsd: 0, unsupported: terminal }))
+      .toEqual({ ...terminal, totalCostUsd: 0 });
+    expect(unsupportedFromEvent({ type: "unsupported", ...terminal }))
+      .toEqual({ ...terminal, totalCostUsd: 0 });
+  });
   it("recognizes replayed unsupported snapshots and closes instead of reconnecting", () => {
     const terminal = unsupportedFromSnapshot({
       status: "unsupported",

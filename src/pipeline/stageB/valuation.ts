@@ -2954,6 +2954,8 @@ export interface MultiplesFrameworkInputs {
    * and P/AFFO bands are withheld in that case with a disclosing gap.
    */
   ffoHistoryComparable?: boolean;
+  /** Separate from FFO: recurring capex or rent adjustments cannot be ranked against all-capex history. */
+  affoHistoryComparable?: boolean;
   /**
    * WS6 (D-19): keep the OPERATING-lease liability in enterprise value
    * (THESIS_EV_INCLUDE_LEASES=1). OFF by default, because under US GAAP
@@ -3758,6 +3760,13 @@ export function multiplesFramework(
     }
     notes.push(`own-history FFO basis: ${reason}`);
     gaps.push(gapEntry("valuation.multiples.ownHistory.ffoBasis", reason, "info"));
+  }
+  if (route === "reit" && inputs.affoHistoryComparable !== true) {
+    const reason = "The current AFFO construction is not established as net income + total income-statement D&A - all capital expenditure. Recurring-capex/rent or FFO adjustments cannot be ranked against the historical all-capex construction; P/AFFO own-history ranking is withheld independently of P/FFO.";
+    delete derived.series.priceToAffo;
+    delete vendor.priceToAffo;
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.ownHistory.affoBasis", reason, "info"));
   }
   const historyKeys: readonly MultipleKey[] = [
     ...DERIVED_HISTORY_KEYS,
@@ -4796,6 +4805,13 @@ export interface ValuationBundleInputs {
 
 export type ValuationResult =
   | {
+      kind: "ineligible";
+      route: SectorRoute;
+      multiples: MultiplesResult;
+      notes: string[];
+      gaps: ManifestEntry[];
+    }
+  | {
       kind: "dcf";
       route: SectorRoute;
       assumptions: DcfAssumptions | null;
@@ -4856,6 +4872,19 @@ export type ValuationResult =
 export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs): ValuationResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  if (route.modelEligibility?.status === "unresolved") {
+    const { reason, sources } = route.modelEligibility;
+    const entry: ManifestEntry = { field: "valuation.modelEligibility", reason, severity: "warn", attemptedSources: sources };
+    // No model is selected, so no multiple/history/peer rank can smuggle its
+    // assumptions back into the grade. Raw source statements remain upstream.
+    return { kind: "ineligible", route: route.base, notes: [reason], gaps: [entry], multiples: {
+      multiples: [], sectorAppropriate: [],
+      enterpriseValue: { value: null, excludingLeases: null, includingLeases: null,
+        leaseLiability: null, includeLeases: inputs.includeLeasesInEv === true, basis: reason },
+      asOf: { quote: inputs.multiples.quote.priceAsOf ?? null, statements: inputs.multiples.incomeTtm?.date ?? null },
+      notes: [reason], gaps: [entry],
+    } };
+  }
 
   if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(inputs.multiples.balance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity differs from parent equity, establishing outside ownership, but its NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";

@@ -101,6 +101,8 @@ export interface CompanyRoute {
   overlays: SectorOverlay[];
   /** FMP sector/industry strings that produced the route, for the appendix */
   evidence: { sector: string | null; industry: string | null; sic?: string | null };
+  /** Strong conflicting funding evidence leaves model applicability unresolved, without guessing a route. */
+  modelEligibility?: { status: "unresolved"; reason: string; sources: string[] };
 }
 
 /** Grades used across the report. */

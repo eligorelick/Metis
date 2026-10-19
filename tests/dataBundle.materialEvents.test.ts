@@ -31,7 +31,7 @@ describe("official material-event source wiring", () => {
     const bundle = await buildDataBundle("ADBE", { now, keyless: false,
       fmp: createFmpClient({ apiKey: "test", now, limiter: makeLimiter(10000, 10000), fetchImpl: (async input => {
         const endpoint = new URL(String(input)).pathname.replace(/^.*\/stable\//, "");
-        return new Response(JSON.stringify(endpoint === "profile" ? [{ symbol: "ADBE", companyName: "Adobe Inc.", cik: "796343", website: home }] : []), { status: 200 });
+        return new Response(JSON.stringify(endpoint === "profile" ? [{ symbol: "ADBE", companyName: "Adobe Inc.", cik: "796343", website: home, isEtf: false, isFund: false }] : []), { status: 200 });
       }) as typeof fetch }),
       edgar: createEdgarClient({ maxRps: 10000, transport: { async fetchText(url) {
         const body = url.includes("company_tickers.json") ? { "0": { cik_str: 796343, ticker: "ADBE", title: "ADOBE INC." } }
@@ -58,7 +58,7 @@ describe("official material-event source wiring", () => {
       const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
       const endpoint = url.pathname.replace(/^.*\/stable\//, "");
       if (endpoint === "news/press-releases") return new Response("subscription required", { status: 402 });
-      return new Response(JSON.stringify(endpoint === "profile" ? [{ symbol: "EXM", companyName: "Example Group", cik: "1", website: "https://example.com" }] : []), { status: 200 });
+      return new Response(JSON.stringify(endpoint === "profile" ? [{ symbol: "EXM", companyName: "Example Group", cik: "1", website: "https://example.com", isEtf: false, isFund: false }] : []), { status: 200 });
     }) as typeof fetch;
     const transport: EdgarTransport = { async fetchText(url) {
       const body = url.includes("company_tickers.json") ? JSON.stringify({ "0": { cik_str: 1, ticker: "EXM", title: "Example Group" } })

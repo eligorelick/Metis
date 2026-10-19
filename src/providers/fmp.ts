@@ -111,9 +111,12 @@ export interface FmpProfileRow extends FmpRawRow {
   ipoDate?: string | null;
   /** string per docs sample — do not assume number */
   fullTimeEmployees?: string | null;
-  isEtf?: boolean;
+  isEtf?: boolean | null;
   isAdr?: boolean;
-  isFund?: boolean;
+  isFund?: boolean | null;
+  /** Explicit security classification, retained from public fallback metadata when available. */
+  instrumentType?: string | null;
+  instrumentTypeEvidence?: { source: string; endpoint: string; asOf: string | null; fetchedAt: string };
   isActivelyTrading?: boolean;
   description?: string;
   ceo?: string | null;

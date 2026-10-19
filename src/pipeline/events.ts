@@ -17,7 +17,7 @@ import { assertSafeJobRevision } from "@/pipeline/jobState";
 import { parseCanonicalJobSteps } from "@/pipeline/jobSteps";
 import { ReportSchema, withLenientLegacyRead } from "@/report/schema";
 import type { StepProgress } from "@/types/core";
-import type { UnsupportedInstrumentKind } from "@/pipeline/stageB/instrumentSupport";
+import { isUnsupportedInstrumentKind, type UnsupportedInstrumentKind } from "@/pipeline/stageB/instrumentSupport";
 
 /* ------------------------------------------------------------------------ *
  * Event types
@@ -256,9 +256,7 @@ export function getJobSnapshot(jobId: string): JobSnapshot | null {
       settlementsPending,
       unsupported:
         row.status === "unsupported" &&
-        (row.unsupportedKind === "etf" ||
-          row.unsupportedKind === "fund" ||
-          row.unsupportedKind === "etf-fund") &&
+        isUnsupportedInstrumentKind(row.unsupportedKind) &&
         typeof row.unsupportedMessage === "string" &&
         row.unsupportedMessage.trim().length > 0
           ? { kind: row.unsupportedKind, message: row.unsupportedMessage }

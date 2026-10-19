@@ -2796,7 +2796,21 @@ export async function runJob<TPayload = unknown>(
     const validatedSupport = classifyInstrumentSupport(
       bundle.profile.ok ? (bundle.profile.value.data.rows[0] ?? null) : null,
     );
-    if (!validatedSupport.supported) return finishUnsupported(state, validatedSupport);
+    if (!validatedSupport.supported) {
+      if (validatedSupport.kind === "unknown" && !hasAnalyzableData(bundle)) {
+        // Retain the existing source-only empty-data outcome without treating
+        // an unclassified instrument as a company or running Stage B/paid work.
+        for (const step of ["compute", ...LLM_STEPS] as const) {
+          startStep(state, step);
+          finishStep(state, step, "skipped", NO_ANALYZABLE_DATA_REASON);
+        }
+        return persistDataOnly(state, bundle, validation, null, now, hasKey, {
+          reason: NO_ANALYZABLE_DATA_REASON,
+          gaps: [{ field: "instrument.classification", reason: validatedSupport.reason, severity: "warn" }],
+        });
+      }
+      return finishUnsupported(state, validatedSupport);
+    }
 
     // -- compute --------------------------------------------------------------
     startStep(state, "compute");

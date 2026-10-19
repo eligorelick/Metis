@@ -378,7 +378,9 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
   // REITs use book-value models; pre-revenue uses runway framing).
   if (valuation.kind !== "dcf") {
     return notApplicable(
-      `Forward FCFF projections are only modelled on the general route; this company routed to "${valuation.kind}".`,
+      valuation.kind === "ineligible"
+        ? `Forward FCFF projections withheld: ${valuation.gaps[0]?.reason ?? "valuation applicability is unresolved"}`
+        : `Forward FCFF projections are only modelled on the general route; this company routed to "${valuation.kind}".`,
     );
   }
   const assumptions = valuation.assumptions;

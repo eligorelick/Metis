@@ -24,11 +24,31 @@ describe("classifyInstrumentSupport — unsupported company-analysis instruments
 
   it.each([
     { label: "explicit company flags", input: { isEtf: false, isFund: false } },
+    { label: "positive equity metadata", input: { instrumentType: "EQUITY" } },
+    { label: "ADR company flags", input: { isAdr: true, isEtf: false, isFund: false } },
+  ] as const)("accepts $label", ({ input }) => {
+    expect(classifyInstrumentSupport(input)).toEqual({ supported: true, kind: "company" });
+  });
+
+  it.each([
     { label: "null flags", input: { isEtf: null, isFund: null } },
     { label: "missing flags", input: {} },
     { label: "missing profile", input: null },
-  ] as const)("treats $label as a supported company candidate", ({ input }) => {
-    expect(classifyInstrumentSupport(input)).toEqual({ supported: true, kind: "company" });
+    { label: "only one negative flag", input: { isEtf: false } },
+    { label: "ADR label without security classification", input: { isAdr: true } },
+    { label: "unfamiliar explicit type", input: { instrumentType: "NEW_TYPE", isEtf: false, isFund: false } },
+  ] as const)("keeps $label unconfirmed", ({ input }) => {
+    expect(classifyInstrumentSupport(input)).toMatchObject({ supported: false, kind: "unknown" });
+  });
+
+  it.each(["INDEX", "CRYPTOCURRENCY", "CURRENCY", "FUTURE", "OPTION"])("refuses explicit %s even with negative fund flags", instrumentType => {
+    expect(classifyInstrumentSupport({ instrumentType, isEtf: false, isFund: false, isAdr: true }))
+      .toMatchObject({ supported: false, kind: "non-equity" });
+  });
+
+  it("a fund flag cannot be erased by conflicting equity metadata", () => {
+    expect(classifyInstrumentSupport({ instrumentType: "EQUITY", isFund: true }))
+      .toMatchObject({ supported: false, kind: "fund" });
   });
 });
 

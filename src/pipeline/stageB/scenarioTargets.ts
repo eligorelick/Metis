@@ -88,15 +88,22 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   // Only the general FCFF-DCF route has a per-share intrinsic value to perturb.
   // Banks/insurers/REITs/pre-revenue/dcf-suppressed → no target (docs/METHODOLOGY.md "Financial-company routes").
   if (valuation.kind !== "dcf") {
+    const unresolvedReason = valuation.kind === "ineligible"
+      ? valuation.gaps[0]?.reason ?? "valuation applicability is unresolved"
+      : null;
     return suppressed(
       [
         {
           field: "valuation.scenarioTargets",
-          reason: `deterministic scenario price targets are modelled only on the general DCF route; this company routed to "${valuation.kind}" — targets suppressed`,
+          reason: unresolvedReason !== null
+            ? `Scenario price targets withheld: ${unresolvedReason}`
+            : `deterministic scenario price targets are modelled only on the general DCF route; this company routed to "${valuation.kind}" - targets suppressed`,
           severity: "info",
         },
       ],
-      [`Scenario price targets unavailable: the ${valuation.kind} route has no FCFF per-share to perturb.`],
+      [unresolvedReason !== null
+        ? `Scenario price targets withheld: ${unresolvedReason}`
+        : `Scenario price targets unavailable: the ${valuation.kind} route has no FCFF per-share to perturb.`],
     );
   }
 

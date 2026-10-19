@@ -135,7 +135,7 @@ describe("company page — unsupported instruments", () => {
     expect(pageHarness.generateReport).not.toHaveBeenCalled();
   });
 
-  it("coalesces the entire concurrent company load for one normalized symbol", async () => {
+  it("coalesces concurrent unclassified loads without computing company values", async () => {
     let resolveBundle!: (value: unknown) => void;
     const pendingBundle = new Promise<unknown>((resolve) => {
       resolveBundle = resolve;
@@ -164,8 +164,8 @@ describe("company page — unsupported instruments", () => {
     });
     await Promise.all([first, second]);
     expect(callsBeforeResolve).toBe(1);
-    expect(pageHarness.runStageB).toHaveBeenCalledTimes(1);
-    expect(pageHarness.getLatestDoneReport).toHaveBeenCalledTimes(1);
+    expect(pageHarness.runStageB).not.toHaveBeenCalled();
+    expect(pageHarness.getLatestDoneReport).not.toHaveBeenCalled();
   });
 
   it("bounds different-symbol company loads to the production concurrency of two", async () => {

@@ -2564,6 +2564,7 @@ export function isFinancialForensicsSuppressed(
   route: CompanyRoute,
   classification?: AltmanClassification,
 ): boolean {
+  if (route.modelEligibility?.status === "unresolved") return true;
   if (route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage") {
     return true;
   }
