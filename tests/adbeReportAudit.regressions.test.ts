@@ -10,6 +10,7 @@ import { computeScores, type ScoringInputs } from "@/pipeline/stageB/grading";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { consensusTables, keyDataRows, scoreDriverTable } from "@/report/presentation";
 import { valuationAuditTables } from "@/report/auditTables";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { buildEarningsReleaseRecord, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -57,6 +58,24 @@ describe("independent first-report audit reproductions", () => {
     expect(raw).toEqual(b.statements.cashflowAnnual.ok ? expect.objectContaining({ value: expect.objectContaining({ data: expect.objectContaining({ raw: b.statements.cashflowAnnual.value.data.raw }) }) }) : null);
   });
 
+  it("describes reported but refused investment operands as unavailable for adjusted accruals, including the grade explanation", () => {
+    const b = auditBundle();
+    if (!b.edgar.companyFacts.ok) throw Error("source fixture");
+    b.statements.cashflowAnnual = enrichFinancialFields(b.statements.balanceAnnual, b.statements.cashflowAnnual,
+      b.edgar.companyFacts.value.data, "annual", b.builtAt).cashflow;
+    const result = runStageB(b);
+    const accruals = result.forensics.accruals;
+    expect(accruals).toMatchObject({ definition: "operating", aggregateAccrualsCashFlow: -2901e6 });
+    const notes = accruals?.notes.join(" ") ?? "";
+    expect(notes).toMatch(/unavailable|unreconciled/i);
+    expect(notes).not.toMatch(/statements do not report/i);
+    const signal = result.scores.aspects.quality.signals?.find(s => s.id === "accrualsRatioAbs");
+    expect(signal?.fallbackReason).toMatch(/unavailable|unreconciled/i);
+    expect(signal?.fallbackReason).not.toMatch(/not reported/i);
+    expect(signal?.fallbackReason).toMatch(/operating accruals.*NI.*CFO/i);
+    expect(accruals?.cashFlowAccrualRatio).toBeCloseTo(-2901 / 11975.5, 8);
+  });
+
   it("labels unverified provider EPS basis in the market tables, headline and model context", () => {
     const b=completeCurrencyBundle({});
     const report=loadTask28Fixture();
@@ -98,6 +117,8 @@ describe("independent first-report audit reproductions", () => {
     const c=runStageB(b);const eps=c.projections?.series.find(s=>s.metric==="epsDiluted");
     expect(eps?.capitalReturn).toMatchObject({authorizationRemaining:24.55e9,policy:"flat-share-conservative",appliedShareCountAnnualizedPct:0});
     expect(eps?.capitalReturn?.basis).toMatch(/discretionary|not.*commitment/i);
+    expect(eps?.capitalReturn?.basis).toContain("10-Q 0000796343-26-000156, filed 2026-09-22");
+    expect(eps?.capitalReturn?.basis).not.toMatch(/earnings release reports/i);
   });
   it("keeps MD&A remaining authority separately sourced from an earnings release's returned cash in the payload",()=>{
     const b=auditBundle();
@@ -125,5 +146,20 @@ describe("independent first-report audit reproductions", () => {
     const b=auditBundle();if(!b.edgar.tenQMdna.ok)throw Error("source fixture");
     b.edgar.tenQMdna.value.data.text=b.edgar.tenQMdna.value.data.text.replace("$24.55 billion remained", "$13.25 billion remained");
     expect(buildFilingDisclosures(b)?.capitalReturn?.authorizationRemaining).toBe(13.25e9);
+  });
+  it("limits a failed guidance extraction to structured rows without denying separately retained narrative guidance", () => {
+    const b = auditBundle();
+    const release = buildEarningsReleaseRecord({ filing: { accessionNumber: "0000796343-26-000155", filingDate: "2026-09-10", acceptanceDateTime: undefined },
+      releaseUrl: "https://www.sec.gov/Archives/edgar/data/796343/000079634326000155/ex99.htm", commentaryUrl: null, commentaryText: null, includeNarrative: true,
+      releaseText: "Adobe Reports Third Quarter Fiscal 2026 Results. Our current outlook is discussed in the following narrative." });
+    b.edgar.currentReports = { ok: true, value: { source: "edgar", endpoint: "fixture", asOf: "2026-09-10", fetchedAt: b.builtAt,
+      data: { version: CURRENT_REPORTS_VERSION, releases: [release], events: [], notes: [] } } };
+    const disclosures = buildFilingDisclosures(b)!;
+    expect(disclosures.guidance).toBeNull();
+    expect(disclosures.notes.join(" ")).toMatch(/no structured.*guidance rows.*extracted/i);
+    expect(disclosures.notes.join(" ")).not.toMatch(/no guidance is shown/i);
+    const tables = JSON.stringify(filingDisclosureTables(disclosures, "outlook"));
+    expect(tables).toMatch(/no structured.*guidance rows.*extracted/i);
+    expect(tables).not.toMatch(/No guidance could be read/i);
   });
 });

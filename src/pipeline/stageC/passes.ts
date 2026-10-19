@@ -3236,7 +3236,8 @@ export const SCENARIO_TARGET_HORIZON = "explicit DCF horizon";
  * when that scenario's computed per-share is non-null and "n/a" otherwise
  * (D-40), so a null target never carries a horizon.
  * The judge's scenario NARRATIVE (probability, assumptions,
- * whatWouldHaveToBeTrue) is preserved verbatim. Pure; returns a new valuation.
+ * whatWouldHaveToBeTrue) is preserved here; final scenario presentation later
+ * separates qualitative conditions from actual numerical prerequisites. Pure.
  */
 export function applyScenarioTargets(
   valuation: JudgeOutput["valuation"],

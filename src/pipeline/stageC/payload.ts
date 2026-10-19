@@ -400,7 +400,8 @@ export interface ContextPayload {
 // 1.32.0 (D-88): preserve sourced duration intervals and final gap evidence.
 // 1.33.0 (D-89): retain the declared unit-fraction scale in numeric provenance.
 // 1.35.0: first-report audit cash admission, official-index discovery, EPS basis and disclosure context.
-export const PAYLOAD_VERSION = "1.35.0" as const;
+// 1.35.1: deterministic source attribution and present-but-refused accrual explanations.
+export const PAYLOAD_VERSION = "1.35.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

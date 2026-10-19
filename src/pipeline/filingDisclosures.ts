@@ -446,7 +446,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         qualifiers: guided.guidance.qualifiers.map((q) => safeText(q, "An issuer outlook caveat is withheld from display by the rating-language filter; see the release.")),
       }
     : null;
-  if (releases.length > 0 && guided === undefined) notes.push("No quarterly outlook could be read from the latest earnings releases; no guidance is shown.");
+  if (releases.length > 0 && guided === undefined) notes.push("No structured quarterly guidance rows were extracted from the retained releases; separately sourced narrative guidance may still be available.");
 
   const latest = releases[0];
   // A dated issuer production statement remains visible even if model prose

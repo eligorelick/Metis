@@ -9883,11 +9883,6 @@
       "reason": "D-92 advances the report stamp and preserves explicit existing sensitivity conventions. The two previously allowlisted growth-margin grid objects are reclassified because a note was inserted inside each whole-object pin; all axes, numeric cells and null cells are independently compared with the prior pins and are identical. The remaining changes are sensitivity note text/positions and saved-report metadata, with no revised valuation arithmetic or numeric provenance.",
       "deltas": [
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.30.0"
-        },
-        {
           "path": "report.valuation.dcf.growthMarginGrid",
           "beforeMissing": true,
           "after": {
@@ -10034,6 +10029,20 @@
           "path": "stageB.valuation.sensitivity.notes.2",
           "beforeMissing": true,
           "after": "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
+        }
+      ]
+    },
+    {
+      "name": "admitted-input-wording-20261019",
+      "decisions": [
+        "D-93"
+      ],
+      "reason": "D-93: patch release for deterministic authority-source and admitted-input explanations. This audited fixture has complete operands and no remaining authority, so only the report spec stamp changes; its numeric model, scores, grids and provenance values stay pinned.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.30.1"
         }
       ]
     }

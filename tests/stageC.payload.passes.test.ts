@@ -587,6 +587,14 @@ describe("payload determinism + provenance", () => {
       expect(precedingFinance.valuation.growthMarginGrid.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
       precedingFinance.valuation.growthMarginGrid.notes.shift();
     }
+    // D-93 changes these two explanation leaves in this fixture. Restore only
+    // the asserted words, preserving the preceding whole-finance numeric pin.
+    const epsCapital = precedingFinance.projections.series.find((s: { metric: string }) => s.metric === "epsDiluted").capitalReturn;
+    expect(epsCapital.basis).toContain("Positive dilution is retained only when the observed share-count trend is positive.");
+    epsCapital.basis = epsCapital.basis.replace("Positive dilution is retained only when the observed share-count trend is positive.", "A positive dilution trend is retained.");
+    const accrualSignal = precedingFinance.scores.aspects.quality.signals.find((s: { id: string }) => s.id === "accrualsRatioAbs");
+    expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI - CFO).");
+    accrualSignal.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI \u2212 CFO).";
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
@@ -887,8 +895,10 @@ describe("payload determinism + provenance", () => {
       // D-92: +376 prompt bytes qualify provider EPS accounting basis. The
       // finance hash changes only for the separately asserted reinvestment
       // floor note; preceding-finance and numeric registry pins remain exact.
-      fingerprint: "1.35.0:ef581ec9",
-      promptBytes: 139_507,
+      // D-93: admitted-input explanations add 148 prompt bytes. The exact
+      // preceding whole-finance hash and every numeric registry pin stay above.
+      fingerprint: "1.35.1:c997805a",
+      promptBytes: 139_655,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
       provenanceIdsHash: "623dfb46",
@@ -913,7 +923,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "745fe79b",
+      financeHash: "b2bc5253",
     });
   });
 
@@ -1037,7 +1047,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.35.0");
+    expect(first.payloadVersion).toBe("1.35.1");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2532,7 +2542,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.30.0");
+    expect(report.meta.specVersion).toBe("1.30.1");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2641,7 +2651,8 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     expect(bull.assumptions.join(" ")).toContain("Year-one shift versus base: revenue growth -8 percentage points, operating margin 3 percentage points");
     expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, 2.46, 2");
     expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 23.33, 24");
-    expect(bull.qualitativeCommentary).toEqual(["strong cycle"]);
+    expect(bull.qualitativeCommentary).toEqual(["strong cycle", "Separate qualitative condition, not a modeled input or prerequisite for this target: services accelerate"]);
+    expect(bull.whatWouldHaveToBeTrue[0]).toMatch(/^Modeled conditions:/);
   });
   it("uses the same fixed display weights as the projection fan and separates model commentary", () => {
     const { computed } = buildInputs();
@@ -2651,7 +2662,8 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
     const base = report.valuation.scenarios[1];
     expect(base.assumptions).not.toContain("steady");
-    expect(base.qualitativeCommentary).toEqual(["steady"]);
+    expect(base.qualitativeCommentary).toEqual(["steady", "Separate qualitative condition, not a modeled input or prerequisite for this target: margins stable"]);
+    expect(base.whatWouldHaveToBeTrue[0]).toMatch(/^Modeled conditions:/);
     expect(report.scenarioPresentation?.weightBasis).toMatch(/carry no weight.*not a calibrated probability/i);
   });
 

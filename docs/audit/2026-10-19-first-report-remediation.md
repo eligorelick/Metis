@@ -102,3 +102,43 @@ Prior-quarter filings remain in the calculation provenance, and existing
 refusals remain authoritative. The valid June 15 comparison, absent vendor
 start date, strict scope controls and serialized refusal closure remain covered.
 No controlled rerun occurred on either earlier remediation revision.
+
+### Controlled-rerun wording followup (D-93)
+
+The single rerun on `094db80` completed with updated source admission, Topaz
+status, EPS qualifiers and sensitivity disclosures. Its independent acceptance
+audit remains separate from this code change. Two residual explanations came
+from deterministic templates, not model-authored prose: the EPS projection note
+called an MD&A authority figure an earnings-release figure, and forensic/grade
+fallback notes called reported but refused investment components not reported.
+
+The projection now names the retained issuer disclosure and preserves its
+source identifier/date. Forensic and score explanations refer to compatible
+admitted inputs being unavailable or unreconciled, preserving absent/refused
+distinctions without inventing a specific unavailable cause. All arithmetic,
+refusals, amounts, dates, source records and the flat-share policy are unchanged.
+Regressions cover 10-Q, 8-K exhibit and absent source labels, plus the captured
+reported-but-refused investment path through accruals and grade explanations.
+
+Patch stamps are report `1.30.1`, payload `1.35.1`, Stage B
+`STAGE_B_2026_10_ACCOUNTING_EVIDENCE_12`, pipeline `stage-c-1.6.1`. Both original
+reports remain immutable. A separately labeled corrected render may replace
+only the enumerated deterministic explanation fields using the frozen inputs;
+it retains original model prose, execution/usage and report stamps with a
+separate correction manifest. It cannot count as a new analyst run or claim
+fresh all-claim verification. Full gates and independent clearance remain
+required; no automatic new LLM run, push or merge.
+
+The independent rerun audit subsequently accepted material closure of all seven
+prior findings within its bounded numerical/source sample and retained four P3
+followups. The authority note also needs to make its positive-dilution rule
+conditional. Structured-guidance empty-state text now describes extraction of
+structured rows, retaining period/currency/parser restrictions and separately
+sourced narrative guidance. Scenario conditions now come from the actual
+recorded growth and effective-margin shifts, including binding caps, with
+capital efficiency/WACC/terminal inputs held at base. Prior analyst conditions
+are retained verbatim inside an explicit separate-qualitative label rather than
+presented as numerical prerequisites for a differently modeled target. Repeated
+application is idempotent; model inputs and target/forecast arithmetic stay fixed.
+Corrected artifacts must enumerate this relocation as well as deterministic
+note changes. They do not claim that the original model authored new wording.

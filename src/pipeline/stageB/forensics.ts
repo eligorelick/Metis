@@ -1733,7 +1733,7 @@ export interface AccrualsResult {
   operatingAccruals?: number | null;
   /** D-61: the construction behind `cashFlowAccrualRatio` (absent on pre-D-61 results). */
   definition?: AccrualDefinition;
-  /** D-61: purchases + sales/maturities of investments (statement signs); null when not reported. */
+  /** D-61: admitted purchases + sales/maturities (statement signs); null when unavailable or unreconciled. */
   financialAssetCashFlow?: number | null;
   /** D-61: reported CFI minus the financial-asset flows (capex, acquisitions, other investing). */
   operatingInvestingCashFlow?: number | null;
@@ -1924,7 +1924,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
       !ltiKnown ? "long-term investments in both years" : null,
     ].filter((part): part is string => part !== null);
     notes.push(
-      `Accrual definition: operating accruals (NI − CFO), because the statements do not report ${missing.join(", ")} — the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Operating accruals exclude every investing flow, including capex and acquisitions.`,
+      `Accrual definition: operating accruals (NI - CFO), because compatible admitted inputs are unavailable for ${missing.join(", ")} - the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Reported but refused observations are not substituted for admitted inputs. Operating accruals exclude every investing flow, including capex and acquisitions.`,
     );
   }
   const aggBS = noaT !== null && noaP !== null ? noaT - noaP : null;
@@ -1937,7 +1937,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
       ),
     );
   } else if (!ltiKnown) {
-    notes.push("Net operating assets are not adjusted for long-term investments, which the balance sheets do not report in both years.");
+    notes.push("Net operating assets are not adjusted for long-term investments, which are unavailable on a compatible admitted basis in both years.");
   }
 
   // Growth note (D-61, Fairfield, Whisenant & Yohn 2003): accruals are growth
