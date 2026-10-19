@@ -536,7 +536,7 @@ export async function collectQuarterlySegments(
     return { ok: false, gap: { field, reason: `no quarterly revenue could be read from ${chosen.length} periodic XBRL instance(s)${problems.length > 0 ? `: ${problems.slice(0, 3).join("; ")}` : ""}`, severity: "info", attemptedSources: chosen.map((f) => f.accessionNumber) } };
   }
   const value: Sourced<QuarterlySegmentRevenue> = {
-    data: { ...series, notes: problems },
+    data: { ...series, notes: [...series.notes, ...problems] },
     asOf: series.quarters[0]!.end,
     source: "edgar",
     endpoint: `${endpoint ?? "edgar"} (+${read.length - 1} earlier periodic XBRL instance(s): segment revenue)`,

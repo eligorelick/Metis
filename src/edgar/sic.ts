@@ -258,6 +258,10 @@ export function parseSicCode(value: string | number | null | undefined): number 
 export function sectorIndustryForSic(value: string | number | null | undefined): SicClassification {
   const sic = parseSicCode(value);
   if (sic === null) return { sic: null, sector: null, industry: null };
+  // "Finance services, NEC" does not establish credit-services operations or
+  // an investable sector benchmark. Preserve the statutory code; methodology
+  // eligibility remains unresolved until independent operating evidence exists.
+  if (sic === 6199) return { sic, sector: null, industry: null };
   const specific = SPECIFIC[sic];
   if (specific !== undefined) return { sic, sector: specific[0], industry: specific[1] };
   const group = MAJOR_GROUP[Math.floor(sic / 100)];

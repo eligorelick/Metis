@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { sectorIndustryForSic } from "@/edgar/sic";
 
 describe("sectorIndustryForSic", () => {
+  it("retains broad SIC 6199 without promoting it to validated credit services or Technology", () => {
+    expect(sectorIndustryForSic("6199")).toEqual({ sic: 6199, sector: null, industry: null });
+    expect(sectorIndustryForSic("6159")).toMatchObject({ sector: "Financial Services", industry: "Credit Services" });
+  });
   it("maps the specific financial codes to routing-compatible industries", () => {
     expect(sectorIndustryForSic("6021")).toEqual({ sic: 6021, sector: "Financial Services", industry: "Banks - Diversified" });
     expect(sectorIndustryForSic(6022)).toEqual({ sic: 6022, sector: "Financial Services", industry: "Banks - Regional" });

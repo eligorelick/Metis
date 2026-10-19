@@ -513,7 +513,10 @@ export function computeCapital(
     for (const r of rows) {
       const rowNotes: string[] = [];
       let fcfBeforeSbc: number | null = null;
-      if (isFiniteNumber(r.freeCashFlow)) {
+      const refusedFcf = ["freeCashFlow", "operatingCashFlow", "capitalExpenditure"].some(field => r.fieldConflicts?.[field]?.usable === false);
+      if (refusedFcf) {
+        rowNotes.push("FCF withheld: operating cash flow or cash investment scope is unresolved");
+      } else if (isFiniteNumber(r.freeCashFlow)) {
         fcfBeforeSbc = r.freeCashFlow;
       } else {
         fcfBeforeSbc = deriveFcf(r.operatingCashFlow, r.capitalExpenditure);

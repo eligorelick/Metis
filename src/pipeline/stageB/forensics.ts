@@ -701,7 +701,8 @@ export function selectAltmanVariant(
   }
   if (sicNum !== null && isFinancialSicBand(sicNum) && route.base !== "reit") {
     notes.push(
-      `Altman Z not computed: SIC ${sicNum} is in the financial range (6000–6499 or 6700–6799; research §6.3 classifier).`,
+      sicNum === 6199 ? "Altman Z eligibility unresolved: broad disclosed SIC 6199 alone does not validate the operating business model. Score withheld pending methodology review; the exclusion is not evidence of financial health."
+        : `Altman Z not computed: SIC ${sicNum} is in the financial range (6000–6499 or 6700–6799; research §6.3 classifier).`,
     );
     return { variant: null, notes };
   }

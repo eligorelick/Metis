@@ -1,3 +1,12 @@
+/** A noncurrent convertible carrying subtype is a lower bound on noncurrent
+ * financing debt, never an automatic addition to an inclusive generic total. */
+export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }, convertible: number | null): string | null {
+  if (convertible === null || convertible <= 0) return null;
+  const noncurrent = typeof row.longTermDebt === "number" && Number.isFinite(row.longTermDebt) ? row.longTermDebt : null;
+  return noncurrent !== null && noncurrent >= convertible - Math.max(1, convertible * 1e-10) ? null
+    : `incomplete debt carrying value: noncurrent convertible carrying debt ${convertible} is not covered by resolved noncurrent financing debt ${noncurrent ?? "unavailable"}; total debt and net debt withheld rather than publishing leases alone or adding an overlapping subtype`;
+}
+
 /** A gross/principal debt fact is a completeness check, never a carrying-value substitute. */
 export function incompleteDebtReason(row: {
   shortTermDebt?: unknown; longTermDebt?: unknown; financeLeaseLiability?: unknown; totalDebt?: unknown;

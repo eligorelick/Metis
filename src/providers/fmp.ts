@@ -80,8 +80,11 @@ export function admittedStatementRow<T extends FmpRawRow>(row: T): T {
   const clone = { ...row };
   const unavailable = new Set(refused);
   if (["operatingCashFlow", "netCashProvidedByOperatingActivities"].some(field => refused.has(field))) {
-    for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities", "freeCashFlow"]) unavailable.add(field);
+      for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities", "freeCashFlow", "fcf"]) unavailable.add(field);
   }
+    if (["capitalExpenditure", "investmentsInPropertyPlantAndEquipment", "paymentsToAcquirePropertyPlantAndEquipment"].some(field => refused.has(field))) {
+      for (const field of ["capitalExpenditure", "investmentsInPropertyPlantAndEquipment", "paymentsToAcquirePropertyPlantAndEquipment", "freeCashFlow", "fcf"]) unavailable.add(field);
+    }
   if (refused.has("cashAndCashEquivalents")) for (const field of ["cashAndShortTermInvestments", "netDebt"]) unavailable.add(field);
   if (["cashAtBeginningOfPeriod", "cashAtEndOfPeriod"].some(field => refused.has(field))) unavailable.add("netChangeInCash");
   if (["purchasesOfInvestments", "salesMaturitiesOfInvestments"].some(field => refused.has(field))) {
@@ -153,7 +156,7 @@ export interface StatementFieldProvenance {
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
-  calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash";
+  calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware";
 }
 
 export interface StatementFieldConflict {

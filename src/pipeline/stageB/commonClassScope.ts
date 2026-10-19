@@ -8,6 +8,12 @@ export interface CommonClassAmbiguity {
 /** Detect scope ambiguity only. Filing class labels do not establish counts or economic equivalence. */
 export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmbiguity | null {
   const cutoff = bundle.builtAt.slice(0, 10);
+  const observed = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff &&
+    new Set(row.observations?.map(o => o.classId) ?? []).size > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];
+  if (observed && !observed.evidence) return {
+    reason: `Primary ${observed.source.form} ${observed.source.accession} retains outstanding common-class observations at ${[...new Set(observed.observations!.map(o => o.asOf))].sort().join(", ")}. Complete inventory, aligned measurement dates and economic rights remain unresolved; no class sum or current issuer capitalization is inferred.`,
+    sourceIds: observed.observations!.map(o => o.sourceId),
+  };
   const inventory = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff && row.classes.length > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];
   if (inventory) return { reason: `Primary ${inventory.source.form} ${inventory.source.accession} explicitly enumerates multiple outstanding common classes. ${inventory.reason}`, sourceIds: [inventory.source.documentUrl] };
   const notes = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(member =>

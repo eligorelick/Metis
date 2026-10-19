@@ -897,7 +897,7 @@ describe("payload determinism + provenance", () => {
       // floor note; preceding-finance and numeric registry pins remain exact.
       // D-93: admitted-input explanations add 150 prompt bytes. The exact
       // preceding whole-finance hash and every numeric registry pin stay above.
-      fingerprint: "1.35.1:eb9a1325",
+      fingerprint: "1.36.0:d0f49c1f",
       promptBytes: 139_657,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
@@ -1047,7 +1047,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.35.1");
+    expect(first.payloadVersion).toBe("1.36.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2542,7 +2542,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.30.2");
+    expect(report.meta.specVersion).toBe("1.31.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

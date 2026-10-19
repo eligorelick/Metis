@@ -3653,6 +3653,13 @@ function gateRunwayCurrency(
   cashflowQuarterly: readonly FmpCashFlowRow[],
   evidence: readonly CurrencyEvidenceRow[],
 ): RunwayResult {
+  // An explicitly refused recent investment scope cannot be evaded by
+  // dropping that quarter and averaging older, narrower cash-spending rows.
+  const refusedInvestment = cashflowQuarterly.slice(0, 4).find(row =>
+    ["capitalExpenditure", "investmentsInPropertyPlantAndEquipment"].some(field => row.fieldConflicts?.[field]?.usable === false));
+  if (refusedInvestment) return { ...runway, burning: null, avgQuarterlyBurn: null, runwayQuarters: null, estimatedExhaustionDate: null,
+    notes: [...runway.notes, `Cash investment scope unresolved for recent quarter ${refusedInvestment.date}; older quarters cannot substitute for the refused scope.`],
+    gaps: [...runway.gaps, { field: "runway.cashInvestmentScope", severity: "warn", reason: `Runway withheld: recent-quarter cash investment scope at ${refusedInvestment.date} is unresolved; no older-quarter burn extrapolation is substituted.` }] };
   const burnRows = runway.burnWindowDates.flatMap((date) => cashflowQuarterly.filter((r) => isoDay(r.date) === isoDay(date)));
   const burnCurrency =
     burnRows.length === runway.burnWindowDates.length ? establishedRowsCurrency(burnRows, evidence) : null;

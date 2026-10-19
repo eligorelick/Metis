@@ -238,7 +238,9 @@ describe("buildDataBundle without an FMP key", () => {
     expect(bundle.benchmarkPrices.spy.ok).toBe(true);
     expect(bundle.benchmarkPrices.sectorEtfSymbol).toBe("XLK");
     expect(bundle.benchmarkPrices.sectorEtf.ok).toBe(true);
-    expect(bundle.enterpriseValues.ok && bundle.enterpriseValues.value.source).toBe("computed");
+    // These fixtures contain EPS/cover shares, but no exact-date complete
+    // quoted-class inventory; historical EV must be withheld.
+    expect(bundle.enterpriseValues.ok).toBe(false);
     expect(bundle.edgar.registrant?.sic).toBe("3571");
     expect(bundle.sourceManifest["statements.incomeAnnual"]?.provider).toBe("edgar");
     expect(bundle.sourceManifest["eodPrices"]?.provider).toBe("yahoo");
@@ -248,7 +250,8 @@ describe("buildDataBundle without an FMP key", () => {
     // measured more than six months before the analysis date, for one.
     const keyless = bundle.gaps.filter((g) => /^keyless\.[a-zA-Z]+$/.test(g.field));
     expect(keyless.length).toBeGreaterThanOrEqual(10);
-    expect(keyless.every((g) => g.severity === "info" && g.expected === true)).toBe(true);
+    expect(keyless.filter(g => g.field !== "keyless.enterpriseValues").every((g) => g.severity === "info" && g.expected === true)).toBe(true);
+    expect(keyless.find(g => g.field === "keyless.enterpriseValues")?.severity).toBe("warn");
     // The original "no API key + no fixture" gaps for replaced members are gone.
     expect(bundle.gaps.some((g) => g.field === "fmp.incomeStatement(AAPL,annual)")).toBe(false);
     // Statements keep the bundle's newest-first ordering after the swap.

@@ -433,7 +433,7 @@ describe("keyless market values: stale sources and ambiguous counts", () => {
     expect(gapFor(out, "keyless.incomeAnnual.shareBasis")!.reason).toMatch(/the vendor's diluted count for 2025-12-31 \(10000000\) differs from the filer's \(40000000\) on the 2026-09-30 basis/);
   });
 
-  it("withholds a pre-split vendor row that no filed count can test, and the EV falls to a count on the closes' basis", async () => {
+  it("withholds a pre-split vendor row and EV when no exact-date class-compatible outstanding count exists", async () => {
     // No quarterly statement row is filed for 2026-03-31 in this fixture, so
     // FMP's quarterly 40M cannot be shown to be split-adjusted: withheld. The
     // enterprise value then uses the cover count on the closes' basis: 40M × $25.
@@ -449,18 +449,8 @@ describe("keyless market values: stale sources and ambiguous counts", () => {
     });
     expect(out.members.incomeQuarterly.ok && out.members.incomeQuarterly.value.data.rows[0]!.weightedAverageShsOutDil).toBeUndefined();
     expect(gapFor(out, "keyless.incomeQuarterly.shareBasis")!.reason).toMatch(/no filed diluted count for 2026-03-31 on the 2026-09-30 basis to test the vendor's 40000000/);
-    expect(out.members.enterpriseValues.ok && out.members.enterpriseValues.value.data.rows).toEqual([
-      {
-        symbol: "SPLT",
-        date: "2026-03-31",
-        stockPrice: 25,
-        numberOfShares: 40_000_000,
-        marketCapitalization: EQUITY_VALUE,
-        addTotalDebt: 0,
-        minusCashAndCashEquivalents: 0,
-        enterpriseValue: EQUITY_VALUE,
-      },
-    ]);
+    expect(out.members.enterpriseValues.ok).toBe(false);
+    expect(gapFor(out, "keyless.enterpriseValues.shareBasis")?.reason).toMatch(/point-in-time.*quoted-class/);
   });
 
   it("withholds every history-derived figure when the price series was served before a split", async () => {
@@ -482,8 +472,8 @@ describe("keyless market values: stale sources and ambiguous counts", () => {
     expect(history(out).length).toBeGreaterThan(0);
     expect(history(out).every((r) => r.marketCap === EQUITY_VALUE)).toBe(true);
     // The statements' diluted count (40M, on the quote's basis) cannot meet those closes.
-    expect(out.members.enterpriseValues.ok).toBe(true);
-    expect(out.members.enterpriseValues.ok && out.members.enterpriseValues.value.data.rows[0]!.marketCapitalization).toBe(EQUITY_VALUE);
+    // Without exact-date class proof, neither EPS nor a later cover count establishes EV.
+    expect(out.members.enterpriseValues.ok).toBe(false);
     // $500M ÷ the stale $100 close is 5M PRE-split float shares against 40M
     // post-split outstanding: withheld rather than published as 12.5%.
     const float = out.members.sharesFloat.ok ? out.members.sharesFloat.value.data.rows[0]! : null;

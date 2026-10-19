@@ -46,7 +46,7 @@
 
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
-import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
+import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
@@ -1009,6 +1009,7 @@ const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
   collectTags(BANK_REVENUE_SPEC, tags);
   // Completeness/scope evidence only, never carrying-value stand-ins.
   tags.add("DebtInstrumentCarryingAmount");
+  tags.add("ConvertibleLongTermNotesPayable");
   tags.add("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
   return tags;
 })();
@@ -1943,7 +1944,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   const incomplete = partialLease !== undefined
     ? `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`
     : refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
-    : incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount"));
+    : omittedConvertibleCarryingReason(v, cc.money("ConvertibleLongTermNotesPayable")) ?? incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount"));
   if (partialLease !== undefined) {
     v.capitalLeaseObligations = null;
     notes.withhold("capitalLeaseObligations", ctx, incomplete!);
@@ -2726,12 +2727,26 @@ function deriveFourthQuarterPerShare(
       const withhold = (why: string): void => {
         notes.add(`${pair.eps} ${q4.date}: fourth-quarter per-share figure withheld — ${why}; FY − nine-month EPS is not used because per-share amounts are not additive across share counts`);
       };
+      if (pair.eps === "epsDiluted") {
+        withhold("the quarter-specific diluted numerator, denominator and antidilution treatment are not established by annual/earlier-quarter weighted shares");
+        continue;
+      }
       const fyShares = fy[pair.shares];
-      const netIncome = q4.netIncome;
-      if (!isNum(fyShares) || !isNum(netIncome)) { withhold(`no annual ${pair.shares} or quarter net income`); continue; }
+      const netIncome = q4.netIncomeAvailableToCommon;
+      const income = q4.fieldProvenance?.netIncomeAvailableToCommon;
+      if (!isNum(fyShares) || !isNum(netIncome) || income === undefined || !/^[A-Z]{3}$/.test(income.unit)) {
+        withhold(`no annual ${pair.shares} or established quarter earnings available to common`); continue;
+      }
       if (quarters.length !== 3 || quarters.some((row) => !isNum(row[pair.shares]))) {
         withhold(`the three earlier quarters' tagged ${pair.shares} are not all available`);
         continue;
+      }
+      const fyShareProvenance = fy.fieldProvenance?.[pair.shares];
+      const shareEvidence = [fyShareProvenance, ...quarters.map(row => row.fieldProvenance?.[pair.shares])];
+      const lastFiling = fyShareProvenance?.filings.map(f => f.filed).sort().at(-1);
+      if (!lastFiling || shareEvidence.some(p => !p || p.unit !== "shares" || p.filings.length === 0 || p.filings.some(f => f.filed > lastFiling)) ||
+        fyShareProvenance?.periodStart !== fyStart || income.filings.some(f => f.filed > lastFiling)) {
+        withhold("compatible share-operand provenance and filing lineage are not established"); continue;
       }
       let previousEnd = startMs;
       let weighted = 0;
@@ -2744,14 +2759,23 @@ function deriveFourthQuarterPerShare(
       const fyDays = (dateMs(q4.date) - startMs) / DAY_MS;
       const q4Shares = (fyShares * fyDays - weighted) / q4Days;
       if (!(q4Days > 0) || !(q4Shares > 0)) { withhold("the day-weighted share identity gives no positive fourth-quarter count"); continue; }
+      const q4Start = new Date(previousEnd + DAY_MS).toISOString().slice(0, 10);
+      let expectedStart = fyStart;
+      let intervalsAgree = income.periodStart === q4Start && income.periodEnd === q4.date;
+      for (const row of quarters) {
+        const p = row.fieldProvenance?.[pair.shares];
+        intervalsAgree &&= p?.periodStart === expectedStart && p?.periodEnd === row.date;
+        expectedStart = new Date(dateMs(row.date) + DAY_MS).toISOString().slice(0, 10);
+      }
+      if (!intervalsAgree) { withhold("common earnings and weighted-share intervals do not establish consecutive compatible quarters"); continue; }
       (q4 as Record<string, unknown>)[pair.eps] = tidy(netIncome / q4Shares, PER_SHARE_DECIMALS);
-      const income = q4.fieldProvenance?.netIncome;
-      const fyShareProvenance = fy.fieldProvenance?.[pair.shares];
       if (income !== undefined && q4.fieldProvenance !== undefined) {
+        const operands = [income, ...shareEvidence.flatMap(p => p ? [p] : [])];
         q4.fieldProvenance[pair.eps] = {
           ...income,
-          tags: [...new Set([...income.tags, ...(fyShareProvenance?.tags ?? [])])],
-          filings: [...new Map([...income.filings, ...(fyShareProvenance?.filings ?? [])].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
+          unit: `${income.unit}/shares`,
+          tags: [...new Set(operands.flatMap(p => p.tags))],
+          filings: [...new Map(operands.flatMap(p => p.filings).map((f) => [`${f.accn}|${f.filed}`, f])).values()],
           derivation: "fy-share-identity",
         };
       }

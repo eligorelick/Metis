@@ -1,11 +1,12 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
-import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
+import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
+import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -313,7 +314,8 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     gaps.push({ field: `statements.balance.${row.date}.shortTermDebt`, reason: scopeReason, severity: "warn" });
   }
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
-  const reason = componentReason ?? presentationReason ?? (scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
+  const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null);
+  const reason = componentReason ?? presentationReason ?? convertibleReason ?? (scopeReason !== null ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason({ shortTermDebt: out.shortTermDebt,
     longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null));
   for (const field of ["totalDebt", "netDebt"] as const) {
     const prior = out.fieldConflicts?.[field];
@@ -376,7 +378,7 @@ function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: Compa
 }
 
 /** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
-export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
+export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
@@ -427,6 +429,9 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const investments = admitInvestmentFlows(out, facts, currency, scope, observedAt);
         out = investments.row;
         gaps.push(...investments.gaps);
+        const investmentScope = admitCashInvestment(out, cashInvestment, facts.cik, scope, observedAt);
+        out = investmentScope.row;
+        gaps.push(...investmentScope.gaps);
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {

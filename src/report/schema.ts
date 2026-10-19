@@ -118,7 +118,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.27.0 (D-88): exact acquisition resolution and separate accrual clarifications.
 // 1.28.0 (D-89): CFO source admission and explicit fraction-scale claim support.
 // 1.30.2 (D-94): source-bound issuer reconciliation and qualified arithmetic differences.
-export const REPORT_SPEC_VERSION = "1.30.2" as const;
+// IREN source-scope corrections: disjoint cash investment/FCF, historical share admission, EPS and class-scope refusals. Old stored reports/snapshots retain their original contracts.
+export const REPORT_SPEC_VERSION = "1.31.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

@@ -10033,16 +10033,16 @@
       ]
     },
     {
-      "name": "source-bound-reconciliation-20261019",
+      "name": "iren-source-scope-20261019",
       "decisions": [
-        "D-94"
+        "D-95"
       ],
-      "reason": "D-94: report specification 1.30.2 identifies source-bound issuer reconciliation presentation and qualified reported EPS differences. No Stage B, valuation, score or underlying report facts change; the only frozen financial-audit leaf that moves is report.meta.specVersion.",
+      "reason": "D-95: report specification 1.31.0 identifies source-bound cash PPE/hardware and propagated FCF admission, convertible carrying-debt completeness, exact-date class-compatible historical EV shares, conservative derived EPS and unresolved classification/coverage safeguards. The provider-free DEMO control has none of the affected issuer/source presentations: every financial amount, grade, weight, registry and manifest remains pinned. Its sole changed audit leaf is report.meta.specVersion; old stored outputs retain their original stamps and bytes.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.30.2"
+          "after": "1.31.0"
         }
       ]
     }
