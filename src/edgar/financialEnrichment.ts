@@ -1,4 +1,4 @@
-import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
@@ -43,47 +43,41 @@ function liability(facts: CompanyFacts, prefix: "Operating" | "Finance", unit: s
   if (current.evidence.filings[0]?.accn !== noncurrent.evidence.filings[0]?.accn) return null;
   return { value: current.value + noncurrent.value, evidence: { ...current.evidence, tags: [...current.evidence.tags, ...noncurrent.evidence.tags] } };
 }
-function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
-  const tag = "FinanceLeasePrincipalPayments";
-  const ps = points(facts, tag, unit, observedAt).filter((p) => p.start !== undefined && p.val >= 0);
-  const min = scope === "annual" ? 350 : 70;
-  const max = scope === "annual" ? 380 : 105;
-  const direct = newest(ps.filter((p) => p.end === end && span(p)! >= min && span(p)! <= max));
-  if (direct) return resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end);
+/** Select by filing recency before applying a sign rule; refusals cannot expose older facts. */
+function unambiguousNewest(candidates: FactPoint[]): FactPoint | null {
+  const last = newest(candidates);
+  if (!last) return null;
+  return candidates.filter(p => p.filed === last.filed && p.accn === last.accn)
+    .every(p => p.start === last.start && p.end === last.end && p.val === last.val) ? last : null;
+}
+
+/** Direct and YTD-derived flows use the exact emitted start/end interval. */
+function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, signed: boolean): Resolved | null {
+  const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
+  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  const directCandidates = ps.filter(p => p.end === end && span(p)! >= min! && span(p)! <= max!);
+  const direct = unambiguousNewest(directCandidates);
+  if (directCandidates.length > 0) return direct && (signed || direct.val >= 0)
+    ? resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end) : null;
   if (scope === "annual") return null;
-  const ytd = newest(ps.filter((p) => p.end === end && span(p)! > 105 && span(p)! <= 380));
-  if (!ytd) return null;
-  const prior = newest(ps.filter((p) => p.start === ytd.start && p.end < end && p.filed <= ytd.filed && (Date.parse(end) - Date.parse(p.end)) / DAY >= 70 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 105));
-  if (!prior || ytd.val < prior.val) return null;
+  const ytd = unambiguousNewest(ps.filter(p => p.end === end && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380));
+  if (!ytd || (!signed && ytd.val < 0)) return null;
+  // A prior cumulative end is the day BEFORE the derived start. Validate the
+  // resulting interval, not the one-day-longer difference between period ends.
+  const prior = unambiguousNewest(ps.filter(p => p.start === ytd.start && p.end < end && p.filed <= ytd.filed &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 >= QUARTER_DURATION_DAYS[0] &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
+  if (!prior || (!signed && (prior.val < 0 || ytd.val < prior.val))) return null;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
   const out = resolved(ytd.val - prior.val, [tag], [ytd, prior], unit, observedAt, start, end);
   out.evidence.derivation = "ytd-difference";
   return out;
 }
-
-/** Signed CFO, never a positive-only principal payment or an arbitrary YTD total. */
+function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+  return filedFlow(facts, "FinanceLeasePrincipalPayments", unit, end, scope, observedAt, false);
+}
 function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
-  const tag = "NetCashProvidedByUsedInOperatingActivities";
-  const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
-  const unambiguousNewest = (candidates: FactPoint[]): FactPoint | null => {
-    const last = newest(candidates);
-    if (!last) return null;
-    return candidates.filter(p => p.filed === last.filed && p.accn === last.accn)
-      .every(p => p.start === last.start && p.end === last.end && p.val === last.val) ? last : null;
-  };
-  const directCandidates = ps.filter(p => p.end === end && span(p)! >= (scope === "annual" ? 350 : 70) && span(p)! <= (scope === "annual" ? 380 : 105));
-  const direct = unambiguousNewest(directCandidates);
-  if (directCandidates.length > 0) return direct ? resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end) : null;
-  if (scope === "annual") return null;
-  const ytd = unambiguousNewest(ps.filter(p => p.end === end && span(p)! > 105 && span(p)! <= 380));
-  if (!ytd) return null;
-  const prior = unambiguousNewest(ps.filter(p => p.start === ytd.start && p.end < end && p.filed <= ytd.filed &&
-    (Date.parse(end) - Date.parse(p.end)) / DAY >= 70 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 105));
-  if (!prior) return null;
-  const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
-  const out = resolved(ytd.val - prior.val, [tag], [ytd, prior], unit, observedAt, start, end);
-  out.evidence.derivation = "ytd-difference";
-  return out;
+  return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true);
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
