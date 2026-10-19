@@ -593,7 +593,7 @@ describe("payload determinism + provenance", () => {
     expect(epsCapital.basis).toContain("Positive dilution is retained only when the observed share-count trend is positive.");
     epsCapital.basis = epsCapital.basis.replace("Positive dilution is retained only when the observed share-count trend is positive.", "A positive dilution trend is retained.");
     const accrualSignal = precedingFinance.scores.aspects.quality.signals.find((s: { id: string }) => s.id === "accrualsRatioAbs");
-    expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI - CFO).");
+    expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).");
     accrualSignal.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI \u2212 CFO).";
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
@@ -895,10 +895,10 @@ describe("payload determinism + provenance", () => {
       // D-92: +376 prompt bytes qualify provider EPS accounting basis. The
       // finance hash changes only for the separately asserted reinvestment
       // floor note; preceding-finance and numeric registry pins remain exact.
-      // D-93: admitted-input explanations add 148 prompt bytes. The exact
+      // D-93: admitted-input explanations add 150 prompt bytes. The exact
       // preceding whole-finance hash and every numeric registry pin stay above.
-      fingerprint: "1.35.1:c997805a",
-      promptBytes: 139_655,
+      fingerprint: "1.35.1:eb9a1325",
+      promptBytes: 139_657,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
       provenanceIdsHash: "623dfb46",
@@ -923,7 +923,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "b2bc5253",
+      financeHash: "40b97db8",
     });
   });
 

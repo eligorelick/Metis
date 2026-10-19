@@ -1924,7 +1924,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
       !ltiKnown ? "long-term investments in both years" : null,
     ].filter((part): part is string => part !== null);
     notes.push(
-      `Accrual definition: operating accruals (NI - CFO), because compatible admitted inputs are unavailable for ${missing.join(", ")} - the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Reported but refused observations are not substituted for admitted inputs. Operating accruals exclude every investing flow, including capex and acquisitions.`,
+      `Accrual definition: operating accruals (NI \u2212 CFO), because compatible admitted inputs are unavailable for ${missing.join(", ")} - the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Reported but refused observations are not substituted for admitted inputs. Operating accruals exclude every investing flow, including capex and acquisitions.`,
     );
   }
   const aggBS = noaT !== null && noaP !== null ? noaT - noaP : null;

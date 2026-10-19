@@ -159,7 +159,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       if (id === "piotroskiF") { operand("signals passed", i.forensics.piotroski?.score, "computed.forensics.piotroski.score"); operand("signals assessed", i.forensics.piotroski?.outOf, "computed.forensics.piotroski.outOf"); }
       else if (id === "accrualsRatioAbs") {
         operand("cash-flow accrual ratio before absolute transform", i.forensics.accruals?.cashFlowAccrualRatio, "computed.forensics.accruals.cashFlowAccrualRatio");
-        if (i.forensics.accruals?.definition === "operating") result.fallbackReason = "Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI - CFO).";
+        if (i.forensics.accruals?.definition === "operating") result.fallbackReason = "Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).";
       }
       else if (id === "beneishM") operand("Beneish M", i.forensics.beneish?.score, "computed.forensics.beneish.score");
       else if (id === "beneishMSgiNeutral") {
