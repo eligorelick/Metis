@@ -1,6 +1,7 @@
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
+import { issuerReconciliationTables } from "@/report/reconciliationPresentation";
 import type { FilingDisclosures, FilingRef, GuidanceCheck, GuidanceRow } from "@/report/schema";
 import { filingCommentaryOutlookTables, filingFactTables, filingGovernanceTables, type FilingSupplements } from "@/report/filingSupplementPresentation";
 
@@ -171,75 +172,8 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       ...(note ? { note } : {}),
     });
   }
-  tables.push(...reconciliationTables(d));
+  tables.push(...issuerReconciliationTables(d));
   return tables;
-}
-
-type ReconciliationMetric = NonNullable<FilingDisclosures["reconciliation"]>[number]["metric"];
-const RECONCILIATION_LABEL: Record<ReconciliationMetric, string> = {
-  "operating-cash-flow": "Net cash provided by operating activities",
-  "total-capital-expenditures": "Total capital expenditures (positive outflow)",
-  "purchases-property-equipment": "Purchases of property, equipment and intangible assets",
-  "principal-payments-property-equipment": "Principal payments on property, equipment and intangible assets",
-  "gaap-diluted-eps": "GAAP diluted EPS",
-  "equity-securities-gains": "Gains on equity securities",
-  "non-gaap-tax-impact": "Tax effect of non-GAAP adjustments",
-  "non-gaap-diluted-eps": "Non-GAAP diluted EPS",
-};
-
-/**
- * D-63: the latest release's own reconciliation rows, by column: the issuer's
- * free-cash-flow bridge and its GAAP-to-non-GAAP EPS bridge. Values are shown
- * as the release states them; nothing is recomputed. Absent on older reports.
- */
-function reconciliationTables(d: FilingDisclosures): ReportAuditTable[] {
-  const facts = d.reconciliation ?? [];
-  if (facts.length === 0) return [];
-  const columnKey = (f: { periodEnd: string; months: number }) => `${f.months}|${f.periodEnd}`;
-  const columns = [...new Map(facts.map((f) => [columnKey(f), f])).values()]
-    .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd) || a.months - b.months);
-  const header = (c: { periodEnd: string; months: number }) => `${c.months === 3 ? "Quarter" : `${c.months} months`} ended ${c.periodEnd}`;
-  const fact = (metric: ReconciliationMetric, c: { periodEnd: string; months: number }) =>
-    facts.find((f) => f.metric === metric && columnKey(f) === columnKey(c));
-  const row = (label: string, cells: string[]): string[][] => (cells.every((cell) => cell === DASH) ? [] : [[label, ...cells]]);
-  const metricRow = (metric: ReconciliationMetric): string[][] => row(RECONCILIATION_LABEL[metric], columns.map((c) => {
-    const f = fact(metric, c);
-    return f ? money(f.value, d.currency, f.unit === "currency-per-share") : DASH;
-  }));
-  const table = (heading: string, rows: string[][], note?: string): ReportAuditTable | null => (rows.length === 0 ? null : {
-    heading,
-    headers: ["Line", ...columns.map(header)],
-    rows,
-    note: [`Source: ${filingLabel(facts[0]!.source)}.`, note ?? ""].filter((n) => n !== "").join(" "),
-  });
-  const sameDay = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) <= 3 * 86_400_000;
-  const issuerFcf = columns.map((c) => {
-    const f = d.freeCashFlow.find((x) => x.months === c.months && sameDay(x.periodEnd, c.periodEnd));
-    return f ? money(f.value, d.currency) : DASH;
-  });
-  // D-67: the EPS bridge mixed per-share and amount rows and had no
-  // adjustment line, so it did not foot. The per-share table foots: GAAP, the
-  // total adjustment as the difference of the two reported figures, non-GAAP.
-  // The itemized amounts are a second table, labelled as the lines captured.
-  const adjustment = row("Non-GAAP adjustments, net of tax (non-GAAP less GAAP)", columns.map((c) => {
-    const gaap = fact("gaap-diluted-eps", c)?.value;
-    const nonGaap = fact("non-gaap-diluted-eps", c)?.value;
-    return gaap === undefined || nonGaap === undefined ? DASH : money(decimalRound(nonGaap - gaap, 2), d.currency, true);
-  }));
-  const perShareNote = [
-    adjustment.length > 0 ? "The adjustment line is the difference of the two reported per-share figures, so it includes every adjustment the release makes and the table foots. Any issuer share-denominator adjustments are included in this per-share difference; this is not an allocation of item-level taxes." : "",
-    d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
-  ].filter((n) => n !== "").join(" ");
-  const fcfLines = [...metricRow("operating-cash-flow"), ...metricRow("total-capital-expenditures"), ...metricRow("purchases-property-equipment"), ...metricRow("principal-payments-property-equipment")];
-  return [
-    table("Issuer free-cash-flow reconciliation", fcfLines.length === 0 ? [] : [...fcfLines, ...row("Free cash flow (issuer definition, as reported)", issuerFcf)]),
-    table("GAAP to non-GAAP diluted EPS (issuer reconciliation, per share)", [
-      ...metricRow("gaap-diluted-eps"), ...adjustment, ...metricRow("non-gaap-diluted-eps"),
-    ], perShareNote || undefined),
-    table("Non-GAAP adjustments itemized in the release (amounts)", [
-      ...metricRow("equity-securities-gains"), ...metricRow("non-gaap-tax-impact"),
-    ], "The release lines captured, as stated. Its other adjustment lines were not captured, so these amounts are not a complete bridge; the per-share table includes every adjustment."),
-  ].filter((t): t is ReportAuditTable => t !== null);
 }
 
 /**

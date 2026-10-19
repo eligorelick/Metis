@@ -2,7 +2,7 @@ import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
 import { formatFinancialValue, formatLargeNumber } from "./format";
 import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
 
-export interface ReportAuditTable { heading: string; headers: string[]; rows: string[][]; note?: string }
+export interface ReportAuditTable { key?: string; heading: string; headers: string[]; rows: string[][]; note?: string }
 const n = (value: number | null | undefined, digits = 2) => typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "unavailable";
 
 /** Presentation-only decomposition: no weight redistribution or new grades. */

@@ -28,7 +28,7 @@ describe("compact issuer EPS reconciliations", () => {
     const table = filingDisclosureTables(d, "fundamentals").find((t) => /^GAAP to non-GAAP diluted EPS/.test(t.heading));
     expect(table?.rows).toEqual(expect.arrayContaining([
       expect.arrayContaining(["GAAP diluted EPS", "$7.20"]),
-      expect.arrayContaining(["Non-GAAP adjustments, net of tax (non-GAAP less GAAP)", "−$1.40"]),
+      expect.arrayContaining(["Reported EPS difference (non-GAAP less GAAP)", "−$1.40"]),
       expect.arrayContaining(["Non-GAAP diluted EPS", "$5.80"]),
     ]));
     expect(table?.note).toMatch(/share.*(?:denominator|count)|denominator/i);
