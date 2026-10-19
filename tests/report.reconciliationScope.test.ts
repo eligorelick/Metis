@@ -163,4 +163,77 @@ describe("source-bound issuer reconciliation presentation", () => {
     }
     expect(JSON.stringify(report)).toBe(original);
   });
+
+  it("withholds an EPS difference whose period ends after the supplying filing date", () => {
+    const early = { ...release, filingDate: "2026-07-01" };
+    const d = disclosure([fact("gaap-diluted-eps", 2, early), fact("non-gaap-diluted-eps", 5, early)]);
+    const original = structuredClone(d);
+    expect(adjustments(d)).toEqual([]);
+    expect(text(d)).toContain("$2.00");
+    expect(text(d)).toContain("$5.00");
+    expect(text(d)).toMatch(/period end.*after.*filing date/i);
+    expect(d).toEqual(original);
+  });
+
+  it("does not join future-period issuer FCF as a historical reconciliation", () => {
+    const early = { ...release, filingDate: "2026-07-01" };
+    const d = disclosure([fact("operating-cash-flow", 600e6, early), fact("total-capital-expenditures", 150e6, early)]);
+    d.freeCashFlow = [{ periodEnd: "2026-07-26", source: early, months: 3, value: 450e6 }];
+    const original = structuredClone(d);
+    const bridge = tables(d).find(t => t.heading === "Issuer free-cash-flow reconciliation");
+    expect(bridge?.rows.some(r => r[0] === "Free cash flow (issuer definition, as reported)")).toBe(false);
+    expect(bridge?.note).toMatch(/period end.*after.*filing date/i);
+    expect(text(d)).toContain("$450M");
+    expect(d).toEqual(original);
+  });
+
+  it.each(["2026-07-26", "2026-07-27", "2026-08-26"])("retains valid chronology at filing date %s", filingDate => {
+    const source = { ...release, filingDate };
+    const d = disclosure([fact("gaap-diluted-eps", 2, source), fact("non-gaap-diluted-eps", 5, source),
+      fact("operating-cash-flow", 600e6, source), fact("total-capital-expenditures", 150e6, source)]);
+    d.freeCashFlow = [{ periodEnd: "2026-07-26", source, months: 3, value: 450e6 }];
+    expect(adjustments(d)).toEqual([["Reported EPS difference (non-GAAP less GAAP)", "$3.00"]]);
+    expect(tables(d).find(t => t.heading === "Issuer free-cash-flow reconciliation")?.rows)
+      .toContainEqual(["Free cash flow (issuer definition, as reported)", "$450M"]);
+    expect(text(d)).not.toMatch(/period end.*after.*filing date/i);
+  });
+
+  it("withholds only the future column when one document also retains valid historical observations", () => {
+    const early = { ...release, filingDate: "2026-07-01" };
+    const d = disclosure([fact("gaap-diluted-eps", 3, early), fact("non-gaap-diluted-eps", 6, early),
+      fact("operating-cash-flow", 600e6, early), fact("total-capital-expenditures", 150e6, early),
+      fact("gaap-diluted-eps", 2, early, { periodEnd: "2026-06-30" }),
+      fact("non-gaap-diluted-eps", 5, early, { periodEnd: "2026-06-30" }),
+      fact("operating-cash-flow", 300e6, early, { periodEnd: "2026-06-30" }),
+      fact("total-capital-expenditures", 50e6, early, { periodEnd: "2026-06-30" })]);
+    d.freeCashFlow = [
+      { periodEnd: "2026-07-26", source: early, months: 3, value: 450e6 },
+      { periodEnd: "2026-06-30", source: early, months: 3, value: 250e6 },
+    ];
+    expect(adjustments(d)).toEqual([["Reported EPS difference (non-GAAP less GAAP)", "-", "$3.00"]]);
+    expect(tables(d).find(t => t.heading === "Issuer free-cash-flow reconciliation")?.rows)
+      .toContainEqual(["Free cash flow (issuer definition, as reported)", "-", "$250M"]);
+    expect(text(d)).toContain("$450M");
+  });
+
+  it("keeps future-period EPS and FCF joins unavailable across reader, Markdown and print", () => {
+    const early = { ...release, filingDate: "2026-07-01" };
+    const report = loadTask28Fixture();
+    report.filingDisclosures = disclosure([fact("gaap-diluted-eps", 2, early), fact("non-gaap-diluted-eps", 5, early),
+      fact("operating-cash-flow", 600e6, early), fact("total-capital-expenditures", 150e6, early)]);
+    report.filingDisclosures.freeCashFlow = [{ periodEnd: "2026-07-26", source: early, months: 3, value: 450e6 }];
+    const original = JSON.stringify(report);
+    const surfaces = {
+      reader: renderToStaticMarkup(createElement(ReportView, { report })),
+      markdown: reportToMarkdown(report), print: reportToPrintHtml(report, { autoPrint: false }),
+    };
+    for (const [name, output] of Object.entries(surfaces)) {
+      const displayed = name === "markdown" ? output.replace(/\\(.)/g, "$1") : output;
+      expect(displayed.includes("Reported EPS difference (non-GAAP less GAAP)"), `${name}: future EPS difference withheld`).toBe(false);
+      expect(displayed.includes("Free cash flow (issuer definition, as reported)"), `${name}: future FCF join withheld`).toBe(false);
+      for (const amount of ["$2.00", "$5.00", "$600M", "$150M", "$450M"]) expect(displayed.includes(amount), `${name}: retain ${amount}`).toBe(true);
+      expect(/period end.*after.*filing date/i.test(displayed), `${name}: chronology qualification`).toBe(true);
+    }
+    expect(JSON.stringify(report)).toBe(original);
+  });
 });

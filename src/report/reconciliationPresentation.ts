@@ -26,6 +26,7 @@ const knownDocument = (s: FilingRef): boolean => !!s.form.trim() && !!s.accessio
 function sourceTables(d: FilingDisclosures, facts: Fact[]): ReportAuditTable[] {
   const source = facts[0]!.source;
   const documentKnown = knownDocument(source);
+  const historicalColumn = (c: Fact): boolean => validColumn(c) && validDay(source.filingDate) && c.periodEnd <= source.filingDate;
   const currencyKnown = d.currency !== null && /^[A-Z]{3}$/.test(d.currency);
   const columns = [...new Map(facts.map(f => [columnKey(f), f])).values()]
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd) || a.months - b.months);
@@ -46,6 +47,8 @@ function sourceTables(d: FilingDisclosures, facts: Fact[]): ReportAuditTable[] {
     !documentKnown ? "Supplying document is not established; no cross-row EPS or FCF bridge is calculated." : "",
     !currencyKnown ? "Monetary currency is not established; no derived monetary EPS difference is calculated." : "",
     columns.some(c => !validColumn(c)) ? "Unsupported duration or calendar period end is retained as stated, without a derived EPS or FCF bridge." : "",
+    columns.some(c => validColumn(c) && validDay(source.filingDate) && c.periodEnd > source.filingDate)
+      ? "A reported period end is after the supplying filing date. These observations are retained as stated, without a derived EPS difference or joined issuer FCF for that future period." : "",
     facts.some(f => f.unit !== unitFor(f.metric) || !Number.isFinite(f.value)) ? "Some observations have an incompatible unit or unavailable numeric value; they cannot enter a derived bridge." : "",
   ].filter(Boolean).join(" ");
   const sourceNote = `Source: ${source.form}${source.exhibit ? ` ${source.exhibit}` : ""} filed ${source.filingDate} (${source.accession}).${source.url ? ` Document: ${source.url}.` : ""}`;
@@ -56,7 +59,7 @@ function sourceTables(d: FilingDisclosures, facts: Fact[]): ReportAuditTable[] {
     note: [sourceNote, note, qualifications].filter(Boolean).join(" "),
   };
   const difference = row("Reported EPS difference (non-GAAP less GAAP)", columns.map(c => {
-    if (!documentKnown || !currencyKnown || !validColumn(c)) return DASH;
+    if (!documentKnown || !currencyKnown || !historicalColumn(c)) return DASH;
     const gaap = value("gaap-diluted-eps", c), nonGaap = value("non-gaap-diluted-eps", c);
     if (gaap === null || nonGaap === null) return DASH;
     const delta = nonGaap - gaap;
@@ -64,7 +67,7 @@ function sourceTables(d: FilingDisclosures, facts: Fact[]): ReportAuditTable[] {
     return Number.isFinite(rounded) ? money(rounded, "currency-per-share") : DASH;
   }));
   const issuerFcf = columns.map(c => {
-    if (!documentKnown || !currencyKnown || !validColumn(c)) return DASH;
+    if (!documentKnown || !currencyKnown || !historicalColumn(c)) return DASH;
     const observations = d.freeCashFlow.filter(f => f.periodEnd === c.periodEnd && f.months === c.months && sourceKey(f.source) === sourceKey(source));
     const values = [...new Set(observations.map(f => f.value))];
     return values.length === 1 && Number.isFinite(values[0]) ? money(values[0]!) : DASH;
