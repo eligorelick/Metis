@@ -150,12 +150,26 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
 export function applyScenarioPresentation(valuation: Valuation, computed: ComputedMetrics, preserveCommentary = true): Valuation {
   return {
     ...valuation,
-    scenarios: valuation.scenarios.map((scenario) => ({
-      ...scenario,
-      // D-60: no weight on a price target (see WEIGHT_BASIS).
-      probability: null,
-      assumptions: deterministicAssumptions(computed, scenario.name),
-      qualitativeCommentary: preserveCommentary ? [...(scenario.qualitativeCommentary ?? scenario.assumptions)] : [],
-    })),
+    scenarios: valuation.scenarios.map((scenario) => {
+      const assumptions = deterministicAssumptions(computed, scenario.name);
+      const modeled = assumptions.length > 1;
+      const modeledConditions = modeled ? [`Modeled conditions: ${assumptions[1]} Capital efficiency (sales-to-capital), WACC, tax path and terminal assumptions stay at base. Additional qualitative conditions are not numerical prerequisites for this target.`] : [...scenario.whatWouldHaveToBeTrue];
+      // A model-authored prefix is not proof of an earlier presentation pass.
+      // Match the complete generated array so fresh text/citations survive.
+      const alreadySeparated = modeled && scenario.whatWouldHaveToBeTrue.length === modeledConditions.length &&
+        scenario.whatWouldHaveToBeTrue.every((condition, i) => condition === modeledConditions[i]);
+      const separateConditions = modeled && !alreadySeparated ? scenario.whatWouldHaveToBeTrue.map(condition =>
+        `Separate qualitative condition, not a modeled input or prerequisite for this target: ${condition}`) : [];
+      return {
+        ...scenario,
+        // D-60: no weight on a price target (see WEIGHT_BASIS).
+        probability: null,
+        assumptions,
+        // D-93: target prerequisites come from the actual recorded shifts, not
+        // analyst text that may describe an unrelated margin/efficiency stress.
+        whatWouldHaveToBeTrue: modeledConditions,
+        qualitativeCommentary: preserveCommentary ? [...(scenario.qualitativeCommentary ?? scenario.assumptions), ...separateConditions] : [],
+      };
+    }),
   };
 }

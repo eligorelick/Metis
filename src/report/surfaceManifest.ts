@@ -106,7 +106,7 @@ export const GRADE_SURFACES = [
   { id: "grade:technicals", key: "technicals", label: "Technicals", shortLabel: "T", sectionKey: "technicals", optional: false },
   { id: "grade:balanceSheet", key: "balanceSheet", label: "Balance Sheet", shortLabel: "BS", sectionKey: "balanceSheet", optional: true },
   { id: "grade:quality", key: "quality", label: "Quality / Red-Flags", shortLabel: "Q", sectionKey: "quality", optional: false },
-  { id: "grade:leadership", key: "leadership", label: "Leadership", shortLabel: "L", sectionKey: "leadership", optional: false },
+  { id: "grade:leadership", key: "leadership", label: "Leadership (capital-stewardship proxy)", shortLabel: "L", sectionKey: "leadership", optional: false },
   { id: "grade:moat", key: "moat", label: "Moat", shortLabel: "M", sectionKey: "competitive", optional: false },
 ] as const satisfies readonly GradeSurfaceDescriptor[];
 
@@ -149,10 +149,9 @@ export const SCORE_SURFACES = [
   { id: "score:balanceSheet", key: "balanceSheet", kind: "aspect", label: "Balance Sheet", sectionKey: "balanceSheet" },
   { id: "score:moat", key: "moat", kind: "aspect", label: "Moat", sectionKey: "competitive" },
   // D-61: the deterministic leadership score measures capital stewardship
-  // (repurchase timing, net share-count change) and nothing about the
-  // executives; its label says so. The analyst's leadership GRADE keeps its
-  // own label (GRADE_SURFACES).
-  { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
+  // (repurchase timing, annualized weighted-average diluted common-share
+  // trend) and nothing about the executives; grade/score/weight labels agree.
+  { id: "score:leadership", key: "leadership", kind: "aspect", label: "Leadership (capital-stewardship proxy)", sectionKey: "leadership" },
   { id: "score:technicals", key: "technicals", kind: "aspect", label: "Technicals", sectionKey: "technicals" },
 ] as const satisfies readonly ScoreSurfaceDescriptor[];
 
@@ -173,7 +172,7 @@ export const SCORE_WEIGHTS = [
   { id: "score-weight:quality", aspect: "quality", label: "Quality", sectionKey: "quality" },
   { id: "score-weight:balanceSheet", aspect: "balanceSheet", label: "Balance Sheet", sectionKey: "balanceSheet" },
   { id: "score-weight:moat", aspect: "moat", label: "Moat", sectionKey: "competitive" },
-  { id: "score-weight:leadership", aspect: "leadership", label: "Leadership (capital stewardship)", sectionKey: "leadership" },
+  { id: "score-weight:leadership", aspect: "leadership", label: "Leadership (capital-stewardship proxy)", sectionKey: "leadership" },
   { id: "score-weight:technicals", aspect: "technicals", label: "Technicals", sectionKey: "technicals" },
 ] as const satisfies readonly ScoreWeightDescriptor[];
 
@@ -487,6 +486,7 @@ export const PROJECTION_DISCLOSURE_FIELD_ORDER = [
   "severity",
   "attemptedSources",
   "expected",
+  "resolution",
 ] as const satisfies readonly ProjectionDisclosureFieldKey[];
 export const PROJECTION_DISCLOSURE_FIELDS = [
   { id: "projection-disclosure-field:field", key: "field", label: "Field", optional: false },
@@ -494,6 +494,7 @@ export const PROJECTION_DISCLOSURE_FIELDS = [
   { id: "projection-disclosure-field:severity", key: "severity", label: "Severity", optional: false },
   { id: "projection-disclosure-field:attemptedSources", key: "attemptedSources", label: "Attempted sources", optional: true },
   { id: "projection-disclosure-field:expected", key: "expected", label: "Expected gap", optional: true },
+  { id: "projection-disclosure-field:resolution", key: "resolution", label: "Acquisition resolution", optional: true },
 ] as const satisfies readonly FieldDescriptor<ProjectionDisclosureFieldKey>[];
 export const PROJECTION_DISCLOSURE_FIELD_BY_KEY = {
   field: PROJECTION_DISCLOSURE_FIELDS[0],
@@ -501,6 +502,7 @@ export const PROJECTION_DISCLOSURE_FIELD_BY_KEY = {
   severity: PROJECTION_DISCLOSURE_FIELDS[2],
   attemptedSources: PROJECTION_DISCLOSURE_FIELDS[3],
   expected: PROJECTION_DISCLOSURE_FIELDS[4],
+  resolution: PROJECTION_DISCLOSURE_FIELDS[5],
 } as const satisfies Record<ProjectionDisclosureFieldKey, FieldDescriptor<ProjectionDisclosureFieldKey>>;
 
 export type SourceEntryFieldKey = keyof SourceEntry;

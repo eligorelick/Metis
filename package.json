@@ -43,7 +43,7 @@
   },
   "scripts": {
     "dev": "next dev -H 127.0.0.1",
-    "build": "next build",
+    "build": "node scripts/build-with-identity.mjs",
     "start": "next start -H 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -92,6 +92,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.1.11",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "0.28.1",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.8",
     "fast-glob": "file:scripts/next-eslint-glob",

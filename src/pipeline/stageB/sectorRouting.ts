@@ -1114,7 +1114,10 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
   },
   // route degradations.
   "recent-ipo": {
-    suppress: ["cagr5y", "cagr10y", "sma200", "fiftyTwoWeekRange", "beta", "seasonality", "beneishM", "piotroskiF"],
+    // Technical windows are admitted independently in computeTechnicals: 200
+    // valid unique observations for SMA200, and calendar coverage for range52w.
+    // A verified listing within 24 months does not establish either shortage.
+    suppress: ["cagr5y", "cagr10y", "beta", "seasonality", "beneishM", "piotroskiF"],
     lead: ["sinceIpoGrowth", "lockupCountdown", "analystCoverageCount"],
   },
   adr: {
@@ -1408,11 +1411,22 @@ export function degradationPlan(
         },
         {
           target: "technicals.sma200",
-          action: "suppress",
+          action: "annotate",
           disclosure:
-            "200-day moving average requires 200 trading days — suppressed. The 52-week range and the 1y drawdown " +
-            "are reported only over a full year of prices; a shorter history is disclosed as insufficient, never " +
-            "presented as a year (no since-IPO high/low is computed).",
+            "SMA200 requires 200 admitted unique price observations through the analysis date. " +
+            "It is computed when that window exists; otherwise the technicals history gap reports the actual " +
+            "row count. The recent-IPO label alone does not suppress an available moving average.",
+        },
+        {
+          target: "technicals.range52w",
+          action: "annotate",
+          disclosure:
+            "The 52-week range and the 1y drawdown require 12 calendar months of admitted price history, " +
+            "with a seven-day weekend/holiday boundary allowance (house rule). The range additionally requires " +
+            "coverage of an eligible observed SPY session reference: at least 200 annual observations, no gap " +
+            "longer than seven days, and no missing issuer session after its tolerated start. This is observed-session " +
+            "coverage, not proof of a complete exchange calendar; an unavailable or incompatible reference withholds " +
+            "the range. Shorter windows are disclosed as insufficient; a since-IPO range is never presented as a full year.",
         },
         {
           // Retargeted: the pipeline computes no `technicals.beta` at all, so

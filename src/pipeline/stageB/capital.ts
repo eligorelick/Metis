@@ -13,6 +13,7 @@
  * Full precision returned; round only at display time.
  */
 
+import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtScopeRefusal } from "./leaseScope";
 import type { ManifestEntry, SectorRoute } from "@/types/core";
@@ -54,6 +55,7 @@ export interface CapitalIncomeRow {
 }
 
 export interface CapitalCashFlowRow {
+  fieldConflicts?: FmpStatementRow["fieldConflicts"];
   /** Fiscal period end, ISO yyyy-mm-dd. */
   date: string;
   acceptedDate?: string | null;
@@ -73,6 +75,7 @@ export interface CapitalCashFlowRow {
 }
 
 export interface CapitalBalanceRow {
+  fieldConflicts?: FmpStatementRow["fieldConflicts"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   fieldProvenance?: Record<string, { tags: string[] }>;
@@ -915,6 +918,10 @@ export function computeCapital(
 
   // --- Buyback price analysis (heuristic) -----------------------------------------------------
   const buybackYears: BuybackYearRow[] = [];
+  const refusedBuybackYears = cf.slice(0, CAPITAL_SERIES_MAX_YEARS).filter(row => row.fieldConflicts?.commonStockRepurchased?.usable === false).map(row => row.date);
+  if (refusedBuybackYears.length > 0) {
+    gaps.push({ field: "capital.buybackPriceAnalysis.coverage", reason: `Buyback history incomplete: refused repurchase amounts for ${refusedBuybackYears.join(", ")}; retained dollars are only the known subset, timing coverage and aggregate timing withheld`, severity: "warn" });
+  }
   let totalRepurchased = 0;
   let weightedDollars = 0;
   let weightedShares = 0;
@@ -951,7 +958,7 @@ export function computeCapital(
         isFiniteNumber(r.commonStockRepurchased) && r.commonStockRepurchased < 0
           ? -r.commonStockRepurchased
           : 0;
-      if (repurchased <= 0) continue;
+      if (r.fieldConflicts?.commonStockRepurchased?.usable === false || repurchased <= 0) continue;
       totalRepurchased += repurchased;
       repurchaseYears += 1;
 
@@ -1035,7 +1042,7 @@ export function computeCapital(
     }
     buybackYears.reverse(); // oldest → newest for display consistency
   }
-  const timingCoveragePct = totalRepurchased > 0 && timingCost > 0 ? (timingCoveredDollars / totalRepurchased) * 100 : null;
+  const timingCoveragePct = refusedBuybackYears.length === 0 && totalRepurchased > 0 && timingCost > 0 ? (timingCoveredDollars / totalRepurchased) * 100 : null;
   let timingPct: number | null = null;
   if (timingCoveragePct !== null && timingCoveragePct >= BUYBACK_TIMING_MIN_COVERAGE_PCT) {
     timingPct = (timingAtYearAverage / timingCost - 1) * 100;
@@ -1151,7 +1158,7 @@ export function computeCapital(
       timingPct,
       timingCoveragePct,
       years: buybackYears,
-      note: BUYBACK_HEURISTIC_NOTE,
+      note: refusedBuybackYears.length > 0 ? `Incomplete history: refused repurchase years ${refusedBuybackYears.join(", ")}; totalRepurchased is the known subset, not a complete aggregate. ${BUYBACK_HEURISTIC_NOTE}` : BUYBACK_HEURISTIC_NOTE,
     },
     notes,
     gaps,

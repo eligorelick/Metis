@@ -18,13 +18,14 @@ import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTimin
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
 import { peerCoverageAuditLines } from "@/report/researchReview";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
+import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
   numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { geographicBasisNote, trustRows } from "@/report/presentation";
+import { geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -230,7 +231,7 @@ function renderFigureRegistry(report: Report): string {
     ["Valuation", report.valuation.graded.keyNumbers],
     ["Quality", report.quality.graded.keyNumbers],
     ["Technicals", [...report.technicals.graded.keyNumbers, ...report.technicals.indicators]],
-    ["Leadership", report.leadership.graded.keyNumbers],
+    ["Leadership (capital-stewardship proxy)", report.leadership.graded.keyNumbers],
     ["Competitive", [...report.competitive.moatGraded.keyNumbers, ...report.competitive.peerTable.flatMap((peer) => peer.metrics)]],
   ];
   const rows = groups.flatMap(([section, numbers]) => numbers.map((n) => [section, ...tracedAuditCells(n)]));
@@ -308,6 +309,7 @@ function renderProjections(p: Projections): string {
           PROJECTION_DISCLOSURE_FIELDS.map((field) => {
             if (field.key === "attemptedSources") return disclosure.attemptedSources?.join(", ") ?? "n/a";
             if (field.key === "expected") return disclosure.expected === undefined ? "unknown" : disclosure.expected ? "yes" : "no";
+            if (field.key === "resolution") return auditValue(disclosure.resolution);
             return disclosure[field.key];
           })),
       ),
@@ -358,11 +360,16 @@ function renderBodyReading(report: Report): string {
     );
   }
   const peers = report.valuation.peerCoverage;
+  const accrualClarifications = qualityAccrualClarifications(report.quality);
+  if (accrualClarifications.length > 0) lines.push("### Quality structured measures", "", ...accrualClarifications.flatMap(note => [markdownProse(note), ""]));
   if (peers) lines.push("### Peer screen", "", ...peerCoverageAuditLines(peers).flatMap((line) => [`- ${markdownProse(line)}`]), "");
   const facts = sourceFactAuditTables(report.sourceFactSummary, true)[0];
   if (facts) lines.push(`### ${facts.heading}`, "", table(facts.headers, facts.rows), "");
   const disclosures: FilingSupplements | undefined = report.filingDisclosures;
   if (disclosures) {
+    for (const timing of filingDisclosureTables(report.filingDisclosures, "balanceSheet").filter(item => item.heading.startsWith("Payment timing as reported"))) {
+      lines.push(`### ${timing.heading}`, "", table(timing.headers, timing.rows), "", markdownProse(timing.note ?? ""), "");
+    }
     const supplements = Object.fromEntries(Object.entries({
       filingFacts: disclosures.filingFacts,
       commentaryOutlook: disclosures.commentaryOutlook,
@@ -370,6 +377,7 @@ function renderBodyReading(report: Report): string {
       sayOnPay: disclosures.sayOnPay,
       tradingArrangements: disclosures.tradingArrangements,
       companyStatements: report.filingDisclosures?.companyStatements,
+      commitmentPaymentTiming: report.filingDisclosures?.commitmentPaymentTiming,
     }).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length > 0)));
     if (Object.keys(supplements).length > 0) {
       lines.push("### Filing disclosure supplements (raw record)", "", "Stored values, periods, source identities and issuer text, before display rounding.", "", "```json", JSON.stringify(supplements, null, 2), "```", "");
@@ -394,6 +402,7 @@ function renderManifest(report: Report): string {
             MANIFEST_ENTRY_FIELDS.map((field) => {
               if (field.key === "attemptedSources") return gap.attemptedSources?.join(", ") ?? "n/a";
               if (field.key === "expected") return gap.expected === undefined ? "unknown" : gap.expected ? "yes" : "no";
+              if (field.key === "resolution") return auditValue(gap.resolution);
               return gap[field.key];
             })),
         )

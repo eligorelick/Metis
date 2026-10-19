@@ -67,19 +67,19 @@ describe("computeRote", () => {
 
   it("divides net income by AVERAGE tangible common equity", () => {
     const r = computeRote(
-      [income(100), income(90, "2024-12-31")],
+      [{ ...income(100), netIncomeAvailableToCommon: 96 }, { ...income(90, "2024-12-31"), netIncomeAvailableToCommon: 86 }],
       [balance(), balance({ totalStockholdersEquity: 900 }, "2024-12-31")],
     );
 
     // TCE now 825, prior 725 ⇒ average 775. Net income available to COMMON is
-    // 100 − 4 of preferred dividends = 96; 96 / 775 = 12.387…%.
+    // Explicitly filed common income is 96; cash payments do not establish it.
     expect(r.latestRotePct).toBeCloseTo((96 / 775) * 100, 9);
     expect(r.latestTangibleCommonEquity).toBe(825);
     expect(r.asOf).toBe("2025-12-31");
   });
 
   it("falls back to the single period when there is no prior balance", () => {
-    const r = computeRote([income(100)], [balance()]);
+    const r = computeRote([{ ...income(100), netIncomeAvailableToCommon: 96 }], [balance()]);
 
     expect(r.latestRotePct).toBeCloseTo((96 / 825) * 100, 9);
   });
@@ -178,7 +178,7 @@ describe("ROTE nets preferred earnings out of the common return", () => {
     // Balance rows in a different order and with an extra year: positional
     // pairing would divide 2025 income by a 2023 equity base.
     const r = computeRote(
-      [income(100, "2025-12-31"), income(90, "2024-12-31")],
+      [{ ...income(100, "2025-12-31"), netIncomeAvailableToCommon: 96 }, { ...income(90, "2024-12-31"), netIncomeAvailableToCommon: 86 }],
       [
         balance({}, "2023-12-31"),
         balance({ totalStockholdersEquity: 900 }, "2024-12-31"),
@@ -194,10 +194,10 @@ describe("ROTE nets preferred earnings out of the common return", () => {
   // zero-for-undisclosed placeholder, not a coupon of nothing; crediting the
   // whole preferred coupon to common overstated ROTE on exactly the issuers
   // the metric exists for.
-  it("treats a reported 0 preferred dividend as undisclosed while preferred is outstanding, and withholds", () => {
+  it("withholds common earnings beside preferred claims even when preferred cash is reported as zero", () => {
     const r = computeRote([income(100, "2025-12-31", 0)], [balance()]);
     expect(r.latestRotePct).toBeNull();
-    expect(r.notes.join(" ")).toMatch(/reported as 0 \(treated as undisclosed/);
+    expect(r.notes.join(" ")).toMatch(/cash paid is not an earnings allocation/);
   });
 
   it("nets nothing when a 0 preferred dividend sits beside NO preferred stock", () => {
@@ -210,9 +210,9 @@ describe("ROTE nets preferred earnings out of the common return", () => {
     const filed = <T extends object>(row: T, date: string) => ({ ...row, acceptedDate: date, filingDate: date });
     const r = computeRote(
       [
-        filed(income(100), "2026-02-01"),
-        filed(income(90, "2024-12-31"), "2025-02-01"), // superseded
-        filed(income(80, "2024-12-31"), "2025-06-01"), // restated
+        filed({ ...income(100), netIncomeAvailableToCommon: 96 }, "2026-02-01"),
+        filed({ ...income(90, "2024-12-31"), netIncomeAvailableToCommon: 86 }, "2025-02-01"), // superseded
+        filed({ ...income(80, "2024-12-31"), netIncomeAvailableToCommon: 76 }, "2025-06-01"), // restated
       ],
       [
         filed(balance(), "2026-02-01"),
@@ -221,7 +221,7 @@ describe("ROTE nets preferred earnings out of the common return", () => {
       ],
     );
     expect(r.series.map((y) => y.date)).toEqual(["2024-12-31", "2025-12-31"]);
-    // FY2024 (oldest first) on the RESTATED rows: (80 − 4) / (950 − 175) single-period.
+    // FY2024 (oldest first): filed restated common income 76 / (950 − 175).
     expect(r.series[0]!.rotePct).toBeCloseTo((76 / 775) * 100, 9);
     expect(r.notes.join(" ")).toMatch(/restated\/duplicate annual income period/);
   });

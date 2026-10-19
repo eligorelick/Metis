@@ -20,7 +20,7 @@
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
-import { commonHolderCapital, resolveSecurityBasis, resolveEconomicEquityScope, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
@@ -2342,6 +2342,7 @@ export interface SensitivityGrid {
  */
 export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions): SensitivityGrid {
   const notes: string[] = [
+    "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
     `grid cells with WACC - gTerm < ${GRID_TV_GUARD_PP}pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
   ];
   const gaps: ManifestEntry[] = [];
@@ -2426,6 +2427,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
   const ceiling = assumptions.scenarioMarginCeiling?.pct ?? null;
   const weights = convergentFadeWeights(assumptions.growthPath.value.length);
   const notes = [
+    "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
     `rows shift year-one revenue growth by ${growthShiftsPp.join("/")}pp, decaying on the convergent weights to zero by year ${assumptions.years}; ` +
       `columns shift the operating margin by ${marginShiftsPp.join("/")}pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base`,
     ceiling === null
@@ -2740,7 +2742,7 @@ export interface MultiplesQuoteInputs {
 }
 
 /** TTM income statement slice (FMP names). */
-export interface MultiplesIncomeTtm {
+export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   date: string;
   /**
    * Period basis of this slice: "ttm" (4 complete quarters) or "annual"
@@ -2754,6 +2756,8 @@ export interface MultiplesIncomeTtm {
   depreciationAndAmortization?: number | null;
   netIncome: number | null;
   epsDiluted: number | null;
+  /** Explicit construction from the adapter; absent for reported annual EPS. */
+  epsDilutedBasis?: "sum-quarterly-diluted-eps" | null;
   netIncomeAvailableToCommon?: number | null;
   preferredDividendsPaid?: number | null;
   noncontrollingIncome?: number | null;
@@ -2829,7 +2833,7 @@ export interface MultiplesBalance {
 }
 
 /** Quarterly fundamentals merged per quarter by the caller (FMP names). */
-export interface QuarterlyFundamentalsRow {
+export interface QuarterlyFundamentalsRow extends CommonIncomeInputs {
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
@@ -3194,12 +3198,19 @@ function deriveOwnHistory(
         : null,
     );
     const ttmNi = sum((r) => r.netIncome);
-    const ttmCommonNi = sum((r) => {
-      if (!isNum(r.netIncomeAvailableToCommon) &&
+    const commonWindow = constructCommonIncomeQuarterWindow(window);
+    // Preserve each quarter's outside-claim admission while selecting the same
+    // complete numerator branch for the entire current/historical window.
+    const fallbackRefusal = isNum(commonWindow.netIncomeAvailableToCommon) ? null : window.map(r => {
+      if (
         ((currentCommonAllocation.preferred && !isNum(r.preferredStock)) ||
-          (currentCommonAllocation.nci && !isNum(r.minorityInterest) && r.netIncomeOwnershipBasis !== "parent"))) return null;
-      return commonHolderCapital(r, r).commonIncome;
-    });
+          (currentCommonAllocation.nci && !isNum(r.minorityInterest) && r.netIncomeOwnershipBasis !== "parent"))) return "historical outside-claim allocation is unavailable";
+      return commonHolderCapital({ ...r, netIncomeAvailableToCommon: null }, r).incomeWithheldReason;
+    }).find(reason => reason !== null) ?? null;
+    const commonSelection = commonHolderCapital(commonWindow, window[0]);
+    const commonWindowRefusal = commonWindow.commonIncomeWithheldReason ?? fallbackRefusal ?? commonSelection.incomeWithheldReason;
+    if (commonWindowRefusal) unusableWindows.push({ anchor: window[0].date, reason: `historical common-income P/E withheld: ${commonWindowRefusal}` });
+    const ttmCommonNi = commonWindowRefusal ? null : commonSelection.commonIncome;
     const quotedEps = peConstruction === "price-eps" ? sum(r => r.epsSecurityBasis === "quoted" ? r.epsDiluted ?? null : null) : null;
     const ttmFcf = sum((r) => deriveFcf(r.operatingCashFlow, r.capitalExpenditure));
     const cashOwnershipUnresolved = window.some(unresolvedCashOwnership);
@@ -3833,7 +3844,10 @@ export function multiplesFramework(
         ? `latest annual balance sheet ${bal.date}`
         : "latest";
   const basisByKey: Record<MultipleKey, string> = {
-    peTtm: `${epsBasis} (${incomeBasisLabel}); fallback marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis})`,
+    peTtm: `${epsBasis} (${incomeBasisLabel}); fallback marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis})` +
+      (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
+        ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
+        : ""),
     evToEbitda: `EV / (operatingIncome + D&A), ${incomeBasisLabel}-computed — vendor ebitda field not trusted. ${evBridgeBasis} Balance basis: ${balanceBasisLabel}.`,
     evToSales: `EV / revenue (${incomeBasisLabel}). ${evBridgeBasis}`,
     priceToFcf:

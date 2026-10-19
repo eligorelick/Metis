@@ -49,6 +49,10 @@ function visiblePublicationDateline(html: string): string | null {
 }
 function publicationDate(html: string): string | null {
   for (const meta of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    if (/^publication-date$/i.test(attribute(meta, "name") ?? "")) {
+      const m = attribute(meta, "content")?.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+      if (m) return `${m[3]}-${m[1]}-${m[2]}`;
+    }
     if (/^(?:article:published_time|datePublished|date|pubdate|publish-date|DC.date.issued)$/i.test(attribute(meta, "property") ?? attribute(meta, "name") ?? "")) return attribute(meta, "content");
   }
   const structured = html.match(/["']datePublished["']\s*:\s*["']([^"']+)/i)?.[1] ?? html.match(/<time\b[^>]*datetime=["']([^"']+)/i)?.[1];
@@ -169,6 +173,8 @@ export interface CompanyIrMaterialEvent {
   observedAt: string;
   authorityChain: string[];
   sourceHash: string;
+  /** An index adapter is a reviewed issuer binding, not a fabricated website link. */
+  discoveryEvidence?: { kind: "reviewed-issuer-index"; verifiedWebsite: string; indexUrl: string; indexSourceHash: string };
   text: string;
   originalChars: number;
   span: { start: number; end: number; text: string };
@@ -177,6 +183,53 @@ export interface CompanyIrMaterialEvent {
   funding: null;
 }
 export interface CompanyIrMaterialEvents { events: CompanyIrMaterialEvent[]; notes: string[] }
+
+/** Reviewed issuer alias, not a generic single-word legal-name relaxation.
+ * Adobe's official site and 2026-09-23 blog announcement bind Adobe to Adobe Inc.
+ * https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs
+ */
+export function verifiedCompanyIrAliases(issuer: ConfirmedIssuerIdentity): string[] {
+  const website = safeUrl(issuer.verifiedWebsite);
+  return issuer.cik?.replace(/^0+/, "") === "796343" && /^adobe\s+inc\.?$/i.test(issuer.canonicalName.trim()) &&
+    website?.hostname.replace(/^www\./, "") === "adobe.com" ? ["Adobe"] : [];
+}
+
+/** Reviewed source index, not a pinned event, search result or event date.
+ * Adobe's static homepage delegates navigation to client-side fragments. Its
+ * public blog index publishes featuredCards in a gzip CaaS configuration.
+ * Exact issuer binding and the final article's subject/date checks still apply.
+ */
+function verifiedMaterialIndexes(issuer: ConfirmedIssuerIdentity): string[] {
+  return verifiedCompanyIrAliases(issuer).includes("Adobe") ? ["https://blog.adobe.com/"] : [];
+}
+
+/** Read only bounded data from the index's documented CaaS link shape. Never
+ * execute scripts, follow the tool link, or admit contentId as event evidence.
+ */
+function embeddedMaterialLinks(html: string, base: string, officialHost: string): Link[] {
+  const found: Link[] = [];
+  let configurations = 0;
+  for (const m of [...html.matchAll(/<a\b([^>]*)>/gi)].slice(0, 1500)) {
+    const href = attribute(m[1]!, "href");
+    if (!href || href.length > 45_000) continue;
+    let configUrl: URL;
+    try { configUrl = new URL(href, base); } catch { continue; }
+    if (configUrl.origin !== "https://milo.adobe.com" || configUrl.pathname !== "/tools/caas" || !configUrl.hash.startsWith("#~~")) continue;
+    if (++configurations > 6) break;
+    try {
+      const encoded = configUrl.hash.slice(3);
+      if (!/^[A-Za-z0-9+/=]+$/.test(encoded)) continue;
+      const config: unknown = JSON.parse(gunzipSync(Buffer.from(encoded, "base64"), { maxOutputLength: 131_072 }).toString("utf8"));
+      if (!config || typeof config !== "object" || !("featuredCards" in config) || !Array.isArray(config.featuredCards)) continue;
+      for (const card of config.featuredCards.slice(0, 40)) {
+        const url = card && typeof card.contentId === "string" ? safeUrl(card.contentId) : null;
+        if (url && (url.hostname === officialHost || url.hostname.endsWith(`.${officialHost}`))) found.push({ url: url.toString(), text: url.pathname.replace(/[-/]/g, " ") });
+      }
+    } catch { /* Malformed/oversized index data cannot widen access or supply facts. */ }
+    if (found.length >= 80) break;
+  }
+  return found.slice(0, 80);
+}
 
 /** Exact issuer subjects only: a name elsewhere in an article does not bind its action. */
 function materialStatement(text: string, issuer: ConfirmedIssuerIdentity): { category: CompanyIrMaterialEvent["category"]; status: CompanyIrMaterialEvent["status"]; start: number; end: number } | null {
@@ -189,7 +242,7 @@ function materialStatement(text: string, issuer: ConfirmedIssuerIdentity): { cat
       const subject = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // A dateline may precede the subject, but quoted commentary, a different
       // grammatical subject, and a future/negated completion cannot establish it.
-      const lead = String.raw`(?:^|[-–—]\s+)${subject}\s+(?:today\s+)?`;
+      const lead = String.raw`(?:^|[-\u2013\u2014]\s+)(?:Today,\s+)?${subject}\s+(?:today\s+)?`;
       const completed = new RegExp(`${lead}(?:announced that it )?(?:has )?(?:acquired\\s+|completed (?:its |the )?acquisition of\\s+)`, "i");
       const announcedDeal = new RegExp(`${lead}announced (?:an? |the |its )?(?:agreement to acquire|acquisition of)\\s+`, "i");
       const officer = new RegExp(`${lead}announced (?:the )?(?:appointment|departure|retirement|resignation) of\\s+`, "i");
@@ -239,7 +292,8 @@ export async function discoverCompanyIrMaterialEvents(website: string, symbol: s
   const now = opts.now ?? (() => new Date());
   const events: CompanyIrMaterialEvent[] = [];
   const seedIsIr = /(?:^|\.)(?:ir|investors?)\./i.test(seed.hostname) || /\/investor(?:s|-relations)?(?:\/|$)/i.test(seed.pathname);
-  const queue: { url: string; chain: string[]; stage: "company" | "ir" | "news" | "release" }[] = [{ url: seed.toString(), chain: [seed.toString()], stage: seedIsIr ? "ir" : "company" }];
+  const queue: { url: string; chain: string[]; stage: "company" | "ir" | "news" | "release"; reviewedIndex?: string; indexSourceHash?: string }[] = [{ url: seed.toString(), chain: [seed.toString()], stage: seedIsIr ? "ir" : "company" }];
+  const reviewedIndexes = verifiedMaterialIndexes(opts.issuer);
   const seen = new Set<string>();
   while (queue.length && reader.requests < 6 && events.length < 3 && !reader.signal.aborted) {
     const page = queue.shift()!;
@@ -256,7 +310,13 @@ export async function discoverCompanyIrMaterialEvents(website: string, symbol: s
         if (!publishedAt || !publishedDay || !/^\d{4}-\d{2}-\d{2}$/.test(publishedDay) || !Number.isFinite(Date.parse(publishedAt)) ||
           new Date(`${publishedDay}T00:00:00Z`).toISOString().slice(0, 10) !== publishedDay || publishedDay > today ||
           Date.parse(publishedAt) > Date.parse(observedAt) || Date.parse(today) - Date.parse(publishedDay) > 365 * 86_400_000) continue;
-        const text = parseDocument(response.bodyText).fullText;
+        // Parse the actual article body separately. Generic filing extraction
+        // includes both <title> and <h1>, and normalizes punctuation, so a raw
+        // string-prefix trim can leave duplicated headings attached to the
+        // operative sentence. A heading cannot supply that sentence's subject.
+        const main = response.bodyText.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] ?? response.bodyText;
+        const article = main.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, "").replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, "").replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi, "");
+        const text = parseDocument(article).fullText;
         // A title or publication dateline is not the subject of a following
         // sentence. Strip these only when they are leading standalone elements.
         const title = (response.bodyText.match(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/i)?.[1] ?? response.bodyText.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "Material event").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -277,16 +337,25 @@ export async function discoverCompanyIrMaterialEvents(website: string, symbol: s
         const excerpt = text.slice(start, end);
         events.push({ symbol, category: statement.category, status: statement.status, title, url: page.url, publishedAt, observedAt, authorityChain: page.chain,
           sourceHash: createHash("sha256").update(response.bodyText).digest("hex"), text: excerpt, originalChars: text.length,
-          span: { start, end, text: excerpt }, consideration: null, funding: null });
+          span: { start, end, text: excerpt }, consideration: null, funding: null,
+          ...(page.reviewedIndex && page.indexSourceHash ? { discoveryEvidence: { kind: "reviewed-issuer-index" as const, verifiedWebsite: verified.toString(), indexUrl: page.reviewedIndex, indexSourceHash: page.indexSourceHash } } : {}) });
         continue;
       }
-      const all = links(response.bodyText, page.url);
+      const officialHost = verified.hostname.replace(/^www\./, "");
+      const all = [...links(response.bodyText, page.url), ...(reviewedIndexes.includes(page.url) ? embeddedMaterialLinks(response.bodyText, page.url, officialHost) : [])];
       const sameOrigin = all.filter((link) => new URL(link.url).origin === new URL(page.url).origin);
-      const add = (link: Link, stage: (typeof queue)[number]["stage"]) => { if (!seen.has(link.url) && !queue.some((entry) => entry.url === link.url)) queue.push({ url: link.url, chain: [...page.chain, link.url], stage }); };
+      const add = (link: Link, stage: (typeof queue)[number]["stage"]) => { if (!seen.has(link.url) && !queue.some((entry) => entry.url === link.url)) queue.push({ url: link.url, chain: [...page.chain, link.url], stage,
+        ...(page.reviewedIndex ? { reviewedIndex: page.reviewedIndex, indexSourceHash: page.indexSourceHash ?? createHash("sha256").update(response.bodyText).digest("hex") } : {}) }); };
       if (page.stage === "company") {
         const ir = all.find((link) => /\binvestor(?:s| relations)?\b/i.test(link.text) || /(?:^|[/.])investors?[./-]/i.test(link.url));
         if (ir) add(ir, "ir");
-        else sameOrigin.filter((link) => /newsroom|news|press releases/i.test(link.text)).slice(0, 1).forEach((link) => add(link, "news"));
+        // Only explicit official news/blog links below the confirmed website's
+        // domain; never arbitrary cross-origin releases or an inferred host.
+        const host = verified.hostname.replace(/^www\./, "");
+        all.filter(link => {
+          const linkedHost = new URL(link.url).hostname;
+          return (linkedHost === host || linkedHost.endsWith(`.${host}`)) && /\b(?:newsroom|news|press releases|blog)\b/i.test(link.text);
+        }).slice(0, 2).forEach(link => add(link, "news"));
       } else {
         if (page.stage === "ir") sameOrigin.filter((link) => /news|press releases/i.test(link.text)).slice(0, 1).forEach((link) => add(link, "news"));
         const pending = queue.length;
@@ -294,6 +363,12 @@ export async function discoverCompanyIrMaterialEvents(website: string, symbol: s
         if (page.stage === "news") queue.unshift(...queue.splice(pending));
       }
     } catch { /* Public source failure is a disclosed bounded evidence gap. */ }
+    finally {
+      // A 403/transport failure or a client-rendered homepage must not prevent
+      // an independently reviewed official index from being read. No retry of
+      // the denied homepage, user-agent workaround or invented link is used.
+      if (page.url === seed.toString()) for (const index of reviewedIndexes) if (!seen.has(index) && !queue.some(entry => entry.url === index)) queue.push({ url: index, chain: [index], stage: "news", reviewedIndex: index });
+    }
   }
   if (events.length === 0) return unavailable("No dated issuer-bound material statement was retained from the bounded official website/IR path");
   events.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || a.url.localeCompare(b.url));
@@ -309,3 +384,4 @@ import { companyEarningsAnnouncement, type ConfirmedIssuerIdentity } from "@/pro
 import { fetchWithPolicy } from "@/providers/http";
 import { createHash } from "node:crypto";
 import { splitSentences } from "@/edgar/currentReports";
+import { gunzipSync } from "node:zlib";

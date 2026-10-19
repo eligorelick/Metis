@@ -529,6 +529,83 @@ describe("payload determinism + provenance", () => {
       fairValue: computed.fairValue,
       scenarioTargets: computed.scenarioTargets,
     };
+    // D-83 adds this exact EPS disclosure. D-85 corrects only the fallback
+    // basis wording in this unaffected fixture; restore those exact strings
+    // to retain the complete preceding financial pin without masking numbers.
+    const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
+    const currentBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction)";
+    const precedingBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; net income less disclosed preferred distributions (parent income; no second NCI deduction))";
+    expect(computed.valuation.multiples?.multiples[0]?.basis).toBe(currentBasis + epsDisclosure);
+    const precedingFinance = JSON.parse(JSON.stringify(finance, (_key, value) => {
+      if (typeof value !== "string") return value;
+      const withoutEps = value.replace(epsDisclosure, "");
+      return withoutEps === currentBasis ? precedingBasis : withoutEps;
+    }));
+    // D-87 changes these seven explanatory leaves only. Assert their exact
+    // paths/content before restoring the preceding wording for the whole-finance
+    // pin. No score, weight, operand value, date, availability flag or order is
+    // normalized; any such change still breaks the preceding hash below.
+    const stewardship = precedingFinance.scores.aspects.leadership;
+    expect(stewardship.drivers).toHaveLength(1);
+    expect(stewardship.signals).toHaveLength(1);
+    const shareTrend = stewardship.signals[0];
+    expect(shareTrend.operands).toHaveLength(2);
+    expect({
+      balanceSheetNote: precedingFinance.scores.aspects.balanceSheet.note,
+      leadershipNote: stewardship.note,
+      driverSource: stewardship.drivers[0].source,
+      driverPeriod: stewardship.drivers[0].period,
+      signalId: shareTrend.id,
+      signalPeriod: shareTrend.period,
+      signalReason: shareTrend.fallbackReason,
+      operandSources: shareTrend.operands.map((operand: { source: string }) => operand.source),
+      operandNames: shareTrend.operands.map((operand: { name: string }) => operand.name),
+    }).toEqual({
+      balanceSheetNote: "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership.",
+      leadershipNote: "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
+      driverSource: "computed.scores.leadership.shareCountTrend",
+      driverPeriod: "Annualized weighted-average diluted common-share trend; 2021-09-25 to 2025-09-27",
+      signalId: "shareCountTrend",
+      signalPeriod: "Annualized weighted-average diluted common-share trend; 2021-09-25 to 2025-09-27",
+      signalReason: "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.",
+      operandSources: ["computed.capital.shareCount.startShares", "computed.capital.shareCount.endShares"],
+      operandNames: ["start weighted-average diluted common shares", "end weighted-average diluted common shares"],
+    });
+    precedingFinance.scores.aspects.balanceSheet.note = "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership.";
+    stewardship.note = "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.";
+    stewardship.drivers[0].period = "2021-09-25 to 2025-09-27";
+    shareTrend.period = "2021-09-25 to 2025-09-27";
+    shareTrend.fallbackReason = null;
+    shareTrend.operands[0].name = "start shares";
+    shareTrend.operands[1].name = "end shares";
+    // D-92 adds this explicit existing grid convention to the finance block.
+    // Assert the exact explanatory leaf before restoring the preceding pin;
+    // no numeric value, availability flag or ordering is normalized.
+    expect(precedingFinance.valuation.sensitivity.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
+    precedingFinance.valuation.sensitivity.notes.shift();
+    if (precedingFinance.valuation.growthMarginGrid) {
+      expect(precedingFinance.valuation.growthMarginGrid.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
+      precedingFinance.valuation.growthMarginGrid.notes.shift();
+    }
+    // D-93 changes these two explanation leaves in this fixture. Restore only
+    // the asserted words, preserving the preceding whole-finance numeric pin.
+    const epsCapital = precedingFinance.projections.series.find((s: { metric: string }) => s.metric === "epsDiluted").capitalReturn;
+    expect(epsCapital.basis).toContain("Positive dilution is retained only when the observed share-count trend is positive.");
+    epsCapital.basis = epsCapital.basis.replace("Positive dilution is retained only when the observed share-count trend is positive.", "A positive dilution trend is retained.");
+    const accrualSignal = precedingFinance.scores.aspects.quality.signals.find((s: { id: string }) => s.id === "accrualsRatioAbs");
+    expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).");
+    accrualSignal.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI \u2212 CFO).";
+    expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
+    // D-89 adds only declared fraction-scale metadata to this registry.
+    // Removing that one optional property must reproduce the preceding whole
+    // registry, preserving every value, unit, identity, date and order.
+    const precedingRegistry = (payload.provenanceRegistry ?? []).map(record => {
+      const before = { ...record };
+      if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
+      delete before.unitScale;
+      return before;
+    });
+    expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -798,14 +875,36 @@ describe("payload determinism + provenance", () => {
       // finance, all registry hashes and prompt byte count remain pinned.
       // D-81 adds admitted per-multiple basis notes and advances payload1.28.0.
       // Registry/finance hashes and numeric values remain pinned unchanged.
-      fingerprint: "1.28.0:7f1e29ed",
-      promptBytes: 138_416,
+      // D-83: exact EPS convention text adds 283 bytes; registries unchanged.
+      // D-84: version-only change for this unaffected general-route fixture.
+      // D-85: exact fallback basis wording removes 14 prompt bytes; financial
+      // numbers, availability and registry identities remain unchanged.
+      // D-87 (+446 prompt bytes): stewardship notes name the weighted-average
+      // diluted common-share denominator and its limits. The total-change
+      // figure is relabeled (same value/window), so its derived registry id,
+      // provenance hash/id hash and label matrix change; counts/citations and
+      // projection periods do not. The exact seven metadata leaves above
+      // account for financeHash while retaining the preceding whole-finance pin.
+      // D-88 changes only the version in this fixture: its registry, finance,
+      // prompt bytes and all other preceding pins remain exactly unchanged.
+      // D-89 retains explicit fraction scale; prompt bytes, IDs and all
+      // financial leaves remain pinned. The versioned fingerprint changes.
+      // D-90: only the versioned fingerprint changes for this unaffected fixture;
+      // finance, registries, numeric values, bytes and counts remain pinned.
+      // D-91 also changes only the version in this unaffected fixture.
+      // D-92: +376 prompt bytes qualify provider EPS accounting basis. The
+      // finance hash changes only for the separately asserted reinvestment
+      // floor note; preceding-finance and numeric registry pins remain exact.
+      // D-93: admitted-input explanations add 150 prompt bytes. The exact
+      // preceding whole-finance hash and every numeric registry pin stay above.
+      fingerprint: "1.35.1:eb9a1325",
+      promptBytes: 139_657,
       provenanceCount: 531,
-      provenanceHash: "ebdcddba",
-      provenanceIdsHash: "0dee6be6",
+      provenanceHash: "f57574b3",
+      provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
-      computedFigureLabelHash: "7f5cbe9b",
+      computedFigureLabelHash: "dc5ba34e",
       projectionPathPeriodHash: "fb9c4bf0",
       // Changed 2026-08-31: the projections fcf series now states that its
       // HISTORICAL points are the reported levered figure while the PROJECTED
@@ -824,7 +923,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "666a1ab0",
+      financeHash: "40b97db8",
     });
   });
 
@@ -948,7 +1047,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.28.0");
+    expect(first.payloadVersion).toBe("1.35.1");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2362,6 +2461,7 @@ describe("assembleReport", () => {
   it("attaches deterministic assessment limits to both full-AI grade surfaces without changing analyst output", () => {
     const { bundle, computed } = buildInputs();
     const output = judgeOutput();
+    output.quality.graded.grade = output.verdict.gradeStrip.quality.grade = "A";
     output.balanceSheet.graded = { ...output.quality.graded, grade: "C" };
     output.verdict.gradeStrip.balanceSheet = { ...output.balanceSheet.graded };
     const original = JSON.stringify(output);
@@ -2371,8 +2471,9 @@ describe("assembleReport", () => {
       verify: { verificationRate: 0.9, log: [] }, costEntries: [], model: "chatgpt/gpt-6.1-sol" }, GENERATED_AT);
     // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
     const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of the inputs its route supports" };
-    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
-    expect(report.quality.graded).toEqual({ ...output.quality.graded, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    const gradeContract = { version: "GRADE_OVERRIDE_1", originalBand: "A", proposedGrade: "A", distance: 0, status: "unchanged", reason: "matches-deterministic-band" };
+    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, gradeContract, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.quality.graded).toEqual({ ...output.quality.graded, gradeContract, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(report.verdict.gradeStrip.balanceSheet?.assessmentStatus).toBe("not-assessed");
     expect(ReportSchema.safeParse(report).success).toBe(true);
@@ -2441,7 +2542,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.23.1");
+    expect(report.meta.specVersion).toBe("1.30.1");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2550,7 +2651,8 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     expect(bull.assumptions.join(" ")).toContain("Year-one shift versus base: revenue growth -8 percentage points, operating margin 3 percentage points");
     expect(bull.assumptions.join(" ")).toContain("Revenue growth path (% per year, in horizon order): 2, 2.46, 2");
     expect(bull.assumptions.join(" ")).toContain("Operating-margin path (% per year, in horizon order): 23, 23.33, 24");
-    expect(bull.qualitativeCommentary).toEqual(["strong cycle"]);
+    expect(bull.qualitativeCommentary).toEqual(["strong cycle", "Separate qualitative condition, not a modeled input or prerequisite for this target: services accelerate"]);
+    expect(bull.whatWouldHaveToBeTrue[0]).toMatch(/^Modeled conditions:/);
   });
   it("uses the same fixed display weights as the projection fan and separates model commentary", () => {
     const { computed } = buildInputs();
@@ -2560,7 +2662,8 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
     expect(report.valuation.scenarios.map((s) => s.probability)).toEqual([null, null, null]);
     const base = report.valuation.scenarios[1];
     expect(base.assumptions).not.toContain("steady");
-    expect(base.qualitativeCommentary).toEqual(["steady"]);
+    expect(base.qualitativeCommentary).toEqual(["steady", "Separate qualitative condition, not a modeled input or prerequisite for this target: margins stable"]);
+    expect(base.whatWouldHaveToBeTrue[0]).toMatch(/^Modeled conditions:/);
     expect(report.scenarioPresentation?.weightBasis).toMatch(/carry no weight.*not a calibrated probability/i);
   });
 

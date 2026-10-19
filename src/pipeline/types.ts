@@ -101,6 +101,10 @@ export interface ExtractedSection {
    * facts. Absent on legacy sections, empty prefixes and other section kinds.
    */
   statementsText?: string;
+  /** Bounded signature block from this same primary 10-Q, including dated roles. */
+  signaturesText?: string;
+  /** Same-filing Part I Item 4 conclusion and limiting statements (up to 12k). */
+  controlsText?: string;
   /** Extraction layer that produced the text (diagnostics/appendix). */
   method: ExtractMethod;
   chars: number;

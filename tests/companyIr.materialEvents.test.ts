@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { discoverCompanyIrMaterialEvents, type CompanyIrOptions } from "@/providers/companyIr";
+import { discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
+import { readFileSync } from "node:fs";
+import { gzipSync } from "node:zlib";
 
 const issuer = { cik: "1", canonicalName: "Example Group, Inc.", verifiedWebsite: "https://example.com/" };
 const now = () => new Date("2026-10-17T12:00:00.000Z");
@@ -23,6 +25,48 @@ async function discover(overrides: Record<string, string> = {}, options: Company
 }
 
 describe("bounded official material-event discovery", () => {
+  it.each(["foreign", "private-ip", "malformed", "oversized"])("does not follow or trust unsafe compressed index data (%s)", async mode => {
+    const adobe={cik:"796343",canonicalName:"Adobe Inc.",verifiedWebsite:"https://www.adobe.com/",validAliases:["Adobe"]};
+    const card=mode==="foreign" ? "https://foreign.example/completes-acquisition" : mode==="private-ip" ? "https://127.0.0.1/completes-acquisition" : "https://blog.adobe.com/en/publish/completes-acquisition";
+    const encoded=mode==="malformed" ? "notgzip" : gzipSync(JSON.stringify({featuredCards:[{contentId:card}],...(mode==="oversized"?{padding:"x".repeat(140000)}:{})})).toString("base64");
+    const attempted:string[]=[];
+    const result=await discoverCompanyIrMaterialEvents(adobe.verifiedWebsite,"ADBE","2026-10-19",{issuer:adobe,now:()=>new Date("2026-10-19T00:00:00Z"),lookup,fetchImpl:(async input=>{
+      attempted.push(String(input));return new Response(String(input)==="https://blog.adobe.com/" ? `<a href="https://milo.adobe.com/tools/caas#~~${encoded}">Cards</a>` : "No links",{headers:{"content-type":"text/html"}});
+    })as typeof fetch});
+    expect(result).toMatchObject({ok:false,gap:{reason:expect.stringMatching(/bounded.*not evidence/i)}});
+    expect(attempted).toEqual([adobe.verifiedWebsite,"https://blog.adobe.com/"]);
+  });
+  it.each([200,403])("discovers completion from captured static Adobe home (HTTP%s) and compressed blog cards, without invented homepage links", async homeStatus => {
+    const adobe = { cik: "0000796343", canonicalName: "ADOBE INC.", verifiedWebsite: "https://www.adobe.com/", validAliases: ["Adobe"] };
+    const release = "https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs";
+    const captured: Record<string, string> = Object.fromEntries([[adobe.verifiedWebsite, "home"], ["https://blog.adobe.com/", "blog"], [release, "completion"]].map(([url,file]) => [url!, readFileSync(`fixtures/company-ir/adobe-20261019/${file}.html`, "utf8")]));
+    const attempted: string[] = [];
+    const result = await discoverCompanyIrMaterialEvents(adobe.verifiedWebsite, "ADBE", "2026-10-19", { issuer: adobe, now: () => new Date("2026-10-19T00:00:00Z"), lookup, fetchImpl: (async input => {
+      attempted.push(String(input)); const body = captured[String(input)];
+      return new Response(body ?? "missing", { status: String(input) === adobe.verifiedWebsite ? homeStatus : body ? 200 : 404, headers: { "content-type": "text/html" } });
+    }) as typeof fetch });
+    expect(result.ok ? null : result.gap).toBeNull();
+    expect(result).toMatchObject({ ok: true, value: { data: { events: [{ url: release, publishedAt: "2026-09-23", status: "issuer-stated-completed", authorityChain: ["https://blog.adobe.com/", release], consideration: null, funding: null }] } } });
+    expect(attempted).toEqual(expect.arrayContaining([adobe.verifiedWebsite, "https://blog.adobe.com/", release]));
+    expect(attempted.length).toBeLessThanOrEqual(6);
+  });
+  it("binds the reviewed single-word alias to exact CIK, legal name and official website", () => {
+    const adobe = { cik: "0000796343", canonicalName: "ADOBE INC.", verifiedWebsite: "https://www.adobe.com/" };
+    expect(verifiedCompanyIrAliases(adobe)).toEqual(["Adobe"]);
+    expect(verifiedCompanyIrAliases({ ...adobe, cik: "1" })).toEqual([]);
+    expect(verifiedCompanyIrAliases({ ...adobe, canonicalName: "Adobe Holdings Inc." })).toEqual([]);
+    expect(verifiedCompanyIrAliases({ ...adobe, verifiedWebsite: "https://adobe.com.unrelated.example/" })).toEqual([]);
+    expect(verifiedCompanyIrAliases({ ...adobe, verifiedWebsite: "http://www.adobe.com/" })).toEqual([]);
+  });
+  it.each([
+    'Today, Unrelated Company completed its acquisition of Journey.',
+    'Today, Example Group has not completed its acquisition of Journey.',
+    'Today, Example Group will complete its acquisition of Journey.',
+    '"Today, Example Group completed its acquisition of Journey," a commentator claimed.',
+  ])("does not loosen subject, negation, future or quotation checks: %s", async sentence => {
+    const html = acquisition().replace(/<p>SEATTLE,[\s\S]*?<\/p>/, `<p>${sentence}</p>`);
+    expect((await discover({ "https://ir.example.com/news/journey": html })).result).toMatchObject({ ok: false });
+  });
   it("follows the official IR path and keeps issuer-stated completion separate from unknown deal terms", async () => {
     const { result, attempted } = await discover();
     expect(result).toMatchObject({ ok: true, value: { source: "computed", data: { events: [{ symbol: "EXM", category: "acquisition", status: "issuer-stated-completed", publishedAt: "2026-07-31", observedAt: now().toISOString(), url: "https://ir.example.com/news/journey", consideration: null, funding: null,

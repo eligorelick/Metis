@@ -6,8 +6,52 @@ import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/st
 import { createEdgarClient, type EdgarTransport } from "@/providers/edgar";
 import { createFmpClient } from "@/providers/fmp";
 import { makeLimiter } from "@/providers/http";
+import { readFileSync } from "node:fs";
 
 describe("official material-event source wiring", () => {
+  it.each(["indexed", "missing", "captured"])("uses Adobe's production registrant identity and actual publication shape (%s)", async mode => {
+    const indexed = mode !== "missing";
+    const now = () => new Date("2026-10-19T00:00:00Z");
+    const home = "https://www.adobe.com/";
+    const ir = "https://www.adobe.com/investor-relations.html";
+    const news = "https://blog.adobe.com/";
+    const release = "https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs";
+    // Compact structural fixture, not a claim that every live index retains this older article.
+    // The announcement's exact metadata name/format, main/h1/p/link structure
+    // and operative statement were inspected at the source URL on 2026-10-19.
+    const pages: Record<string, string> = {
+      [home]: `<a href="${ir}">Investor Relations</a><a href="${news}">Adobe Blog</a><a href="https://unrelated.example/deal">News</a>`,
+      [ir]: '<a href="https://news.adobe.com/">Newsroom</a>',
+      [news]: indexed ? `<a href="${release}">Adobe completes acquisition of Topaz Labs</a>` : "No retained material headline.",
+      [release]: '<html><head><meta name="publication-date" content="09-23-2026"></head><body><header></header><main><div><h1>Adobe completes acquisition of Topaz Labs</h1><p><picture><img alt="Adobe and Topaz Labs"></picture></p><p>Today, Adobe completed its <a href="https://news.adobe.com/news/2026/06/adobe-to-acquire-topaz-labs">acquisition of Topaz Labs</a>.</p></div></main></body></html>',
+    };
+    if (mode === "captured") for (const [url,file] of [[home,"home"],[news,"blog"],[release,"completion"]]) pages[url!] = readFileSync(`fixtures/company-ir/adobe-20261019/${file}.html`, "utf8");
+    const attempted: string[] = [];
+    const unavailable = async () => new Response("unavailable", { status: 404 });
+    const bundle = await buildDataBundle("ADBE", { now, keyless: false,
+      fmp: createFmpClient({ apiKey: "test", now, limiter: makeLimiter(10000, 10000), fetchImpl: (async input => {
+        const endpoint = new URL(String(input)).pathname.replace(/^.*\/stable\//, "");
+        return new Response(JSON.stringify(endpoint === "profile" ? [{ symbol: "ADBE", companyName: "Adobe Inc.", cik: "796343", website: home }] : []), { status: 200 });
+      }) as typeof fetch }),
+      edgar: createEdgarClient({ maxRps: 10000, transport: { async fetchText(url) {
+        const body = url.includes("company_tickers.json") ? { "0": { cik_str: 796343, ticker: "ADBE", title: "ADOBE INC." } }
+          : url.includes("submissions/") ? { cik: "0000796343", name: "ADOBE INC.", tickers: ["ADBE"], exchanges: ["Nasdaq"], filings: { files: [], recent: { accessionNumber: [], filingDate: [], reportDate: [], form: [], primaryDocument: [] } } }
+          : { cik: 796343, entityName: "ADOBE INC.", facts: {} };
+        return { status: 200, body: JSON.stringify(body), fetchedAt: now().toISOString(), stale: false, fromCache: false };
+      } } }),
+      fred: { fetchImpl: unavailable, retryDelaysMs: [], minRequestIntervalMs: 0 }, finnhub: { fetchImpl: unavailable, retryDelaysMs: [] }, finra: { fetchImpl: unavailable, retryDelaysMs: [], minRequestIntervalMs: 0 },
+      companyIr: { now, lookup: async () => [{ address: "93.184.216.34", family: 4 }], fetchImpl: (async input => {
+        attempted.push(String(input)); return new Response(pages[String(input)] ?? "missing", { status: pages[String(input)] ? 200 : 404, headers: { "content-type": "text/html" } });
+      }) as typeof fetch },
+    });
+    if (indexed) {
+      expect(bundle.companyIrMaterialEvents).toMatchObject({ ok: true, value: { data: { events: [{ symbol: "ADBE", status: "issuer-stated-completed", publishedAt: "2026-09-23", consideration: null, funding: null, authorityChain: mode === "captured" ? [news, release] : [home, news, release] }] } } });
+      const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: now() }));
+      expect(payload.filings.find(entry => entry.source === release)).toMatchObject({ asOf: "2026-09-23", text: expect.stringContaining("Today, Adobe completed") });
+      if (mode === "captured") expect(payload.filings.find(entry => entry.source === release)?.sourceEvidence).toMatchObject({discoveryEvidence:{kind:"reviewed-issuer-index",indexUrl:news,indexSourceHash:expect.stringMatching(/^[a-f0-9]{64}$/)}});
+    } else expect(bundle.companyIrMaterialEvents).toMatchObject({ ok: false, gap: { reason: expect.stringMatching(/bounded.*not evidence/i) } });
+    expect(attempted).not.toContain("https://unrelated.example/deal");
+  });
   it("carries guarded source discovery through DataBundle and its own citable payload excerpt", async () => {
     const now = () => new Date("2026-10-17T12:00:00.000Z");
     const fmpFetch = (async (input: string | URL | Request) => {

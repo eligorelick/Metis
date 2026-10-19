@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Compile a build token into server modules; runtime never identifies a stale
+  // build from the mutable source checkout. Only the build wrapper sets it.
+  env: { METIS_RUNTIME_BUILD_ID: process.env.METIS_RUNTIME_BUILD_ID ?? "" },
+  generateBuildId: () => process.env.METIS_RUNTIME_BUILD_ID ?? null,
   // The supported runtime binds to loopback. HTTP gzip adds no useful network
   // savings here, and Next's bundled compression forwards drain listeners to
   // Gzip without forwarding their removal (leaking once listeners on long

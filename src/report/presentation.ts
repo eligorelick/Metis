@@ -130,7 +130,7 @@ const ASPECT_LABEL: Record<string, string> = {
   fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality",
   balancesheet: "Balance-sheet", balanceSheet: "Balance-sheet", moat: "Moat",
   // D-61: the deterministic leadership score is a capital-stewardship proxy.
-  leadership: "Leadership (capital stewardship)", technicals: "Technicals", composite: "Composite",
+  leadership: "Leadership (capital-stewardship proxy)", technicals: "Technicals", composite: "Composite",
 };
 
 const EXACT_LABELS: Record<string, string> = {
@@ -246,7 +246,7 @@ export function signalLabel(id: string): string {
     beneishMSgiNeutral: "Beneish M-score (sales growth neutral)",
     roicStability: "ROIC stability (std. dev.)", grossMarginLevel: "Gross-margin level",
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
-    shareCountTrend: "Share-count trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
+    shareCountTrend: "Annualized weighted-average diluted common-share trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
     pctFromHigh52w: "Distance from 52-week high", smaGap: "SMA 50 / SMA 200 gap",
   };
   return fixed[id] ?? sentence(segmentWords(id));
@@ -789,7 +789,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const label = `Consensus FY+${index + 1} (year ending ${e.fiscalYearEnd})`;
     const parts = [
       e.revenueAvg !== null ? `revenue ${perShareOrTotal(e.revenueAvg, estCurrency, false)}` : null,
-      e.epsAvg !== null ? `EPS ${perShareOrTotal(e.epsAvg, estCurrency, true)}` : null,
+      e.epsAvg !== null ? `provider EPS ${perShareOrTotal(e.epsAvg, estCurrency, true)} (accounting basis unverified)` : null,
     ].filter((part): part is string => part !== null);
     if (parts.length > 0) rows.push({ label, value: parts.join(" · "), note: e.analystsRevenue !== null ? `${e.analystsRevenue} revenue / ${e.analystsEps ?? "?"} EPS estimates` : undefined });
   });
@@ -803,15 +803,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const forward = estimates.find((e) => e.epsAvg !== null && e.epsAvg > 0);
   const tracedEps = md === undefined ? firstTrace(traces, /^payload\.estimates\.est-eps-\d{4}-\d{2}-\d{2}$/) : null;
   if (forward && price !== null) {
-    rows.push({ label: "Forward P/E (consensus EPS)", value: formatMultiple(price / forward.epsAvg!), note: `year ending ${forward.fiscalYearEnd}` });
+    rows.push({ label: "Price / provider EPS (basis unverified)", value: formatMultiple(price / forward.epsAvg!), note: `year ending ${forward.fiscalYearEnd}; not comparable to GAAP historical P/E or model operating EPS without verified accounting basis` });
   } else if (tracedEps && tracedEps.value > 0 && price !== null) {
-    rows.push({ label: "Forward P/E (consensus EPS)", value: formatMultiple(price / tracedEps.value) });
+    rows.push({ label: "Price / provider EPS (basis unverified)", value: formatMultiple(price / tracedEps.value), note: "Not comparable to GAAP historical P/E or model operating EPS without verified accounting basis" });
   }
   const epsSeries = report.projections?.series.find((s) => s.metric === "epsDiluted");
   const nextEps = epsSeries?.base[0];
   if (nextEps && price !== null && nextEps.value.value > 0) {
     // D-65: the model's EPS is operating EPS (EBIT less interest, taxed at the
-    // DCF rate), not a GAAP diluted EPS forecast like the consensus row above.
+    // DCF rate). The provider consensus does not establish an accounting basis.
     rows.push({ label: "Forward P/E (model base-case operating EPS)", value: formatMultiple(price / nextEps.value.value), note: `${nextEps.period}; excludes investment gains` });
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
@@ -868,12 +868,12 @@ export function consensusTables(report: Report): BodyTable[] {
       rows: [
         ["Revenue (mean)", ...md.estimates.map((e) => cell(e.revenueAvg, false))],
         ["Revenue (low – high)", ...md.estimates.map((e) => range(e.revenueLow, e.revenueHigh, false))],
-        ["Diluted EPS (mean)", ...md.estimates.map((e) => cell(e.epsAvg, true))],
-        ["Diluted EPS (low – high)", ...md.estimates.map((e) => range(e.epsLow, e.epsHigh, true))],
+        ["Provider EPS (mean; accounting basis unverified)", ...md.estimates.map((e) => cell(e.epsAvg, true))],
+        ["Provider EPS (low - high; accounting basis unverified)", ...md.estimates.map((e) => range(e.epsLow, e.epsHigh, true))],
         ["Estimates (revenue / EPS)", ...md.estimates.map((e) => `${e.analystsRevenue ?? "—"} / ${e.analystsEps ?? "—"}`)],
-        ["P/E at the quoted price", ...md.estimates.map((e) => (price !== null && e.epsAvg !== null && e.epsAvg > 0 ? formatMultiple(price / e.epsAvg) : "—"))],
+        ["Price / provider EPS (basis unverified)", ...md.estimates.map((e) => (price !== null && e.epsAvg !== null && e.epsAvg > 0 ? formatMultiple(price / e.epsAvg) : "—"))],
       ],
-      note: `Provider consensus${md.estimatesAsOf ? ` as of ${md.estimatesAsOf}` : ""}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} Consensus is other analysts' forecast, not this report's.`,
+      note: `Provider consensus${md.estimatesAsOf ? ` as of ${md.estimatesAsOf}` : ""}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} EPS accounting basis unverified; do not compare with GAAP TTM EPS/P/E, adjusted guidance or model operating EPS without source evidence of a common basis. Consensus is other analysts' forecast, not this report's.`,
     });
   }
   const rows: string[][] = [];
@@ -1111,17 +1111,17 @@ function smallOrTwoDecimals(value: number): string {
  * billions or trillions to two decimals, 0–100 scores to an integer. Only a
  * figure stated more precisely than that is rounded; a three-decimal coupon
  * ("4.250% Notes") or an exact-to-the-million amount ("USD 7.771 billion") is
- * left as written. `source` is the claim's citation: a ratio read as a
- * percentage (FCF conversion, accrual ratios) is shown in percent.
+ * left as written. Ratio claims (FCF conversion, accrual ratios) retain their
+ * wording; displayClaimText may disclose a compatible typed cited measure.
  */
 export function readerPrecision(text: string, source?: string): string {
-  let out = text
+  // A source name cannot recover precision rounded away by the model or
+  // identify which operand carries the ratio. Preserve these claims as written.
+  if (source !== undefined && isRatioAsPercent(source)) return text;
+  const out = text
     .replace(/(?<![\w.])(\d+\.\d+)( on the 0[–-]100 scale)/g, (_m, value: string, tail: string) => `${roundedText(Number(value), 0)}${tail}`)
     // A whole compact amount in stored text ("the guided run-rate $432.00B"), as the formatter prints it.
     .replace(/(\$|\bUSD )(\d+)\.00([KMBT])\b/g, "$1$2$3");
-  if (source !== undefined && isRatioAsPercent(source)) {
-    out = out.replace(/(?<![\w.])(-?\d+(?:\.\d+)?)\s?[x×](?![A-Za-z0-9])/g, (_m, value: string) => ratioPercentText(Number(value)));
-  }
   return out.replace(
     /(?<![\w.:/-])(-?)(\d+)\.(\d+)(?!\.?\d)(\s?(?:x|×)(?![A-Za-z0-9])|%| percentage points?\b| pp\b| (?:trillion|billion|million|thousand)\b| per share\b)?/g,
     (match, sign: string, whole: string, fraction: string, unit: string | undefined, offset: number, whole_text: string) => {
@@ -1146,6 +1146,80 @@ export function readerPrecision(text: string, source?: string): string {
 /** Stored prose for a reader: registry ids under reader labels, figures at reader precision. */
 export function displayProse(text: string, source?: string): string {
   return readerPrecision(humanizeInlineCitations(text), source);
+}
+
+/**
+ * Add the table's typed measure only beside compatible, uniquely cited scalar
+ * ratio wording. No claim is rewritten or validated. Missing/ambiguous context
+ * stays raw and retains the report's existing verification disclosures.
+ */
+export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNumber[] = []): string {
+  const text = displayProse(claim.text, claim.source);
+  if (!isRatioAsPercent(claim.source) || /(?:abs|absolute)$/i.test(claim.source)) return text;
+  const matches = numbers.filter(n => n.source === claim.source &&
+    (claim.sourceId === undefined || n.sourceId === claim.sourceId));
+  if (matches.length !== 1) return text;
+  const n = matches[0]!;
+  if (n.verified !== true || n.asOf === null || n.asOf !== claim.asOf || !n.period?.trim() ||
+      !["x", "×", "multiple", "fraction", "frac", "ratio"].includes(n.unit.trim().toLowerCase())) return text;
+  // Brackets may qualify entity/window, not merely repeat a citation. Keep
+  // them in the sentence check so unestablished bracket context stays raw.
+  const body = claim.text;
+  // Admit only a whole, bare metric/scalar sentence. Free-form prefixes,
+  // named entities, quarter modifiers and other context cannot be established
+  // from a shared citation, even when its value/date happen to match.
+  const bareMetricStatement = /^(?:The\s+)?(?:FCF conversion(?:\s+(?:before|after)\s+SBC)?|(?:(?:cash[- ]flow|balance[- ]sheet)\s+)?accrual ratio)(?:\s+(?:for\s+(?:the\s+fiscal\s+year\s+ended\s+)?|in\s+)(?:FY\d{4}|\d{4}-\d{2}-\d{2}))?\s+(?:was|is)\s+[+−-]?\d+(?:\.\d+)?\s*[x×%][.!]?$/i;
+  if (!bareMetricStatement.test(body.trim())) return text;
+  const words = (s: string) => s.replace(/[^a-z]/gi, "").toLowerCase();
+  const bodyWords = words(body);
+  const sourceWords = words(claim.source);
+  if (bodyWords.includes("fcfconversion") !== sourceWords.includes("fcfconversion")) return text;
+  for (const variant of ["before SBC", "after SBC", "cash-flow", "balance-sheet"]) {
+    if (bodyWords.includes(words(variant)) !== sourceWords.includes(words(variant))) return text;
+  }
+  const periodPattern = /\bFY\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/g;
+  if ((body.match(periodPattern) ?? []).some(p => !n.period!.includes(p) && !JSON.stringify(n.periodContext ?? {}).includes(p))) return text;
+  const scalars = [...body.replace(periodPattern, "").matchAll(/(?<![\w.])([+−-]?\d+(?:\.\d+)?)\s*([x×%])?(?![\w\d])/g)];
+  if (scalars.length !== 1 || !scalars[0]![2]) return text;
+  const scalar = scalars[0]!;
+  const raw = scalar[1]!.replace("−", "-");
+  const value = Number(raw);
+  const typed = scalar[2] === "%" ? n.value * 100 : n.value;
+  const digits = raw.split(".")[1]?.length ?? 0;
+  // Numeric compatibility at the stated precision is not factual validation.
+  if (Math.sign(value) !== Math.sign(typed) || decimalRound(typed, digits) !== value) return text;
+  return `${text} [Original rounded claim; cited measure: ${figureValueText(n)} (${metricLabel(n.source, n.unit)}; ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}).]`;
+}
+
+/**
+ * A section-level disclosure, independent of free-form claim admission above.
+ * Financial diagnostics inject these canonical, full-precision records into
+ * quality key numbers. Legacy citations can instead name rounded, periodless
+ * records. Show the canonical measure separately; a recorded end date alone
+ * must never become a fiscal-year duration or validate the model's wording.
+ */
+export function qualityAccrualClarifications(quality: Report["quality"]): string[] {
+  return ([
+    ["computed.forensics.accrual-ratio-cash-flow", "computed.forensics.accruals.cashFlowAccrualRatio"],
+    ["computed.forensics.accrual-ratio-balance-sheet", "computed.forensics.accruals.balanceSheetAccrualRatio"],
+  ] as const).flatMap(([legacy, canonical]) => {
+    const cited = quality.graded.reasoning.filter(claim => claim.source === legacy || claim.sourceId === legacy);
+    if (cited.length === 0 || cited.some(claim => claim.source !== legacy || claim.sourceId !== legacy)) return [];
+    // Count all records at the canonical identity before checking validity:
+    // contradictory or duplicate records cannot be silently disambiguated.
+    const matches = quality.graded.keyNumbers.filter(n => n.source === canonical || n.sourceId === canonical);
+    if (matches.length !== 1) return [];
+    const n = matches[0]!;
+    if (n.source !== canonical || n.sourceId !== canonical || n.verified !== true ||
+        !Number.isFinite(n.value) || typeof n.asOf !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(n.asOf) || !n.period?.trim() ||
+        !["x", "×", "multiple", "fraction", "frac", "ratio"].includes(n.unit.trim().toLowerCase()) ||
+        cited.some(claim => claim.asOf !== n.asOf)) return [];
+    // Do not normalize timestamps, whitespace or rolled-over calendar dates
+    // into a different supplied as-of day.
+    const asOfDay = new Date(`${n.asOf}T00:00:00Z`);
+    if (!Number.isFinite(asOfDay.getTime()) || asOfDay.toISOString().slice(0, 10) !== n.asOf) return [];
+    return [`Structured measure clarification: ${metricLabel(n.source, n.unit)}: ${figureValueText(n)} (recorded period: ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}). Original model wording is retained; this separate quality-section measure does not validate the entity or measurement window of the original claim.`];
+  });
 }
 
 /**
@@ -1465,7 +1539,7 @@ export interface BodyTable {
 const SCORE_ASPECT_ORDER = ["fundamentals", "valuation", "quality", "balanceSheet", "moat", "leadership", "technicals"] as const;
 const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = {
   fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality", balanceSheet: "Balance Sheet",
-  moat: "Moat", leadership: "Leadership (capital stewardship)", technicals: "Technicals",
+  moat: "Moat", leadership: "Leadership (capital-stewardship proxy)", technicals: "Technicals",
 };
 
 /**
@@ -1527,9 +1601,15 @@ export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]
 
 /** Score drivers with reader labels, values in their own units and the points each adds. */
 export function scoreDriverTable(scores: NonNullable<Report["scores"]>): BodyTable | null {
+  const historyLabel = (signal: NonNullable<NonNullable<Report["scores"]>["aspects"]["valuation"]["signals"]>[number]): string => {
+    if (signal.id !== "peOwnHistoryRank") return signalLabel(signal.id);
+    const source = signal.operands.find(operand => /\.multiples\.(?:peTtm|evToEbitda|priceToFcf)\.current$/.test(operand.source))?.source;
+    const key = source?.split(".").at(-2);
+    return `${key === "peTtm" ? "P/E" : key === "evToEbitda" ? "EV/EBITDA" : key === "priceToFcf" ? "Price/FCF" : "Multiple"} own-history rank`;
+  };
   const rows = SCORE_ASPECT_ORDER.flatMap((key) => (scores.aspects[key].signals ?? []).map((signal) => [
     SCORE_ASPECT_LABEL[key],
-    signalLabel(signal.id),
+    historyLabel(signal),
     signalValueText(signal),
     signal.period ?? "—",
     formatNumber(signal.transformedScore, 0),

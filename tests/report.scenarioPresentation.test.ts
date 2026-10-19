@@ -33,6 +33,51 @@ function computedFixture(): ComputedMetrics {
 }
 
 describe("modeled-grid sensitivity conclusions", () => {
+  it("retains fresh analyst text and citations that collide with the generated-condition prefix", () => {
+    const computed = computedFixture();
+    const input = narrativeValuation();
+    const condition = "Modeled conditions: A change in product mix would be required. [edgar:10-Q item2 · 2026-04-30]";
+    input.scenarios[0].whatWouldHaveToBeTrue = [condition];
+    const result = applyScenarioPresentation(input, computed);
+    expect(result.scenarios[0].whatWouldHaveToBeTrue[0]).not.toBe(condition);
+    expect(result.scenarios[0].qualitativeCommentary).toContain(
+      `Separate qualitative condition, not a modeled input or prerequisite for this target: ${condition}`,
+    );
+    expect(input.scenarios[0].whatWouldHaveToBeTrue).toEqual([condition]);
+    expect(applyScenarioPresentation(result, computed)).toEqual(result);
+  });
+  it("retains an appended analyst condition even when the first condition exactly matches generated text", () => {
+    const computed = computedFixture();
+    const input = narrativeValuation();
+    const generated = applyScenarioPresentation(input, computed).scenarios[0].whatWouldHaveToBeTrue;
+    const extra = "A separately stated product-mix change remains possible. [edgar:10-Q item2 · 2026-04-30]";
+    input.scenarios[0].whatWouldHaveToBeTrue = [...generated, extra];
+    const result = applyScenarioPresentation(input, computed);
+    expect(result.scenarios[0].qualitativeCommentary).toContain(
+      `Separate qualitative condition, not a modeled input or prerequisite for this target: ${extra}`,
+    );
+    expect(applyScenarioPresentation(result, computed)).toEqual(result);
+  });
+  it.each([false, true])("separates unmodeled deterioration from actual lower-growth bear inputs (margin cap %s)", capped => {
+    const computed = computedFixture();
+    if (computed.scenarioTargets.status !== "available") throw Error("scenario fixture");
+    if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions) throw Error("DCF fixture");
+    if (!capped) computed.valuation.assumptions.scenarioMarginCeiling = null;
+    computed.scenarioTargets.targets.find(t => t.name === "bear")!.marginDeltaPp = 1;
+    const input = narrativeValuation();
+    const claim = "A sustained deterioration in operating margins or capital efficiency would be required.";
+    input.scenarios.find(s => s.name === "bear")!.whatWouldHaveToBeTrue = [claim];
+    const before = JSON.stringify(computed);
+    const result = applyScenarioPresentation(input, computed);
+    const bear = result.scenarios.find(s => s.name === "bear")!;
+    expect(bear.whatWouldHaveToBeTrue.join(" ")).toContain(`revenue growth -2 percentage points, operating margin ${capped ? 0 : 1} percentage points`);
+    if (capped) expect(bear.whatWouldHaveToBeTrue.join(" ")).toContain("after the scenario margin cap (1 requested)");
+    expect(bear.whatWouldHaveToBeTrue.join(" ")).toMatch(/capital efficiency.*WACC.*base/i);
+    expect(bear.whatWouldHaveToBeTrue.join(" ")).not.toContain("deterioration");
+    expect(bear.qualitativeCommentary?.some(c => c.includes(claim) && /not a modeled input/i.test(c))).toBe(true);
+    expect(JSON.stringify(computed)).toBe(before);
+    expect(applyScenarioPresentation(result, computed)).toEqual(result);
+  });
   it.each([
     [[110, 120, 115, 125], "robust-above"],
     [[80, 90, 85, 95], "robust-below"],
@@ -138,9 +183,10 @@ describe("modeled-grid sensitivity conclusions", () => {
     expect(result.scenarios[0].assumptions.join(" ")).toContain(`mid-year discounting ${midYear ? "on" : "off"}`);
     expect(result.scenarios[0].assumptions.join(" ")).toContain("minority interest not disclosed");
     expect(result.scenarios[0].assumptions.join(" ")).toContain("preferred equity 0");
-    expect(result.scenarios[0].qualitativeCommentary).toEqual(["previous qualitative comment"]);
-    expect(result.scenarios[1].qualitativeCommentary).toEqual(["model base commentary"]);
-    expect(result.scenarios[0].whatWouldHaveToBeTrue).toEqual(["demand remains stable"]);
+    expect(result.scenarios[0].qualitativeCommentary).toContain("previous qualitative comment");
+    expect(result.scenarios[1].qualitativeCommentary).toContain("model base commentary");
+    expect(result.scenarios[0].whatWouldHaveToBeTrue[0]).toContain("revenue growth 2 percentage points");
+    expect(result.scenarios[0].qualitativeCommentary?.at(-1)).toContain("not a modeled input or prerequisite for this target: demand remains stable");
     expect(JSON.stringify(computed)).toBe(before);
     expect(input.scenarios[1].assumptions).toEqual(["model base commentary"]);
   });

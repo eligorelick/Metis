@@ -72,6 +72,10 @@ function seedReport() {
   fixture.scores.aspects.valuation.dataCompleteness = 0.5;
   fixture.verdict.gradeStrip.quality.grade = "A";
   fixture.verdict.gradeStrip.valuation.grade = "B";
+    fixture.quality.graded.grade = "A";
+    fixture.valuation.graded.grade = "B";
+    fixture.scores.aspects.quality.band = "A";
+    fixture.scores.aspects.valuation.band = "B";
   handle.db.insert(reports).values({ symbol: "AAPL", createdAt: NOW.toISOString(), model: "saved-model",
     status: "done", reportJson: JSON.stringify(fixture), specVersion: REPORT_SPEC_VERSION }).run();
 }

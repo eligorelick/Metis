@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.17.0** and
-payload **1.22.0** (source periods and reporting evidence, 2026-10-15). The checked-in
+Current source declares application **0.1.0**, report spec **1.29.1** and
+payload **1.34.1** (bounded phase-one evidence completion, 2026-10-19). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,101 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed independent-review corrections (2026-10-19)
+
+- Guard canonical EDGAR gross-profit construction and admission, preserving directly filed subtotals and serializing partial-cost refusals. Propagation requires compatible vendor/source scope and preserves existing refusals.
+- Use immutable refusal-aware disclosure reads for guidance and quarterly trends, including CFO aliases; restore Unicode dateline separators.
+- Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](docs/audit/2026-10-19-phase-one-review-corrections.md).
+
+## Proposed phase-one evidence completion (2026-10-19)
+
+- Preserve exact quarter, cash, repurchase and income-classification refusals through payout, liquidity, buyback coverage and forensic consumers; keep raw observations.
+- Bind the reviewed Adobe completion alias and actual publication shape, retain bounded official news discovery and exact uppercase compensation-title boundaries.
+- Advance Stage B implementation to ACCOUNTING_EVIDENCE_9, report 1.29.0, payload 1.34.0 and pipeline stage-c-1.5.0. Earlier engine snapshots require their original method; saved reports retain bytes.
+- PR32 SQLite diagnostics remain a separate commit. Full gates and final independent review are required before push/merge; original FMP 402 cause and private report migration remain unresolved. See [evidence record](docs/audit/2026-10-19-phase-one-evidence-completion.md).
+
+## Unreleased - exact final evidence and interval presentation (2026-10-18)
+
+- Retain failed acquisition attempts as audit history while marking only exact,
+  independently admitted final fields resolved. Missing lease or temporary-equity
+  categories remain unknown; recovered aggregate debt does not establish funding capacity.
+- Preserve an explicitly sourced duration in the filing-fact registry. Wrong
+  intervals, signs, currencies and filing dates still fail verification.
+- Show separately bound structured accrual measures beside rounded model prose
+  across web and exports. Preserve raw prose and strict claim matching.
+- Advance report, payload and pipeline versions; saved reports are not rewritten.
+
+See the [bounded follow-up record](docs/audit/2026-10-18-accounting-evidence-remediation.md#bounded-final-evidence-follow-up)
+for source scope, deterministic replay and limitations.
+
+## Unreleased - accounting and filing evidence (2026-10-18)
+
+- Separate sourced temporary equity from permanent equity and liabilities;
+  preserve unknown components and reject conflicting accounting inputs.
+- Reconcile current and noncurrent restricted cash without making restrictions
+  available cash. Admit debt carrying values only from a compatible dated note
+  and principal reconciliation; preserve incompatible claims and lease scope.
+- Use existing actual-observation and window guards for recent-IPO technical
+  indicators, and qualify sparse-window drawdowns as observed partial samples.
+  Financial-history restrictions, score bands and weights remain.
+- Preserve original ratio prose and compare only tightly bound typed measures.
+  Label the leadership capital-stewardship proxy and weighted-average share
+  measures according to what they calculate.
+- Retain bounded source-matched controls, litigation and officer evidence, and
+  distinguish completed-financing proceeds and costs from current liquidity.
+
+See the [implementation and verification record](docs/audit/2026-10-18-accounting-evidence-remediation.md)
+for evidence, admission limits and review findings. Historical saved reports
+retain their original contents; these changes do not establish better returns.
+
+## Unreleased - common-earnings admission (2026-10-18)
+
+- Stop treating preferred cash payments as current-period earnings allocations.
+  Preserve admitted common numerators, including zero/losses, and label the
+  existing filed-Basic return convention without reconstructing allocations.
+- Preserve actual field flow intervals, currency and ownership through annual
+  and TTM admission. Refuse known incompatible or incomplete earnings bridges;
+  retain unknown-start vendor and compatible nearby-date controls.
+- Preserve signed NCI allocations on coherent consolidated TTM flows. Supported
+  capital, returns and payout controls remain unchanged; no TCE redefinition or
+  investment-scoring recalibration is introduced.
+
+## Unreleased - reported commitment timing (2026-10-18)
+
+- Retain optional source-bound fiscal payment buckets with printed operands,
+  scale/currency, exact reconciliation, coverage and supplying exhibit.
+- Keep incomplete or unsupported timing explicit across reports, model context
+  and exports. Preserve independently supported totals and legacy absence.
+- Fiscal labels are not maturity dates. This adds no funding-capacity conclusion,
+  net-debt adjustment, DCF deduction or change to investment-scoring defaults.
+
+## Unreleased - common-cash admission (2026-10-18)
+
+- Recognize APIC-inclusive and within-period preferred exposure before using
+  aggregate dividend cash as a common-holder proxy. Preserve direct common cash
+  and compatible total-minus-preferred cash; reject contradictory components.
+- Carry explicit common-cash refusals into serialized statement rows and payout
+  admission, including aggregate zero. Unsupported payout history can now withhold
+  bank equity valuation; supported TCE and returns remain separately available.
+- Preserve source totals, refusal reasons and historical report bytes. This does
+  not repair the separate preferred earnings-allocation or flow-period questions.
+
+## Unreleased - research safeguard contracts (2026-10-17)
+
+- Enforce the existing one-band grade contract on ordinary generation, verification,
+  fallback assembly and immutable saved-report views. Preserve raw proposals and
+  withhold rejected headlines; citation admission does not establish semantic truth.
+- Bind ordinary normalized-input snapshots to production build artifacts when
+  retained build evidence is available. Missing identity remains unverified.
+- Label the existing sum-of-quarterly diluted EPS convention in P/E explanations;
+  preserve financial arithmetic and refusal behavior.
+- Reconcile the book-derived recommendations and historical decisions with current
+  implementations and explicit gates for further analytical models. No calibrated
+  scores, case probabilities or return claims are introduced.
+
+See the [disposition](docs/audit/2026-10-17-book-to-code-disposition.md) and
+[verification record](docs/audit/2026-10-17-safeguard-verification.md).
 
 ## Unreleased - source periods and reporting evidence (2026-10-15)
 

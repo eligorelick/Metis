@@ -110,7 +110,14 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.23.0 (D-81): pipeline-owned multiple bases, price-unit MACD evidence and
 // projection availability presentation; legacy reports retain their own stamps.
 // 1.23.1 (D-82): exact source-labeled ISO durations in deterministic claim verification.
-export const REPORT_SPEC_VERSION = "1.23.1" as const;
+// 1.24.0 (D-83): versioned grade contract and explicit quarter-sum EPS basis.
+// 1.24.1 (D-84): preserve explicit common-cash payout refusals through valuation.
+// 1.25.0 (D-86): optional sourced fiscal payment evidence and coverage disclosures.
+// 1.25.1 (D-85): common earnings retain allocation, source availability and flow scope.
+// 1.26.0 (D-87): source-bound accounting, evidence and metric presentation.
+// 1.27.0 (D-88): exact acquisition resolution and separate accrual clarifications.
+// 1.28.0 (D-89): CFO source admission and explicit fraction-scale claim support.
+export const REPORT_SPEC_VERSION = "1.30.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -247,6 +254,7 @@ const NON_NARRATIVE_STRING_KEYS = new Set([
   // string as `source` and was scanned while `source` was exempt: a cited
   // article slug such as ".../is-nvidia-a-strong-buy/" failed a whole pass.
   "sourceId",
+  "evidenceSources",
   "attemptedSources",
   "symbol",
   "companyName",
@@ -278,6 +286,10 @@ function enforceRecursiveRatingSafety(value: unknown, ctx: z.RefinementCtx): voi
     path: PropertyKey[],
     field: string | null,
   ): void => {
+    // Pipeline-owned original filing-table evidence is quoted source data,
+    // not authored investment advice. Its shape remains strictly validated
+    // and the judge wire schema excludes this block.
+    if (field === "commitmentPaymentTiming") return;
     if (typeof node === "string") {
       if (
         (field === null || !NON_NARRATIVE_STRING_KEYS.has(field)) &&
@@ -392,6 +404,20 @@ export const GradeBlockSchema = z
     grade: GradeSchema,
     /** Pipeline-owned evidence limit for headline grades; raw letters remain auditable. */
     assessmentStatus: z.enum(["not-assessed", "limited-evidence", "deterministic"]).optional(),
+    /** Explicit model proposal; sources must identify admitted section reasoning. */
+    overrideRationale: z.object({
+      reason: ratingSafeString(),
+      evidenceSources: z.array(z.string().trim().min(1)),
+    }).strict().optional(),
+    /** Pipeline-owned validation. Raw proposed letters remain intact for audit. */
+    gradeContract: z.object({
+      version: z.literal("GRADE_OVERRIDE_1"),
+      originalBand: GradeSchema.nullable(),
+      proposedGrade: GradeSchema,
+      distance: z.number().int().nonnegative().nullable(),
+      status: z.enum(["unchanged", "accepted", "rejected", "unavailable"]),
+      reason: z.enum(["matches-deterministic-band", "admitted-one-step-override", "grade-distance-exceeded", "inconsistent-grade-surfaces", "missing-override-rationale", "unadmitted-override-evidence", "no-deterministic-band"]),
+    }).strict().optional(),
     oneLineWhy: ratingSafeString(),
     reasoning: z.array(SourcedClaimSchema),
     confidence: ConfidenceSchema,
@@ -983,6 +1009,8 @@ export const DcfSchema = z
     assumptions: z.array(DcfAssumptionSchema),
     /** Flat list of cells (5×5 grid flattened; sensitivity). */
     sensitivityGrid: z.array(SensitivityCellSchema),
+    /** Actual grid conventions; absent on legacy reports. */
+    sensitivityNotes: z.array(z.string()).optional(),
     upsidePct: z.number().nullable(),
     bridge: z.object({
       enterpriseValue: z.number().nullable(), netDebt: z.number().nullable(), minorityInterest: z.number().nullable(),
@@ -1421,6 +1449,18 @@ export const ManifestEntrySchema = z
     attemptedSources: z.array(z.string()).optional(),
     /** Known structural gap (issuer doesn't report this) — counted separately. */
     expected: z.boolean().optional(),
+    resolution: z.object({
+      status: z.literal("resolved"),
+      method: z.enum(["same-filing-debt-note", "retained-sec-category"]),
+      reason: z.string().min(1),
+      evidence: z.array(z.object({
+        scope: z.enum(["balanceAnnual", "balanceQuarterly"]),
+        field: z.string().min(1), period: z.iso.date(), currency: z.string().regex(/^[A-Z]{3}$/),
+        cik: z.string().regex(/^\d{1,10}$/), value: z.number().finite(), observedAt: z.iso.datetime({ offset: true }),
+        tags: z.array(z.string().min(1)).min(1),
+        filings: z.array(z.object({ accn: z.string().min(1), filed: z.iso.date(), form: z.string().min(1) }).strict()).min(1),
+      }).strict()).min(1),
+    }).strict().optional(),
   })
   .strict();
 type _ManifestMatches = z.infer<typeof ManifestEntrySchema> extends ManifestEntry
@@ -2060,6 +2100,27 @@ export const GuidanceCheckSchema = z
   .strict();
 export type GuidanceCheck = z.infer<typeof GuidanceCheckSchema>;
 
+export const CommitmentPaymentTimingSchema = z.object({
+  coverage: z.enum(["complete", "incomplete", "unavailable"]),
+  sourceHeader: z.string(),
+  sourceText: z.string().max(2_000),
+  scale: z.number().finite().positive().nullable(),
+  currencySymbol: z.string().nullable(),
+  rows: z.array(z.object({
+    label: z.string(),
+    tableTotal: z.boolean(),
+    total: z.number().finite().nullable(),
+    totalRaw: z.string().nullable(),
+    buckets: z.array(z.object({ label: z.string(), amount: z.number().finite().nullable(), raw: z.string() }).strict()),
+    reconciliation: z.object({
+      status: z.enum(["reconciled-as-printed", "mismatch", "unknown"]),
+      bucketSum: z.number().finite().nullable(),
+      residual: z.number().finite().nullable(),
+    }).strict(),
+  }).strict()),
+  reason: z.string().nullable(),
+}).strict();
+
 export const FilingDisclosuresSchema = z
   .object({
     version: z.literal("1.0.0"),
@@ -2092,6 +2153,8 @@ export const FilingDisclosuresSchema = z
         /** D-62: "approximately $99.0 billion remaining". Absent on older reports. */
         authorizationRemainingApproximate: z.boolean().optional(),
         authorizationRemaining: z.number().nullable(),
+        authorizationRemainingAsOf: IsoDaySchema.optional(),
+        authorizationRemainingSource: FilingRefSchema.optional(),
         authorizationAdded: z.number().nullable(),
         dividendPerShare: z.number().nullable(),
         dividendPayDate: IsoDaySchema.nullable(),
@@ -2210,6 +2273,15 @@ export const FilingDisclosuresSchema = z
         source: FilingRefSchema,
       }).strict(),
     ).optional(),
+    /** Original fiscal labels and payment operands; not a funding or solvency model. */
+    commitmentPaymentTiming: z.array(CommitmentPaymentTimingSchema.extend({
+      kind: z.enum(["commitments", "guarantees"]),
+      table: z.string(),
+      tableIndex: z.number().int().nonnegative(),
+      asOf: IsoDaySchema.nullable(),
+      currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+      source: FilingRefSchema,
+    }).strict()).optional(),
     /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
     nonGaapBasisNote: z.string().nullable().optional(),
     /**
@@ -2360,7 +2432,7 @@ const JudgeOutputObjectSchema = z
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
     // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true }) }),
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true, sensitivityNotes: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,
@@ -2841,6 +2913,9 @@ export function collapseNullableComplexity<T>(schema: T): T {
  * honest as omitting the key).
  */
 const ALWAYS_FILLED_BY_GENERATION = new Set([
+  // Empty reason/sources for an unchanged grade; optional only on persisted
+  // records. Required on the wire to preserve the provider complexity margin.
+  "overrideRationale",
   "assessmentReason",
   "executiveSummary",
   "interpretation",
@@ -2974,9 +3049,10 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         delete props.assessmentStatus;
         // D-50: the confidence ceiling is applied at assembly, never model-authored.
         delete props.confidenceCap;
+        delete props.gradeContract;
         if (Array.isArray(obj.required)) {
           obj.required = (obj.required as string[]).filter(
-            (key) => key !== "assessmentStatus" && key !== "confidenceCap",
+            (key) => key !== "assessmentStatus" && key !== "confidenceCap" && key !== "gradeContract",
           );
         }
       }

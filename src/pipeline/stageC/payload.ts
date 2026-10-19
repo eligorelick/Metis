@@ -46,7 +46,8 @@ import type { FilingDisclosures, GuidanceRow, TracedNumber } from "@/report/sche
 import { buildFilingDisclosures, residualNote } from "@/pipeline/filingDisclosures";
 import { peerSizeExclusion } from "@/pipeline/peers";
 import { consensusYearsText } from "@/pipeline/stageB/valuation";
-import { materialCreditSupportClauses } from "@/edgar/currentReports";
+import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
+import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import {
   PROJECTION_PATH_ORDER,
@@ -242,7 +243,8 @@ export interface TextExcerpt {
   /** A keyword family being retained does not imply all of its passages survived. */
   coverage?: EvidenceCoverage;
   /** Retained authority and observation context for an official company statement. */
-  sourceEvidence?: { kind: "issuer-statement"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[] };
+  sourceEvidence?: { kind: "issuer-statement"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[];
+    discoveryEvidence?: { kind: "reviewed-issuer-index"; verifiedWebsite: string; indexUrl: string; indexSourceHash: string } };
 }
 
 /**
@@ -346,8 +348,8 @@ export interface ContextPayload {
 // next earnings date is shown; completeness and indicator units have their
 // own rows. Analyst work written against the 1.11.0 evidence cannot resume.
 // 1.13.0 (D-49, D-48, 2026-10-13): the aspect scores the analysts anchor to
-// come from band table SCORE_BANDS_2026_10, which scores net share-count
-// change and the SBC charge once each and grades technicals on 12-1 month
+// come from band table SCORE_BANDS_2026_10, which scores annualized weighted-average
+// diluted common-share change and the SBC charge once each and grades technicals on 12-1 month
 // relative strength; the technicals rows add that window and the displayed
 // 6-month window vs SPY. Prior partial passes cannot resume.
 // 1.14.0 (D-46, 2026-10-13): a bank's balance-sheet score is graded on capital,
@@ -390,7 +392,16 @@ export interface ContextPayload {
 // 1.28.0 (D-81): complete passage-level applicability, price-unit MACD and
 // admitted per-multiple bases change the analyst context. Earlier reusable
 // analyst/judge passes cannot resume as equivalent; completed reports stay readable.
-export const PAYLOAD_VERSION = "1.28.0" as const;
+// D-83: quarter-sum EPS basis and changed grade-override prompt contract.
+// 1.29.1 (D-84): common-cash refusals cannot become zero-payout observations.
+// 1.30.0 (D-86): retain source-bound fiscal payment buckets and unknown funding scope.
+// 1.30.1 (D-85): distinguish earnings allocation from cash and retain actual source scope.
+// 1.31.0 (D-87): source-bound accounting and retained critical filing context.
+// 1.32.0 (D-88): preserve sourced duration intervals and final gap evidence.
+// 1.33.0 (D-89): retain the declared unit-fraction scale in numeric provenance.
+// 1.35.0: first-report audit cash admission, official-index discovery, EPS basis and disclosure context.
+// 1.35.1: deterministic source attribution and present-but-refused accrual explanations.
+export const PAYLOAD_VERSION = "1.35.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -719,7 +730,7 @@ function computedSections(
     // N3: the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
     { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
-    { label: "diluted share count trend (5y)", value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
+    { label: "weighted-average diluted common-share change (5y total)", value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
     // D-61: the premium of today's quote over the proxy paid price is price
     // appreciation since the buybacks, labelled so and not graded; timing —
     // the price actually paid against the same year's average — is the
@@ -1128,7 +1139,7 @@ function computedSections(
         `band table: ${sc.bandsVersion}`,
         // D-61 (NVDA report #34: a leadership grade justified by guidance
         // execution that the score never measured).
-        "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and net share-count change. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support.",
+        "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and annualized weighted-average diluted common-share change. That share measure is not net economic dilution. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support.",
       ],
     }));
   }
@@ -1456,6 +1467,7 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): 
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
+  if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
     const currency = rowCurrency(e, issuer);
     const candidatePeriod = isoDay(e.date);
@@ -1873,9 +1885,43 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
   add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
   add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
+  const signatures = periodicPrimaryExcerpt(bundle, "signatures");
+  if (signatures !== null) out.push(signatures);
+  const controls = periodicPrimaryExcerpt(bundle, "controls");
+  if (controls !== null) out.push(controls);
   out.push(...currentReportExcerpts(bundle));
   out.push(...companyIrMaterialExcerpts(bundle));
   return out;
+}
+
+/** Same primary-document admission for dated roles and the controls conclusion. */
+function periodicPrimaryExcerpt(bundle: DataBundle, kind: "signatures" | "controls"): TextExcerpt | null {
+  const notes = bundle.edgar?.tenQNotes, filing = bundle.edgar?.latestTenQ, mapping = bundle.edgar?.cik;
+  if (!notes?.ok || notes.value.source !== "edgar" || !filing?.ok || filing.value.source !== "edgar" || !mapping?.ok ||
+      mapping.value.source !== "edgar" || mapping.value.data.ticker.trim().toUpperCase() !== bundle.symbol.trim().toUpperCase()) return null;
+  const section = notes.value.data, metadata = filing.value.data;
+  const cutoff = bundle.builtAt.slice(0, 10), cik = mapping.value.data.cik;
+  if (!isIsoDate(cutoff) || !Number.isSafeInteger(cik) || cik <= 0 || section.sectionName !== "tenQNotes" || section.form !== "10-Q" ||
+      !isIsoDate(section.reportDate) || !isIsoDate(section.filingDate) || section.reportDate > section.filingDate || section.filingDate > cutoff ||
+      section.accession !== metadata.accessionNumber || section.form !== metadata.form || section.filingDate !== metadata.filingDate ||
+      section.reportDate !== metadata.reportDate || !/^\d{10}-\d{2}-\d{6}$/.test(section.accession) ||
+      !/^[A-Za-z0-9_.-]+\.html?$/.test(metadata.primaryDocument)) return null;
+  const url = `https://www.sec.gov/Archives/edgar/data/${cik}/${section.accession.replaceAll("-", "")}/${metadata.primaryDocument}`;
+  if (section.documentUrl !== url || (notes.value.endpoint !== url && notes.value.endpoint !== `${url} (10-Q Item 1)`)) return null;
+  const raw = kind === "signatures" ? section.signaturesText : section.controlsText;
+  const text = typeof raw === "string" ? (kind === "signatures" ? periodicSignatureText(raw) : periodicControlsText(raw)) : null;
+  if (text === null) return null;
+  if (kind === "controls") {
+    const selected = selectMaterialEvidence(text, 6_000, "risk");
+    return { title: `10-Q Part I Item 4 - Controls and Procedures (${section.accession}; period ended ${section.reportDate}; filed ${section.filingDate}; ${url})`,
+      source: `edgar:10-Q item4 ${section.accession}`, asOf: section.filingDate, ...selected };
+  }
+  const dates = [...text.matchAll(/\bDate:\s*((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})\b/g)]
+    .map(match => isoFromMonthDate(match[1]!));
+  if (dates.length === 0 || dates.some(date => date === null || date < section.reportDate || date > section.filingDate)) return null;
+  return { title: `10-Q signatures; dated officer identity only, performance unestablished (${section.accession}; filed ${section.filingDate}; ${url})`,
+    source: `edgar:10-Q signatures ${section.accession}`, asOf: section.filingDate, text, truncated: false, originalChars: text.length,
+    spans: [{ start: 0, end: text.length, text }], coverage: { version: "periodic-signatures-1", retainedChars: text.length, omittedChars: 0, categories: [] } };
 }
 
 /** Official company statements remain distinct from SEC filings and news-feed snippets. */
@@ -1890,7 +1936,8 @@ function companyIrMaterialExcerpts(bundle: DataBundle): TextExcerpt[] {
       text: event.text + (omittedChars > 0 ? `\n\n${TRUNCATION_MARKER} ${omittedChars} of ${event.originalChars} source chars omitted; bounded official-news selection is not a comprehensive review]` : ""),
       truncated: omittedChars > 0, originalChars: event.originalChars, spans: [event.span],
       coverage: { version: "official-material-statement-1", retainedChars: event.text.length, omittedChars, categories: [] },
-      sourceEvidence: { kind: "issuer-statement" as const, publishedAt: event.publishedAt, observedAt: event.observedAt, sourceHash: event.sourceHash, authorityChain: event.authorityChain },
+      sourceEvidence: { kind: "issuer-statement" as const, publishedAt: event.publishedAt, observedAt: event.observedAt, sourceHash: event.sourceHash, authorityChain: event.authorityChain,
+        ...(event.discoveryEvidence ? { discoveryEvidence: event.discoveryEvidence } : {}) },
     };
   });
 }
@@ -2056,7 +2103,12 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   if (cr !== null) {
     const base = { unit: "currency", currency, source: `edgar:${cr.source.form} ${cr.source.exhibit ?? cr.source.accession}`, asOf: cr.source.filingDate };
     if (cr.returned !== null) figures.push({ ...base, label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
-    if (cr.authorizationRemaining !== null) figures.push({ ...base, label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
+    if (cr.authorizationRemaining !== null) {
+      const authoritySource=cr.authorizationRemainingSource ?? cr.source;
+      figures.push({ ...base, source:`edgar:${authoritySource.form} ${authoritySource.exhibit ?? authoritySource.accession}`,
+        asOf:authoritySource.filingDate, ...(cr.authorizationRemainingAsOf ? {period:cr.authorizationRemainingAsOf} : {}),
+        label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
+    }
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
     if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share", value: cr.dividendPerShare });
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
@@ -2094,6 +2146,26 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
       asOf: c.source.filingDate,
     });
   }
+  for (const table of disclosures.commitmentPaymentTiming ?? []) {
+    notes.push(`Payment timing as reported (${table.source.form} ${table.source.exhibit ?? "exhibit unrecorded"}, ${table.source.accession}, table ${table.tableIndex + 1}): parsed-table coverage ${table.coverage}. Fiscal labels are not calendar maturity dates; thereafter has no exact maturity. This is not a complete obligation ledger: funding capacity and solvency are not assessed. Recognized debt, leases, guarantees and purchase commitments must not be added together without resolving overlap.`);
+    if (table.reason) notes.push(`Payment timing limitation: ${table.reason}`);
+    if (table.coverage !== "complete" || table.currency === null) continue;
+    for (const row of table.rows) {
+      if (row.tableTotal || row.reconciliation.status !== "reconciled-as-printed") continue;
+      for (const bucket of row.buckets) {
+        if (bucket.amount === null) continue;
+        figures.push({
+          label: `${row.label} (${table.table}, table ${table.tableIndex + 1}), fiscal payment bucket ${bucket.label}`,
+          value: bucket.amount,
+          unit: "currency",
+          currency: table.currency,
+          period: bucket.label,
+          source: `edgar:${table.source.form} ${table.source.exhibit ?? "exhibit unrecorded"} ${table.source.accession} table ${table.tableIndex + 1}`,
+          asOf: table.source.filingDate,
+        });
+      }
+    }
+  }
   if (disclosures.nonGaapBasisNote) notes.push(`Non-GAAP basis (issuer text): ${disclosures.nonGaapBasisNote}`);
   for (const n of disclosures.notes) notes.push(n);
   notes.push(disclosures.currencyBasis);
@@ -2107,6 +2179,16 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
  * that no typed statement row carries, each under its own tag, and the
  * commentary's stated outlook as text.
  */
+/** Preserve a stated duration, without inferring fiscal basis from its dates. */
+function filingFactPeriod(fact: { period: string | null; asOf: string | null }): Pick<PayloadFigure, "period" | "periodContext"> {
+  const span = /^(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})$/.exec(fact.period ?? "");
+  if (span && span[2] === fact.asOf) {
+    const parsed = PeriodContextSchema.safeParse({ kind: "duration", start: span[1], end: span[2] });
+    if (parsed.success) return { period: fact.period, periodContext: parsed.data };
+  }
+  return { period: fact.asOf };
+}
+
 function filingFactsSection(disclosures: FilingDisclosures | undefined): PayloadSection | undefined {
   const facts = disclosures?.filingFacts ?? [];
   const outlook = disclosures?.commentaryOutlook ?? [];
@@ -2120,7 +2202,7 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
     value: f.value,
     unit: f.unit === "percent" ? "%" : f.unit,
     currency: f.unit === "currency" ? currency : null,
-    period: f.asOf,
+    ...filingFactPeriod(f),
     ...(/^(?:Q[1-4]\s+)?FY\d{4}$/.test(f.period ?? "") ? { fiscalPeriod: f.period! } : {}),
     source: f.sourceTag,
     asOf: f.source.filingDate,
@@ -2158,6 +2240,7 @@ function filingFactsSection(disclosures: FilingDisclosures | undefined): Payload
   const notes = [
     "Read from the filings' own sentences and tables and matched SEC XBRL facts (10-Q statements and notes, 10-Q MD&A, 10-K notes, us-gaap/Goodwill, 8-K CFO commentary). Composition cash-flow components retain their signed cash contributions; other paid/received disclosures retain their stated amounts and windows.",
     ...facts.filter((f) => f.key.startsWith("composition-")).map((f) => `${f.label}: ${f.text}`),
+    ...facts.filter((f) => f.key.startsWith("financing-")).map((f) => `${f.label}: ${f.text}`),
     ...facts.filter((f) => f.computed !== null).map((f) => `${f.label} is computed: ${f.computed} (${f.sourceTag}, ${f.source.form} ${f.source.accession}).`),
     ...(disclosures?.segmentPerformance ?? []).map((r) => `${r.segment} segment adjusted EBITDA margins are computed from matched quarterly tables: ${r.profit} / ${r.revenue} × 100 = ${r.marginPct}%; prior ${r.priorProfit} / ${r.priorRevenue} × 100 = ${r.priorMarginPct}%; change ${r.changeBasisPoints} basis points. These are segment adjusted measures, not consolidated GAAP margins (${r.source.form} ${r.source.accession}).`),
   ];
@@ -2541,6 +2624,7 @@ function attachProvenanceRegistry(
       kind,
       value: figure.value,
       unit,
+      ...(/^(?:fraction|frac)$/i.test(figure.unit.trim()) ? { unitScale: "fraction" as const } : {}),
       currency: resolvedCurrency,
       ...(figure.currencyInherited && resolvedCurrency !== null ? { currencyBasis: "inherited" as const } : {}),
       period: figure.period,

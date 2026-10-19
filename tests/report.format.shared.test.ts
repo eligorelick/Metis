@@ -127,7 +127,7 @@ describe("manifest-driven real report consumers", () => {
       "Technicals",
       "Balance Sheet",
       "Quality / Red-Flags",
-      "Leadership",
+      "Leadership (capital-stewardship proxy)",
       "Moat",
     ];
     let cursor = -1;
@@ -151,7 +151,7 @@ describe("manifest-driven real report consumers", () => {
       createElement(GradeStripBar, { gradeStrip: report.verdict.gradeStrip }),
     );
     expect(strip).not.toContain(">Balance Sheet<");
-    for (const label of ["Fundamentals", "Valuation", "Technicals", "Quality / Red-Flags", "Leadership", "Moat"]) {
+    for (const label of ["Fundamentals", "Valuation", "Technicals", "Quality / Red-Flags", "Leadership (capital-stewardship proxy)", "Moat"]) {
       expect(strip).toContain(`>${label}<`);
     }
   });
@@ -175,7 +175,7 @@ describe("manifest-driven real report consumers", () => {
       ["Quality", 22.5],
       ["Balance Sheet", 33.75],
       ["Moat", 44.125],
-      ["Leadership (capital stewardship)", 55.5],
+      ["Leadership (capital-stewardship proxy)", 55.5],
       ["Technicals", 66.875],
     ] as const;
     expected.forEach(([, score], index) => {

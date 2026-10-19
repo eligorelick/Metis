@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 
 import { Panel } from "@/components/ui";
 import { ExportButtons } from "@/components/report/ExportButtons";
+import { isAcquisitionResolution } from "@/report/gapResolution";
 import {
   deriveReportCompletenessPresentation,
   type DataCompleteness,
@@ -345,7 +346,8 @@ function validManifestEntry(value: unknown): value is ManifestEntry {
     (!Array.isArray(entry.attemptedSources) ||
       !entry.attemptedSources.every((source) => typeof source === "string"))
   ) return false;
-  return entry.expected === undefined || typeof entry.expected === "boolean";
+  return (entry.expected === undefined || typeof entry.expected === "boolean") &&
+    (entry.resolution === undefined || isAcquisitionResolution(entry.resolution));
 }
 
 function validCompleteness(value: unknown): value is DataCompleteness {

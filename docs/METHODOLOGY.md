@@ -3,12 +3,29 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The implemented behavior below was checked against the source and synthetic
-tests through 2026-10-15 and reflects report 1.17.0 / payload 1.22.0, including
-the growth-anchor span, scenario-horizon, research-reliability and META audit
-rules. The historical literature citations remain the project's
+The current phase-one source declares report 1.29.1 / payload 1.34.1 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_10 (2026-10-19). Its bounded evidence fixes
+extend the growth-anchor, scenario-horizon, research-reliability and prior audit
+rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
+
+D-90 compares direct and derived quarter durations using the actual emitted
+start/end interval. Exact-source cash/repurchase and income-classification
+refusals survive payout history, liquidity fallbacks, buyback coverage and
+forensic margins. A refused year is not zero payout; retained buyback dollars
+after a refused year are an incomplete subset. Gross-profit arithmetic requires
+independently compatible full revenue/cost evidence; reconciled EBIT cannot
+establish expense placement. FMP's net cash change is ending less beginning
+cash, so its comparison requires independently matched same-definition cash
+instants, not an assumed cash-change taxonomy alias. Official material events
+retain verified issuer identity, dated publication evidence and bounded discovery
+limits. These rules change Stage B behavior on identical retained inputs and
+therefore advance its implementation stamp. Saved reports remain immutable.
+See the [phase-one evidence record](audit/2026-10-19-phase-one-evidence-completion.md)
+for source intervals, negative controls and unresolved original vendor evidence.
+
+D-91 applies these rules in the canonical EDGAR constructor as well as vendor admission. Partial service-cost tags cannot create a full gross-profit subtotal; compatible full operands or a directly filed subtotal are required. A newly propagated canonical refusal requires source evidence compatible with the vendor row's currency, explicit interval and filing; existing refusals remain preserved. Explicit refusals survive serialized rows, mixed backfill and immutable disclosure reads, including alternate CFO aliases and dependent standardized FCF. Unicode datelines retain hyphen, en dash and em dash. Historical report bytes and prior method identities remain distinct.
 
 The evidence follow-up (D-56) carries source-established instant/duration
 boundaries independently from as-of dates. Missing context keeps the legacy
@@ -2214,6 +2231,83 @@ Capital metrics use complete compatible TTM flows and a matching balance sheet w
 Forward and reverse DCF use the same growth-path family. Rolling forecasts retain exact start/end dates; a June TTM anchor is not a December fiscal-year estimate. Bull/base/bear labels share one scenario identity across intrinsic values and projection paths. Since D-60 scenario shocks decay to the base path by year 10 and scenario margins stay below gross margin less the leanest operating-expense ratio on record (the decaying shock is the main construction, so no alternative is listed). EPS uses flat shares because an authorization is not a committed schedule; the authorization-funded share change is stated and an unfunded historical-share-trend sensitivity is labeled hypothetical.
 
 Filing context uses bounded section-aware passages and discloses omitted categories. Numeric factual prose is checked against metric, unit, date and retained source evidence. A typed record's metric is its registry label, with time words ("latest", "quarter end") and common abbreviations (FCF, SBC, capex) normalized; a named window must be the record's own, a bare "trailing" means twelve months, and an exact date names a window record's endpoint. Citation presence is reported separately from supported numeric claims, contradictions and unchecked content, and the headline states how many unchecked claims carry no figure to check. Qualitative claims are not established as true by numeric matching. Executive execution or guidance credibility is assessed only from a FACT in that executive's evidence that names them and whose figure the verifier matched to its cited record; otherwise it is not assessed (D-59). A reported-earnings reconciliation for an FMP quarter without SEC start dates is bounded by the issuer's preceding fiscal quarter in the same statement. Company-confirmed earnings dates take precedence over vendor estimates; enrichment preserves conflicting SEC/vendor observations instead of silently choosing one.
+
+### Grade and reproducibility safeguards
+
+Section grades are anchored to the deterministic A/B/C/D/F band. A different
+letter requires a structured reason, admitted reasoning citations and at most
+one band of distance; D to F is one step. Conflicting section/strip letters,
+excessive changes and unsupported overrides remain raw audit proposals with
+withheld headlines. Citation admission and numeric contradiction checks do not
+establish the entire reasoning as true. Accepted overrides still obey the
+independent evidence floor. Saved-report views apply this validation without
+rewriting their stored bytes or original analyst-generation metadata.
+
+TTM diluted EPS preserves the sum of four eligible quarterly observations.
+P/E explanations identify this convention when used. Share-count changes and
+period-specific dilution can make that sum differ from full-period EPS; the
+calculation does not reconstruct missing numerator, instrument or split data.
+See the [EPS definition and fixtures](audit/2026-10-17-ttm-eps-convention.md).
+
+Production input snapshots include local build custody only when the retained
+compiled artifacts and build identity can be verified. A current checkout is
+not proof of which build ran. Missing identity is not retrospectively filled
+with present code, and a lock hash does not attest installed dependencies.
+See the [implementation disposition](audit/2026-10-17-book-to-code-disposition.md)
+and [verification record](audit/2026-10-17-safeguard-verification.md) for the
+bounded scope, evidence and remaining analytical work.
+
+### Common-cash payout admission
+
+Aggregate cash dividends do not establish the common distribution when preferred
+claims existed during the payment window. APIC-inclusive preferred balances are
+existence evidence even when their currency differs; subtraction still requires
+compatible currency and flow periods. Direct common cash, including an explicit
+zero, remains usable. Compatible total cash less preferred cash is admitted only
+when both outflows have consistent signs and preferred does not exceed total.
+Uncontested aggregate zero remains zero; an explicit source refusal remains
+unknown through serialization and payout estimation, including when aggregate
+cash is zero. Fewer than two usable annual payout observations withhold the
+excess-return valuation rather than infer a payout. This can reduce available
+valuations while preserving separately supported TCE and earnings/returns.
+
+Cash payments are not preferred earnings allocations. No entitlement, arrears,
+accretion or participating-security bridge is invented. See the
+[source evidence and regression record](audit/2026-10-17-preferred-payout-admission.md).
+
+### Common-earnings admission
+
+An admitted common numerator retains its sign, including zero/losses. Otherwise,
+known preferred claims require an earnings-allocation bridge; preferred cash
+does not supply that bridge. Annual and rolling-quarter joins retain actual
+field intervals, currency and ownership. Known incompatible, duplicated,
+overlapping or gapped intervals cannot become a complete TTM merely because
+their display dates look contiguous. Missing vendor starts remain unknown.
+
+Disclosed consolidated NCI allocations retain their sign and compatible scope; a known
+nonzero allocation with unknown ownership cannot be assumed already deducted
+or subtracted a second time. The existing filed-Basic common-stockholder
+numerator convention remains admitted and labeled: participating-security
+allocations can make it differ from issuer common-equity income. TCE and that
+house return convention are not redefined. Missing evidence and the retained
+annual zero-closing-NCI inference are documented limits. See the
+[admission tests, conventions and remaining limits](audit/2026-10-18-common-earnings-admission.md).
+
+### Reported fiscal commitment payment evidence
+
+The existing commitment disclosure can retain optional issuer-reported fiscal
+payment buckets, exact source-table tokens, scale/currency, supplying exhibit
+and row/category reconciliation. Coverage describes only the supplying table.
+Missing timing, unexplained dashes and ambiguous cells remain unknown; only
+complete source-bound category buckets enter the numeric model context. Raw
+evidence and independently supported totals remain distinct from that admission.
+
+Fiscal labels do not establish exact calendar maturity dates. A table Total is
+a check, not another obligation. This disclosure adds nothing to net debt or
+DCF deductions and does not assess obligor liquidity, covenant compliance,
+funding capacity or solvency. The bounded text parser can withhold legitimate
+unit-like category labels rather than guess their meaning. See the
+[source, admission policy and limits](audit/2026-10-18-commitment-payment-evidence.md).
 
 ### Offline outcome evaluation
 

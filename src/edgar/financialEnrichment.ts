@@ -1,9 +1,11 @@
-import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
+import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
+import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -41,28 +43,214 @@ function liability(facts: CompanyFacts, prefix: "Operating" | "Finance", unit: s
   if (current.evidence.filings[0]?.accn !== noncurrent.evidence.filings[0]?.accn) return null;
   return { value: current.value + noncurrent.value, evidence: { ...current.evidence, tags: [...current.evidence.tags, ...noncurrent.evidence.tags] } };
 }
-function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
-  const tag = "FinanceLeasePrincipalPayments";
-  const ps = points(facts, tag, unit, observedAt).filter((p) => p.start !== undefined && p.val >= 0);
-  const min = scope === "annual" ? 350 : 70;
-  const max = scope === "annual" ? 380 : 105;
-  const direct = newest(ps.filter((p) => p.end === end && span(p)! >= min && span(p)! <= max));
-  if (direct) return resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end);
+/** Select by filing recency before applying a sign rule; refusals cannot expose older facts. */
+function unambiguousNewest(candidates: FactPoint[]): FactPoint | null {
+  const last = newest(candidates);
+  if (!last) return null;
+  return candidates.filter(p => p.filed === last.filed && p.accn === last.accn)
+    .every(p => p.start === last.start && p.end === last.end && p.val === last.val) ? last : null;
+}
+
+/** Direct and YTD-derived flows use the exact emitted start/end interval. */
+function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, signed: boolean): Resolved | null {
+  const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
+  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  const directCandidates = ps.filter(p => p.end === end && span(p)! >= min! && span(p)! <= max!);
+  const direct = unambiguousNewest(directCandidates);
+  if (directCandidates.length > 0) return direct && (signed || direct.val >= 0)
+    ? resolved(direct.val, [tag], [direct], unit, observedAt, direct.start!, end) : null;
   if (scope === "annual") return null;
-  const ytd = newest(ps.filter((p) => p.end === end && span(p)! > 105 && span(p)! <= 380));
-  if (!ytd) return null;
-  const prior = newest(ps.filter((p) => p.start === ytd.start && p.end < end && p.filed <= ytd.filed && (Date.parse(end) - Date.parse(p.end)) / DAY >= 70 && (Date.parse(end) - Date.parse(p.end)) / DAY <= 105));
-  if (!prior || ytd.val < prior.val) return null;
+  const ytd = unambiguousNewest(ps.filter(p => p.end === end && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380));
+  if (!ytd || (!signed && ytd.val < 0)) return null;
+  // A prior cumulative end is the day BEFORE the derived start. Validate the
+  // resulting interval, not the one-day-longer difference between period ends.
+  const prior = unambiguousNewest(ps.filter(p => p.start === ytd.start && p.end < end && p.filed <= ytd.filed &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 >= QUARTER_DURATION_DAYS[0] &&
+    (Date.parse(end) - Date.parse(p.end)) / DAY - 1 <= QUARTER_DURATION_DAYS[1]));
+  if (!prior || (!signed && (prior.val < 0 || ytd.val < prior.val))) return null;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
   const out = resolved(ytd.val - prior.val, [tag], [ytd, prior], unit, observedAt, start, end);
   out.evidence.derivation = "ytd-difference";
   return out;
+}
+function principal(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+  return filedFlow(facts, "FinanceLeasePrincipalPayments", unit, end, scope, observedAt, false);
+}
+function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+  return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true);
+}
+
+/** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
+ * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
+ * compatible instants. The interval comes from the filing, not an invented
+ * vendor periodStart. Prior-quarter cash need not have the ending filing's ID.
+ */
+function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Partial<Record<"cashAtBeginningOfPeriod" | "cashAtEndOfPeriod" | "netChangeInCash", Resolved>> {
+  if (!validDay(row.date)) return {};
+  const cashTag = "CashAndCashEquivalentsAtCarryingValue";
+  const totalTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
+  const movementTag = `${totalTag}PeriodIncreaseDecreaseIncludingExchangeRateEffect`;
+  const cash = (tag: string, day: string): Resolved | null => {
+    const p = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === day && p.start === undefined && p.val >= 0));
+    return p ? resolved(p.val, [tag], [p], unit, observedAt, null, day) : null;
+  };
+  const common = (day: string): Resolved | null => {
+    const unrestricted = cash(cashTag, day), total = cash(totalTag, day);
+    if (!unrestricted || !total || unrestricted.value !== total.value ||
+      JSON.stringify(unrestricted.evidence.filings) !== JSON.stringify(total.evidence.filings)) return null;
+    return { value: total.value, evidence: { ...total.evidence, tags: [...unrestricted.evidence.tags, ...total.evidence.tags] } };
+  };
+  const ending = common(row.date);
+  const movement = filedFlow(facts, movementTag, unit, row.date, scope, observedAt, true);
+  const start = movement?.evidence.periodStart;
+  const flowFiling = movement?.evidence.filings[0];
+  if (!ending || !start || !flowFiling || (typeof row.periodStart === "string" && row.periodStart !== start) ||
+    !ending.evidence.filings.every(f => f.accn === flowFiling.accn && f.filed === flowFiling.filed && f.form === flowFiling.form)) return {};
+  const beginningDay = new Date(Date.parse(start) - DAY).toISOString().slice(0, 10);
+  const beginning = common(beginningDay);
+  if (!beginning || beginning.evidence.filings.some(f => f.filed > flowFiling.filed) || ending.value - beginning.value !== movement!.value) return {};
+  return { cashAtBeginningOfPeriod: beginning, cashAtEndOfPeriod: ending, netChangeInCash: {
+    value: movement!.value, evidence: { ...movement!.evidence, tags: [...new Set([...movement!.evidence.tags, ...beginning.evidence.tags, ...ending.evidence.tags])],
+      filings: [...movement!.evidence.filings, ...beginning.evidence.filings, ...ending.evidence.filings], calculation: "ending-cash-minus-beginning-cash" },
+  } };
+}
+
+/** Legacy comparison is valid only when the vendor's two cash amounts already
+ * establish the unrestricted definition. It cannot validate a wrong balance.
+ */
+function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+  if (!validDay(row.periodStart) || !validDay(row.date)) return null;
+  const days = (Date.parse(row.date) - Date.parse(row.periodStart)) / DAY;
+  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  if (days < min! || days > max!) return null;
+  const tag = "CashAndCashEquivalentsAtCarryingValue";
+  const beginningDay = new Date(Date.parse(row.periodStart) - DAY).toISOString().slice(0, 10);
+  const beginning = instant(facts, tag, unit, beginningDay, observedAt), ending = instant(facts, tag, unit, row.date, observedAt);
+  // A cash-plus-restrictions or otherwise unclassified cash-flow balance
+  // cannot borrow the unrestricted balance-sheet definition by name alone.
+  if (!beginning || !ending || row.cashAtBeginningOfPeriod !== beginning.value || row.cashAtEndOfPeriod !== ending.value ||
+    JSON.stringify(beginning.evidence.filings) !== JSON.stringify(ending.evidence.filings)) return null;
+  return { value: ending.value - beginning.value, evidence: { ...ending.evidence, periodStart: row.periodStart,
+    calculation: "ending-cash-minus-beginning-cash" } };
+}
+
+/** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
+function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow"): { row: T; gaps: ManifestEntry[] } {
+  const cashAmounts = kind === "cashflow" ? filedCashAmounts(facts, unit, row, scope, observedAt) : {};
+  const specifications: [string, string, boolean, number][] = kind === "balance"
+    ? [["cashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue", true, 1]]
+    : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
+      ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", true, 1],
+      ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", true, 1],
+      ["cashAtBeginningOfPeriod", "CashAndCashEquivalentsAtCarryingValue", true, 1],
+      ["cashAtEndOfPeriod", "CashAndCashEquivalentsAtCarryingValue", true, 1],
+      ["netChangeInCash", "CashAndCashEquivalentsAtCarryingValue", true, 1]];
+  let out = row;
+  const gaps: ManifestEntry[] = [];
+  if (kind === "cashflow") {
+    const unavailable: Record<string, null> = {};
+    const fieldConflicts = { ...out.fieldConflicts };
+    for (const field of ["cashAtBeginningOfPeriod", "cashAtEndOfPeriod", "netChangeInCash"]) {
+      const prior = fieldConflicts[field];
+      if (prior?.usable !== false) continue;
+      unavailable[field] = null;
+      if (field === "netChangeInCash") continue;
+      unavailable.netChangeInCash = null;
+      fieldConflicts.netChangeInCash ??= { usable: false, vendorValue: typeof row.netChangeInCash === "number" ? row.netChangeInCash : null,
+        secValue: null, reason: `cash movement unavailable because ${field} was refused: ${prior.reason}`, ...(prior.secEvidence ? { secEvidence: prior.secEvidence } : {}) };
+    }
+    out = { ...out, ...unavailable, fieldConflicts };
+  }
+  for (const [field, tag, signed, sign] of specifications) {
+    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
+      : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
+        ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
+        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
+    // A prior-quarter filing is a calculation dependency, not authority for
+    // comparing the current vendor row. All three cash fields share the
+    // ending/current-flow filing anchor; retain every dependency in secEvidence.
+    const filingAnchor = field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
+      ? cashAmounts.cashAtEndOfPeriod ?? sec : sec;
+    if (!sec || (sec.evidence.periodStart !== null && kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
+      (validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
+    const vendor = row[field];
+    if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
+    const value = sec.value * sign;
+    if (Math.abs(vendor - value) <= Math.max(1e-8, Math.abs(value) * 1e-10)) continue;
+    const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
+    const fieldConflicts = { ...out.fieldConflicts };
+    const unavailable: Record<string, null> = {};
+    const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"]
+      : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" ? [field, "netChangeInCash"] : [field];
+    for (const dependent of dependents) {
+      unavailable[dependent] = null;
+      if (fieldConflicts[dependent]?.usable === false) continue;
+      fieldConflicts[dependent] = { usable: false, vendorValue: typeof out[dependent] === "number" && Number.isFinite(out[dependent]) ? out[dependent] : null,
+        secValue: dependent === field ? value : dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.value ?? null : null,
+        secEvidence: dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.evidence ?? sec.evidence : sec.evidence, reason };
+    }
+    out = { ...out, ...unavailable, fieldConflicts };
+    gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn", attemptedSources: [`edgar:companyfacts/us-gaap/${tag}`, `fmp:${kind}-statement`] });
+  }
+  return { row: out, gaps };
+}
+
+/** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
+function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
+  const sec = filedOperatingCashFlow(facts, currency, row.date!, scope, observedAt);
+  if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
+  const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const conflict = fields.some(field => finite(row[field]) && Math.abs(row[field] - sec.value) > Math.max(1e-8, Math.abs(sec.value) * 1e-10));
+  if (!conflict) return { row, gaps: [] };
+  const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
+  const fieldConflicts = { ...row.fieldConflicts };
+  for (const field of [...fields, "freeCashFlow"]) {
+    if (fieldConflicts[field]?.usable === false) continue;
+    fieldConflicts[field] = {
+      vendorValue: finite(row[field]) ? row[field] : null,
+      secValue: field === "freeCashFlow" ? null : sec.value,
+      usable: false, reason, secEvidence: sec.evidence,
+    };
+  }
+  return { row: { ...row, operatingCashFlow: null, netCashProvidedByOperatingActivities: null, freeCashFlow: null, fieldConflicts },
+    gaps: [{ field: `statements.cashflow.${row.date}.operatingCashFlow`, reason, severity: "warn", attemptedSources: ["fmp:cash-flow-statement", "edgar:companyfacts/us-gaap/NetCashProvidedByUsedInOperatingActivities"] }] };
+}
+
+/** Generic vendor investment buckets cannot override filed component scope.
+ * Only a complete same-interval short-term purchase/sale/maturity set is a
+ * comparison here. Mixed long-term investments/intangibles/other assets are
+ * not silently classified as financial assets or subtracted from CFI.
+ */
+function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const tags = ["PaymentsToAcquireShortTermInvestments", "ProceedsFromSaleOfShortTermInvestments", "ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments"];
+  const parts = tags.map(tag => filedFlow(facts, tag, currency, row.date!, scope, observedAt, false));
+  if (parts.some(part => part === null)) return { row, gaps: [] };
+  const [purchase, sale, maturity] = parts as Resolved[];
+  const evidence = purchase!.evidence;
+  if (parts.some(part => part!.evidence.periodStart !== evidence.periodStart || JSON.stringify(part!.evidence.filings) !== JSON.stringify(evidence.filings)) ||
+    (typeof row.periodStart === "string" && row.periodStart !== evidence.periodStart) ||
+    (validDay(row.filingDate) && !evidence.filings.some(f => f.filed === row.filingDate))) return { row, gaps: [] };
+  const expected: Record<string, number> = { purchasesOfInvestments: -purchase!.value, salesMaturitiesOfInvestments: sale!.value + maturity!.value };
+  if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && Math.abs(row[field] - value) > Math.max(1e-8, Math.abs(value) * 1e-10))) return { row, gaps: [] };
+  const reason = `financial-investment classification unreconciled at ${row.date}: same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
+  const fieldConflicts = { ...row.fieldConflicts };
+  const secEvidence = { ...evidence, tags: tags.map(tag => `us-gaap/${tag}`) };
+  for (const field of [...Object.keys(expected), "otherInvestingActivities"]) if (fieldConflicts[field]?.usable !== false) fieldConflicts[field] = {
+    usable: false, vendorValue: typeof row[field] === "number" ? row[field] : null, secValue: null, secEvidence, reason,
+  };
+  return { row: { ...row, purchasesOfInvestments: null, salesMaturitiesOfInvestments: null, otherInvestingActivities: null, fieldConflicts },
+    gaps: [{ field: `statements.cashflow.${row.date}.financialInvestments`, reason, severity: "warn", attemptedSources: tags.map(tag => `edgar:companyfacts/us-gaap/${tag}`) }] };
 }
 
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
 export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency)) return { row, gaps };
+  const recovered = recoverNoteCarryingDebt(row, facts, currency, observedAt, presentations);
+  if (recovered !== null) return { row: recovered, gaps: [{ field: `statements.balance.${row.date}.totalDebt`,
+    reason: "same-filing debt note reconciles principal less discounts to current and noncurrent carrying debt; recognized operating and finance leases added exactly once", severity: "info", expected: true }] };
   let out = row;
   // Preserve raw observations for audit, but an explicitly rejected financing
   // or lease component cannot establish any aggregate's carrying-value basis.
@@ -140,13 +328,65 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   return { row: out, gaps };
 }
 
-/** Enrichs missing fields only. Conflicts preserve vendor observations and carry usable:false. */
+/** A missing taxonomy class is recoverable; unrelated refusals remain authoritative. */
+function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, observedAt: string, sections: readonly ExtractedSection[]): T | null {
+  const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date!, observedAt);
+  const filing = aggregate?.evidence.filings[0];
+  if (!aggregate || !filing) return null;
+  const matches = (e: StatementFieldProvenance | undefined): boolean => e?.source === "edgar" && e.unit === currency && e.periodEnd === row.date &&
+    e.periodStart === null && e.observedAt.slice(0, 10) <= observedAt.slice(0, 10) && e.filings.length > 0 &&
+    e.filings.every((f) => f.accn === filing.accn && f.filed === filing.filed && f.form === filing.form);
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
+  const currentEvidence = row.fieldProvenance?.shortTermDebt;
+  const maturity = instant(facts, maturityTag, currency, row.date!, observedAt);
+  const fiscalStandIn = matches(currentEvidence) && currentEvidence!.tags.includes(`us-gaap/${maturityTag}`) && matches(maturity?.evidence);
+  for (const field of ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"]) {
+    const conflict = row.fieldConflicts?.[field];
+    if (!conflict) continue;
+    const recoverable = field === "shortTermDebt" ? fiscalStandIn && conflict.reason.startsWith("debt maturity scope unresolved:")
+      : ["totalDebt", "netDebt"].includes(field) && (/^incomplete debt carrying value: (?:shortTermDebt is unavailable \(debt maturity scope unresolved:|debt maturity scope unresolved:|current\/noncurrent financing components do not establish the total;)/.test(conflict.reason));
+    if (!recoverable || (conflict.vendorValue !== null && !(field === "shortTermDebt" && conflict.vendorValue === maturity?.value)) ||
+        (conflict.secEvidence !== undefined && !matches(conflict.secEvidence))) return null;
+  }
+  const operating = liability(facts, "Operating", currency, row.date!, observedAt);
+  const finance = liability(facts, "Finance", currency, row.date!, observedAt);
+  if (!operating || !finance || !matches(operating.evidence) || !matches(finance.evidence) ||
+      !finite(row.capitalLeaseObligations) || !matches(row.fieldProvenance?.capitalLeaseObligations) ||
+      row.capitalLeaseObligations !== operating.value + finance.value ||
+      (row.operatingLeaseLiability != null && row.operatingLeaseLiability !== operating.value) ||
+      (row.financeLeaseLiability != null && row.financeLeaseLiability !== finance.value)) return null;
+  const sources = sections.filter((s) => s.accession === filing.accn && s.filingDate === filing.filed && s.form === filing.form);
+  if (sources.length !== 1) return null;
+  const note = reconcileDebtNoteCarrying({ text: sources[0]!.text, source: sources[0]!, periodEnd: row.date!, currency, observedAt,
+    principal: aggregate.value, principalSource: { cik: String(facts.cik), accession: filing.accn, filingDate: filing.filed, periodEnd: row.date!, unit: currency } });
+  if (!note || (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, ""))) return null;
+  const total = note.carryingDebt + row.capitalLeaseObligations;
+  const cash = row.fieldConflicts?.cashAndCashEquivalents ? null : row.cashAndCashEquivalents;
+  const netDebt = finite(cash) ? total - cash : null;
+  if ((row.shortTermDebt != null && row.shortTermDebt !== note.currentDebt && !(fiscalStandIn && row.shortTermDebt === maturity?.value)) ||
+      (row.longTermDebt != null && row.longTermDebt !== note.noncurrentDebt) || (row.totalDebt != null && row.totalDebt !== total) ||
+      (row.netDebt != null && row.netDebt !== netDebt)) return null;
+  const fieldConflicts = { ...row.fieldConflicts };
+  for (const field of ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt"]) delete fieldConflicts[field];
+  const totalEvidence = { ...note.evidence, tags: [...new Set([...note.evidence.tags, ...row.fieldProvenance!.capitalLeaseObligations!.tags])] };
+  return { ...row, shortTermDebt: note.currentDebt, longTermDebt: note.noncurrentDebt, totalDebt: total,
+    netDebt, fieldConflicts,
+    fieldProvenance: { ...row.fieldProvenance, shortTermDebt: note.evidence, longTermDebt: note.evidence, totalDebt: totalEvidence } };
+}
+
+/** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
 export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
+  const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
     if (!input.ok) return input;
     const rows = input.value.data.rows.map((row) => {
       if (!validDay(row.date)) return row;
+      if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) {
+        gaps.push({ field: `statements.${kind}.${row.date}`, reason: "SEC financial/temporary-equity enrichment withheld: vendor issuer differs from confirmed company facts", severity: "warn" });
+        return row;
+      }
       const currency = row.reportedCurrency;
       if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) {
         gaps.push({ field: `statements.${kind}.${row.date}`, reason: "SEC field enrichment withheld: vendor reporting currency is unknown", severity: "info" });
@@ -158,6 +398,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       ] : [["financeLeasePrincipalPayments", principal(facts, currency, row.date, scope, observedAt)]];
       let out = row;
       for (const [field, sec] of candidates) {
+        if (out.fieldConflicts?.[field]?.usable === false) continue;
         if (!sec) {
           const tag = field === "operatingLeaseLiability" ? "OperatingLeaseLiability" : field === "financeLeaseLiability" ? "FinanceLeaseLiability" : "FinanceLeasePrincipalPayments";
           const otherUnits = (facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined)?.units;
@@ -179,11 +420,27 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence } };
         gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `missing ${field} enriched from SEC ${sec.evidence.tags.join(" + ")} in ${currency}, exact ${scope} period ending ${row.date}; vendor row retained`, severity: "info", expected: true, attemptedSources: sec.evidence.tags.map((t) => `edgar:companyfacts/${t}`) });
       }
+      if (kind === "cashflow") {
+        const admitted = admitOperatingCashFlow(out, facts, currency, scope, observedAt);
+        out = admitted.row;
+        gaps.push(...admitted.gaps);
+        const investments = admitInvestmentFlows(out, facts, currency, scope, observedAt);
+        out = investments.row;
+        gaps.push(...investments.gaps);
+      }
       if (kind === "balance") {
+        if (temporaryRows !== null) {
+          const temporary = supplementTemporaryEquity(out, temporaryRows, facts.cik);
+          out = temporary.row;
+          gaps.push(...temporary.gaps);
+        }
         const admitted = admitDebtFields(out, facts, currency, observedAt, presentations);
         out = admitted.row;
         gaps.push(...admitted.gaps);
       }
+      const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind);
+      out = cashAdmission.row;
+      gaps.push(...cashAdmission.gaps);
       return out;
     });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };

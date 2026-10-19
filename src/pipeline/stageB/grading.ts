@@ -902,7 +902,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         `Financial strength on ${currentCapital?.basis ?? "annual"} flows and the corresponding balance date${currentCapital?.asOf ? ` ${currentCapital.asOf}` : ""}. ${currentCapital?.fallbackReason ?? ""} Leverage, coverage, FCF conversion and the cost of stock-based compensation. ` +
           "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
           "used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
-          "charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is " +
+          "charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is " +
           "scored once, under leadership.",
         policy,
       );
@@ -983,12 +983,12 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.25, band: SHARE_TREND_BAND },
       // D-49: SBC % of revenue is no longer scored here. The SBC charge is
       // scored once (balance sheet, % of FCF) and the dilution it causes is
-      // in shareCountTrend net of buybacks; the ratio stays in the capital
-      // figures.
+      // tracked separately by the weighted-average diluted common-share
+      // denominator trend; the ratio stays in the capital figures.
     ],
     weights.leadership,
     inputs.asOf,
-    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
+    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
     policy,
   );
 
@@ -1006,10 +1006,9 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     "technicals",
     [
       { name: "relStrength12m1m", raw: rs12m1m, unit: "pp", weight: 0.45, band: REL_STRENGTH_12M1M_BAND },
-      // suppressedBy: the recent-ipo route already lists "fiftyTwoWeekRange" in
-      // its suppress set, but no signal carried the tag, so the policy was
-      // inert and a company with a few months of trading was still scored on a
-      // "52-week" position it cannot have.
+      // Keep explicit policy suppressions effective; technicals' own admitted
+      // observation/window guards withhold short histories independently of
+      // issuer age. A recent listing alone does not make a complete range absent.
       { name: "pctFromHigh52w", raw: technicals.range52w.pctFromHigh, unit: "%", weight: 0.35, band: HIGH_PROXIMITY_BAND, suppressedBy: "fiftyTwoWeekRange" },
       { name: "smaGap", raw: smaGap, unit: "%", weight: 0.2, band: SMA_GAP_BAND, suppressedBy: "sma200" },
     ],

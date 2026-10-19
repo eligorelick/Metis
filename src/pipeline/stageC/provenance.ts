@@ -61,6 +61,8 @@ export interface NumericProvenanceRecord {
   kind: "provider" | "computed";
   value: number;
   unit: CanonicalUnit;
+  /** Explicit source/display declaration; never inferred for ordinary ratios or multiples. */
+  unitScale?: "fraction";
   currency: string | null;
   /**
    * D-57: the source row carried no currency; `currency` is the issuer's,

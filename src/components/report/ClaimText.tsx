@@ -13,8 +13,8 @@
 
 import { Badge, type Tone } from "@/components/ui";
 import type { ClaimLabel } from "@/types/core";
-import type { SourcedClaim } from "@/report/schema";
-import { displayProse, sourceLabel } from "@/report/presentation";
+import type { SourcedClaim, TracedNumber } from "@/report/schema";
+import { displayClaimText, sourceLabel } from "@/report/presentation";
 
 const LABEL_TONE: Record<ClaimLabel, Tone> = {
   FACT: "muted",
@@ -68,9 +68,11 @@ function Provenance({
 export function ClaimText({
   claim,
   className,
+  numbers,
 }: {
   claim: SourcedClaim;
   className?: string;
+  numbers?: readonly TracedNumber[];
 }) {
   return (
     <details className={`group flex flex-col gap-1 ${className ?? ""}`}>
@@ -80,7 +82,7 @@ export function ClaimText({
         </span>
         <span className="min-w-0 flex-1 text-[12px] leading-snug text-fg">
           {/* D-67: registry ids under reader labels, figures at reader precision. */}
-          {displayProse(claim.text, claim.source)}{" "}
+          {displayClaimText(claim, numbers)}{" "}
           <span
             className="mono align-baseline text-[10px] text-faint group-hover:text-accent"
             title={`${claim.source}${claim.asOf ? ` · as of ${claim.asOf}` : ""}`}

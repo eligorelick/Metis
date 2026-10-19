@@ -524,7 +524,7 @@ describe("reportToMarkdown", () => {
   it("renders current and legacy verdict grade strips with optional balance present exactly once or omitted", () => {
     const labels = [
       "Fundamentals", "Valuation", "Technicals", "Balance Sheet",
-      "Quality / Red-Flags", "Leadership", "Moat",
+      "Quality / Red-Flags", "Leadership (capital-stewardship proxy)", "Moat",
     ];
     const assertOrder = (text: string, expected: readonly string[]) => {
       let cursor = -1;
@@ -593,7 +593,7 @@ describe("reportToMarkdown", () => {
     expect(scoreBlock).toContain("**Composite: 64 / 100");
     const labels = [
       "Fundamentals", "Valuation", "Quality", "Balance Sheet",
-      "Moat", "Leadership (capital stewardship)", "Technicals",
+      "Moat", "Leadership (capital-stewardship proxy)", "Technicals",
     ];
     let cursor = -1;
     for (const [index, label] of labels.entries()) {
@@ -958,7 +958,7 @@ describe("history page manifest grade strip", () => {
       "Technicals",
       "Balance Sheet",
       "Quality / Red-Flags",
-      "Leadership",
+      "Leadership (capital-stewardship proxy)",
       "Moat",
     ];
     let cursor = -1;
@@ -2794,7 +2794,7 @@ describe("history diff route-used SSR renderer", () => {
     );
     const labels = [
       "Fundamentals", "Valuation", "Technicals", "Balance Sheet",
-      "Quality / Red-Flags", "Leadership", "Moat",
+      "Quality / Red-Flags", "Leadership (capital-stewardship proxy)", "Moat",
     ];
     let cursor = html.indexOf("grade changes");
     for (const label of labels) {

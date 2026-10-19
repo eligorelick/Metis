@@ -356,6 +356,24 @@ describe("GenerateReport — revisioned snapshot stream fence", () => {
     expect(installed).toEqual([expect.objectContaining({ reportId: 22, synthesis: "job B" })]);
   });
 
+  it("accepts structured acquisition resolution and rejects malformed raw metadata", async () => {
+    const fence = createJobStreamSnapshotFence(), source = {};
+    fence.activate(source, "job-A", "AAPL");
+    fence.accept(source, snapshot({ revision: 1, status: "done", reportId: 11 }));
+    const token = fence.token(source, "job-A")!;
+    const installed: unknown[] = [];
+    const resolution = { status: "resolved", method: "same-filing-debt-note", reason: "Exact final carrying field admitted.",
+      evidence: [{ scope: "balanceQuarterly", field: "totalDebt", period: "2026-06-30", currency: "USD", cik: "1234567", value: 130,
+        observedAt: "2026-08-08T00:00:00Z", tags: ["filing:debt-note:carrying-reconciliation"],
+        filings: [{ accn: "0001234567-26-000001", filed: "2026-08-01", form: "10-Q" }] }] };
+    for (const raw of [null, {}, { ...resolution, evidence: null }, { ...resolution, evidence: [{ ...resolution.evidence[0], filings: [null] }] }, resolution]) {
+      await fetchReportSummaryForSnapshot(11, token, fence, summary => installed.push(summary), async () => ({ ok: true,
+        json: async () => reportSummary({ missingData: [{ field: "keyless.balanceQuarterly.withheld.totalDebt", severity: "warn",
+          reason: "debt maturity scope unresolved: unsupported fiscal bucket (periods: 2026-06-30)", resolution: raw }] }) }));
+    }
+    expect(installed).toHaveLength(1);
+  });
+
   it("installs only a complete summary matching the terminal report and symbol", async () => {
     const fence = createJobStreamSnapshotFence();
     const source = {};

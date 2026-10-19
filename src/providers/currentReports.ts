@@ -38,7 +38,7 @@ import {
   type ReconciliationFact,
   type ReportedPeriod,
 } from "@/edgar/currentReports";
-import { parseWorkingCapital, type WorkingCapitalFacts } from "@/edgar/filingFacts";
+import { parseCompletedOfferingFacts, parseWorkingCapital, type FilingFact, type WorkingCapitalFacts } from "@/edgar/filingFacts";
 import {
   buildQuarterlySegments,
   parseInstanceRevenue,
@@ -47,7 +47,7 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-export const CURRENT_REPORTS_VERSION = "current-reports-1.0.0" as const;
+export const CURRENT_REPORTS_VERSION = "current-reports-1.2.0" as const;
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;
@@ -92,7 +92,10 @@ export interface EarningsReleaseRecord {
    */
   reconciliation?: SourcedEarningsFact<ReconciliationFact>[];
   /** D-63: commitments and guarantees tables (commentary first, then release). */
-  commitments?: CommitmentTable[];
+  commitments?: (SourcedEarningsFact<CommitmentTable> & {
+    /** Zero-based parsed-table ordinal within the supplying document. */
+    sourceTableIndex?: number;
+  })[];
   /** D-63: the exhibit the commitments tables were read from. */
   commitmentsExhibit?: "EX-99.1" | "EX-99.2" | null;
   /** D-63: the issuer's statement of a non-GAAP basis change, when printed. */
@@ -118,6 +121,8 @@ export interface MaterialEventSection {
   /** Present when bounded retention omitted part of the supplying item. */
   truncated?: boolean;
   originalChars?: number;
+  /** Typed completed-offering facts read from the full item before text retention. */
+  financingFacts?: FilingFact[];
 }
 
 export interface MaterialEventFiling {
@@ -218,7 +223,7 @@ export function buildEarningsReleaseRecord(args: {
     capitalReturn: parseCapitalReturn(releaseText),
     reconciliation: mergeReconciliation(parseReconciliation(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") })),
       commentaryText === null ? [] : parseReconciliation(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),
-    ...commitmentsOf(releaseText, commentaryText),
+    ...commitmentsOf(releaseText, commentaryText, source),
     nonGaapBasisNote: parseNonGaapBasisNote(releaseText) ?? (commentaryText === null ? null : parseNonGaapBasisNote(commentaryText)),
     workingCapital: (commentaryText === null ? null : parseWorkingCapital(commentaryText)) ?? parseWorkingCapital(releaseText),
     releaseNarrative: args.includeNarrative ? releaseNarrative(releaseText).slice(0, NARRATIVE_CHARS) : null,
@@ -226,11 +231,16 @@ export function buildEarningsReleaseRecord(args: {
   };
 }
 
-function commitmentsOf(releaseText: string, commentaryText: string | null): Pick<EarningsReleaseRecord, "commitments" | "commitmentsExhibit"> {
-  const fromCommentary = commentaryText === null ? [] : parseCommitmentTables(commentaryText);
-  if (fromCommentary.length > 0) return { commitments: fromCommentary, commitmentsExhibit: "EX-99.2" };
-  const fromRelease = parseCommitmentTables(releaseText);
-  return { commitments: fromRelease, commitmentsExhibit: fromRelease.length > 0 ? "EX-99.1" : null };
+function commitmentsOf(releaseText: string, commentaryText: string | null, source: (role: "EX-99.1" | "EX-99.2") => EarningsFactSource): Pick<EarningsReleaseRecord, "commitments" | "commitmentsExhibit"> {
+  const read = (text: string, role: "EX-99.1" | "EX-99.2") => parseCommitmentTables(text)
+    .map((table, sourceTableIndex) => ({ ...table, source: source(role), sourceTableIndex }));
+  const supported = (table: CommitmentTable) => table.paymentTiming?.coverage !== "unavailable" &&
+    ((table.total !== null && Number.isFinite(table.total)) || table.rows.some(row => Number.isFinite(row.total)));
+  const fromCommentary = commentaryText === null ? [] : read(commentaryText, "EX-99.2");
+  if (fromCommentary.some(supported)) return { commitments: fromCommentary, commitmentsExhibit: "EX-99.2" };
+  const fromRelease = read(releaseText, "EX-99.1");
+  return { commitments: [...fromCommentary, ...fromRelease],
+    commitmentsExhibit: fromRelease.some(supported) ? "EX-99.1" : fromCommentary.length > 0 ? "EX-99.2" : fromRelease.length > 0 ? "EX-99.1" : null };
 }
 
 function mergeReconciliation(first: SourcedEarningsFact<ReconciliationFact>[], second: SourcedEarningsFact<ReconciliationFact>[]): SourcedEarningsFact<ReconciliationFact>[] {
@@ -255,6 +265,7 @@ export function buildMaterialEventFiling(
       summary: s.incorporates !== null ? `Incorporates Item ${s.incorporates} by reference.` : summarizeItem(s),
       text: s.text.slice(0, s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS),
       incorporates: s.incorporates,
+      ...(s.item === "1.01" && s.incorporates === null ? { financingFacts: parseCompletedOfferingFacts(s.text, filing.filingDate) } : {}),
       ...(s.text.length > (s.item === "5.02" ? 10_000 : ITEM_TEXT_CHARS) ? { truncated: true, originalChars: s.text.length } : {}),
     }));
   return { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, eventDate: eventDateOf(text), items: itemsOf(filing.items), url, sections };

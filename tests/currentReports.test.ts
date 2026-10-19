@@ -421,6 +421,9 @@ describe("D-63 filing evidence", () => {
 
   function nvdaBundle(): DataBundle {
     const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    // This fixture includes August filings fetched in October, after the
+    // helper's default July analysis date.
+    bundle.builtAt = "2026-10-15T00:00:00.000Z";
     const q2 = buildEarningsReleaseRecord({ filing: filing("0001045810-26-000073", "2026-08-26"), releaseUrl: "https://www.sec.gov/q2", commentaryUrl: "https://www.sec.gov/q2cfo",
       releaseText: Q2_RELEASE, commentaryText: Q2_COMMENTARY, includeNarrative: true });
     const q1 = buildEarningsReleaseRecord({ filing: filing("0001045810-26-000051", "2026-05-20"), releaseUrl: "https://www.sec.gov/q1", commentaryUrl: null,

@@ -58,6 +58,8 @@ import {
   INCOME_BEFORE_TAX_TAGS,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
+  GROSS_PROFIT_REVENUE_TAGS,
+  GROSS_PROFIT_COST_TAGS,
   standInsFor,
   tagsFor,
   type TagStandIn,
@@ -714,19 +716,22 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
    * last point is 2018 — while `CashAndDueFromBanks` carries the operating cash.
    * A combined restricted/unrestricted total is not a synonym for available
    * cash. It can establish unrestricted cash only with a same-filing tagged
-   * restricted component, validated below before it supplies liquidity.
+   * current AND noncurrent restricted components, validated below before they
+   * supply liquidity. AtCarryingValue describes only CURRENT restrictions.
    */
   cashAndCashEquivalents: {
     kind: "chain", unit: "money", steps: [
       lineItemChain("cashAndCashEquivalents", "money"),
-      ...tagsFor("restrictedCashAndCashEquivalents").map((minus): ChainSpec => ({
-        kind: "diff", plus: tagsFor("cashAndCashEquivalentsIncludingRestricted")[0]!, minus, unit: "money",
-        disclose: "unrestricted cash derived as combined restricted/unrestricted cash minus the separately tagged restricted balance; restrictions are not deducted from directly tagged unrestricted cash",
-      })),
+      { kind: "sumAll", unit: "money", parts: [
+        { label: "combined cash", spec: lineItemChain("cashAndCashEquivalentsIncludingRestricted", "money") },
+        { label: "current restrictions", spec: { kind: "first", tags: ["RestrictedCashAndCashEquivalentsAtCarryingValue"], unit: "money", sign: -1 } },
+        { label: "noncurrent restrictions", spec: { kind: "first", tags: tagsFor("restrictedCashAndCashEquivalentsNoncurrent"), unit: "money", sign: -1 } },
+      ], disclose: "unrestricted cash derived as combined cash minus separately tagged current AND noncurrent restrictions; neither an absent component nor an ambiguous restricted-cash aggregate is treated as zero" },
     ],
   },
   cashAndCashEquivalentsIncludingRestricted: lineItemChain("cashAndCashEquivalentsIncludingRestricted", "money"),
   restrictedCashAndCashEquivalents: lineItemChain("restrictedCashAndCashEquivalents", "money"),
+  restrictedCashAndCashEquivalentsNoncurrent: lineItemChain("restrictedCashAndCashEquivalentsNoncurrent", "money"),
   shortTermInvestments: lineItemChain("shortTermInvestments", "money"),
   cashAndShortTermInvestments: lineItemChain("cashAndShortTermInvestments", "money"),
   netReceivables: lineItemChain("netReceivables", "money"),
@@ -829,6 +834,9 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
   },
   minorityInterest: lineItemChain("minorityInterest", "money"),
   totalEquity: lineItemChain("totalEquity", "money"),
+  temporaryEquity: lineItemChain("temporaryEquity", "money"),
+  temporaryEquityAttributableToParent: lineItemChain("temporaryEquityAttributableToParent", "money"),
+  temporaryEquityAttributableToNoncontrollingInterest: lineItemChain("temporaryEquityAttributableToNoncontrollingInterest", "money"),
   /** Extra key (banks); legal via the FmpRawRow index signature. */
   deposits: lineItemChain("deposits", "money"),
 };
@@ -1805,12 +1813,25 @@ function sumAnyValues(parts: [string, number | null][], notes: NoteSink, label: 
  */
 interface ComputeContext {
   resolved: ReadonlyMap<string, Resolved>;
+  temporaryEquityDisclosed?: boolean;
   /** The value of one money tag at this period, or null. */
   money(tag: string): number | null;
 }
 
-function computeIncome(v: FieldValues, notes: NoteSink, ctx: string): void {
-  v.grossProfit ??= sub(v.revenue ?? null, v.costOfRevenue ?? null);
+function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
+  if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null) {
+    const revenue = cc.resolved.get("revenue"), cost = cc.resolved.get("costOfRevenue");
+    const filings = (resolved: Resolved) => JSON.stringify([...new Set((resolved.evidencePoints ?? [resolved.point]).map(p => `${p.accn}|${p.filed}|${p.form}`))].sort());
+    const full = revenue && cost && revenue.tags.some(tag => GROSS_PROFIT_REVENUE_TAGS.includes(tag)) && cost.tags.some(tag => GROSS_PROFIT_COST_TAGS.includes(tag)) &&
+      revenue.unit === cost.unit && revenue.point.end === cost.point.end && (revenue.periodStart ?? revenue.point.start) === (cost.periodStart ?? cost.point.start) && filings(revenue) === filings(cost);
+    if (full) v.grossProfit = sub(v.revenue, v.costOfRevenue);
+    else {
+      v.grossProfit = null;
+      const reason = "Gross profit unavailable: filed operands do not establish compatible full revenue and total cost for the same interval, unit and filing; partial costs cannot establish the subtotal";
+      notes.add(`grossProfit ${ctx} WITHHELD: ${reason}`);
+      notes.withhold("grossProfit", ctx, reason);
+    }
+  }
   if (v.operatingExpenses == null && (v.researchAndDevelopmentExpenses != null || v.sellingGeneralAndAdministrativeExpenses != null)) {
     // These components do not establish a complete expense perimeter: an
     // issuer may separately report technology, indirect marketing, D&A,
@@ -1854,7 +1875,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   const restrictionDerived = cashResolution?.tags.some(tag => tagsFor("cashAndCashEquivalentsIncludingRestricted").includes(tag)) === true;
   if (restrictionDerived && cashResolution) {
     const filings = new Set((cashResolution.evidencePoints ?? [cashResolution.point]).map(point => `${point.accn}|${point.filed}`));
-    if (cashResolution.value < 0 || (v.restrictedCashAndCashEquivalents ?? 0) < 0 || filings.size !== 1) {
+    if (cashResolution.value < 0 || (cashResolution.evidencePoints ?? [cashResolution.point]).some(p => p.val < 0) || filings.size !== 1) {
       v.cashAndCashEquivalents = null;
       const reason = "unrestricted cash derivation unavailable: a restriction amount is negative or exceeds its combined total, or the operands come from different filings";
       notes.withhold("cashAndCashEquivalents", ctx, reason);
@@ -1863,6 +1884,11 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   }
   const cashScopeUnknown = v.cashAndCashEquivalents == null && v.cashAndCashEquivalentsIncludingRestricted != null &&
     !cc.resolved.has("cashAndShortTermInvestments");
+  if (v.cashAndCashEquivalents == null && v.cashAndCashEquivalentsIncludingRestricted != null) {
+    const reason = "unrestricted cash unavailable: complete compatible current AND noncurrent restrictions are required to subtract from combined cash; no missing restriction is assumed zero";
+    notes.withhold("cashAndCashEquivalents", ctx, reason);
+    notes.add(`cashAndCashEquivalents ${ctx}: ${reason}`);
+  }
   // A strict `add` here returned null for every filer that presents a single
   // "Cash and cash equivalents" line and tags no short-term-investment concept
   // (Home Depot, McDonald's, UPS, Costco and hundreds like them). That
@@ -1885,7 +1911,17 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   // `totalEquity` deliberately stays strict: `validate.ts` and `forensics.ts`
   // both fall back to `totalStockholdersEquity`, so nothing is suppressed.
   v.totalEquity ??= add(v.totalStockholdersEquity ?? null, v.minorityInterest ?? null);
-  v.totalLiabilities ??= sub(v.totalAssets ?? null, v.totalEquity ?? null);
+  const hasTemporaryEquity = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"]
+    .some(field => v[field] != null) || cc.temporaryEquityDisclosed === true;
+  // A - permanent equity includes mezzanine capital. Do not relabel it as
+  // liabilities when a temporary category is disclosed but its full scope may
+  // be unknown. Only a directly filed liability total is usable in that case.
+  if (!hasTemporaryEquity) v.totalLiabilities ??= sub(v.totalAssets ?? null, v.totalEquity ?? null);
+  else if (v.totalLiabilities == null) {
+    const reason = "total liabilities unavailable: no directly filed liability total and disclosed temporary-equity scope is present or refused; assets minus permanent equity cannot establish liabilities";
+    notes.withhold("totalLiabilities", ctx, reason);
+    notes.add(`totalLiabilities ${ctx}: ${reason}`);
+  }
   const lease = resolveDebtOverlaps(v, notes, ctx, cc);
   // FMP's definition: shortTermDebt + longTermDebt + capitalLeaseObligations
   // (Apple FY2025 20.329 + 78.328 + 13.720 = 112.377B). Dropping the leases
@@ -2103,6 +2139,59 @@ interface PeriodSlot {
 
 interface BuildState {
   filesTwentyF: boolean;
+  temporaryEquityPeriods: ReadonlySet<string>;
+  balanceRefusals: ReadonlyMap<string, string>;
+}
+
+const TEMPORARY_EQUITY_FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"] as const;
+const TEMPORARY_EQUITY_TAGS = new Set(TEMPORARY_EQUITY_FIELDS.flatMap(field => tagsFor(field)));
+
+/** Admission guard for these newly used balance categories, before the general
+ * index's same-version first-wins dedup can hide contradictory amounts. Raw
+ * exposure also survives a rejected value/unit so it cannot re-enable A-E.
+ */
+function balanceEvidenceGuards(facts: CompanyFacts, asOf: string): Pick<BuildState, "temporaryEquityPeriods" | "balanceRefusals"> {
+  const temporaryEquityPeriods = new Set<string>();
+  const balanceRefusals = new Map<string, string>();
+  const sensitiveTags = new Set([...TEMPORARY_EQUITY_TAGS, "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+    "RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalentsNoncurrent"]);
+  for (const tag of sensitiveTags) {
+    const raw = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+    if (!raw.success) continue;
+    type Version = { key: string; unit: string; filed: string; form: string; accn: string; values: Set<number>; invalid: boolean };
+    const versions = new Map<string, Version>();
+    for (const [unit, points] of Object.entries(raw.data.units)) for (const input of points) {
+      if (input === null || typeof input !== "object") continue;
+      const p = input as Record<string, unknown>;
+      if (typeof p.end !== "string" || typeof p.filed !== "string" || typeof p.form !== "string" || typeof p.accn !== "string" ||
+        p.start !== undefined || !CORE_FACT_FORMS.has(p.form) || p.filed > asOf.slice(0, 10) || p.end > asOf.slice(0, 10)) continue;
+      const validDay = (day: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(dateMs(day)) && new Date(dateMs(day)).toISOString().slice(0, 10) === day;
+      if (!validDay(p.end) || !validDay(p.filed)) continue;
+      if (TEMPORARY_EQUITY_TAGS.has(tag)) temporaryEquityPeriods.add(p.end);
+      const key = `${tag}|${unit}|${p.end}`;
+      const versionKey = `${key}|${p.accn}|${p.filed}|${p.form}`;
+      const version = versions.get(versionKey) ?? { key, unit, filed: p.filed, form: p.form, accn: p.accn, values: new Set<number>(), invalid: false };
+      if (typeof p.val !== "number" || !Number.isFinite(p.val)) version.invalid = true;
+      else version.values.add(p.val);
+      versions.set(versionKey, version);
+    }
+    // Preserve the index's latest-filed / amendment / accession priority.
+    // A later clean filing resolves an earlier conflict; a foreign unit's
+    // conflict cannot invalidate a compatible reporting-currency point.
+    const winners = new Map<string, Version>();
+    for (const version of versions.values()) {
+      const previous = winners.get(version.key);
+      const amendment = Number(version.form.endsWith("/A"));
+      const previousAmendment = Number(previous?.form.endsWith("/A"));
+      if (previous === undefined || version.filed > previous.filed || version.filed === previous.filed &&
+        (amendment > previousAmendment || amendment === previousAmendment && version.accn > previous.accn)) winners.set(version.key, version);
+    }
+    for (const version of winners.values()) {
+      if (version.invalid) balanceRefusals.set(version.key, `${tag} refused: nonfinite or invalid monetary carrying amount`);
+      else if (version.values.size > 1) balanceRefusals.set(version.key, `${tag} refused: conflicting same-filing, same-period ${version.unit} carrying amounts`);
+    }
+  }
+  return { temporaryEquityPeriods, balanceRefusals };
 }
 
 /**
@@ -2169,6 +2258,12 @@ function buildStatementRows<TRow>(
     })[0];
     let resolvingField = "";
     const sameRowEvidence: TagResolver = (tag, kind) => {
+      const refusal = state.balanceRefusals.get(`${tag}|${rowAnchor?.unit ?? ""}|${slot.date}`);
+      if (def.statement === "balance" && refusal !== undefined) {
+        notes.withhold(resolvingField, slot.date, refusal);
+        notes.add(`${resolvingField} ${ctxLabel}: ${refusal}`);
+        return null;
+      }
       if (rowAnchor === undefined) return slot.resolve(tag, kind);
       const r = slot.resolve(tag, kind, kind === "shares" ? undefined : rowAnchor.unit);
       if (r === null) {
@@ -2238,6 +2333,7 @@ function buildStatementRows<TRow>(
     const anchor = resolutions.get(anchorField) as Resolved;
     def.compute(values, notes, ctxLabel, {
       resolved: resolutions,
+      temporaryEquityDisclosed: [...state.temporaryEquityPeriods].some(end => withinDays(end, slot.date, TOLERANCE_DAYS)),
       money: (tag) => {
         const r = sameRowEvidence(tag, "money");
         return r === null ? null : tidy(r.value, MONEY_DECIMALS);
@@ -2275,11 +2371,24 @@ function buildStatementRows<TRow>(
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
     }
+    if (def.statement === "income" && values.grossProfit != null && !resolutions.has("grossProfit") && fieldProvenance.revenue && fieldProvenance.costOfRevenue) {
+      fieldProvenance.grossProfit = { ...fieldProvenance.revenue, tags: [...fieldProvenance.revenue.tags, ...fieldProvenance.costOfRevenue.tags], calculation: "revenue-minus-cost" };
+    }
     row.fieldProvenance = fieldProvenance;
-    if (def.statement === "balance") {
-      const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt"].includes(held.field) && held.periods.includes(slot.date));
+    if (def.statement === "income") {
+      const refused = notes.withheld.filter(held => held.field === "grossProfit" && held.periods.includes(slot.date));
+      if (refused.length > 0) row.fieldConflicts = { grossProfit: { vendorValue: null, secValue: null, usable: false, reason: refused.map(held => held.text).join("; ") } };
+    } else if (def.statement === "balance") {
+      if (values.totalLiabilities != null && !resolutions.has("totalLiabilities")) row.identityDerivedFields = ["totalLiabilities"];
+      const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt", "totalLiabilities", ...TEMPORARY_EQUITY_FIELDS].includes(held.field) && held.periods.includes(slot.date));
       if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
         { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
+    } else if (def.statement === "cashflow" && values.commonDividendsPaid === null) {
+      // Statement-level withholding notes do not travel with a serialized row.
+      // Preserve an explicit common-cash refusal so payout cannot infer zero.
+      const refused = notes.withheld.filter((held) => held.field === "commonDividendsPaid" && held.periods.includes(slot.date));
+      if (refused.length > 0) row.fieldConflicts = { commonDividendsPaid:
+        { vendorValue: null, secValue: null, usable: false, reason: refused.map(held => held.text).join("; ") } };
     }
 
     // The superseded figure of every field a later filing changed, kept beside
@@ -2657,7 +2766,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const shareBasisWithheld: ShareBasisWithheld[] = [];
   const factExclusions: StatementFactExclusion[] = [];
   const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
-  const state: BuildState = { filesTwentyF: false };
+  const state: BuildState = { filesTwentyF: false, ...balanceEvidenceGuards(facts, opts.asOf) };
 
   const allFiscalYears = discoverFiscalYears(index);
   const fiscalYearEnds = new Set(allFiscalYears.map((fy) => fy.end));
@@ -2745,18 +2854,39 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     compute(values, notes, date, context) {
       CASHFLOW_DEF.compute(values, notes, date, context);
       const common = context.resolved.get("commonDividendsPaid");
-      const aggregateOnly = common?.tags.length === 1 && common.tags[0] === "PaymentsOfDividends";
-      if (!aggregateOnly || values.commonDividendsPaid === 0) return;
-      // Deliberately still the par-value element alone, not the whole
-      // `preferredStock` chain (D-42, open): resolving the chain here withholds
-      // JPM's common dividends for 2023-2025, which suppresses its entire
-      // excess-return valuation, and JPM files no cash common-dividend element
-      // (no PaymentsOfDividendsCommonStock) to establish them instead. Its
-      // aggregate PaymentsOfDividends (16,625M FY2025) therefore still carries
-      // ~1.1B of preferred dividends into the payout until the owner decides.
-      const preferred = instantResolver(index, date)("PreferredStockValue", "money")?.value ?? null;
-      if (preferred === null || preferred <= 0) return;
-      const reason = "preferred stock is outstanding but only aggregate dividends paid are tagged; common dividends are withheld until the common or preferred CASH distribution is disclosed (earnings allocations are not cash payments)";
+      if (common === undefined || common.tags.includes("PaymentsOfDividendsCommonStock")) return;
+      const aggregateOnly = common.tags.length === 1 && common.tags[0] === "PaymentsOfDividends";
+      let reason: string;
+      if (!aggregateOnly) {
+        const total = values.netDividendsPaid;
+        const preferred = values.preferredDividendsPaid;
+        if (total != null && preferred != null && total <= 0 && preferred <= 0 && preferred >= total) return;
+        reason = "common dividends are withheld: total less preferred CASH payments have contradictory components (cash outflows must be nonnegative and preferred cannot exceed total); no clamping or earnings-allocation substitution is permitted";
+      } else {
+        const start = common.periodStart ?? common.point.start;
+        if (start === undefined) return;
+        // The already cutoff-filtered, deduped index is issuer-local. Any
+        // positive monetary carrying-value synonym in this payout window (or its
+        // opening balance) establishes preferred exposure, even if par or the
+        // closing balance is zero. Distant historical balances do not.
+        const opening = dateMs(start) - DAY_MS;
+        const knownPreferred = tagsFor("preferredStock").some((tag) =>
+          (index.get(tag) ?? []).some((up) => unitMatches(up.unit, "money") && up.points.some((p) =>
+            p.start === undefined && p.val > 0 && dateMs(p.end) >= opening && p.end <= common.point.end)));
+        // Existence needs no FX conversion; only cash subtraction must share
+        // the reporting currency, as enforced by the row resolver above.
+        // A failed preferred-cash component must not silently turn the total
+        // into common cash. Period/currency mismatches remain refusals, even
+        // when no preferred carrying value was filed for the closing date.
+        const preferredCashEvidence = tagsFor("preferredDividendsPaid").some((tag) =>
+          (index.get(tag) ?? []).some((up) => up.points.some((p) => p.start !== undefined &&
+            p.start <= common.point.end && p.end >= start)));
+        // Zero total cash establishes zero common cash unless a refused cash
+        // component contradicts that inference. Never bypass a failed diff.
+        if (values.commonDividendsPaid === 0 && !preferredCashEvidence) return;
+        if (!knownPreferred && !preferredCashEvidence) return;
+        reason = "preferred stock is outstanding during the payout period or preferred cash evidence is incompatible, but only aggregate dividends paid can be used; common dividends are withheld until the common or preferred CASH distribution is disclosed on the same period and currency basis (earnings allocations are not cash payments)";
+      }
       values.commonDividendsPaid = null;
       notes.add(`commonDividendsPaid ${date}: ${reason}`);
       notes.withhold("commonDividendsPaid", date, reason);

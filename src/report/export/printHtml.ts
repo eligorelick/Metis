@@ -31,7 +31,8 @@ import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
@@ -96,6 +97,8 @@ import {
   dataGapTables,
   dataStateText,
   displayProse,
+  displayClaimText,
+  qualityAccrualClarifications,
   executiveGradeText,
   executiveGroups,
   ratioPercentText,
@@ -217,10 +220,10 @@ function subsection(heading: string, body: string, level = "h3"): string {
 }
 
 /** Claims with ONE source marker each (D-62). */
-function claimList(claims: readonly SourcedClaim[]): string {
+function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   if (claims.length === 0) return "";
   return `<ul class="claims">${claims
-    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${prose(c.text, c.source)} <span class="src">${esc(claimCitation(c))}</span></li>`)
+    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${esc(claimCitation(c))}</span></li>`)
     .join("")}</ul>`;
 }
 
@@ -253,7 +256,9 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `<p class="why">${prose(block.oneLineWhy)}</p>`,
   ];
   if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
-  if (block.reasoning.length > 0) parts.push(claimList(block.reasoning));
+  const contractText = gradeContractText(block);
+  if (contractText) parts.push(`<p class="faint">${prose(contractText)}</p>`);
+  if (block.reasoning.length > 0) parts.push(claimList(block.reasoning, block.keyNumbers));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   parts.push(figureTable(figureRows(kept, seen)));
   const also = seeAlsoText(homes);
@@ -531,7 +536,8 @@ function sectionQuality(q: Quality, report: Report): string {
     : `<p class="faint">No forensic flags raised.</p>`;
   // D-68: methodology and context notes sit under the table; flags are findings.
   const notes = (q.notes ?? []).length > 0 ? `<div><em>Notes</em><ul>${(q.notes ?? []).map((note) => `<li>${prose(note)}</li>`).join("")}</ul></div>` : "";
-  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
+  const clarification = qualityAccrualClarifications(q).map(note => `<p class="faint">${esc(note)}</p>`).join("");
+  return `<section class="block">${sectionHeading("quality")}${gradeBlock("Quality", q.graded, new Map(), report, gradeContext(report, "quality"))}${clarification}${subsection("Forensic scores", forensic + notes)}<h3>Flags</h3>${flags}</section>`;
 }
 
 function sectionTechnicals(report: Report): string {
@@ -566,7 +572,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
   const others = groups.notAssessed.length > 0
     ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
     : "";
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {
@@ -704,6 +710,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report): string {
+  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {

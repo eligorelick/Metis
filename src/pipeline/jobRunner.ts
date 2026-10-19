@@ -88,6 +88,7 @@ import type { RequestAdmission, RequestPermit } from "@/providers/anthropic";
 import { buildDataBundle, type BuildDataBundleOptions } from "@/pipeline/dataBundle";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { getRuntimeSnapshotArtifactIdentity } from "@/pipeline/runtimeArtifactIdentity";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
@@ -506,7 +507,7 @@ export interface ReportMetaInput {
  * ------------------------------------------------------------------------ */
 
 /** pipelineVersion stamped into meta (bump when the orchestration changes). */
-export const PIPELINE_VERSION = "stage-c-1.1.5" as const;
+export const PIPELINE_VERSION = "stage-c-1.6.1" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -2756,7 +2757,7 @@ export async function runJob<TPayload = unknown>(
           },
         }), jobSignal, jobController, "fetch", fetchDeadlineMs));
       throwIfJobAborted(jobSignal);
-      const inputSnapshot = captureRunInputSnapshot(bundle, stageBConfig);
+      const inputSnapshot = captureRunInputSnapshot(bundle, stageBConfig, undefined, getRuntimeSnapshotArtifactIdentity());
       const captured = withLiveRunAuthority(state, null, (db, _row, authorityAt) =>
         persistRunInputSnapshot(state.jobId, state.runGeneration, inputSnapshot, authorityAt, db));
       if (!captured.authorized) throw new SupersededRunError(state.jobId, state.runGeneration);

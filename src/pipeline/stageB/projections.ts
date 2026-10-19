@@ -138,7 +138,7 @@ export interface ProjectionsInputs {
   /** Currency label for revenue/FCF/EPS units. */
   currency: string | null;
   asOf: string;
-  /** D-60: the latest release's remaining repurchase authorization and the quote, for the EPS capital-return disclosure. */
+  /** Remaining repurchase authorization from the admitted issuer disclosure, its source, and the quote. */
   capitalReturn?: { authorizationRemaining: number | null; source: string | null; currentPrice: number | null } | null;
   /**
    * D-65: the annual interest expense forecast EPS deducts, from the latest
@@ -754,12 +754,12 @@ function buildEpsSeries(
   const authAnnualPct = authRetiredPct !== null && authRetiredPct < 100 ? (Math.pow(1 - authRetiredPct / 100, 1 / H) - 1) * 100 : null;
   const authorizationText = authRemaining === null
     ? "No remaining repurchase authorization was read from the filings."
-    : `The latest earnings release reports ${round2(authRemaining / 1e9)}B of repurchase authorization remaining${auth?.source ? ` (${auth.source})` : ""}` +
+    : `The retained issuer disclosure reports ${round2(authRemaining / 1e9)}B of repurchase authorization remaining${auth?.source ? ` (${auth.source})` : ""}` +
       (authRetiredPct === null || authAnnualPct === null
         ? "."
         : `; spent evenly over the ${H}-year horizon at the current quote it would retire ${round2(authRetiredPct)}% of diluted shares (${round2(authAnnualPct)}%/yr), against the observed ${observedTrend === null ? "unavailable" : `${round2(observedTrend)}%/yr`} trend.`);
   const capitalBasis =
-    "The base holds the diluted share count flat: a repurchase authorization is discretionary capacity, not a committed schedule, and future repurchases depend on cash and price. A positive dilution trend is retained. " +
+    "The base holds the diluted share count flat: a repurchase authorization is discretionary capacity, not a committed schedule, and future repurchases depend on cash and price. Positive dilution is retained only when the observed share-count trend is positive. " +
     `${authorizationText} The historical-share-trend alternative is hypothetical and does not deduct repurchase cash from equity value; flat-share EPS isolates operating performance.`;
   const yearOne = rows.baseRows[0];
   const conversion = yearOne && yearOne.ebit > 0 ? netIncomeOf(yearOne) / yearOne.ebit : 0;

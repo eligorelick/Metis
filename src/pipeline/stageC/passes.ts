@@ -113,6 +113,7 @@ import {
   type EntityIssue,
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import {
   completedTopLevelFields,
   continuationInstruction,
@@ -3235,7 +3236,8 @@ export const SCENARIO_TARGET_HORIZON = "explicit DCF horizon";
  * when that scenario's computed per-share is non-null and "n/a" otherwise
  * (D-40), so a null target never carries a horizon.
  * The judge's scenario NARRATIVE (probability, assumptions,
- * whatWouldHaveToBeTrue) is preserved verbatim. Pure; returns a new valuation.
+ * whatWouldHaveToBeTrue) is preserved here; final scenario presentation later
+ * separates qualitative conditions from actual numerical prerequisites. Pure.
  */
 export function applyScenarioTargets(
   valuation: JudgeOutput["valuation"],
@@ -3744,7 +3746,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   }
   // D-50: cap each section's confidence label at the deterministic data-coverage
   // ceiling (the model may go lower, never higher). Runs before verification.
-  return applyReportAssessmentStatus(applyConfidenceCeilings(parsed.data));
+  return applyReportAssessmentStatus(applyGradeOverrideContract(applyConfidenceCeilings(parsed.data), args.verify.log));
 }
 
 function firstProfileName(bundle: DataBundle): string | null {

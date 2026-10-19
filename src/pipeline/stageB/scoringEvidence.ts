@@ -159,7 +159,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       if (id === "piotroskiF") { operand("signals passed", i.forensics.piotroski?.score, "computed.forensics.piotroski.score"); operand("signals assessed", i.forensics.piotroski?.outOf, "computed.forensics.piotroski.outOf"); }
       else if (id === "accrualsRatioAbs") {
         operand("cash-flow accrual ratio before absolute transform", i.forensics.accruals?.cashFlowAccrualRatio, "computed.forensics.accruals.cashFlowAccrualRatio");
-        if (i.forensics.accruals?.definition === "operating") result.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI − CFO).";
+        if (i.forensics.accruals?.definition === "operating") result.fallbackReason = "Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).";
       }
       else if (id === "beneishM") operand("Beneish M", i.forensics.beneish?.score, "computed.forensics.beneish.score");
       else if (id === "beneishMSgiNeutral") {
@@ -189,7 +189,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         completeSample ? null : "Historical sample dates unavailable or incomplete.",
         completeSample && missingMarketDates > 0 ? `${missingMarketDates} market observation date(s) unavailable; fiscal period dates are not substituted.` : null,
         "Historical publication availability at the market observation dates is not established; this is a retrospective comparison of retained statement history.",
-        selected.key !== ownKeys[0] ? `${ownKeys[0]} unavailable, using ${selected.key}.` : null,
+        selected.key !== ownKeys[0] ? `${ownKeys[0] === "peTtm" ? "P/E" : ownKeys[0]} history comparison unavailable; using ${selected.key === "evToEbitda" ? "EV/EBITDA" : selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
       ].filter(Boolean).join(" ") : ["Own-history rank unavailable.", cashOwnershipScope].filter(Boolean).join(" ");
       if (selected) {
         operand(`${selected.key} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);
@@ -234,7 +234,9 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     result.family = "capital-return-policy";
     const trend = i.capital.shareCount;
     dates(trend.startDate, trend.endDate); result.windowYears = finite(trend.actualYears) ? trend.actualYears : result.windowYears;
-    operand("start shares", trend.startShares, "computed.capital.shareCount.startShares", result.startDate); operand("end shares", trend.endShares, "computed.capital.shareCount.endShares", result.endDate);
+    result.period = `Annualized weighted-average diluted common-share trend; ${result.period ?? "window unavailable"}`;
+    result.fallbackReason = "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.";
+    operand("start weighted-average diluted common shares", trend.startShares, "computed.capital.shareCount.startShares", result.startDate); operand("end weighted-average diluted common shares", trend.endShares, "computed.capital.shareCount.endShares", result.endDate);
   } else if (id === "buybackTiming") {
     // D-61: each covered fiscal year's actual price paid against that year's
     // average price; the quote is not an input.

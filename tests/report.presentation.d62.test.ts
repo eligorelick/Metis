@@ -149,7 +149,7 @@ describe("page-1 key data and the audit export", () => {
     expect(byLabel.get("Latest price (intraday, 15:56 ET)")).toBe("$217.23");
     expect(byLabel.get("Market cap")).toBe("$5.24T");
     expect(byLabel.get("Consensus price target")).toBe("$339.17 (+56.1% vs price)");
-    expect(byLabel.get("Forward P/E (consensus EPS)")).toBe("23.4×");
+    expect(byLabel.get("Price / provider EPS (basis unverified)")).toBe("23.4×");
     expect(byLabel.get("Analyst grades")).toBe("60 positive · 16 neutral · 3 negative");
     expect(rows.some((row) => /n\/a|undefined|NaN/.test(`${row.value} ${row.note ?? ""}`))).toBe(false);
     expect(rows.some((row) => /short interest/i.test(row.label))).toBe(false);

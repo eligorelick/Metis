@@ -447,6 +447,55 @@ describe("pipelinePasses.assembleReport (H4 forwarding)", () => {
  * ------------------------------------------------------------------------ */
 
 describe("pipelinePasses.runVerifyPass (WeakMap context recovery)", () => {
+  it("adjudicates an override after ordinary full-report verification, including provisional withholding", async () => {
+    const { bundle, computed, validation } = buildInputs();
+    computed.scores!.aspects.fundamentals = { ...computed.scores!.aspects.fundamentals, score: 70, band: "B", dataCompleteness: 1, applicableCompleteness: 1 };
+    const payload = pipelinePasses.assembleContextPayload(bundle, computed, validation);
+    const admitted = payload.provenanceRegistry![0];
+    const judge = fakeJudgeOutput();
+    for (const block of [judge.fundamentals.graded, judge.verdict.gradeStrip.fundamentals]) block.grade = "C";
+    judge.fundamentals.graded.overrideRationale = { reason: "The cited evidence raises a condition outside the score.", evidenceSources: [admitted.id] };
+    judge.fundamentals.graded.reasoning = [{ text: "The supplied evidence warrants a cautious interpretation.", label: "JUDGMENT", source: admitted.id, sourceId: admitted.id, asOf: admitted.asOf }];
+    const result = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, judge);
+    expect(result.verifiedReport.fundamentals.graded.gradeContract?.status).toBe("accepted");
+    expect(result.verifiedReport.fundamentals.graded.assessmentStatus).toBeUndefined();
+    expect(result.verifiedReport.verdict.gradeStrip.fundamentals.gradeContract?.status).toBe("accepted");
+    // Raw judge output was not altered by provisional or final assembly.
+    expect(judge.fundamentals.graded.grade).toBe("C");
+    expect(judge.fundamentals.graded.gradeContract).toBeUndefined();
+  });
+
+  it("withholds an excessive proposal through the ordinary verified-report and fallback assembly routes", async () => {
+    const { bundle, computed, validation } = buildInputs();
+    computed.scores!.aspects.fundamentals = { ...computed.scores!.aspects.fundamentals, score: 95, band: "A", dataCompleteness: 1 };
+    const payload = pipelinePasses.assembleContextPayload(bundle, computed, validation);
+    const judge = fakeJudgeOutput();
+    judge.fundamentals.graded.grade = judge.verdict.gradeStrip.fundamentals.grade = "D";
+    const verified = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, judge);
+    const fallback = pipelinePasses.assembleReport({ ...assembleInput(bundle, computed, validation), judgeOutput: judge });
+    for (const report of [verified.verifiedReport, fallback]) {
+      expect(report.fundamentals.graded.gradeContract?.reason).toBe("grade-distance-exceeded");
+      expect(report.fundamentals.graded.assessmentStatus).toBe("not-assessed");
+      expect(report.verdict.gradeStrip.fundamentals.assessmentStatus).toBe("not-assessed");
+      expect(report.fundamentals.graded.grade).toBe("D");
+    }
+  });
+
+  it("rejects a one-step rationale whose cited number is contradicted by ordinary verification", async () => {
+    const { bundle, computed, validation } = buildInputs();
+    computed.scores!.aspects.fundamentals = { ...computed.scores!.aspects.fundamentals, score: 70, band: "B", dataCompleteness: 1 };
+    const payload = pipelinePasses.assembleContextPayload(bundle, computed, validation);
+    const admitted = payload.provenanceRegistry!.find(record => record.id === "computed.deterministic-aspect-scores.fundamentals-score")!;
+    const judge = fakeJudgeOutput();
+    judge.fundamentals.graded.grade = judge.verdict.gradeStrip.fundamentals.grade = "C";
+    judge.fundamentals.graded.overrideRationale = { reason: "The cited measure warrants an adjustment.", evidenceSources: [admitted.id] };
+    judge.fundamentals.graded.reasoning = [{ text: `The fundamentals score was ${admitted.value + 1} on the 0-100 scale.`, label: "FACT", source: admitted.id, asOf: admitted.asOf }];
+    const result = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, judge);
+    expect(result.verifiedReport.appendix.verificationLog?.some(entry => entry.path === "fundamentals.graded.reasoning[0]" && entry.validationStatus === "contradicted")).toBe(true);
+    expect(result.verifiedReport.fundamentals.graded.gradeContract?.reason).toBe("unadmitted-override-evidence");
+    expect(result.verifiedReport.fundamentals.graded.assessmentStatus).toBe("not-assessed");
+  });
+
   it("recovers the registered bundle/computed/validation and forwards validation gaps to the verified report", async () => {
     const { bundle, computed, validation } = buildInputs();
     validation.gaps.push(VALIDATION_MARKER);

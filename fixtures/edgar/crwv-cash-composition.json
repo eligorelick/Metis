@@ -1,0 +1,121 @@
+{
+  "source": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000366/crwv-20260630.htm",
+  "cik": 1769628,
+  "entityName": "CoreWeave, Inc.",
+  "facts": {
+    "us-gaap": {
+      "CashAndCashEquivalentsAtCarryingValue": {
+        "label": "Cash and Cash Equivalents, at Carrying Value",
+        "description": "Amount of currency on hand as well as demand deposits with banks or financial institutions. Includes other kinds of accounts that have the general characteristics of demand deposits. Also includes short-term, highly liquid investments that are both readily convertible to known amounts of cash and so near their maturity that they present insignificant risk of changes in value because of changes in interest rates. Excludes cash and cash equivalents within disposal group and discontinued operation.",
+        "units": {
+          "USD": [
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2025-12-31",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2025Q4I",
+              "fy": 2026,
+              "val": 3127000000
+            },
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2026-06-30",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 5524000000
+            }
+          ]
+        }
+      },
+      "RestrictedCashAndCashEquivalentsAtCarryingValue": {
+        "label": "Restricted Cash and Cash Equivalents, Current",
+        "description": "Amount of cash and cash equivalents restricted as to withdrawal or usage, classified as current. Cash includes, but is not limited to, currency on hand, demand deposits with banks or financial institutions, and other accounts with general characteristics of demand deposits. Cash equivalents include, but are not limited to, short-term, highly liquid investments that are both readily convertible to known amounts of cash and so near their maturity that they present insignificant risk of changes in value because of changes in interest rates.",
+        "units": {
+          "USD": [
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2025-12-31",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2025Q4I",
+              "fy": 2026,
+              "val": 819000000
+            },
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2026-06-30",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 873000000
+            }
+          ]
+        }
+      },
+      "RestrictedCashAndCashEquivalentsNoncurrent": {
+        "label": "Restricted Cash and Cash Equivalents, Noncurrent",
+        "description": "Amount of cash and cash equivalents restricted as to withdrawal or usage, classified as noncurrent. Cash includes, but is not limited to, currency on hand, demand deposits with banks or financial institutions, and other accounts with general characteristics of demand deposits. Cash equivalents include, but are not limited to, short-term, highly liquid investments that are both readily convertible to known amounts of cash and so near their maturity that they present insignificant risk of changes in value because of changes in interest rates.",
+        "units": {
+          "USD": [
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2025-12-31",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2025Q4I",
+              "fy": 2026,
+              "val": 184000000
+            },
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2026-06-30",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 507000000
+            }
+          ]
+        }
+      },
+      "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents": {
+        "label": "Cash, Cash Equivalents, Restricted Cash and Restricted Cash Equivalents",
+        "description": "Amount of cash and cash equivalents, and cash and cash equivalents restricted to withdrawal or usage. Excludes amount for disposal group and discontinued operations. Cash includes, but is not limited to, currency on hand, demand deposits with banks or financial institutions, and other accounts with general characteristics of demand deposits. Cash equivalents include, but are not limited to, short-term, highly liquid investments that are both readily convertible to known amounts of cash and so near their maturity that they present insignificant risk of changes in value because of changes in interest rates.",
+        "units": {
+          "USD": [
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2025-12-31",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2025Q4I",
+              "fy": 2026,
+              "val": 4130000000
+            },
+            {
+              "accn": "0001769628-26-000366",
+              "end": "2026-06-30",
+              "filed": "2026-08-12",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 6904000000
+            }
+          ]
+        }
+      }
+    }
+  }
+}

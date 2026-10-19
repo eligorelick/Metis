@@ -842,6 +842,17 @@ describe("runStageB wiring — normalized quarterly statement families", () => {
   });
 });
 
+describe("runStageB wiring - diluted EPS convention", () => {
+  it("discloses the quarter-sum convention on the report-facing P/E basis", () => {
+    const computed = runStageB(wiringBundle());
+    const pe = computed.valuation.multiples?.multiples.find(row => row.key === "peTtm");
+    expect(pe?.current).toBeGreaterThan(0);
+    expect(pe?.basis).toMatch(/sum of four reported quarterly diluted EPS/i);
+    expect(pe?.basis).toMatch(/annual or year-to-date.*not reconstructed/i);
+    expect(computed.gaps.some(gap => /epsDiluted.*convention/.test(gap.field))).toBe(false);
+  });
+});
+
 describe("runStageB wiring — net debt convention + point-in-time anchors (audit H2/M3/M4)", () => {
   it("keeps provider price rows when missing provider volume propagates into technicals", () => {
     const bundle = wiringBundle();

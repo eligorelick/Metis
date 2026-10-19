@@ -59,6 +59,10 @@ export const REVENUE_TAGS: readonly string[] = [
   "RevenuesNetOfInterestExpense",
 ];
 
+/** Full industrial operands; financial net revenue and component costs are not substitutes. */
+export const GROSS_PROFIT_REVENUE_TAGS = REVENUE_TAGS.filter(tag => tag !== "RevenuesNetOfInterestExpense");
+export const GROSS_PROFIT_COST_TAGS: readonly string[] = ["CostOfRevenue", "CostOfGoodsAndServicesSold"];
+
 /**
  * The pretax element that, by taxonomy definition, is measured BEFORE
  * equity-method results — its name lists what it excludes. When it serves as
@@ -253,6 +257,7 @@ export const LINE_ITEM_TAGS = {
   ]),
   cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
   restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
+  restrictedCashAndCashEquivalentsNoncurrent: entry(["RestrictedCashAndCashEquivalentsNoncurrent"]),
   shortTermInvestments: entry([
     "ShortTermInvestments",
     "MarketableSecuritiesCurrent",
@@ -326,6 +331,11 @@ export const LINE_ITEM_TAGS = {
   totalStockholdersEquity: entry(["StockholdersEquity"]),
   totalEquity: entry(["StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"]),
   minorityInterest: entry(["MinorityInterest", "NonredeemableNoncontrollingInterest"]),
+  // Mezzanine carrying amounts, never permanent preferredStock, redemption
+  // values, liquidation preferences, or share counts.
+  temporaryEquity: entry(["TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests"]),
+  temporaryEquityAttributableToParent: entry(["TemporaryEquityCarryingAmountAttributableToParent"]),
+  temporaryEquityAttributableToNoncontrollingInterest: entry(["RedeemableNoncontrollingInterestEquityCarryingAmount"]),
   deposits: entry(["Deposits"]),
   sharesOutstandingBalanceSheet: entry([BALANCE_SHEET_SHARES_TAG]),
 

@@ -393,6 +393,9 @@ describe("GET /api/report/view/[reportId]", () => {
 
   it("withholds current and legacy placeholder grades in compact summaries without rewriting the report", async () => {
     const report = task28SentinelReport();
+    // Keep a valid same-band valuation control beside the withheld cases.
+    report.valuation.graded.grade = report.verdict.gradeStrip.valuation.grade = "B";
+    report.scores!.aspects.valuation = { ...report.scores!.aspects.valuation, score: 70, band: "B", dataCompleteness: 1 };
     report.appendix.missingData.push({ field: "analysis.llm", reason: "No completed assessment", severity: "critical" });
     report.verdict.gradeStrip.moat.grade = "F";
     report.verdict.gradeStrip.moat.oneLineWhy = "Not graded — Stage B did not run.";

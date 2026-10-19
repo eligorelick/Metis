@@ -20,6 +20,7 @@
  * - Annual statements only. Rows are expected newest-first (FMP default order).
  */
 
+import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import type { CompanyRoute, ManifestEntry } from "@/types/core";
 
@@ -32,6 +33,8 @@ import type { CompanyRoute, ManifestEntry } from "@/types/core";
 
 /** Annual income-statement row (FMP `income-statement`, period=annual). */
 export interface ForensicsIncomeRow {
+  fieldConflicts?: FmpStatementRow["fieldConflicts"];
+  fieldProvenance?: FmpStatementRow["fieldProvenance"];
   /** Fiscal period end (FMP `date`), ISO string. */
   date: string;
   fiscalYear?: string | null;
@@ -273,10 +276,29 @@ function grossMarginRatio(
   sales: number | null,
 ): number | null {
   if (sales === null || sales <= 0) return null;
-  const gp = nv(row?.grossProfit);
+  if (row?.fieldConflicts?.revenue?.usable === false) return null;
+  const gpRefused = row?.fieldConflicts?.grossProfit?.usable === false;
+  const gp = gpRefused ? null : nv(row?.grossProfit);
   if (gp !== null) return gp / sales;
-  const cogs = nv(row?.costOfRevenue);
-  if (cogs !== null) return (sales - cogs) / sales;
+  const cogs = row?.fieldConflicts?.costOfRevenue?.usable === false ? null : nv(row?.costOfRevenue);
+  // An explicit classification refusal cannot be cured by vendor arithmetic.
+  // Only independently supported same-filing/interval/currency operands may
+  // establish a replacement margin; absence alone retains the legacy fallback.
+  const revenueEvidence = row?.fieldProvenance?.revenue;
+  const costEvidence = row?.fieldProvenance?.costOfRevenue;
+  const supported = (e: NonNullable<ForensicsIncomeRow["fieldProvenance"]>[string] | undefined, tags: string[]): boolean => {
+    if (!e || e.source !== "edgar" || !/^[A-Z]{3}$/.test(e.unit) || e.periodStart === null || e.periodEnd !== row?.date ||
+      !Number.isFinite(Date.parse(e.periodStart)) || !Number.isFinite(Date.parse(e.observedAt)) || !e.tags.some(tag => tags.includes(tag))) return false;
+    const days = (Date.parse(e.periodEnd) - Date.parse(e.periodStart)) / 86400000;
+    return days >= 350 && days <= 380 && e.filings.length > 0 && e.filings.every(f => /^\d{4}-\d{2}-\d{2}$/.test(f.filed) && f.filed <= e.observedAt.slice(0, 10));
+  };
+  const compatible = revenueEvidence?.source === "edgar" && costEvidence?.source === "edgar" &&
+    supported(revenueEvidence, ["us-gaap/Revenues", "us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax", "us-gaap/RevenueFromContractWithCustomerIncludingAssessedTax", "us-gaap/SalesRevenueNet"]) &&
+    supported(costEvidence, ["us-gaap/CostOfRevenue", "us-gaap/CostOfGoodsAndServicesSold"]) &&
+    revenueEvidence.unit === costEvidence.unit && revenueEvidence.periodStart === costEvidence.periodStart &&
+    revenueEvidence.periodEnd === costEvidence.periodEnd && revenueEvidence.filings.length > 0 &&
+    JSON.stringify(revenueEvidence.filings) === JSON.stringify(costEvidence.filings);
+  if (cogs !== null && (!gpRefused || compatible)) return (sales - cogs) / sales;
   return null;
 }
 
@@ -1711,7 +1733,7 @@ export interface AccrualsResult {
   operatingAccruals?: number | null;
   /** D-61: the construction behind `cashFlowAccrualRatio` (absent on pre-D-61 results). */
   definition?: AccrualDefinition;
-  /** D-61: purchases + sales/maturities of investments (statement signs); null when not reported. */
+  /** D-61: admitted purchases + sales/maturities (statement signs); null when unavailable or unreconciled. */
   financialAssetCashFlow?: number | null;
   /** D-61: reported CFI minus the financial-asset flows (capex, acquisitions, other investing). */
   operatingInvestingCashFlow?: number | null;
@@ -1902,7 +1924,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
       !ltiKnown ? "long-term investments in both years" : null,
     ].filter((part): part is string => part !== null);
     notes.push(
-      `Accrual definition: operating accruals (NI − CFO), because the statements do not report ${missing.join(", ")} — the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Operating accruals exclude every investing flow, including capex and acquisitions.`,
+      `Accrual definition: operating accruals (NI \u2212 CFO), because compatible admitted inputs are unavailable for ${missing.join(", ")} - the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Reported but refused observations are not substituted for admitted inputs. Operating accruals exclude every investing flow, including capex and acquisitions.`,
     );
   }
   const aggBS = noaT !== null && noaP !== null ? noaT - noaP : null;
@@ -1915,7 +1937,7 @@ export function computeAccruals(current: ForensicsPeriod, prior: ForensicsPeriod
       ),
     );
   } else if (!ltiKnown) {
-    notes.push("Net operating assets are not adjusted for long-term investments, which the balance sheets do not report in both years.");
+    notes.push("Net operating assets are not adjusted for long-term investments, which are unavailable on a compatible admitted basis in both years.");
   }
 
   // Growth note (D-61, Fairfield, Whisenant & Yohn 2003): accruals are growth

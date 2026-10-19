@@ -16,11 +16,12 @@
 import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
+import { admittedStatementRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "@/providers/currentReports";
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { orderedEarningsReleases } from "@/providers/currentReports";
-import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
+import { materialCreditSupportClauses, moneyMentions, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { parseSegmentPerformance } from "@/edgar/segmentPerformance";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
@@ -28,6 +29,7 @@ import { financialCompositionFacts } from "@/pipeline/financialComposition";
 import {
   parseBusinessCombinationFacts,
   parseCommitmentFacts,
+  parseCompletedOfferingFacts,
   parseCustomerConcentrationFacts,
   parseInvestmentFacts,
   parseOfficerChanges,
@@ -36,7 +38,7 @@ import {
   parseTradingArrangements,
   type FilingFact,
 } from "@/edgar/filingFacts";
-import { noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
+import { CommitmentPaymentTimingSchema, noBuySellHold, type FilingDisclosures, type FilingRef, type GuidanceCheck } from "@/report/schema";
 
 const SYMBOL_CURRENCY: Readonly<Record<string, string>> = { "US$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY" };
 const TREND_QUARTERS = 8;
@@ -56,7 +58,7 @@ function round(v: number | null, dp = 4): number | null {
 }
 
 function rowsOf<T extends FmpRawRow>(f: { ok: boolean; value?: { data: { rows: T[] } } } | undefined): T[] {
-  return f?.ok && f.value ? f.value.data.rows : [];
+  return f?.ok && f.value ? f.value.data.rows.map(admittedStatementRow) : [];
 }
 
 function day(v: unknown): string | null {
@@ -444,7 +446,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         qualifiers: guided.guidance.qualifiers.map((q) => safeText(q, "An issuer outlook caveat is withheld from display by the rating-language filter; see the release.")),
       }
     : null;
-  if (releases.length > 0 && guided === undefined) notes.push("No quarterly outlook could be read from the latest earnings releases; no guidance is shown.");
+  if (releases.length > 0 && guided === undefined) notes.push("No structured quarterly guidance rows were extracted from the retained releases; separately sourced narrative guidance may still be available.");
 
   const latest = releases[0];
   // A dated issuer production statement remains visible even if model prose
@@ -460,7 +462,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     : [];
   const capital = latest?.capitalReturn;
   const capitalCurrency = (symbol: string | undefined, release = latest): boolean => release !== undefined && releaseCurrencyMatches(bundle, release, symbol ?? "$", currency);
-  const capitalReturn: FilingDisclosures["capitalReturn"] = latest && capital && currency !== null &&
+  let capitalReturn: FilingDisclosures["capitalReturn"] = latest && capital && currency !== null &&
     (capital.returned || capital.authorizationRemaining || capital.dividendPerShare || capital.authorizationAdded)
     ? {
         source: releaseRef(latest, "EX-99.1"),
@@ -483,6 +485,30 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         dividendChangeTo: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.to : null,
       }
     : null;
+  // Reuse the strict issuer / primary-document / filing-date admission used
+  // for quarterly segment facts. A retained dated MD&A balance is evidence
+  // even when the earnings release did not repeat it.
+  const primary = segmentPrimarySection(bundle);
+  if (primary && currency !== null && periodReportingCurrency(bundle, primary.data.reportDate) === currency &&
+    (capitalReturn?.authorizationRemaining == null || primary.ref.filingDate > capitalReturn.source.filingDate)) {
+    const candidates = splitSentences(primary.data.text).flatMap(sentence => {
+      const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
+      if (!match) return [];
+      const stamp = Date.parse(match[1]!);
+      const asOf = Number.isFinite(stamp) ? new Date(stamp).toISOString().slice(0,10) : null;
+      const amount = moneyMentions(match[2]!)[0];
+      return asOf === primary.data.reportDate && amount && symbolCurrency(amount.symbol, currency) === currency && amount.value >= 0
+        ? [{ asOf, value: amount.value }] : [];
+    });
+    if (candidates.length && new Set(candidates.map(candidate => candidate.value)).size === 1) {
+      const candidate=candidates[0]!;
+      capitalReturn = { ...(capitalReturn ?? { source: primary.ref, returned: null, returnedPeriod: null, authorizationRemaining: null, authorizationAdded: null,
+        dividendPerShare: null, dividendPayDate: null, dividendRecordDate: null, dividendChangeFrom: null, dividendChangeTo: null }),
+        authorizationRemaining: candidate.value, authorizationRemainingAsOf: candidate.asOf, authorizationRemainingSource: primary.ref };
+      delete capitalReturn.authorizationRemainingApproximate;
+      notes.push(`Remaining repurchase authorization is dated ${candidate.asOf}, from ${primary.ref.form} ${primary.ref.accession}, filed ${primary.ref.filingDate}; authority is discretionary and does not establish funded future repurchases.`);
+    }
+  }
   // A dividend change or added authorization announced in an earlier release
   // of the window is still news the latest release does not repeat.
   for (const earlier of releases.slice(1)) {
@@ -555,16 +581,71 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
       .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: earningsFactRef(latest, f.source) }))
     : [];
   const commitmentRelease = releases.find((r) => (r.commitments ?? []).length > 0);
-  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease && releaseCurrencyMatches(bundle, commitmentRelease, "$", currency)
+  const validTimingDay = (value: string | null): value is string => value !== null &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  const cutoff = bundle.builtAt.slice(0, 10);
+  const commitmentAvailable = commitmentRelease !== undefined && validTimingDay(commitmentRelease.filingDate) &&
+    validTimingDay(cutoff) && commitmentRelease.filingDate <= cutoff;
+  type CommitmentEvidence = NonNullable<EarningsReleaseRecord["commitments"]>[number];
+  const commitmentRef = (table: CommitmentEvidence): FilingRef => table.source ??
+    releaseRef(commitmentRelease!, commitmentRelease?.commitmentsExhibit ?? "EX-99.1");
+  const commitmentNarrative = (table: CommitmentEvidence): string | null | undefined => {
+    if (!table.source) return commitmentRelease?.commitmentsExhibit === "EX-99.2"
+      ? commitmentRelease.commentaryNarrative : commitmentRelease?.releaseNarrative;
+    const commentary = releaseRef(commitmentRelease!, "EX-99.2");
+    const release = releaseRef(commitmentRelease!, "EX-99.1");
+    if (table.source.exhibit === commentary.exhibit && table.source.url === commentary.url) return commitmentRelease?.commentaryNarrative;
+    if (table.source.exhibit === release.exhibit && table.source.url === release.url) return commitmentRelease?.releaseNarrative;
+    return null;
+  };
+  const sameAggregate = (candidate: NonNullable<EarningsReleaseRecord["commitments"]>[number], table: NonNullable<EarningsReleaseRecord["commitments"]>[number]): boolean =>
+    candidate.kind === table.kind && candidate.asOf === table.asOf && candidate.total === table.total &&
+    candidate.rows.length === table.rows.length && candidate.rows.every((row, index) =>
+      row.label === table.rows[index]!.label && row.total === table.rows[index]!.total);
+  const reproducedAggregate = (table: NonNullable<EarningsReleaseRecord["commitments"]>[number]) => {
+    // An optional null/primitive/corrupt schedule cannot erase independently
+    // reproducible aggregate evidence or supply an invented currency.
+    const retainedText = table.paymentTiming?.sourceText;
+    const sourceText = typeof retainedText === "string" && retainedText.length <= 2_000 ? retainedText : commitmentNarrative(table);
+    if (typeof sourceText !== "string") return undefined;
+    const explicitSymbol = table.paymentTiming?.currencySymbol;
+    return parseCommitmentTables(sourceText).find(candidate => sameAggregate(candidate, table) &&
+      (typeof explicitSymbol !== "string" || candidate.paymentTiming?.currencySymbol === explicitSymbol));
+  };
+  const timingSourceMatches = (table: CommitmentEvidence): boolean => {
+    const sourceText = table.paymentTiming?.sourceText;
+    if (typeof sourceText !== "string" || sourceText.length > 2_000) return false;
+    const retained = CommitmentPaymentTimingSchema.safeParse(table.paymentTiming);
+    if (!retained.success) return false;
+    return parseCommitmentTables(sourceText).some(candidate => {
+      if (candidate.kind !== table.kind || candidate.asOf !== table.asOf || candidate.total !== table.total ||
+        candidate.paymentTiming?.currencySymbol !== table.paymentTiming?.currencySymbol ||
+        candidate.rows.length !== table.rows.length || candidate.rows.some((row, index) =>
+          row.label !== table.rows[index]!.label || row.total !== table.rows[index]!.total)) return false;
+      const reconstructed = CommitmentPaymentTimingSchema.safeParse(candidate.paymentTiming);
+      return retained.success && reconstructed.success && JSON.stringify(reconstructed.data) === JSON.stringify(retained.data);
+    });
+  };
+  const commitmentName = (table: CommitmentEvidence, index: number, all: readonly CommitmentEvidence[]) =>
+    table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
+      : all.findIndex(t => t.kind === "commitments" && commitmentRef(t).exhibit === commitmentRef(table).exhibit &&
+        commitmentRef(t).url === commitmentRef(table).url) === index ? "future commitments" : "additional commitments";
+  const commitments: NonNullable<FilingDisclosures["commitments"]> = commitmentRelease
     ? (commitmentRelease.commitments ?? []).flatMap((table, index, all) => {
-        const name = table.kind === "guarantees" ? "guarantees (maximum gross exposure)"
-          : all.findIndex((t) => t.kind === "commitments") === index ? "future commitments" : "additional commitments";
-        const source = releaseRef(commitmentRelease, commitmentRelease.commitmentsExhibit ?? "EX-99.1");
+        // New schedules retain the actual symbol. In particular, explicit US$
+        // cannot be rebound to EUR merely because the issuer reports in EUR.
+        // Legacy records keep their prior aggregate-only currency convention.
+        const reproduced = table.paymentTiming === undefined ? undefined : reproducedAggregate(table);
+        const symbol = table.paymentTiming === undefined ? "$" : reproduced?.paymentTiming?.currencySymbol ?? null;
+        if (!releaseCurrencyMatches(bundle, commitmentRelease, symbol, currency)) return [];
+        if (table.paymentTiming !== undefined && (!commitmentAvailable || !validTimingDay(table.asOf) ||
+          table.asOf > commitmentRelease.filingDate || reproduced === undefined)) return [];
+        const name = commitmentName(table, index, all);
+        const source = commitmentRef(table);
         // Saved bundles may carry the former parser's date borrowed from an
         // adjacent commitments table. Re-establish guarantee dates from the
         // same exhibit's own table, including during deterministic replay.
-        const sourceNarrative = commitmentRelease.commitmentsExhibit === "EX-99.2"
-          ? commitmentRelease.commentaryNarrative : commitmentRelease.releaseNarrative;
+        const sourceNarrative = commitmentNarrative(table);
         const localGuarantee = table.kind === "guarantees" ? parseCommitmentTables(sourceNarrative ?? "").find((candidate) =>
           candidate.kind === "guarantees" && candidate.total === table.total &&
           candidate.rows.length === table.rows.length && candidate.rows.every((row, i) =>
@@ -578,6 +659,41 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
           ...table.rows.map((row) => ({ kind: table.kind, table: name, asOf, label: safeText(row.label, "(row label withheld)"), total: row.total, tableTotal: false, source })),
           ...(table.total === null ? [] : [{ kind: table.kind, table: name, asOf, label: "Total", total: table.total, tableTotal: true, source }]),
         ];
+      })
+    : [];
+  const commitmentPaymentTiming: NonNullable<FilingDisclosures["commitmentPaymentTiming"]> = commitmentRelease
+    ? (commitmentRelease.commitments ?? []).flatMap((table, index, all) => {
+        if (table.paymentTiming === undefined) return [];
+        const parsed = CommitmentPaymentTimingSchema.safeParse(table.paymentTiming);
+        if (!parsed.success) {
+          notes.push("A retained commitment timing record has an invalid structure; its raw bundle evidence remains retained, but no schedule is admitted.");
+          return [];
+        }
+        const timing = parsed.data;
+        const compatibleCurrency = releaseCurrencyMatches(bundle, commitmentRelease, timing.currencySymbol, currency);
+        const dated = commitmentAvailable && validTimingDay(table.asOf) && table.asOf <= commitmentRelease.filingDate;
+        const sourceMatches = timingSourceMatches(table);
+        const scopeReason = [
+          compatibleCurrency ? null : "The table's monetary currency is not established on a compatible source-period basis; numeric payment timing is withheld.",
+          dated ? null : "The table lacks a valid as-of/filing date available by the analysis date; numeric payment timing is withheld.",
+          sourceMatches ? null : "Structured payment timing does not reproduce from the retained supplying table; numeric payment timing is withheld.",
+        ].filter((reason): reason is string => reason !== null);
+        const admitted = compatibleCurrency && dated && sourceMatches;
+        return [{
+          ...timing,
+          kind: table.kind,
+          table: commitmentName(table, index, all),
+          tableIndex: table.sourceTableIndex ?? index,
+          asOf: table.asOf,
+          currency: compatibleCurrency ? currency : null,
+          source: commitmentRef(table),
+          coverage: admitted ? timing.coverage : "unavailable" as const,
+          rows: admitted ? timing.rows : timing.rows.map(row => ({ ...row, total: null,
+            buckets: row.buckets.map(bucket => ({ ...bucket, amount: null })),
+            reconciliation: { status: "unknown" as const, bucketSum: null, residual: null },
+          })),
+          reason: [timing.reason, ...scopeReason].filter(Boolean).join(" ") || null,
+        }];
       })
     : [];
   const basisNote = releases.find((r) => typeof r.nonGaapBasisNote === "string")?.nonGaapBasisNote ?? null;
@@ -601,6 +717,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     quarterlyTrend: trend,
     ...(reconciliation.length === 0 ? {} : { reconciliation }),
     ...(commitments.length === 0 ? {} : { commitments }),
+    ...(commitmentPaymentTiming.length === 0 ? {} : { commitmentPaymentTiming }),
     ...(basisNote === null ? {} : { nonGaapBasisNote: safeText(basisNote, "The issuer's non-GAAP basis note is withheld from display by the rating-language filter; see the release.") }),
     ...(filingFacts.length === 0 ? {} : { filingFacts }),
     ...(commentaryOutlook.length === 0 ? {} : { commentaryOutlook }),
@@ -740,6 +857,38 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
     if (wc.expectation !== null) outlook.push({ topic: `DSO outlook given with ${fiscal ?? `the quarter ended ${periodEnd}`} results`, text: safeText(wc.expectation, "(outlook withheld)"), source });
   }
   facts.push(...financialCompositionFacts(bundle, currency));
+  const current = bundle.edgar?.currentReports;
+  const mapping = bundle.edgar?.cik;
+  if (current?.ok && current.value.source === "edgar" && mapping?.ok && mapping.value.source === "edgar" &&
+      mapping.value.data.ticker.trim().toUpperCase() === bundle.symbol.trim().toUpperCase()) {
+    const cik = mapping.value.data.cik;
+    const cutoff = day(bundle.builtAt);
+    const registrant = bundle.edgar?.registrant;
+    const issuerName = registrant?.cik10 === mapping.value.data.cik10 && registrant.tickers.some(t => t.trim().toUpperCase() === bundle.symbol.trim().toUpperCase())
+      ? registrant.name : mapping.value.data.title;
+    for (const event of current.value.data.events) {
+      const filed = day(event.filingDate);
+      if (cutoff === null || !Number.isFinite(Date.parse(bundle.builtAt)) || filed === null || filed > cutoff || !/^8-K(?:\/A)?$/.test(event.form) ||
+          !Number.isSafeInteger(cik) || cik <= 0 || mapping.value.data.cik10 !== String(cik).padStart(10, "0") ||
+          typeof issuerName !== "string" || issuerName.trim() === "" || !/^\d{10}-\d{2}-\d{6}$/.test(event.accession)) continue;
+      let sourceUrl: URL;
+      try { sourceUrl = new URL(event.url); } catch { continue; }
+      if (sourceUrl.protocol !== "https:" || sourceUrl.hostname !== "www.sec.gov" || sourceUrl.search !== "" || sourceUrl.hash !== "" ||
+          !new RegExp(`^/Archives/edgar/data/${cik}/${event.accession.replaceAll("-", "")}/[A-Za-z0-9_.-]+\\.html?$`).test(sourceUrl.pathname)) continue;
+      const source = { form: event.form, accession: event.accession, exhibit: null, filingDate: filed, url: event.url };
+      for (const section of event.sections) {
+        if (section.item !== "1.01" || section.incorporates !== null) continue;
+        // New observations are optional on frozen legacy bundles. Do not try
+        // to reconstruct a transaction from their already clipped narrative.
+        const retained = section.financingFacts;
+        if (!Array.isArray(retained) || retained.length !== 4 || retained.some(f => typeof f?.text !== "string" || f.text.length > 1000)) continue;
+        const found = parseCompletedOfferingFacts(retained.slice(0, 3).map(f => f.text).join(" "), filed, issuerName);
+        if (found.length !== 4 || found.some((f, i) => ["key", "label", "value", "symbol", "unit", "asOf", "period", "qualifier", "computed"].some(key =>
+          f[key as keyof FilingFact] !== retained[i]![key as keyof FilingFact]))) continue;
+        add(found, `edgar:8-K ${event.accession} item1.01`, source, currency);
+      }
+    }
+  }
   return { facts, outlook };
 }
 

@@ -231,10 +231,12 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       generator: {
         helperSha256: "48af864a1d2a5bb165eb2832871bc2651f34a5951959450d2074512e4a7a26d7",
         basePackageLockBlob: "66f7242846b6d20cfe99e21400d2dada27bbfbfd",
-        // 2026-10-15: happy-dom is dev-only for credential UI interaction tests.
+          // 2026-10-17: direct esbuild pin already resolved at 0.28.1 freezes
+          // Stage B replay; only root dev metadata changed in the lock.
+          // 2026-10-15: happy-dom is dev-only for credential UI interaction tests.
         // Reproduced the comparison with no additional financial deltas;
         // historical source/fixture hashes and projection remain pinned.
-        comparisonPackageLockBlob: "414c011812f3049e10820543d8078958f5e552d2",
+        comparisonPackageLockBlob: "f4726a8a08ade0c87f4589d42249d0835d9053a0",
         generationNode: "v24.11.1",
         generationNpm: "11.6.2",
         command:

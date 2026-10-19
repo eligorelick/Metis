@@ -154,7 +154,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       // D-62: the release's own qualifier ("approximately $26.0 billion") is
       // carried, not replaced by false precision ("$26.00B").
       if (cr.returned !== null) rows.push([`Returned to shareholders (repurchases + dividends)${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, cr.returnedApproximate === true ? approximately(money(cr.returned, d.currency)) : money(cr.returned, d.currency), src]);
-      if (cr.authorizationRemaining !== null) rows.push(["Repurchase authorization remaining", cr.authorizationRemainingApproximate === true ? approximately(money(cr.authorizationRemaining, d.currency)) : money(cr.authorizationRemaining, d.currency), src]);
+      if (cr.authorizationRemaining !== null) rows.push([`Repurchase authorization remaining${cr.authorizationRemainingAsOf ? ` as of ${cr.authorizationRemainingAsOf}` : ""}`, cr.authorizationRemainingApproximate === true ? approximately(money(cr.authorizationRemaining, d.currency)) : money(cr.authorizationRemaining, d.currency), cr.authorizationRemainingSource ? filingLabel(cr.authorizationRemainingSource) : src]);
       if (cr.authorizationAdded !== null) rows.push(["Repurchase authorization added", money(cr.authorizationAdded, d.currency), src]);
       if (cr.dividendPerShare !== null) {
         const dates = [cr.dividendPayDate ? `payable ${cr.dividendPayDate}` : null, cr.dividendRecordDate ? `record ${cr.dividendRecordDate}` : null].filter(Boolean).join(", ");
@@ -248,14 +248,40 @@ function reconciliationTables(d: FilingDisclosures): ReportAuditTable[] {
  */
 function commitmentTables(d: FilingDisclosures): ReportAuditTable[] {
   const rows = d.commitments ?? [];
-  if (rows.length === 0) return [];
-  return [{
+  const totals: ReportAuditTable[] = rows.length === 0 ? [] : [{
     heading: "Commitments and guarantees",
     headers: ["Table", "Item", "Amount", "As of", "Source"],
     rows: rows.map((r) => [r.table, r.tableTotal ? "Total" : r.label, money(r.total, d.currency), r.asOf ?? DASH, filingLabel(r.source)]),
     note: "Contractual amounts as the issuer tabulates them; guarantees are maximum gross exposure, not expected payments. Neither is in the DCF's net debt." +
       (d.commitments?.some((r) => r.kind === "guarantees" && r.asOf === null) ? " The guarantee table supplies no exact as-of date and may include post-period agreements; the source dates are filing dates, not a quarter-end exposure date." : ""),
   }];
+  const timing: ReportAuditTable[] = (d.commitmentPaymentTiming ?? []).map(table => {
+    const observations = table.rows.flatMap(row => row.buckets.map(bucket => [
+      `${row.label}${row.tableTotal ? " (table check only)" : ""}`,
+      bucket.label,
+      bucket.amount === null ? "unknown" : money(bucket.amount, table.currency),
+      bucket.raw || "(missing)",
+      row.total === null ? "unknown" : money(row.total, table.currency),
+      row.totalRaw ?? "(missing)",
+      row.reconciliation.status === "reconciled-as-printed" ? "reconciled as printed"
+        : row.reconciliation.status === "mismatch" ? `does not reconcile (residual ${money(row.reconciliation.residual, table.currency)})` : "not established",
+    ]));
+    const scale = table.scale === 1e9 ? "billions" : table.scale === 1e6 ? "millions" : "unknown";
+    return {
+      heading: `Payment timing as reported — ${table.table}, source table ${table.tableIndex + 1}`,
+      headers: ["Item", "Reported fiscal bucket", "Amount", "Printed cell", "Reported row total", "Printed total", "Row reconciliation"],
+      rows: observations.length > 0 ? observations : [["Timing unavailable", DASH, "unknown", DASH, "unknown", DASH, "not established"]],
+      note: [
+        `Parsed-table coverage: ${table.coverage}; this describes only the supplying table, not all issuer obligations.`,
+        `Source: ${filingLabel(table.source)}${table.source.url ? `; ${table.source.url}` : ""}. Table as of: ${table.asOf ?? "unknown"}.`,
+        `Original column header: ${table.sourceHeader || "unavailable"}. Printed scale: ${scale}; symbol: ${table.currencySymbol ?? "unknown"}; admitted currency: ${table.currency ?? "unknown"}.`,
+        table.reason ?? "",
+        "Fiscal labels are not calendar maturity dates; remainder and thereafter labels do not establish exact due dates. Table totals are checks, not additional obligations. Recognized leases, guarantees and purchase commitments remain distinct and overlap with debt is not resolved; these amounts are not added to net debt or deducted again from the DCF. Obligor cash, transfer restrictions, covenants and available financing are not established; funding capacity and solvency are not assessed.",
+        table.coverage !== "complete" ? `Retained table evidence: ${table.sourceText}` : "",
+      ].filter(Boolean).join(" "),
+    };
+  });
+  return [...totals, ...timing];
 }
 
 /**
@@ -376,7 +402,7 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
       const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
       const notes = [d.currencyBasis, ...d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""))].join(" ");
-      return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No guidance could be read from the latest earnings releases."]], note: notes }] : [];
+      return tables.length > 0 ? tables.map((t, i) => (i === tables.length - 1 ? { ...t, note: `${t.note ?? ""} ${notes}`.trim() } : t)) : d.notes.length > 0 ? [{ heading: "Management guidance", headers: ["Status"], rows: [["No structured guidance rows were extracted; see separately sourced narrative guidance where available."]], note: notes }] : [];
     }
     case "catalystsRisks": return [...eventTable(d), ...companyStatementTables(d)];
   }

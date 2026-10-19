@@ -44,6 +44,23 @@ export interface ManifestEntry {
    * non-incidents don't inflate the headline gap count on every report.
    */
   expected?: boolean;
+  /** Original acquisition warning retained; exact admitted final evidence resolves it. */
+  resolution?: {
+    status: "resolved";
+    method: "same-filing-debt-note" | "retained-sec-category";
+    reason: string;
+    evidence: {
+      scope: "balanceAnnual" | "balanceQuarterly";
+      field: string;
+      period: string;
+      currency: string;
+      cik: string;
+      value: number;
+      observedAt: string;
+      tags: string[];
+      filings: { accn: string; filed: string; form: string }[];
+    }[];
+  };
 }
 
 /** Pipeline steps streamed to the UI. Order is fixed. */

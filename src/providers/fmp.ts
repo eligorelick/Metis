@@ -71,6 +71,27 @@ export interface FmpRawRow {
   [key: string]: unknown;
 }
 
+/** Immutable analytical view; explicit refusals survive aliases and dependent fallbacks. */
+export function admittedStatementRow<T extends FmpRawRow>(row: T): T {
+  const conflicts = row.fieldConflicts;
+  if (!conflicts || typeof conflicts !== "object") return row;
+  const refused = new Set(Object.entries(conflicts).filter(([, evidence]) => evidence && typeof evidence === "object" && "usable" in evidence && evidence.usable === false).map(([field]) => field));
+  if (refused.size === 0) return row;
+  const clone = { ...row };
+  const unavailable = new Set(refused);
+  if (["operatingCashFlow", "netCashProvidedByOperatingActivities"].some(field => refused.has(field))) {
+    for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities", "freeCashFlow"]) unavailable.add(field);
+  }
+  if (refused.has("cashAndCashEquivalents")) for (const field of ["cashAndShortTermInvestments", "netDebt"]) unavailable.add(field);
+  if (["cashAtBeginningOfPeriod", "cashAtEndOfPeriod"].some(field => refused.has(field))) unavailable.add("netChangeInCash");
+  if (["purchasesOfInvestments", "salesMaturitiesOfInvestments"].some(field => refused.has(field))) {
+    for (const field of ["purchasesOfInvestments", "salesMaturitiesOfInvestments", "otherInvestingActivities", "financialAssetCashFlow", "operatingInvestingCashFlow"]) unavailable.add(field);
+  }
+  if (refused.has("grossProfit")) for (const field of ["grossProfitRatio", "grossProfitMargin"]) unavailable.add(field);
+  for (const field of unavailable) (clone as FmpRawRow)[field] = null;
+  return clone;
+}
+
 export interface FmpProfileRow extends FmpRawRow {
   symbol?: string;
   companyName?: string;
@@ -131,6 +152,8 @@ export interface StatementFieldProvenance {
   filings: { accn: string; filed: string; form: string }[];
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
+  /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
+  calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash";
 }
 
 export interface StatementFieldConflict {
@@ -187,6 +210,8 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
 }
 
 export interface FmpBalanceSheetRow extends FmpStatementRow {
+  /** Legacy estimates derived from the identity cannot independently validate it. */
+  identityDerivedFields?: string[];
   cashAndCashEquivalents?: number;
   /** SEC combined total; never a synonym for unrestricted cash. */
   cashAndCashEquivalentsIncludingRestricted?: number;
@@ -223,6 +248,12 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   totalStockholdersEquity?: number;
   totalEquity?: number;
   minorityInterest?: number;
+  /** Filed mezzanine total including redeemable NCI; separate from permanent equity. */
+  temporaryEquity?: number | null;
+  /** Filed parent mezzanine carrying amount; does not establish the NCI amount. */
+  temporaryEquityAttributableToParent?: number | null;
+  /** Redeemable NCI outside permanent equity; not minorityInterest. */
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
   totalInvestments?: number;
   totalDebt?: number;
   netDebt?: number;
@@ -247,7 +278,7 @@ export interface FmpCashFlowRow extends FmpStatementRow {
   netDebtIssuance?: number;
   netStockIssuance?: number;
   /** NEGATIVE = outflow */
-  commonStockRepurchased?: number;
+  commonStockRepurchased?: number | null;
   /** NEGATIVE = outflow */
   netDividendsPaid?: number;
   commonDividendsPaid?: number;

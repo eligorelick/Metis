@@ -42,9 +42,11 @@ import {
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
 import { debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { resolveAcquisitionGaps } from "@/report/gapResolution";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
 import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
-import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, type CompanyIrOptions } from "@/providers/companyIr";
+import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
+import { enrichIncomeClassification } from "@/edgar/incomeClassification";
 import { loadPeerFundamentals } from "@/pipeline/peers";
 import { loadPeerFromFilings } from "@/pipeline/peerFilings";
 import {
@@ -65,6 +67,8 @@ import {
   notesToFinancialStatements,
   annualNotesToFinancialStatements,
   parseDocument,
+  periodicSignatureText,
+  periodicControlsText,
   type ParsedDocument,
   type SectionSpec,
 } from "@/edgar/extract";
@@ -1395,6 +1399,12 @@ async function buildEdgarBundle(
             { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
             symbol, parsedQ);
           tenQNotes = statements.ok ? notesOnly(statements) : statements;
+          const signaturesText = periodicSignatureText(parsedQ.fullText);
+          if (tenQNotes.ok && signaturesText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
+            data: { ...tenQNotes.value.data, signaturesText } } };
+          const controlsText = periodicControlsText(parsedQ.fullText);
+          if (tenQNotes.ok && controlsText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
+            data: { ...tenQNotes.value.data, controlsText } } };
           // D-66: Part II Item 5 is short by design (a few trading arrangements).
           tenQOther = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
             { member: "tenQOther", sectionName: "tenQItem5", spec: { form: "10-Q", item: "5", part: 2 }, failSeverity: "warn", stubMinChars: 120 },
@@ -2199,8 +2209,11 @@ export async function buildDataBundle(
     const facts = edgarBundle.companyFacts.value.data;
     const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle));
     const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle));
-    statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow };
-    keylessGaps.push(...annual.gaps, ...quarterly.gaps);
+    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt);
+    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt);
+    statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,
+      incomeAnnual: annualIncome.income, incomeQuarterly: quarterlyIncome.income };
+    keylessGaps.push(...annual.gaps, ...quarterly.gaps, ...annualIncome.gaps, ...quarterlyIncome.gaps);
   }
   const website = profile.ok && typeof profile.value.data.rows[0]?.website === "string" ? profile.value.data.rows[0].website : null;
   const announcementIssuer = edgarConfirmedIssuer && edgarBundle.registrant?.name
@@ -2219,7 +2232,8 @@ export async function buildDataBundle(
   }
   let companyIrMaterialEvents: DataBundle["companyIrMaterialEvents"];
   if (!reserved && edgarConfirmedIssuer && website && opts.companyIr !== false && (opts.fmp === undefined || opts.companyIr !== undefined)) {
-    companyIrMaterialEvents = await discoverCompanyIrMaterialEvents(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal, issuer: announcementIssuer });
+    const materialIssuer = announcementIssuer ? { ...announcementIssuer, validAliases: verifiedCompanyIrAliases(announcementIssuer) } : undefined;
+    companyIrMaterialEvents = await discoverCompanyIrMaterialEvents(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal, issuer: materialIssuer });
     if (companyIrMaterialEvents.ok) keylessGaps.push({ field: "companyIrMaterialEvents.coverage", reason: companyIrMaterialEvents.value.data.notes.join(" "), severity: "info", attemptedSources: companyIrMaterialEvents.value.data.events.map((event) => event.url) });
   }
 
@@ -2311,7 +2325,7 @@ export async function buildDataBundle(
 
   // ---- gaps ---------------------------------------------------------------------
   const allResults = Object.values(resultRegistry);
-  const gaps = mergeManifest(
+  const recordedGaps = mergeManifest(
     [
       ...allResults.filter((r): r is { ok: false; gap: ManifestEntry } => !r.ok).map((r) => r.gap),
       ...Object.entries(resultRegistry).flatMap(([name, result]): ManifestEntry[] =>
@@ -2343,6 +2357,7 @@ export async function buildDataBundle(
     ],
   );
 
+  const gaps = resolveAcquisitionGaps(recordedGaps, statements, edgarBundle.registrant?.cik10 ?? "", now().toISOString());
   progress(`done: bundle for ${sym} (${gaps.length} gap(s))`);
 
   return {

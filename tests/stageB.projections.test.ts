@@ -111,6 +111,24 @@ const byMetric = (p: ReturnType<typeof computeProjections>, m: string) => p.seri
 /* ------------------------------------------------------------------------ */
 
 describe("projections — structure", () => {
+  it.each([-2, 2])("describes positive dilution as a conditional rule for observed trend %s", shareCountAnnualizedPct => {
+    const eps = byMetric(computeProjections(makeInputs({ shareCountAnnualizedPct })), "epsDiluted");
+    expect(eps.capitalReturn?.basis).toMatch(/positive dilution.*only when|if.*positive.*dilution/i);
+    expect(eps.capitalReturn?.appliedShareCountAnnualizedPct).toBe(shareCountAnnualizedPct > 0 ? 2 : 0);
+  });
+  it.each([
+    "10-Q 0000123456-26-000123, filed 2026-06-01, authorization as of 2026-04-30",
+    "8-K EX-99.1 0000123456-26-000124, filed 2026-06-02",
+    null,
+  ])("does not invent latest-release attribution for an authority source %s", source => {
+    const eps = byMetric(computeProjections(makeInputs({ capitalReturn: {
+      authorizationRemaining: 50, currentPrice: 10, source,
+    } })), "epsDiluted");
+    expect(eps.capitalReturn?.basis).not.toMatch(/latest earnings release/i);
+    if (source !== null) expect(eps.capitalReturn?.basis).toContain(source);
+    expect(eps.capitalReturn).toMatchObject({ authorizationRemaining: 50, appliedShareCountAnnualizedPct: 0, policy: "flat-share-conservative" });
+    expect(eps.capitalReturn?.basis).toMatch(/discretionary/);
+  });
   it.each(["valuation.perShare.economicClassBasis", "valuation.perShare.securityBasis", "valuation.dcf.noncontrollingOwnership"])("preserves reported EPS but withholds every modeled EPS path after %s refusal", field => {
     const valuation = dcfValuation();
     valuation.gaps.push({ field, reason: "Ownership or diluted security allocation is unresolved", severity: "warn" });

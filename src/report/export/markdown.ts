@@ -77,6 +77,8 @@ import {
   consensusTables,
   dataGapTables,
   displayProse,
+  displayClaimText,
+  qualityAccrualClarifications,
   executiveGradeText,
   executiveGroups,
   metricRowsWithoutTabled,
@@ -133,7 +135,8 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /* ======================================================================== *
  * Deterministic value formatting (no locale, no grouping — stable text)
@@ -204,9 +207,9 @@ function subsection(heading: string, body: string): string[] {
  * ======================================================================== */
 
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
-function claimList(claims: readonly SourcedClaim[]): string {
+function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayProse(c.text, c.source))} _(${markdownProse(claimCitation(c))})_`)
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_`)
     .join("\n");
 }
 
@@ -241,7 +244,9 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `_${prose(block.oneLineWhy)}_`,
   ];
   if (block.interpretation) lines.push("", prose(block.interpretation));
-  if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning));
+  const contractText = gradeContractText(block);
+  if (contractText) lines.push("", prose(contractText));
+  if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning, block.keyNumbers));
   const { kept, homes } = withoutTabled(report, block.keyNumbers);
   const numbers = figureTable(figureRows(kept, seen));
   if (numbers) lines.push("", "Key numbers:", "", numbers);
@@ -613,6 +618,7 @@ function renderScenario(sc: Scenario, assumptions: readonly string[], computedWe
 function renderQuality(q: Quality, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("quality"), ""];
   lines.push(gradeBlock("Quality", q.graded, new Map(), {}, ctx), "");
+  lines.push(...qualityAccrualClarifications(q).flatMap(note => [markdownProse(note), ""]));
   const fs = q.forensicScores;
   // "Not applicable" carries the reason a battery was skipped for this route;
   // the column is dropped when no battery was skipped.
@@ -662,7 +668,7 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
 
 function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
-  lines.push(gradeBlock("Leadership", l.graded, new Map(), report, ctx), "");
+  lines.push(gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, ctx), "");
   lines.push("### Executives", "");
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const groups = executiveGroups(l.executives);
@@ -909,6 +915,7 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report): string {
+  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,

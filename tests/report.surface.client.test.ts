@@ -78,7 +78,7 @@ describe("manifest-driven GenerateReport report-ready panel", () => {
       "Technicals",
       "Balance Sheet",
       "Quality / Red-Flags",
-      "Leadership",
+      "Leadership (capital-stewardship proxy)",
       "Moat",
     ];
     let cursor = -1;
@@ -95,7 +95,7 @@ describe("manifest-driven GenerateReport report-ready panel", () => {
     const html = render(GRADES.filter((grade) => grade.key !== "balanceSheet"));
     expect(html).not.toContain(">Balance Sheet<");
     expect(html).not.toContain(">balanceSheet<");
-    for (const label of ["Fundamentals", "Valuation", "Technicals", "Quality / Red-Flags", "Leadership", "Moat"]) {
+    for (const label of ["Fundamentals", "Valuation", "Technicals", "Quality / Red-Flags", "Leadership (capital-stewardship proxy)", "Moat"]) {
       expect(html).toContain(`>${label}<`);
     }
   });

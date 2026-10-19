@@ -2,7 +2,8 @@
  * Stage A validation  — pure, deterministic, no network/db/LLM.
  *
  * Four validation families, all report-renderable:
- *  1. Balance-sheet identity |assets − (liabilities + equity)| / assets ≤ 0.5%
+ *  1. Balance-sheet identity includes separately reported temporary equity;
+ *     |assets - (liabilities + permanent equity + temporary equity)| / assets ≤ 0.5%
  *     on the latest 4 annual periods (per-period pass/fail + delta).
  *  2. FMP ↔ EDGAR XBRL cross-check on revenue + netIncome for the latest FY
  *     and latest quarter, via src/edgar/xbrl.ts concept chains (bank chains
@@ -88,6 +89,8 @@ export interface ValidateIncomeRow {
 /** Balance-sheet row fields the validator reads (FMP field names). */
 export interface ValidateBalanceRow {
   [key: string]: unknown;
+  fieldConflicts?: Record<string, { usable: false; reason: string }>;
+  identityDerivedFields?: readonly string[];
   date?: string;
   period?: string;
   fiscalYear?: string;
@@ -96,6 +99,9 @@ export interface ValidateBalanceRow {
   totalEquity?: number;
   totalStockholdersEquity?: number;
   minorityInterest?: number;
+  temporaryEquity?: number | null;
+  temporaryEquityAttributableToParent?: number | null;
+  temporaryEquityAttributableToNoncontrollingInterest?: number | null;
 }
 
 export interface ValidateDatedRow {
@@ -234,6 +240,37 @@ function pickEquity(row: ValidateBalanceRow): { value: number; basis: string } |
   return null;
 }
 
+/** A reported total OR its disjoint observed pieces, never an inferred zero.
+ * Signed and zero carrying amounts are valid filed observations here.
+ */
+function pickTemporaryEquity(row: ValidateBalanceRow): { value: number; basis: string; partial: boolean; conflict?: string } | null {
+  const invalid = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"]
+    .filter(field => row[field] != null && !isFiniteNumber(row[field]));
+  const invalidConflict = invalid.length === 0 ? undefined : `invalid temporary-equity allocation: nonfinite/non-numeric ${invalid.join(", ")}`;
+  const parent = row.temporaryEquityAttributableToParent;
+  const nci = row.temporaryEquityAttributableToNoncontrollingInterest;
+  if (isFiniteNumber(row.temporaryEquity)) {
+    const total = row.temporaryEquity;
+    // Test allocation consistency independently of A=L+E+T. An aggregate wins
+    // the arithmetic, but contradictory component disclosures are not a pass.
+    const conflict = isFiniteNumber(parent) && isFiniteNumber(nci) &&
+      Math.abs(total - parent - nci) > Math.max(Math.abs(total), Math.abs(parent + nci), 1) * IDENTITY_TOLERANCE_PCT / 100
+      ? `temporary-equity allocation conflict: reported total ${total} vs parent ${parent} + redeemable NCI ${nci} (tolerance ${IDENTITY_TOLERANCE_PCT}% of the larger total)` : undefined;
+    const issue = [conflict, invalidConflict].filter(value => value !== undefined).join("; ");
+    return { value: total, basis: "temporaryEquity (including redeemable NCI)", partial: false, ...(issue === "" ? {} : { conflict: issue }) };
+  }
+  if (isFiniteNumber(parent) && isFiniteNumber(nci)) {
+    return { value: parent + nci, basis: "temporaryEquityAttributableToParent+temporaryEquityAttributableToNoncontrollingInterest", partial: false, ...(invalidConflict === undefined ? {} : { conflict: invalidConflict }) };
+  }
+  if (isFiniteNumber(parent)) {
+    return { value: parent, basis: "observed parent temporary equity; redeemable NCI undisclosed", partial: true, ...(invalidConflict === undefined ? {} : { conflict: invalidConflict }) };
+  }
+  if (isFiniteNumber(nci)) {
+    return { value: nci, basis: "observed redeemable NCI; parent temporary equity undisclosed", partial: true, ...(invalidConflict === undefined ? {} : { conflict: invalidConflict }) };
+  }
+  return null;
+}
+
 function checkBalanceSheetIdentity(bundle: ValidatableBundle, c: Collector): void {
   const balance = bundle.statements.balanceAnnual;
   if (!balance.ok) {
@@ -280,6 +317,19 @@ function checkBalanceSheetIdentity(bundle: ValidatableBundle, c: Collector): voi
     const assets = row.totalAssets;
     const liabilities = row.totalLiabilities;
     const equity = pickEquity(row);
+    const temporary = pickTemporaryEquity(row);
+    const temporaryFields = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"];
+    const refusedTemporary = temporaryFields.filter(field => row.fieldConflicts?.[field]?.usable === false);
+    const invalidTemporary = temporaryFields.filter(field => row[field] != null && !isFiniteNumber(row[field]));
+    const temporaryIssue = temporary?.conflict ?? (refusedTemporary.length > 0
+      ? refusedTemporary.map(field => row.fieldConflicts![field]!.reason).join("; ")
+      : invalidTemporary.length > 0 ? `invalid temporary-equity allocation: nonfinite/non-numeric ${invalidTemporary.join(", ")}` : undefined);
+    if (refusedTemporary.some(field => isFiniteNumber(row[field]))) {
+      const reason = `temporary-equity operand refused: ${temporaryIssue}`;
+      c.checks.push({ id, name, status: "skipped", detail: reason, asOf: date });
+      c.gaps.push(gapEntry(`validation.${id}.temporaryEquityAllocation`, reason, "warn"));
+      continue;
+    }
 
     if (!isFiniteNumber(assets) || assets <= 0) {
       c.checks.push({
@@ -308,7 +358,14 @@ function checkBalanceSheetIdentity(bundle: ValidatableBundle, c: Collector): voi
       continue;
     }
 
-    const deltaPct = (Math.abs(assets - (liabilities + equity.value)) / assets) * 100;
+    if (row.identityDerivedFields?.includes("totalLiabilities")) {
+      const reason = "totalLiabilities derived from the balance-sheet identity - circular operands cannot independently validate the identity";
+      c.checks.push({ id, name, status: "skipped", detail: reason, asOf: date });
+      c.gaps.push(gapEntry(`validation.${id}`, reason, "warn"));
+      continue;
+    }
+    const reportedCapital = liabilities + equity.value + (temporary?.value ?? 0);
+    const deltaPct = (Math.abs(assets - reportedCapital) / assets) * 100;
     const pass = deltaPct <= IDENTITY_TOLERANCE_PCT;
 
     // FMP uses literal zero for both a genuinely unlevered issuer and an
@@ -340,18 +397,24 @@ function checkBalanceSheetIdentity(bundle: ValidatableBundle, c: Collector): voi
     c.checks.push({
       id,
       name,
-      status: pass ? "pass" : "fail",
+      status: pass ? temporaryIssue === undefined ? "pass" : "warn" : "fail",
       detail:
-        `assets ${assets} vs liabilities ${liabilities} + equity ${equity.value} ` +
-        `(${equity.basis}); Δ ${deltaPct}% (tolerance ${IDENTITY_TOLERANCE_PCT}%)`,
+        `assets ${assets} vs liabilities ${liabilities} + equity ${equity.value} (${equity.basis})` +
+        (temporary === null ? "; temporary equity undisclosed" : ` + temporary equity ${temporary.value} (${temporary.basis})`) +
+        (temporaryIssue === undefined ? "" : `; ${temporaryIssue}`) +
+        `; Δ ${deltaPct}% (tolerance ${IDENTITY_TOLERANCE_PCT}%)`,
       deltaPct,
       asOf: date,
     });
+    if (temporaryIssue !== undefined) {
+      c.gaps.push(gapEntry(`validation.${id}.temporaryEquityAllocation`, temporaryIssue, "warn"));
+    }
     if (!pass) {
       c.gaps.push(
         gapEntry(
           `validation.${id}`,
-          `balance-sheet identity broke by ${deltaPct}% at ${date} — statement data suspect`,
+          `balance-sheet identity residual ${deltaPct}% at ${date} - ` +
+            (temporary === null || temporary.partial ? "temporary-equity scope remains unresolved; no residual plug applied" : "reported statement operands do not reconcile"),
           "warn",
         ),
       );
