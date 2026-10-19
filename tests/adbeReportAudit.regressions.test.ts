@@ -10,6 +10,7 @@ import { computeScores, type ScoringInputs } from "@/pipeline/stageB/grading";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { consensusTables, keyDataRows, scoreDriverTable } from "@/report/presentation";
 import { valuationAuditTables } from "@/report/auditTables";
+import { buildEarningsReleaseRecord, CURRENT_REPORTS_VERSION } from "@/providers/currentReports";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -97,6 +98,17 @@ describe("independent first-report audit reproductions", () => {
     const c=runStageB(b);const eps=c.projections?.series.find(s=>s.metric==="epsDiluted");
     expect(eps?.capitalReturn).toMatchObject({authorizationRemaining:24.55e9,policy:"flat-share-conservative",appliedShareCountAnnualizedPct:0});
     expect(eps?.capitalReturn?.basis).toMatch(/discretionary|not.*commitment/i);
+  });
+  it("keeps MD&A remaining authority separately sourced from an earnings release's returned cash in the payload",()=>{
+    const b=auditBundle();
+    const release=buildEarningsReleaseRecord({filing:{accessionNumber:"0000796343-26-000155",filingDate:"2026-09-10",acceptanceDateTime:undefined},
+      releaseUrl:"https://www.sec.gov/Archives/edgar/data/796343/000079634326000155/ex99.htm",commentaryUrl:null,commentaryText:null,includeNarrative:true,
+      releaseText:"Adobe Reports Third Quarter Fiscal 2026 Results. During the third quarter of fiscal 2026, Adobe returned US$1.0 billion to stockholders."});
+    b.edgar.currentReports={ok:true,value:{source:"edgar",endpoint:"fixture",asOf:"2026-09-10",fetchedAt:b.builtAt,data:{version:CURRENT_REPORTS_VERSION,releases:[release],events:[],notes:[]}}};
+    const payload=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]});
+    const figures=payload.issuerFilings?.figures ?? [];
+    expect(figures.find(f=>f.label==="share repurchase authorization remaining")).toMatchObject({value:24.55e9,source:"edgar:10-Q 0000796343-26-000156",asOf:"2026-09-22",period:"2026-08-28"});
+    expect(figures.find(f=>f.label.startsWith("returned to shareholders"))).toMatchObject({value:1e9,source:"edgar:8-K EX-99.1",asOf:"2026-09-10"});
   });
   it.each(["issuer","document","future","period","currency"])("does not borrow remaining authority from incompatible %s evidence", change => {
     const b=auditBundle();if(!b.edgar.tenQMdna.ok||!b.statements.incomeQuarterly.ok)throw Error("source fixture");

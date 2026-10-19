@@ -578,6 +578,15 @@ describe("payload determinism + provenance", () => {
     shareTrend.fallbackReason = null;
     shareTrend.operands[0].name = "start shares";
     shareTrend.operands[1].name = "end shares";
+    // D-92 adds this explicit existing grid convention to the finance block.
+    // Assert the exact explanatory leaf before restoring the preceding pin;
+    // no numeric value, availability flag or ordering is normalized.
+    expect(precedingFinance.valuation.sensitivity.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
+    precedingFinance.valuation.sensitivity.notes.shift();
+    if (precedingFinance.valuation.growthMarginGrid) {
+      expect(precedingFinance.valuation.growthMarginGrid.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
+      precedingFinance.valuation.growthMarginGrid.notes.shift();
+    }
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
@@ -875,8 +884,11 @@ describe("payload determinism + provenance", () => {
       // D-90: only the versioned fingerprint changes for this unaffected fixture;
       // finance, registries, numeric values, bytes and counts remain pinned.
       // D-91 also changes only the version in this unaffected fixture.
-      fingerprint: "1.34.1:00119c69",
-      promptBytes: 139_131,
+      // D-92: +376 prompt bytes qualify provider EPS accounting basis. The
+      // finance hash changes only for the separately asserted reinvestment
+      // floor note; preceding-finance and numeric registry pins remain exact.
+      fingerprint: "1.35.0:ef581ec9",
+      promptBytes: 139_507,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
       provenanceIdsHash: "623dfb46",
@@ -901,7 +913,7 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "1272966b",
+      financeHash: "745fe79b",
     });
   });
 

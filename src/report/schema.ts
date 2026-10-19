@@ -2432,7 +2432,7 @@ const JudgeOutputObjectSchema = z
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
     // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true }) }),
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true, sensitivityNotes: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,

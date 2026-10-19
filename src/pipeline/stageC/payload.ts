@@ -2102,7 +2102,12 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   if (cr !== null) {
     const base = { unit: "currency", currency, source: `edgar:${cr.source.form} ${cr.source.exhibit ?? cr.source.accession}`, asOf: cr.source.filingDate };
     if (cr.returned !== null) figures.push({ ...base, label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
-    if (cr.authorizationRemaining !== null) figures.push({ ...base, label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
+    if (cr.authorizationRemaining !== null) {
+      const authoritySource=cr.authorizationRemainingSource ?? cr.source;
+      figures.push({ ...base, source:`edgar:${authoritySource.form} ${authoritySource.exhibit ?? authoritySource.accession}`,
+        asOf:authoritySource.filingDate, ...(cr.authorizationRemainingAsOf ? {period:cr.authorizationRemainingAsOf} : {}),
+        label: "share repurchase authorization remaining", value: cr.authorizationRemaining });
+    }
     if (cr.authorizationAdded !== null) figures.push({ ...base, label: "share repurchase authorization added", value: cr.authorizationAdded });
     if (cr.dividendPerShare !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share", value: cr.dividendPerShare });
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });

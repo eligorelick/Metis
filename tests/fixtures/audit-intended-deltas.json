@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-18",
+  "generatedAt": "2026-10-19",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -2315,34 +2315,6 @@
           "path": "stageB.returns.wacc.notes.0",
           "before": "Blume adjustment: beta_adj = 0.67·raw + 0.33",
           "after": "Blume adjustment: beta_adj = 0.667·raw + 0.333 (the Bloomberg 2/3–1/3 weighting, research §7.1)"
-        }
-      ]
-    },
-    {
-      "name": "valuation-routing-audit-2026-09-06",
-      "decisions": [
-        "D-26"
-      ],
-      "reason": "The 2026-09-06 audit of the valuation, projection and routing modules (D-26). The DCF result now carries the equity bridge it was computed with (net debt, diluted shares, minority interest, preferred) so the scenario-target and projection re-runs bridge on the same figures as the base per-share; the fixture gains that leaf. The sensitivity grid holds the base case terminal excess over the WACC fixed in every cell rather than the terminal ROIC level, and its notes say so; this fixture has zero excess, so its cell values are unchanged and only the note is new. The routing changes (depository-only SIC band, decided industries, the non-financial evidence rule), the margin ceiling, the tax-basis wording, the REIT enterprise value and the fair-value floor move no leaf of this fixture.",
-      "deltas": [
-        {
-          "path": "stageB.valuation.sensitivity.notes.1",
-          "beforeMissing": true,
-          "after": "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
-        }
-      ]
-    },
-    {
-      "name": "docs-references-audit-2026-09-06",
-      "decisions": [
-        "D-27"
-      ],
-      "reason": "The 2026-09-06 audit (D-27): report-facing text no longer cites section numbers of design documents that are not in the repository. Two Stage B notes carried such a citation — the revenue-acceleration framing note (\"the application contract §4\") and the sensitivity grid's Gordon-guard note (\"spec §3\") — and now cite docs/METHODOLOGY.md by heading or nothing. No number changed.",
-      "deltas": [
-        {
-          "path": "stageB.valuation.sensitivity.notes.0",
-          "before": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard, spec §3)",
-          "after": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
         }
       ]
     },
@@ -6657,67 +6629,6 @@
           ]
         },
         {
-          "path": "report.valuation.dcf.growthMarginGrid",
-          "beforeMissing": true,
-          "after": {
-            "growthShiftsPp": [
-              -20,
-              -10,
-              0,
-              10,
-              20
-            ],
-            "marginShiftsPp": [
-              -10,
-              -5,
-              0,
-              5,
-              10
-            ],
-            "perShare": [
-              [
-                50.208799137952624,
-                71.39434928698502,
-                92.57989943601744,
-                null,
-                null
-              ],
-              [
-                63.69475641699245,
-                92.73162987285312,
-                121.76850332871382,
-                null,
-                null
-              ],
-              [
-                76.59012316763575,
-                115.78114966563382,
-                154.97217616363193,
-                null,
-                null
-              ],
-              [
-                92.58834906241069,
-                144.76848341977987,
-                196.94861777714902,
-                null,
-                null
-              ],
-              [
-                112.85282660907714,
-                181.48222168301095,
-                250.11161675694476,
-                null,
-                null
-              ]
-            ],
-            "notes": [
-              "rows shift year-one revenue growth by -20/-10/0/10/20pp, decaying on the convergent weights to zero by year 10; columns shift the operating margin by -10/-5/0/5/10pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base",
-              "cells whose margin would exceed 20% (gross margin less the leanest operating-expense ratio) above the base path are withheld"
-            ]
-          }
-        },
-        {
           "path": "report.valuation.dcf.perShare.value",
           "before": 146.23,
           "after": 154.97
@@ -7353,67 +7264,6 @@
           "path": "stageB.valuation.dcf.yearRows.9.revenue",
           "before": 20713691659.910522,
           "after": 21827523493.105625
-        },
-        {
-          "path": "stageB.valuation.growthMarginGrid",
-          "beforeMissing": true,
-          "after": {
-            "growthShiftsPp": [
-              -20,
-              -10,
-              0,
-              10,
-              20
-            ],
-            "marginShiftsPp": [
-              -10,
-              -5,
-              0,
-              5,
-              10
-            ],
-            "perShare": [
-              [
-                50.208799137952624,
-                71.39434928698502,
-                92.57989943601744,
-                null,
-                null
-              ],
-              [
-                63.69475641699245,
-                92.73162987285312,
-                121.76850332871382,
-                null,
-                null
-              ],
-              [
-                76.59012316763575,
-                115.78114966563382,
-                154.97217616363193,
-                null,
-                null
-              ],
-              [
-                92.58834906241069,
-                144.76848341977987,
-                196.94861777714902,
-                null,
-                null
-              ],
-              [
-                112.85282660907714,
-                181.48222168301095,
-                250.11161675694476,
-                null,
-                null
-              ]
-            ],
-            "notes": [
-              "rows shift year-one revenue growth by -20/-10/0/10/20pp, decaying on the convergent weights to zero by year 10; columns shift the operating margin by -10/-5/0/5/10pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base",
-              "cells whose margin would exceed 20% (gross margin less the leanest operating-expense ratio) above the base path are withheld"
-            ]
-          }
         },
         {
           "path": "stageB.valuation.multiples.notes.1",
@@ -10026,16 +9876,164 @@
       ]
     },
     {
-      "name": "exact-final-and-phase-one-evidence-presentation",
+      "name": "first-report-source-and-sensitivity-evidence",
       "decisions": [
-        "D-88", "D-89", "D-90", "D-91"
+        "D-92"
       ],
-      "reason": "D-88/D-89/D-90/D-91 advance only the saved-report specification for exact final-field acquisition resolution and separate structured accrual notes. This deterministic audit fixture has no newly resolved acquisition field; all financial values, scoring and existing baseline pins remain unchanged.",
+      "reason": "D-92 advances the report stamp and preserves explicit existing sensitivity conventions. The two previously allowlisted growth-margin grid objects are reclassified because a note was inserted inside each whole-object pin; all axes, numeric cells and null cells are independently compared with the prior pins and are identical. The remaining changes are sensitivity note text/positions and saved-report metadata, with no revised valuation arithmetic or numeric provenance.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.29.1"
+          "after": "1.30.0"
+        },
+        {
+          "path": "report.valuation.dcf.growthMarginGrid",
+          "beforeMissing": true,
+          "after": {
+            "growthShiftsPp": [
+              -20,
+              -10,
+              0,
+              10,
+              20
+            ],
+            "marginShiftsPp": [
+              -10,
+              -5,
+              0,
+              5,
+              10
+            ],
+            "perShare": [
+              [
+                50.208799137952624,
+                71.39434928698502,
+                92.57989943601744,
+                null,
+                null
+              ],
+              [
+                63.69475641699245,
+                92.73162987285312,
+                121.76850332871382,
+                null,
+                null
+              ],
+              [
+                76.59012316763575,
+                115.78114966563382,
+                154.97217616363193,
+                null,
+                null
+              ],
+              [
+                92.58834906241069,
+                144.76848341977987,
+                196.94861777714902,
+                null,
+                null
+              ],
+              [
+                112.85282660907714,
+                181.48222168301095,
+                250.11161675694476,
+                null,
+                null
+              ]
+            ],
+            "notes": [
+              "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
+              "rows shift year-one revenue growth by -20/-10/0/10/20pp, decaying on the convergent weights to zero by year 10; columns shift the operating margin by -10/-5/0/5/10pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base",
+              "cells whose margin would exceed 20% (gross margin less the leanest operating-expense ratio) above the base path are withheld"
+            ]
+          }
+        },
+        {
+          "path": "report.valuation.dcf.sensitivityNotes",
+          "beforeMissing": true,
+          "after": [
+            "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
+            "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+            "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
+          ]
+        },
+        {
+          "path": "stageB.valuation.growthMarginGrid",
+          "beforeMissing": true,
+          "after": {
+            "growthShiftsPp": [
+              -20,
+              -10,
+              0,
+              10,
+              20
+            ],
+            "marginShiftsPp": [
+              -10,
+              -5,
+              0,
+              5,
+              10
+            ],
+            "perShare": [
+              [
+                50.208799137952624,
+                71.39434928698502,
+                92.57989943601744,
+                null,
+                null
+              ],
+              [
+                63.69475641699245,
+                92.73162987285312,
+                121.76850332871382,
+                null,
+                null
+              ],
+              [
+                76.59012316763575,
+                115.78114966563382,
+                154.97217616363193,
+                null,
+                null
+              ],
+              [
+                92.58834906241069,
+                144.76848341977987,
+                196.94861777714902,
+                null,
+                null
+              ],
+              [
+                112.85282660907714,
+                181.48222168301095,
+                250.11161675694476,
+                null,
+                null
+              ]
+            ],
+            "notes": [
+              "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
+              "rows shift year-one revenue growth by -20/-10/0/10/20pp, decaying on the convergent weights to zero by year 10; columns shift the operating margin by -10/-5/0/5/10pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base",
+              "cells whose margin would exceed 20% (gross margin less the leanest operating-expense ratio) above the base path are withheld"
+            ]
+          }
+        },
+        {
+          "path": "stageB.valuation.sensitivity.notes.0",
+          "before": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard, spec §3)",
+          "after": "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells."
+        },
+        {
+          "path": "stageB.valuation.sensitivity.notes.1",
+          "beforeMissing": true,
+          "after": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
+        },
+        {
+          "path": "stageB.valuation.sensitivity.notes.2",
+          "beforeMissing": true,
+          "after": "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
         }
       ]
     }
