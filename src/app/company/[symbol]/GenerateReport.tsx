@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Panel } from "@/components/ui";
+import { isUnsupportedInstrumentKind, type UnsupportedInstrumentKind } from "@/pipeline/stageB/instrumentSupport";
 import { ExportButtons } from "@/components/report/ExportButtons";
 import { isAcquisitionResolution } from "@/report/gapResolution";
 import {
@@ -66,7 +67,7 @@ interface SnapshotEvent {
   dataOnly: boolean;
   resumable: boolean;
   settlementsPending: boolean;
-  unsupported: { kind: "etf" | "fund" | "etf-fund"; message: string } | null;
+  unsupported: { kind: UnsupportedInstrumentKind; message: string } | null;
 }
 
 interface GradeStripCell {
@@ -453,7 +454,7 @@ export async function fetchReportSummaryForSnapshot(
 }
 
 export interface ClientUnsupportedTerminal {
-  kind: "etf" | "fund" | "etf-fund" | null;
+  kind: UnsupportedInstrumentKind | null;
   message: string;
   totalCostUsd: number;
 }
@@ -469,7 +470,7 @@ function decodedUnsupported(
     const candidate = input as { kind?: unknown; message?: unknown };
     const kind = candidate.kind;
     if (
-      (kind === "etf" || kind === "fund" || kind === "etf-fund") &&
+      isUnsupportedInstrumentKind(kind) &&
       typeof candidate.message === "string" &&
       candidate.message.trim().length > 0
     ) {

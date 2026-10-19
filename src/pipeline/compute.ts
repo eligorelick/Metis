@@ -1915,6 +1915,18 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     evIncludeLeases,
     currencies.model,
   );
+  const modelEligibilityReason = route.modelEligibility?.reason;
+  if (modelEligibilityReason) {
+    returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [modelEligibilityReason], gaps: [] };
+    returns.roicVsWacc = { spreadPctPts: null, note: modelEligibilityReason };
+    Object.assign(returns.wacc, { waccPct: null, waccRawPct: null, costOfDebtPct: null, costOfDebtMethod: "unavailable",
+      syntheticRating: null, syntheticSpreadPct: null, interestCoverageRatio: null, weightEquity: null, weightDebt: null });
+    returns.wacc.notes = [modelEligibilityReason];
+    returns.waccInputs = waccDisclosure(returns.wacc);
+    returns.notes = [modelEligibilityReason];
+    returns.waccHistory = { points: [], missing: [], basis: modelEligibilityReason, notes: [modelEligibilityReason], gaps: [] };
+    returns.gaps.push({ field: "returns.modelEligibility", reason: modelEligibilityReason, severity: "warn" });
+  }
 
   // --- Capital ---------------------------------------------------------------
   // D-61: the price actually paid for repurchased shares, from the filer's own
@@ -1937,6 +1949,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     quoteInput(quote),
     {
       route: route.base,
+      modelEligibilityReason,
       // The buyback price proxy divides reporting-currency repurchases by a
       // quote-currency, per-ordinary-share price; the ADR/currency guard the
       // WACC weights and the multiples already apply is applied here too.
@@ -1959,6 +1972,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   const capital = attachCurrentCapital(annualCapital, {
     route: route.base,
+    modelEligibilityReason,
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc } : null,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
@@ -2127,13 +2141,19 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     sharesBasis: "statements:income.weightedAverageShsOutDil",
     shareBasis: bundle.edgar?.shareBasis ?? null,
   });
+  if (modelEligibilityReason) {
+    financialMetrics.metrics = [];
+    financialMetrics.flags = [];
+    financialMetrics.notes = [modelEligibilityReason];
+    financialMetrics.gaps.push({ field: "financialMetrics.modelEligibility", reason: modelEligibilityReason, severity: "warn" });
+  }
 
   // --- Runway (overlay-gated) ------------------------------------------------
   let runway: RunwayResult | null = null;
   const needsRunway =
-    route.overlays.includes("pre-revenue") ||
+    !modelEligibilityReason && (route.overlays.includes("pre-revenue") ||
     route.overlays.includes("unprofitable") ||
-    route.overlays.includes("recent-ipo");
+    route.overlays.includes("recent-ipo"));
   if (needsRunway) {
     // The runway reads the reported rows: gateRunwayCurrency below sets the
     // liquidity row's own currency against the burn's.
@@ -2354,9 +2374,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (isSuppressed("fcfDcf")) {
     suppress(
       "valuation.dcf",
-      route.overlays.includes("unprofitable")
+      modelEligibilityReason ?? (route.overlays.includes("unprofitable")
         ? "FCFF DCF not meaningful — free cash flow is structurally negative (unprofitable overlay); see multiples for relative valuation"
-        : `FCFF DCF not meaningful for ${route.base} — book/excess-return model used`,
+        : `FCFF DCF not meaningful for ${route.base} - book/excess-return model used`),
     );
   }
   if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
@@ -3314,6 +3334,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     // The own-history P/FFO band can only be rebuilt as net income + D&A per
     // quarter; say whether the current FFO is that construction.
     ffoHistoryComparable: route.base === "reit" ? nareitFfo.netIncomePlusTotalDa : undefined,
+    affoHistoryComparable: route.base === "reit" ? nareitFfo.affoHistoryComparable === true : undefined,
     // WS6 (D-19): off by default; see docs/METHODOLOGY.md, "EV bridge".
     includeLeasesInEv: evIncludeLeases,
     // The observation cutoff any supplied comparability evidence must predate;

@@ -237,7 +237,7 @@ afterEach(() => {
 /** A minimal DataBundle stub sufficient for validate + compute + persistence. */
 function fakeBundle(
   symbol = "AAPL",
-  instrument: { isEtf?: boolean | null; isFund?: boolean | null } = {},
+  instrument: { isEtf?: boolean | null; isFund?: boolean | null; instrumentType?: string } = {},
 ): DataBundle {
   const builtAt = "2026-07-06T00:00:00.000Z";
   const gap = { ok: false as const, gap: { field: "x", reason: "fixture", severity: "info" as const } };
@@ -245,7 +245,7 @@ function fakeBundle(
     ok: true as const,
     value: {
       data: {
-        rows: [{ companyName: "Apple Inc.", sector: "Technology", price: 200, ...instrument }],
+        rows: [{ companyName: "Apple Inc.", sector: "Technology", price: 200, isEtf: false, isFund: false, ...instrument }],
         raw: {},
       },
       asOf: "2026-07-01",
@@ -951,7 +951,11 @@ describe("runJob — unsupported instruments", () => {
     expect(steps.every((step) => step.detail === terminal.error)).toBe(true);
   });
 
-  it("terminalizes an unsupported ETF before paid work with zero durable leases, artifacts, costs, reports, or provider/model/pass calls", async () => {
+  it.each([
+    { label: "ETF", instrument: { isEtf: true, isFund: false }, kind: "etf" },
+    { label: "unconfirmed type", instrument: { isEtf: null, isFund: null }, kind: "unknown" },
+    { label: "option", instrument: { instrumentType: "OPTION" }, kind: "non-equity" },
+  ])("terminalizes $label before paid work with zero durable leases, artifacts, costs, reports, or provider/model/pass calls", async ({ instrument, kind }) => {
     const { jobId } = createJob("SPY");
     const { passes: basePasses, calls } = mockPasses();
     const preflightPass = vi.fn();
@@ -960,7 +964,7 @@ describe("runJob — unsupported instruments", () => {
     const unsubscribe = subscribeJob(jobId, (event) => events.push(event));
 
     const result = await runJob(jobId, passes, {
-      bundle: fakeBundle("SPY", { isEtf: true, isFund: false }),
+      bundle: fakeBundle("SPY", instrument),
       hasAnthropicKey: true,
       now: NOW,
     });
@@ -972,9 +976,9 @@ describe("runJob — unsupported instruments", () => {
       verificationRate: null,
       totalCostUsd: 0,
       dataOnly: false,
-      kind: "etf",
+      kind,
     });
-    expect(result).toHaveProperty("message", expect.stringMatching(/not supported/i));
+    expect(result).toHaveProperty("message", expect.stringMatching(/not supported|not established/i));
     expect(calls).toEqual([]);
     expect(preflightPass).not.toHaveBeenCalled();
     expect(resolveModelMock).not.toHaveBeenCalled();
@@ -991,9 +995,9 @@ describe("runJob — unsupported instruments", () => {
       status: "unsupported",
       reportId: null,
       error: null,
-      unsupportedKind: "etf",
+      unsupportedKind: kind,
     });
-    expect(row?.unsupportedMessage).toMatch(/not supported/i);
+    expect(row?.unsupportedMessage).toMatch(/not supported|not established/i);
 
     const steps = JSON.parse(row?.stepsJson ?? "[]") as StepProgress[];
     expect(steps.map(({ step, status }) => ({ step, status }))).toEqual([
@@ -1013,7 +1017,7 @@ describe("runJob — unsupported instruments", () => {
       type: "unsupported",
       jobId,
       revision: expect.any(Number),
-      kind: "etf",
+      kind,
       message: row?.unsupportedMessage,
       totalCostUsd: 0,
     });
@@ -1021,7 +1025,7 @@ describe("runJob — unsupported instruments", () => {
       status: "unsupported",
       reportId: null,
       totalCostUsd: 0,
-      unsupported: { kind: "etf", message: row?.unsupportedMessage },
+      unsupported: { kind, message: row?.unsupportedMessage },
     });
   });
 
@@ -6136,7 +6140,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.31.0");
+    expect(repRow?.specVersion).toBe("1.32.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);

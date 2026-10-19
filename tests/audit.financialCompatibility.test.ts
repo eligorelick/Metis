@@ -58,7 +58,7 @@ describe('route financial compatibility',()=>{
  });
  it('unused straight-line rent does not invalidate a rough total-capex AFFO',()=>{
   const result=computeNareitFfo({companyFacts:facts([['NetIncomeLoss',10,'USD','2025-01-01'],['DepreciationDepletionAndAmortization',20,'USD','2025-01-01'],['StraightLineRent',2,'EUR','2025-01-01']]),periodEnd:FY,reportedCurrency:'USD',netIncome:null,depreciationAndAmortization:null,capitalExpenditure:-5});
-  expect(result.ffo).toBe(30);expect(result.affo).toBe(25);
+  expect(result.ffo).toBe(30);expect(result.affo).toBe(25);expect(result.affoHistoryComparable).toBe(true);
  });
  it('share counts are not monetary operands even when their income row has another currency',()=>{
   const input=inputs(facts([]));input.income[0]!.reportedCurrency='EUR';input.sharesBasis='statements:income.weightedAverageShsOutDil';

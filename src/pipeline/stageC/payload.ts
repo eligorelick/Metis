@@ -402,7 +402,8 @@ export interface ContextPayload {
 // 1.35.0: first-report audit cash admission, official-index discovery, EPS basis and disclosure context.
 // 1.35.1: deterministic source attribution and present-but-refused accrual explanations.
 // IREN source-scope corrections: disjoint cash investment/FCF, historical share admission, EPS and class-scope refusals. Old stored reports/snapshots retain their original contracts.
-export const PAYLOAD_VERSION = "1.36.0" as const;
+// Company-model eligibility and independently comparable AFFO alter admitted context.
+export const PAYLOAD_VERSION = "1.37.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

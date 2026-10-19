@@ -76,6 +76,7 @@ function reitInputs(): MultiplesFrameworkInputs {
     // Current FFO/AFFO as compute.ts builds them: NI + D&A, then minus |capex|.
     ffoApprox: 40 + 80,
     affoApprox: 40 + 80 - 20,
+    affoHistoryComparable: true,
   } as MultiplesFrameworkInputs;
 }
 
@@ -118,5 +119,17 @@ describe("equity REITs get a derived P/FFO own-history band", () => {
 
     // priceToFfo is not a general-route multiple at all.
     expect(r.multiples.some((m) => m.key === "priceToFfo")).toBe(false);
+  });
+
+  it("retains genuinely comparable all-capex AFFO while withholding only an unproven AFFO definition", () => {
+    const inputs = reitInputs();
+    const comparable = multiplesFramework("reit", inputs);
+    expect(comparable.multiples.find(m => m.key === "priceToAffo")?.ownHistory).not.toBeNull();
+    delete inputs.affoHistoryComparable;
+    const unknown = multiplesFramework("reit", inputs);
+    expect(unknown.multiples.find(m => m.key === "priceToAffo")?.ownHistory).toBeNull();
+    expect(unknown.multiples.find(m => m.key === "priceToFfo")?.ownHistory).not.toBeNull();
+    expect(unknown.multiples.find(m => m.key === "priceToAffo")?.current).toBe(12);
+    expect(unknown.gaps.some(g => g.field === "valuation.multiples.ownHistory.affoBasis")).toBe(true);
   });
 });

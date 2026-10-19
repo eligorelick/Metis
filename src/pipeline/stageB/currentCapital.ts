@@ -97,6 +97,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   income: CapitalIncomeRow | null; cashFlow: CapitalCashFlowRow | null; balance: CapitalBalanceRow | null;
   currency: string | null; annualCashFlow?: CapitalCashFlowRow | null; annualBalance?: CapitalBalanceRow | null;
   route?: SectorRoute;
+  modelEligibilityReason?: string;
 }): CapitalResult {
   const { income, cashFlow, balance } = input;
   const usable = income !== null && cashFlow !== null && input.currency !== null && income.date === cashFlow.date &&
@@ -109,12 +110,12 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   };
   // A stale balance cannot supply a current leverage numerator.
   const sameBalance = balance && aligns(balance.date) ? balance : null;
-  const industrialMetricsApplicable = !["bank", "insurer", "reit-mortgage"].includes(input.route ?? "general");
-  const snapshot = usable ? computeCapital([income], [cashFlow], sameBalance ? [sameBalance] : [], [], { price: null }, {route:input.route}) : annual;
+  const industrialMetricsApplicable = !input.modelEligibilityReason && !["bank", "insurer", "reit-mortgage"].includes(input.route ?? "general");
+  const snapshot = usable ? computeCapital([income], [cashFlow], sameBalance ? [sameBalance] : [], [], { price: null }, {route:input.route, modelEligibilityReason: input.modelEligibilityReason}) : annual;
   const bridgeRow = usable ? cashFlow : input.annualCashFlow && aligns(input.annualCashFlow.date) ? input.annualCashFlow : null;
   const bridgeBalance = usable ? sameBalance : input.annualBalance && aligns(input.annualBalance.date) ? input.annualBalance : null;
   const bridge = industrialMetricsApplicable ? cashFlowBridge(bridgeRow) : cashFlowBridge(null);
-  if (!industrialMetricsApplicable) bridge.definition = "Industrial FCF, net debt/EBITDA and EBIT interest coverage are not applicable to this financial-company route.";
+  if (!industrialMetricsApplicable) bridge.definition = input.modelEligibilityReason ?? "Industrial FCF, net debt/EBITDA and EBIT interest coverage are not applicable to this financial-company route.";
   const annualFcf = snapshot.fcf.series.find(row=>aligns(row.date));
   const netIncome = industrialMetricsApplicable && bridgeRow ? finite(bridgeRow.netIncome) ?? finite(annualFcf?.netIncome) : null;
   const fcf = bridge.standardizedFcf, sbc = bridge.stockBasedCompensation;

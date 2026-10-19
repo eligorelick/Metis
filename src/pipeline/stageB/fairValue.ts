@@ -89,7 +89,8 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
 
   if (method === null || !isNum(perShareValue)) {
     const reason =
-      valuation.kind === "reit"
+      valuation.kind === "ineligible" ? valuation.gaps[0]?.reason ?? "Model applicability unresolved; intrinsic value withheld."
+      : valuation.kind === "reit"
         ? "equity REITs are valued on P/FFO and P/AFFO multiples — no DCF-style per-share intrinsic value is modelled (docs/METHODOLOGY.md, Financial-company routes)"
         : valuation.kind === "pre-revenue"
           ? "pre-revenue company — no meaningful intrinsic per-share model in v1"

@@ -118,6 +118,7 @@ export interface QuoteInput {
  * number that is off by the FX rate or the ADS ratio.
  */
 export interface CapitalOptions {
+  modelEligibilityReason?: string;
   /** Banks, insurers and mortgage REITs have no industrial FCF/debt diagnostics. */
   route?: SectorRoute;
   /** Statements' reported currency (e.g. inc0.reportedCurrency). */
@@ -1166,8 +1167,8 @@ export function computeCapital(
     notes,
     gaps,
   };
-  if (options.route === "bank" || options.route === "insurer" || options.route === "reit-mortgage") {
-    const reason = "Not applicable to financial companies: funding liabilities and financial assets are operating inputs; industrial free cash flow, debt/EBITDA and EBIT interest coverage are not meaningful.";
+  if (options.modelEligibilityReason || options.route === "bank" || options.route === "insurer" || options.route === "reit-mortgage") {
+    const reason = options.modelEligibilityReason ?? "Not applicable to financial companies: funding liabilities and financial assets are operating inputs; industrial free cash flow, debt/EBITDA and EBIT interest coverage are not meaningful.";
     result.fcf = { series: [], latestFcf: null, latestFcfBeforeSbc: null, latestSbc: null,
       latestConversion: null, latestConversionBeforeSbc: null, basis: reason };
     result.maintenanceVsGrowthCapex = { capexToDALatest: null, capexToDA5yAvg: null,
@@ -1175,7 +1176,7 @@ export function computeCapital(
     result.netDebtToEbitda = { value: null, netDebt: null, ebitda: null, asOf,
       resolution: { ...result.netDebtToEbitda.resolution, value: null, reason }, note: reason };
     result.interestCoverage = { value: null, ebit: null, interestExpense: null, note: reason };
-    result.sbc = { ...sbc, pctOfFcf: null, note: "SBC/revenue retained; SBC/FCF is not applicable to financial companies." };
+    result.sbc = { ...sbc, pctOfFcf: null, note: options.modelEligibilityReason ?? "SBC/revenue retained; SBC/FCF is not applicable to financial companies." };
     result.notes = notes.filter((note) => !/free cash flow|FCF|maintenance capex/i.test(note));
     result.notes.push(reason);
     result.gaps = gaps.filter((gap) => !/^capital\.(?:fcf|maintenanceCapex|interestCoverage|netDebtToEbitda)(?:\.|$)/.test(gap.field));

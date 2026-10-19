@@ -1710,6 +1710,8 @@ export interface NareitFfoResult {
    * rebuild per quarter for an own-history P/FFO band.
    */
   netIncomePlusTotalDa: boolean;
+  /** Historical AFFO is NI + total income D&A - all capex, with no rent adjustment. */
+  affoHistoryComparable: boolean;
   ffoBasis: string;
   affoBasis: string;
   sources: string[];
@@ -1782,6 +1784,7 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
       ffoApproximate: false,
       affoApproximate: false,
       netIncomePlusTotalDa: false,
+      affoHistoryComparable: false,
       ffoBasis: "not computed (no net income)",
       affoBasis: "not computed (no FFO)",
       sources,
@@ -1817,6 +1820,7 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
       ffoApproximate: false,
       affoApproximate: false,
       netIncomePlusTotalDa: false,
+      affoHistoryComparable: false,
       ffoBasis: "not computed (no depreciation add-back)",
       affoBasis: "not computed (no FFO)",
       sources,
@@ -1841,7 +1845,7 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
   const impairmentsValue = impairments?.value ?? 0;
   const compatibility = operandConflict([netIncomeHit,reDep ?? totalDa,gains,impairments].filter((h):h is TagHit=>h!==null),[inputs.reportedCurrency]);
   if (compatibility !== null) return {
-    ffo:null,affo:null,ffoApproximate:false,affoApproximate:false,netIncomePlusTotalDa:false,
+    ffo:null,affo:null,ffoApproximate:false,affoApproximate:false,netIncomePlusTotalDa:false,affoHistoryComparable:false,
     ffoBasis:`FFO withheld: ${compatibility}`,affoBasis:"AFFO withheld because FFO is incompatible",
     sources,asOf:end,notes:[compatibility],gaps:[{field:"valuation.reit.ffo.compatibility",reason:compatibility,severity:"warn",attemptedSources:sources}],
   };
@@ -1993,6 +1997,7 @@ export function computeNareitFfo(inputs: NareitFfoInputs): NareitFfoResult {
     ffoApproximate: ffoApproximateReasons.length > 0,
     affoApproximate,
     netIncomePlusTotalDa,
+    affoHistoryComparable: affo !== null && netIncomePlusTotalDa && recurringCapex === null && isNum(inputs.capitalExpenditure),
     ffoBasis,
     affoBasis,
     sources,

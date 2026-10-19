@@ -10033,16 +10033,14 @@
       ]
     },
     {
-      "name": "iren-source-scope-20261019",
-      "decisions": [
-        "D-95"
-      ],
-      "reason": "D-95: report specification 1.31.0 identifies source-bound cash PPE/hardware and propagated FCF admission, convertible carrying-debt completeness, exact-date class-compatible historical EV shares, conservative derived EPS and unresolved classification/coverage safeguards. The provider-free DEMO control has none of the affected issuer/source presentations: every financial amount, grade, weight, registry and manifest remains pinned. Its sole changed audit leaf is report.meta.specVersion; old stored outputs retain their original stamps and bytes.",
+      "name": "company-eligibility-affo",
+      "decisions": ["D-96"],
+      "reason": "A1-A4: report spec 1.32.0 identifies independent AFFO historical comparability, explicit security classification and unresolved financial-route applicability safeguards. This classified industrial DEMO control is unaffected: every financial amount, grade, weight, registry and manifest remains pinned. The sole reclassified leaf is report.meta.specVersion. Prior stored reports retain their original stamps and bytes. See docs/audit/2026-10-19-company-eligibility-affo.md.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.31.0"
+          "after": "1.32.0"
         }
       ]
     }

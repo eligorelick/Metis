@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.30.2** and
-payload **1.35.1** (source-bound reconciliation presentation, 2026-10-19). The checked-in
+Current source declares application **0.1.0**, report spec **1.32.0** and
+payload **1.37.0** (company eligibility and AFFO comparability, 2026-10-19). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,13 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed company eligibility and AFFO comparability (2026-10-19)
+
+- Withhold company analysis for missing classification and explicit non-equity instruments; preserve source instrument types, terminal reasons and narrowly sourced public-metadata enrichment of a confirmed issuer's incomplete profile. Preserve the all-empty source-only fallback.
+- Withhold route-dependent valuation, industrial debt metrics and scenarios when strong financial-business evidence conflicts with the route. Retain source observations and require consolidated-scope reconciliation rather than automatically assigning a bank model.
+- Gate REIT historical P/AFFO independently from FFO; retain approximate current values without presenting incomparable historical ranks.
+- Advance report/payload/Stage B conventions to 1.32.0/1.37.0/ACCOUNTING_EVIDENCE_14. Existing stored reports remain immutable. No model bands, rating quotas or new valuation models are introduced. See the [bounded implementation record](docs/audit/2026-10-19-company-eligibility-affo.md); independent review and full gates precede handoff.
 
 ## Proposed source-bound issuer reconciliation (2026-10-19)
 

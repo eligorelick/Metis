@@ -706,6 +706,7 @@ describe("computeNareitFfo — approximate reconstruction and missing reconcilia
     });
     expect(r.ffo).toBe(3_848_218_000);
     expect(r.ffo).toBeLessThan(3_860_323_000);
+    expect(r.affoHistoryComparable).toBe(false);
     expect(r.ffoApproximate).toBe(true);
     expect(r.ffoBasis).toMatch(/ownership.*reconcil/i);
     expect(r.ffoBasis).toMatch(/joint ventures/i);
@@ -734,6 +735,7 @@ describe("computeNareitFfo — approximate reconstruction and missing reconcilia
     expect(r.ffoBasis).toContain("gains on property sales 120");
     // AFFO = 1,240 − 150 − 40 = 1,050
     expect(r.affo).toBe(1_050);
+    expect(r.affoHistoryComparable).toBe(false);
     expect(r.affoApproximate).toBe(true);
     expect(r.affoBasis).toMatch(/inherits.*FFO/i);
     expect(r.gaps.some((g) => g.field === "valuation.reit.affo.ffoBasis")).toBe(true);
@@ -856,6 +858,7 @@ describe("computeNareitFfo — approximate reconstruction and missing reconcilia
     // All-capex AFFO remains approximate; missing ownership adjustments
     // prevent a guaranteed bound on the issuer's reported AFFO.
     expect(r.affo).toBe(1_150);
+    expect(r.affoHistoryComparable).toBe(true);
     expect(r.affoApproximate).toBe(true);
     expect(r.affoBasis).not.toContain("conservative floor");
     expect(r.affoBasis).toMatch(/development spending/i);

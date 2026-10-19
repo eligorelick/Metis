@@ -22,6 +22,8 @@ async function build(fmpAvailable = false, key: string | undefined = "configured
   });
   const fmpFetch = async (input: string | URL | Request) => {
     const path = new URL(String(input)).pathname;
+    // News/calendar availability varies; the issuer remains classified.
+    if (path.endsWith("/profile")) return json([{ symbol: "SCHW", companyName: "Synthetic classified equity", isEtf: false, isFund: false }]);
     if (fmpAvailable && path.endsWith("/earnings")) return json([{ symbol: "SCHW", date: "2026-10-20", epsActual: null }]);
     if (fmpAvailable && path.endsWith("/news/stock")) return json([{ symbol: "SCHW", publishedDate: "2026-10-02", title: "FMP news", url: "https://example.com/fmp" }]);
     return new Response("Restricted Endpoint: This endpoint is not available under your current subscription.", { status: 402 });

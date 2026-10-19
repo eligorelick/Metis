@@ -241,6 +241,31 @@ describe("deriveRoutingEvidence — tag presence with values and periods", () =>
 });
 
 describe("routeCompany — XBRL evidence decides when industry and SIC do not", () => {
+  it.each([
+    { industry: "Credit Services", sector: "Financial Services", input: BANK_FACTS, base: "general" },
+    { industry: "Insurance - Brokers", sector: "Financial Services", input: BANK_FACTS, base: "general" },
+    { industry: "Computer Hardware", sector: "Technology", input: BANK_FACTS, base: "general" },
+    { industry: "Banks - Diversified", sector: "Financial Services", input: INSURER_FACTS, base: "bank" },
+    { industry: "Insurance - Life", sector: "Financial Services", input: BANK_FACTS, base: "insurer" },
+  ])("withholds model applicability on strong conflicting evidence for $industry", ({ industry, sector, input, base }) => {
+    const r = route({ sector, industry }, okFacts(input));
+    expect(r.base).toBe(base);
+    expect(r.modelEligibility).toMatchObject({ status: "unresolved", sources: expect.arrayContaining(["edgar:companyfacts us-gaap"]) });
+    expect(r.gaps.some(g => g.field === "route.modelEligibility")).toBe(true);
+    expect(metricPolicy(r).suppress).toEqual(expect.arrayContaining(["fcfDcf", "evEbitda", "roicVsWacc"]));
+  });
+
+  it("keeps ordinary vendor financing, property operators and fee-only financials eligible without strong contradictory funding evidence", () => {
+    const industrial = route({ sector: "Industrials", industry: "Farm & Heavy Construction Machinery", sic: "3531" },
+      okFacts({ NotesReceivableNet: [{ end: "2025-12-31", val: 40_000_000_000 }] }));
+    const property = route({ sector: "Real Estate", industry: "Real Estate - Development", sic: "6552" }, okFacts(EQUITY_REIT_FACTS));
+    const feeOnly = route({ sector: "Financial Services", industry: "Insurance - Brokers", sic: "6411" }, okFacts({}));
+    for (const r of [industrial, property, feeOnly]) {
+      expect(r.base).toBe("general");
+      expect(r.modelEligibility).toBeUndefined();
+      expect(metricPolicy(r).suppress).not.toContain("fcfDcf");
+    }
+  });
   it.each(["Financial - Capital Markets", "Capital Markets", "Financial Conglomerates"])(
     "refines the broad financial industry %s with corroborated deposit-funded operations", (industry) => {
       const r = route({ sector: "Financial Services", industry, sic: "6211" }, okFacts(BANK_FACTS));

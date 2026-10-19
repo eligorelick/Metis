@@ -43,6 +43,10 @@ async function bundle(html = annualGeographyHtml(), vendor?: FetchResult<FmpPayl
     return response(url.endsWith("annual.htm") ? html : "");
   } } });
   const fmp = createFmpClient({ apiKey: "" });
+  // This geography fixture represents a classified operating issuer. Instrument
+  // admission is independent of whether geography or fundamentals are present.
+  fmp.profile = async () => ({ ok: true, value: { data: { rows: [{ symbol: "EXMP", companyName: "Example Issuer", isEtf: false, isFund: false }], raw: {} },
+    source: "fmp", endpoint: "profile", asOf: "2026-07-06", fetchedAt: now } });
   if (vendor) fmp.revenueGeographicSegmentation = async () => vendor;
   const unavailable = async () => new Response("unavailable", { status: 404 });
   const result = await buildDataBundle("EXMP", { now: () => new Date(now), fmp, edgar, keyless: false,

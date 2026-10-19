@@ -21,6 +21,9 @@ import { describe, expect, it } from "vitest";
 
 import { buildDataBundle } from "@/pipeline/dataBundle";
 import { runStageB } from "@/pipeline/compute";
+import { UnsupportedInstrumentError } from "@/pipeline/stageB/instrumentSupport";
+import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { ReportSchema } from "@/report/schema";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { buildDataCompleteness } from "@/report/completeness";
@@ -303,7 +306,7 @@ describe("degradation: FMP entirely down", () => {
     expect(profileGap && "value" in (profileGap as object)).toBeFalsy();
   });
 
-  it("downstream compute + validation + payload tolerate a fully FMP-degraded bundle", async () => {
+  it("validates a fully degraded bundle and preserves a source-only outcome without classifying it as a company", async () => {
     const bundle = await buildDataBundle("AAPL", {
       now,
       eodYears: 1,
@@ -314,11 +317,8 @@ describe("degradation: FMP entirely down", () => {
       finnhub: finnhubNoKey(),
     });
 
-    // runStageB must not throw and must surface gaps rather than fabricated metrics.
-    const computed = runStageB(bundle);
-    expect(computed.symbol).toBe("AAPL");
-    expect(Array.isArray(computed.gaps)).toBe(true);
-    expect(computed.gaps.length).toBeGreaterThan(0);
+    // No surviving source establishes security type. Refuse company models.
+    expect(() => runStageB(bundle)).toThrow(UnsupportedInstrumentError);
 
     const validation = validateBundle(bundle, { now: NOW });
     // With no FMP statements + no companyfacts, the identity + XBRL checks skip, never fail-crash.
@@ -326,12 +326,12 @@ describe("degradation: FMP entirely down", () => {
     // Every check has a well-formed status (validation degraded, it did not throw/half-build).
     expect(validation.checks.every((c) => ["pass", "fail", "skipped"].includes(c.status))).toBe(true);
 
-    // Payload assembly is pure + total: it renders without throwing and discloses gaps.
-    const payload = assembleContextPayload(bundle, computed, validation);
-    expect(payload.symbol).toBe("AAPL");
-    expect(payload.missingData.length).toBeGreaterThan(0);
-    // The quote section renders each absent figure as a disclosed null, not a fake number.
-    expect(payload.quote.figures.every((f) => f.value === null)).toBe(true);
+    const report = buildDataOnlyReport({ symbol: bundle.symbol, companyName: bundle.symbol,
+      generatedAt: NOW.toISOString(), model: "none", costUsd: 0, bundle, validation,
+      computed: null, costBreakdown: [], reason: "Security type not established during the simulated outage." });
+    expect(ReportSchema.safeParse(report).success).toBe(true);
+    expect(report.valuation.dcf.perShare).toBeNull();
+    expect(report.appendix.missingData.length).toBeGreaterThan(0);
   });
 });
 
@@ -403,7 +403,7 @@ describe("degradation: EDGAR down (filings + companyfacts)", () => {
       fmp: makeFmp((url) => {
         if (fmpEndpoint(url) === "profile") {
           return jsonResponse([
-            { symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", cik: "0000320193", currency: "USD", country: "US" },
+            { symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", cik: "0000320193", currency: "USD", country: "US", isEtf: false, isFund: false },
           ]);
         }
         return jsonResponse([]);
@@ -457,7 +457,7 @@ describe("degradation: FRED down", () => {
       eodYears: 1,
       fmp: makeFmp((url) => {
         if (fmpEndpoint(url) === "profile") {
-          return jsonResponse([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD" }]);
+          return jsonResponse([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", isEtf: false, isFund: false }]);
         }
         return jsonResponse([]);
       }),
@@ -509,7 +509,7 @@ describe("degradation: partial FMP (statements up, estimates/transcripts down)",
     return makeFmp((url) => {
       const ep = fmpEndpoint(url);
       if (ep === "profile") {
-        return jsonResponse([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US" }]);
+        return jsonResponse([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US", isEtf: false, isFund: false }]);
       }
       if (ep === "quote") {
         return jsonResponse([{ symbol: "AAPL", price: 210, marketCap: 3150000000000, dayLow: 208, dayHigh: 212, yearLow: 164, yearHigh: 260, volume: 44000000 }]);
@@ -611,7 +611,7 @@ describe("degradation: FINRA down", () => {
       eodYears: 1,
       fmp: makeFmp((url) => {
         if (fmpEndpoint(url) === "profile") {
-          return jsonResponse([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD" }]);
+          return jsonResponse([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", isEtf: false, isFund: false }]);
         }
         return jsonResponse([]);
       }),
@@ -892,7 +892,7 @@ describe("degradation: weekend/holiday EOD run (H1 no-new-bar recovery)", () => 
       const ep = fmpEndpoint(url);
       if (ep === "profile") {
         return jsonResponse([
-          { symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US" },
+          { symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US", isEtf: false, isFund: false },
         ]);
       }
       if (ep === "historical-price-eod/full") {

@@ -857,10 +857,22 @@ export function routeCompany(
     }
   }
 
+  const materialModelConflict = evidence?.available === true &&
+    (evidenceSuggests === "bank" || evidenceSuggests === "insurer" ||
+      (evidenceSuggests === "reit-mortgage" && mortgageEvidenceCorroborated)) &&
+    gaps.some(g => g.field === "route.evidence.conflict");
+  const modelEligibility: CompanyRoute["modelEligibility"] = materialModelConflict ? {
+    status: "unresolved",
+    reason: `Model applicability unresolved: ${evidenceSuggests} funding evidence conflicts with the '${base}' classification. Reconcile the consolidated operating/financing scope before using industrial debt, FCFF, EV multiples or a financial equity model; the route is not guessed from tags.`,
+    sources: [evidence!.source, "fmp:/stable/profile", "edgar:submissions.sic"],
+  } : undefined;
+  if (modelEligibility) gaps.push({ field: "route.modelEligibility", reason: modelEligibility.reason,
+    severity: "warn", attemptedSources: modelEligibility.sources });
   return {
     base,
     overlays,
     evidence: { sector: sectorRaw, industry: industryRaw, sic: sicRaw },
+    ...(modelEligibility ? { modelEligibility } : {}),
     reitSubmap,
     notes,
     gaps,
@@ -1203,6 +1215,9 @@ export function metricPolicy(
   for (const overlay of overlays) {
     for (const s of OVERLAY_POLICIES[overlay].suppress) suppress.add(s);
     lead.push(...OVERLAY_POLICIES[overlay].lead);
+  }
+  if (typeof route !== "string" && route.modelEligibility?.status === "unresolved") {
+    for (const key of ["fcfDcf", "reverseDcf", "evEbitda", "evToSales", "roicVsWacc", "netDebt", "netDebtToEbitda", "fcfGrowth", "grossMargin", "operatingMargin"]) suppress.add(key);
   }
   const seen = new Set<string>();
   const leadFinal: string[] = [];
