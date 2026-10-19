@@ -10028,14 +10028,14 @@
     {
       "name": "exact-final-and-phase-one-evidence-presentation",
       "decisions": [
-        "D-88", "D-89", "D-90"
+        "D-88", "D-89", "D-90", "D-91"
       ],
-      "reason": "D-88/D-89/D-90 advance only the saved-report specification for exact final-field acquisition resolution and separate structured accrual notes. This deterministic audit fixture has no newly resolved acquisition field; all financial values, scoring and existing baseline pins remain unchanged.",
+      "reason": "D-88/D-89/D-90/D-91 advance only the saved-report specification for exact final-field acquisition resolution and separate structured accrual notes. This deterministic audit fixture has no newly resolved acquisition field; all financial values, scoring and existing baseline pins remain unchanged.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.29.0"
+          "after": "1.29.1"
         }
       ]
     }

@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.29.0** and
-payload **1.34.0** (bounded phase-one evidence completion, 2026-10-19). The checked-in
+Current source declares application **0.1.0**, report spec **1.29.1** and
+payload **1.34.1** (bounded phase-one evidence completion, 2026-10-19). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed independent-review corrections (2026-10-19)
+
+- Guard canonical EDGAR gross-profit construction and admission, preserving directly filed subtotals and serializing partial-cost refusals.
+- Use immutable refusal-aware disclosure reads for guidance and quarterly trends, including CFO aliases; restore Unicode dateline separators.
+- Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](docs/audit/2026-10-19-phase-one-review-corrections.md).
 
 ## Proposed phase-one evidence completion (2026-10-19)
 

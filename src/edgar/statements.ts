@@ -58,6 +58,8 @@ import {
   INCOME_BEFORE_TAX_TAGS,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
+  GROSS_PROFIT_REVENUE_TAGS,
+  GROSS_PROFIT_COST_TAGS,
   standInsFor,
   tagsFor,
   type TagStandIn,
@@ -1816,8 +1818,20 @@ interface ComputeContext {
   money(tag: string): number | null;
 }
 
-function computeIncome(v: FieldValues, notes: NoteSink, ctx: string): void {
-  v.grossProfit ??= sub(v.revenue ?? null, v.costOfRevenue ?? null);
+function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
+  if (v.grossProfit == null && v.revenue != null && v.costOfRevenue != null) {
+    const revenue = cc.resolved.get("revenue"), cost = cc.resolved.get("costOfRevenue");
+    const filings = (resolved: Resolved) => JSON.stringify([...new Set((resolved.evidencePoints ?? [resolved.point]).map(p => `${p.accn}|${p.filed}|${p.form}`))].sort());
+    const full = revenue && cost && revenue.tags.some(tag => GROSS_PROFIT_REVENUE_TAGS.includes(tag)) && cost.tags.some(tag => GROSS_PROFIT_COST_TAGS.includes(tag)) &&
+      revenue.unit === cost.unit && revenue.point.end === cost.point.end && (revenue.periodStart ?? revenue.point.start) === (cost.periodStart ?? cost.point.start) && filings(revenue) === filings(cost);
+    if (full) v.grossProfit = sub(v.revenue, v.costOfRevenue);
+    else {
+      v.grossProfit = null;
+      const reason = "Gross profit unavailable: filed operands do not establish compatible full revenue and total cost for the same interval, unit and filing; partial costs cannot establish the subtotal";
+      notes.add(`grossProfit ${ctx} WITHHELD: ${reason}`);
+      notes.withhold("grossProfit", ctx, reason);
+    }
+  }
   if (v.operatingExpenses == null && (v.researchAndDevelopmentExpenses != null || v.sellingGeneralAndAdministrativeExpenses != null)) {
     // These components do not establish a complete expense perimeter: an
     // issuer may separately report technology, indirect marketing, D&A,
@@ -2357,8 +2371,14 @@ function buildStatementRows<TRow>(
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
     }
+    if (def.statement === "income" && values.grossProfit != null && !resolutions.has("grossProfit") && fieldProvenance.revenue && fieldProvenance.costOfRevenue) {
+      fieldProvenance.grossProfit = { ...fieldProvenance.revenue, tags: [...fieldProvenance.revenue.tags, ...fieldProvenance.costOfRevenue.tags], calculation: "revenue-minus-cost" };
+    }
     row.fieldProvenance = fieldProvenance;
-    if (def.statement === "balance") {
+    if (def.statement === "income") {
+      const refused = notes.withheld.filter(held => held.field === "grossProfit" && held.periods.includes(slot.date));
+      if (refused.length > 0) row.fieldConflicts = { grossProfit: { vendorValue: null, secValue: null, usable: false, reason: refused.map(held => held.text).join("; ") } };
+    } else if (def.statement === "balance") {
       if (values.totalLiabilities != null && !resolutions.has("totalLiabilities")) row.identityDerivedFields = ["totalLiabilities"];
       const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt", "totalLiabilities", ...TEMPORARY_EQUITY_FIELDS].includes(held.field) && held.periods.includes(slot.date));
       if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,

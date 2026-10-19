@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current phase-one source declares report 1.29.0 / payload 1.34.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_9 (2026-10-19). Its bounded evidence fixes
+The current phase-one source declares report 1.29.1 / payload 1.34.1 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_10 (2026-10-19). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -24,6 +24,8 @@ limits. These rules change Stage B behavior on identical retained inputs and
 therefore advance its implementation stamp. Saved reports remain immutable.
 See the [phase-one evidence record](audit/2026-10-19-phase-one-evidence-completion.md)
 for source intervals, negative controls and unresolved original vendor evidence.
+
+D-91 applies these rules in the canonical EDGAR constructor as well as vendor admission. Partial service-cost tags cannot create a full gross-profit subtotal; compatible full operands or a directly filed subtotal are required. Explicit refusals survive serialized rows, mixed backfill and immutable disclosure reads, including alternate CFO aliases and dependent standardized FCF. Unicode datelines retain hyphen, en dash and em dash. Historical report bytes and prior method identities remain distinct.
 
 The evidence follow-up (D-56) carries source-established instant/duration
 boundaries independently from as-of dates. Missing context keeps the legacy

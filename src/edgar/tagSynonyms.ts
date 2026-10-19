@@ -59,6 +59,10 @@ export const REVENUE_TAGS: readonly string[] = [
   "RevenuesNetOfInterestExpense",
 ];
 
+/** Full industrial operands; financial net revenue and component costs are not substitutes. */
+export const GROSS_PROFIT_REVENUE_TAGS = REVENUE_TAGS.filter(tag => tag !== "RevenuesNetOfInterestExpense");
+export const GROSS_PROFIT_COST_TAGS: readonly string[] = ["CostOfRevenue", "CostOfGoodsAndServicesSold"];
+
 /**
  * The pretax element that, by taxonomy definition, is measured BEFORE
  * equity-method results — its name lists what it excludes. When it serves as

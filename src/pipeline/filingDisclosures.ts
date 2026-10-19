@@ -16,6 +16,7 @@
 import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
+import { admittedStatementRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "@/providers/currentReports";
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
@@ -57,7 +58,7 @@ function round(v: number | null, dp = 4): number | null {
 }
 
 function rowsOf<T extends FmpRawRow>(f: { ok: boolean; value?: { data: { rows: T[] } } } | undefined): T[] {
-  return f?.ok && f.value ? f.value.data.rows : [];
+  return f?.ok && f.value ? f.value.data.rows.map(admittedStatementRow) : [];
 }
 
 function day(v: unknown): string | null {

@@ -1,4 +1,4 @@
-import { quotePriceObservationDay } from "@/providers/fmp";
+import { admittedStatementRow, quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
  * pure Stage B module's own input types, runs sector routing FIRST, then feeds
@@ -228,23 +228,7 @@ export interface SuppressedMetric {
 
 function rowsOf<TRow extends FmpRawRow>(f: FmpFetch<TRow>): TRow[] {
   if (!f.ok) return [];
-  return f.value.data.rows.map(row => {
-    const conflicts = row.fieldConflicts;
-    if (!conflicts || typeof conflicts !== "object") return row;
-    const clone = { ...row };
-    for (const [field, evidence] of Object.entries(conflicts)) {
-      if (evidence && typeof evidence === "object" && "usable" in evidence && evidence.usable === false) {
-        (clone as FmpRawRow)[field] = null;
-      }
-    }
-    // A refused cash component cannot be restored by a combined liquidity or
-    // vendor-net-debt fallback. Keep the refusal metadata on this immutable copy.
-    if ((conflicts as Record<string, { usable?: boolean }>).cashAndCashEquivalents?.usable === false) {
-      (clone as FmpRawRow).cashAndShortTermInvestments = null;
-      (clone as FmpRawRow).netDebt = null;
-    }
-    return clone;
-  });
+  return f.value.data.rows.map(admittedStatementRow);
 }
 
 /** First row of a single-row FMP payload (profile/quote), or null. */

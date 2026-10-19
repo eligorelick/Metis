@@ -203,7 +203,7 @@ function materialStatement(text: string, issuer: ConfirmedIssuerIdentity): { cat
       const subject = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // A dateline may precede the subject, but quoted commentary, a different
       // grammatical subject, and a future/negated completion cannot establish it.
-      const lead = String.raw`(?:^|[---]\s+)(?:Today,\s+)?${subject}\s+(?:today\s+)?`;
+      const lead = String.raw`(?:^|[-\u2013\u2014]\s+)(?:Today,\s+)?${subject}\s+(?:today\s+)?`;
       const completed = new RegExp(`${lead}(?:announced that it )?(?:has )?(?:acquired\\s+|completed (?:its |the )?acquisition of\\s+)`, "i");
       const announcedDeal = new RegExp(`${lead}announced (?:an? |the |its )?(?:agreement to acquire|acquisition of)\\s+`, "i");
       const officer = new RegExp(`${lead}announced (?:the )?(?:appointment|departure|retirement|resignation) of\\s+`, "i");

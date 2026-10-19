@@ -55,7 +55,7 @@ describe("same-definition income classification", () => {
     }
     const result = admit({ costOfRevenue: 715 }, f);
     expect(result.row.grossProfit).toBeNull();
-    expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ usable: false, secValue: null, reason: expect.stringMatching(/definition.*not.*compatible/i) });
+    expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ usable: false, secValue: null, reason: expect.stringMatching(/compatible full|definition.*not.*compatible/i) });
   });
   it.each(["date", "unknown-currency", "no-anchor", "no-facts"])("retains unknown observations without invented classification (%s)", change => {
     const f = facts();
@@ -64,11 +64,12 @@ describe("same-definition income classification", () => {
     const row = admit(change === "date" ? { date: undefined } : change === "unknown-currency" ? { reportedCurrency: null } : {}, f).row;
     expect(row.fieldConflicts?.grossProfit).toBeUndefined();
   });
-  it("does not rebuild missing statements or canonical EDGAR statements", () => {
+  it("retains missing statements and revalidates serialized EDGAR rows", () => {
     const unavailable = { ok: false as const, gap: { field: "income", severity: "warn" as const, reason: "unavailable" } };
     expect(enrichIncomeClassification(unavailable, facts(), "quarter", at).income).toBe(unavailable);
     const edgar = input(); if (!edgar.ok) throw Error("fixture"); edgar.value.source = "edgar";
-    expect(enrichIncomeClassification(edgar, facts(), "quarter", at).income).toBe(edgar);
+    expect(enrichIncomeClassification(edgar, facts(), "quarter", at).income).toMatchObject({ ok: true, value: { data: { rows: [{ grossProfit: null, fieldConflicts: { grossProfit: { usable: false } } }] } } });
+    expect(edgar.value.data.rows[0]?.grossProfit).toBe(5803);
     const empty = input(); if (!empty.ok) throw Error("fixture"); empty.value.data.rows = [];
     expect(enrichIncomeClassification(empty, facts(), "quarter", at).income).toBe(empty);
   });

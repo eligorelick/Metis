@@ -874,7 +874,8 @@ describe("payload determinism + provenance", () => {
       // financial leaves remain pinned. The versioned fingerprint changes.
       // D-90: only the versioned fingerprint changes for this unaffected fixture;
       // finance, registries, numeric values, bytes and counts remain pinned.
-      fingerprint: "1.34.0:a02dacc6",
+      // D-91 also changes only the version in this unaffected fixture.
+      fingerprint: "1.34.1:00119c69",
       promptBytes: 139_131,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
@@ -1024,7 +1025,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.34.0");
+    expect(first.payloadVersion).toBe("1.34.1");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2519,7 +2520,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.29.0");
+    expect(report.meta.specVersion).toBe("1.29.1");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

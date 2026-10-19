@@ -8,7 +8,7 @@ const same = (a: number, b: number) => Math.abs(a - b) <= Math.max(1e-8, Math.ab
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { income: typeof income; gaps: ManifestEntry[] } {
-  if (!income.ok || income.value.source === "edgar" || income.value.data.rows.length === 0) return { income, gaps: [] };
+  if (!income.ok || income.value.data.rows.length === 0) return { income, gaps: [] };
   const built = buildStatementsFromCompanyFacts(facts, { symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
     annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
     vendorSplits: { status: "unavailable", source: "income-classification", reason: "Income classification does not resolve per-share values" } });
@@ -44,6 +44,9 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       out = { ...out, [field]: null, fieldConflicts };
       gaps.push({ field: `statements.income.${row.date}.${field}`, reason, severity: "warn", attemptedSources: ["fmp:income-statement", "edgar:companyfacts"] });
     };
+    if (sec.fieldConflicts?.grossProfit?.usable === false) {
+      refuse("grossProfit", null, evidenceFor("costOfRevenue"), sec.fieldConflicts.grossProfit.reason);
+    }
     for (const [field, tags] of Object.entries(allowed)) {
       if (row.fieldConflicts?.[field]?.usable === false) { out = { ...out, [field]: null }; continue; }
       const proof = evidenceFor(field);

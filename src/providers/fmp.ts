@@ -71,6 +71,23 @@ export interface FmpRawRow {
   [key: string]: unknown;
 }
 
+/** Immutable analytical view; explicit refusals survive aliases and dependent fallbacks. */
+export function admittedStatementRow<T extends FmpRawRow>(row: T): T {
+  const conflicts = row.fieldConflicts;
+  if (!conflicts || typeof conflicts !== "object") return row;
+  const refused = new Set(Object.entries(conflicts).filter(([, evidence]) => evidence && typeof evidence === "object" && "usable" in evidence && evidence.usable === false).map(([field]) => field));
+  if (refused.size === 0) return row;
+  const clone = { ...row };
+  const unavailable = new Set(refused);
+  if (["operatingCashFlow", "netCashProvidedByOperatingActivities"].some(field => refused.has(field))) {
+    for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities", "freeCashFlow"]) unavailable.add(field);
+  }
+  if (refused.has("cashAndCashEquivalents")) for (const field of ["cashAndShortTermInvestments", "netDebt"]) unavailable.add(field);
+  if (refused.has("grossProfit")) for (const field of ["grossProfitRatio", "grossProfitMargin"]) unavailable.add(field);
+  for (const field of unavailable) (clone as FmpRawRow)[field] = null;
+  return clone;
+}
+
 export interface FmpProfileRow extends FmpRawRow {
   symbol?: string;
   companyName?: string;

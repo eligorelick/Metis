@@ -117,7 +117,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.26.0 (D-87): source-bound accounting, evidence and metric presentation.
 // 1.27.0 (D-88): exact acquisition resolution and separate accrual clarifications.
 // 1.28.0 (D-89): CFO source admission and explicit fraction-scale claim support.
-export const REPORT_SPEC_VERSION = "1.29.0" as const;
+export const REPORT_SPEC_VERSION = "1.29.1" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
