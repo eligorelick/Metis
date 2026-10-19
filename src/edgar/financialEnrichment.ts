@@ -80,8 +80,45 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
   return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true);
 }
 
-/** FMP defines net change as ending minus beginning cash. Both definitions must be established. */
-function filedCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+/** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
+ * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
+ * compatible instants. The interval comes from the filing, not an invented
+ * vendor periodStart. Prior-quarter cash need not have the ending filing's ID.
+ */
+function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Partial<Record<"cashAtBeginningOfPeriod" | "cashAtEndOfPeriod" | "netChangeInCash", Resolved>> {
+  if (!validDay(row.date)) return {};
+  const cashTag = "CashAndCashEquivalentsAtCarryingValue";
+  const totalTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
+  const movementTag = `${totalTag}PeriodIncreaseDecreaseIncludingExchangeRateEffect`;
+  const cash = (tag: string, day: string): Resolved | null => {
+    const p = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === day && p.start === undefined && p.val >= 0));
+    return p ? resolved(p.val, [tag], [p], unit, observedAt, null, day) : null;
+  };
+  const common = (day: string): Resolved | null => {
+    const unrestricted = cash(cashTag, day), total = cash(totalTag, day);
+    if (!unrestricted || !total || unrestricted.value !== total.value ||
+      JSON.stringify(unrestricted.evidence.filings) !== JSON.stringify(total.evidence.filings)) return null;
+    return { value: total.value, evidence: { ...total.evidence, tags: [...unrestricted.evidence.tags, ...total.evidence.tags] } };
+  };
+  const ending = common(row.date);
+  const movement = filedFlow(facts, movementTag, unit, row.date, scope, observedAt, true);
+  const start = movement?.evidence.periodStart;
+  const flowFiling = movement?.evidence.filings[0];
+  if (!ending || !start || !flowFiling || (typeof row.periodStart === "string" && row.periodStart !== start) ||
+    !ending.evidence.filings.every(f => f.accn === flowFiling.accn && f.filed === flowFiling.filed && f.form === flowFiling.form)) return {};
+  const beginningDay = new Date(Date.parse(start) - DAY).toISOString().slice(0, 10);
+  const beginning = common(beginningDay);
+  if (!beginning || beginning.evidence.filings.some(f => f.filed > flowFiling.filed) || ending.value - beginning.value !== movement!.value) return {};
+  return { cashAtBeginningOfPeriod: beginning, cashAtEndOfPeriod: ending, netChangeInCash: {
+    value: movement!.value, evidence: { ...movement!.evidence, tags: [...new Set([...movement!.evidence.tags, ...beginning.evidence.tags, ...ending.evidence.tags])],
+      filings: [...movement!.evidence.filings, ...beginning.evidence.filings, ...ending.evidence.filings], calculation: "ending-cash-minus-beginning-cash" },
+  } };
+}
+
+/** Legacy comparison is valid only when the vendor's two cash amounts already
+ * establish the unrestricted definition. It cannot validate a wrong balance.
+ */
+function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Resolved | null {
   if (!validDay(row.periodStart) || !validDay(row.date)) return null;
   const days = (Date.parse(row.date) - Date.parse(row.periodStart)) / DAY;
   const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
@@ -99,32 +136,53 @@ function filedCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow
 
 /** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
 function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow"): { row: T; gaps: ManifestEntry[] } {
+  const cashAmounts = kind === "cashflow" ? filedCashAmounts(facts, unit, row, scope, observedAt) : {};
   const specifications: [string, string, boolean, number][] = kind === "balance"
     ? [["cashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue", true, 1]]
     : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
       ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", true, 1],
       ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", true, 1],
+      ["cashAtBeginningOfPeriod", "CashAndCashEquivalentsAtCarryingValue", true, 1],
+      ["cashAtEndOfPeriod", "CashAndCashEquivalentsAtCarryingValue", true, 1],
       ["netChangeInCash", "CashAndCashEquivalentsAtCarryingValue", true, 1]];
   let out = row;
   const gaps: ManifestEntry[] = [];
+  if (kind === "cashflow") {
+    const unavailable: Record<string, null> = {};
+    const fieldConflicts = { ...out.fieldConflicts };
+    for (const field of ["cashAtBeginningOfPeriod", "cashAtEndOfPeriod", "netChangeInCash"]) {
+      const prior = fieldConflicts[field];
+      if (prior?.usable !== false) continue;
+      unavailable[field] = null;
+      if (field === "netChangeInCash") continue;
+      unavailable.netChangeInCash = null;
+      fieldConflicts.netChangeInCash ??= { usable: false, vendorValue: typeof row.netChangeInCash === "number" ? row.netChangeInCash : null,
+        secValue: null, reason: `cash movement unavailable because ${field} was refused: ${prior.reason}`, ...(prior.secEvidence ? { secEvidence: prior.secEvidence } : {}) };
+    }
+    out = { ...out, ...unavailable, fieldConflicts };
+  }
   for (const [field, tag, signed, sign] of specifications) {
     const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
-      : field === "netChangeInCash" ? filedCashChange(facts, unit, row, scope, observedAt) : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
-    if (!sec || (kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
-      (validDay(row.filingDate) && !sec.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
+      : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
+        ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
+        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
+    if (!sec || (sec.evidence.periodStart !== null && kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
+      (validDay(row.filingDate) && !(field === "cashAtBeginningOfPeriod" ? cashAmounts.cashAtEndOfPeriod : sec)?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
     const vendor = row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
     if (Math.abs(vendor - value) <= Math.max(1e-8, Math.abs(value) * 1e-10)) continue;
-    const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${row.date} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
+    const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
     const fieldConflicts = { ...out.fieldConflicts };
     const unavailable: Record<string, null> = {};
-    const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"] : [field];
+    const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"]
+      : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" ? [field, "netChangeInCash"] : [field];
     for (const dependent of dependents) {
       unavailable[dependent] = null;
       if (fieldConflicts[dependent]?.usable === false) continue;
       fieldConflicts[dependent] = { usable: false, vendorValue: typeof out[dependent] === "number" && Number.isFinite(out[dependent]) ? out[dependent] : null,
-        secValue: dependent === field ? value : null, secEvidence: sec.evidence, reason };
+        secValue: dependent === field ? value : dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.value ?? null : null,
+        secEvidence: dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.evidence ?? sec.evidence : sec.evidence, reason };
     }
     out = { ...out, ...unavailable, fieldConflicts };
     gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn", attemptedSources: [`edgar:companyfacts/us-gaap/${tag}`, `fmp:${kind}-statement`] });
@@ -153,6 +211,32 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   }
   return { row: { ...row, operatingCashFlow: null, netCashProvidedByOperatingActivities: null, freeCashFlow: null, fieldConflicts },
     gaps: [{ field: `statements.cashflow.${row.date}.operatingCashFlow`, reason, severity: "warn", attemptedSources: ["fmp:cash-flow-statement", "edgar:companyfacts/us-gaap/NetCashProvidedByUsedInOperatingActivities"] }] };
+}
+
+/** Generic vendor investment buckets cannot override filed component scope.
+ * Only a complete same-interval short-term purchase/sale/maturity set is a
+ * comparison here. Mixed long-term investments/intangibles/other assets are
+ * not silently classified as financial assets or subtracted from CFI.
+ */
+function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const tags = ["PaymentsToAcquireShortTermInvestments", "ProceedsFromSaleOfShortTermInvestments", "ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments"];
+  const parts = tags.map(tag => filedFlow(facts, tag, currency, row.date!, scope, observedAt, false));
+  if (parts.some(part => part === null)) return { row, gaps: [] };
+  const [purchase, sale, maturity] = parts as Resolved[];
+  const evidence = purchase!.evidence;
+  if (parts.some(part => part!.evidence.periodStart !== evidence.periodStart || JSON.stringify(part!.evidence.filings) !== JSON.stringify(evidence.filings)) ||
+    (typeof row.periodStart === "string" && row.periodStart !== evidence.periodStart) ||
+    (validDay(row.filingDate) && !evidence.filings.some(f => f.filed === row.filingDate))) return { row, gaps: [] };
+  const expected: Record<string, number> = { purchasesOfInvestments: -purchase!.value, salesMaturitiesOfInvestments: sale!.value + maturity!.value };
+  if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && Math.abs(row[field] - value) > Math.max(1e-8, Math.abs(value) * 1e-10))) return { row, gaps: [] };
+  const reason = `financial-investment classification unreconciled at ${row.date}: same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
+  const fieldConflicts = { ...row.fieldConflicts };
+  const secEvidence = { ...evidence, tags: tags.map(tag => `us-gaap/${tag}`) };
+  for (const field of [...Object.keys(expected), "otherInvestingActivities"]) if (fieldConflicts[field]?.usable !== false) fieldConflicts[field] = {
+    usable: false, vendorValue: typeof row[field] === "number" ? row[field] : null, secValue: null, secEvidence, reason,
+  };
+  return { row: { ...row, purchasesOfInvestments: null, salesMaturitiesOfInvestments: null, otherInvestingActivities: null, fieldConflicts },
+    gaps: [{ field: `statements.cashflow.${row.date}.financialInvestments`, reason, severity: "warn", attemptedSources: tags.map(tag => `edgar:companyfacts/us-gaap/${tag}`) }] };
 }
 
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
@@ -335,6 +419,9 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const admitted = admitOperatingCashFlow(out, facts, currency, scope, observedAt);
         out = admitted.row;
         gaps.push(...admitted.gaps);
+        const investments = admitInvestmentFlows(out, facts, currency, scope, observedAt);
+        out = investments.row;
+        gaps.push(...investments.gaps);
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {

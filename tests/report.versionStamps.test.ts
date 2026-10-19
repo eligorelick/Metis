@@ -85,21 +85,21 @@ function newReport(): Report {
 
 describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.29.1");
-    expect(PAYLOAD_VERSION).toBe("1.34.1");
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_10");
+    expect(REPORT_SPEC_VERSION).toBe("1.30.0");
+    expect(PAYLOAD_VERSION).toBe("1.35.0");
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_11");
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.29.1");
+    expect(newReport().meta.specVersion).toBe("1.30.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
-    expect(payload.payloadVersion).toBe("1.34.1");
-    expect(payloadFingerprint(payload)).toMatch(/^1\.34\.1:[0-9a-f]{8}$/);
-    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.34\.1\)/);
+    expect(payload.payloadVersion).toBe("1.35.0");
+    expect(payloadFingerprint(payload)).toMatch(/^1\.35\.0:[0-9a-f]{8}$/);
+    expect(serializePayloadForPrompt(payload)).toMatch(/^# CONTEXT PAYLOAD \(payloadVersion 1\.35\.0\)/);
   });
 
-  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0"])("never resumes a pass stored under prior %s financial conventions", (version) => {
+  it.each(["1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.15.0", "1.16.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.23.0", "1.24.0", "1.24.1", "1.24.2", "1.25.0", "1.26.0", "1.27.0", "1.29.0", "1.29.1", "1.29.2", "1.30.0", "1.30.1", "1.31.0", "1.32.0", "1.33.0", "1.34.0", "1.34.1"])("never resumes a pass stored under prior %s financial conventions", (version) => {
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     const prior = payloadFingerprint({ ...payload, payloadVersion: version });

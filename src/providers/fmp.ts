@@ -83,6 +83,10 @@ export function admittedStatementRow<T extends FmpRawRow>(row: T): T {
     for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities", "freeCashFlow"]) unavailable.add(field);
   }
   if (refused.has("cashAndCashEquivalents")) for (const field of ["cashAndShortTermInvestments", "netDebt"]) unavailable.add(field);
+  if (["cashAtBeginningOfPeriod", "cashAtEndOfPeriod"].some(field => refused.has(field))) unavailable.add("netChangeInCash");
+  if (["purchasesOfInvestments", "salesMaturitiesOfInvestments"].some(field => refused.has(field))) {
+    for (const field of ["purchasesOfInvestments", "salesMaturitiesOfInvestments", "otherInvestingActivities", "financialAssetCashFlow", "operatingInvestingCashFlow"]) unavailable.add(field);
+  }
   if (refused.has("grossProfit")) for (const field of ["grossProfitRatio", "grossProfitMargin"]) unavailable.add(field);
   for (const field of unavailable) (clone as FmpRawRow)[field] = null;
   return clone;

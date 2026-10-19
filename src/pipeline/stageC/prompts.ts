@@ -61,6 +61,8 @@ export const SHARED_RULES_BLOCK = [
   "- ESTIMATE: an analyst or model projection (yours or a consensus figure).",
   "- JUDGMENT: your interpretation of facts. Say it is a judgment.",
   "- Methodology, data-gap and coverage statements describe this analysis: label them JUDGMENT, not issuer FACT.",
+  "- Reconcile dated corporate events across retained sources: a later issuer-stated completion supersedes an earlier pending agreement for current status. Keep any explicitly retained historical closing window as dated history; integration and financial results may remain prospective. Completion alone establishes neither final consideration nor funding.",
+  "- Provider EPS with unverified accounting basis is not established GAAP or adjusted EPS. Do not compare it or its price quotient with GAAP TTM/historical multiples, adjusted guidance or model operating EPS as though the earnings definitions match. Numerical proximity is not source evidence of basis.",
   "",
   "CITATION (hard rule): cite the payload path or fetched URL for every claim and every number.",
   "Copy only the exact source ID into `source`/`sourceId`; keep its ISO date only in `asOf`.",

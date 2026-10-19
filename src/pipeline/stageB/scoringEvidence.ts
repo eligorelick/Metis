@@ -189,7 +189,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         completeSample ? null : "Historical sample dates unavailable or incomplete.",
         completeSample && missingMarketDates > 0 ? `${missingMarketDates} market observation date(s) unavailable; fiscal period dates are not substituted.` : null,
         "Historical publication availability at the market observation dates is not established; this is a retrospective comparison of retained statement history.",
-        selected.key !== ownKeys[0] ? `${ownKeys[0]} unavailable, using ${selected.key}.` : null,
+        selected.key !== ownKeys[0] ? `${ownKeys[0] === "peTtm" ? "P/E" : ownKeys[0]} history comparison unavailable; using ${selected.key === "evToEbitda" ? "EV/EBITDA" : selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
       ].filter(Boolean).join(" ") : ["Own-history rank unavailable.", cashOwnershipScope].filter(Boolean).join(" ");
       if (selected) {
         operand(`${selected.key} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);

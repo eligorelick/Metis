@@ -48,7 +48,7 @@ describe("derived forecast EPS uses the admitted common-holder scope", () => {
     // An independently admitted analyst EPS quote remains an independent display input.
     report.marketData.estimates = [{ fiscalYearEnd: "2027-12-31", revenueAvg: null, revenueLow: null, revenueHigh: null,
       epsAvg: 12, epsLow: 11, epsHigh: 13, analystsRevenue: null, analystsEps: 8 }];
-    expect(keyDataRows(report).some(row => row.label === "Forward P/E (consensus EPS)")).toBe(true);
+    expect(keyDataRows(report).some(row => row.label === "Price / provider EPS (basis unverified)")).toBe(true);
   });
   it("leaves an ordinary no-NCI operating EPS forecast intact", () => {
     const bundle = fixture();

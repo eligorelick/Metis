@@ -789,7 +789,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const label = `Consensus FY+${index + 1} (year ending ${e.fiscalYearEnd})`;
     const parts = [
       e.revenueAvg !== null ? `revenue ${perShareOrTotal(e.revenueAvg, estCurrency, false)}` : null,
-      e.epsAvg !== null ? `EPS ${perShareOrTotal(e.epsAvg, estCurrency, true)}` : null,
+      e.epsAvg !== null ? `provider EPS ${perShareOrTotal(e.epsAvg, estCurrency, true)} (accounting basis unverified)` : null,
     ].filter((part): part is string => part !== null);
     if (parts.length > 0) rows.push({ label, value: parts.join(" · "), note: e.analystsRevenue !== null ? `${e.analystsRevenue} revenue / ${e.analystsEps ?? "?"} EPS estimates` : undefined });
   });
@@ -803,15 +803,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const forward = estimates.find((e) => e.epsAvg !== null && e.epsAvg > 0);
   const tracedEps = md === undefined ? firstTrace(traces, /^payload\.estimates\.est-eps-\d{4}-\d{2}-\d{2}$/) : null;
   if (forward && price !== null) {
-    rows.push({ label: "Forward P/E (consensus EPS)", value: formatMultiple(price / forward.epsAvg!), note: `year ending ${forward.fiscalYearEnd}` });
+    rows.push({ label: "Price / provider EPS (basis unverified)", value: formatMultiple(price / forward.epsAvg!), note: `year ending ${forward.fiscalYearEnd}; not comparable to GAAP historical P/E or model operating EPS without verified accounting basis` });
   } else if (tracedEps && tracedEps.value > 0 && price !== null) {
-    rows.push({ label: "Forward P/E (consensus EPS)", value: formatMultiple(price / tracedEps.value) });
+    rows.push({ label: "Price / provider EPS (basis unverified)", value: formatMultiple(price / tracedEps.value), note: "Not comparable to GAAP historical P/E or model operating EPS without verified accounting basis" });
   }
   const epsSeries = report.projections?.series.find((s) => s.metric === "epsDiluted");
   const nextEps = epsSeries?.base[0];
   if (nextEps && price !== null && nextEps.value.value > 0) {
     // D-65: the model's EPS is operating EPS (EBIT less interest, taxed at the
-    // DCF rate), not a GAAP diluted EPS forecast like the consensus row above.
+    // DCF rate). The provider consensus does not establish an accounting basis.
     rows.push({ label: "Forward P/E (model base-case operating EPS)", value: formatMultiple(price / nextEps.value.value), note: `${nextEps.period}; excludes investment gains` });
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
@@ -868,12 +868,12 @@ export function consensusTables(report: Report): BodyTable[] {
       rows: [
         ["Revenue (mean)", ...md.estimates.map((e) => cell(e.revenueAvg, false))],
         ["Revenue (low – high)", ...md.estimates.map((e) => range(e.revenueLow, e.revenueHigh, false))],
-        ["Diluted EPS (mean)", ...md.estimates.map((e) => cell(e.epsAvg, true))],
-        ["Diluted EPS (low – high)", ...md.estimates.map((e) => range(e.epsLow, e.epsHigh, true))],
+        ["Provider EPS (mean; accounting basis unverified)", ...md.estimates.map((e) => cell(e.epsAvg, true))],
+        ["Provider EPS (low - high; accounting basis unverified)", ...md.estimates.map((e) => range(e.epsLow, e.epsHigh, true))],
         ["Estimates (revenue / EPS)", ...md.estimates.map((e) => `${e.analystsRevenue ?? "—"} / ${e.analystsEps ?? "—"}`)],
-        ["P/E at the quoted price", ...md.estimates.map((e) => (price !== null && e.epsAvg !== null && e.epsAvg > 0 ? formatMultiple(price / e.epsAvg) : "—"))],
+        ["Price / provider EPS (basis unverified)", ...md.estimates.map((e) => (price !== null && e.epsAvg !== null && e.epsAvg > 0 ? formatMultiple(price / e.epsAvg) : "—"))],
       ],
-      note: `Provider consensus${md.estimatesAsOf ? ` as of ${md.estimatesAsOf}` : ""}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} Consensus is other analysts' forecast, not this report's.`,
+      note: `Provider consensus${md.estimatesAsOf ? ` as of ${md.estimatesAsOf}` : ""}; fiscal years after the latest reported year.${md.estimateCurrencyBasis ? ` Currency ${md.estimateCurrencyBasis}.` : ""} EPS accounting basis unverified; do not compare with GAAP TTM EPS/P/E, adjusted guidance or model operating EPS without source evidence of a common basis. Consensus is other analysts' forecast, not this report's.`,
     });
   }
   const rows: string[][] = [];
@@ -1601,9 +1601,15 @@ export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]
 
 /** Score drivers with reader labels, values in their own units and the points each adds. */
 export function scoreDriverTable(scores: NonNullable<Report["scores"]>): BodyTable | null {
+  const historyLabel = (signal: NonNullable<NonNullable<Report["scores"]>["aspects"]["valuation"]["signals"]>[number]): string => {
+    if (signal.id !== "peOwnHistoryRank") return signalLabel(signal.id);
+    const source = signal.operands.find(operand => /\.multiples\.(?:peTtm|evToEbitda|priceToFcf)\.current$/.test(operand.source))?.source;
+    const key = source?.split(".").at(-2);
+    return `${key === "peTtm" ? "P/E" : key === "evToEbitda" ? "EV/EBITDA" : key === "priceToFcf" ? "Price/FCF" : "Multiple"} own-history rank`;
+  };
   const rows = SCORE_ASPECT_ORDER.flatMap((key) => (scores.aspects[key].signals ?? []).map((signal) => [
     SCORE_ASPECT_LABEL[key],
-    signalLabel(signal.id),
+    historyLabel(signal),
     signalValueText(signal),
     signal.period ?? "—",
     formatNumber(signal.transformedScore, 0),

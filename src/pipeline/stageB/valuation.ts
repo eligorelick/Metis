@@ -2342,6 +2342,7 @@ export interface SensitivityGrid {
  */
 export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions): SensitivityGrid {
   const notes: string[] = [
+    "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
     `grid cells with WACC - gTerm < ${GRID_TV_GUARD_PP}pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
   ];
   const gaps: ManifestEntry[] = [];
@@ -2426,6 +2427,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
   const ceiling = assumptions.scenarioMarginCeiling?.pct ?? null;
   const weights = convergentFadeWeights(assumptions.growthPath.value.length);
   const notes = [
+    "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
     `rows shift year-one revenue growth by ${growthShiftsPp.join("/")}pp, decaying on the convergent weights to zero by year ${assumptions.years}; ` +
       `columns shift the operating margin by ${marginShiftsPp.join("/")}pp in every year and the terminal value; WACC, terminal growth, tax and the bridge stay at base`,
     ceiling === null

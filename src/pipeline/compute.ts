@@ -2308,7 +2308,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       const capitalReturn = buildFilingDisclosures(bundle)?.capitalReturn ?? null;
       return capitalReturn === null ? null : {
         authorizationRemaining: capitalReturn.authorizationRemaining,
-        source: `8-K ${capitalReturn.source.accession}, filed ${capitalReturn.source.filingDate}`,
+        source: (() => { const source=capitalReturn.authorizationRemainingSource ?? capitalReturn.source;
+          return `${source.form} ${source.accession}, filed ${source.filingDate}${capitalReturn.authorizationRemainingAsOf ? `, authorization as of ${capitalReturn.authorizationRemainingAsOf}` : ""}`; })(),
         currentPrice: num(firstRow(bundle.quote)?.price),
       };
     })(),

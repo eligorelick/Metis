@@ -262,6 +262,7 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
 export interface DcfDisplay {
   assumptions: DcfAssumption[];
   sensitivityGrid: SensitivityCell[];
+  sensitivityNotes?: string[];
   bridge?: {
     enterpriseValue: number | null; netDebt: number | null; minorityInterest: number | null; preferredEquity: number | null;
     equityValue: number | null; dilutedShares: number | null; presentValueExplicit: number | null; presentValueTerminal: number | null;
@@ -297,7 +298,8 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     });
   }
   const dcf = valuation.dcf;
-  if (dcf === null) return { assumptions, sensitivityGrid };
+  const sensitivityNotes = grid ? { sensitivityNotes: [...grid.notes] } : {};
+  if (dcf === null) return { assumptions, sensitivityGrid, ...sensitivityNotes };
   const mapRow = (r: DcfYearRow) => ({ year: r.year, period: r.period?.label ?? `Y+${r.year}`,
     ...(r.period ? { periodStart: r.period.startDate, periodEnd: r.period.endDate, periodBasis: r.period.basis } : {}),
     revenue: r.revenue, growthPct: r.growthPct, ebitMarginPct: r.ebitMarginPct, taxRatePct: r.taxRatePct,
@@ -329,7 +331,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
         }];
       })
     : [];
-  return { assumptions, sensitivityGrid, ...growthMarginGrid, bridge: {
+  return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid, bridge: {
     enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,

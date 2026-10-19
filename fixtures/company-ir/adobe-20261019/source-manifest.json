@@ -1,0 +1,18 @@
+{
+  "capturedUtc": "2026-10-19",
+  "urls": {
+    "home.html": "https://www.adobe.com/",
+    "blog.html": "https://blog.adobe.com/",
+    "completion.html": "https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs"
+  },
+  "rootCause": "Static homepage has no relevant a href navigation; blog featuredCards are gzip/base64 in CaaS fragments rather than article anchors. No JavaScript execution is needed.",
+  "sha256": {
+    "audit-financial-inputs.json": "1ccf1067dc7306e44d5d10fc0ee0bac6ae04aa9a18af180768c121a858e1bbe7",
+    "blog.html": "6175dd77cfdb4490f2232b660ba238fed3c47ab741483b31a099d60b59a43884",
+    "completion.html": "4e043f7d99fed746d89146bc32024faede42c85bb1803457ffba338c722feaee",
+    "home.html": "baf1311608dd35d0ac356ae8a62a32ef1f2e8c41960e7cad838fdef67feef3cf",
+    "q2-cash.json": "28bacc89c0a73303ca1e9c1cb4f81abed1b412090e26e38616ddf75dc29f1ade"
+  },
+  "runtimeObservation": "Actual DNS-pinned reader currently receives HTTP403 at homepage; reviewed blog index and completion return HTTP200. Public diagnostic fixed reader succeeds. This does not establish the historical cause of every earlier unavailable response.",
+  "financialInputs": "Selected original snapshot statement envelopes and SEC issuer/period facts; no credentials or original database copied."
+}

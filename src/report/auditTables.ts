@@ -78,6 +78,7 @@ export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
 
 export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
   const result: ReportAuditTable[] = [];
+  if (dcf.sensitivityNotes?.length) result.push({ heading: "Sensitivity conventions", headers: ["Convention"], rows: dcf.sensitivityNotes.map(note => [note]), note: "These are the conventions used in the displayed grids; no alternative arithmetic is substituted." });
   const b = dcf.bridge;
   if (b) {
     const money = (v:number|null)=>v === null ? "unavailable" : formatFinancialValue(v,"currency",b.currency);

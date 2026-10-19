@@ -21,7 +21,7 @@ import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { orderedEarningsReleases } from "@/providers/currentReports";
-import { materialCreditSupportClauses, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
+import { materialCreditSupportClauses, moneyMentions, parseCommitmentTables, splitSentences, summarizeItem, type GuidanceItem, type ReconciliationFact } from "@/edgar/currentReports";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { parseSegmentPerformance } from "@/edgar/segmentPerformance";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
@@ -462,7 +462,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     : [];
   const capital = latest?.capitalReturn;
   const capitalCurrency = (symbol: string | undefined, release = latest): boolean => release !== undefined && releaseCurrencyMatches(bundle, release, symbol ?? "$", currency);
-  const capitalReturn: FilingDisclosures["capitalReturn"] = latest && capital && currency !== null &&
+  let capitalReturn: FilingDisclosures["capitalReturn"] = latest && capital && currency !== null &&
     (capital.returned || capital.authorizationRemaining || capital.dividendPerShare || capital.authorizationAdded)
     ? {
         source: releaseRef(latest, "EX-99.1"),
@@ -485,6 +485,30 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         dividendChangeTo: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.to : null,
       }
     : null;
+  // Reuse the strict issuer / primary-document / filing-date admission used
+  // for quarterly segment facts. A retained dated MD&A balance is evidence
+  // even when the earnings release did not repeat it.
+  const primary = segmentPrimarySection(bundle);
+  if (primary && currency !== null && periodReportingCurrency(bundle, primary.data.reportDate) === currency &&
+    (capitalReturn?.authorizationRemaining == null || primary.ref.filingDate > capitalReturn.source.filingDate)) {
+    const candidates = splitSentences(primary.data.text).flatMap(sentence => {
+      const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
+      if (!match) return [];
+      const stamp = Date.parse(match[1]!);
+      const asOf = Number.isFinite(stamp) ? new Date(stamp).toISOString().slice(0,10) : null;
+      const amount = moneyMentions(match[2]!)[0];
+      return asOf === primary.data.reportDate && amount && symbolCurrency(amount.symbol, currency) === currency && amount.value >= 0
+        ? [{ asOf, value: amount.value }] : [];
+    });
+    if (candidates.length && new Set(candidates.map(candidate => candidate.value)).size === 1) {
+      const candidate=candidates[0]!;
+      capitalReturn = { ...(capitalReturn ?? { source: primary.ref, returned: null, returnedPeriod: null, authorizationRemaining: null, authorizationAdded: null,
+        dividendPerShare: null, dividendPayDate: null, dividendRecordDate: null, dividendChangeFrom: null, dividendChangeTo: null }),
+        authorizationRemaining: candidate.value, authorizationRemainingAsOf: candidate.asOf, authorizationRemainingSource: primary.ref };
+      delete capitalReturn.authorizationRemainingApproximate;
+      notes.push(`Remaining repurchase authorization is dated ${candidate.asOf}, from ${primary.ref.form} ${primary.ref.accession}, filed ${primary.ref.filingDate}; authority is discretionary and does not establish funded future repurchases.`);
+    }
+  }
   // A dividend change or added authorization announced in an earlier release
   // of the window is still news the latest release does not repeat.
   for (const earlier of releases.slice(1)) {

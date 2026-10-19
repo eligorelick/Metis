@@ -243,7 +243,8 @@ export interface TextExcerpt {
   /** A keyword family being retained does not imply all of its passages survived. */
   coverage?: EvidenceCoverage;
   /** Retained authority and observation context for an official company statement. */
-  sourceEvidence?: { kind: "issuer-statement"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[] };
+  sourceEvidence?: { kind: "issuer-statement"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[];
+    discoveryEvidence?: { kind: "reviewed-issuer-index"; verifiedWebsite: string; indexUrl: string; indexSourceHash: string } };
 }
 
 /**
@@ -398,7 +399,8 @@ export interface ContextPayload {
 // 1.31.0 (D-87): source-bound accounting and retained critical filing context.
 // 1.32.0 (D-88): preserve sourced duration intervals and final gap evidence.
 // 1.33.0 (D-89): retain the declared unit-fraction scale in numeric provenance.
-export const PAYLOAD_VERSION = "1.34.1" as const;
+// 1.35.0: first-report audit cash admission, official-index discovery, EPS basis and disclosure context.
+export const PAYLOAD_VERSION = "1.35.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1464,6 +1466,7 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): 
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
   const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
+  if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
     const currency = rowCurrency(e, issuer);
     const candidatePeriod = isoDay(e.date);
@@ -1932,7 +1935,8 @@ function companyIrMaterialExcerpts(bundle: DataBundle): TextExcerpt[] {
       text: event.text + (omittedChars > 0 ? `\n\n${TRUNCATION_MARKER} ${omittedChars} of ${event.originalChars} source chars omitted; bounded official-news selection is not a comprehensive review]` : ""),
       truncated: omittedChars > 0, originalChars: event.originalChars, spans: [event.span],
       coverage: { version: "official-material-statement-1", retainedChars: event.text.length, omittedChars, categories: [] },
-      sourceEvidence: { kind: "issuer-statement" as const, publishedAt: event.publishedAt, observedAt: event.observedAt, sourceHash: event.sourceHash, authorityChain: event.authorityChain },
+      sourceEvidence: { kind: "issuer-statement" as const, publishedAt: event.publishedAt, observedAt: event.observedAt, sourceHash: event.sourceHash, authorityChain: event.authorityChain,
+        ...(event.discoveryEvidence ? { discoveryEvidence: event.discoveryEvidence } : {}) },
     };
   });
 }

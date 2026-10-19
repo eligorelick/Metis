@@ -3,6 +3,8 @@ import { enrichFinancialFields } from "@/edgar/financialEnrichment";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
+import { readFileSync } from "node:fs";
+import { admittedStatementRow } from "@/providers/fmp";
 
 const at = "2026-10-19T00:00:00Z";
 const end = "2026-05-29";
@@ -24,6 +26,43 @@ const flows = [
   ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", -20, -20],
 ] as const;
 describe("same-definition cash flow field admission", () => {
+  it("keeps refusal dependencies closed after serialization of legacy vendor aliases",()=>{
+    const raw={date:end,cashAtEndOfPeriod:2588e6,netChangeInCash:-3744e6,purchasesOfInvestments:-1125e6,salesMaturitiesOfInvestments:688e6,financialAssetCashFlow:-437e6,
+      fieldConflicts:{cashAtEndOfPeriod:{usable:false as const,vendorValue:2588e6,secValue:4919e6,reason:"filed cash conflict"},purchasesOfInvestments:{usable:false as const,vendorValue:-1125e6,secValue:null,reason:"investment classification unresolved"}}};
+    expect(admittedStatementRow(JSON.parse(JSON.stringify(raw)))).toMatchObject({cashAtEndOfPeriod:null,netChangeInCash:null,purchasesOfInvestments:null,salesMaturitiesOfInvestments:null,financialAssetCashFlow:null});
+    expect(raw).toMatchObject({cashAtEndOfPeriod:2588e6,netChangeInCash:-3744e6,financialAssetCashFlow:-437e6});
+  });
+  it("refuses the retained Q2 ending cash and dependent cash movement using compatible filed cash scopes, without an invented vendor start date", () => {
+    const fixture = JSON.parse(readFileSync("fixtures/company-ir/adobe-20261019/q2-cash.json", "utf8"));
+    const input = sourced<FmpCashFlowRow>([fixture.vendorRow]);
+    expect(fixture.vendorRow.periodStart).toBeUndefined();
+    const result = enrichFinancialFields(sourced<FmpBalanceSheetRow>([]), input, fixture.companyFacts, "quarter", at);
+    expect(result.cashflow).toMatchObject({ ok: true, value: { data: { rows: [{ cashAtBeginningOfPeriod: 6332e6, cashAtEndOfPeriod: null, netChangeInCash: null, fieldConflicts: {
+      cashAtEndOfPeriod: { usable: false, vendorValue: 2588e6, secValue: 4919e6 },
+      netChangeInCash: { usable: false, vendorValue: -3744e6, secValue: -1413e6 },
+    } }] } } });
+    expect(input.ok && input.value.data.rows[0]?.cashAtEndOfPeriod).toBe(2588e6);
+    expect(result.cashflow.ok && result.cashflow.value.data.raw).toEqual(fixture.vendorRow ? [fixture.vendorRow] : []);
+  });
+  it.each(["issuer", "currency", "interval", "filing", "future", "restricted-scope", "ambiguous"])("does not invent a cash comparison for incompatible %s evidence", change => {
+    const f = JSON.parse(readFileSync("fixtures/company-ir/adobe-20261019/q2-cash.json", "utf8"));
+    const row = f.vendorRow;
+    if(change === "issuer")row.cik="1";
+    if(change === "currency")row.reportedCurrency="EUR";
+    if(change === "interval")row.periodStart="2026-03-01";
+    if(change === "filing")row.filingDate="2026-06-14";
+    const points=f.companyFacts.facts["us-gaap"].CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents.units.USD;
+    if(change === "future")points.forEach((p:{filed:string})=>p.filed="2026-12-01");
+    if(change === "restricted-scope")points.find((p:{end:string})=>p.end===end).val+=100e6;
+    if(change === "ambiguous")points.push({...points.find((p:{end:string})=>p.end===end),val:5555e6});
+    const result=enrichFinancialFields(sourced<FmpBalanceSheetRow>([]),sourced<FmpCashFlowRow>([row]),f.companyFacts,"quarter",at);
+    expect(result.cashflow).toMatchObject({ok:true,value:{data:{rows:[{cashAtEndOfPeriod:2588e6,netChangeInCash:-3744e6}]}}});
+  });
+  it.each(["cashAtBeginningOfPeriod","cashAtEndOfPeriod"])("preserves a prior %s refusal and withholds dependent cash movement even without new facts", field => {
+    const refusal={usable:false as const,vendorValue:100,secValue:null,reason:"preserved refusal"};
+    const result=admit("UnrelatedTag",[],{cashAtBeginningOfPeriod:100,cashAtEndOfPeriod:80,netChangeInCash:-20,fieldConflicts:{[field]:refusal}});
+    expect(result.cash[field]).toBeNull();expect(result.cash.netChangeInCash).toBeNull();expect(result.cash.fieldConflicts?.[field]).toEqual(refusal);
+  });
   it.each(flows)("withholds contradicted %s, preserving raw observations", (field, tag, sec, expected) => {
     const input = { [field]: -99, netIncome: 100, stockBasedCompensation: 5, capitalExpenditure: -3 };
     const result = admit(tag, [point(sec)], input);

@@ -6,9 +6,11 @@ import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/st
 import { createEdgarClient, type EdgarTransport } from "@/providers/edgar";
 import { createFmpClient } from "@/providers/fmp";
 import { makeLimiter } from "@/providers/http";
+import { readFileSync } from "node:fs";
 
 describe("official material-event source wiring", () => {
-  it.each([true, false])("uses Adobe's production registrant identity and actual publication shape (indexed=%s)", async indexed => {
+  it.each(["indexed", "missing", "captured"])("uses Adobe's production registrant identity and actual publication shape (%s)", async mode => {
+    const indexed = mode !== "missing";
     const now = () => new Date("2026-10-19T00:00:00Z");
     const home = "https://www.adobe.com/";
     const ir = "https://www.adobe.com/investor-relations.html";
@@ -23,6 +25,7 @@ describe("official material-event source wiring", () => {
       [news]: indexed ? `<a href="${release}">Adobe completes acquisition of Topaz Labs</a>` : "No retained material headline.",
       [release]: '<html><head><meta name="publication-date" content="09-23-2026"></head><body><header></header><main><div><h1>Adobe completes acquisition of Topaz Labs</h1><p><picture><img alt="Adobe and Topaz Labs"></picture></p><p>Today, Adobe completed its <a href="https://news.adobe.com/news/2026/06/adobe-to-acquire-topaz-labs">acquisition of Topaz Labs</a>.</p></div></main></body></html>',
     };
+    if (mode === "captured") for (const [url,file] of [[home,"home"],[news,"blog"],[release,"completion"]]) pages[url!] = readFileSync(`fixtures/company-ir/adobe-20261019/${file}.html`, "utf8");
     const attempted: string[] = [];
     const unavailable = async () => new Response("unavailable", { status: 404 });
     const bundle = await buildDataBundle("ADBE", { now, keyless: false,
@@ -42,9 +45,10 @@ describe("official material-event source wiring", () => {
       }) as typeof fetch },
     });
     if (indexed) {
-      expect(bundle.companyIrMaterialEvents).toMatchObject({ ok: true, value: { data: { events: [{ symbol: "ADBE", status: "issuer-stated-completed", publishedAt: "2026-09-23", consideration: null, funding: null, authorityChain: [home, news, release] }] } } });
+      expect(bundle.companyIrMaterialEvents).toMatchObject({ ok: true, value: { data: { events: [{ symbol: "ADBE", status: "issuer-stated-completed", publishedAt: "2026-09-23", consideration: null, funding: null, authorityChain: mode === "captured" ? [news, release] : [home, news, release] }] } } });
       const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle, { now: now() }));
       expect(payload.filings.find(entry => entry.source === release)).toMatchObject({ asOf: "2026-09-23", text: expect.stringContaining("Today, Adobe completed") });
+      if (mode === "captured") expect(payload.filings.find(entry => entry.source === release)?.sourceEvidence).toMatchObject({discoveryEvidence:{kind:"reviewed-issuer-index",indexUrl:news,indexSourceHash:expect.stringMatching(/^[a-f0-9]{64}$/)}});
     } else expect(bundle.companyIrMaterialEvents).toMatchObject({ ok: false, gap: { reason: expect.stringMatching(/bounded.*not evidence/i) } });
     expect(attempted).not.toContain("https://unrelated.example/deal");
   });

@@ -117,7 +117,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.26.0 (D-87): source-bound accounting, evidence and metric presentation.
 // 1.27.0 (D-88): exact acquisition resolution and separate accrual clarifications.
 // 1.28.0 (D-89): CFO source admission and explicit fraction-scale claim support.
-export const REPORT_SPEC_VERSION = "1.29.1" as const;
+export const REPORT_SPEC_VERSION = "1.30.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1009,6 +1009,8 @@ export const DcfSchema = z
     assumptions: z.array(DcfAssumptionSchema),
     /** Flat list of cells (5×5 grid flattened; sensitivity). */
     sensitivityGrid: z.array(SensitivityCellSchema),
+    /** Actual grid conventions; absent on legacy reports. */
+    sensitivityNotes: z.array(z.string()).optional(),
     upsidePct: z.number().nullable(),
     bridge: z.object({
       enterpriseValue: z.number().nullable(), netDebt: z.number().nullable(), minorityInterest: z.number().nullable(),
@@ -2151,6 +2153,8 @@ export const FilingDisclosuresSchema = z
         /** D-62: "approximately $99.0 billion remaining". Absent on older reports. */
         authorizationRemainingApproximate: z.boolean().optional(),
         authorizationRemaining: z.number().nullable(),
+        authorizationRemainingAsOf: IsoDaySchema.optional(),
+        authorizationRemainingSource: FilingRefSchema.optional(),
         authorizationAdded: z.number().nullable(),
         dividendPerShare: z.number().nullable(),
         dividendPayDate: IsoDaySchema.nullable(),

@@ -154,7 +154,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       // D-62: the release's own qualifier ("approximately $26.0 billion") is
       // carried, not replaced by false precision ("$26.00B").
       if (cr.returned !== null) rows.push([`Returned to shareholders (repurchases + dividends)${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, cr.returnedApproximate === true ? approximately(money(cr.returned, d.currency)) : money(cr.returned, d.currency), src]);
-      if (cr.authorizationRemaining !== null) rows.push(["Repurchase authorization remaining", cr.authorizationRemainingApproximate === true ? approximately(money(cr.authorizationRemaining, d.currency)) : money(cr.authorizationRemaining, d.currency), src]);
+      if (cr.authorizationRemaining !== null) rows.push([`Repurchase authorization remaining${cr.authorizationRemainingAsOf ? ` as of ${cr.authorizationRemainingAsOf}` : ""}`, cr.authorizationRemainingApproximate === true ? approximately(money(cr.authorizationRemaining, d.currency)) : money(cr.authorizationRemaining, d.currency), cr.authorizationRemainingSource ? filingLabel(cr.authorizationRemainingSource) : src]);
       if (cr.authorizationAdded !== null) rows.push(["Repurchase authorization added", money(cr.authorizationAdded, d.currency), src]);
       if (cr.dividendPerShare !== null) {
         const dates = [cr.dividendPayDate ? `payable ${cr.dividendPayDate}` : null, cr.dividendRecordDate ? `record ${cr.dividendRecordDate}` : null].filter(Boolean).join(", ");
