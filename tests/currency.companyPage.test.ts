@@ -74,6 +74,20 @@ function heatmapAmounts(html: string): string[] {
 beforeEach(() => harness.buildDataBundle.mockReset());
 
 describe("company page money cells", () => {
+  it.each(["unresolved", "bank", "standard"])("labels the actual Piotroski variant in the live forensics panel (%s)", async variant => {
+    const bundle = currencyBundle({ bank: variant === "bank", ...(variant === "unresolved" ? { sic: "6199" } : {}) });
+    if (variant === "unresolved" && bundle.profile.ok) {
+      bundle.profile.value.data.rows[0] = { ...bundle.profile.value.data.rows[0]!, sector: null, industry: null };
+    }
+    harness.buildDataBundle.mockResolvedValue(bundle);
+    const tree = await CompanyBody({ symbol: variant === "bank" ? "BNK" : "GEN" });
+    const panel = elementsWithin(tree).find(e => typeof e.type === "function" && (e.type as FunctionComponent).name === "ForensicsPanel");
+    if (!panel) throw new Error("ForensicsPanel not rendered");
+    const rendered = renderToStaticMarkup(panel);
+    const label = variant === "unresolved" ? "piotroski F (eligibility unresolved)" : variant === "bank" ? "piotroski F (fin.)" : "piotroski F";
+    expect(rendered).toContain(`>${label}<`);
+    if (variant === "unresolved") expect(rendered).not.toContain(">piotroski F<");
+  });
   it("control: a USD listing reporting in USD keeps the dollar sign", async () => {
     const p = await panels({});
     expect(cell(p.QuoteHeader!, "price")).toBe("$100.00");

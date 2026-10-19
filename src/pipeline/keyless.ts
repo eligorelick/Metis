@@ -1576,8 +1576,11 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       let shareIssue: string | null = null;
       const issuerId = inputs.edgar.cik.ok ? String(inputs.edgar.cik.value.data.cik) : null;
       const observations = (inputs.historicalEconomicShares ?? []).filter(e => Number(e.issuerId) === Number(issuerId) && e.securityId === inputs.symbol && e.asOf === date);
+      // Historical counts are observations at asOf, available once filed.
+      // The prospective effective interval governs current capitalization;
+      // it must not exclude an exact-date count reported after period end.
       const compatible = observations.filter(e => e.complete &&
-        e.filed >= e.asOf && e.filed <= inputs.today && e.effectiveFrom <= date && (e.effectiveTo === null || date < e.effectiveTo) &&
+        e.filed >= e.asOf && e.filed <= inputs.today &&
         e.sourceHash && e.sourceIds.length > 0 && e.sourceIds.every(Boolean) && e.classes.length === 1 &&
         e.classes[0]?.classId === inputs.symbol && e.classes[0]?.countBasis === "outstanding" &&
         e.classes[0]?.economicUnitsPerQuotedShare === 1 && e.classes[0]?.priceBasis === "quoted-market-price" &&

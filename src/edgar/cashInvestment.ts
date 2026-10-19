@@ -163,22 +163,30 @@ export function admitCashInvestment<T extends FmpStatementRow>(row: T, documents
     if (admitted) { delete fieldConflicts[field]; fieldProvenance[field] = provenance; }
     else { delete fieldProvenance[field]; fieldConflicts[field] = { vendorValue: finite(row[field]) ? row[field] : null, secValue: null, usable: false, reason, secEvidence: provenance }; }
   }
-  const cfo = ["operatingCashFlow", "netCashProvidedByOperatingActivities"].some(field => row.fieldConflicts?.[field]?.usable === false) ? null : row.operatingCashFlow;
-  const cfoConflict = admitted && finite(p.operatingCashFlow) && finite(cfo) && Math.abs(p.operatingCashFlow - cfo) > Math.max(1, Math.abs(p.operatingCashFlow) * 1e-10);
-  const fcfReason = cfoConflict ? `${reason}; filed operating cash flow differs from the existing row; CFO aliases and dependent FCF withheld` : reason;
+  const cfoFields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
+  const cfoValues = cfoFields.map(field => row[field]).filter(finite);
+  const differs = (a: number, b: number): boolean => Math.abs(a - b) > Math.max(1, Math.abs(a) * 1e-10, Math.abs(b) * 1e-10);
+  const aliasConflict = cfoValues.length > 1 && differs(cfoValues[0]!, cfoValues[1]!);
+  const cfo = cfoFields.some(field => row.fieldConflicts?.[field]?.usable === false) ? null : cfoValues[0] ?? null;
+  // A cumulative CFO is never compared with an unadmitted quarter. Within an
+  // admitted exact period, every populated alias must agree with filed CFO.
+  const filedCfo = admitted && finite(p.operatingCashFlow) ? p.operatingCashFlow : null;
+  const cfoConflict = aliasConflict || (filedCfo !== null && cfoValues.some(value => differs(filedCfo, value)));
+  const fcfReason = cfoConflict ? `${reason}; ${aliasConflict ? "operating cash flow aliases disagree" : "filed operating cash flow differs from the existing row"}; CFO aliases and dependent FCF withheld` : reason;
   if (cfoConflict) for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities"]) {
     (out as Record<string, unknown>)[field] = null;
     delete fieldProvenance[field];
-    fieldConflicts[field] = { vendorValue: finite(row[field]) ? row[field] : null, secValue: p.operatingCashFlow!, usable: false, reason: fcfReason,
-      secEvidence: { ...provenance, tags: ["us-gaap/NetCashProvidedByUsedInOperatingActivities"], calculation: undefined } };
+    fieldConflicts[field] = { vendorValue: finite(row[field]) ? row[field] : null, secValue: filedCfo, usable: false, reason: fcfReason,
+      ...(filedCfo !== null ? { secEvidence: { ...provenance, tags: ["us-gaap/NetCashProvidedByUsedInOperatingActivities"], calculation: undefined } } : {}) };
   }
+  const cfoProvenance = row.fieldProvenance?.operatingCashFlow ?? row.fieldProvenance?.netCashProvidedByOperatingActivities;
   const fcf = admitted && finite(cfo) && !cfoConflict ? cfo + amount! : null;
   for (const field of ["freeCashFlow", "fcf"]) {
     if (field !== "freeCashFlow" && !(field in row)) continue;
     (out as Record<string, unknown>)[field] = fcf;
     if (fcf !== null) { delete fieldConflicts[field]; fieldProvenance[field] = { ...provenance,
-      tags: [...new Set([...provenance.tags, ...(finite(p.operatingCashFlow) ? ["us-gaap/NetCashProvidedByUsedInOperatingActivities"] : row.fieldProvenance?.operatingCashFlow?.tags ?? [])])],
-      filings: [...new Map([...provenance.filings, ...(row.fieldProvenance?.operatingCashFlow?.filings ?? [])].map(f => [f.accn, f])).values()], calculation: "cfo-minus-cash-ppe-and-hardware" }; }
+      tags: [...new Set([...provenance.tags, ...(finite(p.operatingCashFlow) ? ["us-gaap/NetCashProvidedByUsedInOperatingActivities"] : cfoProvenance?.tags ?? [])])],
+      filings: [...new Map([...provenance.filings, ...(cfoProvenance?.filings ?? [])].map(f => [f.accn, f])).values()], calculation: "cfo-minus-cash-ppe-and-hardware" }; }
     else { delete fieldProvenance[field]; fieldConflicts[field] = { vendorValue: finite(row[field]) ? row[field] : null, secValue: null, usable: false, reason: fcfReason, secEvidence: provenance }; }
   }
   return { row: out, gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason: fcfReason, severity: admitted && !cfoConflict ? "info" : "warn", ...(admitted && !cfoConflict ? { expected: true } : {}) }] };

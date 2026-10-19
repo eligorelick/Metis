@@ -453,7 +453,7 @@ function ForensicsPanel({ computed }: { computed: ComputedMetrics }) {
           thresholds would have painted a perfect 3/3 red.
         */}
         <StatCell
-          label={piotroski?.variant === "financial" ? "piotroski F (fin.)" : "piotroski F"}
+          label={piotroski?.variant === "eligibility-unresolved" ? "piotroski F (eligibility unresolved)" : piotroski?.variant === "financial" ? "piotroski F (fin.)" : "piotroski F"}
           value={piotroski && piotroski.score !== null ? `${piotroski.score} / ${piotroski.outOf}` : "n/a"}
           tone={
             piotroski && piotroski.score !== null && piotroski.outOf > 0

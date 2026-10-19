@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { discoverStockSplits } from "@/edgar/splits";
+import { parsePrimaryEconomicShares } from "@/edgar/economicShares";
 import {
   applyKeylessFallbacks,
   isUsJurisdiction,
@@ -323,6 +324,21 @@ describe("pure keyless helpers", () => {
 });
 
 describe("applyKeylessFallbacks", () => {
+  it("admits a parser-produced exact-date inventory filed after the balance date, only once available", async () => {
+    const html = `<html><body><ix:header>
+      <xbrli:context id="issuer"><xbrli:entity><xbrli:identifier scheme="http://www.sec.gov/CIK">0000320193</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:instant>2025-09-27</xbrli:instant></xbrli:period></xbrli:context>
+      <xbrli:context id="common"><xbrli:entity><xbrli:identifier scheme="http://www.sec.gov/CIK">0000320193</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">issuer:CommonMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity><xbrli:period><xbrli:instant>2025-09-27</xbrli:instant></xbrli:period></xbrli:context>
+      <xbrli:unit id="shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit></ix:header>
+      <table><tr><td><ix:nonNumeric name="dei:Security12bTitle" contextRef="issuer">Common stock</ix:nonNumeric></td><td><ix:nonNumeric name="dei:TradingSymbol" contextRef="issuer">AAPL</ix:nonNumeric></td></tr></table>
+      <p>As of September 27, 2025, the following shares of the registrant's common stock were outstanding:</p>
+      <table><tr><td>Common stock</td><td><ix:nonFraction name="dei:EntityCommonStockSharesOutstanding" contextRef="common" unitRef="shares" scale="0">14,776</ix:nonFraction></td><td>shares</td></tr></table></body></html>`;
+    const inventory = parsePrimaryEconomicShares(html, { issuerId: "320193", securityId: "AAPL", form: "10-K", accession: "0000320193-25-000079", filingDate: "2025-10-31", primaryDocument: "annual.htm", documentUrl: "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/annual.htm" }, TODAY);
+    expect(inventory.evidence).toMatchObject({ asOf: "2025-09-27", filed: "2025-10-31", effectiveFrom: "2025-10-31", complete: true });
+    const historicalEconomicShares = [inventory.evidence!];
+    const available = (await applyKeylessFallbacks(inputs({ historicalEconomicShares }))).members.enterpriseValues;
+    expect(available.ok && available.value.data.rows[0]).toMatchObject({ date: "2025-09-27", numberOfShares: 14776 });
+    expect((await applyKeylessFallbacks(inputs({ historicalEconomicShares, today: "2025-10-30" }))).members.enterpriseValues.ok).toBe(false);
+  });
   it("withholds historical EV rather than using weighted EPS shares or a later cover count without class-compatible point-in-time evidence", async () => {
     const out = await applyKeylessFallbacks(inputs());
     expect(out.members.enterpriseValues.ok).toBe(false);

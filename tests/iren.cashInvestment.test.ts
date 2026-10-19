@@ -71,6 +71,30 @@ describe("cash investment resolves observations within the requested interval", 
   });
 });
 
+describe("cash investment reconciles both operating cash flow aliases", () => {
+  const doc: FilingCashInvestment = { ...evidence, periods: [{ ...evidence.periods[0]!, capex: -500, operatingCashFlow: 1000 }] };
+  it("computes FCF when only the compatible alternate CFO alias is present", () => {
+    const original: FmpCashFlowRow = { date: "2026-06-30", reportedCurrency: "USD", netCashProvidedByOperatingActivities: 1000, freeCashFlow: 777 };
+    const result = admitCashInvestment(original, [doc], 1878848, "annual", observedAt).row;
+    expect(result.freeCashFlow).toBe(500);
+    expect(result.fieldProvenance?.freeCashFlow?.tags).toContain("us-gaap/NetCashProvidedByUsedInOperatingActivities");
+    expect(original.freeCashFlow).toBe(777);
+  });
+  it.each([[1000, 2000], [2000, 1000], [undefined, 2000]])("refuses CFO aliases and dependent FCF when either alias contradicts filed CFO (%s, %s)", (canonical, alternate) => {
+    const original: FmpCashFlowRow = { date: "2026-06-30", reportedCurrency: "USD", operatingCashFlow: canonical, netCashProvidedByOperatingActivities: alternate, freeCashFlow: 777, fcf: 777 };
+    const result = admitCashInvestment(original, [doc], 1878848, "annual", observedAt).row;
+    expect(result).toMatchObject({ operatingCashFlow: null, netCashProvidedByOperatingActivities: null, freeCashFlow: null, fcf: null });
+    expect(result.fieldConflicts?.operatingCashFlow?.secValue).toBe(1000);
+    expect(result.fieldConflicts?.netCashProvidedByOperatingActivities?.secValue).toBe(1000);
+    expect(original.freeCashFlow).toBe(777);
+  });
+  it("refuses contradictory row aliases even when a filed CFO operand is missing", () => {
+    const withoutCfo = { ...doc, periods: doc.periods.map(p => ({ ...p, operatingCashFlow: null })) };
+    const result = admitCashInvestment({ date: "2026-06-30", reportedCurrency: "USD", operatingCashFlow: 1000, netCashProvidedByOperatingActivities: 2000 }, [withoutCfo], 1878848, "annual", observedAt).row;
+    expect(result).toMatchObject({ operatingCashFlow: null, netCashProvidedByOperatingActivities: null, freeCashFlow: null });
+  });
+});
+
 describe("cash investment scope cannot preserve pre-existing stale FCF", () => {
   it("recomputes non-null FCF and capex aliases on an established scope correction", () => {
     const original = sourced([stale()]);
