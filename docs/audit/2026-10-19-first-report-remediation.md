@@ -142,3 +142,12 @@ presented as numerical prerequisites for a differently modeled target. Repeated
 application is idempotent; model inputs and target/forecast arithmetic stay fixed.
 Corrected artifacts must enumerate this relocation as well as deterministic
 note changes. They do not claim that the original model authored new wording.
+
+Final code review found that a prefix-only idempotence check could discard a
+fresh cited analyst condition beginning with `Modeled conditions:`. The guard
+now compares the entire condition array against the exact generated array.
+Regressions retain both a prefix collision and an additional cited condition
+after an exactly generated first item, while repeated application stays
+idempotent. The accepted corrected v2 artifact does not exercise this defect
+and remains unchanged. This is a pre-release preservation fix under the same
+unreleased D-93 stamps; no numerical change or additional model run.

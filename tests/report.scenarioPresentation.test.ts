@@ -33,6 +33,31 @@ function computedFixture(): ComputedMetrics {
 }
 
 describe("modeled-grid sensitivity conclusions", () => {
+  it("retains fresh analyst text and citations that collide with the generated-condition prefix", () => {
+    const computed = computedFixture();
+    const input = narrativeValuation();
+    const condition = "Modeled conditions: A change in product mix would be required. [edgar:10-Q item2 · 2026-04-30]";
+    input.scenarios[0].whatWouldHaveToBeTrue = [condition];
+    const result = applyScenarioPresentation(input, computed);
+    expect(result.scenarios[0].whatWouldHaveToBeTrue[0]).not.toBe(condition);
+    expect(result.scenarios[0].qualitativeCommentary).toContain(
+      `Separate qualitative condition, not a modeled input or prerequisite for this target: ${condition}`,
+    );
+    expect(input.scenarios[0].whatWouldHaveToBeTrue).toEqual([condition]);
+    expect(applyScenarioPresentation(result, computed)).toEqual(result);
+  });
+  it("retains an appended analyst condition even when the first condition exactly matches generated text", () => {
+    const computed = computedFixture();
+    const input = narrativeValuation();
+    const generated = applyScenarioPresentation(input, computed).scenarios[0].whatWouldHaveToBeTrue;
+    const extra = "A separately stated product-mix change remains possible. [edgar:10-Q item2 · 2026-04-30]";
+    input.scenarios[0].whatWouldHaveToBeTrue = [...generated, extra];
+    const result = applyScenarioPresentation(input, computed);
+    expect(result.scenarios[0].qualitativeCommentary).toContain(
+      `Separate qualitative condition, not a modeled input or prerequisite for this target: ${extra}`,
+    );
+    expect(applyScenarioPresentation(result, computed)).toEqual(result);
+  });
   it.each([false, true])("separates unmodeled deterioration from actual lower-growth bear inputs (margin cap %s)", capped => {
     const computed = computedFixture();
     if (computed.scenarioTargets.status !== "available") throw Error("scenario fixture");
