@@ -20,6 +20,7 @@
  * - Annual statements only. Rows are expected newest-first (FMP default order).
  */
 
+import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import type { CompanyRoute, ManifestEntry } from "@/types/core";
 
@@ -32,6 +33,8 @@ import type { CompanyRoute, ManifestEntry } from "@/types/core";
 
 /** Annual income-statement row (FMP `income-statement`, period=annual). */
 export interface ForensicsIncomeRow {
+  fieldConflicts?: FmpStatementRow["fieldConflicts"];
+  fieldProvenance?: FmpStatementRow["fieldProvenance"];
   /** Fiscal period end (FMP `date`), ISO string. */
   date: string;
   fiscalYear?: string | null;
@@ -273,10 +276,21 @@ function grossMarginRatio(
   sales: number | null,
 ): number | null {
   if (sales === null || sales <= 0) return null;
-  const gp = nv(row?.grossProfit);
+  if (row?.fieldConflicts?.revenue?.usable === false) return null;
+  const gpRefused = row?.fieldConflicts?.grossProfit?.usable === false;
+  const gp = gpRefused ? null : nv(row?.grossProfit);
   if (gp !== null) return gp / sales;
-  const cogs = nv(row?.costOfRevenue);
-  if (cogs !== null) return (sales - cogs) / sales;
+  const cogs = row?.fieldConflicts?.costOfRevenue?.usable === false ? null : nv(row?.costOfRevenue);
+  // An explicit classification refusal cannot be cured by vendor arithmetic.
+  // Only independently supported same-filing/interval/currency operands may
+  // establish a replacement margin; absence alone retains the legacy fallback.
+  const revenueEvidence = row?.fieldProvenance?.revenue;
+  const costEvidence = row?.fieldProvenance?.costOfRevenue;
+  const compatible = revenueEvidence?.source === "edgar" && costEvidence?.source === "edgar" &&
+    revenueEvidence.unit === costEvidence.unit && revenueEvidence.periodStart === costEvidence.periodStart &&
+    revenueEvidence.periodEnd === costEvidence.periodEnd && revenueEvidence.filings.length > 0 &&
+    JSON.stringify(revenueEvidence.filings) === JSON.stringify(costEvidence.filings);
+  if (cogs !== null && (!gpRefused || compatible)) return (sales - cogs) / sales;
   return null;
 }
 

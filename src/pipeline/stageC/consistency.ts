@@ -1066,7 +1066,7 @@ export interface PersonRow {
 // writes as one string: "Christopher K. Cox Chief Product Officer",
 // "Mary Callahan Erdoes CEO, Asset & Wealth Management".
 const POSITION_TOKEN =
-  /^(?:CEO|CFO|COO|CTO|CIO|CMO|CAO|CPO|CLO|CHRO|CRO|CSO|CDO|EVP|SVP|VP|GC|Chief|Chairman|Chairwoman|Chairperson|Chair|President|Vice|Executive|Senior|Managing|Head|Former|General|Director|Treasurer|Secretary|Founder|Cofounder|Controller|Deputy|Interim|Acting|Group|Global|Co-\S*)$/;
+  /^(?:CEO|CFO|COO|CTO|CIO|CMO|CAO|CPO|CLO|CHRO|CRO|CSO|CDO|EVP|SVP|VP|GC|Chief|Chairman|Chairwoman|Chairperson|Chair|President|Vice|Executive|Senior|Managing|Head|Former|General|Director|Treasurer|Secretary|Founder|Cofounder|Controller|Deputy|Interim|Acting|Group|Global|Co-\S*)$/i;
 
 /**
  * Split "<name> <position>" at the FIRST position token or separator. The

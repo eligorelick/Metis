@@ -80,6 +80,40 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
   return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true);
 }
 
+/** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
+function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow"): { row: T; gaps: ManifestEntry[] } {
+  const specifications: [string, string, boolean, number][] = kind === "balance"
+    ? [["cashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue", true, 1]]
+    : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
+      ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", true, 1],
+      ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", true, 1],
+      ["netChangeInCash", "CashAndCashEquivalentsPeriodIncreaseDecrease", true, 1]];
+  let out = row;
+  const gaps: ManifestEntry[] = [];
+  for (const [field, tag, signed, sign] of specifications) {
+    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt) : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
+    if (!sec || (kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
+      (validDay(row.filingDate) && !sec.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
+    const vendor = row[field];
+    if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
+    const value = sec.value * sign;
+    if (Math.abs(vendor - value) <= Math.max(1e-8, Math.abs(value) * 1e-10)) continue;
+    const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${row.date} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
+    const fieldConflicts = { ...out.fieldConflicts };
+    const unavailable: Record<string, null> = {};
+    const dependents = field === "cashAndCashEquivalents" ? [field, "cashAndShortTermInvestments", "netDebt"] : [field];
+    for (const dependent of dependents) {
+      unavailable[dependent] = null;
+      if (fieldConflicts[dependent]?.usable === false) continue;
+      fieldConflicts[dependent] = { usable: false, vendorValue: typeof out[dependent] === "number" && Number.isFinite(out[dependent]) ? out[dependent] : null,
+        secValue: dependent === field ? value : null, secEvidence: sec.evidence, reason };
+    }
+    out = { ...out, ...unavailable, fieldConflicts };
+    gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn", attemptedSources: [`edgar:companyfacts/us-gaap/${tag}`, `fmp:${kind}-statement`] });
+  }
+  return { row: out, gaps };
+}
+
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
 function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
   if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
@@ -242,6 +276,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
     if (!input.ok) return input;
     const rows = input.value.data.rows.map((row) => {
       if (!validDay(row.date)) return row;
+      if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return row;
       const currency = row.reportedCurrency;
       if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) {
         gaps.push({ field: `statements.${kind}.${row.date}`, reason: "SEC field enrichment withheld: vendor reporting currency is unknown", severity: "info" });
@@ -253,6 +288,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
       ] : [["financeLeasePrincipalPayments", principal(facts, currency, row.date, scope, observedAt)]];
       let out = row;
       for (const [field, sec] of candidates) {
+        if (out.fieldConflicts?.[field]?.usable === false) continue;
         if (!sec) {
           const tag = field === "operatingLeaseLiability" ? "OperatingLeaseLiability" : field === "financeLeaseLiability" ? "FinanceLeaseLiability" : "FinanceLeasePrincipalPayments";
           const otherUnits = (facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined)?.units;
@@ -289,6 +325,9 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         out = admitted.row;
         gaps.push(...admitted.gaps);
       }
+      const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind);
+      out = cashAdmission.row;
+      gaps.push(...cashAdmission.gaps);
       return out;
     });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };

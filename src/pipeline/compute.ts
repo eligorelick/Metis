@@ -237,6 +237,12 @@ function rowsOf<TRow extends FmpRawRow>(f: FmpFetch<TRow>): TRow[] {
         (clone as FmpRawRow)[field] = null;
       }
     }
+    // A refused cash component cannot be restored by a combined liquidity or
+    // vendor-net-debt fallback. Keep the refusal metadata on this immutable copy.
+    if (conflicts.cashAndCashEquivalents?.usable === false) {
+      clone.cashAndShortTermInvestments = null;
+      clone.netDebt = null;
+    }
     return clone;
   });
 }
@@ -512,6 +518,7 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
     leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
     fieldProvenance: r.fieldProvenance,
+    fieldConflicts: r.fieldConflicts,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
@@ -568,6 +575,7 @@ function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
     financeLeasePrincipalPayments: num(r.financeLeasePrincipalPayments),
     issuerFreeCashFlow: num(r.issuerFreeCashFlow),
     issuerFreeCashFlowDefinition: str(r.issuerFreeCashFlowDefinition),
+    fieldConflicts: r.fieldConflicts,
     commonStockRepurchased: num(r.commonStockRepurchased),
   };
 }
@@ -591,6 +599,8 @@ function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
 
 function toForensicsIncome(r: FmpIncomeStatementRow): ForensicsIncomeRow {
   return {
+    fieldConflicts: r.fieldConflicts,
+    fieldProvenance: r.fieldProvenance,
     date: String(r.date ?? ""),
     fiscalYear: str(r.fiscalYear),
     period: str(r.period),
@@ -3718,7 +3728,7 @@ export function newestBalanceRow<TRow extends { date?: unknown }>(
 export function payoutRatioPct3y(cashflowAnnual: FmpCashFlowRow[]): number | null {
   const ratios: number[] = [];
   for (const r of cashflowAnnual.slice(0, 3)) {
-    if (r.fieldConflicts?.commonDividendsPaid?.usable === false) continue;
+    if (["commonDividendsPaid", "commonStockRepurchased", "commonStockIssuance"].some(field => r.fieldConflicts?.[field]?.usable === false)) continue;
     const ni = num(r.netIncome);
     if (ni === null || ni <= 0) continue;
     const div = num(r.commonDividendsPaid);
