@@ -19,7 +19,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Proposed independent-review corrections (2026-10-19)
 
-- Guard canonical EDGAR gross-profit construction and admission, preserving directly filed subtotals and serializing partial-cost refusals.
+- Guard canonical EDGAR gross-profit construction and admission, preserving directly filed subtotals and serializing partial-cost refusals. Propagation requires compatible vendor/source scope and preserves existing refusals.
 - Use immutable refusal-aware disclosure reads for guidance and quarterly trends, including CFO aliases; restore Unicode dateline separators.
 - Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](docs/audit/2026-10-19-phase-one-review-corrections.md).
 

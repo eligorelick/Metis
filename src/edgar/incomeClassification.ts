@@ -44,8 +44,10 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       out = { ...out, [field]: null, fieldConflicts };
       gaps.push({ field: `statements.income.${row.date}.${field}`, reason, severity: "warn", attemptedSources: ["fmp:income-statement", "edgar:companyfacts"] });
     };
-    if (sec.fieldConflicts?.grossProfit?.usable === false) {
-      refuse("grossProfit", null, evidenceFor("costOfRevenue"), sec.fieldConflicts.grossProfit.reason);
+    const canonicalCostEvidence = evidenceFor("costOfRevenue");
+    // A canonical unknown cannot establish a refusal outside this row's source scope.
+    if (sec.fieldConflicts?.grossProfit?.usable === false && canonicalCostEvidence && evidenceFor("revenue")) {
+      refuse("grossProfit", null, canonicalCostEvidence, sec.fieldConflicts.grossProfit.reason);
     }
     for (const [field, tags] of Object.entries(allowed)) {
       if (row.fieldConflicts?.[field]?.usable === false) { out = { ...out, [field]: null }; continue; }

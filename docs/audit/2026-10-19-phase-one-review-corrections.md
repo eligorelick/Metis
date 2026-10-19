@@ -8,6 +8,8 @@ The canonical EDGAR constructor previously derived revenue less cost even when t
 
 Tests retain a service-cost component without turning it into GP, preserve a filed GP despite that partial cost, and exercise serialized EDGAR-only/mixed-backfill rows through growth, forensic margins and quarterly trends. Unknown operands are not a balancing plug or proof of zero expense.
 
+The follow-up scope review found that propagating a canonical unknown unconditionally could clear an unrelated vendor observation. Propagation now requires revenue and cost evidence compatible with the vendor row's currency, explicit start and filing date. Three partial-CostOfServices/no-GrossProfit regressions reproduced the wrong clearing; three existing-refusal controls ensure an incompatible new source does not remove an already recorded refusal. Unknown cross-scope observations remain retained without a new classification assertion. This admission-only guard retains the current analytical stamps; the exact source/build identity advances.
+
 ## Immutable disclosure reads
 
 Stage B and filing-disclosure construction share an immutable admitted-row view. Explicit field refusals are unavailable to guidance actuals and quarterly revenue, gross margin and operating-expense trends. A refused CFO alias also withholds its alternate and dependent standardized FCF; raw bundle values/evidence remain unchanged. Tests use numeric retained observations plus refusal records, then verify construction, the actual data-only report, JSON/web/Markdown/print/audit surfaces and guidance checks. An audit may retain a clearly identified raw observation; it must not restore it as an admitted percentage or trend.

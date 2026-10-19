@@ -90,6 +90,27 @@ describe("same-definition income classification", () => {
     const refusal = { usable: false as const, vendorValue: 1, secValue: null, reason: "Original classification refusal" };
     expect(admit({ fieldConflicts: { grossProfit: refusal } }).row.fieldConflicts?.grossProfit).toEqual(refusal);
   });
+  it.each(["currency", "start", "filing"])("does not propagate a partial-cost refusal across incompatible %s scope", change => {
+    const f = facts({ CostOfServices: 715 });
+    delete f.facts["us-gaap"]!.CostOfRevenue;
+    delete f.facts["us-gaap"]!.GrossProfit;
+    const scope = change === "currency" ? { reportedCurrency: "EUR" } : change === "start" ? { periodStart: "2026-01-01" } : { filingDate: "2026-06-14" };
+    const result = admit({ ...scope, grossProfitRatio: 0.8769, grossProfitMargin: 0.8769 }, f);
+    expect(result.row).toMatchObject({ grossProfit: 5803, grossProfitRatio: 0.8769, grossProfitMargin: 0.8769 });
+    expect(result.row.fieldConflicts?.grossProfit).toBeUndefined();
+    expect(result.result.gaps.filter(gap => gap.field.endsWith(".grossProfit"))).toEqual([]);
+    expect(result.result.income.ok && result.result.income.value.data.raw).toEqual(result.original.ok && result.original.value.data.raw);
+  });
+  it.each(["currency", "start", "filing"])("preserves an existing partial-cost GP refusal despite incompatible %s scope", change => {
+    const f = facts({ CostOfServices: 715 });
+    delete f.facts["us-gaap"]!.CostOfRevenue;
+    delete f.facts["us-gaap"]!.GrossProfit;
+    const scope = change === "currency" ? { reportedCurrency: "EUR" } : change === "start" ? { periodStart: "2026-01-01" } : { filingDate: "2026-06-14" };
+    const refusal = { usable: false as const, vendorValue: 5803, secValue: null, reason: "Existing independent refusal" };
+    const result = admit({ ...scope, fieldConflicts: { grossProfit: refusal } }, f);
+    expect(result.row.grossProfit).toBeNull();
+    expect(result.row.fieldConflicts?.grossProfit).toEqual(refusal);
+  });
   it("does not launder rejected margins into serialized Stage B growth or forensic outputs", () => {
     const b = completeCurrencyBundle({});
     if (!b.statements.incomeAnnual.ok) throw Error("income expected");
