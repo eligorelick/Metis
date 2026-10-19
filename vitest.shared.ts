@@ -161,6 +161,7 @@ export const RISK_SOURCE_MANIFEST = [
   // rewrites a model label at assembly; it was left out when D-50 added it.
   "src/pipeline/stageC/confidenceCeiling.ts",
   "src/edgar/financialEnrichment.ts",
+  "src/edgar/incomeClassification.ts",
   // D-87: new accounting admission helpers retain the enrichment risk floor.
   "src/edgar/debtNoteCarrying.ts",
   "src/edgar/temporaryEquityEnrichment.ts",

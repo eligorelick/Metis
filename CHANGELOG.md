@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.27.0** and
-payload **1.32.0** (exact final evidence and interval presentation, 2026-10-18). The checked-in
+Current source declares application **0.1.0**, report spec **1.29.0** and
+payload **1.34.0** (bounded phase-one evidence completion, 2026-10-19). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,13 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed phase-one evidence completion (2026-10-19)
+
+- Preserve exact quarter, cash, repurchase and income-classification refusals through payout, liquidity, buyback coverage and forensic consumers; keep raw observations.
+- Bind the reviewed Adobe completion alias and actual publication shape, retain bounded official news discovery and exact uppercase compensation-title boundaries.
+- Advance Stage B implementation to ACCOUNTING_EVIDENCE_9, report 1.29.0, payload 1.34.0 and pipeline stage-c-1.5.0. Earlier engine snapshots require their original method; saved reports retain bytes.
+- PR32 SQLite diagnostics remain a separate commit. Full gates and final independent review are required before push/merge; original FMP 402 cause and private report migration remain unresolved. See [evidence record](docs/audit/2026-10-19-phase-one-evidence-completion.md).
 
 ## Unreleased - exact final evidence and interval presentation (2026-10-18)
 

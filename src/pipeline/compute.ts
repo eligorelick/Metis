@@ -239,9 +239,9 @@ function rowsOf<TRow extends FmpRawRow>(f: FmpFetch<TRow>): TRow[] {
     }
     // A refused cash component cannot be restored by a combined liquidity or
     // vendor-net-debt fallback. Keep the refusal metadata on this immutable copy.
-    if (conflicts.cashAndCashEquivalents?.usable === false) {
-      clone.cashAndShortTermInvestments = null;
-      clone.netDebt = null;
+    if ((conflicts as Record<string, { usable?: boolean }>).cashAndCashEquivalents?.usable === false) {
+      (clone as FmpRawRow).cashAndShortTermInvestments = null;
+      (clone as FmpRawRow).netDebt = null;
     }
     return clone;
   });
@@ -518,7 +518,6 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     commonEquityPeriodEnd: r.fieldProvenance?.totalStockholdersEquity?.periodEnd ?? String(r.date ?? ""),
     leaseCoverageNote: incompleteLeaseCoverage(r)?.note,
     fieldProvenance: r.fieldProvenance,
-    fieldConflicts: r.fieldConflicts,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
     date: String(r.date ?? ""),
     acceptedDate: str(r.acceptedDate),
@@ -583,6 +582,7 @@ function toCapitalCashFlow(r: FmpCashFlowRow): CapitalCashFlowRow {
 function toCapitalBalance(r: FmpBalanceSheetRow): CapitalBalanceRow {
   return {
     fieldProvenance: r.fieldProvenance,
+    fieldConflicts: r.fieldConflicts,
     shortTermDebt: num(r.shortTermDebt), longTermDebt: num(r.longTermDebt),
     date: String(r.date ?? ""),
     totalDebt: num(r.totalDebt),

@@ -3,12 +3,27 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The implemented behavior below was checked against the source and synthetic
-tests through 2026-10-15 and reflects report 1.17.0 / payload 1.22.0, including
-the growth-anchor span, scenario-horizon, research-reliability and META audit
-rules. The historical literature citations remain the project's
+The current phase-one source declares report 1.29.0 / payload 1.34.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_9 (2026-10-19). Its bounded evidence fixes
+extend the growth-anchor, scenario-horizon, research-reliability and prior audit
+rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
 predictive validity of a model or a live provider's contract.
+
+D-90 compares direct and derived quarter durations using the actual emitted
+start/end interval. Exact-source cash/repurchase and income-classification
+refusals survive payout history, liquidity fallbacks, buyback coverage and
+forensic margins. A refused year is not zero payout; retained buyback dollars
+after a refused year are an incomplete subset. Gross-profit arithmetic requires
+independently compatible full revenue/cost evidence; reconciled EBIT cannot
+establish expense placement. FMP's net cash change is ending less beginning
+cash, so its comparison requires independently matched same-definition cash
+instants, not an assumed cash-change taxonomy alias. Official material events
+retain verified issuer identity, dated publication evidence and bounded discovery
+limits. These rules change Stage B behavior on identical retained inputs and
+therefore advance its implementation stamp. Saved reports remain immutable.
+See the [phase-one evidence record](audit/2026-10-19-phase-one-evidence-completion.md)
+for source intervals, negative controls and unresolved original vendor evidence.
 
 The evidence follow-up (D-56) carries source-established instant/duration
 boundaries independently from as-of dates. Missing context keeps the legacy

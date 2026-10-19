@@ -80,6 +80,23 @@ function filedOperatingCashFlow(facts: CompanyFacts, unit: string, end: string, 
   return filedFlow(facts, "NetCashProvidedByUsedInOperatingActivities", unit, end, scope, observedAt, true);
 }
 
+/** FMP defines net change as ending minus beginning cash. Both definitions must be established. */
+function filedCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Resolved | null {
+  if (!validDay(row.periodStart) || !validDay(row.date)) return null;
+  const days = (Date.parse(row.date) - Date.parse(row.periodStart)) / DAY;
+  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  if (days < min! || days > max!) return null;
+  const tag = "CashAndCashEquivalentsAtCarryingValue";
+  const beginningDay = new Date(Date.parse(row.periodStart) - DAY).toISOString().slice(0, 10);
+  const beginning = instant(facts, tag, unit, beginningDay, observedAt), ending = instant(facts, tag, unit, row.date, observedAt);
+  // A cash-plus-restrictions or otherwise unclassified cash-flow balance
+  // cannot borrow the unrestricted balance-sheet definition by name alone.
+  if (!beginning || !ending || row.cashAtBeginningOfPeriod !== beginning.value || row.cashAtEndOfPeriod !== ending.value ||
+    JSON.stringify(beginning.evidence.filings) !== JSON.stringify(ending.evidence.filings)) return null;
+  return { value: ending.value - beginning.value, evidence: { ...ending.evidence, periodStart: row.periodStart,
+    calculation: "ending-cash-minus-beginning-cash" } };
+}
+
 /** Compare only exact definitions; treasury movement, withholding and restricted cash are not substitutes. */
 function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, scope: "annual" | "quarter", observedAt: string, kind: "balance" | "cashflow"): { row: T; gaps: ManifestEntry[] } {
   const specifications: [string, string, boolean, number][] = kind === "balance"
@@ -87,11 +104,12 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     : [["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", false, -1],
       ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", true, 1],
       ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", true, 1],
-      ["netChangeInCash", "CashAndCashEquivalentsPeriodIncreaseDecrease", true, 1]];
+      ["netChangeInCash", "CashAndCashEquivalentsAtCarryingValue", true, 1]];
   let out = row;
   const gaps: ManifestEntry[] = [];
   for (const [field, tag, signed, sign] of specifications) {
-    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt) : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
+    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
+      : field === "netChangeInCash" ? filedCashChange(facts, unit, row, scope, observedAt) : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed);
     if (!sec || (kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
       (validDay(row.filingDate) && !sec.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
     const vendor = row[field];
@@ -276,7 +294,10 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
     if (!input.ok) return input;
     const rows = input.value.data.rows.map((row) => {
       if (!validDay(row.date)) return row;
-      if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return row;
+      if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) {
+        gaps.push({ field: `statements.${kind}.${row.date}`, reason: "SEC financial/temporary-equity enrichment withheld: vendor issuer differs from confirmed company facts", severity: "warn" });
+        return row;
+      }
       const currency = row.reportedCurrency;
       if (typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) {
         gaps.push({ field: `statements.${kind}.${row.date}`, reason: "SEC field enrichment withheld: vendor reporting currency is unknown", severity: "info" });

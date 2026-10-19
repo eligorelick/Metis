@@ -398,7 +398,7 @@ export interface ContextPayload {
 // 1.31.0 (D-87): source-bound accounting and retained critical filing context.
 // 1.32.0 (D-88): preserve sourced duration intervals and final gap evidence.
 // 1.33.0 (D-89): retain the declared unit-fraction scale in numeric provenance.
-export const PAYLOAD_VERSION = "1.33.0" as const;
+export const PAYLOAD_VERSION = "1.34.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

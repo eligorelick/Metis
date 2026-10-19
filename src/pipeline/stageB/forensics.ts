@@ -286,7 +286,15 @@ function grossMarginRatio(
   // establish a replacement margin; absence alone retains the legacy fallback.
   const revenueEvidence = row?.fieldProvenance?.revenue;
   const costEvidence = row?.fieldProvenance?.costOfRevenue;
+  const supported = (e: NonNullable<ForensicsIncomeRow["fieldProvenance"]>[string] | undefined, tags: string[]): boolean => {
+    if (!e || e.source !== "edgar" || !/^[A-Z]{3}$/.test(e.unit) || e.periodStart === null || e.periodEnd !== row?.date ||
+      !Number.isFinite(Date.parse(e.periodStart)) || !Number.isFinite(Date.parse(e.observedAt)) || !e.tags.some(tag => tags.includes(tag))) return false;
+    const days = (Date.parse(e.periodEnd) - Date.parse(e.periodStart)) / 86400000;
+    return days >= 350 && days <= 380 && e.filings.length > 0 && e.filings.every(f => /^\d{4}-\d{2}-\d{2}$/.test(f.filed) && f.filed <= e.observedAt.slice(0, 10));
+  };
   const compatible = revenueEvidence?.source === "edgar" && costEvidence?.source === "edgar" &&
+    supported(revenueEvidence, ["us-gaap/Revenues", "us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax", "us-gaap/RevenueFromContractWithCustomerIncludingAssessedTax", "us-gaap/SalesRevenueNet"]) &&
+    supported(costEvidence, ["us-gaap/CostOfRevenue", "us-gaap/CostOfGoodsAndServicesSold"]) &&
     revenueEvidence.unit === costEvidence.unit && revenueEvidence.periodStart === costEvidence.periodStart &&
     revenueEvidence.periodEnd === costEvidence.periodEnd && revenueEvidence.filings.length > 0 &&
     JSON.stringify(revenueEvidence.filings) === JSON.stringify(costEvidence.filings);

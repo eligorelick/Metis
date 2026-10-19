@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { discoverCompanyIrMaterialEvents, type CompanyIrOptions } from "@/providers/companyIr";
+import { discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
 
 const issuer = { cik: "1", canonicalName: "Example Group, Inc.", verifiedWebsite: "https://example.com/" };
 const now = () => new Date("2026-10-17T12:00:00.000Z");
@@ -23,6 +23,23 @@ async function discover(overrides: Record<string, string> = {}, options: Company
 }
 
 describe("bounded official material-event discovery", () => {
+  it("binds the reviewed single-word alias to exact CIK, legal name and official website", () => {
+    const adobe = { cik: "0000796343", canonicalName: "ADOBE INC.", verifiedWebsite: "https://www.adobe.com/" };
+    expect(verifiedCompanyIrAliases(adobe)).toEqual(["Adobe"]);
+    expect(verifiedCompanyIrAliases({ ...adobe, cik: "1" })).toEqual([]);
+    expect(verifiedCompanyIrAliases({ ...adobe, canonicalName: "Adobe Holdings Inc." })).toEqual([]);
+    expect(verifiedCompanyIrAliases({ ...adobe, verifiedWebsite: "https://adobe.com.unrelated.example/" })).toEqual([]);
+    expect(verifiedCompanyIrAliases({ ...adobe, verifiedWebsite: "http://www.adobe.com/" })).toEqual([]);
+  });
+  it.each([
+    'Today, Unrelated Company completed its acquisition of Journey.',
+    'Today, Example Group has not completed its acquisition of Journey.',
+    'Today, Example Group will complete its acquisition of Journey.',
+    '"Today, Example Group completed its acquisition of Journey," a commentator claimed.',
+  ])("does not loosen subject, negation, future or quotation checks: %s", async sentence => {
+    const html = acquisition().replace(/<p>SEATTLE,[\s\S]*?<\/p>/, `<p>${sentence}</p>`);
+    expect((await discover({ "https://ir.example.com/news/journey": html })).result).toMatchObject({ ok: false });
+  });
   it("follows the official IR path and keeps issuer-stated completion separate from unknown deal terms", async () => {
     const { result, attempted } = await discover();
     expect(result).toMatchObject({ ok: true, value: { source: "computed", data: { events: [{ symbol: "EXM", category: "acquisition", status: "issuer-stated-completed", publishedAt: "2026-07-31", observedAt: now().toISOString(), url: "https://ir.example.com/news/journey", consideration: null, funding: null,

@@ -49,6 +49,10 @@ function visiblePublicationDateline(html: string): string | null {
 }
 function publicationDate(html: string): string | null {
   for (const meta of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    if (/^publication-date$/i.test(attribute(meta, "name") ?? "")) {
+      const m = attribute(meta, "content")?.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+      if (m) return `${m[3]}-${m[1]}-${m[2]}`;
+    }
     if (/^(?:article:published_time|datePublished|date|pubdate|publish-date|DC.date.issued)$/i.test(attribute(meta, "property") ?? attribute(meta, "name") ?? "")) return attribute(meta, "content");
   }
   const structured = html.match(/["']datePublished["']\s*:\s*["']([^"']+)/i)?.[1] ?? html.match(/<time\b[^>]*datetime=["']([^"']+)/i)?.[1];
@@ -178,6 +182,16 @@ export interface CompanyIrMaterialEvent {
 }
 export interface CompanyIrMaterialEvents { events: CompanyIrMaterialEvent[]; notes: string[] }
 
+/** Reviewed issuer alias, not a generic single-word legal-name relaxation.
+ * Adobe's official site and 2026-09-23 blog announcement bind Adobe to Adobe Inc.
+ * https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs
+ */
+export function verifiedCompanyIrAliases(issuer: ConfirmedIssuerIdentity): string[] {
+  const website = safeUrl(issuer.verifiedWebsite);
+  return issuer.cik?.replace(/^0+/, "") === "796343" && /^adobe\s+inc\.?$/i.test(issuer.canonicalName.trim()) &&
+    website?.hostname.replace(/^www\./, "") === "adobe.com" ? ["Adobe"] : [];
+}
+
 /** Exact issuer subjects only: a name elsewhere in an article does not bind its action. */
 function materialStatement(text: string, issuer: ConfirmedIssuerIdentity): { category: CompanyIrMaterialEvent["category"]; status: CompanyIrMaterialEvent["status"]; start: number; end: number } | null {
   const canonical = issuer.canonicalName.trim();
@@ -189,7 +203,7 @@ function materialStatement(text: string, issuer: ConfirmedIssuerIdentity): { cat
       const subject = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // A dateline may precede the subject, but quoted commentary, a different
       // grammatical subject, and a future/negated completion cannot establish it.
-      const lead = String.raw`(?:^|[-–—]\s+)${subject}\s+(?:today\s+)?`;
+      const lead = String.raw`(?:^|[---]\s+)(?:Today,\s+)?${subject}\s+(?:today\s+)?`;
       const completed = new RegExp(`${lead}(?:announced that it )?(?:has )?(?:acquired\\s+|completed (?:its |the )?acquisition of\\s+)`, "i");
       const announcedDeal = new RegExp(`${lead}announced (?:an? |the |its )?(?:agreement to acquire|acquisition of)\\s+`, "i");
       const officer = new RegExp(`${lead}announced (?:the )?(?:appointment|departure|retirement|resignation) of\\s+`, "i");
@@ -286,7 +300,13 @@ export async function discoverCompanyIrMaterialEvents(website: string, symbol: s
       if (page.stage === "company") {
         const ir = all.find((link) => /\binvestor(?:s| relations)?\b/i.test(link.text) || /(?:^|[/.])investors?[./-]/i.test(link.url));
         if (ir) add(ir, "ir");
-        else sameOrigin.filter((link) => /newsroom|news|press releases/i.test(link.text)).slice(0, 1).forEach((link) => add(link, "news"));
+        // Only explicit official news/blog links below the confirmed website's
+        // domain; never arbitrary cross-origin releases or an inferred host.
+        const host = verified.hostname.replace(/^www\./, "");
+        all.filter(link => {
+          const linkedHost = new URL(link.url).hostname;
+          return (linkedHost === host || linkedHost.endsWith(`.${host}`)) && /\b(?:newsroom|news|press releases|blog)\b/i.test(link.text);
+        }).slice(0, 2).forEach(link => add(link, "news"));
       } else {
         if (page.stage === "ir") sameOrigin.filter((link) => /news|press releases/i.test(link.text)).slice(0, 1).forEach((link) => add(link, "news"));
         const pending = queue.length;

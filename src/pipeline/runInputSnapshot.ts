@@ -12,7 +12,7 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-73: preserve debt refusals instead of using incomplete or older balances.
 // D-83 adds explicit EPS-convention metadata; financial arithmetic is retained.
 // D-84: common-payout history excludes explicit source refusals, including total zero.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_8" as const;
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_9" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

@@ -139,6 +139,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/stageC/excerptNumbers.ts",
   "src/pipeline/stageC/confidenceCeiling.ts",
   "src/edgar/financialEnrichment.ts",
+  "src/edgar/incomeClassification.ts",
   "src/edgar/debtNoteCarrying.ts",
   "src/edgar/temporaryEquityEnrichment.ts",
   "src/edgar/debtCompleteness.ts",

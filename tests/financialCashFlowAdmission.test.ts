@@ -12,7 +12,7 @@ function sourced<T extends FmpBalanceSheetRow | FmpCashFlowRow>(rows: T[]): Fetc
 }
 function admit(tag: string, ps: object[], cash: FmpCashFlowRow = {}, balance: FmpBalanceSheetRow = {}, currency = "USD") {
   const facts: CompanyFacts = { cik: 796343, entityName: "ADOBE INC.", facts: { "us-gaap": { [tag]: { units: { [currency]: ps } } } } };
-  const cashInput = sourced([{ cik: "796343", date: end, periodStart: "2026-02-28", reportedCurrency: "USD", ...cash }]);
+  const cashInput = sourced<FmpCashFlowRow>([{ cik: "796343", date: end, periodStart: "2026-02-28", reportedCurrency: "USD", ...cash }]);
   const balanceInput = sourced([{ cik: "796343", date: end, reportedCurrency: "USD", ...balance }]);
   const out = enrichFinancialFields(balanceInput, cashInput, facts, "quarter", at);
   if (!out.cashflow.ok || !out.balance.ok) throw Error("retained rows expected");
@@ -22,7 +22,6 @@ const flows = [
   ["commonStockRepurchased", "PaymentsForRepurchaseOfCommonStock", 20, -20],
   ["netCashProvidedByInvestingActivities", "NetCashProvidedByUsedInInvestingActivities", -20, -20],
   ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", -20, -20],
-  ["netChangeInCash", "CashAndCashEquivalentsPeriodIncreaseDecrease", -20, -20],
 ] as const;
 describe("same-definition cash flow field admission", () => {
   it.each(flows)("withholds contradicted %s, preserving raw observations", (field, tag, sec, expected) => {
@@ -69,5 +68,18 @@ describe("same-definition cash flow field admission", () => {
   });
   it("does not equate cash plus restricted cash with unrestricted balance-sheet cash", () => {
     expect(admit("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", [point(4919, { start: undefined })], {}, { cashAndCashEquivalents: 999 }).balance.fieldConflicts?.cashAndCashEquivalents).toBeUndefined();
+  });
+  it("does not compare net cash movement against an FX-excluding or unknown cash definition", () => {
+    expect(admit("CashAndCashEquivalentsPeriodIncreaseDecrease", [point(-516)], { netChangeInCash: -512 }).cash.fieldConflicts?.netChangeInCash).toBeUndefined();
+    expect(admit("CashAndCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect", [point(-512)], { netChangeInCash: -99 }).cash.fieldConflicts?.netChangeInCash).toBeUndefined();
+  });
+  it("compares cash movement only when its FX-inclusive definition and both unrestricted instants agree", () => {
+    const f: CompanyFacts = { cik: 796343, entityName: "ADOBE INC.", facts: { "us-gaap": {
+      CashAndCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect: { units: { USD: [point(-20)] } },
+      CashAndCashEquivalentsAtCarryingValue: { units: { USD: [point(80, { start: undefined }), point(100, { start: undefined, end: "2026-02-27" })] } },
+    } } };
+    const cash = sourced<FmpCashFlowRow>([{ cik: "796343", date: end, periodStart: "2026-02-28", reportedCurrency: "USD", cashAtBeginningOfPeriod: 100, cashAtEndOfPeriod: 80, netChangeInCash: -99 }]);
+    const result = enrichFinancialFields(sourced<FmpBalanceSheetRow>([]), cash, f, "quarter", at);
+    expect(result.cashflow).toMatchObject({ ok: true, value: { data: { rows: [{ netChangeInCash: null, fieldConflicts: { netChangeInCash: { usable: false, vendorValue: -99, secValue: -20 } } }] } } });
   });
 });

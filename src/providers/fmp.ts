@@ -131,6 +131,8 @@ export interface StatementFieldProvenance {
   filings: { accn: string; filed: string; form: string }[];
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
+  /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
+  calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash";
 }
 
 export interface StatementFieldConflict {
@@ -255,7 +257,7 @@ export interface FmpCashFlowRow extends FmpStatementRow {
   netDebtIssuance?: number;
   netStockIssuance?: number;
   /** NEGATIVE = outflow */
-  commonStockRepurchased?: number;
+  commonStockRepurchased?: number | null;
   /** NEGATIVE = outflow */
   netDividendsPaid?: number;
   commonDividendsPaid?: number;
