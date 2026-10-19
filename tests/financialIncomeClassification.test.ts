@@ -44,6 +44,19 @@ describe("same-definition income classification", () => {
     expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ secValue: 5903,
       secEvidence: { calculation: "revenue-minus-cost", tags: ["us-gaap/Revenues", "us-gaap/CostOfRevenue"] } });
   });
+  it.each(["financial-revenue", "partial-cost"])("does not promote incompatible operand definitions into an industrial gross-profit comparison (%s)", change => {
+    const f = facts(); delete f.facts["us-gaap"]!.GrossProfit;
+    if (change === "financial-revenue") {
+      f.facts["us-gaap"]!.RevenuesNetOfInterestExpense = f.facts["us-gaap"]!.Revenues!;
+      delete f.facts["us-gaap"]!.Revenues;
+    } else {
+      f.facts["us-gaap"]!.CostOfServices = f.facts["us-gaap"]!.CostOfRevenue!;
+      delete f.facts["us-gaap"]!.CostOfRevenue;
+    }
+    const result = admit({ costOfRevenue: 715 }, f);
+    expect(result.row.grossProfit).toBeNull();
+    expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ usable: false, secValue: null, reason: expect.stringMatching(/definition.*not.*compatible/i) });
+  });
   it.each(["date", "unknown-currency", "no-anchor", "no-facts"])("retains unknown observations without invented classification (%s)", change => {
     const f = facts();
     if (change === "no-anchor") delete f.facts["us-gaap"]!.Assets;
