@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+import { withRequiredCleanup } from "./helpers/requiredCleanup";
 
 const ROOT = path.resolve(__dirname, "..");
 const PROVIDER_ENV_KEYS = [
@@ -180,7 +181,7 @@ describe("database CLI", () => {
     const dbPath = path.join(dbDirectory, "thesis 数据.db");
     mkdirSync(dbDirectory, { recursive: true });
 
-    try {
+    withRequiredCleanup(() => {
       const env = providerFreeEnvironment(dbPath);
       for (const key of PROVIDER_ENV_KEYS) expect(env).not.toHaveProperty(key);
 
@@ -200,9 +201,9 @@ describe("database CLI", () => {
         sqlite.close();
       }
       expect(sqlite.open).toBe(false);
-    } finally {
+    }, () => {
       rmSync(tempDir, { recursive: true, force: true });
-    }
+    });
 
     expect(existsSync(tempDir)).toBe(false);
   }, 15_000);

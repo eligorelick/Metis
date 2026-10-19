@@ -76,6 +76,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-18-common-earnings-admission.md",
   "docs/audit/2026-10-18-commitment-payment-evidence.md",
   "docs/audit/2026-10-18-accounting-evidence-remediation.md",
+  "docs/audit/2026-10-18-sqlite-test-diagnostics.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
