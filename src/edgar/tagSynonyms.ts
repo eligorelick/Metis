@@ -301,6 +301,8 @@ export const LINE_ITEM_TAGS = {
   longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt"]),
   /** Completeness evidence only: this aggregate can be gross principal, not carrying debt. */
   debtInstrumentAggregate: entry(["DebtInstrumentCarryingAmount"]),
+  /** Noncurrent carrying subtype: completeness evidence, never an additive synonym. */
+  convertibleNoncurrentCarrying: entry(["ConvertibleLongTermNotesPayable"]),
   /** Scope evidence for a fiscal maturity schedule; never a carrying-debt stand-in. */
   debtMaturitiesFiscalRemainder: entry(["LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear"]),
   totalCurrentLiabilities: entry(["LiabilitiesCurrent"]),

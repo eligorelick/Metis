@@ -357,10 +357,15 @@ export function buildQuarterlySegments(
   const totalCells = quarters.map((col) => at(null, null, col)?.value ?? null);
   const currency = totals[0]?.currency ?? null;
   const axes: SegmentSeries[] = [];
+  const notes: string[] = [];
   for (const axis of Object.keys(SEGMENT_AXES)) {
     const members = [...new Set([...merged.entries()].filter(([key]) => key.startsWith(`${axis}|`)).map(([key]) => key.split("|")[1]!))];
     const current = members.filter((member) => at(axis, member, quarters[0]!) !== undefined);
-    if (current.length < 2) continue;
+    if (current.length < 2) {
+      const observedMembers = [...new Set(ordered.flatMap(f => f.facts.filter(fact => fact.axis === axis && fact.member !== null).map(fact => fact.member!)))].sort();
+      if (observedMembers.length > 0) notes.push(`${SEGMENT_AXES[axis]} axis withheld: fewer than two compatible current-quarter members at ${quarters[0]!.end}; cross-filing member continuity is unresolved. Observed member QNames: ${observedMembers.join(", ")}. Annual/cumulative observations do not establish a renamed quarterly member mapping.`);
+      continue;
+    }
     let derivedCells = 0;
     const rows: SegmentRow[] = current.map((member) => ({
       member,
@@ -407,7 +412,7 @@ export function buildQuarterlySegments(
     total: totalCells,
     currency,
     axes,
-    notes: [],
+    notes,
     filings: ordered.map((f) => ({ accession: f.accession, form: f.form, filingDate: f.filingDate, concept: f.concept })),
   };
 }

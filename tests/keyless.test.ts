@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { discoverStockSplits } from "@/edgar/splits";
+import { parsePrimaryEconomicShares } from "@/edgar/economicShares";
 import {
   applyKeylessFallbacks,
   isUsJurisdiction,
@@ -255,6 +256,13 @@ function inputs(over: Partial<KeylessInputs> = {}): KeylessInputs {
   };
 }
 
+/** Synthetic, independently scoped point-in-time controls; never inferred from EPS. */
+const historicalShares: NonNullable<KeylessInputs["historicalEconomicShares"]> = ["2025-09-27", "2025-06-28", "2025-03-29", "2024-12-28"].map(asOf => ({
+  issuerId: "320193", securityId: "AAPL", asOf, filed: "2025-10-31", effectiveFrom: asOf, effectiveTo: null,
+  complete: true, sourceHash: "synthetic-exact-date-class-inventory", sourceIds: ["fixture:historical-common-class"],
+  classes: [{ classId: "AAPL", shares: 14_776, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "quoted-market-price" }],
+}));
+
 describe("bankStatementRouting", () => {
   it("routes only the bank industries, by SIC", () => {
     const reg = inputs().edgar.registrant!;
@@ -316,8 +324,39 @@ describe("pure keyless helpers", () => {
 });
 
 describe("applyKeylessFallbacks", () => {
-  it("fills every core member from EDGAR and Yahoo with provenance and expected info gaps", async () => {
+  it("admits a parser-produced exact-date inventory filed after the balance date, only once available", async () => {
+    const html = `<html><body><ix:header>
+      <xbrli:context id="issuer"><xbrli:entity><xbrli:identifier scheme="http://www.sec.gov/CIK">0000320193</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:instant>2025-09-27</xbrli:instant></xbrli:period></xbrli:context>
+      <xbrli:context id="common"><xbrli:entity><xbrli:identifier scheme="http://www.sec.gov/CIK">0000320193</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">issuer:CommonMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity><xbrli:period><xbrli:instant>2025-09-27</xbrli:instant></xbrli:period></xbrli:context>
+      <xbrli:unit id="shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit></ix:header>
+      <table><tr><td><ix:nonNumeric name="dei:Security12bTitle" contextRef="issuer">Common stock</ix:nonNumeric></td><td><ix:nonNumeric name="dei:TradingSymbol" contextRef="issuer">AAPL</ix:nonNumeric></td></tr></table>
+      <p>As of September 27, 2025, the following shares of the registrant's common stock were outstanding:</p>
+      <table><tr><td>Common stock</td><td><ix:nonFraction name="dei:EntityCommonStockSharesOutstanding" contextRef="common" unitRef="shares" scale="0">14,776</ix:nonFraction></td><td>shares</td></tr></table></body></html>`;
+    const inventory = parsePrimaryEconomicShares(html, { issuerId: "320193", securityId: "AAPL", form: "10-K", accession: "0000320193-25-000079", filingDate: "2025-10-31", primaryDocument: "annual.htm", documentUrl: "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/annual.htm" }, TODAY);
+    expect(inventory.evidence).toMatchObject({ asOf: "2025-09-27", filed: "2025-10-31", effectiveFrom: "2025-10-31", complete: true });
+    const historicalEconomicShares = [inventory.evidence!];
+    const available = (await applyKeylessFallbacks(inputs({ historicalEconomicShares }))).members.enterpriseValues;
+    expect(available.ok && available.value.data.rows[0]).toMatchObject({ date: "2025-09-27", numberOfShares: 14776 });
+    expect((await applyKeylessFallbacks(inputs({ historicalEconomicShares, today: "2025-10-30" }))).members.enterpriseValues.ok).toBe(false);
+  });
+  it("withholds historical EV rather than using weighted EPS shares or a later cover count without class-compatible point-in-time evidence", async () => {
     const out = await applyKeylessFallbacks(inputs());
+    expect(out.members.enterpriseValues.ok).toBe(false);
+    expect(out.notes.some(n => /point-in-time.*class|class.*point-in-time/i.test(n))).toBe(true);
+  });
+  it.each(["later-date", "wrong-class", "incomplete", "conflicting-count"])("withholds historical EV for %s share evidence", async kind => {
+    const bad = structuredClone(historicalShares);
+    for (const item of bad) {
+      if (kind === "later-date") { item.asOf = "2026-08-14"; item.effectiveFrom = item.asOf; }
+      if (kind === "wrong-class") item.classes[0]!.classId = "UNRELATED";
+      if (kind === "incomplete") item.complete = false;
+      if (kind === "conflicting-count") item.classes[0]!.shares += 1;
+    }
+    const observed = kind === "conflicting-count" || kind === "incomplete" ? [...historicalShares, ...bad] : bad;
+    expect((await applyKeylessFallbacks(inputs({ historicalEconomicShares: observed }))).members.enterpriseValues.ok).toBe(false);
+  });
+  it("fills every core member from EDGAR and Yahoo with provenance and expected info gaps", async () => {
+    const out = await applyKeylessFallbacks(inputs({ historicalEconomicShares: historicalShares }));
     const m = out.members;
     expect(m.profile.ok && m.profile.value.source).toBe("computed");
     if (!m.profile.ok) return;
@@ -341,8 +380,7 @@ describe("applyKeylessFallbacks", () => {
     if (m.enterpriseValues.ok) {
       const ev = m.enterpriseValues.value.data.rows[0]!;
       expect(ev.date).toBe("2025-09-27");
-      // No diluted share count on the derived Q4 income row, so the cover-page
-      // count within 60 days of the period end is used: 14,776 @ 2025-10-17.
+      // The independent synthetic exact-date class inventory supplies the count.
       expect(ev.numberOfShares).toBe(14_776);
       expect(ev.addTotalDebt).toBe(95);
       expect(ev.minusCashAndCashEquivalents).toBe(30);
@@ -892,9 +930,8 @@ describe("applyKeylessFallbacks", () => {
     expect(out.members.profile.value.endpoint).toBe(
       "derived:profile(edgar:submissions + yahoo:chart + us-gaap:CommonStockSharesOutstanding)",
     );
-    expect(out.notes).toContain(
-      "keyless enterprise values: fallback share counts from the balance sheet CommonStockSharesOutstanding",
-    );
+    // An all-classes aggregate alone does not prove price/class compatibility.
+    expect(out.members.enterpriseValues.ok).toBe(false);
     expect(out.members.sharesFloat.ok && out.members.sharesFloat.value.endpoint).toBe(
       "companyfacts→shares-float(us-gaap:CommonStockSharesOutstanding + dei:EntityPublicFloat)",
     );
@@ -983,7 +1020,7 @@ describe("applyKeylessFallbacks", () => {
   it("skips an enterprise-value period rather than fabricating an operand", async () => {
     // The fixture's three 10-Q periods file total assets only, so debt and cash
     // are genuinely absent there; only the fiscal-year end has every operand.
-    const out = await applyKeylessFallbacks(inputs());
+    const out = await applyKeylessFallbacks(inputs({ historicalEconomicShares: historicalShares }));
     expect(out.members.enterpriseValues.ok && out.members.enterpriseValues.value.data.rows.map((r) => r.date)).toEqual(["2025-09-27"]);
     for (const date of ["2025-06-28", "2025-03-29", "2024-12-28"]) {
       expect(out.notes).toContain(`keyless enterprise value ${date} skipped: no totalDebt, no cashAndCashEquivalents`);
@@ -1050,7 +1087,7 @@ describe("applyKeylessFallbacks", () => {
       { symbol: "AAPL", date: "2025-03-28", close: 190 },
       { symbol: "AAPL", date: "2024-12-27", close: 180 },
     ]);
-    const out = await applyKeylessFallbacks(inputs({ fmp, sectorEtfSymbol: "XLK" }));
+    const out = await applyKeylessFallbacks(inputs({ fmp, sectorEtfSymbol: "XLK", historicalEconomicShares: historicalShares }));
     expect(out.members.eodPrices).toBe(fmp.eodPrices);
     expect(out.replaced).not.toContain("eodPrices");
     expect(out.members.enterpriseValues.ok && out.members.enterpriseValues.value.data.rows[0]).toMatchObject({
@@ -1482,6 +1519,8 @@ describe("applyKeylessFallbacks — restatements and multi-class share counts", 
     expect(entry.expected).toBe(true);
     expect(entry.reason).toMatch(/10-K 0000320193-25-000099 \(filed 2025-10-31\)/);
     expect(entry.reason).toMatch(/3 unnamed counts \(9000 \+ 4000 \+ 1776\) are summed to 14776 as of 2025-10-17/);
+    expect(entry.reason).toContain("Historical EV separately requires exact-date, complete compatible quoted-class evidence");
+    expect(entry.reason).not.toContain("enterprise values rest on");
     expect(out.notes).toContain("keyless share count: 3 share classes summed (9000 + 4000 + 1776 = 14776 at 2025-10-17)");
     // The summed total is what every derived figure then uses.
     expect(out.members.sharesFloat.ok && out.members.sharesFloat.value.data.rows[0]!.outstandingShares).toBe(14_776);

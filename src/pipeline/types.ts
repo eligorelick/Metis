@@ -148,6 +148,8 @@ export interface EdgarRegistrant {
 }
 
 export interface EdgarBundle {
+  /** Source-bound cash PPE/hardware scope; original filing observations retained. */
+  cashInvestment?: import("@/edgar/cashInvestment").FilingCashInvestment[];
   /** Matched primary annual geography; retained even when usable vendor data wins. */
   annualGeography?: FetchResult<AnnualGeography>;
   /** Primary filing cover inventories, including unresolved economic rights. */

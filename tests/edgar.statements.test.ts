@@ -387,9 +387,30 @@ describe("buildStatementsFromCompanyFacts — quarterly rows", () => {
     );
     const q4 = buildStatementsFromCompanyFacts(base, OPTS).incomeQuarterly.rows.find((row) => row.date === "2025-09-27")!;
     // Four 91-day quarters in a 364-day year: Q4 shares = 15,000×364 − 91×(15,100+15,050+14,900), over 91 = 14,950.
-    expect(q4.epsDiluted).toBeCloseTo(22 / 14_950, 6);
-    expect(q4.fieldProvenance?.epsDiluted?.derivation).toBe("fy-share-identity");
+    // The EPS diluted numerator and antidilution treatment cannot be inferred
+    // from annual/quarterly weighted shares, even in a profitable quarter.
+    expect(q4.epsDiluted).toBeNull();
+    expect(q4.fieldProvenance?.epsDiluted).toBeUndefined();
     expect(q4.weightedAverageShsOutDil).toBeNull(); // the backed-out count is not reported as a fact
+  });
+
+  it("derived basic EPS requires common earnings and carries currency per share with every operand's provenance", () => {
+    const base = appleLike();
+    const tags = base.facts["us-gaap"]!;
+    const diluted = structuredClone(tags.WeightedAverageNumberOfDilutedSharesOutstanding) as { units: { shares: object[] } };
+    diluted.units.shares.push(
+      { start: "2024-09-29", end: "2024-12-28", val: 15_100, accn: "q1-shares", fy: 2025, fp: "Q1", form: "10-Q", filed: "2025-01-31" },
+      { start: "2024-12-29", end: "2025-03-29", val: 15_050, accn: "q2-shares", fy: 2025, fp: "Q2", form: "10-Q", filed: "2025-05-02" },
+    );
+    tags.WeightedAverageNumberOfSharesOutstandingBasic = diluted;
+    tags.NetIncomeLossAvailableToCommonStockholdersBasic = structuredClone(tags.NetIncomeLoss);
+    const q4 = buildStatementsFromCompanyFacts(base, OPTS).incomeQuarterly.rows.find(row => row.date === "2025-09-27")!;
+    expect(q4.eps).toBeCloseTo(22 / 14_950, 6);
+    expect(q4.fieldProvenance?.eps?.unit).toBe("USD/shares");
+    expect(q4.fieldProvenance?.eps?.filings).toEqual(expect.arrayContaining([expect.objectContaining({ accn: "q1-shares" }), expect.objectContaining({ accn: "q2-shares" })]));
+    delete tags.NetIncomeLossAvailableToCommonStockholdersBasic;
+    const unresolved = buildStatementsFromCompanyFacts(base, OPTS).incomeQuarterly.rows.find(row => row.date === "2025-09-27")!;
+    expect(unresolved.eps).toBeNull();
   });
 
   it("uses tagged 3-month income facts, derives the missing quarter from YTD and the fourth from FY − YTD", () => {

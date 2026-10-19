@@ -28,6 +28,7 @@
  */
 
 import { sectorIndustryForSic } from "@/edgar/sic";
+import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import {
   BALANCE_SHEET_SHARES_TAG,
   buildStatementsFromCompanyFacts,
@@ -94,6 +95,9 @@ export interface KeylessMembers {
 }
 
 export interface KeylessInputs {
+  /** Historical capitalization needs exact-date, complete class evidence;
+   * weighted-average EPS denominators and post-period cover counts are ineligible. */
+  historicalEconomicShares?: readonly EconomicShareEvidence[];
   symbol: string;
   /** YYYY-MM-DD */
   today: string;
@@ -214,7 +218,6 @@ const DEI_SHARES_TAG = tagsFor("deiSharesOutstanding")[0] as string;
  * Allowing 60 days lets the quarter that a cover page belongs to claim it,
  * while a cover page from the NEXT quarter stays out of reach.
  */
-const DEI_COVER_LAG_DAYS = 60;
 
 const DAY_MS = 86_400_000;
 
@@ -891,8 +894,8 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         `the cover page of ${filing === undefined ? "the latest filing" : `${filing.form} ${filing.accn} (filed ${filing.filed})`} ` +
         `reports dei:${DEI_SHARES_TAG} once per share class; companyfacts carries no class dimension, so the ${coverClasses.length} ` +
         `unnamed counts (${coverClasses.join(" + ")}) are summed to ${point.value} as of ${point.asOf}. The same rule is ` +
-        "applied to every period of the share-count series, so the market-cap history and the enterprise values rest on " +
-        "the same total as the spot figure. Per-class figures are not recoverable from this source, so any per-class " +
+        "applied to the unverified raw share-count series and spot observation. Historical EV separately requires exact-date, complete compatible quoted-class evidence; " +
+        "a raw class sum does not establish that economic scope. Per-class figures are not recoverable from this source, so any per-class " +
         "analysis is out of reach keylessly.",
       severity: "info",
       attemptedSources: [`edgar:companyfacts dei/${DEI_SHARES_TAG}`],
@@ -1470,6 +1473,8 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       const instrument = classifyInstrument(meta);
       if (instrument.gap !== null) gaps.push(instrument.gap);
       if (instrument.note !== null) notes.push(`profile: ${instrument.note}`);
+      if (classification.sic === 6199) gaps.push({ field: "profile.classification", severity: "warn",
+        reason: "SEC SIC 6199 retained as disclosed; the broad statutory classification does not establish credit-services operations or a validated economic sector. Sector/industry crosswalk and sector ETF withheld. Operating-methodology eligibility remains unresolved; no replacement Technology classification or newly enabled forensic method is inferred.", attemptedSources: ["edgar:submissions/SIC"] });
       // A registrant name in EDGAR's all-caps house style reads poorly in a
       // report; Yahoo's longName is the cased version of the same entity.
       const allCaps = registrant.name === registrant.name.toUpperCase() && /[A-Z]/.test(registrant.name);
@@ -1557,17 +1562,9 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
 
   if (needs("enterpriseValues")) {
     const balanceRows = members.balanceQuarterly.ok ? members.balanceQuarterly.value.data.rows : [];
-    const incomeRows = members.incomeQuarterly.ok ? members.incomeQuarterly.value.data.rows : [];
-    // Every income row's diluted count is on the basis of `basisDay` (EDGAR's
-    // were built on it; a vendor's pre-split row that could not be shown to be
-    // on it had its share fields withheld above). The closes are on the basis
-    // of `eodBasisDay`.
-    const rowBasisGap = basisGap(eodBasisDay, basisDay);
-    const dilutedByDate = new Map<string, unknown>();
-    for (const incomeRow of incomeRows) {
-      const day = isoDay(incomeRow.date);
-      if (day !== null) dilutedByDate.set(day, incomeRow.weightedAverageShsOutDil);
-    }
+    // Historical market cap requires an outstanding point-in-time count on
+    // the balance date with established quoted-class coverage. EPS shares are
+    // duration averages, and a later cover observation cannot fill history.
     const rows: FmpEnterpriseValuesRow[] = [];
     const withheldDates: string[] = [];
     const withheldReasons = new Set<string>();
@@ -1575,19 +1572,26 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       const date = isoDay(balanceRow.date);
       if (date === null) continue;
       const stockPrice = lastCloseOnOrBefore(eodRows, date);
-      const diluted = dilutedByDate.get(date);
       let numberOfShares: number | null = null;
       let shareIssue: string | null = null;
-      if (isFiniteNumber(diluted) && diluted > 0) {
-        numberOfShares = diluted;
-        shareIssue = rowBasisGap;
+      const issuerId = inputs.edgar.cik.ok ? String(inputs.edgar.cik.value.data.cik) : null;
+      const observations = (inputs.historicalEconomicShares ?? []).filter(e => Number(e.issuerId) === Number(issuerId) && e.securityId === inputs.symbol && e.asOf === date);
+      // Historical counts are observations at asOf, available once filed.
+      // The prospective effective interval governs current capitalization;
+      // it must not exclude an exact-date count reported after period end.
+      const compatible = observations.filter(e => e.complete &&
+        e.filed >= e.asOf && e.filed <= inputs.today &&
+        e.sourceHash && e.sourceIds.length > 0 && e.sourceIds.every(Boolean) && e.classes.length === 1 &&
+        e.classes[0]?.classId === inputs.symbol && e.classes[0]?.countBasis === "outstanding" &&
+        e.classes[0]?.economicUnitsPerQuotedShare === 1 && e.classes[0]?.priceBasis === "quoted-market-price" &&
+        isFiniteNumber(e.classes[0]?.shares) && e.classes[0]!.shares > 0);
+      if (compatible.length > 0 && compatible.length === observations.length && compatible.every(e => e.classes[0]!.shares === compatible[0]!.classes[0]!.shares)) {
+        const e = compatible[0]!;
+        const onBasis = countOn({ value: e.classes[0]!.shares, asOf: date, filed: e.filed, pointInTime: true }, eodBasisDay);
+        if ("withheld" in onBasis) shareIssue = onBasis.withheld;
+        else numberOfShares = onBasis.value;
       } else {
-        const point = sharePointOnOrBefore(deiShares, addDays(date, DEI_COVER_LAG_DAYS));
-        if (point !== null) {
-          const onBasis = countOn(point, eodBasisDay);
-          if ("withheld" in onBasis) shareIssue = onBasis.withheld;
-          else numberOfShares = onBasis.value;
-        }
+        shareIssue = "exact-date point-in-time outstanding shares with complete compatible quoted-class scope unavailable; weighted-average EPS shares and later cover counts are ineligible";
       }
       if (shareIssue !== null) {
         withheldDates.push(date);
@@ -1627,7 +1631,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         ["computed:enterprise-values"],
       );
     } else {
-      notes.push(`keyless enterprise values: fallback share counts from the ${seriesBasis}`);
+      notes.push("keyless enterprise values: exact-date point-in-time outstanding shares from complete compatible quoted-class evidence; no EPS weighted shares or later cover counts used");
       members.enterpriseValues = sourced(rows, "computed", ENTERPRISE_VALUES_ENDPOINT, newestDate(rows, inputs.today), fetchedAt);
       record("enterpriseValues", "computed", ENTERPRISE_VALUES_ENDPOINT);
     }

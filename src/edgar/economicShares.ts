@@ -5,6 +5,8 @@ import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 export interface FilingEconomicShares {
   source: { form: string; accession: string; filingDate: string; documentUrl: string; hash: string };
   classes: { classId: string; label: string; shares: number | null; asOf: string; sourceId: string }[];
+  /** Dated source observations are not a complete economic inventory. */
+  observations?: { classId: string; shares: number; asOf: string; contextId: string; sourceId: string }[];
   evidence: EconomicShareEvidence | null;
   reason: string;
   passages: { inventory: string; rights: string | null };
@@ -47,6 +49,29 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
   }
   const shareUnits = new Set([...html.matchAll(/<xbrli:unit\b([^>]*)>([\s\S]*?)<\/xbrli:unit>/gi)]
     .filter(match => /^\s*<xbrli:measure>\s*xbrli:shares\s*<\/xbrli:measure>\s*$/i.test(match[2])).map(match => attr(match[1], "id")));
+  // Preserve independently valid paragraph/cover observations even when the
+  // complete-inventory contract below refuses them. No class sum or rights
+  // inference follows from a count, label, date or word-number transform.
+  const namespace = (prefix: string, uri: RegExp): boolean => {
+    const bindings = [...html.matchAll(new RegExp(`\\bxmlns:${prefix}=["']([^"']+)["']`, "g"))].map(m => m[1]!);
+    return bindings.length > 0 && new Set(bindings).size === 1 && uri.test(bindings[0]!);
+  };
+  const validObservationNamespaces = namespace("dei", /^http:\/\/xbrl.sec.gov\/dei\/20\d{2}$/) &&
+    namespace("xbrli", /^http:\/\/www.xbrl.org\/2003\/instance$/) && namespace("ix", /^http:\/\/www.xbrl.org\/2013\/inlineXBRL$/);
+  const words: Record<string, number> = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  result.observations = [];
+  if (validObservationNamespaces) for (const fact of html.matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/gi)) {
+    if (attr(fact[1], "name") !== "dei:EntityCommonStockSharesOutstanding") continue;
+    const contextId = attr(fact[1], "contextRef"), context = contexts.get(contextId);
+    const raw = htmlToText(fact[2]).trim(), format = attr(fact[1], "format");
+    const word = format === "ixt-sec:numwordsen" && namespace("ixt-sec", /^http:\/\/www.sec.gov\/inlineXBRL\/transformation\/2015-08-31$/) ? words[raw.toLowerCase()] : undefined;
+    const count = word ?? (/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(raw) && ["", "ixt:num-dot-decimal"].includes(format) ? Number(raw.replaceAll(",", "")) : NaN);
+    const duplicateContext = [...html.matchAll(/<xbrli:context\b([^>]*)>/g)].filter(m => attr(m[1]!, "id") === contextId).length !== 1;
+    if (!context || duplicateContext || context.date > identity.filingDate || !shareUnits.has(attr(fact[1], "unitRef")) ||
+      !["", "0"].includes(attr(fact[1], "scale")) || attr(fact[1], "sign") || attr(fact[1], "xsi:nil") || !Number.isSafeInteger(count) || count < 0) continue;
+    result.observations.push({ classId: context.member, shares: count, asOf: context.date, contextId,
+      sourceId: `${identity.documentUrl}#${attr(fact[1], "id") || contextId}` });
+  }
   // Binding to the registered quote class uses the filing's own title/symbol row.
   const tables = [...html.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)];
   const quotedLabels = new Set<string>();

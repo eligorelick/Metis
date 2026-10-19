@@ -1,4 +1,5 @@
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
+import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 /**
  * Stage A composition root: buildDataBundle(symbol) — turns a ticker into the
  * DataBundle everything downstream consumes .
@@ -1223,6 +1224,7 @@ async function buildEdgarBundle(
     : null;
 
   const economicShareInventory: FilingEconomicShares[] = [];
+  const cashInvestment: FilingCashInvestment[] = [];
   let latestTenK: FetchResult<EdgarFiling>;
   let latestTenQ: FetchResult<EdgarFiling>;
   let auditorChange8Ks: FetchResult<EdgarFiling[]>;
@@ -1286,6 +1288,7 @@ async function buildEdgarBundle(
         const html = doc.value.data;
         const t0 = Date.now();
         const parsedDoc = parseDocument(html);
+        cashInvestment.push(parsePrimaryCashInvestment(html, { issuerId: cikRes.value.data.cik10, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, reportDate: filing.reportDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10)));
         economicShareInventory.push(parsePrimaryEconomicShares(html, { issuerId: cikRes.value.data.cik10, securityId: symbol, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10), parsedDoc));
         annualGeography = parseAnnualGeography(html, { cik: cikRes.value.data.cik10, filing, documentUrl: docUrl, fetchedAt: doc.value.fetchedAt, cutoff: nowIso.slice(0, 10) });
         item1a = await runExtraction(
@@ -1382,6 +1385,7 @@ async function buildEdgarBundle(
         const docUrl = doc.value.endpoint;
         // One parse for the MD&A and (D-63) the financial-statement notes.
         const parsedQ = parseDocument(doc.value.data);
+        cashInvestment.push(parsePrimaryCashInvestment(doc.value.data, { issuerId: cikRes.value.data.cik10, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, reportDate: filing.reportDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10)));
         economicShareInventory.push(parsePrimaryEconomicShares(doc.value.data, { issuerId: cikRes.value.data.cik10, securityId: symbol, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10), parsedQ));
         tenQMdna = await runExtraction(
           edgar,
@@ -1485,6 +1489,7 @@ async function buildEdgarBundle(
   return {
     cik: cikRes,
     economicShareInventory,
+    cashInvestment,
     earningsAnnouncements: (await pCompanyEvents).flatMap((event) => event.ok ? [event.value] : []),
     latestTenK,
     latestTenQ,
@@ -2076,6 +2081,7 @@ export async function buildDataBundle(
     let keyless: KeylessOutcome | null = null;
     try {
       keyless = await applyKeylessFallbacks({
+        historicalEconomicShares: economicEvidenceFromInventories(edgarBundle.economicShareInventory ?? []),
         symbol: sym,
         today,
         eodFrom,
@@ -2207,8 +2213,8 @@ export async function buildDataBundle(
 
   if (edgarConfirmedIssuer && edgarBundle.companyFacts.ok) {
     const facts = edgarBundle.companyFacts.value.data;
-    const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle));
-    const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle));
+    const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment);
+    const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment);
     const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt);
     const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt);
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,

@@ -1145,6 +1145,37 @@ describe("runForensics", () => {
     };
   }
 
+  it("keeps SIC 6199 eligibility unresolved throughout notes, manifest and reduced Piotroski signals", () => {
+    const route = { ...generalRoute, evidence: { ...generalRoute.evidence, sector: null, industry: null, sic: "6199" } };
+    const report = runForensics(route, { ...fullInputs(), classification: { sector: null, industry: null, sicCode: "6199" } });
+    expect(report.altman).toBeNull();
+    expect(report.beneish).toBeNull();
+    expect(report.accruals).toBeNull();
+    expect(report.piotroski).not.toBeNull();
+    expect(report.piotroski!.variant).toBe("eligibility-unresolved");
+    expect(report.piotroski!.label).toMatch(/eligibility unresolved/i);
+    for (const model of ["Beneish", "Piotroski", "Accrual"]) {
+      expect(report.notes.find(note => note.startsWith(model))).toMatch(/eligibility unresolved/i);
+    }
+    for (const field of ["forensics.beneishM", "forensics.accrualsRatio", "forensics.piotroski"]) {
+      expect(report.gaps.find(gap => gap.field === field)?.reason).toMatch(/eligibility unresolved/i);
+    }
+    for (const key of ["cfoPositive", "accrualQuality", "liquidityUp", "marginUp"] as const) {
+      expect(report.piotroski!.signals[key].value).toBeNull();
+      expect(report.piotroski!.signals[key].detail).toMatch(/eligibility unresolved/i);
+    }
+    expect(JSON.stringify([report.notes, report.gaps, report.piotroski])).not.toMatch(/financial compan|financial income statement/i);
+    const established = runForensics(route, { ...fullInputs(), classification: { sector: "Financial Services", industry: "Credit Services", sicCode: "6199" } });
+    expect(established.notes.find(note => note.startsWith("Beneish"))).toMatch(/financial company/i);
+    expect(established.piotroski!.score).toBe(report.piotroski!.score);
+    expect(established.piotroski!.outOf).toBe(report.piotroski!.outOf);
+    const twoYears = fullInputs();
+    twoYears.balance = twoYears.balance.slice(0, 2);
+    const reduced = runForensics(route, twoYears);
+    expect(reduced.piotroski!.notes.join(" ")).not.toMatch(/financial variant|withheld financial signals|issuer is fee-based/i);
+    expect(reduced.piotroski!.variant).toBe("eligibility-unresolved");
+  });
+
   it("bank route: Altman/Beneish/accruals null with explanatory notes; Piotroski computed", () => {
     const report = runForensics(bankRoute, fullInputs());
     expect(report.altman).toBeNull();
@@ -1156,6 +1187,9 @@ describe("runForensics", () => {
     expect(report.notes.some((n) => n.includes("Accrual") && n.includes("suppressed"))).toBe(true);
     expect(report.notes.some((n) => n.includes("Piotroski") && n.includes("non-financial"))).toBe(true);
     expect(isFinancialForensicsSuppressed(bankRoute)).toBe(true);
+    expect(report.piotroski!.variant).toBe("financial");
+    expect(report.piotroski!.signals.cfoPositive.detail).toMatch(/financial company/);
+    expect(report.notes.join(" ")).not.toMatch(/eligibility unresolved/i);
   });
 
   it("does not print the private computation's own notes twice when Z′ stands in on a currency mismatch", () => {
