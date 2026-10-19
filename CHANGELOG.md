@@ -19,6 +19,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Proposed source-bound issuer reconciliation (2026-10-19)
 
+PR37 review follow-up expands ingestion to retain source/value-distinct parsed reconciliation and issuer FCF observations from both release and commentary (`current-reports-1.2.1`). Conflicting quarterly selections and non-common FCF definitions are withheld; source-scoped reader keys stay stable through reorder/replacement. This is more than the original presentation-only scope: newly collected facts and context can differ. Saved reports/inputs and scoring/valuation formulas remain unchanged. Independent re-review precedes updating the PR or resolving its discussions.
+
 - Keep reconciliation observations with their exact supplying document, period and unit. Withhold derived EPS differences for ambiguous, unknown or nonfinite operands; retain the underlying observations and issuer basis note.
 - Label the rounded per-share arithmetic as a reported EPS difference, without implying independently normalized earnings or an item-level tax allocation. Join issuer FCF only within the exact source and period, without implying available funding or discretionary cash.
 - Report spec advances to 1.30.2; payload, pipeline and Stage B analytical conventions are unchanged. The broader normalized-earnings, funding/reinvestment and longitudinal-thesis contracts remain separate. See the [research and bounded implementation record](docs/audit/2026-10-19-phase-two-evidence-foundations.md). Full gates and independent review precede publication.

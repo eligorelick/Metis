@@ -305,10 +305,28 @@ function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRe
  */
 function quarterReconciliation(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, metric: ReconciliationFact["metric"], periodEnd: string): number | null {
   for (const release of releases) {
-    const fact = (release.reconciliation ?? []).find((f) => f.metric === metric && f.months === 3 && daysApart(f.periodEnd, periodEnd) <= 3);
-    if (fact && releaseCurrencyMatches(bundle, release, fact.symbol, currency)) return fact.value;
+    const facts = (release.reconciliation ?? []).filter(f => f.metric === metric && f.months === 3 && daysApart(f.periodEnd, periodEnd) <= 3 && releaseCurrencyMatches(bundle, release, f.symbol, currency));
+    if (facts.length === 0) continue;
+    const unit = metric.endsWith("eps") ? "currency-per-share" : "currency";
+    const validDay = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isFinite(Date.parse(d)) && new Date(d).toISOString().slice(0, 10) === d;
+    if (facts.some(f => f.unit !== unit || !Number.isFinite(f.value) || !validDay(f.periodEnd) ||
+      !validDay(f.source?.filingDate ?? release.filingDate) || f.periodEnd > (f.source?.filingDate ?? release.filingDate))) return null;
+    const values = [...new Set(facts.map(f => f.value))];
+    return values.length === 1 ? values[0]! : null;
   }
   return null;
+}
+
+/** Canonical mapped fields and full source identity; distinct values remain separate. */
+function distinctDisclosureObservations<T extends { source: FilingRef }>(facts: T[]): T[] {
+  const seen = new Set<string>();
+  return facts.filter(f => {
+    const s = f.source;
+    const key = JSON.stringify({ ...f, source: [s.form, s.accession, s.filingDate, s.exhibit, s.url] });
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRecord[], currency: string | null, notes: string[]): FilingDisclosures["quarterlyTrend"] {
@@ -455,11 +473,13 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     if (sentence.length <= 500) notes.push(`Issuer production milestone (8-K EX-99.1 ${latest!.accession}, filed ${latest!.filingDate}): ${sentence}`);
   }
   const freeCashFlow = latest
-    ? latest.freeCashFlow
+    ? distinctDisclosureObservations(latest.freeCashFlow
       .filter((f) => releaseCurrencyMatches(bundle, latest, f.symbol, currency))
-      .filter((f, i, all) => all.findIndex((g) => g.periodEnd === f.periodEnd && g.months === f.months) === i)
-      .map((f) => ({ periodEnd: f.periodEnd, months: f.months, value: f.value, source: earningsFactRef(latest, f.source) }))
+      .map((f) => ({ periodEnd: f.periodEnd, months: f.months, value: f.value, source: earningsFactRef(latest, f.source) })))
     : [];
+  const fcfDefinitions = new Set((latest?.freeCashFlow ?? [])
+    .filter(f => releaseCurrencyMatches(bundle, latest!, f.symbol, currency)).map(f => f.definition));
+  if (fcfDefinitions.size > 1) notes.push("Retained issuer FCF observations do not share a single definition; no common definition is asserted. Consult their supplying documents.");
   const capital = latest?.capitalReturn;
   const capitalCurrency = (symbol: string | undefined, release = latest): boolean => release !== undefined && releaseCurrencyMatches(bundle, release, symbol ?? "$", currency);
   let capitalReturn: FilingDisclosures["capitalReturn"] = latest && capital && currency !== null &&
@@ -577,8 +597,8 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
   // D-63: the latest release's reconciliation rows and the commitments and
   // guarantees tables, in the statements' currency only.
   const reconciliation: NonNullable<FilingDisclosures["reconciliation"]> = latest
-    ? (latest.reconciliation ?? []).filter((f) => releaseCurrencyMatches(bundle, latest, f.symbol, currency))
-      .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: earningsFactRef(latest, f.source) }))
+    ? distinctDisclosureObservations((latest.reconciliation ?? []).filter((f) => releaseCurrencyMatches(bundle, latest, f.symbol, currency))
+      .map((f) => ({ metric: f.metric, periodEnd: f.periodEnd, months: f.months, value: f.value, unit: f.unit, source: earningsFactRef(latest, f.source) })))
     : [];
   const commitmentRelease = releases.find((r) => (r.commitments ?? []).length > 0);
   const validTimingDay = (value: string | null): value is string => value !== null &&
@@ -708,7 +728,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     guidance,
     guidanceChecks: guidanceChecks(bundle, releases, currency),
     freeCashFlow,
-    freeCashFlowDefinition: latest?.freeCashFlow[0]?.definition ?? null,
+    freeCashFlowDefinition: fcfDefinitions.size === 1 ? [...fcfDefinitions][0] ?? null : null,
     capitalReturn,
     events,
     ...(companyStatements.length === 0 ? {} : { companyStatements }),

@@ -25,6 +25,14 @@ const adjustments = (d: FilingDisclosures) => tables(d).flatMap(t => t.rows).fil
 const text = (d: FilingDisclosures) => JSON.stringify(tables(d));
 
 describe("source-bound issuer reconciliation presentation", () => {
+  it("keeps table identity bound to source across observation reorder and value replacement", () => {
+    const facts = [fact("gaap-diluted-eps", 2), fact("gaap-diluted-eps", 7, commentary)];
+    const initial = tables(disclosure(facts));
+    expect(initial.every(t => !!t.key)).toBe(true);
+    expect(new Set(initial.map(t => t.key)).size).toBe(initial.length);
+    expect(tables(disclosure([...facts].reverse())).map(t => t.key)).toEqual(initial.map(t => t.key).reverse());
+    expect(tables(disclosure(facts.map(f => ({ ...f, value: f.value + 1 })))).map(t => t.key)).toEqual(initial.map(t => t.key));
+  });
   it("does not fabricate a per-share bridge across two supplying exhibits", () => {
     const d = disclosure([fact("gaap-diluted-eps", 2), fact("non-gaap-diluted-eps", 5, commentary)]);
     const original = structuredClone(d);

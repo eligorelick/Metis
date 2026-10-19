@@ -53,6 +53,7 @@ function sourceTables(d: FilingDisclosures, facts: Fact[]): ReportAuditTable[] {
   ].filter(Boolean).join(" ");
   const sourceNote = `Source: ${source.form}${source.exhibit ? ` ${source.exhibit}` : ""} filed ${source.filingDate} (${source.accession}).${source.url ? ` Document: ${source.url}.` : ""}`;
   const table = (heading: string, rows: string[][], note: string): ReportAuditTable | null => rows.length === 0 ? null : {
+    key: JSON.stringify([sourceKey(source), heading]),
     heading,
     headers: ["Line", ...columns.map(c => `${c.months === 3 ? "Quarter" : `${c.months} months`} ended ${c.periodEnd}`)],
     rows,
@@ -83,6 +84,7 @@ function sourceTables(d: FilingDisclosures, facts: Fact[]): ReportAuditTable[] {
   ].filter((t): t is ReportAuditTable => t !== null);
   const invalid = facts.filter(f => f.unit !== unitFor(f.metric) || !Number.isFinite(f.value));
   if (invalid.length > 0) result.push({
+    key: JSON.stringify([sourceKey(source), "unqualified-observations"]),
     heading: "Unqualified issuer reconciliation observations",
     headers: ["Line", "Period ended", "Months", "Observed unit", "Observed value"],
     rows: invalid.map(f => [LABELS[f.metric], f.periodEnd, String(f.months), f.unit, Number.isFinite(f.value) ? money(f.value, f.unit) : "unavailable"]),

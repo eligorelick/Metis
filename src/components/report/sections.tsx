@@ -336,7 +336,7 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
     if (!t) return null;
     const pruned = pruneTable(t.headers, t.rows);
     if (!pruned) return null;
-    return <SubBlock key={t.heading} label={t.heading}>
+    return <SubBlock key={"key" in t && t.key ? t.key : t.heading} label={t.heading}>
       <AuditTable headers={pruned.headers} rows={pruned.rows.map((cells, index) => ({ key: `${t.heading}:${index}`, cells }))}/>
       {t.note && <p className="mt-2 text-[11px] leading-snug text-muted">{t.note}</p>}
     </SubBlock>;

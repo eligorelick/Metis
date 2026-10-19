@@ -47,7 +47,7 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-export const CURRENT_REPORTS_VERSION = "current-reports-1.2.0" as const;
+export const CURRENT_REPORTS_VERSION = "current-reports-1.2.1" as const;
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;
@@ -219,9 +219,9 @@ export function buildEarningsReleaseRecord(args: {
     reported: reported.fiscal === null && commentaryText !== null ? { ...parseReportedPeriod(commentaryText), periodEnd: reported.periodEnd ?? parseReportedPeriod(commentaryText).periodEnd } : reported,
     guidance,
     guidanceExhibit: guidance === null || guidance.items.length === 0 ? null : guidance === fromRelease ? "EX-99.1" : "EX-99.2",
-    freeCashFlow: fcfRelease.length > 0 || commentaryText === null ? fcfRelease : parseIssuerFreeCashFlow(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") })),
+    freeCashFlow: mergeEarningsObservations(fcfRelease, commentaryText === null ? [] : parseIssuerFreeCashFlow(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),
     capitalReturn: parseCapitalReturn(releaseText),
-    reconciliation: mergeReconciliation(parseReconciliation(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") })),
+    reconciliation: mergeEarningsObservations(parseReconciliation(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") })),
       commentaryText === null ? [] : parseReconciliation(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),
     ...commitmentsOf(releaseText, commentaryText, source),
     nonGaapBasisNote: parseNonGaapBasisNote(releaseText) ?? (commentaryText === null ? null : parseNonGaapBasisNote(commentaryText)),
@@ -243,12 +243,18 @@ function commitmentsOf(releaseText: string, commentaryText: string | null, sourc
     commitmentsExhibit: fromRelease.some(supported) ? "EX-99.1" : fromCommentary.length > 0 ? "EX-99.2" : fromRelease.length > 0 ? "EX-99.1" : null };
 }
 
-function mergeReconciliation(first: SourcedEarningsFact<ReconciliationFact>[], second: SourcedEarningsFact<ReconciliationFact>[]): SourcedEarningsFact<ReconciliationFact>[] {
-  const out = [...first];
-  for (const fact of second) {
-    if (!out.some((f) => f.metric === fact.metric && f.periodEnd === fact.periodEnd && f.months === fact.months)) out.push(fact);
-  }
-  return out;
+/** Only identical observations collapse; neither document nor conflicting value wins. */
+function mergeEarningsObservations<T extends SourcedEarningsFact<ReconciliationFact | FreeCashFlowFact>>(first: T[], second: T[]): T[] {
+  const seen = new Set<string>();
+  return [...first, ...second].filter(f => {
+    const s = f.source;
+    const key = JSON.stringify([f.periodEnd, f.months, f.value, f.symbol,
+      "metric" in f ? f.metric : null, "unit" in f ? f.unit : null, "definition" in f ? f.definition : null,
+      s?.form, s?.accession, s?.filingDate, s?.exhibit, s?.url]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** One material-event 8-K from its primary document's plain text. Pure. */
