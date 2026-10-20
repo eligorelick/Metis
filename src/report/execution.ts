@@ -85,6 +85,24 @@ export interface ExecutionMetadataEntry {
  * both the per-pass audit note below and the report's evidence-scope line
  * (AMZN audit 2026-10-20 finding 17).
  */
+/**
+ * The run-details sentence for a pass attempt that produced no usable
+ * analysis; data-only reports list such attempts with their usage.
+ */
+export const FAILED_PASS_NOTE = "no usable analysis was completed";
+export function failedPassNote(step: string): string {
+  return `${step}: ${FAILED_PASS_NOTE}; the execution and usage above describe the failed attempt.`;
+}
+
+/**
+ * Whether an execution entry is a pass that ran to a usable analysis: not a
+ * failed attempt (its note says so, in reports stored before and after this
+ * check) and not a model the registry refused, which was never called.
+ */
+export function executionCompleted(entry: Pick<ExecutionMetadataEntry, "effectiveModel" | "adjustments" | "note">): boolean {
+  return entry.effectiveModel !== "none" && !entry.adjustments.includes("model-rejected") && !(entry.note ?? "").includes(FAILED_PASS_NOTE);
+}
+
 export function subscriptionExecution(entry: Pick<ExecutionMetadataEntry, "requestedModel" | "effectiveModel">): ReturnType<typeof parseSubscriptionModel> {
   return parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel);
 }

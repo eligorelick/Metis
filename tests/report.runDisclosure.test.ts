@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
-import { buildExecutionMetadataEntry } from "@/report/execution";
+import { buildExecutionMetadataEntry, failedPassNote } from "@/report/execution";
 import { evidenceScopeSummary, trustHeadline, trustRows } from "@/report/presentation";
 import type { Report } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -46,6 +46,21 @@ describe("payload-only evidence disclosure (AMZN audit 2026-10-20 finding 17)", 
     expect(header).toContain("<td>Evidence</td>");
     expect(header).toContain(SCOPE);
     expect(renderToStaticMarkup(createElement(ReportView, { report: r }))).toContain(SCOPE);
+  });
+
+  // Codex review of PR #41: a data-only report after failed plan passes
+  // lists the failed attempts in its run details; none of them is a pass
+  // that used the supplied evidence.
+  it("leaves out passes that failed or were never sent", () => {
+    const r = planReport();
+    const bear = r.meta.execution!.find((e) => e.step === "bear")!;
+    bear.note = `${bear.note} ${failedPassNote("bear")}`;
+    expect(evidenceScopeSummary(r)).toBe("bull and judge used only the supplied evidence (payload-only; no web search)");
+    r.meta.execution = (["bull", "bear", "synthesize"] as const).map((step) => buildExecutionMetadataEntry({
+      step, requestedModel: "chatgpt/gpt-6.1-sol", effectiveModel: "none", requestedEffort: "xhigh", fallbackUsed: false,
+      rejectedReason: "the stored model id is not accepted",
+    }));
+    expect(evidenceScopeSummary(r)).toBeNull();
   });
 
   it("is absent when no pass ran on a plan allowance", () => {

@@ -12,7 +12,7 @@
  */
 
 import { parseSubscriptionModel } from "@/ai/contracts";
-import { subscriptionExecution } from "@/report/execution";
+import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
@@ -1289,7 +1289,11 @@ export function runSummary(report: Pick<Report, "meta">): string {
  */
 export function evidenceScopeSummary(report: Pick<Report, "meta">): string | null {
   const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
-  const steps = modelPasses(report.meta.execution).filter((entry) => subscriptionExecution(entry) !== null).map((entry) => stepName(entry.step));
+  // Codex review of PR #41: failed and never-sent attempts are listed in a
+  // data-only report's run details, but they used no evidence at all.
+  const steps = modelPasses(report.meta.execution)
+    .filter((entry) => executionCompleted(entry) && subscriptionExecution(entry) !== null)
+    .map((entry) => stepName(entry.step));
   if (steps.length === 0) return null;
   const list = steps.length <= 1 ? steps.join("") : `${steps.slice(0, -1).join(", ")} and ${steps[steps.length - 1]}`;
   return `${list} used only the supplied evidence (payload-only; no web search)`;
