@@ -151,6 +151,24 @@ describe("bounded material filing evidence", () => {
       "The Phase 3 trial is scheduled to begin in February 2027."].join(" ");
     expect(selectMaterialEvidence(original, 4_000, "notes").text).not.toContain("Phase 3 trial");
   });
+  // Independent review of the deferred AMZN fixes: the pending-case clauses
+  // also kept clinical and commercial trials, a company's own divestitures,
+  // hypothetical antitrust claims and "reports filed by us with the SEC".
+  it.each([
+    "Our Phase 2b trial of XR-12 is scheduled to begin in March 2027.",
+    "The Phase IIb trial is scheduled for the second half of 2027.",
+    "Our Phase 1/2 trial is set to begin in early 2027.",
+    "The trial of our lead product candidate is scheduled to begin in 2027.",
+    "Our free trial period is set for 30 days.",
+    "The Company is seeking divestitures of certain non-core businesses.",
+    "We may be subject to claims alleging that our pricing practices are anticompetitive.",
+    "Additional information is included in reports filed by us with the Securities and Exchange Commission.",
+  ])("does not read %j as a pending case", (sentence) => {
+    for (const profile of ["notes", "risk"] as const) {
+      const original = [...Array.from({ length: 300 }, (_, i) => `Collaboration revenue of $ ${i + 3}.1 billion and milestone payments of $ 0.${i % 9} billion were recognized under license agreements.`), sentence].join(" ");
+      expect(selectMaterialEvidence(original, 4_000, profile).text).not.toContain(sentence);
+    }
+  });
 
   it.each([0, 1, 30, 210, 500])("does not invent retained evidence in a %i-character budget", (budget) => {
     const original = longMdna();

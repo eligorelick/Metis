@@ -142,15 +142,27 @@ const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|compla
  * has been certified" reached the passes.
  */
 const AGENCY = String.raw`(?:Federal Trade Commission|FTC|Department of Justice|DOJ|Attorneys? General|European Commission|Competition and Markets Authority|Securities and Exchange Commission|Competition Authority)`;
-const MATERIAL_PROCEEDING = new RegExp([
-  String.raw`\b${AGENCY}\b[^.]{0,120}?\b(?:sued|(?:filed|brought|commenced)\s+(?:(?:a|an|the)\s+)?(?:cases?|complaints?|lawsuits?|suits?|actions?|charges|proceedings?))\b`,
-  String.raw`\b(?:filed|brought|commenced)\s+by\b[^.]{0,120}?\b${AGENCY}\b`,
-  String.raw`\balleg(?:e|es|ed|ing|ations?)\b[^.]{0,200}?\b(?:monopoli[sz](?:ation|e|ed|ing)|antitrust|abuse of (?:a )?dominan(?:ce|t position)|anticompetitive)\b`,
-  String.raw`\bseek(?:s|ing)?\b[^.]{0,80}?\b(?:billions? of dollars|structural relief|divestitures?)\b`,
+const PROCEEDING_NOUN = String.raw`(?:cases?|complaints?|lawsuits?|suits?|actions?|charges|proceedings?)`;
+const GOVERNMENT_CASE = new RegExp([
+  String.raw`\b${AGENCY}\b[^.]{0,120}?\b(?:sued|(?:filed|brought|commenced)\s+(?:(?:a|an|the)\s+)?${PROCEEDING_NOUN})\b`,
+  String.raw`\b${PROCEEDING_NOUN}\s+(?:(?:was|were|has been|have been)\s+)?(?:filed|brought|commenced)\s+by\b[^.]{0,120}?\b${AGENCY}\b`,
   String.raw`\b(?:impos(?:es|ed)|levied)\s+(?:remedial actions and\s+)?(?:a\s+)?fines?\s+of\b`,
-  String.raw`(?<!\b(?:clinical|Phase (?:[1-3]|I{1,3})|pivotal|registrational)\s)\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:begin|start|commence)\s+)?(?:for|in|on)\b`,
 ].join("|"), "i");
-const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage) || MATERIAL_PROCEEDING.test(passage);
+const ALLEGED_ANTITRUST = /\balleg(?:e|es|ed|ing|ations?)\b[^.]{0,200}?\b(?:monopoli[sz](?:ation|e|ed|ing)|antitrust|abuse of (?:a )?dominan(?:ce|t position)|anticompetitive)\b/i;
+const MATERIAL_RELIEF = /\bseek(?:s|ing)?\b[^.]{0,80}?\b(?:billions? of dollars|structural relief|divestitures?)\b/i;
+const SCHEDULED_TRIAL = /\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:begin|start|commence)\s+)?(?:for|in|on)\b/i;
+// Independent review of these fixes: relief and a trial date count only
+// beside a legal proceeding, a trial never when it is clinical or commercial,
+// and an antitrust allegation never when it is only a risk the issuer may face.
+const LEGAL_CONTEXT = /\b(?:court|jury|judge|plaintiffs?|complaints?|lawsuits?|suits?|litigation|proceedings?|cases?|antitrust|Attorneys? General|Commission|regulators?)\b/i;
+const NON_LEGAL_TRIAL = /\b(?:clinical|Phase\s*(?:[0-9]|I{1,3}V?|IV)\S*|pivotal|registrational|patients?|enrol\w*|dosing|endpoints?|FDA|stud(?:y|ies)|product candidates?|free trial|trial period)\b/i;
+const HYPOTHETICAL_CLAIM = /^\s*(?:if|should)\b|\b(?:may|could|might|would)\s+(?:be|become|face|incur|result)\b/i;
+const materialProceeding = (passage: string): boolean =>
+  GOVERNMENT_CASE.test(passage)
+  || (ALLEGED_ANTITRUST.test(passage) && !HYPOTHETICAL_CLAIM.test(passage))
+  || (MATERIAL_RELIEF.test(passage) && LEGAL_CONTEXT.test(passage))
+  || (SCHEDULED_TRIAL.test(passage) && LEGAL_CONTEXT.test(passage) && !NON_LEGAL_TRIAL.test(passage));
+const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage) || materialProceeding(passage);
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
   // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
