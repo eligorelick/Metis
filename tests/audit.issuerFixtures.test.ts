@@ -162,3 +162,42 @@ describe("a missing operating-lease maturity does not blank debt (audit FCX-1)",
     expect(row.netDebt).toBeNull();
   });
 });
+
+describe("zero noncontrolling interest shown by the filing (audit SNOW-2)", () => {
+  const SNOW_LATEST = "2026-07-31";
+  const durations = (gaap: Record<string, { units: Record<string, unknown[]> }>, tag: string) =>
+    gaap[tag]!.units.USD as { end: string; start?: string; val: number }[];
+
+  it("SNOW: parent equity is the NCI-inclusive total once its subsidiary is gone, and the inference is disclosed", () => {
+    const row = latestBalance("SNOW");
+    expect(row.date).toBe(SNOW_LATEST);
+    expect(row.totalEquity).toBe(2_149_664_000);
+    expect(row.totalStockholdersEquity).toBe(2_149_664_000);
+    expect(row.minorityInterest).toBe(0);
+    const disclosed = statements("SNOW").balanceQuarterly.substitutions
+      .filter((sub) => sub.periods.includes(SNOW_LATEST)).map((sub) => `${sub.field}: ${sub.text}`);
+    expect(disclosed.some((text) => /^totalStockholdersEquity: noncontrolling interest inferred zero/.test(text))).toBe(true);
+  });
+
+  it("does not infer when the period's NCI income is not zero", () => {
+    const row = latestOf((gaap) => {
+      for (const fact of durations(gaap, "NetIncomeLossAttributableToNoncontrollingInterest")) if (fact.end === SNOW_LATEST) fact.val = 1_000_000;
+    }, "SNOW");
+    expect(row.totalStockholdersEquity).toBeNull();
+    expect(row.minorityInterest).toBeNull();
+  });
+
+  it("does not infer when the latest earlier NCI balance was not zero", () => {
+    const row = latestOf((gaap) => {
+      for (const fact of durations(gaap, "MinorityInterest")) if (fact.end === "2026-01-31") fact.val = 5_000_000;
+    }, "SNOW");
+    expect(row.totalStockholdersEquity).toBeNull();
+  });
+
+  it("does not infer beside temporary equity", () => {
+    const row = latestOf((gaap) => {
+      gaap.RedeemableNoncontrollingInterestEquityCarryingAmount = { units: { USD: [{ ...point(gaap, "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", SNOW_LATEST), val: 40_000_000 }] } };
+    }, "SNOW");
+    expect(row.totalStockholdersEquity).toBeNull();
+  });
+});

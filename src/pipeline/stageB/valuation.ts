@@ -3133,9 +3133,22 @@ function unknownNoncontrollingAllocation(balance: { totalEquity?: number | null;
     Math.abs(balance.totalEquity - balance.totalStockholdersEquity) > Math.max(1, Math.abs(balance.totalEquity) * 1e-10);
 }
 
+/**
+ * Known NCI at or below this share of consolidated equity cannot move a
+ * parent-common cash multiple. Without the floor, $5-7M of NCI against $2.4-3.0bn
+ * of equity withheld P/FCF and its whole history (audit SNOW-2).
+ */
+const IMMATERIAL_NCI_SHARE_OF_EQUITY = 0.01;
+
+function immaterialNoncontrollingInterest(row: { totalEquity?: number | null; minorityInterest?: number | null } | null): boolean {
+  return isNum(row?.minorityInterest) && isNum(row?.totalEquity) && row.totalEquity > 0 &&
+    Math.abs(row.minorityInterest) <= row.totalEquity * IMMATERIAL_NCI_SHARE_OF_EQUITY;
+}
+
 function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
-  return unknownNoncontrollingAllocation(row) || (isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
-    (isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
+  const nciImmaterial = immaterialNoncontrollingInterest(row);
+  return unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
+    (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
     (isNum(row?.preferredDividendsPaid) && row.preferredDividendsPaid !== 0);
 }
@@ -3470,7 +3483,7 @@ export function multiplesFramework(
   const cashStart = /^\d{4}-\d{2}-\d{2}$/.test(cashEnd) ? `${Number(cashEnd.slice(0, 4)) - 1}${cashEnd.slice(4)}` : "";
   const currentCashRows = (inputs.quarterlyFundamentals ?? []).filter(row => cashStart && row.date > cashStart && row.date <= cashEnd);
   const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership(bal)) ||
-    (isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
+    (!immaterialNoncontrollingInterest(bal) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
     (isNum(inc?.preferredDividendsPaid) && inc.preferredDividendsPaid !== 0) || currentCashRows.some(unresolvedCashOwnership);
   const parentFcfScope = unresolvedParentFcf
     ? "Parent-common cash-flow attribution unresolved: the numerator is parent-common capitalization and the denominator is consolidated operating cash flow less capital expenditure before SBC. Retained disclosures do not allocate that cash flow among parent common holders, noncontrolling interests or preferred claims. P/FCF, its own-history rank and peer comparison are withheld as parent-common valuation measures."
@@ -4904,7 +4917,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   }
 
   if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(inputs.multiples.balance)) && inputs.dcfInputs !== null) {
-    const reason = "Consolidated equity differs from parent equity, establishing outside ownership, but its NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
+    const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };

@@ -1844,6 +1844,8 @@ function sumAnyValues(parts: [string, number | null][], notes: NoteSink, label: 
 interface ComputeContext {
   resolved: ReadonlyMap<string, Resolved>;
   temporaryEquityDisclosed?: boolean;
+  /** The filing shows zero noncontrolling interest here without tagging it (see {@link inferredZeroNciPeriods}). */
+  nciInferredZero?: boolean;
   /** The value of one money tag at this period, or null. */
   money(tag: string): number | null;
 }
@@ -1938,11 +1940,16 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     for (const field of ["cashAndShortTermInvestments", "netDebt"]) notes.withhold(field, ctx, reason);
     notes.add(`cashAndShortTermInvestments ${ctx}: ${reason}`);
   }
+  const hasTemporaryEquity = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"]
+    .some(field => v[field] != null) || cc.temporaryEquityDisclosed === true;
+  if (cc.nciInferredZero === true && !hasTemporaryEquity && v.totalStockholdersEquity == null && v.minorityInterest == null && v.totalEquity != null) {
+    v.minorityInterest = 0;
+    v.totalStockholdersEquity = v.totalEquity;
+    for (const field of ["minorityInterest", "totalStockholdersEquity"]) notes.substitute(field, ctx, NCI_INFERRED_ZERO_DISCLOSURE);
+  }
   // `totalEquity` deliberately stays strict: `validate.ts` and `forensics.ts`
   // both fall back to `totalStockholdersEquity`, so nothing is suppressed.
   v.totalEquity ??= add(v.totalStockholdersEquity ?? null, v.minorityInterest ?? null);
-  const hasTemporaryEquity = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"]
-    .some(field => v[field] != null) || cc.temporaryEquityDisclosed === true;
   // A - permanent equity includes mezzanine capital. Do not relabel it as
   // liabilities when a temporary category is disclosed but its full scope may
   // be unknown. Only a directly filed liability total is usable in that case.
@@ -2198,11 +2205,55 @@ interface PeriodSlot {
 interface BuildState {
   filesTwentyF: boolean;
   temporaryEquityPeriods: ReadonlySet<string>;
+  nciZeroPeriods: ReadonlySet<string>;
   balanceRefusals: ReadonlyMap<string, string>;
 }
 
 const TEMPORARY_EQUITY_FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"] as const;
 const TEMPORARY_EQUITY_TAGS = new Set(TEMPORARY_EQUITY_FIELDS.flatMap(field => tagsFor(field)));
+
+const NCI_INFERRED_ZERO_DISCLOSURE =
+  "noncontrolling interest inferred zero: the filer tags only equity including noncontrolling interest here, reports zero net income attributable to noncontrolling interest for the period ending here, and its latest earlier noncontrolling-interest balance was zero; parent equity is that total";
+/** How far back the zero noncontrolling-interest balance an inference rests on may lie. */
+const NCI_PRIOR_ZERO_MAX_DAYS = 400;
+
+/**
+ * Balance dates whose filing shows zero noncontrolling interest without tagging
+ * it (audit SNOW-2). A filer that deconsolidates its last partly owned
+ * subsidiary often stops tagging `StockholdersEquity` and `MinorityInterest`
+ * and keeps only the NCI-inclusive total. Treating that as unknown outside
+ * ownership withheld every EV multiple. NCI is inferred zero only when, at
+ * that date, no NCI balance is tagged, every net income attributable to NCI
+ * for a period ending there is explicitly 0, and the latest earlier NCI
+ * balance, within about a year, was 0. Temporary equity still refuses it in
+ * {@link computeBalance}.
+ */
+function inferredZeroNciPeriods(facts: CompanyFacts, asOf: string): Set<string> {
+  const day = asOf.slice(0, 10);
+  const points = (tags: readonly string[], instant: boolean): FactPoint[] => tags.flatMap((tag) => {
+    const raw = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+    if (!raw.success) return [];
+    return Object.values(raw.data.units).flat().flatMap((input): FactPoint[] => {
+      if (input === null || typeof input !== "object") return [];
+      const p = input as Partial<FactPoint>;
+      return typeof p.end === "string" && typeof p.filed === "string" && typeof p.form === "string" && typeof p.val === "number" &&
+        Number.isFinite(p.val) && CORE_FACT_FORMS.has(p.form) && p.filed <= day && p.end <= day && (p.start === undefined) === instant ? [p as FactPoint] : [];
+    });
+  });
+  const balances = points(tagsFor("minorityInterest"), true);
+  const income = points(tagsFor("netIncomeAttributableToNoncontrollingInterest"), false);
+  const out = new Set<string>();
+  for (const end of new Set(income.map((p) => p.end))) {
+    const ending = income.filter((p) => p.end === end);
+    if (ending.some((p) => p.val !== 0)) continue;
+    if (balances.some((p) => withinDays(p.end, end, TOLERANCE_DAYS))) continue;
+    const prior = balances.filter((p) => p.end < end && withinDays(p.end, end, NCI_PRIOR_ZERO_MAX_DAYS));
+    if (prior.length === 0) continue;
+    const latest = prior.reduce((a, b) => (b.end > a.end ? b : a)).end;
+    if (prior.filter((p) => p.end === latest).every((p) => p.val === 0)) out.add(end);
+  }
+  return out;
+}
 
 /** Admission guard for these newly used balance categories, before the general
  * index's same-version first-wins dedup can hide contradictory amounts. Raw
@@ -2392,6 +2443,7 @@ function buildStatementRows<TRow>(
     def.compute(values, notes, ctxLabel, {
       resolved: resolutions,
       temporaryEquityDisclosed: [...state.temporaryEquityPeriods].some(end => withinDays(end, slot.date, TOLERANCE_DAYS)),
+      nciInferredZero: [...state.nciZeroPeriods].some(end => withinDays(end, slot.date, TOLERANCE_DAYS)),
       money: (tag) => {
         const r = sameRowEvidence(tag, "money");
         return r === null ? null : tidy(r.value, MONEY_DECIMALS);
@@ -2428,6 +2480,10 @@ function buildStatementRows<TRow>(
     }
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
+    }
+    // Parent equity inferred from an NCI-inclusive total is that total's fact.
+    if (def.statement === "balance" && values.totalStockholdersEquity != null && !resolutions.has("totalStockholdersEquity") && fieldProvenance.totalEquity) {
+      fieldProvenance.totalStockholdersEquity = fieldProvenance.totalEquity;
     }
     if (def.statement === "income" && values.grossProfit != null && !resolutions.has("grossProfit") && fieldProvenance.revenue && fieldProvenance.costOfRevenue) {
       fieldProvenance.grossProfit = { ...fieldProvenance.revenue, tags: [...fieldProvenance.revenue.tags, ...fieldProvenance.costOfRevenue.tags], calculation: "revenue-minus-cost" };
@@ -2847,7 +2903,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const shareBasisWithheld: ShareBasisWithheld[] = [];
   const factExclusions: StatementFactExclusion[] = [];
   const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
-  const state: BuildState = { filesTwentyF: false, ...balanceEvidenceGuards(facts, opts.asOf) };
+  const state: BuildState = { filesTwentyF: false, ...balanceEvidenceGuards(facts, opts.asOf), nciZeroPeriods: inferredZeroNciPeriods(facts, opts.asOf) };
 
   const allFiscalYears = discoverFiscalYears(index);
   const fiscalYearEnds = new Set(allFiscalYears.map((fy) => fy.end));

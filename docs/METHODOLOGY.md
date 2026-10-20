@@ -833,11 +833,19 @@ EV = market capitalisation
 ```
 
 Preferred and minority interests are claims senior to common equity, so they
-belong in EV; undisclosed means zero, following the provider's convention. The
-DCF's equity bridge is the same identity read backwards: equity value =
-EV − net debt − minority interest − preferred equity + non-operating
+belong in EV. Undisclosed preferred stock is treated as zero. Minority interest
+is not zero-filled. When consolidated equity has no resolved parent/NCI split,
+or differs from parent equity with no NCI figure, the NCI allocation is unknown.
+EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
+NCI is taken as zero only from the filing itself. That happens when the filer
+tags only equity including NCI at that date, its net income attributable to NCI
+for the period ending there is explicitly zero, and its latest earlier NCI
+balance, within about a year, was zero. The row discloses the inference (audit
+SNOW-2). The DCF's equity bridge is the same identity read backwards: equity
+value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
-investments sales-to-capital removed as non-operating (D-65).
+investments sales-to-capital removed as non-operating (D-65). Minority interest
+enters both at its book carrying amount, not a market or earnings-share value.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
@@ -2405,3 +2413,12 @@ renormalises over its remaining signals; it does not fall back to an older
 balance. EV and the EV multiples are withheld with it. The report's Key data box
 then shows EV/EBITDA as "withheld" with the reason "debt incomplete", rather than
 omitting the row as if the input were merely absent (audit O-3).
+
+**Zero and immaterial outside ownership.** A filer that deconsolidates its last
+partly owned subsidiary may stop tagging parent equity and minority interest.
+It then keeps only the total including NCI, and Métis used to read that as
+unknown outside ownership, which withheld every EV multiple. The builder now
+infers zero NCI when the filing shows it (see "EV bridge"). Parent-common P/FCF
+and its history are withheld for outside ownership only when the known NCI
+exceeds 1% of consolidated equity. Below that, NCI cannot move the multiple
+(audit SNOW-2).
