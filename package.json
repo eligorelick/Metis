@@ -37,6 +37,7 @@
       "brace-expansion": "5.0.12"
     },
     "source-map-js": "1.2.2",
+    "vite": "8.3.3",
     "@next/eslint-plugin-next@16.3.8": {
       "fast-glob": "$fast-glob"
     }
