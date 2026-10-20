@@ -1232,8 +1232,12 @@ export const FMP_RATE_LIMIT_WAIT_BUDGET_MS = 90_000;
 export const FMP_RATE_LIMIT_PROBE_MS = 60_000;
 /** Each retry needs a fresh refusal to wait for, so a few attempts exhaust any bound. */
 const RATE_LIMIT_MAX_RETRIES = 3;
-/** Wall-clock end of the rate-limit bound for a retry in flight (`retryRateLimited`). */
-const fmpRetryDeadline = new AsyncLocalStorage<number>();
+/**
+ * Wall-clock end of the rate-limit bound for a retry in flight
+ * (`retryRateLimited`). Pure, so the offline Stage B replay graph, which uses
+ * only this file's helpers, drops it with the client (freeze-stageb-replay).
+ */
+const fmpRetryDeadline = /* @__PURE__ */ new AsyncLocalStorage<number>();
 
 /**
  * True for the gap an FmpQuotaError leaves (its message starts this way), so a
