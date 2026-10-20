@@ -193,6 +193,7 @@ export const RISK_SOURCE_MANIFEST = [
   // Research reliability: eligibility, snapshot comparisons and deterministic
   // report claims carry the same per-file coverage floors as existing logic.
   "src/pipeline/peers.ts",
+  "src/pipeline/peerProviderFailure.ts",
   "src/pipeline/peerFilings.ts",
   "src/report/evaluation.ts",
   "src/report/evaluationCli.ts",

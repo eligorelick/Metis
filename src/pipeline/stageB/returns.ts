@@ -32,6 +32,7 @@ import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
 import { leaseDebtScopeRefusal } from "./leaseScope";
+import { marginalTaxFloor } from "@/pipeline/stageB/valuation";
 
 // ---------------------------------------------------------------------------
 // SPREADS_2026_01 — Damodaran synthetic-rating spread table (verbatim)
@@ -1245,6 +1246,12 @@ export interface RoicYear {
   investedCapitalAvg: number | null;
   /** Effective tax fraction used for NOPAT that year (clamped). */
   taxRateUsed: number | null;
+  /**
+   * AMZN audit 2026-10-20 finding 9: present only when pre-tax income was not
+   * positive while operating income was, so NOPAT was taxed at the D-58
+   * marginal-rate floor instead of an effective rate; says so and why.
+   */
+  taxFloorBasis?: string;
   notes: string[];
 }
 
@@ -1473,6 +1480,12 @@ export interface RoicOptions {
    * removed where the balance sheet discloses it.
    */
   includeOperatingLeases?: boolean;
+  /**
+   * Issuer domicile (ISO 3166 alpha-2) for the D-58 marginal-rate floor that
+   * taxes a pre-tax-loss year's positive operating income (AMZN audit
+   * 2026-10-20 finding 9). Absent ⇒ the global minimum alone.
+   */
+  domicileCountry?: string | null;
 }
 
 /** One fiscal year of return on tangible common equity. */
@@ -1679,7 +1692,14 @@ export function computeRoic(
     if (!isFiniteNumber(row.operatingIncome) && isFiniteNumber(row.ebit)) {
       yearNotes.push("operatingIncome missing — ebit field used");
     }
-    const t = yearTaxRate(row, yearNotes);
+    // AMZN audit 2026-10-20 finding 9: a pre-tax loss beside positive
+    // operating income (Amazon FY2022: a non-operating Rivian mark against
+    // +$12.2B of operating income) has no effective rate, and suppressing the
+    // year let the moat's ROIC floor skip it. NOPAT taxes the operating income
+    // at the D-58 marginal-rate floor the DCF's terminal tax already uses.
+    const pretax = row.incomeBeforeTax;
+    const lossYearFloor = ebit > 0 && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry) : null;
+    const t = lossYearFloor !== null ? lossYearFloor.pct / 100 : yearTaxRate(row, yearNotes);
     if (t === null) {
       gaps.push({
         field: "returns.roic.taxRate",
@@ -1687,6 +1707,13 @@ export function computeRoic(
         severity: "warn",
       });
       continue;
+    }
+    if (lossYearFloor !== null) {
+      const basis = "pre-tax income is not positive while operating income is, so no effective tax rate exists: " +
+        `operating income is taxed at the ${fmt(lossYearFloor.pct)}% marginal-rate floor, ${lossYearFloor.basis} (house rule D-58)`;
+      entry.taxFloorBasis = basis;
+      yearNotes.push(basis);
+      gaps.push({ field: "returns.roic.taxRate", reason: `${row.date}: ${basis}`, severity: "info" });
     }
     const nopat = ebit * (1 - t);
     entry.taxRateUsed = t;

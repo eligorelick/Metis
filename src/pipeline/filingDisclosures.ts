@@ -507,12 +507,18 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     : null;
   // Reuse the strict issuer / primary-document / filing-date admission used
   // for quarterly segment facts. A retained dated MD&A balance is evidence
-  // even when the earnings release did not repeat it.
-  const primary = segmentPrimarySection(bundle);
+  // even when the earnings release did not repeat it. AMZN audit 2026-10-20
+  // finding 20: the notes are read too, and "we have $X remaining under" is
+  // the issuer's sentence as much as "$X remained under". Amazon states its
+  // authorization only in the equity note, so the report showed the $6.1B
+  // from the notes and also said no authorization was read from the filings.
+  const sections = [segmentPrimarySection(bundle), segmentPrimarySection(bundle, "notes")].filter((s): s is NonNullable<typeof s> => s !== null);
+  // Both are sections of the latest 10-Q, so they share its reference and period.
+  const primary = sections[0];
   if (primary && currency !== null && periodReportingCurrency(bundle, primary.data.reportDate) === currency &&
     (capitalReturn?.authorizationRemaining == null || primary.ref.filingDate > capitalReturn.source.filingDate)) {
-    const candidates = splitSentences(primary.data.text).flatMap(sentence => {
-      const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
+    const candidates = sections.flatMap(section => splitSentences(section.data.text)).flatMap(sentence => {
+      const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:(?:we|the company) (?:have|has|had) )?(?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining|remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
       if (!match) return [];
       const stamp = Date.parse(match[1]!);
       const asOf = Number.isFinite(stamp) ? new Date(stamp).toISOString().slice(0,10) : null;
@@ -759,10 +765,15 @@ function sectionRef(res: FetchResult<ExtractedSection> | undefined): { ref: Fili
   return filed === null ? null : { ref: { form: data.form, accession: data.accession, exhibit: null, filingDate: filed, url: data.documentUrl }, data };
 }
 
-/** New segment margins require their own primary-document admission, not the legacy section wrapper. */
-function segmentPrimarySection(bundle: DataBundle): ReturnType<typeof sectionRef> {
+/**
+ * New segment margins require their own primary-document admission, not the
+ * legacy section wrapper. `part` picks Item 2 (MD&A) or Item 1 (the notes) of
+ * the same 10-Q, under the same admission.
+ */
+function segmentPrimarySection(bundle: DataBundle, part: "mdna" | "notes" = "mdna"): ReturnType<typeof sectionRef> {
   const edgar = bundle.edgar;
-  const section = edgar?.tenQMdna;
+  const section = part === "mdna" ? edgar?.tenQMdna : edgar?.tenQNotes;
+  const item = part === "mdna" ? { sectionName: "tenQItem2", label: "Item 2" } : { sectionName: "tenQNotes", label: "Item 1" };
   const filing = edgar?.latestTenQ;
   const identity = edgar?.cik;
   if (!section?.ok || section.value.source !== "edgar" || !filing?.ok || filing.value.source !== "edgar" || !identity?.ok) return null;
@@ -778,11 +789,11 @@ function segmentPrimarySection(bundle: DataBundle): ReturnType<typeof sectionRef
   const cutoff = bundle.builtAt.slice(0, 10);
   if (!validDay(cutoff) || !Number.isFinite(Date.parse(bundle.builtAt)) || !validDay(data.reportDate) || !validDay(data.filingDate) ||
     data.reportDate > data.filingDate || data.filingDate > cutoff || data.form !== metadata.form || !/^10-Q(?:\/A)?$/.test(data.form) ||
-    data.sectionName !== "tenQItem2" || data.reportDate !== metadata.reportDate || data.filingDate !== metadata.filingDate ||
+    data.sectionName !== item.sectionName || data.reportDate !== metadata.reportDate || data.filingDate !== metadata.filingDate ||
     section.value.asOf !== data.reportDate || data.accession !== metadata.accessionNumber || !/^\d{10}-\d{2}-\d{6}$/.test(data.accession) ||
     !/^[a-zA-Z0-9_.-]+\.html?$/i.test(metadata.primaryDocument) || !Number.isFinite(Date.parse(section.value.fetchedAt))) return null;
   const url = `https://www.sec.gov/Archives/edgar/data/${mapping.cik}/${data.accession.replaceAll("-", "")}/${metadata.primaryDocument}`;
-  if (data.documentUrl !== url || (section.value.endpoint !== url && section.value.endpoint !== `${url} (${data.form} Item 2)`) ||
+  if (data.documentUrl !== url || (section.value.endpoint !== url && section.value.endpoint !== `${url} (${data.form} ${item.label})`) ||
     filing.value.endpoint !== `https://data.sec.gov/submissions/CIK${mapping.cik10}.json`) return null;
   return sectionRef(section);
 }

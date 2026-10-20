@@ -1127,3 +1127,122 @@ describe("grading — P/E rank on gain-inflated earnings", () => {
     expect(plain.aspects.valuation.signals?.find((x) => x.id === "peOwnHistoryRank")?.raw).toBe(3);
   });
 });
+
+// AMZN audit 2026-10-20 finding 8: SBC / FCF was left out whenever free cash
+// flow before SBC was zero or negative, so a cash-burning issuer's SBC (Amazon:
+// $19.3B against TTM FCF of -$11.6B) carried no weight at all.
+describe("grading — SBC against zero or negative free cash flow", () => {
+  const sbcSignal = (cap: CapitalResult) =>
+    computeScores(makeInputs({ capital: cap })).aspects.balanceSheet.signals?.find((x) => x.id === "sbcPctOfFcf");
+  const current = (fcfBeforeSbc: number | null, sbc: number | null) => ({
+    industrialMetricsApplicable: true, basis: "ttm", asOf: "2026-06-30", periodStart: "2025-07-01", currency: "USD", fallbackReason: null,
+    netDebtToEbitda: 0.7, netDebt: 700, ebitda: 1000, interestCoverage: 28, ebit: 900, interestExpense: 32,
+    fcfBeforeSbc, netIncome: 1350, fcfConversionBeforeSbc: fcfBeforeSbc === null ? null : fcfBeforeSbc / 1350,
+    sbcPctOfFcf: fcfBeforeSbc !== null && fcfBeforeSbc > 0 && sbc !== null ? (sbc / fcfBeforeSbc) * 100 : null,
+    cashBridge: { stockBasedCompensation: sbc }, debtBridge: {},
+  }) as unknown as CapitalResult["current"];
+
+  it("grades positive SBC against FCF at or below zero at the band floor, and says why", () => {
+    const cap = capital({ sbc: { latest: 50, pctOfRevenue: 3, pctOfFcf: null } });
+    cap.fcf = { ...cap.fcf, latestFcfBeforeSbc: -35 };
+    const signal = sbcSignal(cap);
+    expect(signal?.transformedScore).toBe(10);
+    expect(signal?.fallbackReason).toMatch(/exceeds all of the free cash flow/i);
+    expect(signal?.fallbackReason).toMatch(/band floor/i);
+    cap.fcf = { ...cap.fcf, latestFcfBeforeSbc: 0 };
+    expect(sbcSignal(cap)?.transformedScore).toBe(10);
+  });
+
+  it("grades the current TTM snapshot the same way", () => {
+    const cap = capital({ current: current(-11.625, 19.314) });
+    const signal = sbcSignal(cap);
+    expect(signal?.transformedScore).toBe(10);
+    expect(signal?.operands.find((o) => o.name === "SBC")?.value).toBe(19.314);
+    expect(signal?.operands.find((o) => o.name === "SBC / FCF before SBC, percent")?.value).toBeNull();
+    // A positive FCF is still graded on the measured ratio.
+    expect(sbcSignal(capital({ current: current(100, 20) }))?.raw).toBe(20);
+  });
+
+  it("stays unscored when SBC is unknown or a credit, or FCF is unknown", () => {
+    expect(sbcSignal(capital({ current: current(-11.625, null) }))).toBeUndefined();
+    expect(sbcSignal(capital({ current: current(-11.625, -2) }))).toBeUndefined();
+    expect(sbcSignal(capital({ current: current(null, 19.314) }))).toBeUndefined();
+  });
+});
+
+// AMZN audit 2026-10-20 finding 9: the ROIC floor's label read "Lowest of the
+// annual return observations 2021-12-31 to 2025-12-31" with FY2022 missing.
+describe("grading — ROIC floor window", () => {
+  const floorSignal = (r: RoicResult) => computeScores(makeInputs({ roic: r })).aspects.moat.signals?.find((x) => x.id === "roicFloor");
+  it("names a year in the window that has no return", () => {
+    const signal = floorSignal(roic(22, [20, null, 18, 23, 22]));
+    expect(signal?.raw).toBe(18);
+    expect(signal?.period).toMatch(/no return for 2021/);
+    expect(floorSignal(roic())?.period).not.toMatch(/no return/);
+    // A year before the first observation is already outside the stated window.
+    expect(floorSignal(roic(22, [null, 20, 18, 23, 22]))?.period).not.toMatch(/no return/);
+  });
+  it("says which years were taxed at the marginal-rate floor", () => {
+    const r = roic(22, [20, 7, 18, 23, 22]);
+    r.series[1].taxFloorBasis = "pre-tax income is not positive while operating income is: operating income taxed at the 21% marginal-rate floor";
+    const signal = floorSignal(r);
+    expect(signal?.raw).toBe(7);
+    expect(signal?.fallbackReason).toMatch(/^2021: pre-tax income is not positive/);
+  });
+});
+
+// AMZN audit 2026-10-20 finding 15: a buyback four years old carried 30% of
+// the leadership weight.
+describe("grading — buyback timing recency", () => {
+  const stale = "buyback timing not graded: the priced repurchase years 2022-12-31 to 2022-12-31 are all older than the issuer's last 3 fiscal years (2023-12-31 to 2025-12-31)";
+  it("leaves stale timing out of the aspect when nothing was repurchased recently, and says why", () => {
+    const cap = capital();
+    Object.assign(cap.buybackPriceAnalysis, { timingPct: -3, timingStale: { reason: stale, recentRepurchase: false } });
+    const s = computeScores(makeInputs({ capital: cap }));
+    expect(s.aspects.leadership.signals?.find((x) => x.id === "buybackTiming")).toBeUndefined();
+    expect(s.aspects.leadership.dataCompleteness).toBe(1);
+    expect(s.aspects.leadership.note).toContain(`B${stale.slice(1)}.`);
+  });
+  it("counts stale timing as missing evidence when a recent repurchase went unpriced", () => {
+    const cap = capital();
+    Object.assign(cap.buybackPriceAnalysis, { timingPct: -3, timingStale: { reason: stale, recentRepurchase: true } });
+    const s = computeScores(makeInputs({ capital: cap }));
+    expect(s.aspects.leadership.signals?.find((x) => x.id === "buybackTiming")).toBeUndefined();
+    expect(s.aspects.leadership.dataCompleteness).toBeCloseTo(0.25 / 0.55, 12);
+    expect(s.aspects.leadership.note).toContain(`B${stale.slice(1)}.`);
+  });
+});
+
+// AMZN audit 2026-10-20 finding 10: a price beyond the reverse solve's growth
+// range left the signal missing, which the composite read as neutral.
+describe("grading — reverse DCF with no root in the growth range", () => {
+  const withOutside = (side: "above" | "below", boundPct: number, rising = true) => {
+    const v = valuationDcf() as unknown as { reverseDcf: Record<string, unknown> };
+    v.reverseDcf = { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: 45.9, baseRevenueGrowthPct: 7,
+      growthPathFamily: "convergent-shift-to-terminal", notes: [], gaps: [],
+      growthOutsideRange: { side, boundPct, perShareAtBound: 128.88, rising, basis: `the price implies year-one growth ${side} ${boundPct}%` } };
+    const s = computeScores(makeInputs({ valuation: v as unknown as ValuationResult }));
+    return s.aspects.valuation.signals?.find((x) => x.id === "reverseImpliedVsAchievable");
+  };
+  it("scores a price above every value in the range at the band floor, and says why", () => {
+    const signal = withOutside("above", 60);
+    expect(signal?.raw).toBe(53);
+    expect(signal?.transformedScore).toBe(15);
+    expect(signal?.fallbackReason).toMatch(/implies year-one growth above 60%/);
+    expect(signal?.fallbackReason).toMatch(/band floor/);
+  });
+  it("scores a price below every value in the range at the band top", () => {
+    const signal = withOutside("below", -20);
+    expect(signal?.raw).toBe(-27);
+    expect(signal?.transformedScore).toBe(90);
+    expect(signal?.fallbackReason).toMatch(/implies year-one growth below -20%/);
+  });
+  // Independent review of these fixes: without value rising with growth there
+  // is no implied gap to state, only the score at the range end.
+  it("states no implied gap when value does not rise with growth", () => {
+    const signal = withOutside("above", 60, false);
+    expect(signal?.transformedScore).toBe(15);
+    expect(signal?.fallbackReason).not.toMatch(/at least/);
+    expect(signal?.fallbackReason).toMatch(/No implied growth is inferred/);
+  });
+});

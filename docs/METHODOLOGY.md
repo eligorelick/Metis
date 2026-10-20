@@ -344,7 +344,14 @@ fiscal year.
   split resolution. Without that resolution, nothing is computed.
 - **Measure.** Timing = (Σ shares bought × that year's average price) ÷
   (Σ cost paid) − 1. Positive means the shares were bought below the same
-  year's average price (Dittmar & Field 2015).
+  year's average price (Dittmar & Field 2015). The report labels it "year-average
+  cost vs cost paid; negative = paid above average", because "price paid vs the
+  year's average" read the sign backwards (AMZN audit 2026-10-20 finding 15).
+- **Recency.** Timing is graded only when a priced year falls within the
+  issuer's last three fiscal years, counted back by date from the latest
+  annual cash-flow row, so a missing year cannot stretch the window. Older timing is named as stale in the
+  capital notes and left ungraded; with no repurchase at all in those three
+  years the signal is absent, as for an issuer that never repurchased (finding 15).
 - **Exclusions.** A year whose paid price is more than 1.6× away from its
   average price is excluded as a basis or tagging mismatch. Timing is
   withheld below 50% coverage of repurchase dollars.
@@ -409,8 +416,14 @@ first available of three sources:
 1. **Analyst consensus levels**, calendarized to the year-one window, when
    consensus is consistent with guidance: no guidance, or a year-one
    consensus at or above the guided quarter's low end × 4. Each fiscal-year
-   estimate is spread evenly over its days and weighted by its overlap with
-   the window. A 52/53-week year starts the day after the previous estimate's
+   estimate is spread over its days and weighted by its overlap with the
+   window. The spread follows the issuer's own seasonal shape when its last
+   complete fiscal year has four reported quarters in the model currency
+   ending on that year end, each of the last three 84-98 days after the one
+   before: each quarter's share of
+   the year goes to its three months, and each month's share to its days.
+   Otherwise the spread is even, and the anchor basis says why (AMZN audit
+   2026-10-20 finding 19; an even spread overstated a seasonal year one). A 52/53-week year starts the day after the previous estimate's
    year end. The estimates must cover at least 97% of the window. D-65: the
    fiscal year the window starts in contributes its consensus **less the
    revenue already reported** in it (the quarters after the latest annual
@@ -1773,7 +1786,13 @@ year-one base FCFF skips that inversion; no growth root also falls back to
 solving a terminal EBIT margin in [0%, 60%], with a margin fade over the full
 explicit horizon and the base growth path held. Failure to bracket either
 quantity reports no solution and explains the range; it does not extrapolate
-an answer. See `tests/stageB.valuation.test.ts`,
+an answer. When every prescan value lies on one side of the price, the result
+records `growthOutsideRange` (the side, the range end and the value there), and
+the reverse signal is graded at that end rather than left out: a price above the
+value at every growth in the range scores the band floor, as the most demanding
+case, and its trigger reads "above" (AMZN audit 2026-10-20 finding 10, where even
+60% growth gave less than the price and the missing signal was averaged as
+neutral). See `tests/stageB.valuation.test.ts`,
 `tests/stageB.dcfLossTax.test.ts` and `tests/stageB.dcfDisplay.test.ts`.
 
 ## Overlays and cash runway
@@ -1847,7 +1866,12 @@ dispersion uses at least three margin levels. Off-annual revenue pairs are
 excluded individually, so surviving intervals can still support a fan.
 Growth sigma is capped at 25pp and margin sigma at 12pp. The joint shock is
 `dg = sigma_growth` and `dm = sigma_margin × correlation(growth, margin)`
-from at least three paired annual observations. Missing correlation leaves
+from at least three paired annual observations. The margin shift is applied
+only when it moves with its scenario: the bull's is never a cut and the
+bear's never a gain; otherwise that scenario's margin stays at base (AMZN
+audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
+1.17pp margin cut). The scenario paths and targets carry the method stamps
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D99. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -1890,9 +1914,10 @@ cross because growth also requires reinvestment.
 `src/pipeline/stageB/scenarioTargets.ts` reruns the same DCF and base equity
 bridge (including any non-operating assets) for two joint shocks. It labels the
 more valuable extreme bull and the less valuable one bear, retaining the deltas
-that produced each. Negative correlation can therefore make the bull target's
-growth delta negative, although with decaying shocks only a margin dispersion
-far above the growth dispersion still inverts the order. The base target reuses
+that produced each. The bull takes the growth shift that raises value with the
+margin at base; it carries lower growth only when growth itself destroys value
+(incremental returns below the cost of capital), and the ordering disclosure
+names that cause. The base target reuses
 the DCF per-share. Perturbed targets are floored at zero with a warning. A
 non-positive base DCF per-share suppresses the entire target block; thin
 dispersion, unavailable WACC/bridge and non-DCF routes also suppress it. Sigma
@@ -1976,8 +2001,8 @@ These bands have not been outcome-backtested.
 | Fundamentals | 20 | 15 | 15 | Revenue/EPS/FCF growth and operating-margin slope |
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
-| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
-| Moat | 15 | 15 | 15 | Latest ROIC (0.45), durability as the lowest annual ROIC in the window (0.30, D-61) and gross margin (0.25); financials substitute ROTE level and floor |
+| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA on the enterprise value's lease basis, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49; at its band floor when FCF before SBC is not positive and SBC is, D-99); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
+| Moat | 15 | 15 | 15 | Latest ROIC (0.45), durability as the lowest annual ROIC in the window (0.30, D-61; a pre-tax-loss year with operating profit is taxed at the marginal-rate floor, D-99) and gross margin (0.25); financials substitute ROTE level and floor |
 | Leadership (capital stewardship) | 10 | 7 | 10 | Repurchase timing, the price actually paid against the same year's average price (0.30, only when the company repurchased; D-61), and net share-count trend (0.25, scored only here, D-49). ROIC − WACC is scored once, under quality (D-61); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, distance below the 52-week high 0.35, SMA50/200 gap 0.20 (D-48); RSI-14, the six-month window and the 52-week range position are displayed, not scored |
 
@@ -2662,3 +2687,111 @@ header and the Verification table now add cited figures the verification log
 marks contradicted and name the split. The prose claims still come from the
 coverage count, so a stored report without a log keeps its count. The live
 report view shows both lines too.
+
+### Deferred AMZN audit fixes (October 20, 2026)
+
+The AMZN audit's remaining findings, recorded as D-99. Every rule is
+class-wide; none names a ticker. Figures quoted for Amazon are from its stored
+run inputs, replayed offline.
+
+**Stock pay beyond all free cash flow (finding 8).** SBC/FCF is undefined
+when free cash flow before SBC is zero or negative, so the balance sheet's only
+scored SBC signal used to drop out and the aspect re-weighted without it.
+Amazon's $19.3B of stock pay carried no weight. When FCF before SBC is not
+positive and SBC is positive, stock pay exceeds all the free cash flow, so the
+signal now scores at its band floor; the ratio stays blank and the note says
+the score is the floor, not a measured ratio. It stays unscored when SBC is
+unknown or a credit.
+
+**A loss year in the ROIC floor (finding 9).** A year with non-positive
+pre-tax income had no tax rate, so its ROIC was skipped. Amazon's 2022 pre-tax
+loss came from a non-operating mark on its Rivian stake while operating income
+was $12.2B, so the moat's "lowest annual ROIC" was 2023's 16.7% and its label
+implied a complete window. Such a year's operating income is now taxed at the
+D-58 marginal-rate floor (21% in the US, 15% where no statutory rate is
+sourced), the same floor the DCF uses, and the year says so. A year with an
+operating loss is still left out, and the floor's label names
+any year inside its window that has no return. Amazon's 2022 ROIC is 6.9%. That
+year also sits below the cost of capital, so the terminal excess-return rule,
+which needs returns above it in the recent years, no longer grants one: the
+terminal ROIC falls to the WACC, which lowers the fair value.
+
+**Buyback timing (finding 15).** See "Growth, annual returns and capital
+diagnostics" for the measure, the reworded label and the three-year recency
+rule. Amazon's only priced repurchase year was 2022, so its timing is now
+named as stale and not graded. The figure the payload dates is
+the newest priced year, not the capital block's statement date.
+
+**A reverse DCF with no root (finding 10).** See "FCFF arithmetic, sensitivity
+and reverse valuation". Amazon's price was above the value at 60% year-one
+growth, so the reverse signal now scores at the band floor instead of being
+averaged as neutral. The thesis triggers point away from the base case ("above"
+when the implied value is above the base path).
+
+**Scenarios (finding 11).** See "Projections, scenario targets and
+intrinsic-value display": a bull scenario's margin no longer moves against it.
+Amazon's bull/base/bear on its stored inputs moves from $96.25 / $87.88 / $77.28
+(bull margin −1.17pp) to growth-only scenarios.
+
+**Consensus calendarization (finding 19).** See "Year-one revenue anchor
+(D-58, D-60)": each fiscal-year estimate follows the issuer's own quarterly shape when
+its last complete fiscal year supplies one. With the consensus the audit cited
+injected (FY2026 $828.6B, FY2027 $949.3B), Amazon's year one is $874.7B rather
+than the $917.2B an even spread gives.
+
+**Net debt/EBITDA (finding 20b).** The leverage ratio now uses the enterprise
+value's lease basis: under the house default it removes the operating-lease
+liability exactly where EV does, so its net debt equals the DCF bridge's. It
+removes nothing when total debt is not shown to hold the lease, and gives no
+ratio when the lease-excluded basis is refused. Amazon's ratio is 0.14x rather
+than 0.71x on lease-inclusive net debt.
+
+**Segment rows (finding 13).** A revenue row is nested under another only when
+the sum holds in every quarter where the parent and all its children are
+tagged, and in at least two of them. In one quarter Amazon's online, third-party
+and physical stores summed to its net service sales by coincidence, so product
+sales were shown as parts of service sales. Members renamed between filings are
+still not joined (D-63), so an annual-only member can leave a fourth-quarter
+cell blank.
+
+**Wording (finding 20).** A failed Piotroski signal states what its figures did
+("current ratio fell"), never the test it failed. The accrual scaler is labelled
+"average NOA or total assets", because it falls back to total assets when net
+operating assets are not positive. The remaining repurchase authorization is
+also read from the 10-Q notes ("we have $X remaining under the repurchase
+program"), under the same issuer, document and date checks as Item 2. Under an
+officer the evidence gate did not assess, only cited facts appear, not judgments
+for the withheld grade. The enterprise-value bridge is stated once beside the
+multiples, which point to it, and names the lease setting as the house default
+rather than an environment variable.
+
+**Evidence for the passes (findings 6 and 16).** A notes family for remaining
+performance obligations (backlog, contracted revenue not yet recognized) keeps
+the amount and timing sentences first: Amazon's $496B and 6.4 years had been
+dropped. The 25% reservation for pending cases also holds government cases
+(an agency or attorney general as plaintiff), antitrust or monopolization
+claims actually alleged, relief in the billions or structural relief beside a
+legal proceeding, a regulator's fine, and a trial a legal proceeding has
+scheduled (never a clinical or commercial trial). None of them holds a passage
+that only states a risk the issuer may face ("regulators could bring
+actions"); the check reads the words up to the matched claim, so a case that
+goes on to a possible consequence keeps its place. The notes and risk readings carry the selection version
+section-evidence-4. The FTC case against Amazon
+now reaches the passes. Its 2027 trial date was in no filing the run had.
+
+**Peers (finding 7).** The audit read the empty peer table as a screen that was
+too strict. Replaying the run shows the screen excluded nobody it should have
+kept: the vendor's rate limit stopped peer collection after one candidate, and
+the provider's peer list holds no cloud company. The peer summary now counts
+candidates the provider never served (any refusal the peer loader treats as
+terminal), and those past the house's own candidate limit, separately from
+those the screen excluded, and leaves out the subject itself. Segment-aware peers would need a peer source
+per segment; none is fabricated.
+
+**Verdict stance (finding 18).** The judge's executive summary now opens with a
+stance: whether the price looks undemanding, about right or demanding on the
+evidence, and which evidence decides it. It is a valuation judgment, not a
+rating. When the consensus price target, the model's value and the price share a
+currency, the analyst-estimates section states each value's implied move and
+their gap in points of the price. Beyond 20 points (a project convention) the
+summary must reconcile them. For Amazon the gap was about 92 points.

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDcfAssumptions,
+  calendarizeConsensusWindow,
   revenueRunRate,
   type DcfAssumptionInputs,
 } from "@/pipeline/stageB/valuation";
@@ -274,5 +275,57 @@ describe("improving margins fade up toward a bounded target", () => {
     })).assumptions!;
     expect(a.ebitMarginPath.value.every((m) => Math.abs(m - 11) < 1e-9)).toBe(true);
     expect(a.improvingMarginFade).toBeUndefined();
+  });
+});
+
+/*
+ * AMZN audit 2026-10-20 finding 19: calendarizing consensus spread each fiscal
+ * year evenly over its days, so a window holding a seasonal issuer's light first
+ * half took half its year (AMZN: +3.7% on year one). When the last complete
+ * fiscal year has four reported quarters, each fiscal year's months now take
+ * that year's quarterly shape.
+ */
+describe("consensus calendarization by the issuer's quarterly shape", () => {
+  // A calendar-year issuer whose fourth quarter is 40% of the year.
+  const seasonality = { fiscalYearEnd: "2025-12-31", quarters: [
+    { date: "2025-03-31", revenue: 100 }, { date: "2025-06-30", revenue: 100 },
+    { date: "2025-09-30", revenue: 100 }, { date: "2025-12-31", revenue: 200 },
+  ] };
+  const estimates = [{ date: "2026-12-31", revenueAvg: 550 }, { date: "2027-12-31", revenueAvg: 600 }, { date: "2028-12-31", revenueAvg: 660 }];
+  const reported = { priorFiscalYearEnd: "2025-12-31", through: "2026-06-30", revenue: 220, quarters: 2 };
+  const seasonal = (over: Partial<DcfAssumptionInputs> = {}): DcfAssumptionInputs => ({
+    revenueCagr3yPct: 10, analystEstimates: estimates, waccPct: 9, riskFreePct: 4,
+    incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: 520, operatingIncome: 104, incomeBeforeTax: 100, incomeTaxExpense: 21 },
+    incomeHistory: [2021, 2022, 2023, 2024, 2025].map((y, i) => ({ date: `${y}-12-31`, revenue: 380 + 30 * i, operatingIncome: 0.2 * (380 + 30 * i), incomeBeforeTax: 0.19 * (380 + 30 * i), incomeTaxExpense: 0.04 * (380 + 30 * i) })),
+    balance: { date: "2026-06-30", basis: "quarter", totalDebt: 100, totalStockholdersEquity: 300, cashAndShortTermInvestments: 50 },
+    marketCap: 2000, fiscalYearToDate: reported, revenueSeasonality: seasonality,
+    ...over,
+  });
+
+  it("weights each fiscal year's months by the last complete year's quarterly shape", () => {
+    // Year one: FY2026's remainder 550 − 220 (all of July–December) plus
+    // FY2027's first half at Q1 + Q2 = 40% of 600 = 570, where an even spread
+    // gave 330 + 600 × 181/365 = 627.53.
+    const w1 = { startDate: "2026-07-01", endDate: "2027-06-30" };
+    expect(calendarizeConsensusWindow(estimates, w1, reported, seasonality).value).toBeCloseTo(570, 9);
+    expect(calendarizeConsensusWindow(estimates, w1, reported).value).toBeCloseTo(330 + 600 * 181 / 365, 9);
+    // Year two: 60% of FY2027 and 40% of FY2028.
+    const w2 = { startDate: "2027-07-01", endDate: "2028-06-30" };
+    expect(calendarizeConsensusWindow(estimates, w2, null, seasonality).value).toBeCloseTo(0.6 * 600 + 0.4 * 660, 9);
+  });
+
+  it("sets year one on the shaped consensus and says which basis it used", () => {
+    const a = buildDcfAssumptions(seasonal()).assumptions!;
+    expect(a.revenueAnchor!.source).toBe("consensus");
+    expect(520 * (1 + a.growthPath.value[0] / 100)).toBeCloseTo(570, 6);
+    expect(a.revenueAnchor!.basis).toContain("fiscal-year estimates spread by the quarterly shape of the fiscal year ending 2025-12-31 (20%, 20%, 20% and 40% of its reported revenue, each quarter's share over its three months)");
+  });
+
+  it("keeps the even spread, and says so, without four reported quarters for the last complete year", () => {
+    for (const over of [{ revenueSeasonality: null }, { revenueSeasonality: { ...seasonality, quarters: seasonality.quarters.slice(1) } }]) {
+      const a = buildDcfAssumptions(seasonal(over)).assumptions!;
+      expect(520 * (1 + a.growthPath.value[0] / 100)).toBeCloseTo(330 + 600 * 181 / 365, 6);
+      expect(a.revenueAnchor!.basis).toContain("fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it");
+    }
   });
 });

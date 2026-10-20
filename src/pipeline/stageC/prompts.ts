@@ -549,6 +549,15 @@ export function buildJudgeFraming(
     "- `verdict.executiveSummary`: a tight top-of-report analyst note (array of labeled SourcedClaims)",
     "  that weaves the composite grade, the weighted projections, and the bull/base/bear scenarios into",
     "  ONE plain-English thesis, and states what would change the view. Rating-safe; no buy/sell/hold.",
+    // AMZN audit 2026-10-20 finding 18: the verdict took no stance ("establish"
+    // 82 times; 54 of 93 judgments were negations) and never set the consensus
+    // price target against the DCF value.
+    "  Its first claim takes a stance: a JUDGMENT saying whether, on this evidence, the current share price looks",
+    "  undemanding, about right or demanding, and which evidence decides it. That is a valuation judgment, not a rating",
+    "  or an allocation directive. State each evidence limit once, where it bears on the view: a sentence saying what is",
+    "  not established is a limit, not a conclusion, and the summary is not built from them. When the analyst estimates",
+    "  section carries a \"Consensus target vs our value\" note that calls the two materially different, the summary",
+    "  reconciles the price target consensus with our model value as that note asks, citing both rows.",
     "- Bull / base / bear scenario NARRATIVE: qualitative commentary in assumptions and qualitative",
     "  'what would have to be true' conditions (rating-safe strings). Do not assign scenario probabilities",
     "  or invent numeric growth, margin, discount-rate or price assumptions. Scenario weights are the fixed,",

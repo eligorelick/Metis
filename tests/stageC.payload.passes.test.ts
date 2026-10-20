@@ -604,11 +604,34 @@ describe("payload determinism + provenance", () => {
     // so no bridge line or value moves; remove only that leaf.
     expect(precedingFinance.valuation.assumptions.investmentTax.ratePct).toBe(21);
     delete precedingFinance.valuation.assumptions.investmentTax;
-    expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
+    // D-99 (the deferred AMZN audit fixes) changes explanatory leaves of
+    // this fixture's finance block and no number: the scenario margin's
+    // direction clause (finding 11) and the even-spread reason of the
+    // consensus calendarization (finding 19). Each exact occurrence is
+    // asserted, then the preceding wording is restored for the whole pin.
+    const d99Restorations: [string, string, number][] = [
+      ["observed growth/margin correlation (0.19), applied only when it moves with the scenario.", "observed growth/margin correlation (0.19).", 4],
+      ["(0.19), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.", "(0.19), not assumed perfectly correlated.", 1],
+      ["fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it;", "fiscal-year estimates weighted by day overlap;", 3],
+      // AMZN audit finding 20(h), from its independent review: the undisclosed
+      // lease gap no longer names the environment variable.
+      ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
+      // Codex review of PR #42: the scenario construction's method stamps.
+      ["SCENARIO_TARGETS_2026_10_D99", "SCENARIO_TARGETS_2026_10_D60", 1],
+      ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
+    ];
+    const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
+      typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
+    const financeText = JSON.stringify(precedingFinance);
+    for (const [now, , count] of d99Restorations) expect(financeText.split(now).length - 1).toBe(count);
+    expect(fnv1a32(JSON.stringify(restoreD99(precedingFinance)))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
     // registry, preserving every value, unit, identity, date and order.
-    const precedingRegistry = (payload.provenanceRegistry ?? []).map(record => {
+    // Codex review of PR #42 (D-99): the method stamps restored above and the
+    // notes and risk readings' selection version are the only registry text
+    // that moves; restore them as well.
+    const precedingRegistry = restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
@@ -616,7 +639,18 @@ describe("payload determinism + provenance", () => {
     });
     expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     // Restoring only the preceding version must reproduce its whole prompt.
-    expect(payloadFingerprint({ ...payload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
+    // D-99 adds one payload note, the consensus-target reconciliation (AMZN
+    // audit finding 18), and carries the reworded finance notes above.
+    // Dropping that note and restoring the wording reproduces the preceding
+    // version's whole prompt.
+    const isTargetNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Consensus target vs our value:");
+    expect(JSON.stringify(payload).split("Consensus target vs our value:").length - 1).toBe(1);
+    // Codex review of PR #42: the notes and risk readings' selection version.
+    expect(JSON.stringify(payload).split("section-evidence-4/").length - 1).toBe(2);
+    const precedingPayload = JSON.parse(JSON.stringify(restoreD99(payload), (_key, leaf: unknown) =>
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
+        : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
+    expect(payloadFingerprint({ ...precedingPayload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -913,10 +947,17 @@ describe("payload determinism + provenance", () => {
       // registries and every numeric pin stay exact.
       // D-98: the versioned header moves with the payload version; the finance
       // hash change for the investment-tax leaf is pinned and explained below.
-      fingerprint: "1.39.0:05faa11a",
-      promptBytes: 139_657,
+      // D-99 (+820 prompt bytes): the consensus-target reconciliation note
+      // (AMZN audit finding 18) and the reworded scenario, calendarization and
+      // lease-gap notes; dropping the one and restoring the others reproduces
+      // the preceding prompt above, and no registry or citation record moves.
+      // Codex review of PR #42: the scenario and notes/risk selection method
+      // stamps move the fingerprint, the provenance hash and financeHash;
+      // restoring them reproduces every preceding pin above.
+      fingerprint: "1.40.0:71f423e5",
+      promptBytes: 140_477,
       provenanceCount: 531,
-      provenanceHash: "f57574b3",
+      provenanceHash: "6ad4263f",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -944,7 +985,10 @@ describe("payload determinism + provenance", () => {
       // AMZN audit 2026-10-20 (D-98): only the new assumptions.investmentTax
       // leaf (removed above for the preceding pin) moves financeHash; this
       // fixture has no investments, so no bridge value, byte or record moves.
-      financeHash: "2b159805",
+      // D-99: only the reworded leaves restored above (scenario margin
+      // direction, even-spread calendarization reason, the undisclosed lease
+      // gap without the environment variable) move financeHash.
+      financeHash: "a647b8bb",
     });
   });
 
@@ -1068,7 +1112,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.39.0");
+    expect(first.payloadVersion).toBe("1.40.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1781,6 +1825,40 @@ describe("prompts embed the five non-negotiable rules verbatim", () => {
     expect(SHARED_RULES_BLOCK).toContain("never write buy, sell, or hold");
     expect(bull).not.toContain("buy/sell/hold");
     expect(bear).not.toContain("buy/sell/hold");
+  });
+
+  // AMZN audit 2026-10-20 finding 18: the verdict took no stance and never set
+  // the USD 328.90 consensus target against the USD 72 DCF value.
+  it("judge framing asks the verdict for a stance against the price and a consensus-target reconciliation", () => {
+    const judge = buildJudgeFraming();
+    expect(judge).toContain("Its first claim takes a stance");
+    expect(judge).toMatch(/undemanding, about right or demanding/);
+    expect(judge).toMatch(/not a rating\s+or an allocation directive/);
+    expect(judge).toContain("\"Consensus target vs our value\"");
+    expect(SHARED_RULES_BLOCK).toContain("Never output investment ratings");
+  });
+  it.each([[0.5, "50.0 percentage points of the price apart, beyond the 20-point threshold", "must reconcile them"],
+    [0.1, "10.0 percentage points of the price apart, within the 20-point threshold", "broadly consistent"]] as const)(
+    "states the consensus target against the model value, %s of the price apart", (gap, distance, consequence) => {
+      const bundle = fixtureBundle();
+      const computed = runStageB(bundle);
+      const value = computed.fairValue?.status === "available" ? computed.fairValue.perShare!.value : NaN;
+      const price = bundle.quote.ok ? bundle.quote.value.data.rows[0]!.price as number : NaN;
+      if (!bundle.priceTargetConsensus.ok) throw new Error("fixture price target missing");
+      bundle.priceTargetConsensus.value.data.rows[0]!.targetConsensus = Math.round((value + gap * price) * 100) / 100;
+      const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+      const note = payload.estimates.notes.find((line) => line.startsWith("Consensus target vs our value:"));
+      expect(note).toContain(`the price target consensus of USD ${(Math.round((value + gap * price) * 100) / 100).toFixed(2)}`);
+      expect(note).toContain(`our DCF value of USD ${value.toFixed(2)} per share`);
+      expect(note).toContain(distance);
+      expect(note).toContain(consequence);
+    });
+  it("states no reconciliation when the model value is withheld", () => {
+    const bundle = fixtureBundle();
+    const computed = runStageB(bundle);
+    computed.fairValue = { status: "suppressed", method: null, methodVersion: "test", perShare: null, upsidePct: null, basis: [], reasons: [] };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.estimates.notes.some((line) => line.startsWith("Consensus target vs our value:"))).toBe(false);
   });
 
   it("judge framing forbids manufacturing balance and splits fact-vs-interpretation", () => {
@@ -2563,7 +2641,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.34.0");
+    expect(report.meta.specVersion).toBe("1.35.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

@@ -2,6 +2,12 @@ import { materialCreditSupportClauses } from "@/edgar/currentReports";
 
 /** Pure, bounded source selection. Offsets always refer to the original source. */
 export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
+/**
+ * The notes and risk readings. section-evidence-4 (D-99, AMZN audit findings
+ * 6 and 16): the performance-obligations family and the pending-case clauses
+ * for government cases, their relief, fines and scheduled trials.
+ */
+export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
@@ -16,7 +22,7 @@ export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "cu
  * notes are read with the same families, and business combinations (a deal's
  * consideration, goodwill and intangibles) join them.
  */
-export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "internal-controls", "tax", "subsequent-liquidity", "business-combinations"] as const;
+export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "internal-controls", "tax", "subsequent-liquidity", "business-combinations", "performance-obligations"] as const;
 export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number] | typeof BUSINESS_CATEGORIES[number] | typeof NOTES_CATEGORIES[number];
 /**
  * Which families a source is read for (D-63). `financial` is the original
@@ -67,6 +73,10 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   contingencies: /\b(?:litigation|lawsuits?|legal proceedings|contingen(?:t|cy|cies)|indemnit(?:y|ies|ification))\b/i,
   "internal-controls": /\b(?:material weaknesses?|internal control over financial reporting|segregation of duties|remediat(?:e|ion|ing))\b/i,
   "business-combinations": /\b(?:business combinations?|acquisitions? of|acquired|license agreement|(?:total|purchase) consideration|purchase price|goodwill|intangible assets?)\b/i,
+  // AMZN audit 2026-10-20 finding 6: the contracted revenue not yet recognized
+  // (ASC 606 remaining performance obligations, a backlog). No family named it,
+  // so Amazon's $496 billion AWS backlog read only as "commitments" and lost.
+  "performance-obligations": /\b(?:(?:remaining )?performance obligations?|RPO|backlog|not yet (?:been )?(?:billed (?:or|nor) )?recogni[sz]ed|contracted (?:but (?:not yet |un)recogni[sz]ed )?revenue|unrecogni[sz]ed revenue)\b/i,
 };
 /**
  * D-66: the passages of a notes section an equity reader cannot do without,
@@ -86,6 +96,14 @@ const NOTES_PRIORITY: readonly RegExp[] = [
   // The deal itself: "In December 2025, we entered into a non-exclusive license agreement with Groq, Inc.".
   /\b(?:entered into|completed)\b[^.]{0,80}?\b(?:acquisition|acquire|license agreement|merger)\b[^.]{0,40}?\bwith\s+[A-Z]/,
   /\binvestments?\b[^.]{0,120}\baccounted for (?:using|under) the equity method\b/i,
+  // AMZN audit 2026-10-20 finding 6: the backlog's amount ("those commitments
+  // not yet recognized were approximately $ 496 billion"; "revenue related to
+  // remaining performance obligations … was $ 3.2 billion") and when it turns
+  // into revenue (a weighted-average remaining contract life, the share
+  // recognized over the next twelve months). A contract, revenue or customer
+  // must be named, so unrecognized compensation cost is not read as backlog.
+  /^(?=[\s\S]*\b(?:contracts?|revenue|customers?|performance obligations?)\b)[\s\S]*\b(?:remaining performance obligations?|backlog|not yet (?:been )?(?:billed (?:or|nor) )?recogni[sz]ed)\b[^.]{0,200}?\$\s?\d/i,
+  /^(?=[\s\S]*\b(?:contracts?|revenue|performance obligations?|backlog)\b)(?=[\s\S]*\b(?:recogni[sz]ed?\b[^.]{0,80}?\b(?:next|following) (?:twelve|12) months|weighted[- ]average remaining (?:life|term|duration)\b[^.]{0,40}?\bcontracts?\b))/i,
 ];
 /** D-66: the same concentration statements where an MD&A states them ("Concentration of Revenue"). */
 const CONCENTRATION_PRIORITY = NOTES_PRIORITY.slice(0, 4);
@@ -120,7 +138,48 @@ const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:
 const CONTROL_DISCLOSURE = /\b(?:(?:we|Company)\s+(?:(?:have|had|has)\s+)?(?:previously\s+)?identified material weaknesses?|material weaknesses? identified pertained|material weaknesses? (?:continued|continue) to exist|(?:deficiencies|material weaknesses?)\b[^.]{0,160}\b(?:did not|have not|has not)\b[^.]{0,100}\bmaterial misstatement|insufficient segregation of duties|lack of (?:a )?sufficient\b[^.]{0,120}\b(?:qualified|expertise))\b/i;
 const HYPOTHETICAL_CONTROL = /^\s*(?:if|should|in (?:the )?future)\b|\b(?:may|could|might)\s+(?:identify|develop)\b/i;
 const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|complaints?) (?:were|was|have been) filed|(?:filed|consolidated)\b[^.]{0,120}\b(?:Derivative Actions?|Securities Action)|claims\b[^.]{0,100}\bwithout merit|(?:loss|range of loss)\b[^.]{0,100}\bcannot be reasonably estimated|not accrued any material potential loss)\b/i;
-const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage);
+/**
+ * AMZN audit 2026-10-20 finding 16: the proceedings that can change a thesis.
+ * A case a government brought ("state Attorneys General, and the Federal
+ * Trade Commission have filed cases … alleging … monopolization"), antitrust
+ * claims actually alleged, relief that reaches billions of dollars or the
+ * structure of the business, a regulator's fine, and a dated trial. They
+ * named no family and no clause above, so only an orphaned "one class action
+ * has been certified" reached the passes.
+ */
+const AGENCY = String.raw`(?:Federal Trade Commission|FTC|Department of Justice|DOJ|Attorneys? General|European Commission|Competition and Markets Authority|Securities and Exchange Commission|Competition Authority)`;
+const PROCEEDING_NOUN = String.raw`(?:cases?|complaints?|lawsuits?|suits?|actions?|charges|proceedings?)`;
+const GOVERNMENT_CASE = new RegExp([
+  String.raw`\b${AGENCY}\b[^.]{0,120}?\b(?:sued|(?:filed|brought|commenced)\s+(?:(?:a|an|the)\s+)?${PROCEEDING_NOUN})\b`,
+  String.raw`\b${PROCEEDING_NOUN}\s+(?:(?:was|were|has been|have been)\s+)?(?:filed|brought|commenced)\s+by\b[^.]{0,120}?\b${AGENCY}\b`,
+  String.raw`\b(?:impos(?:es|ed)|levied)\s+(?:remedial actions and\s+)?(?:a\s+)?fines?\s+of\b`,
+].join("|"), "i");
+const ALLEGED_ANTITRUST = /\balleg(?:e|es|ed|ing|ations?)\b[^.]{0,200}?\b(?:monopoli[sz](?:ation|e|ed|ing)|antitrust|abuse of (?:a )?dominan(?:ce|t position)|anticompetitive)\b/i;
+const MATERIAL_RELIEF = /\bseek(?:s|ing)?\b[^.]{0,80}?\b(?:billions? of dollars|structural relief|divestitures?)\b/i;
+const SCHEDULED_TRIAL = /\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:begin|start|commence)\s+)?(?:for|in|on)\b/i;
+// Independent review of these fixes: relief and a trial date count only
+// beside a legal proceeding, a trial never when it is clinical or commercial,
+// and an antitrust allegation never when it is only a risk the issuer may face.
+const LEGAL_CONTEXT = /\b(?:court|jury|judge|plaintiffs?|complaints?|lawsuits?|suits?|litigation|proceedings?|cases?|antitrust|Attorneys? General|Commission|regulators?)\b/i;
+const NON_LEGAL_TRIAL = /\b(?:clinical|Phase\s*(?:[0-9]|I{1,3}V?|IV)\S*|pivotal|registrational|patients?|enrol\w*|dosing|endpoints?|FDA|stud(?:y|ies)|product candidates?|free trial|trial period)\b/i;
+// Codex review of PR #42: a modal within a few words of any proceeding verb
+// ("regulators could bring actions", "proceedings may seek structural
+// relief") states a risk, whichever clause would otherwise keep it.
+const HYPOTHETICAL_CLAIM = /^\s*(?:if|should)\b|\b(?:may|could|might|would)\s+(?:\w+\s+){0,2}?(?:be|become|face|incur|result|bring|seek|file|commence|impose|levy|allege|sue|pursue|initiate)\b/i;
+// Codex re-review of PR #42: the modal guard reads only the words up to and
+// including the matched claim, so "the FTC filed a case ..., which could
+// result in structural relief" stays an actual case while "regulators could
+// bring actions alleging ..." does not.
+const actualClaim = (pattern: RegExp, passage: string): boolean => {
+  const match = pattern.exec(passage);
+  return match !== null && !HYPOTHETICAL_CLAIM.test(passage.slice(0, match.index + match[0].length));
+};
+const materialProceeding = (passage: string): boolean =>
+  actualClaim(GOVERNMENT_CASE, passage)
+  || actualClaim(ALLEGED_ANTITRUST, passage)
+  || (actualClaim(MATERIAL_RELIEF, passage) && LEGAL_CONTEXT.test(passage))
+  || (actualClaim(SCHEDULED_TRIAL, passage) && LEGAL_CONTEXT.test(passage) && !NON_LEGAL_TRIAL.test(passage));
+const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage) || materialProceeding(passage);
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
   // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
@@ -235,7 +294,14 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
       /\b(?:invested|investment|acquired|acquisition|purchase|agreement|commitment|loan|notes?)\b/i.test(previous.text);
     const marketingContext = passage.categories.includes("distribution-costs") && /^\s*(?:the|this)\s+(?:increase|decrease|change)\b/i.test(passage.text) &&
       previous?.categories.includes("distribution-costs");
-    const needsContext = fundingContext || marketingContext;
+    // AMZN audit 2026-10-20 finding 6: "those commitments not yet recognized
+    // were approximately $ 496 billion" is a customer backlog only beside the
+    // sentence that says whose commitments they are (Amazon's own purchase
+    // commitments are another $650 billion).
+    const backlogContext = passage.categories.includes("performance-obligations") &&
+      /\b(?:those|these|such|this)\s+(?:commitments|obligations|amounts?|revenue|backlog)\b/i.test(passage.text) &&
+      previous?.categories.includes("performance-obligations");
+    const needsContext = fundingContext || marketingContext || backlogContext;
     const additions = (needsContext ? [previous, passage] : [passage]).filter((candidate) => !selected.includes(candidate));
     const cost = profile === "financial"
       ? additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +
@@ -306,5 +372,5 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   // Tiny caller budgets are valid too; do not return a marker longer than them.
   return { text: (joined + marker).slice(0, budget),
     truncated: omittedChars > 0, originalChars: text.length, spans,
-    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? "section-evidence-3" : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
+    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? NOTES_RISK_SELECTION_VERSION : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
 }

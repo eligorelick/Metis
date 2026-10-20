@@ -579,7 +579,7 @@ function renderValuation(
       lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
     }
   }
-  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
+  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage, symbol: review.report?.meta.symbol })) {
     lines.push(`### ${markdownHeading(block.title)}`, "", ...block.paragraphs.flatMap((p) => [prose(p), ""]));
     for (const item of block.items) {
       lines.push(`**${markdownProse(item.title)}**`, "", ...item.paragraphs.flatMap((p) => [prose(p), ""]));

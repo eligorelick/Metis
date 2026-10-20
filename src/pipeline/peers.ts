@@ -1,6 +1,7 @@
 /** Optional, bounded peer inputs. Never builds a report or invokes keyless providers. */
 import type { FmpBalanceSheetRow, FmpClient, FmpIncomeStatementRow, FmpProfileRow, FmpQuoteRow, FmpRawRow, FmpStockPeerRow } from "@/providers/fmp";
 import type { FmpFetch } from "@/pipeline/types";
+import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
 import { routeCompany } from "@/pipeline/stageB/sectorRouting";
@@ -139,7 +140,7 @@ export async function loadPeerFundamentals(opts: {
       })]);
     } finally { signal.removeEventListener("abort", abort); }
   };
-  const terminal = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && !symbolRefused(r) && /401|402|403|429|quota|rate.?limit|api.?key|entitlement|subscription|denied|timeout|abort/i.test(r.gap.reason);
+  const terminal = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && !symbolRefused(r) && PEER_PROVIDER_TERMINAL.test(r.gap.reason);
   const seenIssuers = new Set<string>();
   const seenNames = new Set<string>();
   const subjectProfile = opts.profile;

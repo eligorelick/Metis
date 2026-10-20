@@ -22,7 +22,8 @@ export interface ScenarioAssumptions {
   alternatives: { name: "decaying-growth-shock"; bullPerShare: number | null; bearPerShare: number | null; basis: string }[];
 }
 
-export const SCENARIO_PATHS_METHOD_VERSION = "SHARED_SCENARIO_PATHS_2026_10_D60" as const;
+// D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
+export const SCENARIO_PATHS_METHOD_VERSION = "SHARED_SCENARIO_PATHS_2026_10_D99" as const;
 
 /**
  * D-60: mean-reverting scenario shocks. A ±σ growth shift held for all ten
@@ -64,12 +65,20 @@ export function scenarioTerminalTransition(a: DcfAssumptions): string {
   );
 }
 
+/** AMZN audit 2026-10-20 finding 11: says when the correlated margin shift was held at base, and what it would have been. */
+export function marginWithheldText(shared: { correlatedMarginDeltaPp: number; marginShiftWithheld: boolean }): string {
+  if (!shared.marginShiftWithheld) return "";
+  const pp = Math.round(Math.abs(shared.correlatedMarginDeltaPp) * 100) / 100;
+  return ` Here it would have cut the bull's margin by ${pp}pp and raised the bear's by ${pp}pp, so both margins stay at base.`;
+}
+
 export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispersion: {
   sigmaGrowth: number; sigmaMargin: number; growthMarginCorrelation: number | null;
 }) {
   const negligible = Math.round(dispersion.sigmaGrowth * 100) === 0 || Math.round(dispersion.sigmaMargin * 100) === 0;
   const correlation = negligible ? null : dispersion.growthMarginCorrelation;
   const dg = dispersion.sigmaGrowth;
+  // The margin shift history pairs with a +σ growth shift.
   const dm = dispersion.sigmaMargin * (correlation ?? 0);
   const run = (growthDeltaPp: number, marginDeltaPp: number) => {
     const shocked = perturbScenarioAssumptions(a, growthDeltaPp, marginDeltaPp);
@@ -78,14 +87,22 @@ export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispe
     return { growthDeltaPp, marginDeltaPp, effectiveMarginDeltaPp: effectiveMargin[0] ?? 0,
       marginCapBinding: Math.abs((effectiveMargin[0] ?? 0) - marginDeltaPp) > 1e-9, result: runDcf(shocked, opts) };
   };
-  const up = run(dg, dm);
-  const down = run(-dg, -dm);
+  // AMZN audit 2026-10-20 finding 11: a negative growth/margin correlation
+  // (AMZN −0.378) gave the +growth bull a 1.17pp margin cut and the bear a
+  // margin gain. Each scenario now takes the growth shift that raises (bull) or
+  // lowers (bear) value with the margin at base, and the margin shift history
+  // pairs with that growth shift only when it moves the same way: never a cut
+  // for the bull, never a gain for the bear. Otherwise the margin stays at base.
   // EV ordering works even when the per-share bridge is unavailable, and is the
   // same ordering as a valid common-equity bridge (all claims/shares held fixed).
-  const orderingInverted = down.result.enterpriseValue > up.result.enterpriseValue;
-  const bull = orderingInverted ? down : up;
-  const bear = orderingInverted ? up : down;
-  const effective = (s: typeof up) => (s.marginCapBinding ? { effectiveMarginDeltaPp: s.effectiveMarginDeltaPp } : {});
+  const growthUp = run(dg, 0);
+  const growthDown = run(-dg, 0);
+  const orderingInverted = growthDown.result.enterpriseValue > growthUp.result.enterpriseValue;
+  const bullGrowth = orderingInverted ? -dg : dg;
+  const bullMargin = Math.max(0, Math.sign(bullGrowth) * dm);
+  const bull = bullMargin === 0 ? (orderingInverted ? growthDown : growthUp) : run(bullGrowth, bullMargin);
+  const bear = bullMargin === 0 ? (orderingInverted ? growthUp : growthDown) : run(-bullGrowth, -bullMargin);
+  const effective = (s: typeof bull) => (s.marginCapBinding ? { effectiveMarginDeltaPp: s.effectiveMarginDeltaPp } : {});
   const scenarioAssumptions: ScenarioAssumptions = {
     methodVersion: SCENARIO_PATHS_METHOD_VERSION,
     shockPersistence: "mean-reverting-convergent",
@@ -99,5 +116,6 @@ export function buildScenarioPaths(a: DcfAssumptions, opts: DcfRunOptions, dispe
     // The decaying-growth alternative is now the main construction.
     alternatives: [],
   };
-  return { bull, bear, orderingInverted, scenarioAssumptions };
+  // The correlated shift a +σ growth shift carries, and whether the rule held it at base.
+  return { bull, bear, orderingInverted, scenarioAssumptions, correlatedMarginDeltaPp: dm, marginShiftWithheld: bullMargin === 0 && dm !== 0 };
 }

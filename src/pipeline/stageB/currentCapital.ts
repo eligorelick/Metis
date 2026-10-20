@@ -98,6 +98,8 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   currency: string | null; annualCashFlow?: CapitalCashFlowRow | null; annualBalance?: CapitalBalanceRow | null;
   route?: SectorRoute;
   modelEligibilityReason?: string;
+  /** AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis, for the leverage ratio. */
+  evIncludeLeases?: boolean;
 }): CapitalResult {
   const { income, cashFlow, balance } = input;
   const usable = income !== null && cashFlow !== null && input.currency !== null && income.date === cashFlow.date &&
@@ -111,7 +113,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   // A stale balance cannot supply a current leverage numerator.
   const sameBalance = balance && aligns(balance.date) ? balance : null;
   const industrialMetricsApplicable = !input.modelEligibilityReason && !["bank", "insurer", "reit-mortgage"].includes(input.route ?? "general");
-  const snapshot = usable ? computeCapital([income], [cashFlow], sameBalance ? [sameBalance] : [], [], { price: null }, {route:input.route, modelEligibilityReason: input.modelEligibilityReason}) : annual;
+  const snapshot = usable ? computeCapital([income], [cashFlow], sameBalance ? [sameBalance] : [], [], { price: null }, {route:input.route, modelEligibilityReason: input.modelEligibilityReason, evIncludeLeases: input.evIncludeLeases}) : annual;
   const bridgeRow = usable ? cashFlow : input.annualCashFlow && aligns(input.annualCashFlow.date) ? input.annualCashFlow : null;
   const bridgeBalance = usable ? sameBalance : input.annualBalance && aligns(input.annualBalance.date) ? input.annualBalance : null;
   const bridge = industrialMetricsApplicable ? cashFlowBridge(bridgeRow) : cashFlowBridge(null);

@@ -177,8 +177,11 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.absolute-cash-flow-versus-balance-sheet-accrual-divergence": "Accrual divergence (cash-flow vs balance-sheet)",
   "computed.forensics.accruals.noaCurrent": "Net operating assets (current year)",
   "computed.forensics.accruals.noaPrior": "Net operating assets (prior year)",
-  "computed.forensics.accruals.scalerValue": "Average net operating assets",
-  "computed.forensics.accrual-scaler-value": "Average net operating assets",
+  // AMZN audit 2026-10-20 finding 20: the scaler is average NOA, or average
+  // total assets when NOA is not positive (the forensic notes say which); one
+  // label serves both, so it names neither.
+  "computed.forensics.accruals.scalerValue": "Accrual scaler (average NOA or total assets)",
+  "computed.forensics.accrual-scaler-value": "Accrual scaler (average NOA or total assets)",
   "computed.forensics.accruals.cashFlowAccrualRatio": "Accrual ratio (cash-flow)",
   "computed.forensics.accruals.balanceSheetAccrualRatio": "Accrual ratio (balance-sheet)",
   "computed.forensics.accrual-ratio-cash-flow": "Accrual ratio (cash-flow)",
@@ -193,7 +196,9 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.valuation.guided-sequential-pace-annualized": "Guided sequential pace, annualized",
   "computed.valuation.consensus-year-one-revenue-growth-over-ttm": "Consensus year-one revenue growth over TTM",
   "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm": "DCF base-case year-one revenue growth over TTM",
-  "computed.capital.buybackPriceAnalysis.timingPct": "Buyback timing (price paid vs the year's average)",
+  // AMZN audit 2026-10-20 finding 15: "price paid vs the year's average" beside
+  // -3.0% read as paying 3% below the average; the measure is the reverse.
+  "computed.capital.buybackPriceAnalysis.timingPct": "Buyback timing (year-average cost vs cost paid; negative = paid above average)",
   "computed.forensics.accruals.definition": "Accrual definition",
   "computed.forensics.beneish.growthLed": "Beneish growth-led test",
   "computed.forensics.beneish-m-with-the-sales-growth-index-at-neutral-1-0": "Beneish M-score (sales-growth index at 1.0)",
@@ -244,7 +249,7 @@ export function signalLabel(id: string): string {
     fcfConversionBeforeSbc: "FCF conversion before SBC", sbcPctOfFcf: "SBC as % of FCF", roicLevel: "ROIC level",
     // D-61 signals; the retired ids stay readable for reports stored before it.
     roicFloor: "ROIC floor (worst year in window)", roteFloor: "ROTE floor (worst year in window)",
-    buybackTiming: "Buyback timing (price paid vs the year's average)",
+    buybackTiming: "Buyback timing (year-average cost vs cost paid; negative = paid above average)",
     beneishMSgiNeutral: "Beneish M-score (sales growth neutral)",
     roicStability: "ROIC stability (std. dev.)", grossMarginLevel: "Gross-margin level",
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
@@ -551,7 +556,7 @@ export interface ExecutiveGroups {
   notAssessed: ExecutiveRecord[];
   /** The lines that name them, one per distinct reason. */
   notAssessedLines: string[];
-  /** Their recorded claims (pay, succession events), kept under the line. */
+  /** Their cited facts (pay, succession events), kept under the line; their judgments are not. */
   notAssessedClaims: SourcedClaim[];
 }
 
@@ -570,7 +575,12 @@ export function executiveGroups(executives: readonly ExecutiveRecord[]): Executi
   }
   const notAssessedLines = [...byReason.entries()].map(([reason, people]) =>
     `Not assessed: ${people.map((e) => `${e.name} (${e.title})`).join("; ")}.${reason ? ` ${reason}` : ""}`);
-  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])]);
+  // AMZN audit 2026-10-20 finding 20: only cited facts go under the line. The
+  // officer's judgments are the model's case for a grade the evidence gate
+  // withheld, so "Not assessed" was followed by "X's execution grade
+  // recognizes ...".
+  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])])
+    .filter((claim) => claim.label === "FACT");
   return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
 }
 

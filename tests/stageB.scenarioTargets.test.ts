@@ -32,6 +32,7 @@ import {
   type MultiplesFrameworkInputs,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
+import { buildScenarioPaths, perturbScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { SectorRoute } from "@/types/core";
 
@@ -158,10 +159,14 @@ describe("scenarioTargets — available (general DCF route)", () => {
     // bull/bear growth delta === ±DISPERSION_K·σ_growth (identical construction).
     expect(targetFor(r, "bull").growthDeltaPp).toBeCloseTo(DISPERSION_K * disp.sigmaGrowth!, 6);
     expect(targetFor(r, "bear").growthDeltaPp).toBeCloseTo(-DISPERSION_K * disp.sigmaGrowth!, 6);
-    expect(targetFor(r, "bull").marginDeltaPp).toBeCloseTo(
-      DISPERSION_K * disp.sigmaMargin! * (disp.growthMarginCorrelation ?? 0),
-      6,
-    );
+    // AMZN audit 2026-10-20 finding 11: the correlated margin shift is applied
+    // only when it moves with the scenario. This history is anti-correlated, so
+    // it would cut the bull's margin, and both margins stay at base.
+    const correlated = DISPERSION_K * disp.sigmaMargin! * (disp.growthMarginCorrelation ?? 0);
+    expect(correlated).toBeLessThan(0);
+    expect(targetFor(r, "bull").marginDeltaPp).toBe(0);
+    expect(targetFor(r, "bear").marginDeltaPp).toBe(0);
+    expect(r.basis[1]).toContain(`Here it would have cut the bull's margin by ${round2(-correlated)}pp and raised the bear's by ${round2(-correlated)}pp, so both margins stay at base.`);
   });
 
   it("computes upside vs the current price for each target", () => {
@@ -238,11 +243,10 @@ function buildDcfWithNetDebt(netDebt: number): { assumptions: DcfAssumptions; dc
 }
 
 // Anti-correlated history: high-growth years carry LOW margins and vice-versa, so
-// the growth/margin correlation is strongly negative and the margin shock (σ capped
-// at 12pp) dominates the growth shock (σ≈1.2pp). Under the RAW ±σ construction the
-// +growth run (lower margin) lands BELOW the −growth run (higher margin), i.e. bull < bear.
-// Re-pinned for D-60: decaying shocks leave a revenue LEVEL shift but no lasting
-// margin shift, so the margin side needs more dispersion than before to dominate.
+// the growth/margin correlation is strongly negative and the correlated margin
+// shift (σ capped at 12pp) dwarfs the growth shock (σ≈1.2pp). Before AMZN audit
+// 2026-10-20 finding 11 that shift was applied against the growth shift, so the
+// +growth run (lower margin) landed BELOW the −growth run (higher margin).
 const ANTI_CORRELATED_HISTORY: ProjectionIncomeRow[] = [
   { date: "2021-12-31", revenue: 1000, ebit: 300, netIncome: 200, epsDiluted: 2.0 }, // margin 30%
   { date: "2022-12-31", revenue: 1100, ebit: 165, netIncome: 130, epsDiluted: 1.3 }, // g 10%,  margin 15%
@@ -264,10 +268,10 @@ const FLAT_MARGIN_HISTORY: ProjectionIncomeRow[] = [
 ];
 
 describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
-  it("re-labels bull/bear by value so a negative growth/margin correlation never publishes bull < bear", () => {
+  it("holds the margin at base under a negative growth/margin correlation, so the bull keeps the higher growth and no margin cut", () => {
     const inputs = makeInputs({ incomeHistory: ANTI_CORRELATED_HISTORY });
     const disp = scenarioDispersion(ANTI_CORRELATED_HISTORY);
-    // Precondition: correlation is strongly negative (the trigger for inversion).
+    // Precondition: correlation is strongly negative.
     expect(disp.growthMarginCorrelation).not.toBeNull();
     expect(disp.growthMarginCorrelation!).toBeLessThan(-0.9);
 
@@ -275,21 +279,39 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
     const bull = targetFor(r, "bull").perShare!.value;
     const base = targetFor(r, "base").perShare!.value;
     const bear = targetFor(r, "bear").perShare!.value;
-    // Enforced invariant (the raw construction gives the +growth run 37.53 < the −growth run 42.26).
     expect(bull).toBeGreaterThanOrEqual(base);
     expect(base).toBeGreaterThanOrEqual(bear);
     expect(bull).toBeGreaterThan(bear); // a real, non-degenerate spread
 
-    // The re-label swaps the deltas: the HIGHER-value scenario (bull) is the one
-    // with LOWER growth + HIGHER margin (the −growth run), because margins here are
-    // countercyclical. Deltas describe the path that produced each value.
-    expect(targetFor(r, "bull").growthDeltaPp).toBeCloseTo(-DISPERSION_K * disp.sigmaGrowth!, 6);
-    expect(targetFor(r, "bull").marginDeltaPp).toBeGreaterThan(0);
-    expect(targetFor(r, "bear").growthDeltaPp).toBeCloseTo(DISPERSION_K * disp.sigmaGrowth!, 6);
-    expect(targetFor(r, "bear").marginDeltaPp).toBeLessThan(0);
+    // AMZN audit 2026-10-20 finding 11: the bull used to be the −growth run
+    // with an 11pp margin gain (37.53 for the +growth run against 42.26). Growth
+    // creates value here, so the bull is the +growth run and the margin shift
+    // that history pairs with it, a cut, is not applied to either scenario.
+    expect(targetFor(r, "bull").growthDeltaPp).toBeCloseTo(DISPERSION_K * disp.sigmaGrowth!, 6);
+    expect(targetFor(r, "bull").marginDeltaPp).toBe(0);
+    expect(targetFor(r, "bear").growthDeltaPp).toBeCloseTo(-DISPERSION_K * disp.sigmaGrowth!, 6);
+    expect(targetFor(r, "bear").marginDeltaPp).toBe(0);
+    expect(r.missingReasons.some((g) => g.field === "valuation.scenarioTargets.ordering")).toBe(false);
+  });
 
-    // The inversion is disclosed, not silent.
-    expect(r.missingReasons.some((g) => g.field === "valuation.scenarioTargets.ordering")).toBe(true);
+  it("re-labels bull/bear by value when growth destroys value, and discloses it", () => {
+    // Sales-to-capital 0.2: the reinvestment extra growth needs costs more than
+    // the operating profit it adds, so the lower-growth shock is worth more.
+    const { assumptions } = buildDcf();
+    const a = structuredClone(assumptions);
+    a.salesToCapital.value = 0.2;
+    const dcf = runDcf(a, { waccPct: 9, netDebt: -100, dilutedShares: 100 });
+    expect(dcf.perShare!).toBeGreaterThan(0);
+    const r = computeScenarioTargets(makeInputs({ valuation: dcfValuation({ assumptions: a, dcf }) }));
+    const disp = scenarioDispersion(INCOME_HISTORY);
+    expect(targetFor(r, "bull").perShare!.value).toBeGreaterThan(targetFor(r, "bear").perShare!.value);
+    expect(targetFor(r, "bull").growthDeltaPp).toBeCloseTo(-DISPERSION_K * disp.sigmaGrowth!, 6);
+    expect(targetFor(r, "bear").growthDeltaPp).toBeCloseTo(DISPERSION_K * disp.sigmaGrowth!, 6);
+    // ρ < 0 here, so the margin gain history pairs with lower growth goes with the bull.
+    expect(targetFor(r, "bull").marginDeltaPp).toBeGreaterThan(0);
+    expect(targetFor(r, "bear").marginDeltaPp).toBeCloseTo(-targetFor(r, "bull").marginDeltaPp, 12);
+    const ordering = r.missingReasons.find((g) => g.field === "valuation.scenarioTargets.ordering");
+    expect(ordering?.reason).toMatch(/^with the margin at base the lower-growth shock is worth more than the higher-growth one/);
   });
 
   it("floors a negative bear per-share at 0 and caps upside at −100%, disclosed", () => {
@@ -429,5 +451,65 @@ describe("scenarioTargets — the perturbed runs use the base DCF's own bridge",
     expect(bull).toBeGreaterThanOrEqual(base);
     expect(base).toBeGreaterThanOrEqual(bear);
     expect(r.missingReasons.some((g) => g.field === "valuation.scenarioTargets.ordering")).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------------ *
+ * AMZN audit 2026-10-20 finding 11: the bull case cut margin. Bull and bear
+ * shifted margin by ρ·σm, and AMZN's growth/margin correlation is −0.378, so
+ * the bull carried +10.38pp of growth with a 1.17pp margin cut and the bear a
+ * 1.17pp margin gain. A scenario's margin shift now goes with its growth
+ * shift only when it helps the scenario.
+ * ------------------------------------------------------------------------ */
+
+describe("scenario paths — a bull is never unfavourable on a driver and a bear never favourable", () => {
+  const opts = { waccPct: 9, netDebt: -100, dilutedShares: 100 };
+  const perShareAt = (a: DcfAssumptions, g: number, m: number) => runDcf(perturbScenarioAssumptions(a, g, m), opts).perShare!;
+  const named = (shared: ReturnType<typeof buildScenarioPaths>, name: "bull" | "bear") =>
+    shared.scenarioAssumptions.scenarios.find((s) => s.name === name)!;
+
+  it("holds the margin at base when growth and margin are anti-correlated (AMZN: ρ −0.378 cut the bull's margin 1.17pp)", () => {
+    const { assumptions } = buildDcf();
+    const shared = buildScenarioPaths(assumptions, opts, { sigmaGrowth: 10.38, sigmaMargin: 3.09, growthMarginCorrelation: -0.378 });
+    expect(named(shared, "bull").growthDeltaPp).toBeCloseTo(10.38, 9);
+    expect(named(shared, "bull").marginDeltaPp).toBe(0);
+    expect(named(shared, "bear").growthDeltaPp).toBeCloseTo(-10.38, 9);
+    expect(named(shared, "bear").marginDeltaPp).toBe(0);
+    expect(shared.bull.result.perShare).toBeCloseTo(perShareAt(assumptions, 10.38, 0), 9);
+    expect(shared.bear.result.perShare).toBeCloseTo(perShareAt(assumptions, -10.38, 0), 9);
+    // The measured correlation is still what the construction reports.
+    expect(shared.scenarioAssumptions.growthMarginCorrelation).toBe(-0.378);
+    expect(shared.orderingInverted).toBe(false);
+  });
+
+  it("keeps the correlated margin shift when it moves with the scenario", () => {
+    const { assumptions } = buildDcf();
+    const shared = buildScenarioPaths(assumptions, opts, { sigmaGrowth: 10, sigmaMargin: 4, growthMarginCorrelation: 0.5 });
+    expect(named(shared, "bull").growthDeltaPp).toBe(10);
+    expect(named(shared, "bull").marginDeltaPp).toBeCloseTo(2, 12);
+    expect(named(shared, "bear").growthDeltaPp).toBe(-10);
+    expect(named(shared, "bear").marginDeltaPp).toBeCloseTo(-2, 12);
+  });
+
+  // Sales-to-capital 0.2 makes growth destroy value in this DCF (reinvestment
+  // outruns the NOPAT it buys), so there the lower-growth shift is the bull's.
+  it.each([
+    [-0.378, 3.09, null], [-0.95, 12, null], [0.5, 4, null], [0.9, 12, null],
+    [-0.378, 3.09, 0.2], [-0.95, 12, 0.2], [0.5, 4, 0.2], [0.9, 12, 0.2],
+  ])("ρ %s, margin σ %spp, sales-to-capital %s: bull ≥ base on both drivers, bear ≤ base on both", (rho, sigmaMargin, s2c) => {
+    const a = structuredClone(buildDcf().assumptions);
+    if (s2c !== null) {
+      a.salesToCapital.value = s2c;
+      expect(perShareAt(a, 10, 0)).toBeLessThan(perShareAt(a, -10, 0)); // precondition: growth destroys value
+    }
+    const shared = buildScenarioPaths(a, opts, { sigmaGrowth: 10, sigmaMargin, growthMarginCorrelation: rho });
+    const bull = named(shared, "bull");
+    const bear = named(shared, "bear");
+    expect(bull.marginDeltaPp).toBeGreaterThanOrEqual(0);
+    expect(bear.marginDeltaPp).toBeLessThanOrEqual(0);
+    // The bull's growth shift is the one that raises value on its own.
+    expect(perShareAt(a, bull.growthDeltaPp, 0)).toBeGreaterThan(perShareAt(a, bear.growthDeltaPp, 0));
+    expect(shared.bull.result.perShare!).toBeGreaterThan(shared.bear.result.perShare!);
+    expect(shared.orderingInverted).toBe(bull.growthDeltaPp < 0);
   });
 });

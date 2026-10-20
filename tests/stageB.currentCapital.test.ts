@@ -172,3 +172,45 @@ describe("capital grading snapshot", () => {
     expect(result.current?.debtBridge).toMatchObject({netDebtIncludingLeases:null,netDebtExcludingOperatingLeases:null});
   });
 });
+
+// AMZN audit 2026-10-20, finding 20 (b): net debt/EBITDA used lease-inclusive
+// net debt (AMZN $119.33B, 0.7x) while enterprise value and the DCF bridge
+// remove the operating-lease liability ($23.01B). EBITDA is already after
+// operating-lease cost, so the ratio now takes the enterprise value's basis.
+describe("net debt/EBITDA on the enterprise value's lease basis", () => {
+  it("removes the operating-lease liability when enterprise value does, and keeps it when EV keeps it", () => {
+    const excluded = attachCurrentCapital(annual(), { income, cashFlow: cash, balance, currency: "USD", evIncludeLeases: false });
+    expect(excluded.current).toMatchObject({ netDebt: 5, ebitda: 36 });
+    expect(excluded.current?.netDebtToEbitda).toBeCloseTo(5 / 36, 12);
+    // The bridge still shows both bases.
+    expect(excluded.current?.debtBridge).toMatchObject({ netDebtIncludingLeases: 15, netDebtExcludingOperatingLeases: 5 });
+    const included = attachCurrentCapital(annual(), { income, cashFlow: cash, balance, currency: "USD", evIncludeLeases: true });
+    expect(included.current?.netDebtToEbitda).toBeCloseTo(15 / 36, 12);
+  });
+
+  it("says which basis the annual ratio used", () => {
+    const opts = { evIncludeLeases: false };
+    const capital = computeCapital([{ ...income, date: "2026-06-30" }], [cash], [balance], [], { price: null }, opts);
+    expect(capital.netDebtToEbitda.netDebt).toBe(5);
+    expect(capital.netDebtToEbitda.note).toMatch(/^net debt excludes the operating-lease liability 10, as enterprise value does/);
+    // An operating lease that total debt is not shown to hold is not removed.
+    const unproven = computeCapital([{ ...income, date: "2026-06-30" }], [cash], [{ date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10 }], [], { price: null }, opts);
+    expect(unproven.netDebtToEbitda.netDebt).toBe(15);
+  });
+
+  it("matches the DCF bridge's net debt in a full Stage B run", () => {
+    const bundle = completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    for (const result of [bundle.statements.incomeQuarterly, bundle.statements.incomeAnnual]) {
+      if (!result.ok) throw new Error("Missing income fixture");
+      for (const row of result.value.data.rows) row.interestExpense = 10e6;
+    }
+    for (const result of [bundle.statements.balanceQuarterly, bundle.statements.balanceAnnual]) {
+      if (!result.ok) throw new Error("Missing balance fixture");
+      for (const row of result.value.data.rows) Object.assign(row, { totalDebt: 310e6, capitalLeaseObligations: 40e6, operatingLeaseLiability: 40e6 });
+    }
+    const out = runStageB(bundle, { evIncludeLeases: false });
+    if (out.valuation.kind !== "dcf" || out.valuation.dcf === null) throw new Error("expected a DCF");
+    expect(out.capital.current?.netDebt).toBeCloseTo(out.valuation.dcf.bridge.netDebt as number, 0);
+    expect(out.capital.current?.debtBridge.netDebtExcludingOperatingLeases).toBeCloseTo(out.capital.current?.netDebt as number, 0);
+  });
+});

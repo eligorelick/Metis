@@ -47,6 +47,27 @@ describe("model-derived thesis revision triggers", () => {
     expect(trigger.fixedAssumptions.join(" ")).toMatch(/growth path/i);
   });
 
+  // AMZN audit 2026-10-20 finding 10: the price implied a 52.3% terminal margin
+  // against a 12.1% base, and the report printed "Supported terminal operating
+  // margin: below 52.30%" — a condition the base case already met.
+  it("points the reverse threshold away from the base case", () => {
+    const data = computed();
+    if (data.valuation.kind !== "dcf") throw new Error("fixture");
+    Object.assign(data.valuation.assumptions!, { growthPath: { value: [7, 5, 3], basis: "" }, ebitMarginPath: { value: [12.08, 12.08, 12.08], basis: "" } });
+    data.valuation.reverseDcf = { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: 52.3, notes: [], gaps: [] };
+    const [rich] = buildThesisTriggers(data);
+    expect(rich.comparator).toBe("above");
+    expect(rich.consequence).toMatch(/terminal margin above this price-implied threshold/);
+    data.valuation.reverseDcf = { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: 8, notes: [], gaps: [] };
+    expect(buildThesisTriggers(data)[0].comparator).toBe("below");
+    data.valuation.reverseDcf = { method: "growth", impliedRevenueGrowthPct: 20, baseRevenueGrowthPct: 7, impliedTerminalMarginPct: null, notes: [], gaps: [] };
+    const [growth] = buildThesisTriggers(data);
+    expect(growth.comparator).toBe("above");
+    expect(growth.consequence).toMatch(/point above this price-implied level/);
+    data.valuation.reverseDcf.impliedRevenueGrowthPct = 4;
+    expect(buildThesisTriggers(data)[0].comparator).toBe("below");
+  });
+
   it("preserves an economically possible negative implied growth rate", () => {
     const data = computed();
     if (data.valuation.kind !== "dcf" || !data.valuation.reverseDcf) throw new Error("fixture");

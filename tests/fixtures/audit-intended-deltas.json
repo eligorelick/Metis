@@ -2606,11 +2606,6 @@
           "after": "valuation.reverseDcf.growthBracket"
         },
         {
-          "path": "report.appendix.missingData.13.reason",
-          "before": "no API key + no fixture",
-          "after": "no root bracket for the fading year-one growth anchor on the [-20, 60]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone"
-        },
-        {
           "path": "report.appendix.missingData.14.attemptedSources.0",
           "before": "/stable/ratios-ttm?symbol=DEMO",
           "after": "[FIXTURE] /stable/earnings?limit=40&symbol=DEMO"
@@ -3519,63 +3514,9 @@
           "after": "2025-12-31"
         },
         {
-          "path": "report.scores.aspects.valuation.applicableCompleteness",
-          "beforeMissing": true,
-          "after": 0.4
-        },
-        {
-          "path": "report.scores.aspects.valuation.dataCompleteness",
-          "before": 0.7,
-          "after": 0.4
-        },
-        {
           "path": "report.scores.aspects.valuation.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "report.scores.aspects.valuation.drivers.1",
-          "before": {
-            "value": -26.36,
-            "unit": "pp",
-            "source": "computed.scores.valuation.reverseImpliedVsAchievable",
-            "asOf": "2026-07-06",
-            "verified": true
-          },
-          "afterMissing": true
-        },
-        {
-          "path": "report.scores.aspects.valuation.score",
-          "before": 91.14,
-          "after": 92
-        },
-        {
-          "path": "report.valuation.graded.confidence",
-          "before": "medium",
-          "after": "low"
-        },
-        {
-          "path": "report.valuation.graded.confidenceCap",
-          "beforeMissing": true,
-          "after": {
-            "from": "medium",
-            "to": "low",
-            "reason": "the deterministic valuation score rests on under half of the inputs its route supports"
-          }
-        },
-        {
-          "path": "report.verdict.gradeStrip.valuation.confidence",
-          "before": "medium",
-          "after": "low"
-        },
-        {
-          "path": "report.verdict.gradeStrip.valuation.confidenceCap",
-          "beforeMissing": true,
-          "after": {
-            "from": "medium",
-            "to": "low",
-            "reason": "the deterministic valuation score rests on under half of the inputs its route supports"
-          }
         },
         {
           "path": "stageB.forensics.accruals.investingCashFlow",
@@ -3610,11 +3551,6 @@
           "path": "stageB.gaps.12.field",
           "before": "fmp.keyMetricsTtm(DEMO)",
           "after": "valuation.reverseDcf.growthBracket"
-        },
-        {
-          "path": "stageB.gaps.12.reason",
-          "before": "no API key + no fixture",
-          "after": "no root bracket for the fading year-one growth anchor on the [-20, 60]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone"
         },
         {
           "path": "stageB.gaps.13.attemptedSources.0",
@@ -4256,35 +4192,9 @@
           "after": "2025-12-31"
         },
         {
-          "path": "stageB.scores.aspects.valuation.applicableCompleteness",
-          "beforeMissing": true,
-          "after": 0.4
-        },
-        {
-          "path": "stageB.scores.aspects.valuation.dataCompleteness",
-          "before": 0.7,
-          "after": 0.4
-        },
-        {
           "path": "stageB.scores.aspects.valuation.drivers.0.asOf",
           "before": "2026-07-06",
           "after": "2025-12-31"
-        },
-        {
-          "path": "stageB.scores.aspects.valuation.drivers.1",
-          "before": {
-            "value": -26.36,
-            "unit": "pp",
-            "source": "computed.scores.valuation.reverseImpliedVsAchievable",
-            "asOf": "2026-07-06",
-            "verified": true
-          },
-          "afterMissing": true
-        },
-        {
-          "path": "stageB.scores.aspects.valuation.score",
-          "before": 91.14,
-          "after": 92
         },
         {
           "path": "stageB.valuation.assumptions.forecastPeriod",
@@ -4396,15 +4306,6 @@
           }
         },
         {
-          "path": "stageB.valuation.reverseDcf.gaps.0",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.reverseDcf.growthBracket",
-            "reason": "no root bracket for the fading year-one growth anchor on the [-20, 60]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone",
-            "severity": "warn"
-          }
-        },
-        {
           "path": "stageB.valuation.reverseDcf.impliedGrowthPathPct",
           "beforeMissing": true,
           "after": null
@@ -4413,11 +4314,6 @@
           "path": "stageB.valuation.reverseDcf.impliedRevenueGrowthPct",
           "before": -17.24609375,
           "after": null
-        },
-        {
-          "path": "stageB.valuation.reverseDcf.notes.0",
-          "before": "implied CONSTANT revenue growth over 10 explicit years (no fade); all other assumptions frozen at base case",
-          "after": "no root bracket for the fading year-one growth anchor on the [-20, 60]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone"
         },
         {
           "path": "stageB.valuation.reverseDcf.notes.1",
@@ -4984,15 +4880,6 @@
             "field": "valuation.dcf.terminalRoic.waccBasis",
             "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
             "severity": "info"
-          }
-        },
-        {
-          "path": "stageB.valuation.gaps.5",
-          "beforeMissing": true,
-          "after": {
-            "field": "valuation.reverseDcf.growthBracket",
-            "reason": "no root bracket for the fading year-one growth anchor on the [-20, 60]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone",
-            "severity": "warn"
           }
         },
         {
@@ -5784,11 +5671,6 @@
       "reason": "Leaves that more than one NVDA-audit decision moved, so no single group reason describes their final value. The DEMO DCF path, sensitivity grid, assumptions, reverse DCF, fair value and upside were first moved by D-58 (evidence anchor, convergent fade, terminal tax floor) and moved again by D-60 (consensus-level years one and two, margin cap counting the TTM, sales-to-capital without long-term investments, FRED risk-free rate, latest-balance debt weight, mean-reverting scenarios, observable thesis triggers, one net-cash figure); the returns and WACC leaves move with D-60 and the D-61 invested-capital change; the aspect scores and composite move with D-60 and D-61 together; bandsVersion and scenario methodVersion move with the integration stamps (SCORE_BANDS_2026_10_NVDA_AUDIT). Each component change is described in its own group and decision record.",
       "deltas": [
         {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D60"
-        },
-        {
           "path": "report.scores.aspects.quality.drivers.0.value",
           "before": 27.2,
           "after": 30.806856135117066
@@ -6025,11 +5907,6 @@
             },
             "summary": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
           }
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D60"
         },
         {
           "path": "stageB.scores.aspects.quality.drivers.0.value",
@@ -7225,11 +7102,6 @@
           }
         },
         {
-          "path": "report.valuation.multiplesBasis",
-          "beforeMissing": true,
-          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-        },
-        {
           "path": "stageB.capital.current",
           "beforeMissing": true,
           "after": {
@@ -7711,22 +7583,6 @@
           "path": "report.valuation.dcf.assumptions.1.basis",
           "before": "linear fade from 7.89% (analyst consensus revenue, avg implied growth over next 2 fiscal years (through 2027-12-31)) to terminal 2.5% by year 10",
           "after": "year-one revenue 13.5B (8% over latest annual FY 2025-12-31 12.5B) from analyst consensus calendarized to FY2026 ending 2026-12-31 (fiscal-year estimates weighted by day overlap); measured against latest annual FY 2025-12-31 revenue 12.5B; year two grows 7.78% on consensus (FY2027 ending 2027-12-31 14.55B over 13.5B); year three grows 7.56% on consensus (FY2028 ending 2028-12-31 15.65B over 14.55B); year four grows 7.35% on consensus (FY2029 ending 2029-12-31 16.8B over 15.65B); year five grows 7.14% on consensus (FY2030 ending 2030-12-31 18B over 16.8B); year six is not anchored: FY2031 ending 2031-12-31 is not covered by the fiscal-year estimates (the estimates cover through FY2030 ending 2030-12-31) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)]."
-        },
-        {
-          "path": "report.valuation.marketValueScope",
-          "beforeMissing": true,
-          "after": {
-            "status": "unverified-vendor-scope",
-            "marketCap": 8000000000,
-            "economicShares": null,
-            "currency": null,
-            "shareCountAsOf": null,
-            "priceAsOf": "2025-12-31",
-            "approximate": false,
-            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
-            "enterpriseValue": 6700000000,
-            "enterpriseValueBasis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-          }
         },
         {
           "path": "stageB.forensics.altman.asOf.marketCap",
@@ -8301,16 +8157,6 @@
       "reason": "D-81 retains six pipeline-owned per-multiple scope/basis strings. D-82 patches deterministic ISO-duration claim verification and advances the report stamp to 1.23.1 without changing payload or financial inputs. All 1,180 preceding assertions remain represented, plus the six basis leaves; no financial numeric golden value is reclassified.",
       "deltas": [
         {
-          "path": "report.valuation.multiples.1.basis",
-          "beforeMissing": true,
-          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000. Balance basis: latest quarterly balance sheet 2025-12-31."
-        },
-        {
-          "path": "report.valuation.multiples.2.basis",
-          "beforeMissing": true,
-          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-        },
-        {
           "path": "report.valuation.multiples.3.basis",
           "beforeMissing": true,
           "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
@@ -8807,85 +8653,6 @@
           ]
         },
         {
-          "path": "report.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.07,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 92,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.7781212121212121,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
-          "path": "report.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 77.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "report.scores.composite.score",
-          "before": 77.59,
-          "after": 73.97
-        },
-        {
-          "path": "report.scores.factorExposure",
-          "beforeMissing": true,
-          "after": [
-            {
-              "family": "capital-returns",
-              "weightPct": 16.5,
-              "aboveNeutralPoints": 7.12460088691796
-            },
-            {
-              "family": "growth",
-              "weightPct": 14.000000000000002,
-              "aboveNeutralPoints": 2.2271840043786124
-            },
-            {
-              "family": "financial-strength",
-              "weightPct": 12.352941176470589,
-              "aboveNeutralPoints": 4.245798319327731
-            },
-            {
-              "family": "profitability",
-              "weightPct": 9.75,
-              "aboveNeutralPoints": 2.299383843890901
-            },
-            {
-              "family": "accounting-integrity",
-              "weightPct": 9.016666666666667,
-              "aboveNeutralPoints": 3.3382626280302823
-            },
-            {
-              "family": "valuation",
-              "weightPct": 8,
-              "aboveNeutralPoints": 3.36
-            },
-            {
-              "family": "capital-return-policy",
-              "weightPct": 4.545454545454545,
-              "aboveNeutralPoints": 0.6258802167783815
-            },
-            {
-              "family": "equity-compensation",
-              "weightPct": 2.6470588235294117,
-              "aboveNeutralPoints": 0.44509803921568614
-            },
-            {
-              "family": "momentum-and-trend",
-              "weightPct": 1,
-              "aboveNeutralPoints": 0.30284603461001197
-            }
-          ]
-        },
-        {
           "path": "report.technicals.graded.assessmentStatus",
           "beforeMissing": true,
           "after": "limited-evidence"
@@ -9138,85 +8905,6 @@
                   "asOf": "2025-12-31"
                 }
               ]
-            }
-          ]
-        },
-        {
-          "path": "stageB.scores.assessments",
-          "beforeMissing": true,
-          "after": {
-            "businessQuality": {
-              "score": 77.07,
-              "band": "B",
-              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
-            },
-            "valuation": {
-              "score": 92,
-              "band": "A",
-              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
-            },
-            "evidenceCompleteness": 0.7781212121212121,
-            "calibration": "unbacktested-house-rules"
-          }
-        },
-        {
-          "path": "stageB.scores.composite.methodology",
-          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
-          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 77.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
-        },
-        {
-          "path": "stageB.scores.composite.score",
-          "before": 77.59,
-          "after": 73.97
-        },
-        {
-          "path": "stageB.scores.factorExposure",
-          "beforeMissing": true,
-          "after": [
-            {
-              "family": "capital-returns",
-              "weightPct": 16.5,
-              "aboveNeutralPoints": 7.12460088691796
-            },
-            {
-              "family": "growth",
-              "weightPct": 14.000000000000002,
-              "aboveNeutralPoints": 2.2271840043786124
-            },
-            {
-              "family": "financial-strength",
-              "weightPct": 12.352941176470589,
-              "aboveNeutralPoints": 4.245798319327731
-            },
-            {
-              "family": "profitability",
-              "weightPct": 9.75,
-              "aboveNeutralPoints": 2.299383843890901
-            },
-            {
-              "family": "accounting-integrity",
-              "weightPct": 9.016666666666667,
-              "aboveNeutralPoints": 3.3382626280302823
-            },
-            {
-              "family": "valuation",
-              "weightPct": 8,
-              "aboveNeutralPoints": 3.36
-            },
-            {
-              "family": "capital-return-policy",
-              "weightPct": 4.545454545454545,
-              "aboveNeutralPoints": 0.6258802167783815
-            },
-            {
-              "family": "equity-compensation",
-              "weightPct": 2.6470588235294117,
-              "aboveNeutralPoints": 0.44509803921568614
-            },
-            {
-              "family": "momentum-and-trend",
-              "weightPct": 1,
-              "aboveNeutralPoints": 0.30284603461001197
             }
           ]
         },
@@ -9479,43 +9167,6 @@
           "after": 286.1499526042018
         },
         {
-          "path": "report.scores.aspects.valuation.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "dcfUpside",
-              "raw": 286.1499526042018,
-              "unit": "%",
-              "transformedScore": 92,
-              "signalWeight": 0.4,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 8,
-              "contributionPoints": 3.36,
-              "family": "valuation",
-              "asOf": "2025-12-31",
-              "period": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus",
-              "startDate": null,
-              "endDate": null,
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "DCF per share",
-                  "value": 154.45998104168072,
-                  "source": "computed.valuation.dcf.perShare",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "current quote",
-                  "value": 40,
-                  "source": "computed.currentPrice",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
-        },
-        {
           "path": "report.valuation.dcf.assumptions.7",
           "beforeMissing": true,
           "after": {
@@ -9763,43 +9414,6 @@
           "path": "stageB.scores.aspects.valuation.drivers.0.value",
           "before": 265.58,
           "after": 286.1499526042018
-        },
-        {
-          "path": "stageB.scores.aspects.valuation.signals",
-          "beforeMissing": true,
-          "after": [
-            {
-              "id": "dcfUpside",
-              "raw": 286.1499526042018,
-              "unit": "%",
-              "transformedScore": 92,
-              "signalWeight": 0.4,
-              "evidenceFraction": 1,
-              "effectiveCompositeWeightPct": 8,
-              "contributionPoints": 3.36,
-              "family": "valuation",
-              "asOf": "2025-12-31",
-              "period": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus",
-              "startDate": null,
-              "endDate": null,
-              "windowYears": null,
-              "fallbackReason": null,
-              "operands": [
-                {
-                  "name": "DCF per share",
-                  "value": 154.45998104168072,
-                  "source": "computed.valuation.dcf.perShare",
-                  "asOf": "2025-12-31"
-                },
-                {
-                  "name": "current quote",
-                  "value": 40,
-                  "source": "computed.currentPrice",
-                  "asOf": "2025-12-31"
-                }
-              ]
-            }
-          ]
         },
         {
           "path": "stageB.valuation.assumptions.investmentTax",
@@ -10065,16 +9679,459 @@
       ]
     },
     {
-      "name": "amzn-audit-fixes-20261020",
+      "name": "amzn-deferred-fixes-20261020",
       "decisions": [
-        "D-98"
+        "D-99"
       ],
-      "reason": "AMZN report audit 2026-10-20 fixes 1-5 with findings 12, 14 and 17 and independent-audit recommendations 7 and 15: report spec 1.34.0 identifies the gain-inflated P/E caveat, the report-level evidence-scope line and contradicted figures in the header count, with rate-limit degradation, SEC-statement investment stakes and their tax, the guided year-over-year pace, the improving-margin fade and the one-off margin seed in Stage B. The investment-tax leaves of this provider-free DEMO control are classified in amzn-2026-10-20-investments-after-tax; the sole leaf reclassified here is report.meta.specVersion. Prior stored reports retain their original stamps and bytes. See docs/audit/2026-10-20-amzn-audit-fixes.md.",
+      "reason": "Deferred AMZN report audit 2026-10-20 findings (D-99), as they reach this provider-free DEMO control: finding 10 scores a reverse DCF whose price lies outside the growth search range at that bound, so DEMO's price of 40, below its DCF value at every year-one growth down to -20%, carries growthOutsideRange, the bound statement in its notes and gaps, and a reverse driver and signal again (valuation completeness 0.4 back to 0.7, which also returns the meta-report-audit confidence and score leaves to the audited values; composite 77.59 to 76.37 with its methodology, assessments and factor exposure); finding 20(h) states the enterprise-value bridge once beside the multiples, with the EV/EBITDA and EV/Sales bases pointing to it and the setting named as the house default instead of an environment variable; the scenario-target method stamp moves to SCENARIO_TARGETS_2026_10_D99 with finding 11's margin direction; report spec 1.35.0. No other value moves. See docs/audit/2026-10-20-amzn-deferred-fixes.md.",
       "deltas": [
+        {
+          "path": "report.appendix.missingData.13.reason",
+          "before": "no API key + no fixture",
+          "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
+        },
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.34.0"
+          "after": "1.35.0"
+        },
+        {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D99"
+        },
+        {
+          "path": "report.scores.aspects.valuation.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.7
+        },
+        {
+          "path": "report.scores.aspects.valuation.drivers.1.asOf",
+          "before": "2026-07-06",
+          "after": "2025-12-31"
+        },
+        {
+          "path": "report.scores.aspects.valuation.drivers.1.period",
+          "beforeMissing": true,
+          "after": "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors."
+        },
+        {
+          "path": "report.scores.aspects.valuation.drivers.1.value",
+          "before": -26.36,
+          "after": -28.000000000000007
+        },
+        {
+          "path": "report.scores.aspects.valuation.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "dcfUpside",
+              "raw": 286.1499526042018,
+              "unit": "%",
+              "transformedScore": 92,
+              "signalWeight": 0.4,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 8,
+              "contributionPoints": 3.36,
+              "family": "valuation",
+              "asOf": "2025-12-31",
+              "period": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus",
+              "startDate": null,
+              "endDate": null,
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "DCF per share",
+                  "value": 154.45998104168072,
+                  "source": "computed.valuation.dcf.perShare",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "current quote",
+                  "value": 40,
+                  "source": "computed.currentPrice",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "reverseImpliedVsAchievable",
+              "raw": -28.000000000000007,
+              "unit": "pp",
+              "transformedScore": 90,
+              "signalWeight": 0.3,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 6,
+              "contributionPoints": 2.4,
+              "family": "valuation",
+              "asOf": "2025-12-31",
+              "period": "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors.",
+              "startDate": null,
+              "endDate": null,
+              "windowYears": 10,
+              "fallbackReason": "No implied growth was solved: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%. Implied minus base starting growth is therefore at most -28.00 pp, and the signal is scored at that bound; a wider gap would score no lower.",
+              "operands": [
+                {
+                  "name": "implied starting growth, same fade",
+                  "value": null,
+                  "source": "computed.valuation.reverseDcf.impliedRevenueGrowthPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "base starting growth, same fade",
+                  "value": 8.000000000000007,
+                  "source": "computed.valuation.reverseDcf.baseRevenueGrowthPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "growth search-range end the price lies beyond",
+                  "value": -20,
+                  "source": "computed.valuation.reverseDcf.growthOutsideRange.boundPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "DCF per share at that range end",
+                  "value": 72.91448587767623,
+                  "source": "computed.valuation.reverseDcf.growthOutsideRange.perShareAtBound",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "report.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 91.14,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.8381212121212122,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "report.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "report.scores.composite.score",
+          "before": 77.59,
+          "after": 76.37
+        },
+        {
+          "path": "report.scores.factorExposure",
+          "beforeMissing": true,
+          "after": [
+            {
+              "family": "capital-returns",
+              "weightPct": 16.5,
+              "aboveNeutralPoints": 7.12460088691796
+            },
+            {
+              "family": "growth",
+              "weightPct": 14.000000000000002,
+              "aboveNeutralPoints": 2.2271840043786124
+            },
+            {
+              "family": "valuation",
+              "weightPct": 14,
+              "aboveNeutralPoints": 5.76
+            },
+            {
+              "family": "financial-strength",
+              "weightPct": 12.352941176470589,
+              "aboveNeutralPoints": 4.245798319327731
+            },
+            {
+              "family": "profitability",
+              "weightPct": 9.75,
+              "aboveNeutralPoints": 2.299383843890901
+            },
+            {
+              "family": "accounting-integrity",
+              "weightPct": 9.016666666666667,
+              "aboveNeutralPoints": 3.3382626280302823
+            },
+            {
+              "family": "capital-return-policy",
+              "weightPct": 4.545454545454545,
+              "aboveNeutralPoints": 0.6258802167783815
+            },
+            {
+              "family": "equity-compensation",
+              "weightPct": 2.6470588235294117,
+              "aboveNeutralPoints": 0.44509803921568614
+            },
+            {
+              "family": "momentum-and-trend",
+              "weightPct": 1,
+              "aboveNeutralPoints": 0.30284603461001197
+            }
+          ]
+        },
+        {
+          "path": "report.valuation.marketValueScope",
+          "beforeMissing": true,
+          "after": {
+            "status": "unverified-vendor-scope",
+            "marketCap": 8000000000,
+            "economicShares": null,
+            "currency": null,
+            "shareCountAsOf": null,
+            "priceAsOf": "2025-12-31",
+            "approximate": false,
+            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
+            "enterpriseValue": 6700000000,
+            "enterpriseValueBasis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+          }
+        },
+        {
+          "path": "report.valuation.multiples.1.basis",
+          "beforeMissing": true,
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2025-12-31."
+        },
+        {
+          "path": "report.valuation.multiples.2.basis",
+          "beforeMissing": true,
+          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value as stated once in the enterprise-value bridge note."
+        },
+        {
+          "path": "report.valuation.multiplesBasis",
+          "beforeMissing": true,
+          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
+        },
+        {
+          "path": "stageB.gaps.12.reason",
+          "before": "no API key + no fixture",
+          "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D99"
+        },
+        {
+          "path": "stageB.scores.aspects.valuation.applicableCompleteness",
+          "beforeMissing": true,
+          "after": 0.7
+        },
+        {
+          "path": "stageB.scores.aspects.valuation.drivers.1.asOf",
+          "before": "2026-07-06",
+          "after": "2025-12-31"
+        },
+        {
+          "path": "stageB.scores.aspects.valuation.drivers.1.period",
+          "beforeMissing": true,
+          "after": "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors."
+        },
+        {
+          "path": "stageB.scores.aspects.valuation.drivers.1.value",
+          "before": -26.36,
+          "after": -28.000000000000007
+        },
+        {
+          "path": "stageB.scores.aspects.valuation.signals",
+          "beforeMissing": true,
+          "after": [
+            {
+              "id": "dcfUpside",
+              "raw": 286.1499526042018,
+              "unit": "%",
+              "transformedScore": 92,
+              "signalWeight": 0.4,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 8,
+              "contributionPoints": 3.36,
+              "family": "valuation",
+              "asOf": "2025-12-31",
+              "period": "Quote observation 2025-12-31; DCF statement start 2025-12-31, year-one revenue from consensus",
+              "startDate": null,
+              "endDate": null,
+              "windowYears": null,
+              "fallbackReason": null,
+              "operands": [
+                {
+                  "name": "DCF per share",
+                  "value": 154.45998104168072,
+                  "source": "computed.valuation.dcf.perShare",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "current quote",
+                  "value": 40,
+                  "source": "computed.currentPrice",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            },
+            {
+              "id": "reverseImpliedVsAchievable",
+              "raw": -28.000000000000007,
+              "unit": "pp",
+              "transformedScore": 90,
+              "signalWeight": 0.3,
+              "evidenceFraction": 1,
+              "effectiveCompositeWeightPct": 6,
+              "contributionPoints": 2.4,
+              "family": "valuation",
+              "asOf": "2025-12-31",
+              "period": "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors.",
+              "startDate": null,
+              "endDate": null,
+              "windowYears": 10,
+              "fallbackReason": "No implied growth was solved: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%. Implied minus base starting growth is therefore at most -28.00 pp, and the signal is scored at that bound; a wider gap would score no lower.",
+              "operands": [
+                {
+                  "name": "implied starting growth, same fade",
+                  "value": null,
+                  "source": "computed.valuation.reverseDcf.impliedRevenueGrowthPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "base starting growth, same fade",
+                  "value": 8.000000000000007,
+                  "source": "computed.valuation.reverseDcf.baseRevenueGrowthPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "growth search-range end the price lies beyond",
+                  "value": -20,
+                  "source": "computed.valuation.reverseDcf.growthOutsideRange.boundPct",
+                  "asOf": "2025-12-31"
+                },
+                {
+                  "name": "DCF per share at that range end",
+                  "value": 72.91448587767623,
+                  "source": "computed.valuation.reverseDcf.growthOutsideRange.perShareAtBound",
+                  "asOf": "2025-12-31"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "stageB.scores.assessments",
+          "beforeMissing": true,
+          "after": {
+            "businessQuality": {
+              "score": 77.07,
+              "band": "B",
+              "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum."
+            },
+            "valuation": {
+              "score": 91.14,
+              "band": "A",
+              "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
+            },
+            "evidenceCompleteness": 0.8381212121212122,
+            "calibration": "unbacktested-house-rules"
+          }
+        },
+        {
+          "path": "stageB.scores.composite.methodology",
+          "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 89.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+          "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 83.81% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+        },
+        {
+          "path": "stageB.scores.composite.score",
+          "before": 77.59,
+          "after": 76.37
+        },
+        {
+          "path": "stageB.scores.factorExposure",
+          "beforeMissing": true,
+          "after": [
+            {
+              "family": "capital-returns",
+              "weightPct": 16.5,
+              "aboveNeutralPoints": 7.12460088691796
+            },
+            {
+              "family": "growth",
+              "weightPct": 14.000000000000002,
+              "aboveNeutralPoints": 2.2271840043786124
+            },
+            {
+              "family": "valuation",
+              "weightPct": 14,
+              "aboveNeutralPoints": 5.76
+            },
+            {
+              "family": "financial-strength",
+              "weightPct": 12.352941176470589,
+              "aboveNeutralPoints": 4.245798319327731
+            },
+            {
+              "family": "profitability",
+              "weightPct": 9.75,
+              "aboveNeutralPoints": 2.299383843890901
+            },
+            {
+              "family": "accounting-integrity",
+              "weightPct": 9.016666666666667,
+              "aboveNeutralPoints": 3.3382626280302823
+            },
+            {
+              "family": "capital-return-policy",
+              "weightPct": 4.545454545454545,
+              "aboveNeutralPoints": 0.6258802167783815
+            },
+            {
+              "family": "equity-compensation",
+              "weightPct": 2.6470588235294117,
+              "aboveNeutralPoints": 0.44509803921568614
+            },
+            {
+              "family": "momentum-and-trend",
+              "weightPct": 1,
+              "aboveNeutralPoints": 0.30284603461001197
+            }
+          ]
+        },
+        {
+          "path": "stageB.valuation.gaps.5",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.reverseDcf.growthBracket",
+            "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%",
+            "severity": "warn"
+          }
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.gaps.0",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.reverseDcf.growthBracket",
+            "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%",
+            "severity": "warn"
+          }
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.growthOutsideRange",
+          "beforeMissing": true,
+          "after": {
+            "side": "below",
+            "boundPct": -20,
+            "perShareAtBound": 72.91448587767623,
+            "rising": true,
+            "basis": "the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
+          }
+        },
+        {
+          "path": "stageB.valuation.reverseDcf.notes.0",
+          "before": "implied CONSTANT revenue growth over 10 explicit years (no fade); all other assumptions frozen at base case",
+          "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
         }
       ]
     }

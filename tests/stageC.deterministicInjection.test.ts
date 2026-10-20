@@ -368,7 +368,9 @@ describe("valuation.multiples — deterministic injection (assembly)", () => {
       mr.multiples.map((stat) => ({
         name: MULTIPLE_LABELS[stat.key],
         current: stat.current,
-        basis: stat.basis,
+        // AMZN audit 2026-10-20 finding 20: an EV row points to the bridge
+        // note instead of repeating the whole bridge.
+        basis: stat.basis?.replace(mr.enterpriseValue!.basis, "Enterprise value as stated once in the enterprise-value bridge note."),
         peerMedian: stat.peers?.median ?? null,
         peerCount: stat.peers?.count ?? null,
         own5yPercentile: stat.ownHistory?.percentileRank ?? null,

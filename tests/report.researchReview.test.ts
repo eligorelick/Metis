@@ -72,6 +72,55 @@ describe("research reliability report surfaces", () => {
     expect(result.print).not.toContain("<untrusted>");
   });
 
+  // AMZN audit 2026-10-20 finding 7: the body said "1 of 7 candidate issuers
+  // evaluated; eligible: none; 11 excluded at the screen" when a rate limit had
+  // stopped collection: six candidates got no data, and the subject's own
+  // exclusion was counted as a candidate's. The audit read that as a screen too strict.
+  it("does not count candidates the peer provider never served, or the subject, as excluded at the screen", () => {
+    const report = fixture();
+    const limited = "FMP quota/rate limit (HTTP 429): Limit Reach. Live requests paused until 2026-10-20T06:58:38.335Z.";
+    report.valuation.peerCoverage = { methodology: ["Exact normalized industry AND sector."], candidates: 7, evaluated: 1, eligible: [], comparisons: [],
+      exclusions: [
+        ...["SMALLA", "SMALLB", "SMALLC"].map((symbol) => ({ symbol, reason: "size screen: market cap 6.67B is 424× smaller than the subject's 2.83T, outside the 100× comparable-size band (house rule D-65)" })),
+        { symbol: "ADRA", reason: "ordinary active non-ADR equity status not established" },
+        ...["PEERB", "PEERC", "PEERD", "PEERE", "PEERF"].map((symbol) => ({ symbol, reason: "provider unavailable or optional deadline exhausted; candidate not requested" })),
+        { symbol: "DEMO", reason: "Common earnings comparison: common ownership unproven" },
+        { symbol: "PEERA", reason: limited },
+      ] };
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).toContain("1 of 7 candidate issuers evaluated; eligible: none; 4 excluded at the screen; 6 not compared because the peer data provider hit its rate limit or quota.");
+      expect(rendered).not.toContain("11 excluded");
+    }
+  });
+  // Codex review of PR #42: every reason the peer loader treats as a terminal
+  // provider failure is the provider's, not the screen's.
+  it.each(["FMP invalid API key", "FMP subscription denied for this endpoint", "entitlement required", "request aborted"])("counts a candidate refused with %j as unserved", (reason) => {
+    const report = fixture();
+    report.valuation.peerCoverage = { methodology: ["Exact normalized industry AND sector."], candidates: 3, evaluated: 1, eligible: [], comparisons: [],
+      exclusions: [
+        { symbol: "PEERA", reason },
+        ...["PEERB", "PEERC"].map((symbol) => ({ symbol, reason: "provider unavailable or optional deadline exhausted; candidate not requested" })),
+      ] };
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).toContain("1 of 3 candidate issuers evaluated; eligible: none; 3 not compared because the peer data provider was unavailable or its deadline passed.");
+      expect(rendered).not.toContain("excluded at the screen");
+    }
+  });
+  // Independent review of these fixes: candidates past the house's own
+  // candidate cap are neither screened out nor the provider's failure.
+  it("counts candidates beyond the house candidate limit on their own", () => {
+    const report = fixture();
+    report.valuation.peerCoverage = { methodology: ["Exact normalized industry AND sector."], candidates: 12, evaluated: 10, eligible: ["PEERA", "PEERB", "PEERC", "PEERD"], comparisons: [],
+      exclusions: [
+        ...["SMALLA", "SMALLB", "SMALLC", "SMALLD", "SMALLE", "SMALLF"].map((symbol) => ({ symbol, reason: "size screen: market cap 6.67B is 424× smaller than the subject's 2.83T, outside the 100× comparable-size band (house rule D-65)" })),
+        ...["EXTRA1", "EXTRA2"].map((symbol) => ({ symbol, reason: "optional candidate budget limit (10)" })),
+      ] };
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).toContain("10 of 12 candidate issuers evaluated; eligible: PEERA, PEERB, PEERC, PEERD; 6 excluded at the screen; 2 beyond the 10-candidate limit.");
+      expect(rendered).not.toContain("peer data provider");
+    }
+  });
+
   it("keeps legacy reports readable without inventing a new review block", () => {
     const report = JSON.parse(readFileSync("fixtures/report/DEMO-sample.json", "utf8")) as Report;
     for (const rendered of Object.values(surfaces(report))) {

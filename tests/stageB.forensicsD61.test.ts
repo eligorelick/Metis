@@ -24,6 +24,10 @@ import type { CompanyFacts } from "@/edgar/xbrl";
 import type { StockSplits } from "@/edgar/splits";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { JudgeOutput } from "@/report/schema";
+import { runStageB } from "@/pipeline/compute";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { validateBundle } from "@/pipeline/stageA/validate";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 /** NVDA FY2026 (10-K filed 2026-02-25) and FY2025 operands, USD millions, as FMP serves them. */
 const nvdaCurrent: ForensicsPeriod = {
@@ -160,6 +164,76 @@ describe("buyback timing: the price actually paid against the same year's averag
   });
 });
 
+// AMZN audit 2026-10-20 finding 15: Amazon's timing signal, 30% of the
+// leadership weight, rested on one FY2022 buyback four years old.
+describe("buyback timing recency", () => {
+  const years = ["2025-12-31", "2024-12-31", "2023-12-31", "2022-12-31", "2021-12-31"];
+  const income: CapitalIncomeRow[] = years.map((date) => ({ date, revenue: 200, netIncome: 100, weightedAverageShsOut: 100, weightedAverageShsOutDil: 100 }));
+  const cashFlow = (repurchased: Record<string, number>): CapitalCashFlowRow[] =>
+    years.map((date) => ({ date, netIncome: 100, operatingCashFlow: 110, capitalExpenditure: -30, commonStockRepurchased: -(repurchased[date] ?? 0) }));
+  // Every year's average price is 10.
+  const caps = years.map((date) => ({ date: `${date.slice(0, 4)}-06-30`, marketCap: 1000 }));
+  const execution = (periodEnd: string, shares: number, value: number) => ({
+    periodEnd, shares, value, sharesTag: "StockRepurchasedDuringPeriodShares", valueTag: "StockRepurchasedDuringPeriodValue",
+    filed: "2026-02-20", accn: "0000000000-26-000001", basisFactor: 1,
+  });
+  const run = (repurchased: Record<string, number>, executions: ReturnType<typeof execution>[]) =>
+    computeCapital(income, cashFlow(repurchased), [], caps, { price: 40 }, { reportedCurrency: "USD", quoteCurrency: "USD", repurchaseExecutions: executions });
+
+  it("measures but does not grade timing whose priced years are all older than the last three fiscal years", () => {
+    const r = run({ "2022-12-31": 100 }, [execution("2022-12-31", 9.7, 100)]);
+    const bb = r.buybackPriceAnalysis;
+    expect(bb.timingPct!).toBeCloseTo((97 / 100 - 1) * 100, 10);
+    expect(bb.timingStale?.reason).toMatch(/2022-12-31 to 2022-12-31/);
+    expect(bb.timingStale?.reason).toMatch(/last 3 fiscal years \(2023-12-31 to 2025-12-31\)/);
+    expect(bb.timingStale?.recentRepurchase).toBe(false);
+    expect(r.notes.join(" ")).toContain(bb.timingStale!.reason);
+    expect(r.gaps).toEqual(expect.arrayContaining([expect.objectContaining({ field: "capital.buybackPriceAnalysis.timing", severity: "info" })]));
+  });
+
+  // Codex review of PR #42: a missing annual row must not stretch the window.
+  it("counts the window in fiscal years elapsed, not in annual rows available", () => {
+    const gappy = cashFlow({ "2022-12-31": 100 }).filter((row) => row.date !== "2024-12-31");
+    const bb = computeCapital(income, gappy, [], caps, { price: 40 }, { reportedCurrency: "USD", quoteCurrency: "USD", repurchaseExecutions: [execution("2022-12-31", 9.7, 100)] }).buybackPriceAnalysis;
+    expect(bb.timingStale?.reason).toMatch(/last 3 fiscal years \(2023-12-31 to 2025-12-31\)/);
+  });
+
+  it("grades timing that covers one of the last three fiscal years", () => {
+    const bb = run({ "2023-12-31": 100, "2021-12-31": 50 }, [execution("2023-12-31", 9.7, 100), execution("2021-12-31", 5, 50)]).buybackPriceAnalysis;
+    expect(bb.timingStale).toBeUndefined();
+  });
+
+  it("knows a recent repurchase whose price is untagged from no recent repurchase at all", () => {
+    const bb = run({ "2025-12-31": 20, "2022-12-31": 100 }, [execution("2022-12-31", 9.7, 100)]).buybackPriceAnalysis;
+    expect(bb.timingPct).not.toBeNull();
+    expect(bb.timingStale?.reason).toMatch(/2022-12-31/);
+    expect(bb.timingStale?.recentRepurchase).toBe(true);
+  });
+
+  it("names the stale window when old repurchases were never priced", () => {
+    const bb = run({ "2022-12-31": 100 }, []).buybackPriceAnalysis;
+    expect(bb.timingPct).toBeNull();
+    expect(bb.timingStale).toEqual({ recentRepurchase: false, reason: expect.stringMatching(/every repurchase \(2022-12-31 to 2022-12-31\) is older than the issuer's last 3 fiscal years/) });
+    // A recent unpriced repurchase is the ordinary missing-evidence case.
+    expect(run({ "2025-12-31": 100 }, []).buybackPriceAnalysis.timingStale).toBeUndefined();
+  });
+
+  it("dates the payload's timing figure by the newest priced year, not the latest fiscal year", () => {
+    const bundle = completeCurrencyBundle({});
+    bundle.edgar.companyFacts = { ok: false, gap: { field: "edgar.companyFacts", reason: "Synthetic fixture has no SEC facts", severity: "info" } };
+    const computed = runStageB(bundle);
+    Object.assign(computed.capital.buybackPriceAnalysis, {
+      totalRepurchased: 6e9, timingPct: -2.99, timingCoveragePct: 100,
+      years: [{ date: "2022-12-31", repurchased: 6e9, avgMarketCap: null, avgPriceProxy: 125.99, sharesProxy: null, actualPricePaid: 129.87, paidVsYearAveragePct: 3.08 }],
+    });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle));
+    const figures = payload.computed.flatMap((section) => section.figures);
+    const timing = figures.find((f) => f.source === "computed.capital.buybackPriceAnalysis.timingPct");
+    expect(computed.capital.asOf).not.toBe("2022-12-31");
+    expect(timing?.asOf).toBe("2022-12-31");
+  });
+});
+
 describe("repurchase executions from companyfacts", () => {
   const point = (start: string, end: string, val: number, filed: string, accn: string) => ({ start, end, val, filed, accn, form: "10-K", fy: 0, fp: "FY" });
   const facts: CompanyFacts = {
@@ -252,6 +326,7 @@ describe("the rendered forensic table carries the decompositions", () => {
     }
     expect(out.beneish.zone).toMatch(/growth-led/);
     expect(out.piotroski.zone).toMatch(/^4\/9/);
-    expect(out.piotroski.zone).toMatch(/failed: .*ΔROA.*CFO > net income.*current ratio.*gross margin.*asset turnover/);
+    // AMZN audit 2026-10-20 finding 20: a failure says what happened, never the pass condition.
+    expect(out.piotroski.zone).toMatch(/failed: ROA did not improve, CFO did not exceed net income, current ratio did not rise, gross margin did not rise, asset turnover did not rise$/);
   });
 });

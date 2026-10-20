@@ -1,6 +1,7 @@
 import type { ScoreAspect, ScoreSignal } from "@/report/schema";
 import type { ScoringInputs } from "./grading";
 import { CAGR_SPAN_TOLERANCE_YEARS, scoringMargin, windowCagr, yearsBetweenDates, type CagrPoint } from "./growth";
+import { sbcExceedsAllFcf } from "./capital";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const day = (value: string | null | undefined): string | null => {
@@ -101,8 +102,19 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       // an operand so the reader sees which year set the floor.
       dates(valid[0]?.date, valid.at(-1)?.date);
       result.period = `Lowest of the annual return observations ${result.period ?? "with unavailable dates"}`;
+      // AMZN audit 2026-10-20 finding 9: a year inside the stated window with no
+      // return is named, so the window is not read as complete, and a year
+      // taxed at the marginal-rate floor says so.
+      const first = rows.findIndex(r => finite(r.value)), last = rows.findLastIndex(r => finite(r.value));
+      const missing = first < 0 ? [] : rows.slice(first, last + 1).filter(r => !finite(r.value)).map(r => r.date);
+      if (missing.length > 0) result.period += `; no return for ${missing.join(", ")}, so the floor does not cover ${missing.length === 1 ? "that year" : "those years"}`;
+      const floored = tangible ? [] : i.roic.series.filter(r => finite(r.roicPct) && r.taxFloorBasis);
+      if (floored.length > 0) result.fallbackReason = floored.map(r => `${r.date}: ${r.taxFloorBasis}.`).join(" ");
       for (const row of valid) operand(`return at ${row.date}`, row.value, `${source}.series`, day(row.date));
     } else {
+      // AMZN audit 2026-10-20 finding 9: the latest year's ROIC may rest on the marginal-rate floor too.
+      const latestBasis = tangible ? undefined : i.roic.series.at(-1)?.taxFloorBasis;
+      if (latestBasis && finite(i.roic.latestRoicPct)) result.fallbackReason = `${i.roic.series.at(-1)!.date}: ${latestBasis}.`;
       dates(null, tangible ? i.rote.asOf : i.roic.asOf);
       operand(tangible ? "ROTE" : "ROIC", tangible ? i.rote.latestRotePct : i.roic.latestRoicPct, `${source}.latest${tangible ? "Rote" : "Roic"}Pct`);
       if (id === "roicVsWaccSpread") {
@@ -144,6 +156,14 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         operand("SBC", current ? current.cashBridge.stockBasedCompensation : i.capital.sbc.latest, `${source}.${current ? "cashBridge.stockBasedCompensation" : "sbc.latest"}`);
         if (!current || "fcfBeforeSbc" in current) operand("FCF before SBC", current ? current.fcfBeforeSbc : i.capital.fcf.latestFcfBeforeSbc, `${source}.${current ? "fcfBeforeSbc" : "fcf.latestFcfBeforeSbc"}`);
         if (current) operand("SBC / FCF before SBC, percent", current.sbcPctOfFcf, `${source}.sbcPctOfFcf`);
+        // AMZN audit 2026-10-20 finding 8: the grader scores this case at the band floor.
+        if ((current ? current.sbcPctOfFcf : i.capital.sbc.pctOfFcf) === null &&
+          sbcExceedsAllFcf(current ? current.fcfBeforeSbc : i.capital.fcf.latestFcfBeforeSbc, current ? current.cashBridge.stockBasedCompensation : i.capital.sbc.latest)) {
+          result.fallbackReason = [result.fallbackReason,
+            "Free cash flow before SBC is zero or negative while SBC is positive, so SBC exceeds all of the free cash flow: " +
+            "SBC / FCF is undefined, and the signal is graded at the band floor (SBC at 100% or more of FCF). " +
+            "The value shown is that floor, not a measured ratio."].filter(Boolean).join(" ");
+        }
       }
       if (current && ["fcfConversionBeforeSbc", "sbcPctOfFcf"].includes(id) && !("fcfBeforeSbc" in current)) {
         result.fallbackReason = [result.fallbackReason, "Graded FCF operands are not retained in this snapshot; standardized FCF and annual operands are not substituted for the graded vendor/reported ratio."].filter(Boolean).join(" ");
@@ -213,6 +233,23 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         operand("base starting growth, same fade", i.valuation.reverseDcf?.baseRevenueGrowthPct ?? a?.growthPath.value[0], "computed.valuation.reverseDcf.baseRevenueGrowthPct", day(a?.asOf.statements));
         result.windowYears = a?.years ?? null;
         result.period = "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors.";
+        // AMZN audit 2026-10-20 finding 10: the grader scores an unbracketed scan at its range end.
+        const outside = i.valuation.reverseDcf?.growthOutsideRange;
+        const base = i.valuation.reverseDcf?.baseRevenueGrowthPct ?? a?.growthPath.value[0];
+        if (!finite(i.valuation.reverseDcf?.impliedRevenueGrowthPct) && outside && finite(base)) {
+          operand("growth search-range end the price lies beyond", outside.boundPct, "computed.valuation.reverseDcf.growthOutsideRange.boundPct", quoteDate);
+          operand("DCF per share at that range end", outside.perShareAtBound, "computed.valuation.reverseDcf.growthOutsideRange.perShareAtBound", quoteDate);
+          const gap = (outside.boundPct - base).toFixed(2);
+          // Independent review of these fixes: an implied gap is stated only
+          // when value rises with growth; otherwise only the range-end score.
+          result.fallbackReason = `No implied growth was solved: ${outside.basis}. ` + (outside.rising === false
+            ? outside.side === "above"
+              ? `No implied growth is inferred; the price is above the value at every growth in the range, so the signal scores at the band floor.`
+              : `No implied growth is inferred; the price is below the value at every growth in the range, so the signal is scored at the range end (${gap} pp from base).`
+            : outside.side === "above"
+              ? `Implied minus base starting growth is therefore at least ${gap} pp, past the band's last breakpoint, so the signal scores at the band floor.`
+              : `Implied minus base starting growth is therefore at most ${gap} pp, and the signal is scored at that bound; a wider gap would score no lower.`);
+        }
       } else if (id === "dcfUpside") {
         operand("DCF per share", i.valuation.dcf?.perShare, "computed.valuation.dcf.perShare", day(a?.asOf.statements));
         operand("current quote", i.currentPrice, "computed.currentPrice", quoteDate);

@@ -1602,3 +1602,38 @@ describe("runStageB wiring — improving margin fade sensitivity (AMZN audit 202
     expect(Number(match![2])).toBeLessThan(Number(match![1]));
   });
 });
+
+// AMZN audit 2026-10-20, finding 19: the last complete fiscal year's four
+// reported quarters reach the DCF and shape the calendarized consensus.
+describe("runStageB wiring — consensus calendarized by the reported quarterly shape", () => {
+  const estimates = [
+    { date: "2026-12-31", revenueAvg: 1100 * M, numAnalystsRevenue: 10, revenueLow: 1060 * M, revenueHigh: 1140 * M },
+    { date: "2027-12-31", revenueAvg: 1200 * M, numAnalystsRevenue: 10, revenueLow: 1150 * M, revenueHigh: 1250 * M },
+  ];
+  const withEstimates = (bundle: DataBundle): DataBundle =>
+    ({ ...bundle, analystEstimates: fmpP(estimates, "2026-07-01", "analyst-estimates") }) as unknown as DataBundle;
+  const yearOne = (computed: ReturnType<typeof runStageB>) => {
+    if (computed.valuation.kind !== "dcf" || computed.valuation.assumptions === null) throw new Error("expected a DCF");
+    const a = computed.valuation.assumptions;
+    return { revenue: a.startRevenue.value * (1 + a.growthPath.value[0] / 100), anchor: a.revenueAnchor! };
+  };
+
+  it("spreads each fiscal year by FY2025's four reported quarters", () => {
+    // Window 2026-04-01..2027-03-31: FY2026's remainder 1,100 − 250 (Q1 2026
+    // reported) plus FY2027's first quarter at FY2025's Q1 share, 240/990.
+    const { revenue, anchor } = yearOne(runStageB(withEstimates(wiringBundle())));
+    expect(anchor.source).toBe("consensus");
+    expect(revenue / M).toBeCloseTo(850 + 1200 * 240 / 990, 6);
+    expect(anchor.basis).toMatch(/spread by the quarterly shape of the fiscal year ending 2025-12-31 \(24\.24%, 25\.25%, 25\.25% and 25\.25% of its reported revenue/);
+  });
+
+  it("keeps the even spread when a quarter of that year has no revenue", () => {
+    const bundle = withEstimates(wiringBundle());
+    const rows = (bundle.statements.incomeQuarterly as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows;
+    // FY2025's first quarter, outside the TTM window.
+    rows.find((row) => row.date === "2025-03-31")!.revenue = null;
+    const { revenue, anchor } = yearOne(runStageB(bundle));
+    expect(revenue / M).toBeCloseTo(850 + 1200 * 90 / 365, 6);
+    expect(anchor.basis).toMatch(/spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues/);
+  });
+});

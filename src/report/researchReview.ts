@@ -1,11 +1,14 @@
 import type { Report, Valuation } from "@/report/schema";
 import { formatFinancialValue, formatMultiple } from "@/report/format";
 import { sourceLabel } from "@/report/presentation";
+import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 
 export interface ValuationReviewInputs {
   scenarioPresentation?: Report["scenarioPresentation"];
   thesisTriggers?: Report["thesisTriggers"];
   peerCoverage?: Valuation["peerCoverage"];
+  /** The subject's symbol: its own comparability exclusions are not a candidate's. */
+  symbol?: string;
 }
 
 export interface ReviewBlock {
@@ -23,14 +26,37 @@ type PeerCoverage = NonNullable<Valuation["peerCoverage"]>;
  * per-metric notes and every exclusion (about 56 lines for NVDA) are in the
  * audit export ({@link peerCoverageAuditLines}).
  */
-export function peerCoverageSummary(peers: PeerCoverage): string[] {
+/**
+ * AMZN audit 2026-10-20 finding 7: an exclusion that is the peer provider's
+ * unavailability (a rate limit or quota, a refused request, the deadline, a
+ * candidate never requested), not a screen rule. The body counted six such
+ * AMZN candidates, and the subject itself, as "excluded at the screen".
+ */
+const PROVIDER_STOPPED = /\b(?:candidate not requested|provider unavailable|deadline|cancellation|timed? ?out)\b/i;
+const providerUnavailable = (reason: string): boolean => PROVIDER_STOPPED.test(reason) || PEER_PROVIDER_TERMINAL.test(reason);
+/** Candidates past the house's own candidate cap (peers.ts): not the provider's failure, nor the screen's. */
+const CANDIDATE_CAP = /\bcandidate budget limit \((\d+)\)/i;
+const RATE_LIMITED = /\b(?:HTTP 429|quota|rate.?limit)\b/i;
+
+export function peerCoverageSummary(peers: PeerCoverage, subject?: string): string[] {
   const eligible = new Set(peers.eligible);
-  const screenedOut = new Set(peers.exclusions.filter((e) => !eligible.has(e.symbol)).map((e) => e.symbol)).size;
+  const self = subject?.trim().toUpperCase();
+  const excluded = new Map<string, string[]>();
+  for (const e of peers.exclusions) {
+    if (eligible.has(e.symbol) || e.symbol.trim().toUpperCase() === self) continue;
+    excluded.set(e.symbol, [...(excluded.get(e.symbol) ?? []), e.reason]);
+  }
+  const capped = [...excluded.values()].filter((reasons) => reasons.every((reason) => CANDIDATE_CAP.test(reason)));
+  const cap = capped.length > 0 ? CANDIDATE_CAP.exec(capped[0]![0]!)?.[1] : undefined;
+  const unserved = [...excluded.values()].filter((reasons) => !reasons.every((reason) => CANDIDATE_CAP.test(reason)) && reasons.every(providerUnavailable));
+  const screenedOut = excluded.size - unserved.length - capped.length;
+  const cause = unserved.some((reasons) => reasons.some((reason) => RATE_LIMITED.test(reason)))
+    ? "the peer data provider hit its rate limit or quota" : "the peer data provider was unavailable or its deadline passed";
   const caveat = peers.methodology.some((line) => /comparability caveat/i.test(line))
     ? " Medians that are shown carry a comparability caveat: business-model, accounting and metric-definition evidence is not independently sourced."
     : "";
   return [
-    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}.${caveat}`,
+    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}${capped.length > 0 ? `; ${capped.length} beyond the ${cap}-candidate limit` : ""}${unserved.length > 0 ? `; ${unserved.length} not compared because ${cause}` : ""}.${caveat}`,
     "The screen rules, the per-metric notes and each exclusion with its reason are in the audit export.",
   ];
 }
@@ -79,7 +105,7 @@ export function valuationReviewBlocks(input: ValuationReviewInputs): ReviewBlock
     const comparisons = peers.comparisons ?? [];
     blocks.push({
       title: "Peer comparison coverage",
-      paragraphs: peerCoverageSummary(peers),
+      paragraphs: peerCoverageSummary(peers, input.symbol),
       items: [],
       ...(comparisons.length === 0 ? {} : {
         table: {

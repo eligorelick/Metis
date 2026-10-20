@@ -1329,6 +1329,12 @@ export interface PiotroskiSignal {
   /** 1 = pass, 0 = fail, null = not evaluable (excluded from outOf). */
   value: 0 | 1 | null;
   detail: string;
+  /**
+   * AMZN audit 2026-10-20 finding 20: on a failed signal, what the figures
+   * did ("current ratio fell"). The signal names state the pass condition,
+   * so printing them as the failures read as the opposite of the change.
+   */
+  outcome?: string;
 }
 
 /** D-61: reader-facing names of the nine signals, in the paper's order. */
@@ -1344,15 +1350,36 @@ export const PIOTROSKI_SIGNAL_LABELS: Readonly<Record<PiotroskiSignalName, strin
   turnoverUp: "asset turnover rose",
 };
 
-/** D-61: which evaluable signals passed and which failed, by reader-facing name. */
+/**
+ * AMZN audit 2026-10-20 finding 20: what a failed signal establishes when it
+ * records no direction (a result stored before `outcome` existed): the pass
+ * condition did not hold, which is never the condition itself.
+ */
+const PIOTROSKI_FAILED_LABELS: Readonly<Record<PiotroskiSignalName, string>> = {
+  roaPositive: "ROA not positive",
+  cfoPositive: "CFO not positive",
+  roaImproved: "ROA did not improve",
+  accrualQuality: "CFO did not exceed net income",
+  leverageDown: "leverage did not fall",
+  liquidityUp: "current ratio did not rise",
+  noEquityIssuance: "equity was issued",
+  marginUp: "gross margin did not rise",
+  turnoverUp: "asset turnover did not rise",
+};
+
+/**
+ * D-61: which evaluable signals passed and which failed, by reader-facing
+ * name. A failure is named by what happened, not by the test it failed.
+ */
 export function piotroskiSignalOutcomes(result: Pick<PiotroskiResult, "signals">): { passed: string[]; failed: string[]; notEvaluable: string[] } {
   const passed: string[] = [];
   const failed: string[] = [];
   const notEvaluable: string[] = [];
   for (const [name, label] of Object.entries(PIOTROSKI_SIGNAL_LABELS) as [PiotroskiSignalName, string][]) {
-    const value = result.signals?.[name]?.value;
+    const signal = result.signals?.[name];
+    const value = signal?.value;
     if (value === 1) passed.push(label);
-    else if (value === 0) failed.push(label);
+    else if (value === 0) failed.push(signal?.outcome ?? PIOTROSKI_FAILED_LABELS[name]);
     else notEvaluable.push(label);
   }
   return { passed, failed, notEvaluable };
@@ -1457,10 +1484,11 @@ export function computePiotroski(
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
   const na = (detail: string): PiotroskiSignal => ({ value: null, detail });
-  const sig = (pass: boolean, detail: string): PiotroskiSignal => ({
-    value: pass ? 1 : 0,
-    detail,
-  });
+  // `outcome` is what a failure's figures did (AMZN audit 2026-10-20 finding 20).
+  const sig = (pass: boolean, detail: string, outcome: string): PiotroskiSignal =>
+    pass ? { value: 1, detail } : { value: 0, detail, outcome };
+  /** A rise test failed: the ratio fell, or did not move. */
+  const notRisen = (name: string, now: number, before: number): string => `${name} ${now < before ? "fell" : "was unchanged"}`;
 
   const taBeginT = posOrNull(prior.balance?.totalAssets); // TA at end of t−1
   const taBeginP = prior2 ? posOrNull(prior2.balance?.totalAssets) : null; // TA at end of t−2
@@ -1474,7 +1502,7 @@ export function computePiotroski(
   const roaT = div(niT, taBeginT);
   const s1 =
     roaT !== null
-      ? sig(roaT > 0, `ROA ${(roaT * 100).toFixed(2)}% (NI / beginning-of-year TA)`)
+      ? sig(roaT > 0, `ROA ${(roaT * 100).toFixed(2)}% (NI / beginning-of-year TA)`, roaT < 0 ? "ROA was negative" : "ROA was zero")
       : na("net income or beginning-of-year total assets missing");
 
   // 2. F_CFO — CFO / beginning-of-year TA > 0
@@ -1487,7 +1515,7 @@ export function computePiotroski(
   const s2 = finSuppressed
     ? na(ocfWithheld)
     : cfoScaled !== null
-      ? sig(cfoScaled > 0, `CFO/TA_begin ${(cfoScaled * 100).toFixed(2)}%`)
+      ? sig(cfoScaled > 0, `CFO/TA_begin ${(cfoScaled * 100).toFixed(2)}%`, cfoScaled < 0 ? "CFO was negative" : "CFO was zero")
       : na("operating cash flow or beginning-of-year total assets missing");
 
   // 3. F_ΔROA — needs TA at t−2 (3rd fiscal year)
@@ -1501,6 +1529,7 @@ export function computePiotroski(
     s3 = sig(
       roaT > roaP,
       `ΔROA ${((roaT - roaP) * 100).toFixed(2)}pp (${(roaP * 100).toFixed(2)}% → ${(roaT * 100).toFixed(2)}%)`,
+      notRisen("ROA", roaT, roaP),
     );
   }
 
@@ -1508,7 +1537,7 @@ export function computePiotroski(
   const s4 = finSuppressed
     ? na(ocfWithheld)
     : niT !== null && cfoT !== null && taBeginT !== null
-      ? sig(cfoT > niT, `CFO ${cfoT} vs NI ${niT} (accruals ${niT - cfoT < 0 ? "<" : ">="} 0)`)
+      ? sig(cfoT > niT, `CFO ${cfoT} vs NI ${niT} (accruals ${niT - cfoT < 0 ? "<" : ">="} 0)`, cfoT < niT ? "CFO was below net income" : "CFO equalled net income")
       : na("net income, CFO, or beginning-of-year total assets missing");
 
   // 5. F_ΔLEVER — LTD / AVERAGE total assets fell (paper uses average TA here)
@@ -1528,7 +1557,7 @@ export function computePiotroski(
     if (ltdT === null || ltdP === null || taT === null || taP === null) {
       s5 = na("longTermDebt or totalAssets missing");
     } else if (ltdT === 0 && ltdP === 0) {
-      s5 = sig(true, "zero long-term debt in both years — point awarded");
+      s5 = { value: 1, detail: "zero long-term debt in both years — point awarded" };
       notes.push(
         "ΔLEVER: zero long-term debt in both years — point awarded (no deterioration; common-practice convention, non-canonical detail).",
       );
@@ -1548,6 +1577,7 @@ export function computePiotroski(
       s5 = sig(
         lT < lP,
         `LTD/avg TA ${(lP * 100).toFixed(2)}% → ${(lT * 100).toFixed(2)}% (average-TA denominator per the paper)`,
+        `leverage ${lT > lP ? "rose" : "was unchanged"}`,
       );
     }
   }
@@ -1558,7 +1588,7 @@ export function computePiotroski(
   const s6 = finSuppressed
     ? na(eligibilityUnresolved ? unresolvedSignal : "current ratio not meaningful for a financial company (no current/non-current split) — signal withheld")
     : crT !== null && crP !== null
-      ? sig(crT > crP, `current ratio ${crP.toFixed(2)} → ${crT.toFixed(2)}`)
+      ? sig(crT > crP, `current ratio ${crP.toFixed(2)} → ${crT.toFixed(2)}`, notRisen("current ratio", crT, crP))
       : na("current assets/liabilities missing");
 
   // 7. EQ_OFFER — no common equity issued (CF commonStockIssuance)
@@ -1588,7 +1618,7 @@ export function computePiotroski(
           `House rule: equity-issuance de-minimis of ${deMin} applied (paper is strict no-issuance; threshold left open in research notes).`,
         );
       }
-      s7 = sig(iss <= deMin, `commonStockIssuance ${iss}${deMin > 0 ? ` vs de-minimis ${deMin}` : ""}`);
+      s7 = sig(iss <= deMin, `commonStockIssuance ${iss}${deMin > 0 ? ` vs de-minimis ${deMin}` : ""}`, "equity was issued");
     }
   }
 
@@ -1598,7 +1628,7 @@ export function computePiotroski(
   const s8 = finSuppressed
     ? na(eligibilityUnresolved ? unresolvedSignal : "gross margin not meaningful on a financial income statement — signal withheld")
     : gmT !== null && gmP !== null
-      ? sig(gmT > gmP, `gross margin ${(gmP * 100).toFixed(2)}% → ${(gmT * 100).toFixed(2)}%`)
+      ? sig(gmT > gmP, `gross margin ${(gmP * 100).toFixed(2)}% → ${(gmT * 100).toFixed(2)}%`, notRisen("gross margin", gmT, gmP))
       : na("gross margin not computable (revenue/grossProfit/costOfRevenue missing)");
 
   // 9. F_ΔTURN — sales / beginning-of-year TA rose (needs TA at t−2)
@@ -1615,6 +1645,7 @@ export function computePiotroski(
         ? sig(
             turnT > turnP,
             `asset turnover ${turnP.toFixed(3)} → ${turnT.toFixed(3)} (beginning-of-year TA denominators per the paper)`,
+            notRisen("asset turnover", turnT, turnP),
           )
         : na("revenue or beginning-of-year total assets missing");
   }

@@ -31,7 +31,7 @@ import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { scoringMargin, windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
-import type { CapitalResult } from "@/pipeline/stageB/capital";
+import { sbcExceedsAllFcf, type CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
@@ -760,7 +760,13 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     const achievable = isStartingGrowthFamily(valuation.reverseDcf?.growthPathFamily)
       ? valuation.reverseDcf?.baseRevenueGrowthPct ?? valuation.assumptions?.growthPath.value[0] ?? null
       : null;
-    const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable : null;
+    // AMZN audit 2026-10-20 finding 10: a price beyond every value in the
+    // growth search range is graded at that range end: the implied gap is at
+    // least (at most) the bound's, so the expensive case scores the band floor
+    // and the cheap case at least the bound's score. Missing, it read neutral.
+    const outside = valuation.reverseDcf?.growthOutsideRange;
+    const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable
+      : outside && isNum(outside.boundPct) && isNum(achievable) ? outside.boundPct - achievable : null;
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: impliedVsAchievable, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "peOwnHistoryRank", raw: multipleOwnHistoryRank(valuation, ["peTtm", "evToEbitda", "priceToFcf"]), unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
   } else if (valuation.kind === "excess-return") {
@@ -880,6 +886,16 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   );
 
   // --- Balance sheet & capital --------------------------------------------
+  // AMZN audit 2026-10-20 finding 8: the ratio is undefined when FCF before
+  // SBC is zero or negative, and leaving the signal out let a cash-burning
+  // issuer's SBC carry no weight. Positive SBC then exceeds all of the free
+  // cash flow, past the band's last breakpoint, so it is graded there (the
+  // band floor). Unknown SBC or FCF still leaves the signal unscored.
+  const sbcRatio = currentCapital ? currentCapital.sbcPctOfFcf : capital.sbc.pctOfFcf;
+  const sbcPctOfFcfForGrading = sbcRatio ?? (sbcExceedsAllFcf(
+    currentCapital ? currentCapital.fcfBeforeSbc : capital.fcf.latestFcfBeforeSbc,
+    currentCapital ? currentCapital.cashBridge.stockBasedCompensation : capital.sbc.latest,
+  ) ? SBC_FCF_BAND[SBC_FCF_BAND.length - 1][0] : null);
   const balanceSheet = route.base === "bank"
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
     : financial
@@ -896,7 +912,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
           // sbcPctOfFcf below already scores it. The driver name states which
           // ratio it is; both ratios are reported.
           { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
-          { name: "sbcPctOfFcf", raw: currentCapital ? currentCapital.sbcPctOfFcf : capital.sbc.pctOfFcf, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
+          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
           // D-49: net share-count change is scored once, under leadership,
           // where it reads as stewardship net of buybacks. Scoring it here as
           // well double-weighted one signal.
@@ -977,12 +993,18 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   // share-count trend carries the aspect at full completeness. A company that
   // did repurchase without tagged execution prices is MISSING the evidence,
   // and its completeness says so.
-  const repurchased = capital.buybackPriceAnalysis.totalRepurchased > 0;
+  // AMZN audit 2026-10-20 finding 15: only repurchases in the issuer's last
+  // three fiscal years are timed. With none, there is nothing recent to time,
+  // as for a company that never repurchased; a recent repurchase without a
+  // priced recent year is missing evidence. Stale timing is shown, not graded.
+  const buyback = capital.buybackPriceAnalysis;
+  const repurchased = buyback.totalRepurchased > 0 && buyback.timingStale?.recentRepurchase !== false;
+  const staleTiming = buyback.timingStale?.reason ?? null;
   const leadership = scoreAspect(
     "leadership",
     [
       ...(repurchased
-        ? [{ name: "buybackTiming", raw: capital.buybackPriceAnalysis.timingPct ?? null, unit: "%", weight: 0.3, band: BUYBACK_TIMING_BAND }]
+        ? [{ name: "buybackTiming", raw: staleTiming === null ? buyback.timingPct ?? null : null, unit: "%", weight: 0.3, band: BUYBACK_TIMING_BAND }]
         : []),
       { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.25, band: SHARE_TREND_BAND },
       // D-49: SBC % of revenue is no longer scored here. The SBC charge is
@@ -992,7 +1014,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.leadership,
     inputs.asOf,
-    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
+    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade." +
+      (staleTiming === null ? "" : ` ${staleTiming[0]!.toUpperCase()}${staleTiming.slice(1)}.`),
     policy,
   );
 

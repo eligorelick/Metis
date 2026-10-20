@@ -232,6 +232,23 @@ export const STATUTORY_MARGINAL_TAX_PCT: Readonly<Record<string, { pct: number; 
   US: { pct: 21, source: "US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded" },
 };
 
+/**
+ * D-58: the marginal-rate floor for an issuer domicile: the sourced statutory
+ * rate, never below the global minimum, and the global minimum alone where no
+ * statutory rate is sourced. Shared by the DCF's terminal tax and ROIC's
+ * loss-year NOPAT (AMZN audit 2026-10-20 finding 9).
+ */
+export function marginalTaxFloor(domicileCountry: string | null | undefined): { pct: number; basis: string } {
+  const domicile = (domicileCountry ?? "").trim().toUpperCase();
+  const statutory = STATUTORY_MARGINAL_TAX_PCT[domicile] ?? null;
+  return {
+    pct: Math.max(GLOBAL_MINIMUM_TAX_PCT, statutory?.pct ?? 0),
+    basis: statutory === null
+      ? `the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax (OECD Pillar Two; no sourced statutory rate for domicile ${domicile || "unknown"})`
+      : `max(statutory ${statutory.pct}% — ${statutory.source} — and the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax, OECD Pillar Two)`,
+  };
+}
+
 /** Years from the TTM window's midpoint to the latest quarter's midpoint (4.5 months). */
 const TTM_TO_LATEST_QUARTER_YEARS = 4.5 / 12;
 /** Years from the latest quarter's midpoint to the year-one window's midpoint (7.5 months). */
@@ -344,14 +361,58 @@ export function revenueRunRate(
 /**
  * D-58: consensus revenue for one forecast window, calendarized from
  * fiscal-year estimates by day overlap (each fiscal year's revenue spread
- * evenly over its days). Null unless the estimates cover the window.
+ * evenly over its days, or by the issuer's quarterly shape when one is given).
+ * Null unless the estimates cover the window.
  */
 export function calendarizedConsensus(
   rows: AnalystEstimateRow[] | null,
   window: { startDate: string; endDate: string },
   reported?: FiscalYearToDate | null,
+  seasonality?: RevenueSeasonality | null,
 ): number | null {
-  return calendarizeConsensusWindow(rows, window, reported).value;
+  return calendarizeConsensusWindow(rows, window, reported, seasonality).value;
+}
+
+/**
+ * AMZN audit 2026-10-20 finding 19: each fiscal quarter's share of the last
+ * complete fiscal year's revenue, first quarter first, or null unless the
+ * four reported quarters are consecutive 13/14-week quarters ending on that
+ * year's end, each with positive revenue.
+ */
+export function seasonalQuarterShares(seasonality: RevenueSeasonality | null | undefined): number[] | null {
+  const quarters = seasonality?.quarters;
+  if (!seasonality || !quarters || quarters.length !== 4 || quarters[3].date !== seasonality.fiscalYearEnd) return null;
+  for (let i = 0; i < 4; i++) {
+    if (posOrNull(quarters[i].revenue) === null) return null;
+    const span = i === 0 ? 91 : daysBetween(quarters[i - 1].date, quarters[i].date);
+    if (span === null || span < 84 || span > 98) return null;
+  }
+  const total = quarters.reduce((sum, q) => sum + q.revenue, 0);
+  return quarters.map((q) => q.revenue / total);
+}
+
+/** The UTC instant `months` calendar months after `start`, its day clamped to the month's last day. */
+function addMonthsUtc(start: number, months: number): number {
+  const d = new Date(start);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months + 1, 0)).getUTCDate();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, Math.min(d.getUTCDate(), lastDay));
+}
+
+/**
+ * AMZN audit 2026-10-20 finding 19: the share of a fiscal year's revenue that
+ * falls in [from, to) when its twelve months take the quarterly shape, each
+ * quarter's share spread evenly over its three months and each month's over
+ * its days.
+ */
+function seasonalFiscalYearShare(fyBegin: number, fyEnd: number, from: number, to: number, shares: number[]): number {
+  let total = 0;
+  for (let m = 0; m < 12; m++) {
+    const a = Math.min(fyEnd, addMonthsUtc(fyBegin, m));
+    const b = m === 11 ? fyEnd : Math.min(fyEnd, addMonthsUtc(fyBegin, m + 1));
+    const overlap = Math.min(to, b) - Math.max(from, a);
+    if (overlap > 0 && b > a) total += (shares[Math.floor(m / 3)] / 3) * (overlap / (b - a));
+  }
+  return total;
 }
 
 /**
@@ -367,8 +428,18 @@ export function calendarizeConsensusWindow(
   rows: AnalystEstimateRow[] | null,
   window: { startDate: string; endDate: string },
   reported?: FiscalYearToDate | null,
-): { value: number | null; fiscalYears: ConsensusPathRow["fiscalYears"]; staleAgainstReported: boolean } {
-  const empty = { value: null, fiscalYears: [], staleAgainstReported: false };
+  seasonality?: RevenueSeasonality | null,
+): { value: number | null; fiscalYears: ConsensusPathRow["fiscalYears"]; staleAgainstReported: boolean; partialSpread: "seasonal" | "even" | null } {
+  const empty = { value: null, fiscalYears: [], staleAgainstReported: false, partialSpread: null };
+  // AMZN audit 2026-10-20 finding 19: the quarterly shape applies to estimates
+  // for fiscal years ending on an anniversary (within 10 days) of the year it
+  // was measured in; any other year keeps the even spread.
+  const shares = seasonalQuarterShares(seasonality);
+  const sharesFor = (date: string): number[] | null => {
+    const days = shares === null ? null : daysBetween((seasonality as RevenueSeasonality).fiscalYearEnd, date);
+    return days !== null && Math.abs(days - Math.round(days / 365.2425) * 365.2425) <= 10 ? shares : null;
+  };
+  let partialSpread: "seasonal" | "even" | null = null;
   if (!rows) return empty;
   const windowStart = Date.parse(window.startDate);
   const windowEnd = Date.parse(window.endDate) + DAY_MS;
@@ -392,6 +463,7 @@ export function calendarizeConsensusWindow(
     const span = previousEnd === null ? null : daysBetween(previousEnd, date);
     const chained = previousEnd !== null && span !== null && span >= YEAR_AGO_QUARTER_DAYS[0] && span <= YEAR_AGO_QUARTER_DAYS[1];
     let fyStart = chained ? Date.parse(previousEnd as string) + DAY_MS : Date.parse(fy.startDate);
+    const fyBegin = fyStart;
     previousEnd = date;
     const fyEnd = Date.parse(fy.endDate) + DAY_MS;
     let revenue = row.revenueAvg;
@@ -411,7 +483,15 @@ export function calendarizeConsensusWindow(
     }
     const overlap = Math.min(windowEnd, fyEnd) - Math.max(windowStart, fyStart);
     if (overlap <= 0) continue;
-    total += (revenue * overlap) / (fyEnd - fyStart);
+    const yearShares = sharesFor(date);
+    if (yearShares === null) {
+      total += (revenue * overlap) / (fyEnd - fyStart);
+    } else {
+      // The unreported part of the year takes its share of the shape.
+      total += revenue * seasonalFiscalYearShare(fyBegin, fyEnd, Math.max(windowStart, fyStart), Math.min(windowEnd, fyEnd), yearShares)
+        / seasonalFiscalYearShare(fyBegin, fyEnd, fyStart, fyEnd, yearShares);
+    }
+    if (overlap < fyEnd - fyStart) partialSpread = yearShares === null || partialSpread === "even" ? "even" : "seasonal";
     covered += overlap;
     fiscalYears.push({
       date, revenue: row.revenueAvg, analysts: isNum(row.analysts) ? row.analysts : null,
@@ -421,7 +501,7 @@ export function calendarizeConsensusWindow(
   }
   const span = windowEnd - windowStart;
   const value = covered >= CONSENSUS_COVERAGE_MIN * span && covered <= (2 - CONSENSUS_COVERAGE_MIN) * span ? total : null;
-  return { value, fiscalYears, staleAgainstReported: stale };
+  return { value, fiscalYears, staleAgainstReported: stale, partialSpread };
 }
 
 /** Linear-interpolated quantile (p in [0,1]) over finite values. */
@@ -488,6 +568,17 @@ export interface FiscalYearToDate {
   through: string;
   revenue: number;
   quarters: number;
+}
+
+/**
+ * AMZN audit 2026-10-20 finding 19: the four reported quarterly revenues of the
+ * issuer's last complete fiscal year, oldest first, in the model currency. They
+ * give each fiscal year's consensus its seasonal shape when it is calendarized.
+ */
+export interface RevenueSeasonality {
+  /** The last complete fiscal year's end; the fourth quarter ends on it. */
+  fiscalYearEnd: string;
+  quarters: { date: string; revenue: number }[];
 }
 
 /** D-65: one forecast window set against calendarized consensus. */
@@ -645,6 +736,12 @@ export interface DcfAssumptionInputs {
   domicileCountry?: string | null;
   /** D-65: revenue already reported in the fiscal year the first window starts in. */
   fiscalYearToDate?: FiscalYearToDate | null;
+  /**
+   * AMZN audit 2026-10-20 finding 19: the last complete fiscal year's four
+   * reported quarters. Omitted or null: consensus is spread evenly over each
+   * fiscal year's days.
+   */
+  revenueSeasonality?: RevenueSeasonality | null;
   /**
    * D-65: the date the value is compared with a price (the quote date). Cash
    * flows discounted to the statement date are rolled forward to it at the
@@ -1182,10 +1279,14 @@ function buildRevenueAnchor(args: {
   // reported; each window then passes or fails the breadth and agreement gates.
   const reported = validFiscalYearToDate(inputs.fiscalYearToDate, ttmEnd, ttm?.basis);
   const path: (ConsensusPathRow & { gate: string | null })[] = [];
+  // AMZN audit 2026-10-20 finding 19: how the fiscal years a covered window
+  // holds only part of were spread (null when each falls wholly inside one).
+  let spread: "seasonal" | "even" | null = null;
   for (let k = 1; ttmEnd !== null && k <= DCF_HORIZON_YEARS; k++) {
     const w = forecastYearPeriod(ttmEnd, k, windowBasis);
     if (w === null) break;
-    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported);
+    const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported, inputs.revenueSeasonality);
+    if (cal.value !== null && cal.partialSpread !== null) spread = spread === "even" ? "even" : cal.partialSpread;
     const gate = cal.value === null
       ? cal.staleAgainstReported
         ? `the fiscal-year consensus is at or below the ${fmtMoney((reported as FiscalYearToDate).revenue)} already reported through ${(reported as FiscalYearToDate).through}`
@@ -1200,6 +1301,15 @@ function buildRevenueAnchor(args: {
   const reportedText = reported === null || !window1?.fiscalYears.some((f) => f.reportedToDate !== undefined) ? "" :
     `; the fiscal year ending ${window1.fiscalYears.find((f) => f.reportedToDate !== undefined)?.date} contributes its consensus less the ${fmtMoney(reported.revenue)} ` +
     `already reported through ${reported.through} (${reported.quarters} quarter${reported.quarters === 1 ? "" : "s"}), spread over its unreported days`;
+  const shares = seasonalQuarterShares(inputs.revenueSeasonality);
+  const spreadText = spread === "seasonal" && shares !== null
+    ? `fiscal-year estimates spread by the quarterly shape of the fiscal year ending ${(inputs.revenueSeasonality as RevenueSeasonality).fiscalYearEnd} ` +
+      `(${shares.slice(0, 3).map((x) => `${fmtNum(x * 100)}%`).join(", ")} and ${fmtNum(shares[3] * 100)}% of its reported revenue, each quarter's share over its three months)`
+    : spread === "even"
+      ? `fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because ${shares === null
+        ? "the last complete fiscal year has no four reported quarterly revenues to shape it"
+        : "its year end is not an anniversary of the fiscal year the quarterly shape was measured in"}`
+      : "fiscal-year estimates weighted by day overlap";
   const statedGuide = nextQuarterGuidance(inputs.guidance, ttmEnd);
   const annual = statedGuide?.annualRevenueComparison;
   const quarterLow = posOrNull(statedGuide?.revenueLow);
@@ -1250,7 +1360,7 @@ function buildRevenueAnchor(args: {
   if (ntm1 !== null && window1 !== null && consensusConsistent) {
     source = "consensus";
     raw = ntm1;
-    rawText = `analyst consensus calendarized to ${window1.label} (fiscal-year estimates weighted by day overlap${reportedText})` +
+    rawText = `analyst consensus calendarized to ${window1.label} (${spreadText}${reportedText})` +
       (guide === null ? "" : `, at or above the guided run-rate (${guidanceText}${guidedFloor !== guidedRunRate ? `; low end × 4 = ${fmtMoney(guidedFloor as number)}` : ""}), so consistent with the outlook`);
   } else if (guide !== null) {
     source = "guidance";
@@ -1360,7 +1470,9 @@ function buildRevenueAnchor(args: {
     if (g !== rawG) stop = { year: k + 1, reason: "year two's consensus growth was clamped" };
   }
   const yearTwoGrowthPct = consensusYears.includes(2) ? anchoredGrowth[1] : null;
-  const yearTwoText = stepTexts.length === 0 ? "" : `; ${stepTexts.join("; ")}`;
+  // When consensus sets later years but not year one, the spread is stated with them.
+  const laterSpreadText = source === "consensus" || spread === null ? "" : ` (consensus calendarized with ${spreadText})`;
+  const yearTwoText = stepTexts.length === 0 ? "" : `; ${stepTexts.join("; ")}${laterSpreadText}`;
   const anyConsensus = path.some((r) => r.consensus !== null);
   const lastCovered = [...path].reverse().find((r) => r.consensus !== null);
   const stopText = stop === null || !anyConsensus ? "" :
@@ -1825,12 +1937,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // the marginal rate (Damodaran), never below the 15% global minimum (OECD
   // Pillar Two). NVDA's terminal NOPAT was taxed at its 8.9% historical median
   // while it guides 16-18%. A company whose own history is higher keeps it.
-  const domicile = (inputs.domicileCountry ?? "").trim().toUpperCase();
-  const statutory = STATUTORY_MARGINAL_TAX_PCT[domicile] ?? null;
-  const taxFloor = Math.max(GLOBAL_MINIMUM_TAX_PCT, statutory?.pct ?? 0);
-  const taxFloorText = statutory === null
-    ? `the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax (OECD Pillar Two; no sourced statutory rate for domicile ${domicile || "unknown"})`
-    : `max(statutory ${statutory.pct}% — ${statutory.source} — and the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax, OECD Pillar Two)`;
+  const { pct: taxFloor, basis: taxFloorText } = marginalTaxFloor(inputs.domicileCountry);
   const companyTax = companyTerminalTax as number;
   const taxTerminal = Math.max(companyTax, taxFloor);
   const companyTaxText = historicalMedianTax !== null ? "company historical median" : `${periodBasis} effective rate`;
@@ -2585,6 +2692,15 @@ export interface ReverseDcfResult {
   impliedGrowthPathPct?: number[] | null;
   /** Market-implied terminal EBIT margin (pct) — margin-fallback mode. */
   impliedTerminalMarginPct: number | null;
+  /**
+   * AMZN audit 2026-10-20 finding 10: present only when the growth pre-scan
+   * found no root because the price lies above (or below) the DCF value at
+   * every evaluable year-one growth on the grid. `boundPct` is the grid end
+   * the price lies beyond, `perShareAtBound` the value there. No implied
+   * growth is inferred; `basis` states what the grid does establish.
+   */
+  /** `rising`: value rises with growth across the whole grid, so the price implies growth beyond the range end. */
+  growthOutsideRange?: { side: "above" | "below"; boundPct: number; perShareAtBound: number; rising: boolean; basis: string };
   notes: string[];
   gaps: ManifestEntry[];
 }
@@ -2722,6 +2838,9 @@ export function reverseDcf(
   const shiftedPath = (g: number): number[] =>
     assumptions.growthPath.value.map((base, i) => base + (g - baseG1) * shiftWeights[i]);
 
+  // AMZN audit 2026-10-20 finding 10: what an unbracketed growth scan establishes.
+  let growthOutsideRange: ReverseDcfResult["growthOutsideRange"];
+
   const solveGrowth = (): ReverseDcfResult | null => {
     const lo = REVERSE_GROWTH_RANGE_PCT[0];
     const hi = Math.max(REVERSE_GROWTH_RANGE_PCT[1], baseG1 + 30);
@@ -2733,7 +2852,25 @@ export function reverseDcf(
     const fs = xs.map(fG);
     const brackets = findBrackets(xs, fs);
     if (brackets.length === 0) {
-      const reason = `no root bracket for the fading year-one growth anchor on the [${lo}, ${hi}]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone`;
+      // AMZN audit 2026-10-20 finding 10: with every grid value on one side of
+      // the price, the grid does establish something: no year-one growth in
+      // the range reaches the price (Amazon: $128.88 at 60% against $262.45).
+      // The implied rate is still not inferred; only which end it lies beyond,
+      // and only when value rises with growth across the whole grid.
+      const values = fs.every((f) => f !== null) ? fs.map((f) => (f as number) + price) : null;
+      const side = values === null ? null : values.every((v) => v < price) ? "above" : values.every((v) => v > price) ? "below" : null;
+      let reason = `no root bracket for the fading year-one growth anchor on the [${lo}, ${hi}]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone`;
+      if (values !== null && side !== null) {
+        const rising = values.every((v, i) => i === 0 || v >= values[i - 1]);
+        const at = side === "above" ? xs.length - 1 : 0;
+        const extreme = side === "above" ? Math.max(...values) : Math.min(...values);
+        const basis = `the price ${fmtNum(price)} is ${side} the DCF value at every year-one growth on the [${fmtNum(lo)}, ${fmtNum(hi)}]% pre-scan grid ` +
+          (rising
+            ? `(${fmtNum(values[at])} at ${fmtNum(xs[at])}%), and value rises with growth across the grid, so the price implies year-one growth ${side} ${fmtNum(xs[at])}%`
+            : `(${side === "above" ? "highest" : "lowest"} value ${fmtNum(extreme)}); value is non-monotone in growth here, so no year-one growth in the range ${side === "above" ? "reaches" : "comes down to"} the price and no outside-range growth is inferred`);
+        growthOutsideRange = { side, boundPct: xs[at], perShareAtBound: values[at], rising, basis };
+        reason = `no root bracket for the fading year-one growth anchor: ${basis}`;
+      }
       notes.push(reason);
       gaps.push(gapEntry("valuation.reverseDcf.growthBracket", reason, "warn"));
       return null;
@@ -2806,9 +2943,10 @@ export function reverseDcf(
   const viaGrowth = solveGrowth();
   if (viaGrowth) return viaGrowth;
   notes.push("growth inversion found no bracket — attempting terminal-margin fallback (fallback A)");
+  const withOutside = (r: ReverseDcfResult): ReverseDcfResult => (growthOutsideRange ? { ...r, growthOutsideRange } : r);
   const viaMargin = solveMargin();
-  if (viaMargin) return viaMargin;
-  return none("reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]");
+  if (viaMargin) return withOutside(viaMargin);
+  return withOutside(none("reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]"));
 }
 
 // ---------------------------------------------------------------------------
@@ -3077,6 +3215,16 @@ export interface MultiplesFrameworkInputs {
    */
   includeLeasesInEv?: boolean;
 }
+
+/**
+ * The operator setting the EV bridge basis names (WS6, D-19), exactly as the
+ * basis spells it. AMZN audit 2026-10-20 finding 20: the report states the
+ * lease convention without the environment variable that changes it.
+ */
+export const EV_LEASE_SETTING_TEXT = {
+  excluded: " (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it)",
+  included: " (THESIS_EV_INCLUDE_LEASES=1)",
+} as const;
 
 /** WS6 (D-19): the EV bridge, both ways, with the convention stated. Only the
  * OPERATING slice ever moves between the two (WS6 review, BLOCKER 1). */
@@ -3660,8 +3808,8 @@ export function multiplesFramework(
     (incompleteLeases !== null
       ? `Enterprise value ${includeLeases ? "keeps" : "removes"} the disclosed operating-lease portion embedded in retained debt. ${incompleteLeases.note} `
       : includeLeases
-      ? "Enterprise value INCLUDES the operating-lease liability (THESIS_EV_INCLUDE_LEASES=1). "
-      : "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). ") +
+      ? `Enterprise value INCLUDES the operating-lease liability${EV_LEASE_SETTING_TEXT.included}. `
+      : `Enterprise value EXCLUDES the OPERATING-lease liability${EV_LEASE_SETTING_TEXT.excluded}. `) +
     "EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments" +
     (netDebt.nonOperatingEquitySecurities !== undefined
       ? ` excluding ${fmtNum(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
@@ -3714,7 +3862,7 @@ export function multiplesFramework(
         evLeaseScope !== null
           ? `${evLeaseScope}; enterprise value is reported as-is`
           : totalLeaseLiability === null
-          ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV regardless of THESIS_EV_INCLUDE_LEASES"
+          ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV under either lease setting"
           : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
         "info",
       ),

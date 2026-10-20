@@ -167,6 +167,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/evaluation/claimBenchmarkCli.ts",
   "src/report/forecastAdapter.ts",
   "src/pipeline/peers.ts",
+  "src/pipeline/peerProviderFailure.ts",
   "src/pipeline/peerFilings.ts",
   "src/report/evaluation.ts",
   "src/report/evaluationCli.ts",
