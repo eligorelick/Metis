@@ -38,7 +38,7 @@ import {
   type DcfYearRow,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
-import { buildScenarioPaths, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
+import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 export { perturbScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import { perShareUnit } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
@@ -277,6 +277,8 @@ export function effectiveScenarioShocks(
   const growthMarginCorrelation = degenerate ? null : correlation;
   return {
     growthDeltaPp: DISPERSION_K * sigmaGrowth,
+    // The correlated shift before buildScenarioPaths' direction rule (AMZN
+    // audit 2026-10-20 finding 11), which may hold it at base.
     marginDeltaPp: DISPERSION_K * sigmaMargin * (growthMarginCorrelation ?? 0),
     growthMarginCorrelation,
     degenerate,
@@ -433,7 +435,6 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
 
   // --- Bull / bear paths via the SAME DCF engine ---------------------------
   const dg = shocks.growthDeltaPp;
-  const dm = shocks.marginDeltaPp;
 
   const shared = buildScenarioPaths(assumptions, {
       waccPct: inputs.waccPct as number,
@@ -501,7 +502,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
       : `Base path is the DCF forward trajectory (year-one revenue from ${revenueAnchor.source}, ${round2(revenueAnchor.yearOneGrowthPct)}% growth${laterText}` +
         `${revenueAnchor.source === "run-rate" || revenueAnchor.source === "ttm" ? `, carried at the near-term growth rate ${anchorText}` : ""}${consensusText}; ` +
         `then a convergent fade to ${round2(assumptions.terminal.gTermPct.value)}% terminal growth).`,
-    `Bull/bear shift year-one growth by ±${round2(dg)}pp and the year-one margin by ±${round2(dm)}pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}).${effectiveText}`,
+    `Bull/bear shift year-one growth by ±${round2(dg)}pp and the year-one margin by ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), applied only when it moves with the scenario.${marginWithheldText(shared)}${effectiveText}`,
     `Forward periods are 12-month windows ending on anniversaries of the latest statement date${anchorWindowEnd === null ? "" : ` (${anchorWindowEnd})`}, not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.`,
     `Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta ${round2(shared.bull.growthDeltaPp)}pp; margin delta ${round2(shared.bull.marginDeltaPp)}pp. Revenue or FCF paths may cross.`,
     `Weighted path = ${PROJECTION_WEIGHTS.bull}·bull + ${PROJECTION_WEIGHTS.base}·base + ${PROJECTION_WEIGHTS.bear}·bear, the fixed display prior.`,

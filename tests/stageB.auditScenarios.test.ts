@@ -61,13 +61,21 @@ describe("report audit valuation regressions", () => {
     expect(projections(fixture("annual").valuation).series[0].base[0].period).toBe("FY2027 ending 2027-06-30");
   });
   it("uses the same countercyclical scenario identity in targets and projected revenue", () => {
-    const { valuation, a } = fixture();
-    // Re-pinned for D-60: decaying shocks need a margin-dominated history (growth σ ≈ 1.2pp, margin σ 12pp, corr ≈ −1) to invert.
+    const { valuation: built, a, opts } = fixture();
+    // AMZN audit 2026-10-20 finding 11: a margin-dominated, anti-correlated history
+    // (growth σ ≈ 1.2pp, margin σ 12pp, corr ≈ −1) no longer inverts the labels by
+    // itself, because a margin shift that opposes the scenario stays at base.
+    // Growth that destroys value still does: at sales-to-capital 0.2 the
+    // lower-growth shock is worth more.
+    a.salesToCapital.value = 0.2;
+    const valuation = { ...built, assumptions: a, dcf: runDcf(a, opts) };
+    expect(valuation.dcf.perShare!).toBeGreaterThan(0);
     const countercyclical = ([[1000, 30], [1100, 15], [1188, 45], [1300.86, 20], [1398.42, 50]] as const).map(([revenue, m], i) => ({
       date: `${2021 + i}-12-31`, revenue, ebit: revenue * m / 100, netIncome: revenue * m / 100 * 0.75, epsDiluted: 1 }));
     const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: countercyclical, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
     const bull = t.targets.find(t => t.name === "bull")!;
     expect(bull.growthDeltaPp).toBeLessThan(0);
+    expect(bull.marginDeltaPp).toBeGreaterThan(0);
     const p = computeProjections({ route, valuation, waccPct: 9, dilutedShares: 100, incomeHistory: countercyclical, fcfHistory: [], shareCountAnnualizedPct: -5, currency: "USD", asOf: "2026-10-13" });
     const revenue = p.series.find(s => s.metric === "revenue")!;
     expect(revenue.bull[0].value.value).toBeCloseTo(2000 * (1 + (a.growthPath.value[0] + bull.growthDeltaPp) / 100), 2);

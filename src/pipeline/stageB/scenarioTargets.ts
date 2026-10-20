@@ -35,7 +35,7 @@ import {
   scenarioDispersion,
   type ProjectionIncomeRow,
 } from "@/pipeline/stageB/projections";
-import { buildScenarioPaths, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
+import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from "@/pipeline/stageB/scenarioPaths";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { perShareUnit } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
@@ -176,7 +176,6 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   const dispersionDegenerate = shocks.degenerate;
   const effectiveCorr = shocks.growthMarginCorrelation;
   const dg = shocks.growthDeltaPp;
-  const dm = shocks.marginDeltaPp;
   const sigmaSource = "own-history" as const;
 
   const missingReasons: ManifestEntry[] = [];
@@ -239,20 +238,21 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   // engine with ±σ-shifted growth/margin paths and the SAME equity bridge.
   const shared = buildScenarioPaths(assumptions, opts, { sigmaGrowth: dg, sigmaMargin: disp.sigmaMargin, growthMarginCorrelation: effectiveCorr });
 
-  // With a NEGATIVE growth/margin correlation dm < 0, so the +growth run can land
-  // BELOW the −growth run (the margin shock dominates the growth shock), which
-  // would publish "bull" beneath "bear" and hand a reader the risk direction
-  // backwards. Order the two extremes by per-share value so the higher is always
-  // labelled bull; each scenario keeps the growth/margin deltas of the path that
-  // produced it. base (the DCF fair value) is untouched, so it can never disagree
-  // with the DCF page.
+  // Where growth earns less than the reinvestment it needs, the +growth run lands
+  // BELOW the −growth run, which would publish "bull" beneath "bear" and hand a
+  // reader the risk direction backwards. buildScenarioPaths gives the bull the
+  // growth shift that raises value and a margin shift that never cuts it (AMZN
+  // audit 2026-10-20 finding 11), so the higher value is always labelled bull;
+  // each scenario keeps the growth/margin deltas of the path that produced it.
+  // base (the DCF fair value) is untouched, so it can never disagree with the
+  // DCF page.
   const optimistic = { value: shared.bull.result.perShare, growthDeltaPp: shared.bull.growthDeltaPp, marginDeltaPp: shared.bull.marginDeltaPp };
   const pessimistic = { value: shared.bear.result.perShare, growthDeltaPp: shared.bear.growthDeltaPp, marginDeltaPp: shared.bear.marginDeltaPp };
   if (shared.orderingInverted) {
     missingReasons.push({
       field: "valuation.scenarioTargets.ordering",
       reason:
-        "negative growth/margin correlation inverted the raw ±σ construction (the margin shock dominated the growth shock); bull/bear were re-labelled by per-share value so the published bull is never below bear, and each scenario's growth/margin deltas describe the path that produced it",
+        "with the margin at base the lower-growth shock is worth more than the higher-growth one (the reinvestment the extra growth needs costs more than the operating profit it adds), so the bull carries the lower growth; bull/bear are labelled by per-share value so the published bull is never below bear, and each scenario's growth/margin deltas describe the path that produced it",
       severity: "warn",
     });
   }
@@ -292,7 +292,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     `${shared.scenarioAssumptions.scenarios.filter((s) => s.name !== "base" && s.effectiveMarginDeltaPp === undefined).map((s) => `, ${signed(s.marginDeltaPp)} for ${s.name}`).join("")}, so the shocks are not symmetric around the base margin.`;
   const basis = [
     "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
-    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(dm)}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated.${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
+    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.${marginWithheldText(shared)}${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
     "Targets are computed-derived DCF sensitivities, not source-verified facts; no weight or probability is attached to them.",
     // D-65: the decay-and-cap paragraph is stated once, as the note of the
     // projections' scenario-construction table (it was printed three times).
