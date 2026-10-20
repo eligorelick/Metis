@@ -2597,6 +2597,14 @@ export interface ReverseDcfResult {
   impliedGrowthPathPct?: number[] | null;
   /** Market-implied terminal EBIT margin (pct) — margin-fallback mode. */
   impliedTerminalMarginPct: number | null;
+  /**
+   * AMZN audit 2026-10-20 finding 10: present only when the growth pre-scan
+   * found no root because the price lies above (or below) the DCF value at
+   * every evaluable year-one growth on the grid. `boundPct` is the grid end
+   * the price lies beyond, `perShareAtBound` the value there. No implied
+   * growth is inferred; `basis` states what the grid does establish.
+   */
+  growthOutsideRange?: { side: "above" | "below"; boundPct: number; perShareAtBound: number; basis: string };
   notes: string[];
   gaps: ManifestEntry[];
 }
@@ -2734,6 +2742,9 @@ export function reverseDcf(
   const shiftedPath = (g: number): number[] =>
     assumptions.growthPath.value.map((base, i) => base + (g - baseG1) * shiftWeights[i]);
 
+  // AMZN audit 2026-10-20 finding 10: what an unbracketed growth scan establishes.
+  let growthOutsideRange: ReverseDcfResult["growthOutsideRange"];
+
   const solveGrowth = (): ReverseDcfResult | null => {
     const lo = REVERSE_GROWTH_RANGE_PCT[0];
     const hi = Math.max(REVERSE_GROWTH_RANGE_PCT[1], baseG1 + 30);
@@ -2745,7 +2756,25 @@ export function reverseDcf(
     const fs = xs.map(fG);
     const brackets = findBrackets(xs, fs);
     if (brackets.length === 0) {
-      const reason = `no root bracket for the fading year-one growth anchor on the [${lo}, ${hi}]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone`;
+      // AMZN audit 2026-10-20 finding 10: with every grid value on one side of
+      // the price, the grid does establish something: no year-one growth in
+      // the range reaches the price (Amazon: $128.88 at 60% against $262.45).
+      // The implied rate is still not inferred; only which end it lies beyond,
+      // and only when value rises with growth across the whole grid.
+      const values = fs.every((f) => f !== null) ? fs.map((f) => (f as number) + price) : null;
+      const side = values === null ? null : values.every((v) => v < price) ? "above" : values.every((v) => v > price) ? "below" : null;
+      let reason = `no root bracket for the fading year-one growth anchor on the [${lo}, ${hi}]% pre-scan grid; no outside-range growth is inferred because value may be non-monotone`;
+      if (values !== null && side !== null) {
+        const rising = values.every((v, i) => i === 0 || v >= values[i - 1]);
+        const at = side === "above" ? xs.length - 1 : 0;
+        const extreme = side === "above" ? Math.max(...values) : Math.min(...values);
+        const basis = `the price ${fmtNum(price)} is ${side} the DCF value at every year-one growth on the [${fmtNum(lo)}, ${fmtNum(hi)}]% pre-scan grid ` +
+          (rising
+            ? `(${fmtNum(values[at])} at ${fmtNum(xs[at])}%), and value rises with growth across the grid, so the price implies year-one growth ${side} ${fmtNum(xs[at])}%`
+            : `(${side === "above" ? "highest" : "lowest"} value ${fmtNum(extreme)}); value is non-monotone in growth here, so no year-one growth in the range ${side === "above" ? "reaches" : "comes down to"} the price and no outside-range growth is inferred`);
+        growthOutsideRange = { side, boundPct: xs[at], perShareAtBound: values[at], basis };
+        reason = `no root bracket for the fading year-one growth anchor: ${basis}`;
+      }
       notes.push(reason);
       gaps.push(gapEntry("valuation.reverseDcf.growthBracket", reason, "warn"));
       return null;
@@ -2818,9 +2847,10 @@ export function reverseDcf(
   const viaGrowth = solveGrowth();
   if (viaGrowth) return viaGrowth;
   notes.push("growth inversion found no bracket — attempting terminal-margin fallback (fallback A)");
+  const withOutside = (r: ReverseDcfResult): ReverseDcfResult => (growthOutsideRange ? { ...r, growthOutsideRange } : r);
   const viaMargin = solveMargin();
-  if (viaMargin) return viaMargin;
-  return none("reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]");
+  if (viaMargin) return withOutside(viaMargin);
+  return withOutside(none("reverse DCF: no root in growth [-20, 60] nor terminal margin [0, 60]"));
 }
 
 // ---------------------------------------------------------------------------

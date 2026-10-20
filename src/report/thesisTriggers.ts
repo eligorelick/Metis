@@ -49,7 +49,15 @@ export function buildThesisTriggers(
   const start = val.assumptions.startRevenue?.value;
   const anchorEnd = val.assumptions.forecastPeriod?.anchorEndDate;
   const firstWindow = anchorEnd ? forecastYearPeriod(anchorEnd, 1, val.assumptions.forecastPeriod?.basis ?? "rolling-12-month") : null;
+  // AMZN audit 2026-10-20 finding 10: the condition that would change the
+  // assessment lies on the far side of the price-implied value from the base
+  // case. Every trigger read "below", so a price above the model value (AMZN:
+  // a 52.3% implied terminal margin against a 12.1% base) printed a condition
+  // the base case already met. Without a base value, "below" as before.
+  const awayFromBase = (implied: number, base: number | null | undefined): "above" | "below" =>
+    finite(base) && implied > base ? "above" : "below";
   if (validHorizon && reverse?.method === "growth" && finite(reverse.impliedRevenueGrowthPct)) {
+    const comparator = awayFromBase(reverse.impliedRevenueGrowthPct, reverse.baseRevenueGrowthPct ?? val.assumptions.growthPath?.value[0]);
     const fades = isStartingGrowthFamily(reverse.growthPathFamily);
     const linear = reverse.growthPathFamily === "linear-fade-to-terminal";
     // The observable equivalent: the first modeled year's revenue the price requires.
@@ -63,7 +71,7 @@ export function buildThesisTriggers(
     triggers.push({
       id: "reverse-growth",
       metric: fades ? "Supported starting annual revenue growth" : "Supported constant annual revenue growth",
-      comparator: "below",
+      comparator,
       threshold: reverseThreshold(reverse.impliedRevenueGrowthPct),
       horizon: (fades
         ? linear
@@ -71,17 +79,18 @@ export function buildThesisTriggers(
           : `Starting annual growth, with the base path's later years shifted by the same amount, fading out by the base model's final growth rate across ${years} explicit forecast years`
         : `Across all ${years} explicit forecast years, with constant growth and no fade`) + observable,
       fixedAssumptions: [...commonFixed, "The operating-margin path remains at the base case."],
-      consequence: "If reported revenue, guidance or consensus for that window point below this price-implied level, reassess the valuation case and recompute the reverse DCF. This is a conditional model comparison, not a next-period growth target or a predicted price change.",
+      consequence: `If reported revenue, guidance or consensus for that window point ${comparator} this price-implied level, reassess the valuation case and recompute the reverse DCF. This is a conditional model comparison, not a next-period growth target or a predicted price change.`,
     });
   } else if (validHorizon && reverse?.method === "margin" && finite(reverse.impliedTerminalMarginPct)) {
+    const comparator = awayFromBase(reverse.impliedTerminalMarginPct, val.assumptions.ebitMarginPath?.value.at(-1));
     triggers.push({
       id: "reverse-margin",
       metric: "Supported terminal operating margin",
-      comparator: "below",
+      comparator,
       threshold: reverseThreshold(reverse.impliedTerminalMarginPct),
       horizon: `Margin fades from the starting level to the terminal level over ${years} explicit forecast years`,
       fixedAssumptions: [...commonFixed, "The revenue growth path remains at the base case; the operating-margin path is the reverse solver's fade."],
-      consequence: "If revised evidence supports a terminal margin below this price-implied threshold, reassess margin durability and recompute the valuation. This is a conditional model comparison, not a next-quarter margin target.",
+      consequence: `If revised evidence supports a terminal margin ${comparator} this price-implied threshold, reassess margin durability and recompute the valuation. This is a conditional model comparison, not a next-quarter margin target.`,
     });
   }
 

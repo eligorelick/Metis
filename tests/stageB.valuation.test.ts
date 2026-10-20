@@ -506,6 +506,28 @@ describe("reverseDcf", () => {
     expect(rev.method).toBe("none");
     expect(rev.notes.join(" ")).toMatch(/not justifiable|no root|hypergrowth|> 60/i);
   });
+
+  // AMZN audit 2026-10-20 finding 10: even 60% year-one growth valued Amazon at
+  // $128.88 against $262.45, so the solve was "unavailable" and the grade read
+  // the missing signal as neutral instead of most expensive.
+  it("records which end of the growth search range the price lies beyond", () => {
+    const a = explicitAssumptions({ years: 10, growthPath: Array.from({ length: 10 }, () => 8), gTermPct: 2, roicTermPct: 10 });
+    const opts = { waccPct: 10, netDebt: 0, dilutedShares: 100 };
+    const rich = reverseDcf(1e9, a, opts);
+    expect(rich.impliedRevenueGrowthPct).toBeNull();
+    expect(rich.growthOutsideRange).toMatchObject({ side: "above", boundPct: 60 });
+    expect(rich.growthOutsideRange!.perShareAtBound).toBeLessThan(1e9);
+    expect(rich.growthOutsideRange!.basis).toMatch(/implies year-one growth above 60%/);
+    const bracket = rich.gaps.find((g) => g.field === "valuation.reverseDcf.growthBracket");
+    expect(bracket?.reason).toMatch(/above the DCF value at every year-one growth/);
+    expect(bracket?.reason).not.toMatch(/no outside-range growth is inferred/);
+    const cheap = reverseDcf(1e-6, a, opts);
+    expect(cheap.impliedRevenueGrowthPct).toBeNull();
+    expect(cheap.growthOutsideRange).toMatchObject({ side: "below", boundPct: -20 });
+    expect(cheap.growthOutsideRange!.basis).toMatch(/implies year-one growth below -20%/);
+    // A solved root carries no bound.
+    expect(reverseDcf(runDcf(a, opts).perShare!, a, opts).growthOutsideRange).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

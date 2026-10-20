@@ -1212,3 +1212,29 @@ describe("grading — buyback timing recency", () => {
     expect(s.aspects.leadership.note).toContain(`B${stale.slice(1)}.`);
   });
 });
+
+// AMZN audit 2026-10-20 finding 10: a price beyond the reverse solve's growth
+// range left the signal missing, which the composite read as neutral.
+describe("grading — reverse DCF with no root in the growth range", () => {
+  const withOutside = (side: "above" | "below", boundPct: number) => {
+    const v = valuationDcf() as unknown as { reverseDcf: Record<string, unknown> };
+    v.reverseDcf = { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: 45.9, baseRevenueGrowthPct: 7,
+      growthPathFamily: "convergent-shift-to-terminal", notes: [], gaps: [],
+      growthOutsideRange: { side, boundPct, perShareAtBound: 128.88, basis: `the price implies year-one growth ${side} ${boundPct}%` } };
+    const s = computeScores(makeInputs({ valuation: v as unknown as ValuationResult }));
+    return s.aspects.valuation.signals?.find((x) => x.id === "reverseImpliedVsAchievable");
+  };
+  it("scores a price above every value in the range at the band floor, and says why", () => {
+    const signal = withOutside("above", 60);
+    expect(signal?.raw).toBe(53);
+    expect(signal?.transformedScore).toBe(15);
+    expect(signal?.fallbackReason).toMatch(/implies year-one growth above 60%/);
+    expect(signal?.fallbackReason).toMatch(/band floor/);
+  });
+  it("scores a price below every value in the range at the band top", () => {
+    const signal = withOutside("below", -20);
+    expect(signal?.raw).toBe(-27);
+    expect(signal?.transformedScore).toBe(90);
+    expect(signal?.fallbackReason).toMatch(/implies year-one growth below -20%/);
+  });
+});

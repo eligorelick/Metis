@@ -233,6 +233,17 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         operand("base starting growth, same fade", i.valuation.reverseDcf?.baseRevenueGrowthPct ?? a?.growthPath.value[0], "computed.valuation.reverseDcf.baseRevenueGrowthPct", day(a?.asOf.statements));
         result.windowYears = a?.years ?? null;
         result.period = "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors.";
+        // AMZN audit 2026-10-20 finding 10: the grader scores an unbracketed scan at its range end.
+        const outside = i.valuation.reverseDcf?.growthOutsideRange;
+        const base = i.valuation.reverseDcf?.baseRevenueGrowthPct ?? a?.growthPath.value[0];
+        if (!finite(i.valuation.reverseDcf?.impliedRevenueGrowthPct) && outside && finite(base)) {
+          operand("growth search-range end the price lies beyond", outside.boundPct, "computed.valuation.reverseDcf.growthOutsideRange.boundPct", quoteDate);
+          operand("DCF per share at that range end", outside.perShareAtBound, "computed.valuation.reverseDcf.growthOutsideRange.perShareAtBound", quoteDate);
+          const gap = (outside.boundPct - base).toFixed(2);
+          result.fallbackReason = `No implied growth was solved: ${outside.basis}. ` + (outside.side === "above"
+            ? `Implied minus base starting growth is therefore at least ${gap} pp, past the band's last breakpoint, so the signal scores at the band floor.`
+            : `Implied minus base starting growth is therefore at most ${gap} pp, and the signal is scored at that bound; a wider gap would score no lower.`);
+        }
       } else if (id === "dcfUpside") {
         operand("DCF per share", i.valuation.dcf?.perShare, "computed.valuation.dcf.perShare", day(a?.asOf.statements));
         operand("current quote", i.currentPrice, "computed.currentPrice", quoteDate);

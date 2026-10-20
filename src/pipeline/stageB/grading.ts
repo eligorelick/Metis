@@ -760,7 +760,13 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     const achievable = isStartingGrowthFamily(valuation.reverseDcf?.growthPathFamily)
       ? valuation.reverseDcf?.baseRevenueGrowthPct ?? valuation.assumptions?.growthPath.value[0] ?? null
       : null;
-    const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable : null;
+    // AMZN audit 2026-10-20 finding 10: a price beyond every value in the
+    // growth search range is graded at that range end: the implied gap is at
+    // least (at most) the bound's, so the expensive case scores the band floor
+    // and the cheap case at least the bound's score. Missing, it read neutral.
+    const outside = valuation.reverseDcf?.growthOutsideRange;
+    const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable
+      : outside && isNum(outside.boundPct) && isNum(achievable) ? outside.boundPct - achievable : null;
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: impliedVsAchievable, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "peOwnHistoryRank", raw: multipleOwnHistoryRank(valuation, ["peTtm", "evToEbitda", "priceToFcf"]), unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
   } else if (valuation.kind === "excess-return") {
