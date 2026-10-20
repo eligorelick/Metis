@@ -616,6 +616,9 @@ describe("payload determinism + provenance", () => {
       // AMZN audit finding 20(h), from its independent review: the undisclosed
       // lease gap no longer names the environment variable.
       ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
+      // Codex review of PR #42: the scenario construction's method stamps.
+      ["SCENARIO_TARGETS_2026_10_D99", "SCENARIO_TARGETS_2026_10_D60", 1],
+      ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -625,7 +628,10 @@ describe("payload determinism + provenance", () => {
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
     // registry, preserving every value, unit, identity, date and order.
-    const precedingRegistry = (payload.provenanceRegistry ?? []).map(record => {
+    // Codex review of PR #42 (D-99): the method stamps restored above and the
+    // notes and risk readings' selection version are the only registry text
+    // that moves; restore them as well.
+    const precedingRegistry = restoreD99(JSON.parse(JSON.stringify(payload.provenanceRegistry ?? []).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>).map(record => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
@@ -639,8 +645,11 @@ describe("payload determinism + provenance", () => {
     // version's whole prompt.
     const isTargetNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Consensus target vs our value:");
     expect(JSON.stringify(payload).split("Consensus target vs our value:").length - 1).toBe(1);
+    // Codex review of PR #42: the notes and risk readings' selection version.
+    expect(JSON.stringify(payload).split("section-evidence-4/").length - 1).toBe(2);
     const precedingPayload = JSON.parse(JSON.stringify(restoreD99(payload), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item)) : leaf)) as typeof payload;
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
+        : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
     expect(payloadFingerprint({ ...precedingPayload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
     expect({
       fingerprint: payloadFingerprint(payload),
@@ -942,10 +951,13 @@ describe("payload determinism + provenance", () => {
       // (AMZN audit finding 18) and the reworded scenario, calendarization and
       // lease-gap notes; dropping the one and restoring the others reproduces
       // the preceding prompt above, and no registry or citation record moves.
-      fingerprint: "1.40.0:b9a85ecf",
+      // Codex review of PR #42: the scenario and notes/risk selection method
+      // stamps move the fingerprint, the provenance hash and financeHash;
+      // restoring them reproduces every preceding pin above.
+      fingerprint: "1.40.0:71f423e5",
       promptBytes: 140_477,
       provenanceCount: 531,
-      provenanceHash: "f57574b3",
+      provenanceHash: "6ad4263f",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -976,7 +988,7 @@ describe("payload determinism + provenance", () => {
       // D-99: only the reworded leaves restored above (scenario margin
       // direction, even-spread calendarization reason, the undisclosed lease
       // gap without the environment variable) move financeHash.
-      financeHash: "f74c0523",
+      financeHash: "a647b8bb",
     });
   });
 

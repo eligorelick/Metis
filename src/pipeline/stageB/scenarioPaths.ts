@@ -22,7 +22,8 @@ export interface ScenarioAssumptions {
   alternatives: { name: "decaying-growth-shock"; bullPerShare: number | null; bearPerShare: number | null; basis: string }[];
 }
 
-export const SCENARIO_PATHS_METHOD_VERSION = "SHARED_SCENARIO_PATHS_2026_10_D60" as const;
+// D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
+export const SCENARIO_PATHS_METHOD_VERSION = "SHARED_SCENARIO_PATHS_2026_10_D99" as const;
 
 /**
  * D-60: mean-reverting scenario shocks. A ±σ growth shift held for all ten

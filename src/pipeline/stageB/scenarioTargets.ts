@@ -44,7 +44,8 @@ import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/sch
 /** Method id stamped into the block. */
 export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 /** Versioned method prior — bump when the construction changes. */
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10_D60" as const;
+// D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_10_D99" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;

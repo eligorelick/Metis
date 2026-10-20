@@ -2,6 +2,12 @@ import { materialCreditSupportClauses } from "@/edgar/currentReports";
 
 /** Pure, bounded source selection. Offsets always refer to the original source. */
 export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
+/**
+ * The notes and risk readings. section-evidence-4 (D-99, AMZN audit findings
+ * 6 and 16): the performance-obligations family and the pending-case clauses
+ * for government cases, their relief, fines and scheduled trials.
+ */
+export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
@@ -358,5 +364,5 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   // Tiny caller budgets are valid too; do not return a marker longer than them.
   return { text: (joined + marker).slice(0, budget),
     truncated: omittedChars > 0, originalChars: text.length, spans,
-    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? "section-evidence-3" : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
+    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? NOTES_RISK_SELECTION_VERSION : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
 }

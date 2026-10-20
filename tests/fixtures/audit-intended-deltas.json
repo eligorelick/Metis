@@ -5671,11 +5671,6 @@
       "reason": "Leaves that more than one NVDA-audit decision moved, so no single group reason describes their final value. The DEMO DCF path, sensitivity grid, assumptions, reverse DCF, fair value and upside were first moved by D-58 (evidence anchor, convergent fade, terminal tax floor) and moved again by D-60 (consensus-level years one and two, margin cap counting the TTM, sales-to-capital without long-term investments, FRED risk-free rate, latest-balance debt weight, mean-reverting scenarios, observable thesis triggers, one net-cash figure); the returns and WACC leaves move with D-60 and the D-61 invested-capital change; the aspect scores and composite move with D-60 and D-61 together; bandsVersion and scenario methodVersion move with the integration stamps (SCORE_BANDS_2026_10_NVDA_AUDIT). Each component change is described in its own group and decision record.",
       "deltas": [
         {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D60"
-        },
-        {
           "path": "report.scores.aspects.quality.drivers.0.value",
           "before": 27.2,
           "after": 30.806856135117066
@@ -5912,11 +5907,6 @@
             },
             "summary": "WACC 9.2572%: risk-free 4% (fmp:treasury-rates.year10, observation 2025-12-31); ERP 5% (FMP market-risk-premium (US totalEquityRiskPremium); vintage not published by the vendor, acquired 2026-07-06; dated reference Damodaran implied ERP (trailing 12-month adjusted payout) 4.18%, vintage 2026-07-01); beta 1.0667 (Blume-adjusted (0.667·raw + 0.333), clamped [0.6, 2], raw 1.1 — vendor profile beta; the vendor publishes no regression window or fit; no regression check: only 0 monthly returns shared with the benchmark; 24 required for a beta estimate; observations dated on or after 2026-07-06 UTC withheld because daily bars have no settled-session signal; current-day bars remain withheld until the next UTC day, even after market close); cost of equity 9.3333%; pre-tax cost of debt 12% (effective); tax rate 27.0833% (FMP ratios effectiveTaxRate (observed effective rate)); E 86.9565% / D 13.0435% (market-value weights: equity = current market capitalization, debt = book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), the latest balance (2025-12-31), the one the EV bridge nets as the market-value proxy; the effective cost of debt divides interest by book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it), average of the latest two fiscal-year-end balances)"
           }
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D60"
         },
         {
           "path": "stageB.scores.aspects.quality.drivers.0.value",
@@ -9693,7 +9683,7 @@
       "decisions": [
         "D-99"
       ],
-      "reason": "Deferred AMZN report audit 2026-10-20 findings (D-99), as they reach this provider-free DEMO control: finding 10 scores a reverse DCF whose price lies outside the growth search range at that bound, so DEMO's price of 40, below its DCF value at every year-one growth down to -20%, carries growthOutsideRange, the bound statement in its notes and gaps, and a reverse driver and signal again (valuation completeness 0.4 back to 0.7, which also returns the meta-report-audit confidence and score leaves to the audited values; composite 77.59 to 76.37 with its methodology, assessments and factor exposure); finding 20(h) states the enterprise-value bridge once beside the multiples, with the EV/EBITDA and EV/Sales bases pointing to it and the setting named as the house default instead of an environment variable; report spec 1.35.0. No other value moves. See docs/audit/2026-10-20-amzn-deferred-fixes.md.",
+      "reason": "Deferred AMZN report audit 2026-10-20 findings (D-99), as they reach this provider-free DEMO control: finding 10 scores a reverse DCF whose price lies outside the growth search range at that bound, so DEMO's price of 40, below its DCF value at every year-one growth down to -20%, carries growthOutsideRange, the bound statement in its notes and gaps, and a reverse driver and signal again (valuation completeness 0.4 back to 0.7, which also returns the meta-report-audit confidence and score leaves to the audited values; composite 77.59 to 76.37 with its methodology, assessments and factor exposure); finding 20(h) states the enterprise-value bridge once beside the multiples, with the EV/EBITDA and EV/Sales bases pointing to it and the setting named as the house default instead of an environment variable; the scenario-target method stamp moves to SCENARIO_TARGETS_2026_10_D99 with finding 11's margin direction; report spec 1.35.0. No other value moves. See docs/audit/2026-10-20-amzn-deferred-fixes.md.",
       "deltas": [
         {
           "path": "report.appendix.missingData.13.reason",
@@ -9704,6 +9694,11 @@
           "path": "report.meta.specVersion",
           "before": "1.2.0",
           "after": "1.35.0"
+        },
+        {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D99"
         },
         {
           "path": "report.scores.aspects.valuation.applicableCompleteness",
@@ -9919,6 +9914,11 @@
           "path": "stageB.gaps.12.reason",
           "before": "no API key + no fixture",
           "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D99"
         },
         {
           "path": "stageB.scores.aspects.valuation.applicableCompleteness",
