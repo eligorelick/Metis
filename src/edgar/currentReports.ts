@@ -118,14 +118,21 @@ function fiscalPeriod(fiscalYear: number, fiscalQuarter: 1 | 2 | 3 | 4 | null): 
  * compared with third quarter 2025") is the year-ago quarter, never the one a
  * release reports or guides. Amazon's releases name no other year in those
  * sentences, so the base year labelled both its reported and its guided quarter.
+ * The cue governs the phrase only when nothing but amounts and connecting
+ * words stand between them ("compared with $167.7 billion in second quarter
+ * 2025", "compared with $18.2 billion, or $1.68 per diluted share, in second
+ * quarter 2025"); a cue earlier in the clause ("the impact from foreign currency,
+ * revenue for the fourth quarter of 2026") governs something else.
  */
-const COMPARISON_CUE = /\b(?:compared (?:with|to)|versus|vs\.|relative to|against|from)\s/i;
+const COMPARISON_FILLER = String.raw`(?:(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly)[\s,]+|[$€£¥]?\s?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|billion|million|thousand|trillion)?[\s,]+)*`;
+const COMPARISON_TAIL = new RegExp(String.raw`\b(?:compared (?:with|to)|versus|vs\.?|relative to|against|from)\s+${COMPARISON_FILLER}$`, "i");
 
-/** Whether the phrase at `index` follows a comparison cue in its own clause. */
+/** Whether the phrase at `index` directly follows a comparison cue in its own clause. */
 function comparisonBase(text: string, index: number): boolean {
   const before = text.slice(Math.max(0, index - 80), index);
-  const clause = before.split(/[;•\n]|\.\s/).at(-1) ?? before;
-  return COMPARISON_CUE.test(clause);
+  // A sentence ends at ". ", but "vs. " is the cue itself, not a boundary.
+  const clause = before.split(/[;•\n]|(?<!\bvs)\.\s/i).at(-1) ?? before;
+  return COMPARISON_TAIL.test(clause);
 }
 
 /** The first match of a global `pattern` that is not a comparison base. */

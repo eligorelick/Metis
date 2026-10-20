@@ -2555,9 +2555,13 @@ early: the Q3 2026 outlook read "Q3 FY2025". The two mistakes cancelled in the
 check that the outlook lies ahead, but the outlook-against-actual comparison
 matches the guided quarter to the release that reported it, so the Q4 2025
 outlook ($206.0B to $213.0B, actual $213.4B) was never scored. A quarter-and-year
-phrase that follows a comparison word in its own clause ("compared with", "versus",
-"vs.", "relative to", "against", "from") is now skipped when a guidance
-sentence or block is labelled. The reported quarter is read from the phrase
+phrase that directly follows a comparison word in its own clause ("compared with", "versus",
+"vs.", "relative to", "against", "from"), with nothing between them but amounts
+and connecting words ("compared with $18.2 billion, or $1.68 per diluted share,
+in second quarter 2025"), is now skipped when a guidance
+sentence or block is labelled. A comparison word earlier in the clause that
+governs something else ("the impact from foreign currency, revenue for the
+fourth quarter of 2026") does not skip the period. The reported quarter is read from the phrase
 that names the same quarter as the "quarter ended" sentence; when the only
 such phrase is a comparison base, the year after it is taken. On Amazon's five
 releases from July 2025 to July 2026 every reported and guided quarter now

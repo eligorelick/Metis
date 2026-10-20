@@ -13,9 +13,11 @@ import {
   parseCapitalReturn,
   parseCommitmentTables,
   parseGuidance,
+  parseGuidanceSentence,
   parseIssuerFreeCashFlow,
   parseReconciliation,
   parseReportedPeriod,
+  quarterPhrase,
   summarizeItem,
 } from "@/edgar/currentReports";
 import { buildQuarterlySegments, fallbackMemberLabel, parseInstanceRevenue, parseMemberLabels } from "@/edgar/segmentFacts";
@@ -657,5 +659,29 @@ describe("a period named as a comparison base (AMZN audit 2026-10-20)", () => {
     expect(buildFilingDisclosures(bundle)!.guidanceChecks.find((c) => c.metric === "revenue")).toMatchObject({
       period: "Q4 FY2025", periodEnd: "2025-12-31", guidedLow: 206e9, guidedHigh: 213e9, actual: 213_386e6, position: "above",
     });
+  });
+});
+
+describe("a comparison word skips only the period it governs (AMZN audit 2026-10-20 review)", () => {
+  it("reads \"vs.\" as a comparison word, though its period is followed by a space", () => {
+    // The clause cut at ". " removed "vs." itself, so its base labelled the period.
+    expect(quarterPhrase("Net sales grew 12% vs. Q3 2025 to $199.5 billion in Q3 2026")?.label).toBe("Q3 FY2026");
+    expect(quarterPhrase("Revenue rose 9% vs. third quarter 2025 to a record in the third quarter of 2026")?.label).toBe("Q3 FY2026");
+  });
+
+  it("keeps a guided period that a comparison word earlier in the clause does not govern", () => {
+    // \"from\" anywhere in the 80 characters before the phrase skipped it, so this outlook was lost.
+    const block = "Business Outlook Excluding the impact from foreign currency, revenue for the fourth quarter of 2026 is expected to be between $10.0 billion and $10.4 billion. Conference Call";
+    const guided = parseGuidance(block)!;
+    expect(guided.period?.label).toBe("Q4 FY2026");
+    expect(guided.items.map((i) => [i.metric, i.period.label, i.low, i.high])).toEqual([["revenue", "Q4 FY2026", 10e9, 10.4e9]]);
+    expect(parseGuidanceSentence("Revenue is expected to range from $10.0 billion to $10.4 billion for the fourth quarter of 2026.", null)
+      .map((i) => [i.period.label, i.low, i.high])).toEqual([["Q4 FY2026", 10e9, 10.4e9]]);
+  });
+
+  it("still skips the base a comparison word names, with or without an amount between them", () => {
+    expect(quarterPhrase("Net sales increased 20% to $200.6 billion in the second quarter, compared with $167.7 billion in second quarter 2025")).toBeNull();
+    expect(quarterPhrase("or to grow between 9% and 12% compared with third quarter 2025")).toBeNull();
+    expect(quarterPhrase("up from $148.0 billion in the prior-year second quarter of 2025")).toBeNull();
   });
 });
