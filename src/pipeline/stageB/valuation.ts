@@ -1647,6 +1647,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     notes.push(
       `EBIT margin seed excludes tagged one-off items of ${fmtNum(unusual.value)} from ${periodBasis} operating income ${fmtNum(baseOperatingIncome as number)}: ${unusual.basis}`,
     );
+  } else if (unusual !== null && unusual.withheld.length > 0) {
+    notes.push(`EBIT margin seed keeps tagged one-off items the filings don't place inside the ${periodBasis} window: ${unusual.basis}`);
   }
   const histMarginPoints = inputs.incomeHistory
     .slice()

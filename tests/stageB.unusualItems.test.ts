@@ -29,13 +29,53 @@ describe("tagged one-off items in the TTM operating income", () => {
   });
 
   it("sums each tag over the TTM as fiscal year + year to date − prior year to date, gains positive and charges negative", () => {
-    const items = unusualOperatingItemsTtm(fcx, { ttmEnd: "2026-06-30", fiscalYearEnd: "2025-12-31", unit: "USD", observedAt: "2026-10-19T00:00:00Z" })!;
+    const placed = facts({
+      InsuredEventGainLoss: [
+        point("2025-01-01", "2025-06-30", 0, "10-Q", "2025-08-01"),
+        point("2026-01-01", "2026-06-30", 699 * M),
+      ],
+      AssetImpairmentCharges: [
+        point("2025-01-01", "2025-06-30", 20 * M, "10-Q", "2025-08-01"),
+        point("2025-01-01", "2025-12-31", 73 * M, "10-K", "2026-02-10"),
+      ],
+    });
+    const items = unusualOperatingItemsTtm(placed, { ttmEnd: "2026-06-30", fiscalYearEnd: "2025-12-31", unit: "USD", observedAt: "2026-10-19T00:00:00Z" })!;
+    // Impairment: 73 (FY2025) + 0 (untagged H1 2026) − 20 (H1 2025) = 53 inside the window.
     expect(items.components).toEqual([
       { tag: "InsuredEventGainLoss", value: 699 * M },
-      { tag: "AssetImpairmentCharges", value: -73 * M },
+      { tag: "AssetImpairmentCharges", value: -53 * M },
     ]);
-    expect(items.value).toBe(626 * M);
+    expect(items.value).toBe(646 * M);
+    expect(items.withheld).toEqual([]);
     expect(items.basis).toMatch(/InsuredEventGainLoss/);
+  });
+
+  // Codex review of PR #41: an annual amount with no filed prior year to date
+  // can't be split at the window's start, so none of it is removed.
+  it("withholds a tag whose fiscal-year amount the filings don't split at the window's start", () => {
+    const items = unusualOperatingItemsTtm(fcx, { ttmEnd: "2026-06-30", fiscalYearEnd: "2025-12-31", unit: "USD", observedAt: "2026-10-19T00:00:00Z" })!;
+    expect(items.components).toEqual([{ tag: "InsuredEventGainLoss", value: 699 * M }]);
+    expect(items.value).toBe(699 * M);
+    expect(items.withheld).toEqual([{ tag: "AssetImpairmentCharges", reason: expect.stringMatching(/2025-01-01 to 2025-06-30/) }]);
+    expect(items.basis).toMatch(/not removed: us-gaap\/AssetImpairmentCharges/);
+  });
+
+  it("withholds a tag whose prior year to date is filed but whose fiscal year is not", () => {
+    const items = unusualOperatingItemsTtm(facts({
+      InsuredEventGainLoss: [point("2025-01-01", "2025-06-30", 40 * M, "10-Q", "2025-08-01"), point("2026-01-01", "2026-06-30", 10 * M)],
+    }), { ttmEnd: "2026-06-30", fiscalYearEnd: "2025-12-31", unit: "USD", observedAt: "2026-10-19T00:00:00Z" })!;
+    expect(items.components).toEqual([]);
+    expect(items.value).toBe(0);
+    expect(items.withheld.map((w) => w.tag)).toEqual(["InsuredEventGainLoss"]);
+  });
+
+  it("withholds an impairment total without falling back to its components", () => {
+    const items = unusualOperatingItemsTtm(facts({
+      AssetImpairmentCharges: [point("2025-01-01", "2025-12-31", 73 * M, "10-K", "2026-02-10")],
+      GoodwillImpairmentLoss: [point("2026-01-01", "2026-06-30", 9 * M)],
+    }), { ttmEnd: "2026-06-30", fiscalYearEnd: "2025-12-31", unit: "USD", observedAt: "2026-10-19T00:00:00Z" })!;
+    expect(items.components).toEqual([]);
+    expect(items.withheld.map((w) => w.tag)).toEqual(["AssetImpairmentCharges"]);
   });
 
   it("takes the fiscal-year fact when the TTM ends on the fiscal year, and ignores facts filed after the build", () => {
@@ -59,10 +99,13 @@ describe("tagged one-off items in the TTM operating income", () => {
     } as DcfAssumptionInputs;
     const plain = buildDcfAssumptions(base);
     expect(plain.assumptions!.ebitMarginPath.value[0]).toBeCloseTo(26.763, 3);
-    const normalized = buildDcfAssumptions({ ...base, unusualOperatingItems: { value: 699 * M, components: [{ tag: "InsuredEventGainLoss", value: 699 * M }], basis: "us-gaap/InsuredEventGainLoss 699m" } });
+    const normalized = buildDcfAssumptions({ ...base, unusualOperatingItems: { value: 699 * M, components: [{ tag: "InsuredEventGainLoss", value: 699 * M }], withheld: [], basis: "us-gaap/InsuredEventGainLoss 699m" } });
     // (6,923 − 699) / 25,868 = 24.06%
     expect(normalized.assumptions!.ebitMarginPath.value[0]).toBeCloseTo(24.061, 3);
     expect(normalized.assumptions!.ebitMarginPath.basis).toMatch(/excluding tagged one-off items/);
     expect(normalized.notes.some((n) => /one-off items .*InsuredEventGainLoss/.test(n))).toBe(true);
+    const withheldOnly = buildDcfAssumptions({ ...base, unusualOperatingItems: { value: 0, components: [], withheld: [{ tag: "AssetImpairmentCharges", reason: "no filed amount for 2025-01-01 to 2025-06-30" }], basis: "not removed: us-gaap/AssetImpairmentCharges" } });
+    expect(withheldOnly.assumptions!.ebitMarginPath.value[0]).toBeCloseTo(26.763, 3);
+    expect(withheldOnly.notes.some((n) => /keeps tagged one-off items .*AssetImpairmentCharges/.test(n))).toBe(true);
   });
 });
