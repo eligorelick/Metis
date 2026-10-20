@@ -327,7 +327,7 @@ const ASSET_IMPAIRMENT_FCX = [
 // settlement gain inside operating income. These are its 10-Q and 10-K facts
 // (public SEC companyfacts), which the trimmed fixture leaves out.
 describe("FCX's one-off gain stays out of the DCF margin seed", () => {
-  it("seeds the margin from operating income without the tagged insurance gain and impairment", () => {
+  it("seeds the margin from operating income without the tagged insurance gain, keeping an impairment it can't place in the window", () => {
     const { bundle, out } = run("FCX");
     const copy = structuredClone(bundle);
     const facts = copy.edgar!.companyFacts!;
@@ -345,9 +345,11 @@ describe("FCX's one-off gain stays out of the DCF margin seed", () => {
     const before = out.valuation.assumptions!.ebitMarginPath.value[0];
     const after = normalized.valuation.assumptions!.ebitMarginPath.value[0];
     expect(normalized.valuation.assumptions!.ebitMarginPath.basis).toMatch(/excluding tagged one-off items/);
-    expect(normalized.valuation.notes.join("\n")).toMatch(/us-gaap\/InsuredEventGainLoss \+699\.0M, us-gaap\/AssetImpairmentCharges −73\.0M/);
-    // The net $626m gain comes out of the seed: the margin falls by 626m / TTM revenue.
-    // 26.76% before, 24.34% after.
-    expect(before - after).toBeCloseTo(2.42, 2);
+    // Codex review of PR #41: the FY2025 impairment has no filed H1 2025
+    // amount, so its share inside the TTM to June 2026 is unknown and it stays in.
+    expect(normalized.valuation.notes.join("\n")).toMatch(/us-gaap\/InsuredEventGainLoss \+699\.0M; not removed: us-gaap\/AssetImpairmentCharges/);
+    // The $699m gain comes out of the seed: the margin falls by 699m / TTM revenue.
+    // 26.76% before, 24.06% after.
+    expect(before - after).toBeCloseTo(2.70, 2);
   });
 });
