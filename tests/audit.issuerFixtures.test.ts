@@ -162,6 +162,16 @@ describe("financing debt from instrument-class tags (audit O-1, SNOW-1, SNOW-10)
     expect(row.totalDebt).toBeNull();
   });
 
+  it("withholds two instrument classes carrying near-identical amounts, one obligation tagged twice", () => {
+    // Sun Communities' FY2025 pattern: LoansPayable 2,429.0m beside SecuredDebt
+    // 2,472.2m for the same secured loans, which summed overstated debt by $2.4bn.
+    const row = latestOf((gaap) => {
+      gaap.SecuredDebt = { units: { USD: [{ ...point(gaap, "LoansPayable", "2026-06-30"), val: 2_800 * MN }] } };
+    }, "O");
+    expect(row.longTermDebt).toBeNull();
+    expect(row.totalDebt).toBeNull();
+  });
+
   it("withholds the combined debt amount beside a separately tagged current-debt figure", () => {
     const row = latestOf((gaap) => {
       gaap.ShortTermBorrowings = { units: { USD: [{ ...point(gaap, "DebtLongtermAndShorttermCombinedAmount", "2026-06-30"), val: 500 * MN }] } };

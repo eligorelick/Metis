@@ -841,7 +841,8 @@ NCI is taken as zero only from the filing itself. That happens when the filer
 tags only equity including NCI at that date, its net income attributable to NCI
 for the period ending there is explicitly zero, and its latest earlier NCI
 balance, within about a year, was zero. The row discloses the inference (audit
-SNOW-2). The DCF's equity bridge is the same identity read backwards: equity
+SNOW-2), and the inferred figure counts as parent equity wherever parent equity
+is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
 value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65). Minority interest
@@ -2375,11 +2376,12 @@ Primary sources: [IREN FY2026 10-K](https://www.sec.gov/Archives/edgar/data/1878
 - the combined debt amount, when tagged;
 - otherwise, the sum of one figure per class (notes, loans, secured debt, convertible notes and long-term revolver). Each class takes its inclusive total first. Otherwise it takes its noncurrent variant plus the current variant that the noncurrent tag excludes (`ConvertibleDebtCurrent` beside `ConvertibleDebtNoncurrent`, for example). Notes falling due within a year therefore stay in debt, and no class is counted twice.
 
-The row discloses the substitution. These class figures can include current debt, so the figure is withheld, never doubled, in four cases:
+The row discloses the substitution. These class figures can include current debt, or the same obligation under two classes, so the figure is withheld, never doubled, in five cases:
 - the combined amount sits beside a separately resolved current-debt figure;
 - a current-variant class figure sits beside any resolved current-debt figure;
 - an inclusive class total sits beside a current-maturities line;
-- both a generic notes total and a convertible-notes total are tagged.
+- both a generic notes total and a convertible-notes total are tagged;
+- two class figures lie within 2% of each other. Secured debt classifies by collateral, so it can hold the same notes or loans another class holds. Across SEC filers' FY2025 facts, every multi-class pair this close was one obligation tagged twice (Sun Communities' `LoansPayable` 2,429.0m beside `SecuredDebt` 2,472.2m, for example). REIT mortgages beside unsecured notes sit far apart and still compose. A secured class that holds only part of another class cannot be seen from the tags; the debt plausibility check below catches understatement, not that overlap.
 
 A withheld noncurrent figure withholds total and net debt.
 

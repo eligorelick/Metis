@@ -301,4 +301,11 @@ describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-
     }
     expect(run("SNOW").out.valuation.multiples!.enterpriseValue.noncontrollingInterestBasis).toBe("none-disclosed");
   });
+
+  it("price SNOW's book from the parent equity the zero-NCI inference established", () => {
+    const { bundle, out } = run("SNOW");
+    const marketCap = bundle.quote.ok ? bundle.quote.value.data.rows[0]?.marketCap : null;
+    const priceToBook = out.valuation.multiples!.multiples.find((multiple) => multiple.key === "priceToBook")!.current;
+    expect(priceToBook).toBeCloseTo(amount(marketCap) / 2_149_664_000, 6);
+  });
 });

@@ -488,7 +488,8 @@ function statementEquityOwnershipBasis(row: FmpBalanceSheetRow | null | undefine
   const parentTags = row.fieldProvenance?.totalStockholdersEquity?.tags ?? [];
   const fromConsolidatedTotal = tagsFor("totalEquity").some(tag => parentTags.includes(`us-gaap/${tag}`));
   const parentEstablished = tagsFor("totalStockholdersEquity").some(tag => parentTags.includes(`us-gaap/${tag}`)) ||
-    tagsFor("minorityInterest").some(tag => parentTags.includes(`us-gaap/${tag}`));
+    tagsFor("minorityInterest").some(tag => parentTags.includes(`us-gaap/${tag}`)) ||
+    row.fieldProvenance?.totalStockholdersEquity?.calculation === "nci-inferred-zero";
   if (fromConsolidatedTotal && !parentEstablished) return "consolidated";
   if (num(row.totalStockholdersEquity) !== null) return "parent";
   return num(row.totalEquity) !== null ? "consolidated" : undefined;

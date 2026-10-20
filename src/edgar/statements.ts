@@ -451,6 +451,14 @@ const DEBT_COMPONENT_CLASSES = [
   ["longTermDebtRevolver", "longTermDebtRevolverCurrent"],
 ] as const;
 const CURRENT_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(DEBT_COMPONENT_CLASSES.flatMap(([, current]) => tagsFor(current)));
+/**
+ * Two instrument classes within this share of each other are taken to be one
+ * obligation tagged twice: secured debt is a collateral class that can hold the
+ * same notes or loans. Across SEC filers' FY2025 facts, every multi-class pair
+ * this close was a duplicate (Sun Communities, UMH, American Assets, Babcock &
+ * Wilcox), while REIT mortgages beside unsecured notes sit far apart.
+ */
+const DUPLICATE_DEBT_CLASS_SHARE = 0.02;
 
 /** A line item's own tags first, then its stand-ins one at a time. */
 function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): ChainSpec {
@@ -2054,6 +2062,19 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
  * reader can see which concepts a debt figure is made of. Returns the label the
  * lease component carries into the `totalDebt` sum.
  */
+/** The reason two composed classes look like one obligation tagged twice, or null. */
+function duplicateDebtClasses(parts: Record<string, number>): string | null {
+  const classes = Object.entries(parts).filter(([, value]) => value !== 0);
+  for (const [i, [a, x]] of classes.entries()) {
+    for (const [b, y] of classes.slice(i + 1)) {
+      if (Math.abs(x - y) <= DUPLICATE_DEBT_CLASS_SHARE * Math.max(Math.abs(x), Math.abs(y))) {
+        return `financing debt unresolved: ${a} (${x}) and ${b} (${y}) are within ${DUPLICATE_DEBT_CLASS_SHARE * 100}% of each other, so they may be one obligation tagged under two instrument classes`;
+      }
+    }
+  }
+  return null;
+}
+
 function resolveDebtOverlaps(
   v: FieldValues,
   notes: NoteSink,
@@ -2156,7 +2177,7 @@ function resolveDebtOverlaps(
         ? `financing debt unresolved: ${inclusive.join(" + ")} include their current portions, which ${currentLine} also carries`
         : composedFrom("longTermDebtNotes") && composedFrom("longTermDebtConvertible")
           ? "financing debt unresolved: a notes total and a convertible-notes total are both tagged, and the notes total may already include the convertible notes"
-          : null;
+          : duplicateDebtClasses(cc.resolved.get("longTermDebt")?.parts ?? {});
     if (reason !== null) {
       v.longTermDebt = null;
       notes.withhold("longTermDebt", ctx, reason);
@@ -2509,9 +2530,10 @@ function buildStatementRows<TRow>(
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
     }
-    // Parent equity inferred from an NCI-inclusive total is that total's fact.
+    // Parent equity inferred from an NCI-inclusive total is that total's fact,
+    // marked so the ownership basis reads it as parent equity, not consolidated.
     if (def.statement === "balance" && values.totalStockholdersEquity != null && !resolutions.has("totalStockholdersEquity") && fieldProvenance.totalEquity) {
-      fieldProvenance.totalStockholdersEquity = fieldProvenance.totalEquity;
+      fieldProvenance.totalStockholdersEquity = { ...fieldProvenance.totalEquity, calculation: "nci-inferred-zero" };
     }
     if (def.statement === "income" && values.grossProfit != null && !resolutions.has("grossProfit") && fieldProvenance.revenue && fieldProvenance.costOfRevenue) {
       fieldProvenance.grossProfit = { ...fieldProvenance.revenue, tags: [...fieldProvenance.revenue.tags, ...fieldProvenance.costOfRevenue.tags], calculation: "revenue-minus-cost" };
