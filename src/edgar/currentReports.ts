@@ -358,18 +358,24 @@ export interface ReportedPeriod {
   periodEnd: string | null;
 }
 
+/** An outlook heading right after a period phrase: "Third Quarter 2026 Guidance", "... Financial Outlook". */
+const OUTLOOK_HEADING_AFTER = /^\s*(?:(?:Business|Financial)\s+)?(?:Guidance|Outlook)\b/i;
+
 export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const text = normalizeFilingText(rawText).slice(0, 6_000);
   const ended = /\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/i.exec(text);
   const titles = [...text.matchAll(/\b(First|Second|Third|Fourth) Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
-    .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index) }));
+    .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index),
+      guided: OUTLOOK_HEADING_AFTER.test(text.slice(m.index + m[0].length, m.index + m[0].length + 40)) }));
   // AMZN audit 2026-10-20: the first title phrase was taken, and Amazon's
   // first is the year-ago base ("compared with $167.7 billion in second
   // quarter 2025"), its next the guided quarter's heading. When the "quarter
   // ended" sentence names its quarter, only a phrase for that quarter counts:
-  // one the release reports, else a year-ago base read one year on.
+  // one the release reports, else a year-ago base read one year on. A phrase
+  // heading an outlook ("Third Quarter 2026 Guidance") names the guided
+  // quarter, never the reported one.
   const reportedQuarter = ended?.[1] ? ORDINAL_QUARTER[ended[1].toLowerCase()]! : null;
-  const own = titles.find((t) => !t.base && (reportedQuarter === null || t.quarter === reportedQuarter));
+  const own = titles.find((t) => !t.base && !t.guided && (reportedQuarter === null || t.quarter === reportedQuarter));
   const yearAgo = reportedQuarter === null ? undefined : titles.find((t) => t.base && t.quarter === reportedQuarter);
   const fiscal = own !== undefined ? fiscalPeriod(own.year, own.quarter)
     : yearAgo !== undefined ? fiscalPeriod(yearAgo.year + 1, yearAgo.quarter)

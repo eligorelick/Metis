@@ -646,6 +646,19 @@ describe("a period named as a comparison base (AMZN audit 2026-10-20)", () => {
     expect(anchor?.basis ?? "").toMatch(/guided year-over-year pace 17\.17% \(guided quarter over the quarter ending 2025-06-30/);
   });
 
+  it("never takes the guidance heading for the reported quarter when \"quarter ended\" names no ordinal", () => {
+    // Review of the AMZN fix: with the year-ago bases skipped, the first title
+    // phrase left was "Second Quarter 2026 Guidance", so the release "reported"
+    // the quarter it guided and the outlook stopped counting as forward.
+    const text = Q1_2026.replace("for its first quarter ended March 31, 2026", "for its quarter ended March 31, 2026");
+    expect(parseReportedPeriod(text)).toEqual({ fiscal: null, periodEnd: "2026-03-31" });
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD", estimates: false });
+    const release = buildEarningsReleaseRecord({ filing: filing("0001018724-26-000012", "2026-04-29"), releaseUrl: "https://www.sec.gov/q1", commentaryUrl: null, releaseText: text, commentaryText: null, includeNarrative: false });
+    bundle.edgar.currentReports = { ok: true, value: { data: { version: CURRENT_REPORTS_VERSION, releases: [release], events: [], notes: [] },
+      asOf: "2026-04-29", source: "edgar", endpoint: "fixture", fetchedAt: "2026-10-15T00:00:00.000Z" } };
+    expect(buildFilingDisclosures(bundle)!.guidance?.rows.map((r) => [r.period, r.metric])).toEqual([["Q2 FY2026", "revenue"]]);
+  });
+
   it("scores the fourth-quarter outlook against the quarter that reported it", () => {
     const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
     if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
