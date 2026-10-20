@@ -1783,6 +1783,40 @@ describe("prompts embed the five non-negotiable rules verbatim", () => {
     expect(bear).not.toContain("buy/sell/hold");
   });
 
+  // AMZN audit 2026-10-20 finding 18: the verdict took no stance and never set
+  // the USD 328.90 consensus target against the USD 72 DCF value.
+  it("judge framing asks the verdict for a stance against the price and a consensus-target reconciliation", () => {
+    const judge = buildJudgeFraming();
+    expect(judge).toContain("Its first claim takes a stance");
+    expect(judge).toMatch(/undemanding, about right or demanding/);
+    expect(judge).toMatch(/not a rating\s+or an allocation directive/);
+    expect(judge).toContain("\"Consensus target vs our value\"");
+    expect(SHARED_RULES_BLOCK).toContain("Never output investment ratings");
+  });
+  it.each([[0.5, "50.0 percentage points of the price apart, beyond the 20-point threshold", "must reconcile them"],
+    [0.1, "10.0 percentage points of the price apart, within the 20-point threshold", "broadly consistent"]] as const)(
+    "states the consensus target against the model value, %s of the price apart", (gap, distance, consequence) => {
+      const bundle = fixtureBundle();
+      const computed = runStageB(bundle);
+      const value = computed.fairValue?.status === "available" ? computed.fairValue.perShare!.value : NaN;
+      const price = bundle.quote.ok ? bundle.quote.value.data.rows[0]!.price as number : NaN;
+      if (!bundle.priceTargetConsensus.ok) throw new Error("fixture price target missing");
+      bundle.priceTargetConsensus.value.data.rows[0]!.targetConsensus = Math.round((value + gap * price) * 100) / 100;
+      const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+      const note = payload.estimates.notes.find((line) => line.startsWith("Consensus target vs our value:"));
+      expect(note).toContain(`the price target consensus of USD ${(Math.round((value + gap * price) * 100) / 100).toFixed(2)}`);
+      expect(note).toContain(`our DCF value of USD ${value.toFixed(2)} per share`);
+      expect(note).toContain(distance);
+      expect(note).toContain(consequence);
+    });
+  it("states no reconciliation when the model value is withheld", () => {
+    const bundle = fixtureBundle();
+    const computed = runStageB(bundle);
+    computed.fairValue = { status: "suppressed", method: null, methodVersion: "test", perShare: null, upsidePct: null, basis: [], reasons: [] };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.estimates.notes.some((line) => line.startsWith("Consensus target vs our value:"))).toBe(false);
+  });
+
   it("judge framing forbids manufacturing balance and splits fact-vs-interpretation", () => {
     const judge = buildJudgeFraming();
     expect(judge).toContain("DO NOT MANUFACTURE BALANCE");

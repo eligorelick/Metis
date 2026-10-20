@@ -1466,7 +1466,37 @@ function inheritanceNote(figures: readonly PayloadFigureInput[], issuer: Inherit
  * Anything else stays unknown: rendered as such to the model and never
  * registered, so no citation of it verifies in any currency.
  */
-function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): PayloadSection {
+/**
+ * AMZN audit 2026-10-20 finding 18: the verdict never set the USD 328.90
+ * consensus price target against the USD 72 DCF value. Two per-share values
+ * whose implied moves from the price differ by more than this many
+ * percentage points of the price are materially different, and the verdict
+ * must reconcile them. Project convention: about the width of a DCF's own
+ * plausible error band, and well beyond rounding or a stale quote.
+ */
+export const TARGET_RECONCILIATION_THRESHOLD_PP = 20;
+
+/** The consensus target against the model's value, both in the listing currency, as one note (finding 18). */
+function targetReconciliationNote(bundle: DataBundle, computed: ComputedMetrics, issuer: InheritedIssuerCurrency): string | null {
+  const ptc = firstRow(bundle.priceTargetConsensus);
+  const target = numOrNull(ptc?.targetConsensus);
+  const fairValue = computed.fairValue;
+  const value = fairValue?.status === "available" ? fairValue.perShare?.value ?? null : null;
+  const price = comparableScenarioPrice(computed, bundle);
+  const { trading, model } = statementCurrencies(bundle);
+  const currency = rowCurrency(ptc, issuer).currency ?? null;
+  if (target === null || target <= 0 || value === null || !Number.isFinite(value) || price === null || currency === null ||
+      currency !== trading || currency !== model) return null;
+  const move = (v: number): string => { const pct = (v / price - 1) * 100; return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`; };
+  const gap = Math.abs(target - value) / price * 100;
+  const method = fairValue?.method === "excess-return" ? "excess-return" : "DCF";
+  const head = `Consensus target vs our value: the price target consensus of ${currency} ${target.toFixed(2)} implies ${move(target)} from the current price of ${currency} ${price.toFixed(2)}; our ${method} value of ${currency} ${value.toFixed(2)} per share implies ${move(value)}. They are ${gap.toFixed(1)} percentage points of the price apart, `;
+  return gap > TARGET_RECONCILIATION_THRESHOLD_PP
+    ? `${head}beyond the ${TARGET_RECONCILIATION_THRESHOLD_PP}-point threshold at which this report treats them as materially different, so the executive summary must reconcile them: say which inputs or evidence account for the gap (near-term growth, the margin path, the discount rate, the terminal value, the equity bridge, what the model leaves out) and which of the two the evidence supports, citing the price target consensus row and the model value row.`
+    : `${head}within the ${TARGET_RECONCILIATION_THRESHOLD_PP}-point threshold: the verdict may treat them as broadly consistent.`;
+}
+
+function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, computed: ComputedMetrics): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
   const estAsOf = bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null;
@@ -1493,6 +1523,8 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency): 
     );
   }
   notes.push(...inheritanceNote(figures, issuer));
+  const reconciliation = targetReconciliationNote(bundle, computed, issuer);
+  if (reconciliation !== null) notes.push(reconciliation);
   const grades = firstRow(bundle.gradesConsensus);
   if (grades) {
     notes.push(
@@ -2975,7 +3007,7 @@ export function assembleContextPayload(
     ...(segmentRevenue === undefined ? {} : { segmentRevenue }),
     ...(issuerFilings === undefined ? {} : { issuerFilings }),
     ...(filingFacts === undefined ? {} : { filingFacts }),
-    estimates: estimatesSection(bundle, issuer),
+    estimates: estimatesSection(bundle, issuer, computed),
     peers: peersSection(bundle, issuer),
     insiders: insidersSection(bundle),
     institutional: institutionalSection(bundle),
