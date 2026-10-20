@@ -163,6 +163,10 @@ describe("bounded material filing evidence", () => {
     "The Company is seeking divestitures of certain non-core businesses.",
     "We may be subject to claims alleging that our pricing practices are anticompetitive.",
     "Additional information is included in reports filed by us with the Securities and Exchange Commission.",
+    // Codex review of PR #42: a modal before any proceeding verb is a risk, not a case.
+    "Regulators could bring actions alleging antitrust violations against us.",
+    "Antitrust proceedings may seek structural relief, including divestitures of businesses.",
+    "A court might impose fines of up to 10% of our worldwide revenue.",
   ])("does not read %j as a pending case", (sentence) => {
     for (const profile of ["notes", "risk"] as const) {
       const original = [...Array.from({ length: 300 }, (_, i) => `Collaboration revenue of $ ${i + 3}.1 billion and milestone payments of $ 0.${i % 9} billion were recognized under license agreements.`), sentence].join(" ");

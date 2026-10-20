@@ -156,12 +156,15 @@ const SCHEDULED_TRIAL = /\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:
 // and an antitrust allegation never when it is only a risk the issuer may face.
 const LEGAL_CONTEXT = /\b(?:court|jury|judge|plaintiffs?|complaints?|lawsuits?|suits?|litigation|proceedings?|cases?|antitrust|Attorneys? General|Commission|regulators?)\b/i;
 const NON_LEGAL_TRIAL = /\b(?:clinical|Phase\s*(?:[0-9]|I{1,3}V?|IV)\S*|pivotal|registrational|patients?|enrol\w*|dosing|endpoints?|FDA|stud(?:y|ies)|product candidates?|free trial|trial period)\b/i;
-const HYPOTHETICAL_CLAIM = /^\s*(?:if|should)\b|\b(?:may|could|might|would)\s+(?:be|become|face|incur|result)\b/i;
-const materialProceeding = (passage: string): boolean =>
+// Codex review of PR #42: a modal within a few words of any proceeding verb
+// ("regulators could bring actions", "proceedings may seek structural
+// relief") states a risk, whichever clause would otherwise keep it.
+const HYPOTHETICAL_CLAIM = /^\s*(?:if|should)\b|\b(?:may|could|might|would)\s+(?:\w+\s+){0,2}?(?:be|become|face|incur|result|bring|seek|file|commence|impose|levy|allege|sue|pursue|initiate)\b/i;
+const materialProceeding = (passage: string): boolean => !HYPOTHETICAL_CLAIM.test(passage) && (
   GOVERNMENT_CASE.test(passage)
-  || (ALLEGED_ANTITRUST.test(passage) && !HYPOTHETICAL_CLAIM.test(passage))
+  || ALLEGED_ANTITRUST.test(passage)
   || (MATERIAL_RELIEF.test(passage) && LEGAL_CONTEXT.test(passage))
-  || (SCHEDULED_TRIAL.test(passage) && LEGAL_CONTEXT.test(passage) && !NON_LEGAL_TRIAL.test(passage));
+  || (SCHEDULED_TRIAL.test(passage) && LEGAL_CONTEXT.test(passage) && !NON_LEGAL_TRIAL.test(passage)));
 const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage) || materialProceeding(passage);
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
