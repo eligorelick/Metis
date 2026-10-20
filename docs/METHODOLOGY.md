@@ -417,8 +417,9 @@ first available of three sources:
    consensus at or above the guided quarter's low end × 4. Each fiscal-year
    estimate is spread over its days and weighted by its overlap with the
    window. The spread follows the issuer's own seasonal shape when its last
-   complete fiscal year has four consecutive reported quarters (84-98 days,
-   in the model currency) ending on that year end: each quarter's share of
+   complete fiscal year has four reported quarters in the model currency
+   ending on that year end, each of the last three 84-98 days after the one
+   before: each quarter's share of
    the year goes to its three months, and each month's share to its days.
    Otherwise the spread is even, and the anchor basis says why (AMZN audit
    2026-10-20 finding 19; an even spread overstated a seasonal year one). A 52/53-week year starts the day after the previous estimate's
@@ -2707,7 +2708,7 @@ was $12.2B, so the moat's "lowest annual ROIC" was 2023's 16.7% and its label
 implied a complete window. Such a year's operating income is now taxed at the
 D-58 marginal-rate floor (21% in the US, 15% where no statutory rate is
 sourced), the same floor the DCF uses, and the year says so. A year with an
-operating loss or no tax expense is still left out, and the floor's label names
+operating loss is still left out, and the floor's label names
 any year inside its window that has no return. Amazon's 2022 ROIC is 6.9%. That
 year also sits below the cost of capital, so the terminal excess-return rule,
 which needs returns above it in the recent years, no longer grants one: the
@@ -2767,16 +2768,19 @@ performance obligations (backlog, contracted revenue not yet recognized) keeps
 the amount and timing sentences first: Amazon's $496B and 6.4 years had been
 dropped. The 25% reservation for pending cases also holds government cases
 (an agency or attorney general as plaintiff), antitrust or monopolization
-claims, relief in the billions or structural relief, a regulator's fine, and a
-trial scheduled for a date (not a clinical trial). The FTC case against Amazon
+claims actually alleged (not a risk the issuer may face), relief in the
+billions or structural relief beside a legal proceeding, a regulator's fine,
+and a trial a legal proceeding has scheduled (never a clinical or commercial
+trial). The FTC case against Amazon
 now reaches the passes. Its 2027 trial date was in no filing the run had.
 
 **Peers (finding 7).** The audit read the empty peer table as a screen that was
 too strict. Replaying the run shows the screen excluded nobody it should have
 kept: the vendor's rate limit stopped peer collection after one candidate, and
 the provider's peer list holds no cloud company. The peer summary now counts
-candidates the provider never served separately from those the screen excluded,
-and leaves out the subject itself. Segment-aware peers would need a peer source
+candidates the provider never served, and those past the house's own
+candidate limit, separately from those the screen excluded, and leaves out the
+subject itself. Segment-aware peers would need a peer source
 per segment; none is fabricated.
 
 **Verdict stance (finding 18).** The judge's executive summary now opens with a

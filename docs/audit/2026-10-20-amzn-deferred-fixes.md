@@ -31,6 +31,20 @@ This change made no provider or model calls, no paid runs, no deployment and no 
 
 Every new test failed before its fix.
 
+## Independent review
+
+One fresh reviewer read the whole change against the audit's findings. It confirmed the numeric fixes and their tests, and found these problems, all fixed with tests that failed first:
+
+| Problem | Fix | Commit |
+|---|---|---|
+| The pending-case clauses also kept clinical and commercial trials, a company's own divestitures, hypothetical antitrust claims and "reports filed by us with the SEC" | Relief and trials count only beside a legal proceeding, never a clinical or commercial trial; an allegation never when it is only a risk the issuer may face; "filed by" an agency only after a proceeding noun. The same AMZN passages still reach the payload. | `bd4d054` |
+| The reverse-DCF text claimed an implied gap where value does not rise with growth | The bound records whether value rises with growth; otherwise its text states only that the price lies beyond every value in the range | `f86d465` |
+| Candidates past the house's 10-candidate cap were counted as the provider's failure | Counted on their own: "N beyond the 10-candidate limit" | `315a151` |
+| ESTIMATE claims still appeared under an officer the report does not assess | Only FACT claims appear there | `bbe9a1f` |
+| The undisclosed-lease gap still named the environment variable | It says "under either lease setting" | `9d7d9ac` |
+
+It also noted that the SBC floor ignores how large SBC is: any positive SBC beside non-positive FCF scores the floor, as any SBC above all positive FCF already did. That is left as an owner choice below. The docs now say exactly what the loss-year ROIC and the seasonal-shape quarter checks test.
+
 ## What moves on the stored inputs
 
 Replayed offline on `1f555a7` and on this branch. AMZN's figures use the SEC statements re-read from its stored filings, as in #41.
@@ -52,7 +66,7 @@ AMZN's fair value falls because restoring FY2022's 6.9% ROIC, below the WACC, en
 
 ## Fixture control
 
-In the provider-free DEMO control the reverse DCF now carries its bound (DEMO's price of 40 is below its value at every growth in the range), its reverse signal is graded again, the EV bridge is stated once, and the spec version moves. These are classified as `amzn-deferred-fixes-20261020` in `tests/fixtures/audit-intended-deltas.json`. The Stage C payload pin moves only by the reconciliation note and two reworded notes; restoring them reproduces the preceding prompt and finance hashes.
+In the provider-free DEMO control the reverse DCF now carries its bound (DEMO's price of 40 is below its value at every growth in the range), so its reverse signal is graded again: valuation completeness returns from 0.4 to 0.7 and the composite moves from 73.97 to 76.37. The EV bridge is stated once, and the spec version moves. These are classified as `amzn-deferred-fixes-20261020` in `tests/fixtures/audit-intended-deltas.json`. The Stage C payload pin moves only by the reconciliation note and two reworded notes; restoring them reproduces the preceding prompt and finance hashes.
 
 ## Data rights
 
@@ -60,12 +74,12 @@ New tests use public SEC filing text and companyfacts shapes, and synthetic figu
 
 ## Choices for the owner to confirm
 
-- **SBC at the floor** when FCF before SBC is not positive.
+- **SBC at the floor** when FCF before SBC is not positive, whatever the size of the SBC (a materiality test on SBC/revenue is possible).
 - **The marginal-rate floor for loss years** in ROIC, and its knock-on to the terminal excess return.
 - **The three-year recency window** for buyback timing, and leaving timing out when nothing was repurchased in it.
 - **Grading a reverse DCF at the range's end** when the price lies beyond it.
 - **Scenario margins that never move against their scenario.**
-- **The seasonal-shape windows** for consensus (four 84-98-day quarters; fiscal years within 10 days of an anniversary).
+- **The seasonal-shape windows** for consensus (four reported quarters ending on the year end, each of the last three 84-98 days after the one before; fiscal years within 10 days of an anniversary).
 - **The government-plaintiff list** for the pending-case reservation.
 - **The stance wording** ("undemanding / about right / demanding") and the 20-point reconciliation threshold.
 
