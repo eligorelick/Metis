@@ -2055,6 +2055,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       quoteCurrency: str(profile?.currency),
       isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
       repurchaseExecutions: repurchaseExecutions.rows,
+      // AMZN audit 2026-10-20, finding 20 (b): net debt/EBITDA on the EV's lease basis.
+      evIncludeLeases,
     },
   );
   if (annualCapital.buybackPriceAnalysis.totalRepurchased > 0) {
@@ -2071,6 +2073,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const capital = attachCurrentCapital(annualCapital, {
     route: route.base,
     modelEligibilityReason,
+    evIncludeLeases,
     income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc } : null,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),

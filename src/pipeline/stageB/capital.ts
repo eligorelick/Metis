@@ -26,7 +26,7 @@ import {
   sortNewestFirst,
   yearsBetweenDates,
 } from "@/pipeline/stageB/growth";
-import { resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import type { CurrentCapitalSnapshot } from "@/pipeline/stageB/currentCapital";
 import type { RepurchaseExecution } from "@/pipeline/stageB/repurchaseExecutions";
@@ -133,6 +133,14 @@ export interface CapitalOptions {
    * (repurchaseExecutions.ts). Absent ⇒ buyback timing is not measurable.
    */
   repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag">>;
+  /**
+   * AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis
+   * (THESIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
+   * of the net debt/EBITDA numerator wherever enterprise value takes it out,
+   * since EBITDA is already after operating-lease cost. Omitted or true: net
+   * debt as resolved.
+   */
+  evIncludeLeases?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -693,13 +701,24 @@ export function computeCapital(
     // and the financing components proven, net debt is stated excluding
     // operating leases (EBITDA is already after their cost) rather than withheld.
     const inclusiveRefusal = leaseDebtScopeRefusal(latestBal, true);
-    const debtScopeRefusal = inclusiveRefusal === null ? null : leaseDebtScopeRefusal(latestBal, false);
+    // AMZN audit 2026-10-20, finding 20 (b): the ratio used lease-inclusive net
+    // debt (AMZN $119.33B, 0.7x) while enterprise value and the DCF bridge took
+    // the operating lease out ($23.01B). On the EV's lease-excluded basis the
+    // ratio takes the same refusal and removes the same liability.
+    const evBasis = options.evIncludeLeases === false;
+    const debtScopeRefusal = evBasis || inclusiveRefusal !== null ? leaseDebtScopeRefusal(latestBal, false) : null;
     const operatingLease = latestBal?.operatingLeaseLiability;
-    const leaseExcluded = inclusiveRefusal !== null && debtScopeRefusal === null && isFiniteNumber(operatingLease);
+    const leaseScope = evBasis ? operatingLeaseScopeUnproven(latestBal ?? {}) : null;
+    const leaseExcluded = evBasis
+      ? leaseScope === null && isFiniteNumber(operatingLease) && operatingLease > 0
+      : inclusiveRefusal !== null && debtScopeRefusal === null && isFiniteNumber(operatingLease);
     const netDebt = debtScopeRefusal ? null
       : leaseExcluded && resolution.value !== null ? resolution.value - (operatingLease as number) : resolution.value;
     if (debtScopeRefusal) ndNotes.push(debtScopeRefusal);
-    if (leaseExcluded) ndNotes.push(`net debt excludes the disclosed operating-lease portion ${fmt(operatingLease as number)}: ${inclusiveRefusal}`);
+    else if (leaseExcluded && inclusiveRefusal !== null) ndNotes.push(`net debt excludes the disclosed operating-lease portion ${fmt(operatingLease as number)}: ${inclusiveRefusal}`);
+    else if (resolution.value === null) { /* no net debt to adjust; the resolution says why */ }
+    else if (leaseExcluded) ndNotes.push(`net debt excludes the operating-lease liability ${fmt(operatingLease as number)}, as enterprise value does (EBITDA is already after operating-lease cost)`);
+    else if (leaseScope !== null) ndNotes.push(`${leaseScope}, as enterprise value is`);
     ndNotes.push(`${resolution.version}: ${resolution.reason}`);
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;
