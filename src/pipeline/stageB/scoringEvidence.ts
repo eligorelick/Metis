@@ -178,7 +178,8 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     const ownKeys = id === "peOwnHistoryRank" ? ["peTtm", "evToEbitda", "priceToFcf"] : id === "priceToTbvOwnHistoryRank" ? ["priceToTbv", "priceToBook"] : id === "pFfoOwnHistoryRank" ? ["priceToFfo", "priceToAffo"] : null;
     if (ownKeys) {
       const stats = i.valuation.kind !== "pre-revenue" ? i.valuation.multiples?.multiples ?? [] : [];
-      const selected = ownKeys.map(key => stats.find(m => m.key === key)).find(m => finite(m?.ownHistory?.percentileRank));
+      const selected = ownKeys.map(key => stats.find(m => m.key === key && m.gainInflatedEarnings === undefined)).find(m => finite(m?.ownHistory?.percentileRank));
+      const gainInflated = stats.find(m => m.key === ownKeys[0] && m.gainInflatedEarnings !== undefined)?.gainInflatedEarnings;
       const details = selected?.ownHistory?.observationDetails ?? [];
       const completeSample = details.length > 0 && details.length === selected?.ownHistory?.observations &&
         details.every(point => day(point.periodEnd) !== null && finite(point.value));
@@ -193,7 +194,8 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         completeSample ? null : "Historical sample dates unavailable or incomplete.",
         completeSample && missingMarketDates > 0 ? `${missingMarketDates} market observation date(s) unavailable; fiscal period dates are not substituted.` : null,
         "Historical publication availability at the market observation dates is not established; this is a retrospective comparison of retained statement history.",
-        selected.key !== ownKeys[0] ? `${HISTORY_KEY_LABEL[ownKeys[0]!] ?? ownKeys[0]} history comparison unavailable; using ${HISTORY_KEY_LABEL[selected.key] ?? selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
+        selected.key !== ownKeys[0] && gainInflated !== undefined ? `${HISTORY_KEY_LABEL[ownKeys[0]!] ?? ownKeys[0]} not ranked: ${gainInflated.basis}; using ${HISTORY_KEY_LABEL[selected.key] ?? selected.key} own-history rank.` : null,
+        selected.key !== ownKeys[0] && gainInflated === undefined ? `${HISTORY_KEY_LABEL[ownKeys[0]!] ?? ownKeys[0]} history comparison unavailable; using ${HISTORY_KEY_LABEL[selected.key] ?? selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
       ].filter(Boolean).join(" ") : ["Own-history rank unavailable.", cashOwnershipScope].filter(Boolean).join(" ");
       if (selected) {
         operand(`${selected.key} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);

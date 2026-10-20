@@ -138,6 +138,7 @@ import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnri
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
 import { implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   normalizeQuarterRows,
   quarterWindowViolation,
@@ -3228,6 +3229,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
+          // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
+          unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+            ttmEnd: dcfIncomeTtm.date,
+            fiscalYearEnd: incomeAnnual.map((r) => rowDate(r)).find((d) => d !== "" && d <= dcfIncomeTtm.date) ?? null,
+            unit: ctx.modelCurrency,
+            observedAt: bundle.builtAt,
+          }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
           marketCap,
@@ -3292,6 +3300,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         basis: "ttm",
         revenue: ttmInc.revenue,
         operatingIncome: ttmInc.operatingIncome,
+        incomeBeforeTax: ttmInc.incomeBeforeTax,
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
         netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
@@ -3318,6 +3327,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           basis: "annual",
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),
+          incomeBeforeTax: num(inc0.incomeBeforeTax),
           depreciationAndAmortization: num(inc0.depreciationAndAmortization),
           netIncome: num(inc0.netIncome),
           netIncomeAvailableToCommon: num(inc0.netIncomeAvailableToCommon),

@@ -551,7 +551,9 @@ year one kept a +78% consensus year one above 50% growth for four years. The
 half-life is a house convention pending the backtest in RESEARCH §8.2.
 
 **Margin path.** The EBIT margin starts at the current margin: guided, else
-TTM, else the five-year median. It fades to a target over 5 years and is held
+TTM, else the five-year median. The TTM (or annual) margin leaves out tagged
+one-off items inside operating income, gains and charges alike (see "AMZN
+audit fixes (October 20, 2026)"). It fades to a target over 5 years and is held
 flat thereafter. The target is the five-year median under a stable regime. Under a
 dated declining regime (a slope below −0.5pp per year) it is the lower of median
 and current. Under a dated improving regime (a slope above +0.5pp per year) it is
@@ -1043,6 +1045,12 @@ optional-parameter budget. The score drivers built from the rank are named
 unit `rank`, the valuation aspect note says rank, and the Stage C prompt
 instructs the model in the same terms, so the narrative cannot call it a
 percentile either.
+
+The P/E is not ranked when non-operating income is more than 25% of pre-tax
+income: the earnings then rest on gains, not operations. `peOwnHistoryRank`
+then ranks the next multiple in its list (EV/EBITDA, then Price/FCF), the score
+driver is labelled with the multiple it ranks and says why, and Key data
+caveats the headline P/E (see "AMZN audit fixes (October 20, 2026)").
 
 Fewer than 8 quarters produces no rank at all. Fewer than 20 (a full five
 years) flags the window as low-sample, because at those sizes the 5th and 95th
@@ -2574,3 +2582,38 @@ owner decisions (D-98). Because the raised target is a judgment, the margin
 basis and the DCF notes state its value: the per-share value on the faded path
 and with the margin held flat at the current level ("margin-fade
 sensitivity").
+
+**Earnings carried by one-off gains.** Amazon's TTM pre-tax income included
+about $80B of investment gains, below operating income. Its GAAP P/E read 21.1x
+against roughly 36x to 40x on operating earnings, and a rank of that P/E in its
+own history (2.72, scored 88) was the valuation grade's only positive signal.
+The headline P/E carried no caveat. When non-operating income (pre-tax income
+less operating income) is more than 25% of positive pre-tax income, the P/E is
+now flagged as resting on gain-inflated earnings. It is still shown, with a
+caveat in Key data that states the share. The valuation grade does not rank it:
+`peOwnHistoryRank` takes the next multiple in its list, EV/EBITDA and then
+Price/FCF, which do not include those gains. The 25% line is an owner decision
+(D-98). Non-operating losses are not flagged; they make the P/E look dear, not
+cheap.
+
+The same idea applies inside operating income (audit item 15, FCX-9): a one-off
+there set the DCF margin for every forecast year. Freeport-McMoRan's TTM to June
+30, 2026 included a $699M insurance settlement gain. The TTM (or annual) margin
+that seeds the DCF now leaves out tagged one-off items over the same twelve
+months, in both directions:
+
+- gains (`InsuredEventGainLoss`) are subtracted;
+- impairment charges are added back: `AssetImpairmentCharges` when it is filed,
+  else `GoodwillImpairmentLoss`, `ImpairmentOfLongLivedAssetsHeldForUse` and
+  `ImpairmentOfIntangibleAssetsExcludingGoodwill`, so a total and its parts are
+  never both counted.
+
+Each tag is summed as the fiscal-year fact plus the year to date less the prior
+year to date, from facts filed by the build. A period the filings do not tag
+counts as zero, because a one-off is tagged in the filing for the period it fell
+in. The margin basis says "excluding tagged one-off items", and the DCF notes
+name each tag and amount. For Freeport-McMoRan the net $626M ($699M gain less a
+$73M impairment) lowers the margin seed from 26.8% to about 24.3%. The tag list
+is an owner decision (D-98). Impairments are assumed to sit inside operating
+income, where US GAAP places them when an operating-income subtotal is shown.
+Restructuring charges are not treated as one-offs.

@@ -586,7 +586,8 @@ function multipleOwnHistoryRank(valuation: ValuationResult, keys: string[]): num
   if (valuation.kind === "pre-revenue") return null;
   const stats = valuation.multiples?.multiples ?? [];
   for (const key of keys) {
-    const stat = stats.find((m) => m.key === key);
+    // AMZN audit 2026-10-20: a P/E on gain-inflated earnings is not ranked.
+    const stat = stats.find((m) => m.key === key && m.gainInflatedEarnings === undefined);
     const pr = stat?.ownHistory?.percentileRank;
     if (isNum(pr)) return pr;
   }

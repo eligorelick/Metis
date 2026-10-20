@@ -3353,6 +3353,7 @@ export function applyMultiples(
           ownHistoryObservations: stat.ownHistory?.observations ?? null,
           ...(stat.ownHistory?.observationDetails ? { ownHistoryDetails: stat.ownHistory.observationDetails } : {}),
           ...(typeof stat.ownHistory?.basis === "string" ? { ownHistoryBasis: stat.ownHistory.basis } : {}),
+          ...(stat.gainInflatedEarnings ? { earningsCaveat: stat.gainInflatedEarnings.basis } : {}),
           sectorAppropriate: mr.sectorAppropriate.includes(stat.key),
         }));
   const { peerCoverage: _modelCoverage, multiplesBasis: _modelMultiplesBasis, marketValueScope: _modelMarketValueScope, ...rest } = valuation;

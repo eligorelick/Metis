@@ -1108,3 +1108,22 @@ describe("D-61 grading signals", () => {
     expect(signal(computeScores(makeInputs({ forensics: f })), "quality", "beneishM")?.raw).toBe(-1.5);
   });
 });
+
+// AMZN audit 2026-10-20 (finding 5): the valuation grade's only positive
+// signal was a P/E rank on GAAP earnings that investment gains had inflated.
+describe("grading — P/E rank on gain-inflated earnings", () => {
+  it("ranks the operating multiple instead when the P/E is flagged as gain-inflated", () => {
+    const base = valuationDcf(190, 8, 3) as unknown as { multiples: { multiples: Record<string, unknown>[] } };
+    const caveat = "non-operating income is 46% of pre-tax income";
+    base.multiples.multiples = [
+      { ...base.multiples.multiples[0], gainInflatedEarnings: { nonOperatingSharePct: 46, basis: caveat } },
+      { key: "evToEbitda", current: 17, basis: "", ownHistory: { percentileRank: 30, p5: null, p25: null, p50: null, p75: null, p95: null, observations: 12, basis: "" }, peers: null },
+    ];
+    const s = computeScores(makeInputs({ valuation: base as unknown as ValuationResult }));
+    const signal = s.aspects.valuation.signals?.find((x) => x.id === "peOwnHistoryRank");
+    expect(signal?.raw).toBe(30);
+    // Without the flag the gain-inflated P/E rank (3) still scores.
+    const plain = computeScores(makeInputs({ valuation: valuationDcf(190, 8, 3) }));
+    expect(plain.aspects.valuation.signals?.find((x) => x.id === "peOwnHistoryRank")?.raw).toBe(3);
+  });
+});

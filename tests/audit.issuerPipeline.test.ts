@@ -318,3 +318,36 @@ describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-
     expect(priceToBook).toBeCloseTo(amount(marketCap) / 2_149_664_000, 6);
   });
 });
+
+const ASSET_IMPAIRMENT_FCX = [
+  { start: "2025-01-01", end: "2025-12-31", val: 73_000_000, accn: "0000831259-26-000012", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-13" },
+];
+
+// Audit item 15 (FCX-9): FCX's TTM to June 2026 held a $699m insurance
+// settlement gain inside operating income. These are its 10-Q and 10-K facts
+// (public SEC companyfacts), which the trimmed fixture leaves out.
+describe("FCX's one-off gain stays out of the DCF margin seed", () => {
+  it("seeds the margin from operating income without the tagged insurance gain and impairment", () => {
+    const { bundle, out } = run("FCX");
+    const copy = structuredClone(bundle);
+    const facts = copy.edgar!.companyFacts!;
+    expect(facts.ok).toBe(true);
+    const usGaap = (facts.ok ? facts.value.data.facts["us-gaap"] : {}) as Record<string, unknown>;
+    usGaap.InsuredEventGainLoss = { units: { USD: [
+      { start: "2025-01-01", end: "2025-03-31", val: 0, accn: "0000831259-26-000025", fy: 2026, fp: "Q1", form: "10-Q", filed: "2026-05-08" },
+      { start: "2025-01-01", end: "2025-06-30", val: 0, accn: "0000831259-26-000036", fy: 2026, fp: "Q2", form: "10-Q", filed: "2026-08-06" },
+      { start: "2026-01-01", end: "2026-03-31", val: 699_000_000, accn: "0000831259-26-000025", fy: 2026, fp: "Q1", form: "10-Q", filed: "2026-05-08" },
+      { start: "2026-01-01", end: "2026-06-30", val: 699_000_000, accn: "0000831259-26-000036", fy: 2026, fp: "Q2", form: "10-Q", filed: "2026-08-06" },
+    ] } };
+    usGaap.AssetImpairmentCharges = { units: { USD: ASSET_IMPAIRMENT_FCX } };
+    const normalized = runStageB(copy);
+    if (out.valuation.kind !== "dcf" || normalized.valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    const before = out.valuation.assumptions!.ebitMarginPath.value[0];
+    const after = normalized.valuation.assumptions!.ebitMarginPath.value[0];
+    expect(normalized.valuation.assumptions!.ebitMarginPath.basis).toMatch(/excluding tagged one-off items/);
+    expect(normalized.valuation.notes.join("\n")).toMatch(/us-gaap\/InsuredEventGainLoss \+699\.0M, us-gaap\/AssetImpairmentCharges −73\.0M/);
+    // The net $626m gain comes out of the seed: the margin falls by 626m / TTM revenue.
+    // 26.76% before, 24.34% after.
+    expect(before - after).toBeCloseTo(2.42, 2);
+  });
+});

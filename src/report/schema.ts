@@ -1081,6 +1081,8 @@ export const MultipleRowSchema = z
     }).strict()).optional(),
     ownHistoryBasis: z.string().optional(),
     // WS6 (D-19) end ---------------------------------------------------------
+    /** AMZN audit 2026-10-20: why a P/E on gain-inflated earnings is caveated and not ranked; pipeline-owned. */
+    earningsCaveat: z.string().optional(),
     sectorAppropriate: z.boolean(),
   })
   .strict();
@@ -3072,8 +3074,9 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         delete props.ownHistoryDetails;
         delete props.ownHistoryBasis;
         delete props.basis;
+        delete props.earningsCaveat;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis", "basis"].includes(key));
+          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis", "basis", "earningsCaveat"].includes(key));
         }
       }
     }

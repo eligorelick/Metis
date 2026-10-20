@@ -799,7 +799,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
 
   const pe = report.valuation.multiples.find((m) => /^P\/E/i.test(m.name) && m.current !== null);
-  if (pe) rows.push({ label: pe.name, value: formatMultiple(pe.current) });
+  // AMZN audit 2026-10-20: a P/E carried by non-operating gains says so.
+  if (pe) rows.push({ label: pe.name, value: formatMultiple(pe.current), ...(pe.earningsCaveat ? { note: `caveat: ${pe.earningsCaveat}` } : {}) });
   const forward = estimates.find((e) => e.epsAvg !== null && e.epsAvg > 0);
   const tracedEps = md === undefined ? firstTrace(traces, /^payload\.estimates\.est-eps-\d{4}-\d{2}-\d{2}$/) : null;
   if (forward && price !== null) {

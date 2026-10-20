@@ -616,6 +616,11 @@ export interface DcfAssumptionInputs {
   quoteCurrency?: string | null;
   /** Base income statement: four-quarter TTM, or an explicitly labeled annual fallback. */
   incomeTtm: DcfIncomeRow | null;
+  /**
+   * Audit item 15 (FCX-9): tagged one-off items inside the base period's
+   * operating income, removed from the margin seed in both directions.
+   */
+  unusualOperatingItems?: import("./unusualItems").UnusualOperatingItems | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
@@ -1631,7 +1636,18 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const guide = nextQuarterGuidance(inputs.guidance, ttm?.date ?? null);
 
   // --- EBIT margin path -----------------------------------------------------
-  const ttmMarginRaw = safeDiv(ttm?.operatingIncome ?? null, startRev);
+  // Audit item 15 (FCX-9): a one-off inside operating income (FCX's $699m
+  // insurance gain, an impairment) would set the margin for every year, so
+  // the seed leaves tagged one-offs out, gains and charges alike.
+  const unusual = inputs.unusualOperatingItems ?? null;
+  const baseOperatingIncome = ttm?.operatingIncome ?? null;
+  const normalizeUnusual = unusual !== null && unusual.value !== 0 && isNum(baseOperatingIncome);
+  const ttmMarginRaw = safeDiv(normalizeUnusual ? (baseOperatingIncome as number) - unusual.value : baseOperatingIncome, startRev);
+  if (normalizeUnusual) {
+    notes.push(
+      `EBIT margin seed excludes tagged one-off items of ${fmtNum(unusual.value)} from ${periodBasis} operating income ${fmtNum(baseOperatingIncome as number)}: ${unusual.basis}`,
+    );
+  }
   const histMarginPoints = inputs.incomeHistory
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -1654,7 +1670,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // D-58: guidance, when it implies an operating margin, sets year one.
   const guidedMargin = guide !== null && isNum(guide.operatingMarginPct) ? guide.operatingMarginPct : null;
   let m0 = guidedMargin ?? (ttmMarginRaw !== null ? ttmMarginRaw * 100 : null);
-  let m0Source = guidedMargin !== null ? `guided (${guide!.source})` : periodBasis;
+  let m0Source = guidedMargin !== null
+    ? `guided (${guide!.source})`
+    : normalizeUnusual ? `${periodBasis}, excluding tagged one-off items` : periodBasis;
   if (m0 === null && median5y !== null) {
     m0 = median5y;
     m0Source = "5y median";
@@ -2841,6 +2859,8 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   basis?: "ttm" | "annual";
   revenue: number | null;
   operatingIncome: number | null;
+  /** AMZN audit 2026-10-20: pre-tax income, to measure how much of it is non-operating. */
+  incomeBeforeTax?: number | null;
   depreciationAndAmortization?: number | null;
   netIncome: number | null;
   epsDiluted: number | null;
@@ -3135,7 +3155,16 @@ export interface MultipleStat {
   historyScope?: string;
   ownHistory: OwnHistoryBand | null;
   peers: PeerStats | null;
+  /**
+   * AMZN audit 2026-10-20: set on the P/E when non-operating income is more
+   * than GAIN_INFLATED_NON_OPERATING_SHARE of pre-tax income. The grade then
+   * ranks the next own-history multiple and the report caveats the P/E.
+   */
+  gainInflatedEarnings?: { nonOperatingSharePct: number; basis: string };
 }
+
+/** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
+export const GAIN_INFLATED_NON_OPERATING_SHARE = 0.25;
 
 export interface MultiplesResult {
   multiples: MultipleStat[];
@@ -4014,6 +4043,23 @@ export function multiplesFramework(
       peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
   });
+  // AMZN audit 2026-10-20: GAAP earnings can be carried by gains below
+  // operating income (Amazon's TTM pre-tax income included about $80B of
+  // investment gains, so its P/E read 21x against roughly 40x on operating
+  // earnings). The P/E is still shown, flagged, and is not ranked.
+  const pretaxTtm = inc?.incomeBeforeTax ?? null;
+  const operatingTtm = inc?.operatingIncome ?? null;
+  if (isNum(pretaxTtm) && pretaxTtm > 0 && isNum(operatingTtm)) {
+    const share = (pretaxTtm - operatingTtm) / pretaxTtm;
+    const pe = multiples.find((m) => m.key === "peTtm");
+    if (pe !== undefined && pe.current !== null && share > GAIN_INFLATED_NON_OPERATING_SHARE) {
+      const basis = `pre-tax income ${fmtNum(pretaxTtm)} (${incomeBasisLabel}) includes non-operating income of ${fmtNum(pretaxTtm - operatingTtm)}, ` +
+        `${fmtNum(share * 100)}% of pre-tax income (above ${GAIN_INFLATED_NON_OPERATING_SHARE * 100}%): the P/E rests on earnings that gains, not operations, carry, ` +
+        "so it is not ranked against its own history";
+      pe.gainInflatedEarnings = { nonOperatingSharePct: share * 100, basis };
+      notes.push(`peTtm: ${basis}.`);
+    }
+  }
   // WS6 (D-19): state N per multiple. The report's multiples table carries the
   // rank but not the window size, so the sentence that makes the number
   // readable - "rank among N quarters", never "percentile" - is published here.

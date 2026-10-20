@@ -7,6 +7,7 @@ import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { ReportSchema, judgeOutputToJsonSchema } from "@/report/schema";
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown, reportToAuditMarkdown } from "@/report/export/markdown";
+import { keyDataRows } from "@/report/presentation";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -50,5 +51,20 @@ describe("admitted multiple basis survives report compilation", () => {
     report.valuation.multiples = [{ name: "P/B", current: 2, peerMedian: null, own5yPercentile: null, sectorAppropriate: true }];
     expect(ReportSchema.parse(report).valuation.multiples[0]).not.toHaveProperty("basis");
     expect(() => reportToMarkdown(report)).not.toThrow();
+  });
+});
+
+describe("P/E on gain-inflated earnings (AMZN audit 2026-10-20)", () => {
+  it("carries the caveat to the headline P/E in Key data without asking the judge for it", () => {
+    const { computed, report } = fixture();
+    const pe = computed.valuation.multiples!.multiples.find(m => m.key === "peTtm")!;
+    expect(pe.current).not.toBeNull();
+    pe.gainInflatedEarnings = { nonOperatingSharePct: 46, basis: "non-operating income is 46% of pre-tax income" };
+    report.valuation = applyMultiples(report.valuation, computed.valuation);
+    const stored = ReportSchema.parse(report);
+    const row = keyDataRows(stored).find(r => /^P\/E/.test(r.label));
+    expect(row?.note).toBe("caveat: non-operating income is 46% of pre-tax income");
+    expect(reportToMarkdown(stored)).toContain("caveat: non-operating income is 46% of pre-tax income");
+    expect(JSON.stringify(judgeOutputToJsonSchema())).not.toContain("earningsCaveat");
   });
 });
