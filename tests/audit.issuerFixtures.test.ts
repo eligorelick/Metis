@@ -65,3 +65,82 @@ describe("audit issuer fixtures (2026-10-19)", () => {
     }
   });
 });
+
+/** The latest quarterly balance row of a build from edited facts. */
+function latestOf(edit: (gaap: Record<string, { units: Record<string, unknown[]> }>) => void, ticker: Ticker): Record<string, unknown> {
+  const copy = structuredClone(facts(ticker));
+  edit(copy.facts["us-gaap"] as unknown as Record<string, { units: Record<string, unknown[]> }>);
+  const { cik, fetchedAt } = ISSUERS[ticker];
+  const out = buildStatementsFromCompanyFacts(copy, {
+    symbol: ticker, cik: String(cik).padStart(10, "0"), annualPeriods: 10, quarterlyPeriods: 24,
+    asOf: ASOF, factsObservedAt: fetchedAt, vendorSplits: SPLITS, basisDay: ASOF,
+  });
+  const rows = out.balanceQuarterly.rows as unknown as Record<string, unknown>[];
+  return [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]!;
+}
+
+/** Copy a tag's facts at the latest balance date under another tag name. */
+const point = (gaap: Record<string, { units: Record<string, unknown[]> }>, from: string, end: string) =>
+  (gaap[from]!.units.USD as { end: string; start?: string }[]).find((fact) => fact.end === end && fact.start === undefined)!;
+
+describe("financing debt from instrument-class tags (audit O-1, SNOW-1, SNOW-10)", () => {
+  const MN = 1_000_000;
+  const within = (value: unknown, target: number, share = 0.05) => {
+    expect(typeof value).toBe("number");
+    expect(Math.abs((value as number) - target) / target).toBeLessThanOrEqual(share);
+  };
+
+  it("O: total debt within 5% of the issuer's own $30,990.6m (notes, term loans, mortgages, commercial paper)", () => {
+    const row = latestBalance("O");
+    expect(row.date).toBe("2026-06-30");
+    within(row.totalDebt, 30_990.552 * MN);
+    expect(row.longTermDebt).toBeCloseTo((25_091.588 + 2_760.395 + 37.085) * MN, -3);
+  });
+
+  it("NNN: total debt is its filed notes and term loan, not leases alone", () => {
+    const row = latestBalance("NNN");
+    within(row.totalDebt, (4_475.938 + 496.835) * MN);
+  });
+
+  it("SNOW: the convertible notes are its financing debt", () => {
+    const row = latestBalance("SNOW");
+    within((row.shortTermDebt as number | null ?? 0) + (row.longTermDebt as number), 2_283.985 * MN);
+    expect(row.totalDebt as number).toBeGreaterThan(2_283.985 * MN);
+  });
+
+  it("PGR: the combined debt amount stands in when nothing else is tagged", () => {
+    expect(latestBalance("PGR").totalDebt).toBe(8_387 * MN);
+  });
+
+  it("an aggregate long-term debt tag still wins over the instrument classes", () => {
+    const row = latestOf((gaap) => {
+      gaap.LongTermDebtNoncurrent = { units: { USD: [{ ...point(gaap, "NotesPayable", "2026-06-30"), val: 28_000 * MN }] } };
+    }, "O");
+    expect(row.longTermDebt).toBe(28_000 * MN);
+  });
+
+  it("withholds rather than double counts an inclusive class total beside a current-maturities line", () => {
+    const row = latestOf((gaap) => {
+      gaap.LongTermDebtCurrent = { units: { USD: [{ ...point(gaap, "NotesPayable", "2026-06-30"), val: 900 * MN }] } };
+    }, "O");
+    expect(row.longTermDebt).toBeNull();
+    expect(row.totalDebt).toBeNull();
+    expect(row.netDebt).toBeNull();
+  });
+
+  it("withholds when a notes total and a convertible-notes total could hold the same notes", () => {
+    const row = latestOf((gaap) => {
+      gaap.ConvertibleNotesPayable = { units: { USD: [{ ...point(gaap, "NotesPayable", "2026-06-30"), val: 500 * MN }] } };
+    }, "O");
+    expect(row.longTermDebt).toBeNull();
+    expect(row.totalDebt).toBeNull();
+  });
+
+  it("withholds the combined debt amount beside a separately tagged current-debt figure", () => {
+    const row = latestOf((gaap) => {
+      gaap.ShortTermBorrowings = { units: { USD: [{ ...point(gaap, "DebtLongtermAndShorttermCombinedAmount", "2026-06-30"), val: 500 * MN }] } };
+    }, "PGR");
+    expect(row.longTermDebt).toBeNull();
+    expect(row.totalDebt).toBeNull();
+  });
+});

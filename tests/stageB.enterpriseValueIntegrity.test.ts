@@ -44,7 +44,9 @@ describe("enterprise-value integrity through Stage B", () => {
     { name: "consistent cash components", fields: validCash, ev: 10030 * M },
     { name: "component-only cash", fields: { ...validCash, cashAndShortTermInvestments: null }, ev: 10030 * M },
     { name: "genuine zero balances", fields: { totalDebt: 0, cashAndCashEquivalents: 0, shortTermInvestments: 0, cashAndShortTermInvestments: 0 }, ev: 10000 * M },
-    { name: "valid net cash", fields: { ...validCash, totalDebt: 20 * M }, ev: 9950 * M },
+    // Net cash from more cash, not less debt: 15 of interest on 20 of debt
+    // would imply 75% and withhold the debt (audit 2026-10-19, O-2).
+    { name: "valid net cash", fields: { ...validCash, cashAndCashEquivalents: 120 * M, shortTermInvestments: 30 * M, cashAndShortTermInvestments: 150 * M }, ev: 9950 * M },
   ])("preserves $name", ({ fields, ev }) => {
     const result = calculate(fields);
     expect(result.valuation.multiples.enterpriseValue.value).toBe(ev);

@@ -299,6 +299,25 @@ export const LINE_ITEM_TAGS = {
   /** The current portion of long-term debt; the maturity-schedule figure stands in only when both miss. */
   currentMaturitiesOfLongTermDebt: entry(["LongTermDebtCurrent", COMBINED_CURRENT_DEBT_TAG], [MATURITIES_STAND_IN]),
   longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt"]),
+  /**
+   * Financing debt for a filer that tags none of the `longTermDebt` aggregates
+   * (audit 2026-10-19, O-1/SNOW-1). Realty Income and NNN tag their unsecured
+   * notes and term loans as `NotesPayable`/`LoansPayable`, Snowflake its only
+   * debt as `ConvertibleDebtNoncurrent`, Progressive its debt as
+   * `DebtLongtermAndShorttermCombinedAmount`; without these the debt total was
+   * leases and commercial paper alone. The combined amount is all debt; each
+   * family below is one instrument class, inclusive total first, then its
+   * noncurrent variant, so a class is never counted twice. Families are summed.
+   * They resolve only when every aggregate above misses, and
+   * `resolveDebtOverlaps` withholds the result where a family could overlap a
+   * current-debt line or another family.
+   */
+  debtCombinedTotal: entry(["DebtLongtermAndShorttermCombinedAmount"]),
+  longTermDebtNotes: entry(["NotesPayable", "LongTermNotesPayable", "SeniorNotes", "SeniorLongTermNotes"]),
+  longTermDebtLoans: entry(["LoansPayable", "LongTermLoansPayable"]),
+  longTermDebtSecured: entry(["SecuredDebt", "SecuredLongTermDebt"]),
+  longTermDebtConvertible: entry(["ConvertibleNotesPayable", "ConvertibleDebtNoncurrent", "ConvertibleLongTermNotesPayable"]),
+  longTermDebtRevolver: entry(["LongTermLineOfCredit"]),
   /** Completeness evidence only: this aggregate can be gross principal, not carrying debt. */
   debtInstrumentAggregate: entry(["DebtInstrumentCarryingAmount"]),
   /** Noncurrent carrying subtype: completeness evidence, never an additive synonym. */
