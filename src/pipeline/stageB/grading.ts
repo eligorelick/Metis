@@ -987,12 +987,18 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   // share-count trend carries the aspect at full completeness. A company that
   // did repurchase without tagged execution prices is MISSING the evidence,
   // and its completeness says so.
-  const repurchased = capital.buybackPriceAnalysis.totalRepurchased > 0;
+  // AMZN audit 2026-10-20 finding 15: only repurchases in the issuer's last
+  // three fiscal years are timed. With none, there is nothing recent to time,
+  // as for a company that never repurchased; a recent repurchase without a
+  // priced recent year is missing evidence. Stale timing is shown, not graded.
+  const buyback = capital.buybackPriceAnalysis;
+  const repurchased = buyback.totalRepurchased > 0 && buyback.timingStale?.recentRepurchase !== false;
+  const staleTiming = buyback.timingStale?.reason ?? null;
   const leadership = scoreAspect(
     "leadership",
     [
       ...(repurchased
-        ? [{ name: "buybackTiming", raw: capital.buybackPriceAnalysis.timingPct ?? null, unit: "%", weight: 0.3, band: BUYBACK_TIMING_BAND }]
+        ? [{ name: "buybackTiming", raw: staleTiming === null ? buyback.timingPct ?? null : null, unit: "%", weight: 0.3, band: BUYBACK_TIMING_BAND }]
         : []),
       { name: "shareCountTrend", raw: capital.shareCount.annualizedPct, unit: "%", weight: 0.25, band: SHARE_TREND_BAND },
       // D-49: SBC % of revenue is no longer scored here. The SBC charge is
@@ -1002,7 +1008,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     ],
     weights.leadership,
     inputs.asOf,
-    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
+    "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade." +
+      (staleTiming === null ? "" : ` ${staleTiming[0]!.toUpperCase()}${staleTiming.slice(1)}.`),
     policy,
   );
 

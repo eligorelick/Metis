@@ -1190,3 +1190,25 @@ describe("grading — ROIC floor window", () => {
     expect(signal?.fallbackReason).toMatch(/^2021: pre-tax income is not positive/);
   });
 });
+
+// AMZN audit 2026-10-20 finding 15: a buyback four years old carried 30% of
+// the leadership weight.
+describe("grading — buyback timing recency", () => {
+  const stale = "buyback timing not graded: the priced repurchase years 2022-12-31 to 2022-12-31 are all older than the issuer's last 3 fiscal years (2023-12-31 to 2025-12-31)";
+  it("leaves stale timing out of the aspect when nothing was repurchased recently, and says why", () => {
+    const cap = capital();
+    Object.assign(cap.buybackPriceAnalysis, { timingPct: -3, timingStale: { reason: stale, recentRepurchase: false } });
+    const s = computeScores(makeInputs({ capital: cap }));
+    expect(s.aspects.leadership.signals?.find((x) => x.id === "buybackTiming")).toBeUndefined();
+    expect(s.aspects.leadership.dataCompleteness).toBe(1);
+    expect(s.aspects.leadership.note).toContain(`B${stale.slice(1)}.`);
+  });
+  it("counts stale timing as missing evidence when a recent repurchase went unpriced", () => {
+    const cap = capital();
+    Object.assign(cap.buybackPriceAnalysis, { timingPct: -3, timingStale: { reason: stale, recentRepurchase: true } });
+    const s = computeScores(makeInputs({ capital: cap }));
+    expect(s.aspects.leadership.signals?.find((x) => x.id === "buybackTiming")).toBeUndefined();
+    expect(s.aspects.leadership.dataCompleteness).toBeCloseTo(0.25 / 0.55, 12);
+    expect(s.aspects.leadership.note).toContain(`B${stale.slice(1)}.`);
+  });
+});

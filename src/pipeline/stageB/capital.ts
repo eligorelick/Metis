@@ -316,6 +316,14 @@ export interface CapitalResult {
     timingPct?: number | null;
     /** D-61: share of repurchase cash-flow dollars in years whose execution price is known. */
     timingCoveragePct?: number | null;
+    /**
+     * AMZN audit 2026-10-20 finding 15: present only when timing is not graded
+     * for staleness: every priced year (or, with timing unmeasured, every
+     * repurchase) is older than the issuer's last BUYBACK_TIMING_RECENT_YEARS
+     * fiscal years. `recentRepurchase` says whether those years hold any
+     * repurchase, priced or not.
+     */
+    timingStale?: { reason: string; recentRepurchase: boolean };
     years: BuybackYearRow[];
     note: string;
   };
@@ -374,6 +382,13 @@ const BUYBACK_HEURISTIC_NOTE =
  */
 export const BUYBACK_EXECUTION_PLAUSIBLE_RATIO = 1.6;
 export const BUYBACK_TIMING_MIN_COVERAGE_PCT = 50;
+/**
+ * AMZN audit 2026-10-20 finding 15: timing is graded only when a priced year
+ * is one of the issuer's last this-many fiscal years. Amazon's signal, 30% of
+ * the leadership weight, rested on one FY2022 buyback four years old. An
+ * unbacktested house convention.
+ */
+export const BUYBACK_TIMING_RECENT_YEARS = 3;
 
 /**
  * AMZN audit 2026-10-20 finding 8: SBC / FCF is undefined when free cash flow
@@ -1095,6 +1110,25 @@ export function computeCapital(
           : "no tagged repurchase share count and cost on a known share basis matches the fiscal years";
     notes.push(`buyback timing not measured: ${why}; the price actually paid against the year's average price is unknown, so timing is not graded`);
   }
+  // AMZN audit 2026-10-20 finding 15: a timing read whose priced years are all
+  // older than the last BUYBACK_TIMING_RECENT_YEARS fiscal years says little
+  // about current stewardship; it is measured and shown, not graded.
+  const recentYears = cf.slice(0, BUYBACK_TIMING_RECENT_YEARS).map((r) => r.date);
+  const recentWindow = `the issuer's last ${BUYBACK_TIMING_RECENT_YEARS} fiscal years (${recentYears.at(-1)} to ${recentYears[0]})`;
+  const isRecent = (date: string): boolean => recentYears.some((d) => withinDays(d, date, STATEMENT_JOIN_TOLERANCE_DAYS));
+  const pricedYears = buybackYears.filter((y) => isFiniteNumber(y.actualPricePaid)).map((y) => y.date);
+  const recentRepurchase = buybackYears.some((y) => y.repurchased > 0 && isRecent(y.date));
+  let timingStale: { reason: string; recentRepurchase: boolean } | undefined;
+  if (timingPct !== null && pricedYears.length > 0 && !pricedYears.some(isRecent)) {
+    timingStale = { recentRepurchase, reason: `buyback timing not graded: the priced repurchase years ${pricedYears[0]} to ${pricedYears.at(-1)} are all older than ` +
+      `${recentWindow}, so the measured ${fmt(timingPct)}% is shown, not graded` };
+  } else if (timingPct === null && buybackYears.length > 0 && !recentRepurchase) {
+    timingStale = { recentRepurchase, reason: `buyback timing not graded: every repurchase (${buybackYears[0]!.date} to ${buybackYears.at(-1)!.date}) is older than ${recentWindow}` };
+  }
+  if (timingStale !== undefined) {
+    notes.push(timingStale.reason);
+    gaps.push({ field: "capital.buybackPriceAnalysis.timing", reason: timingStale.reason, severity: "info" });
+  }
   const avgPricePaidProxy = weightedShares > 0 ? weightedDollars / weightedShares : null;
   const currentPrice = isFiniteNumber(quote.price) && quote.price > 0 ? quote.price : null;
   if (priceProxySuppressed && totalRepurchased > 0) {
@@ -1179,6 +1213,7 @@ export function computeCapital(
       premiumDiscountPct,
       timingPct,
       timingCoveragePct,
+      ...(timingStale !== undefined ? { timingStale } : {}),
       years: buybackYears,
       note: refusedBuybackYears.length > 0 ? `Incomplete history: refused repurchase years ${refusedBuybackYears.join(", ")}; totalRepurchased is the known subset, not a complete aggregate. ${BUYBACK_HEURISTIC_NOTE}` : BUYBACK_HEURISTIC_NOTE,
     },

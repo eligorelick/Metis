@@ -47,7 +47,9 @@ describe("reader labels for registry ids", () => {
 
   it("labels the D-61 grading signals and keeps the retired ones readable", () => {
     expect(signalLabel("roicFloor")).toBe("ROIC floor (worst year in window)");
-    expect(signalLabel("buybackTiming")).toBe("Buyback timing (price paid vs the year's average)");
+    // AMZN audit 2026-10-20 finding 15: "price paid vs the year's average" beside
+    // -3.0% read as paying 3% below the average, the opposite of the measure.
+    expect(signalLabel("buybackTiming")).toBe("Buyback timing (year-average cost vs cost paid; negative = paid above average)");
     expect(signalLabel("beneishMSgiNeutral")).toBe("Beneish M-score (sales growth neutral)");
     expect(signalLabel("buybackDiscipline")).toBe("Current price vs average repurchase price");
     expect(signalLabel("someNewSignal")).toBe("Some new signal");

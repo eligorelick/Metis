@@ -83,7 +83,8 @@ describe("no registry id reaches the body", () => {
   it.each([
     ["computed.valuation.pricetobook-current", "P/B"],
     ["computed.valuation.pricetobook-peer-median", "P/B peer median"],
-    ["computed.capital.buybackPriceAnalysis.timingPct", "Buyback timing (price paid vs the year's average)"],
+    // AMZN audit 2026-10-20 finding 15: the sign is stated, not inverted.
+    ["computed.capital.buybackPriceAnalysis.timingPct", "Buyback timing (year-average cost vs cost paid; negative = paid above average)"],
     ["computed.weighted-projections.epsdiluted-weighted-12m-ending-2031-07-26", "Weighted diluted EPS, 12M ending 2031-07-26"],
     ["computed.valuation.guided-run-rate-growth-over-ttm-next-quarter-guidance-4", "Guided run-rate growth over TTM (next-quarter guidance × 4)"],
     ["computed.quarterly-trend.product-market-platform-data-center-share-of-revenue-quarter-ended-2026-07-26", "Data Center share of revenue (quarter ended 2026-07-26)"],

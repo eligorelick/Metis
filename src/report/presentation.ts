@@ -196,7 +196,9 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.valuation.guided-sequential-pace-annualized": "Guided sequential pace, annualized",
   "computed.valuation.consensus-year-one-revenue-growth-over-ttm": "Consensus year-one revenue growth over TTM",
   "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm": "DCF base-case year-one revenue growth over TTM",
-  "computed.capital.buybackPriceAnalysis.timingPct": "Buyback timing (price paid vs the year's average)",
+  // AMZN audit 2026-10-20 finding 15: "price paid vs the year's average" beside
+  // -3.0% read as paying 3% below the average; the measure is the reverse.
+  "computed.capital.buybackPriceAnalysis.timingPct": "Buyback timing (year-average cost vs cost paid; negative = paid above average)",
   "computed.forensics.accruals.definition": "Accrual definition",
   "computed.forensics.beneish.growthLed": "Beneish growth-led test",
   "computed.forensics.beneish-m-with-the-sales-growth-index-at-neutral-1-0": "Beneish M-score (sales-growth index at 1.0)",
@@ -247,7 +249,7 @@ export function signalLabel(id: string): string {
     fcfConversionBeforeSbc: "FCF conversion before SBC", sbcPctOfFcf: "SBC as % of FCF", roicLevel: "ROIC level",
     // D-61 signals; the retired ids stay readable for reports stored before it.
     roicFloor: "ROIC floor (worst year in window)", roteFloor: "ROTE floor (worst year in window)",
-    buybackTiming: "Buyback timing (price paid vs the year's average)",
+    buybackTiming: "Buyback timing (year-average cost vs cost paid; negative = paid above average)",
     beneishMSgiNeutral: "Beneish M-score (sales growth neutral)",
     roicStability: "ROIC stability (std. dev.)", grossMarginLevel: "Gross-margin level",
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",

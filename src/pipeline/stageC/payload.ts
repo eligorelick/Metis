@@ -742,7 +742,10 @@ function computedSections(
     { label: "current quote vs proxy buyback price (price appreciation since repurchases, not graded)", value: cap.buybackPriceAnalysis.premiumDiscountPct, unit: "%", source: "computed.capital.buybackPriceAnalysis", asOf: cap.asOf },
     ...(cap.buybackPriceAnalysis.totalRepurchased > 0
       ? [
-          { label: "buyback timing: cost of the repurchased shares at each year's average price vs cost paid", value: cap.buybackPriceAnalysis.timingPct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingPct", asOf: cap.asOf },
+          // AMZN audit 2026-10-20 finding 15: dated by the newest priced year, not
+          // the latest fiscal year (a 2022 measure read "as of 2025-12-31").
+          { label: "buyback timing: cost of the repurchased shares at each year's average price vs cost paid", value: cap.buybackPriceAnalysis.timingPct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingPct",
+            asOf: cap.buybackPriceAnalysis.years.filter((y) => isNum(y.actualPricePaid)).at(-1)?.date ?? cap.asOf },
           { label: "buyback timing coverage of repurchase dollars", value: cap.buybackPriceAnalysis.timingCoveragePct ?? null, unit: "%", source: "computed.capital.buybackPriceAnalysis.timingCoveragePct", asOf: cap.asOf },
         ]
       : []),
