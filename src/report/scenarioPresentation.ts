@@ -137,7 +137,8 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
     `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${claim(bridge.minorityInterest)}, preferred equity ${claim(bridge.preferred)}` +
       `${bridge.nonOperatingAssets === undefined ? ""
         : bridge.nonOperatingComponents && bridge.nonOperatingComponents.length > 0
-          ? `, plus non-operating ${bridge.nonOperatingComponents.map((c) => `${c.label.replace(/ \(.*\)$/, "")} ${display(c.value)}`).join(" and ")}`
+          ? `, plus non-operating ${bridge.nonOperatingComponents.filter((c) => c.value >= 0).map((c) => `${c.label.replace(/ \(.*\)$/, "")} ${display(c.value)}`).join(" and ")}` +
+            bridge.nonOperatingComponents.filter((c) => c.value < 0).map((c) => `, less ${c.label.replace(/ \(.*\)$/, "")} ${display(-c.value)}`).join("")
           : `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}` +
       `${a.valuationDate === undefined ? "" : `; value stated at the quote date ${a.valuationDate.value}`}.`,
     target?.perShare != null

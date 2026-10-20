@@ -599,6 +599,11 @@ describe("payload determinism + provenance", () => {
     // when an applicable aspect has no data. Restore only that text.
     expect(precedingFinance.scores.aspects.technicals.notApplicableReason).toBe("applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored");
     precedingFinance.scores.aspects.technicals.notApplicableReason = "no applicable signals available for this route — aspect not scored";
+    // AMZN audit 2026-10-20 (D-98): the assumptions record the marginal rate
+    // the bridge taxes non-operating investments at. This fixture holds none,
+    // so no bridge line or value moves; remove only that leaf.
+    expect(precedingFinance.valuation.assumptions.investmentTax.ratePct).toBe(21);
+    delete precedingFinance.valuation.assumptions.investmentTax;
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
@@ -934,7 +939,10 @@ describe("payload determinism + provenance", () => {
       // EPS interest run-rate and the scenario construction text — see above.
       // Audit 2026-10-19 FCX-14: only the technicals aspect's no-data note
       // changes (restored above); prompt bytes and registries are unchanged.
-      financeHash: "b5e8d179",
+      // AMZN audit 2026-10-20 (D-98): only the new assumptions.investmentTax
+      // leaf (removed above for the preceding pin) moves financeHash; this
+      // fixture has no investments, so no bridge value, byte or record moves.
+      financeHash: "2b159805",
     });
   });
 

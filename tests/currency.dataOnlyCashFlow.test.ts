@@ -89,6 +89,14 @@ describe("data-only DCF tables preserve the established model currency", () => {
     expect(r.valuation.dcf.bridge?.nonOperatingComponents).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "long-term investments (filed carrying value)", value: 50 * M }),
     ]));
+    // AMZN audit 2026-10-20: the stakes are added after the tax a sale would
+    // owe at the 21% US marginal rate on a zero tax basis, as a separate line.
+    const tax = r.valuation.dcf.bridge?.nonOperatingComponents?.find((c) => /tax/.test(c.label));
+    expect(tax?.label).toMatch(/^estimated tax on non-operating investments \(21% marginal rate, zero tax basis assumed\)$/);
+    expect(tax?.value).toBeCloseTo(-0.21 * 50 * M, 6);
+    expect(r.valuation.dcf.bridge?.nonOperatingAssets).toBeCloseTo(0.79 * 50 * M, 6);
+    const bridgeRows = valuationAuditTables(r.valuation.dcf).find((t) => t.heading === "Enterprise value to equity bridge")!.rows;
+    expect(bridgeRows.map((row) => row[0])).toContain("Less estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed)");
     expect(r.valuation.dcf.bridge?.currency).toBe(currency);
     expect(r.valuation.dcf.forecastRows?.length).toBeGreaterThan(0);
     expect(r.valuation.dcf.consensusPath?.length).toBeGreaterThan(0);

@@ -290,6 +290,20 @@ export const LINE_ITEM_TAGS = {
    */
   intangibleAssets: entry(["IntangibleAssetsNetExcludingGoodwill"]),
   intangibleAssetsParts: entry(["FiniteLivedIntangibleAssetsNet", "IndefiniteLivedIntangibleAssetsExcludingGoodwill"]),
+  /**
+   * Investments held beyond a year: the filed total first. A filer without one
+   * (Amazon carries its Anthropic and OpenAI stakes in "Other assets") tags the
+   * pieces, which `longTermInvestments` in statements.ts sums. Only elements
+   * the taxonomy defines as non-current are pieces: the undivided
+   * `AvailableForSaleSecuritiesDebtSecurities` total usually also holds
+   * current and cash-equivalent securities, so it is never one.
+   */
+  longTermInvestments: entry(["LongTermInvestments"]),
+  noncurrentDebtSecurities: entry(["MarketableSecuritiesNoncurrent", "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"]),
+  /** A filed "other investments" line, which holds the two pieces after it when it is tagged. */
+  otherLongTermInvestments: entry(["OtherLongTermInvestments"]),
+  nonMarketableEquitySecurities: entry(["EquitySecuritiesWithoutReadilyDeterminableFairValueAmount"]),
+  equityMethodInvestments: entry(["EquityMethodInvestments"]),
   totalAssets: entry(["Assets"]),
   /** The balance sheet's own total-current-debt line; a superset of every tag below. */
   debtCurrent: entry(["DebtCurrent"]),

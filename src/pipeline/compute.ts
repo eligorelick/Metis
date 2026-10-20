@@ -3592,7 +3592,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
       return `long-term investments ${b(lti)} on the ${date} ${balPointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — the amount the sales-to-capital denominator removes as non-operating` +
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
-        "; equity stakes the filing places in other assets are not separable from the statements and stay in operating capital";
+        "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
     dcfInputs,
     multiples,

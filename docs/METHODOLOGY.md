@@ -848,7 +848,8 @@ SNOW-2), and the inferred figure counts as parent equity wherever parent equity
 is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
 value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
-investments sales-to-capital removed as non-operating (D-65). Minority interest
+investments sales-to-capital removed as non-operating (D-65) − the estimated tax
+on those investments (see "AMZN audit fixes (October 20, 2026)"). Minority interest
 enters both at its book carrying amount, not a market or earnings-share value.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
@@ -872,10 +873,12 @@ carry the issuer's non-marketable carrying value
 (`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`: cost less
 impairment, adjusted for observable price changes) it is cited beside the line
 (NVDA: $51.16B, of which $47.90B non-marketable equity). No fair-value estimate
-or marketability discount is applied. Equity stakes a filing places inside
-other assets (NVDA's $4.96B long-term portion of locked-up public equity, 10-Q
-Note 5) are tagged only with a dimension the companyfacts omit, so they stay in
-operating capital and outside the bridge.
+or marketability discount is applied, but since the AMZN audit of October 20,
+2026 the bridge subtracts an estimated tax on the investments it adds (below).
+Equity stakes a filing places inside other assets are counted when the filing
+tags them with a non-current investment element (below). Those tagged only with
+a dimension the companyfacts omit (NVDA's $4.96B long-term portion of locked-up
+public equity, 10-Q Note 5) stay in operating capital and outside the bridge.
 
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution; the bridge table also
@@ -2466,3 +2469,46 @@ becomes a warning that names the rate limit as the cause, instead of the
 informational "no usable analyst revenue estimates", and the DCF notes carry a
 "Valuation degraded" line. The report is still published. Statements still come from
 the keyless SEC substitutes, which carry their own entries.
+
+**Investment stakes on the SEC statements, and the tax on them.** The
+statements rebuilt from SEC companyfacts had no long-term investments line, so
+when a run fell back to them (Amazon's did, after the rate limit above) every
+stake counted as zero in the equity bridge and stayed inside the operating
+capital that sales-to-capital divides by. Amazon carries its Anthropic and
+OpenAI stakes in "Other assets", not on a line of their own. The SEC statements
+now fill `longTermInvestments` with the filed `LongTermInvestments` total when
+the filing tags one. Otherwise they add up the non-current pieces the filing does
+tag:
+
+- non-current debt securities (`MarketableSecuritiesNoncurrent`, else
+  `AvailableForSaleSecuritiesDebtSecuritiesNoncurrent`);
+- a filed other-investments line (`OtherLongTermInvestments`), or, when there is
+  none, non-marketable equity securities
+  (`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`) plus
+  equity-method investments (`EquityMethodInvestments`). The other-investments
+  line already holds those two, as Alphabet's "Non-marketable securities" does,
+  so they are never added to it.
+
+An absent piece is named in the statement notes, never taken as zero. The
+undivided `AvailableForSaleSecuritiesDebtSecurities` total is never a piece:
+in most filings it also holds current and cash-equivalent securities that are
+already in cash and short-term investments, and the statements cannot split it.
+For Amazon at June 30, 2026 the line is $122.7B: $122.3B of non-marketable
+equity and $0.4B of equity-method investments. Its $97.9B of Anthropic
+convertible notes are tagged only with that undivided total, so they stay out.
+This is a known understatement, not an estimate.
+
+The bridge then subtracts one more line: **estimated tax on non-operating
+investments**. A stake reaches shareholders when it is sold, and the gain is
+taxed. The rate is the marginal-rate floor the DCF's terminal tax converges to
+(D-58): the 21% US federal rate for a US issuer, and the 15% global minimum
+where no statutory rate is sourced. It is charged on the whole carrying value
+of every non-operating asset the bridge adds, meaning the D-60 marketable
+equity securities and the long-term investments. The filings do not give each
+holding's tax basis, so a zero basis is assumed. That makes this the most the
+tax could be. It is exact for stakes bought for next to nothing, and it
+overstates the tax for holdings carried near cost, such as bond portfolios.
+This treatment is an owner decision (D-98). The bridge table prints the line as
+"Less estimated tax on non-operating investments (21% marginal rate, zero tax
+basis assumed)". The scenario assumptions and the DCF notes state the amount
+and the basis.

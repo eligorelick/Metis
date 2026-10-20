@@ -947,6 +947,14 @@ export interface DcfAssumptions {
    * an asset left out of operating capital is never left out of value too.
    */
   nonOperatingInvestments?: { value: number; balanceDate: string };
+  /**
+   * AMZN audit 2026-10-20: the rate at which the bridge taxes the non-operating
+   * investments it adds — the marginal-rate floor the terminal tax converges
+   * to (D-58) — applied to their whole carrying value, as if their tax basis
+   * were zero. Selling a stake is how its value reaches shareholders, and the
+   * gain is taxed; the filed carrying value is before that tax.
+   */
+  investmentTax?: { ratePct: number; basis: string };
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
 }
@@ -1834,7 +1842,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const rawS2c = startRev / (operatingIc ?? ic);
   const s2c = clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
   let s2cBasis = operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)`
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
     : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
@@ -1958,6 +1966,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
     ...(operatingIc !== null && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
+    investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
   };
@@ -1991,9 +2000,13 @@ export interface DcfRunOptions {
   nonOperatingComponents?: NonOperatingAssetComponent[] | null;
 }
 
-/** D-65: one non-operating asset the equity bridge adds, at its filed carrying or fair value. */
+/**
+ * D-65: one non-operating asset the equity bridge adds, at its filed carrying
+ * or fair value. The "investment-tax" line is negative: the tax a sale of the
+ * others would owe (AMZN audit 2026-10-20).
+ */
 export interface NonOperatingAssetComponent {
-  kind: "marketable-equity-securities" | "long-term-investments";
+  kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax";
   label: string;
   value: number;
   basis: string;
@@ -5288,13 +5301,27 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         components.push({ kind: "long-term-investments", label: "long-term investments (filed carrying value)", value: lti.value,
           basis: inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: the amount the sales-to-capital denominator removes as non-operating` });
       }
-      const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       for (const c of components) {
         notes.push(
           `DCF equity bridge adds ${c.label} of ${fmtNum(c.value)}: ${c.basis}. ` +
             "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied.",
         );
       }
+      // AMZN audit 2026-10-20: a stake reaches shareholders by being sold, and
+      // the gain is taxed. The basis of each holding is not in the statements,
+      // so the whole carrying value is taxed at the marginal rate: an upper
+      // bound on the tax, exact for stakes bought for next to nothing.
+      const investmentTax = assumptions.investmentTax ?? null;
+      const grossInvestments = components.reduce((sum, c) => sum + c.value, 0);
+      if (investmentTax !== null && grossInvestments > 0 && investmentTax.ratePct > 0) {
+        const value = -grossInvestments * investmentTax.ratePct / 100;
+        const label = `estimated tax on non-operating investments (${fmtNum(investmentTax.ratePct)}% marginal rate, zero tax basis assumed)`;
+        const basis = `${fmtNum(investmentTax.ratePct)}% of the ${fmtNum(grossInvestments)} added above; the rate is ${investmentTax.basis}. ` +
+          "The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost";
+        components.push({ kind: "investment-tax", label, value, basis });
+        notes.push(`DCF equity bridge subtracts the ${label} of ${fmtNum(-value)}: ${basis}.`);
+      }
+      const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       const runOpts: DcfRunOptions = {
         waccPct: inputs.waccPct,
         netDebt: netDebtForBridge,
