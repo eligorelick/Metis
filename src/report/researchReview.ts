@@ -31,7 +31,9 @@ type PeerCoverage = NonNullable<Valuation["peerCoverage"]>;
  * candidate never requested), not a screen rule. The body counted six such
  * AMZN candidates, and the subject itself, as "excluded at the screen".
  */
-const PROVIDER_UNAVAILABLE = /\b(?:candidate not requested|provider unavailable|deadline|cancellation|budget limit|HTTP (?:401|402|403|429)|quota|rate.?limit|timed? ?out)\b/i;
+const PROVIDER_UNAVAILABLE = /\b(?:candidate not requested|provider unavailable|deadline|cancellation|HTTP (?:401|402|403|429)|quota|rate.?limit|timed? ?out)\b/i;
+/** Candidates past the house's own candidate cap (peers.ts): not the provider's failure, nor the screen's. */
+const CANDIDATE_CAP = /\bcandidate budget limit \((\d+)\)/i;
 const RATE_LIMITED = /\b(?:HTTP 429|quota|rate.?limit)\b/i;
 
 export function peerCoverageSummary(peers: PeerCoverage, subject?: string): string[] {
@@ -42,15 +44,17 @@ export function peerCoverageSummary(peers: PeerCoverage, subject?: string): stri
     if (eligible.has(e.symbol) || e.symbol.trim().toUpperCase() === self) continue;
     excluded.set(e.symbol, [...(excluded.get(e.symbol) ?? []), e.reason]);
   }
-  const unserved = [...excluded.values()].filter((reasons) => reasons.every((reason) => PROVIDER_UNAVAILABLE.test(reason)));
-  const screenedOut = excluded.size - unserved.length;
+  const capped = [...excluded.values()].filter((reasons) => reasons.every((reason) => CANDIDATE_CAP.test(reason)));
+  const cap = capped.length > 0 ? CANDIDATE_CAP.exec(capped[0]![0]!)?.[1] : undefined;
+  const unserved = [...excluded.values()].filter((reasons) => !reasons.every((reason) => CANDIDATE_CAP.test(reason)) && reasons.every((reason) => PROVIDER_UNAVAILABLE.test(reason)));
+  const screenedOut = excluded.size - unserved.length - capped.length;
   const cause = unserved.some((reasons) => reasons.some((reason) => RATE_LIMITED.test(reason)))
     ? "the peer data provider hit its rate limit or quota" : "the peer data provider was unavailable or its deadline passed";
   const caveat = peers.methodology.some((line) => /comparability caveat/i.test(line))
     ? " Medians that are shown carry a comparability caveat: business-model, accounting and metric-definition evidence is not independently sourced."
     : "";
   return [
-    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}${unserved.length > 0 ? `; ${unserved.length} not compared because ${cause}` : ""}.${caveat}`,
+    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}${capped.length > 0 ? `; ${capped.length} beyond the ${cap}-candidate limit` : ""}${unserved.length > 0 ? `; ${unserved.length} not compared because ${cause}` : ""}.${caveat}`,
     "The screen rules, the per-metric notes and each exclusion with its reason are in the audit export.",
   ];
 }

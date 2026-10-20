@@ -92,6 +92,20 @@ describe("research reliability report surfaces", () => {
       expect(rendered).not.toContain("11 excluded");
     }
   });
+  // Independent review of these fixes: candidates past the house's own
+  // candidate cap are neither screened out nor the provider's failure.
+  it("counts candidates beyond the house candidate limit on their own", () => {
+    const report = fixture();
+    report.valuation.peerCoverage = { methodology: ["Exact normalized industry AND sector."], candidates: 12, evaluated: 10, eligible: ["PEERA", "PEERB", "PEERC", "PEERD"], comparisons: [],
+      exclusions: [
+        ...["SMALLA", "SMALLB", "SMALLC", "SMALLD", "SMALLE", "SMALLF"].map((symbol) => ({ symbol, reason: "size screen: market cap 6.67B is 424× smaller than the subject's 2.83T, outside the 100× comparable-size band (house rule D-65)" })),
+        ...["EXTRA1", "EXTRA2"].map((symbol) => ({ symbol, reason: "optional candidate budget limit (10)" })),
+      ] };
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).toContain("10 of 12 candidate issuers evaluated; eligible: PEERA, PEERB, PEERC, PEERD; 6 excluded at the screen; 2 beyond the 10-candidate limit.");
+      expect(rendered).not.toContain("peer data provider");
+    }
+  });
 
   it("keeps legacy reports readable without inventing a new review block", () => {
     const report = JSON.parse(readFileSync("fixtures/report/DEMO-sample.json", "utf8")) as Report;
