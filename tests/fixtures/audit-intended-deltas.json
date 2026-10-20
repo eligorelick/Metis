@@ -10124,6 +10124,7 @@
             "side": "below",
             "boundPct": -20,
             "perShareAtBound": 72.91448587767623,
+            "rising": true,
             "basis": "the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
           }
         },

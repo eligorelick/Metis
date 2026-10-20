@@ -1216,11 +1216,11 @@ describe("grading — buyback timing recency", () => {
 // AMZN audit 2026-10-20 finding 10: a price beyond the reverse solve's growth
 // range left the signal missing, which the composite read as neutral.
 describe("grading — reverse DCF with no root in the growth range", () => {
-  const withOutside = (side: "above" | "below", boundPct: number) => {
+  const withOutside = (side: "above" | "below", boundPct: number, rising = true) => {
     const v = valuationDcf() as unknown as { reverseDcf: Record<string, unknown> };
     v.reverseDcf = { method: "margin", impliedRevenueGrowthPct: null, impliedTerminalMarginPct: 45.9, baseRevenueGrowthPct: 7,
       growthPathFamily: "convergent-shift-to-terminal", notes: [], gaps: [],
-      growthOutsideRange: { side, boundPct, perShareAtBound: 128.88, basis: `the price implies year-one growth ${side} ${boundPct}%` } };
+      growthOutsideRange: { side, boundPct, perShareAtBound: 128.88, rising, basis: `the price implies year-one growth ${side} ${boundPct}%` } };
     const s = computeScores(makeInputs({ valuation: v as unknown as ValuationResult }));
     return s.aspects.valuation.signals?.find((x) => x.id === "reverseImpliedVsAchievable");
   };
@@ -1236,5 +1236,13 @@ describe("grading — reverse DCF with no root in the growth range", () => {
     expect(signal?.raw).toBe(-27);
     expect(signal?.transformedScore).toBe(90);
     expect(signal?.fallbackReason).toMatch(/implies year-one growth below -20%/);
+  });
+  // Independent review of these fixes: without value rising with growth there
+  // is no implied gap to state, only the score at the range end.
+  it("states no implied gap when value does not rise with growth", () => {
+    const signal = withOutside("above", 60, false);
+    expect(signal?.transformedScore).toBe(15);
+    expect(signal?.fallbackReason).not.toMatch(/at least/);
+    expect(signal?.fallbackReason).toMatch(/No implied growth is inferred/);
   });
 });

@@ -240,9 +240,15 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
           operand("growth search-range end the price lies beyond", outside.boundPct, "computed.valuation.reverseDcf.growthOutsideRange.boundPct", quoteDate);
           operand("DCF per share at that range end", outside.perShareAtBound, "computed.valuation.reverseDcf.growthOutsideRange.perShareAtBound", quoteDate);
           const gap = (outside.boundPct - base).toFixed(2);
-          result.fallbackReason = `No implied growth was solved: ${outside.basis}. ` + (outside.side === "above"
-            ? `Implied minus base starting growth is therefore at least ${gap} pp, past the band's last breakpoint, so the signal scores at the band floor.`
-            : `Implied minus base starting growth is therefore at most ${gap} pp, and the signal is scored at that bound; a wider gap would score no lower.`);
+          // Independent review of these fixes: an implied gap is stated only
+          // when value rises with growth; otherwise only the range-end score.
+          result.fallbackReason = `No implied growth was solved: ${outside.basis}. ` + (outside.rising === false
+            ? outside.side === "above"
+              ? `No implied growth is inferred; the price is above the value at every growth in the range, so the signal scores at the band floor.`
+              : `No implied growth is inferred; the price is below the value at every growth in the range, so the signal is scored at the range end (${gap} pp from base).`
+            : outside.side === "above"
+              ? `Implied minus base starting growth is therefore at least ${gap} pp, past the band's last breakpoint, so the signal scores at the band floor.`
+              : `Implied minus base starting growth is therefore at most ${gap} pp, and the signal is scored at that bound; a wider gap would score no lower.`);
         }
       } else if (id === "dcfUpside") {
         operand("DCF per share", i.valuation.dcf?.perShare, "computed.valuation.dcf.perShare", day(a?.asOf.statements));

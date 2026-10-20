@@ -527,6 +527,16 @@ describe("reverseDcf", () => {
     expect(cheap.growthOutsideRange!.basis).toMatch(/implies year-one growth below -20%/);
     // A solved root carries no bound.
     expect(reverseDcf(runDcf(a, opts).perShare!, a, opts).growthOutsideRange).toBeUndefined();
+    expect(rich.growthOutsideRange!.rising).toBe(true);
+  });
+  // Independent review of these fixes: where growth destroys value, the bound
+  // says only that no growth in the range reaches the price.
+  it("records when value does not rise with growth, and infers no growth beyond the range", () => {
+    const a = explicitAssumptions({ years: 10, growthPath: Array.from({ length: 10 }, () => 8), salesToCapital: 0.5 });
+    const opts = { waccPct: 10, netDebt: 0, dilutedShares: 100 };
+    const rev = reverseDcf(5 * runDcf(a, opts).perShare!, a, opts);
+    expect(rev.growthOutsideRange).toMatchObject({ side: "above", rising: false });
+    expect(rev.growthOutsideRange!.basis).toMatch(/no outside-range growth is inferred/);
   });
 });
 

@@ -2699,7 +2699,8 @@ export interface ReverseDcfResult {
    * the price lies beyond, `perShareAtBound` the value there. No implied
    * growth is inferred; `basis` states what the grid does establish.
    */
-  growthOutsideRange?: { side: "above" | "below"; boundPct: number; perShareAtBound: number; basis: string };
+  /** `rising`: value rises with growth across the whole grid, so the price implies growth beyond the range end. */
+  growthOutsideRange?: { side: "above" | "below"; boundPct: number; perShareAtBound: number; rising: boolean; basis: string };
   notes: string[];
   gaps: ManifestEntry[];
 }
@@ -2867,7 +2868,7 @@ export function reverseDcf(
           (rising
             ? `(${fmtNum(values[at])} at ${fmtNum(xs[at])}%), and value rises with growth across the grid, so the price implies year-one growth ${side} ${fmtNum(xs[at])}%`
             : `(${side === "above" ? "highest" : "lowest"} value ${fmtNum(extreme)}); value is non-monotone in growth here, so no year-one growth in the range ${side === "above" ? "reaches" : "comes down to"} the price and no outside-range growth is inferred`);
-        growthOutsideRange = { side, boundPct: xs[at], perShareAtBound: values[at], basis };
+        growthOutsideRange = { side, boundPct: xs[at], perShareAtBound: values[at], rising, basis };
         reason = `no root bracket for the fading year-one growth anchor: ${basis}`;
       }
       notes.push(reason);
