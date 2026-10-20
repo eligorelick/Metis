@@ -191,6 +191,13 @@ describe("buyback timing recency", () => {
     expect(r.gaps).toEqual(expect.arrayContaining([expect.objectContaining({ field: "capital.buybackPriceAnalysis.timing", severity: "info" })]));
   });
 
+  // Codex review of PR #42: a missing annual row must not stretch the window.
+  it("counts the window in fiscal years elapsed, not in annual rows available", () => {
+    const gappy = cashFlow({ "2022-12-31": 100 }).filter((row) => row.date !== "2024-12-31");
+    const bb = computeCapital(income, gappy, [], caps, { price: 40 }, { reportedCurrency: "USD", quoteCurrency: "USD", repurchaseExecutions: [execution("2022-12-31", 9.7, 100)] }).buybackPriceAnalysis;
+    expect(bb.timingStale?.reason).toMatch(/last 3 fiscal years \(2023-12-31 to 2025-12-31\)/);
+  });
+
   it("grades timing that covers one of the last three fiscal years", () => {
     const bb = run({ "2023-12-31": 100, "2021-12-31": 50 }, [execution("2023-12-31", 9.7, 100), execution("2021-12-31", 5, 50)]).buybackPriceAnalysis;
     expect(bb.timingStale).toBeUndefined();

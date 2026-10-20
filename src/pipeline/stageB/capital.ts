@@ -1132,9 +1132,15 @@ export function computeCapital(
   // AMZN audit 2026-10-20 finding 15: a timing read whose priced years are all
   // older than the last BUYBACK_TIMING_RECENT_YEARS fiscal years says little
   // about current stewardship; it is measured and shown, not graded.
-  const recentYears = cf.slice(0, BUYBACK_TIMING_RECENT_YEARS).map((r) => r.date);
-  const recentWindow = `the issuer's last ${BUYBACK_TIMING_RECENT_YEARS} fiscal years (${recentYears.at(-1)} to ${recentYears[0]})`;
-  const isRecent = (date: string): boolean => recentYears.some((d) => withinDays(d, date, STATEMENT_JOIN_TOLERANCE_DAYS));
+  // Codex review of PR #42: the window is fiscal years elapsed from the
+  // latest annual row, so a missing year cannot stretch it.
+  const latestYear = cf[0]?.date;
+  const windowStart = latestYear === undefined ? undefined
+    : `${Number(latestYear.slice(0, 4)) - (BUYBACK_TIMING_RECENT_YEARS - 1)}${latestYear.slice(4)}`;
+  const recentWindow = `the issuer's last ${BUYBACK_TIMING_RECENT_YEARS} fiscal years (${windowStart} to ${latestYear})`;
+  const isRecent = (date: string): boolean => latestYear !== undefined && windowStart !== undefined &&
+    (withinDays(windowStart, date, STATEMENT_JOIN_TOLERANCE_DAYS) || date > windowStart) &&
+    (withinDays(latestYear, date, STATEMENT_JOIN_TOLERANCE_DAYS) || date < latestYear);
   const pricedYears = buybackYears.filter((y) => isFiniteNumber(y.actualPricePaid)).map((y) => y.date);
   const recentRepurchase = buybackYears.some((y) => y.repurchased > 0 && isRecent(y.date));
   let timingStale: { reason: string; recentRepurchase: boolean } | undefined;
