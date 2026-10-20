@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.32.0 / payload 1.37.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_14 (2026-10-19). Its bounded evidence fixes
+The current source declares report 1.33.0 / payload 1.38.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_15 (2026-10-20). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the

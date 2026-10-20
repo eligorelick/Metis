@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.32.0** and
-payload **1.37.0** (company eligibility and AFFO comparability, 2026-10-19). The checked-in
+Current source declares application **0.1.0**, report spec **1.33.0** and
+payload **1.38.0** (independent audit fixes, 2026-10-20). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,17 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed independent audit fixes (2026-10-20)
+
+- Stamp the analysis cutoff after source acquisition, so facts a build has just fetched are not refused as unavailable (PGR-1, PGR-2).
+- Compose financing debt from instrument-class tags when a filer tags no long-term-debt aggregate, and withhold a possible double count. Withhold debt whose interest implies more than 25% (O-1, O-2, SNOW-1, SNOW-10).
+- Keep total debt when only an operating-lease maturity is missing. Remove the operating portion only when total debt is shown to contain it (FCX-1, FCX-14, CODE-1).
+- Mark EV/EBITDA "withheld" in Key data when debt was withheld (O-3).
+- Infer zero NCI only from the filing's own pattern, and add a 1% NCI materiality floor for parent P/FCF (SNOW-2, DOC-1).
+- Withhold a grade letter that rests on one partial signal, and name P/B fallbacks (PGR-4).
+- Commit trimmed SEC companyfacts fixtures for FCX, PGR, O, SNOW and NNN (GATE-21).
+- Advance report/payload/Stage B conventions to 1.33.0/1.38.0/ACCOUNTING_EVIDENCE_15. Stored reports remain immutable. See the [disposition record](docs/audit/2026-10-20-independent-audit-fixes.md) and D-97.
 
 ## Proposed company eligibility and AFFO comparability (2026-10-19)
 
