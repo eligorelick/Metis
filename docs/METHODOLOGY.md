@@ -552,9 +552,16 @@ half-life is a house convention pending the backtest in RESEARCH §8.2.
 
 **Margin path.** The EBIT margin starts at the current margin: guided, else
 TTM, else the five-year median. It fades to a target over 5 years and is held
-flat thereafter. The target is the five-year median, or the better/worse of
-median and current under a dated improving/declining margin regime (a slope of
-more than ±0.5pp per year).
+flat thereafter. The target is the five-year median under a stable regime. Under a
+dated declining regime (a slope below −0.5pp per year) it is the lower of median
+and current. Under a dated improving regime (a slope above +0.5pp per year) it is
+the higher of median and current, raised toward a bounded target: half the
+dated slope carried over the five fade years, but never past the scenario
+margin ceiling (today's gross margin less the leanest operating-expense ratio
+on record). With no gross margin on record the improving target stays at the
+higher of median and current. When the target was raised, the margin basis
+states the value with the margin held flat (see "AMZN audit fixes (October 20,
+2026)").
 
 **Tax path (D-58).** The tax rate fades from the observed effective rate to a
 terminal rate. The terminal rate is the company's own historical median,
@@ -2543,3 +2550,27 @@ guided year-over-year pace, the guided quarter over the same quarter a year
 earlier: $199.5B over $180.2B, +10.7%. That puts year one at about $829B
 instead of $791B. The sequential pace is used only when the statements lack
 that quarter in the model currency.
+
+**Improving margins fade up to a bounded target.** A declining margin regime
+faded the margin down toward its five-year median, but an improving one was
+held at today's level for ten years: Amazon's 12.08% stayed flat under an
+improving regime with a dated slope of +2.01pp a year, while its quarterly
+operating margin had already reached 13.7%. The improving target is now the
+lower of two bounds, and never below the current margin or the median:
+
+- half the dated slope carried over the five fade years (current + 0.5 × slope
+  × 5), so a trend is not extrapolated in full;
+- the scenario margin ceiling, today's gross margin less the leanest
+  operating-expense ratio among the TTM and the last five fiscal years. That is
+  the margin the issuer would earn at today's gross margin with costs it has
+  already run at. It also bounds the bull and bear scenarios (D-60).
+
+Without a gross margin on record the ceiling is unavailable and the margin is
+held flat, as before. The broken-input margin cap still applies on top. For
+Amazon the trend bound is 17.1% and the ceiling 14.03% (50.77% gross margin less
+FY2021's 36.74% operating-expense ratio), so the margin fades from 12.08% to
+14.03% by year five. Both the half-trend share and the ceiling as the bound are
+owner decisions (D-98). Because the raised target is a judgment, the margin
+basis and the DCF notes state its value: the per-share value on the faded path
+and with the margin held flat at the current level ("margin-fade
+sensitivity").

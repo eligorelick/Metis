@@ -92,6 +92,12 @@ export const MARGIN_WARN_BAND_PP: readonly [number, number] = [0, 35];
 export const MARGIN_FADE_YEARS = 5;
 /** Dated margin slope needed to classify a clear improving/declining regime. */
 export const MARGIN_TREND_THRESHOLD_PP_PER_YEAR = 0.5;
+/**
+ * AMZN audit 2026-10-20: the share of an improving regime's dated slope the
+ * fade carries over the fade years. Half the trend, and never past the
+ * scenario margin ceiling (docs/METHODOLOGY.md "Fade and horizon").
+ */
+export const IMPROVING_MARGIN_TREND_SHARE = 0.5;
 /** Terminal-growth axis of the sensitivity grid (pp around the base terminal growth). */
 export const SENSITIVITY_STEPS_PP: readonly number[] = [-1, -0.5, 0, 0.5, 1];
 /**
@@ -938,6 +944,11 @@ export interface DcfAssumptions {
    */
   scenarioMarginCeiling?: ScenarioMarginCeiling | null;
   /**
+   * AMZN audit 2026-10-20: present only when an improving regime faded the
+   * margin up, so runStageB can show the value with the margin held flat.
+   */
+  improvingMarginFade?: { currentPct: number; targetPct: number };
+  /**
    * D-65: the date the value is stated at. The explicit years are windows
    * from the statement date, so their flows are discounted from it; every
    * discount exponent then moves back by `elapsedYears`, which rolls the whole
@@ -1698,6 +1709,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   let regime: string | null = null;
   let slopeBasis = "unavailable";
   let targetMargin = m0;
+  let improvingBound: string | null = null;
   if (median5y === null) {
     gaps.push(gapEntry("valuation.dcf.marginTarget", "no annual margin history — margin held flat", "info"));
   } else {
@@ -1708,11 +1720,27 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         : marginSlope < -MARGIN_TREND_THRESHOLD_PP_PER_YEAR
           ? "declining"
           : "stable";
+    // AMZN audit 2026-10-20: a declining margin fades down to its history, so
+    // an improving one fades up rather than being held at today's level for
+    // ten years. The target is bounded twice: half the dated trend carried
+    // over the fade years, and the efficiency the issuer has already shown
+    // (today's gross margin less its leanest operating-expense ratio, the
+    // scenario ceiling). Without a gross margin to bound it, it stays flat.
+    const improvingCeiling = regime === "improving" && marginSlope !== null
+      ? scenarioMarginCeiling(ttm, inputs.incomeHistory)
+      : null;
+    const trendTarget = marginSlope !== null ? m0 + IMPROVING_MARGIN_TREND_SHARE * marginSlope * fadeYears : m0;
+    const improvingTarget = improvingCeiling === null ? m0 : Math.min(trendTarget, improvingCeiling.pct);
     targetMargin = regime === "improving"
-      ? Math.max(m0, median5y)
+      ? Math.max(m0, median5y, improvingTarget)
       : regime === "declining"
         ? Math.min(m0, median5y)
         : median5y;
+    if (regime === "improving" && improvingCeiling !== null && improvingTarget > Math.max(m0, median5y)) {
+      improvingBound = trendTarget <= improvingCeiling.pct
+        ? `half the dated trend over ${fadeYears} years (${fmtNum(m0)}% + ${IMPROVING_MARGIN_TREND_SHARE} × ${fmtNum(marginSlope as number)}pp × ${fadeYears}), below the ${fmtNum(improvingCeiling.pct)}% gross margin less the leanest operating-expense ratio`
+        : `the gross margin less the leanest operating-expense ratio, ${fmtNum(improvingCeiling.pct)}% (${fmtNum(improvingCeiling.grossMarginPct)}% ${improvingCeiling.grossMarginPeriod} less ${fmtNum(improvingCeiling.minOpexRatioPct)}% ${improvingCeiling.minOpexRatioPeriod}), below half the dated trend (${fmtNum(trendTarget)}%)`;
+    }
     slopeBasis = marginSlope === null ? "unavailable" : `${fmtNum(marginSlope)}pp/year`;
     notes.push(
       `EBIT margin regime ${regime}: dated 5y slope ${slopeBasis}; target ${fmtNum(targetMargin)}% versus current ${fmtNum(m0)}% and median ${fmtNum(median5y)}%`,
@@ -1739,7 +1767,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     : `${regime} dated-margin regime (5y median ${fmtNum(median5y as number)}%, slope ${slopeBasis})`;
   const marginBasis = cappedTarget === m0
     ? `held flat at current ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
-    : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}${capText}, flat thereafter`;
+    : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
+      `${improvingBound !== null ? `; the improving target is ${improvingBound}` : ""}${capText}, flat thereafter`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
     notes.push(
       `EBIT margin path leaves [${MARGIN_WARN_BAND_PP[0]}%, ${MARGIN_WARN_BAND_PP[1]}%] — unusual outside software; review (house-rule warning)`,
@@ -1968,6 +1997,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         "The year-one revenue anchor and the near-term growth rows state their own bases.",
     },
     ebitMarginPath: { value: marginPath, basis: marginBasis },
+    ...(improvingBound !== null && cappedTarget > m0 ? { improvingMarginFade: { currentPct: m0, targetPct: cappedTarget } } : {}),
     taxRatePath: { value: taxRatePath, basis: taxBasis },
     salesToCapital: { value: s2c, basis: s2cBasis },
     terminal: {
@@ -5350,6 +5380,21 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
+      // AMZN audit 2026-10-20: the improving fade is a judgment, so the reader
+      // sees what it is worth: the value with the margin held at today's level.
+      const fade = assumptions.improvingMarginFade;
+      if (fade !== undefined && dcf.perShare !== null) {
+        const flat = runDcf(
+          { ...assumptions, ebitMarginPath: { ...assumptions.ebitMarginPath, value: assumptions.ebitMarginPath.value.map(() => fade.currentPct) } },
+          runOpts,
+        );
+        if (flat.perShare !== null) {
+          const text = `margin-fade sensitivity: ${fmtNum(dcf.perShare)} a share on the faded path to ${fmtNum(fade.targetPct)}%, ` +
+            `${fmtNum(flat.perShare)} with the margin held flat at ${fmtNum(fade.currentPct)}%`;
+          assumptions.ebitMarginPath.basis = `${assumptions.ebitMarginPath.basis}; ${text}`;
+          notes.push(`DCF ${text}.`);
+        }
+      }
       sensitivity = sensitivityGrid(assumptions, runOpts);
       growthMargin = growthMarginGrid(assumptions, runOpts);
       // D-60: the terminal transition, stated. The explicit years reinvest

@@ -221,3 +221,58 @@ describe("guided quarter carried at its year-over-year pace", () => {
     expect(yearOne(amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-06-30", revenue: 167.7 * B } }))).toBeCloseTo(791.4 * B, -9);
   });
 });
+
+// AMZN audit 2026-10-20 (finding 4): a declining margin faded down to its
+// history while an improving one was held flat at today's level for ten
+// years. The improving fade is bounded by the efficiency the issuer has
+// already shown (today's gross margin less its leanest operating-expense
+// ratio) and by half its dated trend carried over the fade years.
+describe("improving margins fade up toward a bounded target", () => {
+  /** Margin 5→9% over FY2021-25 (slope +1pp/yr); FY2023 ran the leanest opex ratio, 43 − 7 = 36%. */
+  const improving = ([
+    ["2021-12-31", 100, 45, 5], ["2022-12-31", 110, 46, 6], ["2023-12-31", 120, 43, 7],
+    ["2024-12-31", 130, 48, 8], ["2025-12-31", 140, 49, 9],
+  ] as const).map(([date, revenue, grossPct, marginPct]) => ({
+    date, revenue: revenue * B, grossProfit: (grossPct / 100) * revenue * B, operatingIncome: (marginPct / 100) * revenue * B,
+    incomeBeforeTax: (marginPct / 100) * revenue * B, incomeTaxExpense: (marginPct / 500) * revenue * B,
+  }));
+  const ttmRevenue = 150 * B;
+  const inputs = (over: Partial<DcfAssumptionInputs> = {}): DcfAssumptionInputs => nvda({
+    incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: ttmRevenue, grossProfit: 0.5 * ttmRevenue, operatingIncome: 0.11 * ttmRevenue, incomeBeforeTax: 0.11 * ttmRevenue, incomeTaxExpense: 0.022 * ttmRevenue },
+    incomeHistory: improving,
+    quarterRevenue: { latest: { date: "2026-06-30", revenue: 38 * B }, yearAgo: { date: "2025-06-30", revenue: 35 * B } },
+    ...over,
+  });
+
+  it("fades to the lower of the demonstrated-efficiency ceiling and half the trend, never below today", () => {
+    const a = buildDcfAssumptions(inputs()).assumptions!;
+    // Ceiling: gross 50% (TTM) − leanest opex 36% (FY2023) = 14%; half the
+    // 1pp/yr trend over five years is 11 + 2.5 = 13.5%, which binds.
+    expect(a.ebitMarginPath.value[0]).toBeCloseTo(11, 6);
+    expect(a.ebitMarginPath.value[4]).toBeCloseTo(13.5, 2);
+    expect(a.ebitMarginPath.value[9]).toBeCloseTo(13.5, 2);
+    expect(a.ebitMarginPath.basis).toMatch(/fade current 11% .* -> 13\.5% by year 5 under improving/);
+    expect(a.ebitMarginPath.basis).toMatch(/half the dated trend/);
+    expect(a.improvingMarginFade).toEqual({ currentPct: 11, targetPct: expect.closeTo(13.5, 2) });
+  });
+
+  it("stops at the gross-margin-less-leanest-opex ceiling when the trend would carry past it", () => {
+    // TTM gross margin 48%: ceiling 48 − 36 (FY2023) = 12%, below the 13.5% trend bound.
+    const a = buildDcfAssumptions(inputs({
+      incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: ttmRevenue, grossProfit: 0.48 * ttmRevenue, operatingIncome: 0.11 * ttmRevenue, incomeBeforeTax: 0.11 * ttmRevenue, incomeTaxExpense: 0.022 * ttmRevenue },
+    })).assumptions!;
+    expect(a.scenarioMarginCeiling!.pct).toBeCloseTo(12, 6);
+    expect(a.ebitMarginPath.value[4]).toBeCloseTo(12, 6);
+    expect(a.ebitMarginPath.basis).toMatch(/gross margin less the leanest operating-expense ratio/);
+  });
+
+  it("holds the margin flat when no gross margin is filed to bound the target", () => {
+    const noGross = improving.map((row) => ({ ...row, grossProfit: null }));
+    const a = buildDcfAssumptions(inputs({
+      incomeHistory: noGross,
+      incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: ttmRevenue, operatingIncome: 0.11 * ttmRevenue, incomeBeforeTax: 0.11 * ttmRevenue, incomeTaxExpense: 0.022 * ttmRevenue },
+    })).assumptions!;
+    expect(a.ebitMarginPath.value.every((m) => Math.abs(m - 11) < 1e-9)).toBe(true);
+    expect(a.improvingMarginFade).toBeUndefined();
+  });
+});

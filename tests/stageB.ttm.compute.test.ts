@@ -1568,3 +1568,37 @@ describe("runStageB wiring — analyst estimates refused by a rate limit", () =>
     expect(plain?.severity).toBe("info");
   });
 });
+
+describe("runStageB wiring — improving margin fade sensitivity (AMZN audit 2026-10-20)", () => {
+  it("fades an improving margin up and shows the value with the margin held flat", () => {
+    const bundle = wiringBundle();
+    // Margins 14/16/18/20% over FY2022-25 (slope +2pp/yr); FY2023 ran the
+    // leanest operating-expense ratio, 30% gross − 16% margin = 14%.
+    const shape: Record<string, { operatingIncome: number; grossProfit?: number }> = {
+      "2022-12-31": { operatingIncome: 98 },
+      "2023-12-31": { operatingIncome: 128, grossProfit: 240 },
+      "2024-12-31": { operatingIncome: 162 },
+      "2025-12-31": { operatingIncome: 200 },
+    };
+    const rows = (bundle.statements.incomeAnnual as unknown as { value: { data: { rows: Record<string, unknown>[] } } }).value.data.rows;
+    for (const row of rows) {
+      const s = shape[row.date as string];
+      if (s === undefined) continue;
+      row.operatingIncome = s.operatingIncome * M;
+      row.ebit = s.operatingIncome * M;
+      if (s.grossProfit !== undefined) row.grossProfit = s.grossProfit * M;
+    }
+    const computed = runStageB(bundle);
+    if (computed.valuation.kind !== "dcf" || computed.valuation.assumptions === null || computed.valuation.dcf === null) {
+      throw new Error("expected a DCF");
+    }
+    const path = computed.valuation.assumptions.ebitMarginPath;
+    expect(path.value[0]).toBeCloseTo(20, 6);
+    expect(path.value[4]).toBeGreaterThan(20);
+    expect(path.basis).toMatch(/under improving dated-margin regime/);
+    const match = path.basis.match(/margin-fade sensitivity: ([\d.]+) a share on the faded path to [\d.]+%, ([\d.]+) with the margin held flat at 20%/);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeCloseTo(computed.valuation.dcf.perShare as number, 2);
+    expect(Number(match![2])).toBeLessThan(Number(match![1]));
+  });
+});
