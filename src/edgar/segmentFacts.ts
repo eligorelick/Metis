@@ -418,18 +418,39 @@ export function buildQuarterlySegments(
 }
 
 /**
- * Mark a member as the child of a subtotal member when, in the latest
- * quarter, that member equals the sum of two or three others (NVIDIA's Data
- * Center = Hyperscale + ACIE). Tolerance: 0.1% of the subtotal.
+ * Mark a member as the child of a subtotal member when that member equals the
+ * sum of two or three others (NVIDIA's Data Center = Hyperscale + ACIE).
+ * Tolerance: 0.1% of the subtotal.
+ *
+ * AMZN audit 2026-10-20 finding 13: the sum is checked in every quarter where
+ * the parent and all the candidate children are tagged, and must hold in at
+ * least two of them. Amazon's axis carries two partitions of revenue (product
+ * / service, and seven business lines); in the latest quarter alone online
+ * stores + third-party seller services + physical stores came within 0.002%
+ * of net service sales by coincidence, so product sales were shown as
+ * components of service sales. A real subtotal holds in every quarter; a
+ * parent the data cannot establish is not given.
  */
 function markSubtotals(rows: SegmentRow[]): void {
   const latest = rows.map((r) => r.values[0] ?? null);
+  const quarters = rows[0]?.values.length ?? 0;
+  const sumsInEveryQuarter = (p: number, combo: readonly number[]): boolean => {
+    let agreeing = 0;
+    for (let q = 0; q < quarters; q++) {
+      const parent = rows[p]!.values[q] ?? null;
+      const parts = combo.map((i) => rows[i]!.values[q] ?? null);
+      if (parent === null || parts.some((v) => v === null)) continue;
+      const sum = parts.reduce<number>((acc, v) => acc + v!, 0);
+      if (Math.abs(sum - parent) > Math.max(Math.abs(parent) * 0.001, 1)) return false;
+      agreeing += 1;
+    }
+    return agreeing >= 2;
+  };
   for (let p = 0; p < rows.length; p++) {
     const parent = latest[p];
     if (parent === null || parent <= 0) continue;
     const others = rows.map((_, i) => i).filter((i) => i !== p && latest[i] !== null && rows[i]!.childOf === null);
-    const tolerance = Math.max(parent * 0.001, 1);
-    const found = combos(others, 2).concat(combos(others, 3)).find((combo) => Math.abs(combo.reduce((sum, i) => sum + latest[i]!, 0) - parent) <= tolerance);
+    const found = combos(others, 2).concat(combos(others, 3)).find((combo) => sumsInEveryQuarter(p, combo));
     if (found) for (const i of found) rows[i]!.childOf = rows[p]!.member;
   }
 }
