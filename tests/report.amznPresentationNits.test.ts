@@ -3,15 +3,19 @@
  * report text.
  */
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { applyMultiples } from "@/pipeline/stageC/passes";
 import { computeAccruals, type ForensicsPeriod } from "@/pipeline/stageB/forensics";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { executiveGroups, metricLabel, sourceLabel } from "@/report/presentation";
 import { ReportSchema, type SourcedClaim } from "@/report/schema";
+import { ReportView } from "@/components/report/ReportView";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -82,6 +86,27 @@ describe("officers the report does not assess", () => {
       expect(text).toContain("Not assessed: Matthew S. Garman (CEO Amazon Web Services).");
       expect(text).toContain("AWS revenue for the quarter ended 2026-06-30");
       expect(text).not.toContain("execution grade recognizes AWS commercial growth");
+    }
+  });
+});
+
+describe("the enterprise-value bridge beside the multiples", () => {
+  it("is stated once, without the operator setting that changes it", () => {
+    const computed = runStageB(completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }));
+    const bridge = computed.valuation.multiples!.enterpriseValue!.basis;
+    expect(bridge).toContain("EV/EBITDA uses this same EV.");
+    const report = loadTask28Fixture();
+    report.valuation = applyMultiples(report.valuation, computed.valuation);
+    const stored = ReportSchema.parse(report);
+    const surfaces = [reportToMarkdown(stored), reportToPrintBody(stored), renderToStaticMarkup(createElement(ReportView, { report: stored }))];
+    for (const text of surfaces) {
+      expect(text.split("EV/EBITDA uses this same EV.").length - 1).toBe(1);
+      expect(text).not.toContain("THESIS_EV_INCLUDE_LEASES");
+      expect(text).not.toContain("THESIS\\_EV\\_INCLUDE\\_LEASES");
+    }
+    // Each EV row still says which EV it divides by.
+    for (const name of ["EV/EBITDA", "EV/Sales"]) {
+      expect(stored.valuation.multiples.find((m) => m.name === name)?.basis).toMatch(/enterprise-value bridge note/);
     }
   });
 });

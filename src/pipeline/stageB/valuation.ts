@@ -3078,6 +3078,16 @@ export interface MultiplesFrameworkInputs {
   includeLeasesInEv?: boolean;
 }
 
+/**
+ * The operator setting the EV bridge basis names (WS6, D-19), exactly as the
+ * basis spells it. AMZN audit 2026-10-20 finding 20: the report states the
+ * lease convention without the environment variable that changes it.
+ */
+export const EV_LEASE_SETTING_TEXT = {
+  excluded: " (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it)",
+  included: " (THESIS_EV_INCLUDE_LEASES=1)",
+} as const;
+
 /** WS6 (D-19): the EV bridge, both ways, with the convention stated. Only the
  * OPERATING slice ever moves between the two (WS6 review, BLOCKER 1). */
 export interface EnterpriseValueBridge {
@@ -3660,8 +3670,8 @@ export function multiplesFramework(
     (incompleteLeases !== null
       ? `Enterprise value ${includeLeases ? "keeps" : "removes"} the disclosed operating-lease portion embedded in retained debt. ${incompleteLeases.note} `
       : includeLeases
-      ? "Enterprise value INCLUDES the operating-lease liability (THESIS_EV_INCLUDE_LEASES=1). "
-      : "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). ") +
+      ? `Enterprise value INCLUDES the operating-lease liability${EV_LEASE_SETTING_TEXT.included}. `
+      : `Enterprise value EXCLUDES the OPERATING-lease liability${EV_LEASE_SETTING_TEXT.excluded}. `) +
     "EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments" +
     (netDebt.nonOperatingEquitySecurities !== undefined
       ? ` excluding ${fmtNum(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`

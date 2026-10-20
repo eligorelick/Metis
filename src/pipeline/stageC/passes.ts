@@ -41,7 +41,7 @@ import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
-import { isStartingGrowthFamily, type MultipleKey } from "@/pipeline/stageB/valuation";
+import { EV_LEASE_SETTING_TEXT, isStartingGrowthFamily, type MultipleKey } from "@/pipeline/stageB/valuation";
 import { piotroskiSignalOutcomes } from "@/pipeline/stageB/forensics";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
@@ -3339,6 +3339,19 @@ export function applyMultiples(
   computedValuation: ComputedMetrics["valuation"] | undefined,
 ): JudgeOutput["valuation"] {
   const mr = computedValuation?.multiples ?? null;
+  // AMZN audit 2026-10-20 finding 20: Stage B appends the whole EV bridge to
+  // each EV multiple's basis, and the table note below states it again, so a
+  // report printed it three times, each naming the environment variable that
+  // keeps leases in EV. The note (multiplesBasis) states it once, in reader
+  // terms; each EV row points to it.
+  const bridgeBasis = mr?.enterpriseValue?.basis ?? null;
+  const readerBridge = bridgeBasis === null ? null : bridgeBasis
+    .replace(EV_LEASE_SETTING_TEXT.excluded, " (house default)")
+    .replace(EV_LEASE_SETTING_TEXT.included, " (a non-default setting)");
+  const rowBasis = (basis: string): string =>
+    bridgeBasis !== null && bridgeBasis.trim() !== "" && basis.includes(bridgeBasis)
+      ? basis.replace(bridgeBasis, "Enterprise value as stated once in the enterprise-value bridge note.")
+      : basis;
   const rows =
     mr === null
       ? []
@@ -3350,7 +3363,7 @@ export function applyMultiples(
           return {
             name: stat.key === "priceToFcf" && stat.ownershipScope ? "P/FCF (before SBC; cash attribution unresolved)" : MULTIPLE_LABELS[stat.key],
             current: stat.current,
-            ...(typeof stat.basis === "string" && stat.basis.trim() ? { basis: stat.basis } : {}),
+            ...(typeof stat.basis === "string" && stat.basis.trim() ? { basis: rowBasis(stat.basis) } : {}),
             peerMedian: stat.peers?.median ?? null,
             peerCount: stat.peers?.count ?? null,
             own5yPercentile: history?.percentileRank ?? null,
@@ -3370,7 +3383,7 @@ export function applyMultiples(
   const headline = scope?.status === "resolved"
     ? `Issuer-common equity: ${scope.economicShares} economic shares outstanding at ${scope.shareCountAsOf}; capitalization ${scope.marketCap} ${scope.currency ?? "(currency unavailable)"}. ` : "";
   const ownershipScopes = [...new Set(mr?.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string")) ?? [])];
-  const multiplesBasis = [mr?.enterpriseValue?.basis ? headline + mr.enterpriseValue.basis +
+  const multiplesBasis = [mr?.enterpriseValue?.basis && readerBridge !== null ? headline + readerBridge +
     (scope && !mr.enterpriseValue.basis.includes(scope.basis) ? ` ${scope.basis}` : "") : "", ...ownershipScopes].filter(Boolean).join(" ") || undefined;
   const marketValueScope = scope && mr?.enterpriseValue ? {
     status: scope.status, marketCap: scope.marketCap, economicShares: scope.economicShares,
@@ -3378,7 +3391,7 @@ export function applyMultiples(
     priceAsOf: scope.priceAsOf ?? null,
     approximate: scope.approximate, basis: scope.basis,
     ...(scope.classPriceDates ? { classPriceDates: scope.classPriceDates } : {}),
-    enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: mr.enterpriseValue.basis,
+    enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: readerBridge ?? mr.enterpriseValue.basis,
   } : undefined;
   return { ...rest, multiples: rows, ...(multiplesBasis ? { multiplesBasis } : {}), ...(marketValueScope ? { marketValueScope } : {}), ...(mr?.peerCoverage ? { peerCoverage: mr.peerCoverage } : {}) };
 }
