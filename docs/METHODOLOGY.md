@@ -2422,3 +2422,14 @@ infers zero NCI when the filing shows it (see "EV bridge"). Parent-common P/FCF
 and its history are withheld for outside ownership only when the known NCI
 exceeds 1% of consolidated equity. Below that, NCI cannot move the multiple
 (audit SNOW-2).
+
+**A grade needs corroborating evidence.** No surface shows an aspect's letter
+when its score rests on less than half of its intended signal weight (D-67).
+It also shows none when the score rests on one signal carrying only part of
+that weight, such as an insurer's own-history P/B rank without the ROE
+reverse-solve signal. The label is "Not assessed — limited evidence (score N/100
+on one signal, X% of signals)". The score and the composite are unchanged,
+since the composite already weights each aspect by its evidence. A route that
+designs a single signal and observes it in full, such as the REIT P/FFO rank, is
+not affected. A P/TBV rank that falls back to P/B is labelled a P/B rank
+(audit PGR-4).

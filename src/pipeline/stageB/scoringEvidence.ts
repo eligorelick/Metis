@@ -8,6 +8,10 @@ const day = (value: string | null | undefined): string | null => {
   const parsed = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : null;
 };
+/** Reader names for the multiples an own-history rank can fall back across. */
+const HISTORY_KEY_LABEL: Record<string, string> = {
+  peTtm: "P/E", evToEbitda: "EV/EBITDA", priceToFcf: "Price/FCF", priceToTbv: "P/TBV", priceToBook: "P/B", priceToFfo: "P/FFO", priceToAffo: "P/AFFO",
+};
 type Evidence = Pick<ScoreSignal, "family" | "asOf" | "period" | "startDate" | "endDate" | "windowYears" | "fallbackReason" | "operands">;
 
 /** Metadata only: mirror each grader's selected operand and never change its numeric score. */
@@ -189,7 +193,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         completeSample ? null : "Historical sample dates unavailable or incomplete.",
         completeSample && missingMarketDates > 0 ? `${missingMarketDates} market observation date(s) unavailable; fiscal period dates are not substituted.` : null,
         "Historical publication availability at the market observation dates is not established; this is a retrospective comparison of retained statement history.",
-        selected.key !== ownKeys[0] ? `${ownKeys[0] === "peTtm" ? "P/E" : ownKeys[0]} history comparison unavailable; using ${selected.key === "evToEbitda" ? "EV/EBITDA" : selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
+        selected.key !== ownKeys[0] ? `${HISTORY_KEY_LABEL[ownKeys[0]!] ?? ownKeys[0]} history comparison unavailable; using ${HISTORY_KEY_LABEL[selected.key] ?? selected.key} own-history rank. This does not imply the current multiple is unavailable.` : null,
       ].filter(Boolean).join(" ") : ["Own-history rank unavailable.", cashOwnershipScope].filter(Boolean).join(" ");
       if (selected) {
         operand(`${selected.key} current multiple`, selected.current, `computed.valuation.multiples.${selected.key}.current`, quoteDate);

@@ -1578,7 +1578,10 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
           ? signals.reduce((sum, s) => sum + s.effectiveCompositeWeightPct, 0)
           : scores.composite.weights[key] * scores.aspects[key].dataCompleteness;
         const weight = scores.composite.weights[key];
-        return `${SCORE_ASPECT_LABEL[key]} has evidence for ${Math.round(scores.aspects[key].dataCompleteness * 100)}% of its signal weight, below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
+        const why = scores.aspects[key].dataCompleteness < MIN_HEADLINE_EVIDENCE
+          ? `below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter`
+          : "all from one signal, and a letter needs a second";
+        return `${SCORE_ASPECT_LABEL[key]} has evidence for ${Math.round(scores.aspects[key].dataCompleteness * 100)}% of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
       }).join(" ")}`,
     }),
   };
@@ -1609,6 +1612,8 @@ export function passLine(entry: NonNullable<Report["meta"]["execution"]>[number]
 /** Score drivers with reader labels, values in their own units and the points each adds. */
 export function scoreDriverTable(scores: NonNullable<Report["scores"]>): BodyTable | null {
   const historyLabel = (signal: NonNullable<NonNullable<Report["scores"]>["aspects"]["valuation"]["signals"]>[number]): string => {
+    // Audit PGR-4: a P/TBV rank that fell back to P/B is named for what it ranks.
+    if (signal.id === "priceToTbvOwnHistoryRank" && signal.operands.some(operand => /\.multiples\.priceToBook\.current$/.test(operand.source))) return "P/B own-history rank";
     if (signal.id !== "peOwnHistoryRank") return signalLabel(signal.id);
     const source = signal.operands.find(operand => /\.multiples\.(?:peTtm|evToEbitda|priceToFcf)\.current$/.test(operand.source))?.source;
     const key = source?.split(".").at(-2);

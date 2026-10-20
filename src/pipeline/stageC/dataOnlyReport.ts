@@ -47,7 +47,7 @@ import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
-import { MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import { hasLimitedEvidence } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
@@ -264,7 +264,7 @@ function gradeBlock(
     };
   }
   const completenessPct = Math.round(aspect.dataCompleteness * 100);
-  const limited = aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE;
+  const limited = hasLimitedEvidence(aspect);
   return {
     grade: aspect.band,
     assessmentStatus: limited ? "limited-evidence" : "deterministic",
@@ -771,7 +771,7 @@ function synthesis(
     const bands = (Object.keys(ASPECT_LABEL) as ScoreAspect[])
       .map((key) => {
         const aspect = computed.scores.aspects[key];
-        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE ? "limited evidence" : aspect.band}`;
+        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band}`;
       })
       .join(", ");
     parts.push(

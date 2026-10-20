@@ -14,7 +14,7 @@
  */
 
 import type { ReactNode } from "react";
-import { MIN_HEADLINE_EVIDENCE, type AspectEvidence } from "@/report/assessment";
+import { hasLimitedEvidence, type AspectEvidence } from "@/report/assessment";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
@@ -376,7 +376,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
               >
                 <span className="text-[9px] uppercase tracking-[0.09em] text-faint">{descriptor.label}</span>
                 <div className="flex items-center justify-between gap-1">
-                  {a.score !== null && a.dataCompleteness < MIN_HEADLINE_EVIDENCE
+                  {hasLimitedEvidence(a)
                     ? <span className="mono text-[10px] text-warn">limited evidence</span>
                     : <ScorePill score={a.score} band={a.band} />}
                   {a.score !== null && a.dataCompleteness < 1 && (
