@@ -711,8 +711,12 @@ describe("computeRoic", () => {
     expect(res.asOf).toBe("2025-12-31");
   });
 
+  // AMZN audit 2026-10-20 finding 9: a pre-tax loss with positive operating
+  // income is no longer suppressed — it is taxed at the documented D-58
+  // marginal-rate floor (below). An operating loss, or a missing tax expense,
+  // still has no rate to apply.
   it.each([
-    ["pre-tax loss", { incomeBeforeTax: -50, incomeTaxExpense: 5 }],
+    ["pre-tax and operating loss", { operatingIncome: -10, incomeBeforeTax: -50, incomeTaxExpense: 5 }],
     ["missing tax expense", { incomeBeforeTax: 100, incomeTaxExpense: null }],
   ])("suppresses ROIC for %s instead of inventing a tax rate", (_label, override) => {
     const res = computeRoic([{ ...roicIncome[0], ...override }], roicBalance);
@@ -724,6 +728,30 @@ describe("computeRoic", () => {
     expect(res.gaps).toEqual(
       expect.arrayContaining([expect.objectContaining({ field: "returns.roic.taxRate", severity: "warn" })]),
     );
+  });
+
+  // AMZN audit 2026-10-20 finding 9: Amazon's FY2022 pre-tax loss came from a
+  // non-operating Rivian mark while operating income was +$12.2B; dropping the
+  // year let the moat's ROIC floor skip its worst operating year.
+  it("taxes positive operating income at the marginal-rate floor in a pre-tax loss year", () => {
+    const loss = [{ ...roicIncome[0], incomeBeforeTax: -50, incomeTaxExpense: -12 }, roicIncome[1]];
+    const us = computeRoic(loss, roicBalance, { domicileCountry: "US" });
+    const latest = us.series[us.series.length - 1];
+    expect(latest.taxRateUsed).toBeCloseTo(0.21, 12);
+    expect(latest.nopat).toBeCloseTo(200 * 0.79, 9);
+    expect(latest.roicPct).toBeCloseTo(((200 * 0.79) / 850) * 100, 9);
+    expect(latest.taxFloorBasis).toMatch(/pre-tax income is not positive/i);
+    expect(latest.taxFloorBasis).toMatch(/21%.*marginal-rate floor/i);
+    expect(latest.notes.join(" ")).not.toContain("tax rate unavailable");
+    expect(us.gaps).toEqual(expect.arrayContaining([expect.objectContaining({ field: "returns.roic.taxRate", severity: "info" })]));
+    expect(us.gaps.some((g) => g.field === "returns.roic.taxRate" && g.severity === "warn")).toBe(false);
+    // No sourced statutory rate: the 15% global minimum, as the DCF's floor uses.
+    const unknown = computeRoic(loss, roicBalance);
+    expect(unknown.series[unknown.series.length - 1].taxRateUsed).toBeCloseTo(0.15, 12);
+    expect(unknown.series[unknown.series.length - 1].taxFloorBasis).toMatch(/global minimum/i);
+    // A year with a positive pre-tax income keeps its own effective rate.
+    expect(us.series[0].taxRateUsed).toBeCloseTo(0.2, 12);
+    expect(us.series[0].taxFloorBasis).toBeUndefined();
   });
 
   it("guards negative invested capital (roic null + note)", () => {

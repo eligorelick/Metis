@@ -2875,7 +2875,7 @@ function computeReturns(
   const roic: RoicResult = isFinancial
     ? { series: [], latestRoicPct: null, asOf: isoDay(incomeAnnual[0]?.date),
         notes: ["ROIC is not applicable to financial companies: funding liabilities and cash are operating inputs."], gaps: [] }
-    : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases });
+    : computeRoic(returnsIncome, returnsBalance, { includeOperatingLeases, domicileCountry: str(profile?.country) });
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);

@@ -102,8 +102,19 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       // an operand so the reader sees which year set the floor.
       dates(valid[0]?.date, valid.at(-1)?.date);
       result.period = `Lowest of the annual return observations ${result.period ?? "with unavailable dates"}`;
+      // AMZN audit 2026-10-20 finding 9: a year inside the stated window with no
+      // return is named, so the window is not read as complete, and a year
+      // taxed at the marginal-rate floor says so.
+      const first = rows.findIndex(r => finite(r.value)), last = rows.findLastIndex(r => finite(r.value));
+      const missing = first < 0 ? [] : rows.slice(first, last + 1).filter(r => !finite(r.value)).map(r => r.date);
+      if (missing.length > 0) result.period += `; no return for ${missing.join(", ")}, so the floor does not cover ${missing.length === 1 ? "that year" : "those years"}`;
+      const floored = tangible ? [] : i.roic.series.filter(r => finite(r.roicPct) && r.taxFloorBasis);
+      if (floored.length > 0) result.fallbackReason = floored.map(r => `${r.date}: ${r.taxFloorBasis}.`).join(" ");
       for (const row of valid) operand(`return at ${row.date}`, row.value, `${source}.series`, day(row.date));
     } else {
+      // AMZN audit 2026-10-20 finding 9: the latest year's ROIC may rest on the marginal-rate floor too.
+      const latestBasis = tangible ? undefined : i.roic.series.at(-1)?.taxFloorBasis;
+      if (latestBasis && finite(i.roic.latestRoicPct)) result.fallbackReason = `${i.roic.series.at(-1)!.date}: ${latestBasis}.`;
       dates(null, tangible ? i.rote.asOf : i.roic.asOf);
       operand(tangible ? "ROTE" : "ROIC", tangible ? i.rote.latestRotePct : i.roic.latestRoicPct, `${source}.latest${tangible ? "Rote" : "Roic"}Pct`);
       if (id === "roicVsWaccSpread") {

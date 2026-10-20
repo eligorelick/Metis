@@ -1169,3 +1169,24 @@ describe("grading — SBC against zero or negative free cash flow", () => {
     expect(sbcSignal(capital({ current: current(null, 19.314) }))).toBeUndefined();
   });
 });
+
+// AMZN audit 2026-10-20 finding 9: the ROIC floor's label read "Lowest of the
+// annual return observations 2021-12-31 to 2025-12-31" with FY2022 missing.
+describe("grading — ROIC floor window", () => {
+  const floorSignal = (r: RoicResult) => computeScores(makeInputs({ roic: r })).aspects.moat.signals?.find((x) => x.id === "roicFloor");
+  it("names a year in the window that has no return", () => {
+    const signal = floorSignal(roic(22, [20, null, 18, 23, 22]));
+    expect(signal?.raw).toBe(18);
+    expect(signal?.period).toMatch(/no return for 2021/);
+    expect(floorSignal(roic())?.period).not.toMatch(/no return/);
+    // A year before the first observation is already outside the stated window.
+    expect(floorSignal(roic(22, [null, 20, 18, 23, 22]))?.period).not.toMatch(/no return/);
+  });
+  it("says which years were taxed at the marginal-rate floor", () => {
+    const r = roic(22, [20, 7, 18, 23, 22]);
+    r.series[1].taxFloorBasis = "pre-tax income is not positive while operating income is: operating income taxed at the 21% marginal-rate floor";
+    const signal = floorSignal(r);
+    expect(signal?.raw).toBe(7);
+    expect(signal?.fallbackReason).toMatch(/^2021: pre-tax income is not positive/);
+  });
+});

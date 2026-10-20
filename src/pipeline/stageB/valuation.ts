@@ -232,6 +232,23 @@ export const STATUTORY_MARGINAL_TAX_PCT: Readonly<Record<string, { pct: number; 
   US: { pct: 21, source: "US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded" },
 };
 
+/**
+ * D-58: the marginal-rate floor for an issuer domicile: the sourced statutory
+ * rate, never below the global minimum, and the global minimum alone where no
+ * statutory rate is sourced. Shared by the DCF's terminal tax and ROIC's
+ * loss-year NOPAT (AMZN audit 2026-10-20 finding 9).
+ */
+export function marginalTaxFloor(domicileCountry: string | null | undefined): { pct: number; basis: string } {
+  const domicile = (domicileCountry ?? "").trim().toUpperCase();
+  const statutory = STATUTORY_MARGINAL_TAX_PCT[domicile] ?? null;
+  return {
+    pct: Math.max(GLOBAL_MINIMUM_TAX_PCT, statutory?.pct ?? 0),
+    basis: statutory === null
+      ? `the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax (OECD Pillar Two; no sourced statutory rate for domicile ${domicile || "unknown"})`
+      : `max(statutory ${statutory.pct}% — ${statutory.source} — and the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax, OECD Pillar Two)`,
+  };
+}
+
 /** Years from the TTM window's midpoint to the latest quarter's midpoint (4.5 months). */
 const TTM_TO_LATEST_QUARTER_YEARS = 4.5 / 12;
 /** Years from the latest quarter's midpoint to the year-one window's midpoint (7.5 months). */
@@ -1825,12 +1842,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // the marginal rate (Damodaran), never below the 15% global minimum (OECD
   // Pillar Two). NVDA's terminal NOPAT was taxed at its 8.9% historical median
   // while it guides 16-18%. A company whose own history is higher keeps it.
-  const domicile = (inputs.domicileCountry ?? "").trim().toUpperCase();
-  const statutory = STATUTORY_MARGINAL_TAX_PCT[domicile] ?? null;
-  const taxFloor = Math.max(GLOBAL_MINIMUM_TAX_PCT, statutory?.pct ?? 0);
-  const taxFloorText = statutory === null
-    ? `the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax (OECD Pillar Two; no sourced statutory rate for domicile ${domicile || "unknown"})`
-    : `max(statutory ${statutory.pct}% — ${statutory.source} — and the ${GLOBAL_MINIMUM_TAX_PCT}% global minimum tax, OECD Pillar Two)`;
+  const { pct: taxFloor, basis: taxFloorText } = marginalTaxFloor(inputs.domicileCountry);
   const companyTax = companyTerminalTax as number;
   const taxTerminal = Math.max(companyTax, taxFloor);
   const companyTaxText = historicalMedianTax !== null ? "company historical median" : `${periodBasis} effective rate`;
