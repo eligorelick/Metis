@@ -817,11 +817,13 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
   if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current) });
   else {
-    // A debt figure the pipeline withheld is not an absent input: say the
-    // multiple was withheld, so the box cannot read as merely incomplete.
+    // Net debt the pipeline withheld for the current EV is not an absent
+    // input: say the multiple was withheld, so the box cannot read as merely
+    // incomplete. Stage B files this gap for the current balance only, whether
+    // the statement builder or the plausibility check withheld the debt.
     const withheldEv = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name));
-    const debtGap = report.appendix.missingData.find((gap) => gap.severity !== "info" && !gap.resolution && /^statements\.balance\.[^.]+\.totalDebt$/.test(gap.field));
-    if (withheldEv && debtGap) rows.push({ label: `${withheldEv.name} (TTM)`, value: "withheld", note: "debt incomplete: a total-debt figure was withheld (see the data gaps)" });
+    const netDebtGap = report.appendix.missingData.find((gap) => gap.severity !== "info" && !gap.resolution && gap.field === "valuation.multiples.netDebt");
+    if (withheldEv && netDebtGap) rows.push({ label: `${withheldEv.name} (TTM)`, value: "withheld", note: "net debt withheld, so EV is too (see the data gaps)" });
   }
 
   const si = md?.shortInterest;

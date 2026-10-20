@@ -2373,16 +2373,17 @@ Primary sources: [IREN FY2026 10-K](https://www.sec.gov/Archives/edgar/data/1878
 
 **Financing debt from instrument-class tags.** Some filers tag no long-term-debt aggregate (`LongTermDebtNoncurrent`, `LongTermDebtAndCapitalLeaseObligations`, `LongTermDebt`). REITs tag their unsecured notes and term loans as `NotesPayable` and `LoansPayable`. Some issuers tag their only debt as a convertible note, and some tag all debt as `DebtLongtermAndShorttermCombinedAmount`. For such a filer, the keyless build used to publish total debt as leases and commercial paper alone. When every aggregate misses, noncurrent financing debt now comes from the filer's own classes:
 - the combined debt amount, when tagged;
-- otherwise, the sum of one figure per class (notes, loans, secured debt, convertible notes and long-term revolver). Each class takes its inclusive total first, then its noncurrent variant, so no class is counted twice.
+- otherwise, the sum of one figure per class (notes, loans, secured debt, convertible notes and long-term revolver). Each class takes its inclusive total first. Otherwise it takes its noncurrent variant plus the current variant that the noncurrent tag excludes (`ConvertibleDebtCurrent` beside `ConvertibleDebtNoncurrent`, for example). Notes falling due within a year therefore stay in debt, and no class is counted twice.
 
-The row discloses the substitution. These class totals include their own current portion, so the figure is withheld, never doubled, in three cases:
+The row discloses the substitution. These class figures can include current debt, so the figure is withheld, never doubled, in four cases:
 - the combined amount sits beside a separately resolved current-debt figure;
+- a current-variant class figure sits beside any resolved current-debt figure;
 - an inclusive class total sits beside a current-maturities line;
 - both a generic notes total and a convertible-notes total are tagged.
 
 A withheld noncurrent figure withholds total and net debt.
 
-**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. The year's interest expense is divided by the most debt resolved at any balance date of that year. Above 25%, the components cannot be the debt that carried the interest, so total debt and net debt are withheld with a manifest gap, and every leverage, EV and WACC consumer sees the gap. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. The check does not run in three cases:
+**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. The year's interest expense is divided by the most debt resolved at any balance date of that year. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. The check does not run in three cases:
 - interest below 0.25% of total assets;
 - resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
 - the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
@@ -2411,8 +2412,9 @@ choice (audit FCX-14).
 withheld, the Balance Sheet aspect scores without net debt/EBITDA and
 renormalises over its remaining signals; it does not fall back to an older
 balance. EV and the EV multiples are withheld with it. The report's Key data box
-then shows EV/EBITDA as "withheld" with the reason "debt incomplete", rather than
-omitting the row as if the input were merely absent (audit O-3).
+then shows EV/EBITDA as "withheld" whenever the current EV lacks net debt,
+whichever stage withheld the debt, rather than omitting the row as if the
+input were merely absent (audit O-3).
 
 **Zero and immaterial outside ownership.** A filer that deconsolidates its last
 partly owned subsidiary may stop tagging parent equity and minority interest.
@@ -2420,8 +2422,10 @@ It then keeps only the total including NCI, and Métis used to read that as
 unknown outside ownership, which withheld every EV multiple. The builder now
 infers zero NCI when the filing shows it (see "EV bridge"). Parent-common P/FCF
 and its history are withheld for outside ownership only when the known NCI
-exceeds 1% of consolidated equity. Below that, NCI cannot move the multiple
-(audit SNOW-2).
+balance or the NCI share of earnings exceeds 1% of consolidated equity. Below
+that, NCI cannot move the multiple (audit SNOW-2). A stake bought out before
+the balance date leaves a zero balance but still earned its share of the cash
+flow, so earnings above the floor still withhold P/FCF.
 
 **A grade needs corroborating evidence.** No surface shows an aspect's letter
 when its score rests on less than half of its intended signal weight (D-67).

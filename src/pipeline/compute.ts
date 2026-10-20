@@ -1725,7 +1725,7 @@ function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: 
 }
 
 /**
- * Withhold total and net debt on every balance row whose year's interest
+ * Withhold total, net and long-term debt on every balance row whose year's interest
  * expense shows its debt to be incomplete. The interest is judged against the
  * most debt resolved at any balance date of that year, so a borrowing repaid
  * mid-year still explains the interest it carried. A row with no debt figure
@@ -1750,7 +1750,10 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
       priorFinancingDebt: opening.length === 0 ? null : Math.max(...opening), totalAssets: num(row.totalAssets) });
     if (reason === null) return row;
     let out = row;
-    for (const field of ["totalDebt", "netDebt"] as const) {
+    // Long-term debt is the component the missing borrowings most often belong
+    // to, and the forensic leverage tests read it on its own.
+    const fields = num(row.longTermDebt) === null ? ["totalDebt", "netDebt"] as const : ["totalDebt", "netDebt", "longTermDebt"] as const;
+    for (const field of fields) {
       out = { ...out, [field]: null, fieldConflicts: { ...out.fieldConflicts, [field]: {
         vendorValue: num(row[field]), secValue: null, usable: false, reason } } };
       gaps.push({ field: `statements.balance.${date}.${field}`, reason, severity: "warn" });

@@ -108,6 +108,32 @@ describe("financing debt from instrument-class tags (audit O-1, SNOW-1, SNOW-10)
     expect(row.totalDebt as number).toBeGreaterThan(2_283.985 * MN);
   });
 
+  it("SNOW: notes that fall due within a year move to the current tag and stay in total debt", () => {
+    const LATEST = "2026-07-31";
+    const before = latestBalance("SNOW").totalDebt as number;
+    const moved = latestOf((gaap) => {
+      const facts = gaap.ConvertibleDebtNoncurrent!.units.USD as { end: string; start?: string }[];
+      gaap.ConvertibleDebtCurrent = { units: { USD: [point(gaap, "ConvertibleDebtNoncurrent", LATEST)] } };
+      gaap.ConvertibleDebtNoncurrent!.units.USD = facts.filter((fact) => fact.end !== LATEST);
+    }, "SNOW");
+    expect(moved.totalDebt).toBe(before);
+    const split = latestOf((gaap) => {
+      const noncurrent = point(gaap, "ConvertibleDebtNoncurrent", LATEST) as unknown as { val: number };
+      gaap.ConvertibleDebtCurrent = { units: { USD: [{ ...noncurrent, val: 1_150 * MN }] } };
+      noncurrent.val -= 1_150 * MN;
+    }, "SNOW");
+    expect(split.totalDebt).toBe(before);
+  });
+
+  it("withholds a current-class figure beside a current-debt line that may hold the same notes", () => {
+    const row = latestOf((gaap) => {
+      gaap.ConvertibleDebtCurrent = { units: { USD: [{ ...point(gaap, "ConvertibleDebtNoncurrent", "2026-07-31"), val: 1_150 * MN }] } };
+      gaap.DebtCurrent = { units: { USD: [{ ...point(gaap, "ConvertibleDebtNoncurrent", "2026-07-31"), val: 1_150 * MN }] } };
+    }, "SNOW");
+    expect(row.longTermDebt).toBeNull();
+    expect(row.totalDebt).toBeNull();
+  });
+
   it("PGR: the combined debt amount stands in when nothing else is tagged", () => {
     expect(latestBalance("PGR").totalDebt).toBe(8_387 * MN);
   });

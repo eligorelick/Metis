@@ -442,6 +442,15 @@ const LONG_TERM_DEBT_COMPONENT_DISCLOSURE =
   "no LongTermDebt aggregate is tagged for the period; financing debt is composed from the filer's instrument-class tags (notes, loans, secured, convertible, revolver or the combined debt amount), which include any current portion";
 /** Inclusive instrument-class totals: each includes its own current portion. */
 const INCLUSIVE_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(["DebtLongtermAndShorttermCombinedAmount", "NotesPayable", "SeniorNotes", "LoansPayable", "SecuredDebt", "ConvertibleNotesPayable"]);
+/** Each instrument class with the tag family of its current portion, which its noncurrent variants exclude. */
+const DEBT_COMPONENT_CLASSES = [
+  ["longTermDebtNotes", "longTermDebtNotesCurrent"],
+  ["longTermDebtLoans", "longTermDebtLoansCurrent"],
+  ["longTermDebtSecured", "longTermDebtSecuredCurrent"],
+  ["longTermDebtConvertible", "longTermDebtConvertibleCurrent"],
+  ["longTermDebtRevolver", "longTermDebtRevolverCurrent"],
+] as const;
+const CURRENT_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(DEBT_COMPONENT_CLASSES.flatMap(([, current]) => tagsFor(current)));
 
 /** A line item's own tags first, then its stand-ins one at a time. */
 function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): ChainSpec {
@@ -822,9 +831,25 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
       {
         kind: "sumAnyOf",
         unit: "money",
-        parts: (["longTermDebtNotes", "longTermDebtLoans", "longTermDebtSecured", "longTermDebtConvertible", "longTermDebtRevolver"] as const).map((item) => ({
+        // A class is its inclusive total, else its noncurrent and current
+        // portions, which are tagged separately.
+        parts: DEBT_COMPONENT_CLASSES.map(([item, current]) => ({
           label: item,
-          spec: { kind: "first", tags: tagsFor(item), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE } satisfies ChainSpec,
+          spec: {
+            kind: "chain",
+            unit: "money",
+            steps: [
+              { kind: "first", tags: tagsFor(item).filter((tag) => INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag)), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE },
+              {
+                kind: "sumAnyOf",
+                unit: "money",
+                parts: [
+                  { label: `${item} noncurrent`, spec: { kind: "first", tags: tagsFor(item).filter((tag) => !INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag)), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE } },
+                  { label: `${item} current`, spec: { kind: "first", tags: tagsFor(current), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE } },
+                ],
+              },
+            ],
+          } satisfies ChainSpec,
         })),
       },
     ],
@@ -2122,8 +2147,11 @@ function resolveDebtOverlaps(
   if (composed) {
     const currentLine = tagsOf("shortTermDebt").find((tag) => CURRENT_MATURITY_TAGS.includes(tag) || tag === MATURITIES_NEXT_YEAR_TAG);
     const inclusive = longTermTags.filter((tag) => INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag));
+    const currentClass = longTermTags.filter((tag) => CURRENT_DEBT_COMPONENT_TAGS.has(tag));
     const reason = composedFrom("debtCombinedTotal") && v.shortTermDebt != null
       ? "financing debt unresolved: DebtLongtermAndShorttermCombinedAmount is all debt, current included, and a current-debt figure also resolved"
+      : currentClass.length > 0 && v.shortTermDebt != null
+        ? `financing debt unresolved: ${currentClass.join(" + ")} carry current debt that the current-debt figure (${tagsOf("shortTermDebt").join(" + ")}) may also carry`
       : currentLine !== undefined && inclusive.length > 0
         ? `financing debt unresolved: ${inclusive.join(" + ")} include their current portions, which ${currentLine} also carries`
         : composedFrom("longTermDebtNotes") && composedFrom("longTermDebtConvertible")

@@ -318,6 +318,17 @@ export const LINE_ITEM_TAGS = {
   longTermDebtSecured: entry(["SecuredDebt", "SecuredLongTermDebt"]),
   longTermDebtConvertible: entry(["ConvertibleNotesPayable", "ConvertibleDebtNoncurrent", "ConvertibleLongTermNotesPayable"]),
   longTermDebtRevolver: entry(["LongTermLineOfCredit"]),
+  /**
+   * The current portions that the noncurrent variants above exclude. Notes due
+   * within a year move from `ConvertibleDebtNoncurrent` to
+   * `ConvertibleDebtCurrent`, so composing the noncurrent tag alone would drop
+   * them silently (audit review of O-1/SNOW-1).
+   */
+  longTermDebtNotesCurrent: entry(["NotesPayableCurrent", "SeniorNotesCurrent", "LongTermNotesPayableCurrent"]),
+  longTermDebtLoansCurrent: entry(["LoansPayableCurrent", "LongTermLoansPayableCurrent"]),
+  longTermDebtSecuredCurrent: entry(["SecuredDebtCurrent"]),
+  longTermDebtConvertibleCurrent: entry(["ConvertibleDebtCurrent", "ConvertibleNotesPayableCurrent"]),
+  longTermDebtRevolverCurrent: entry(["LinesOfCreditCurrent"]),
   /** Completeness evidence only: this aggregate can be gross principal, not carrying debt. */
   debtInstrumentAggregate: entry(["DebtInstrumentCarryingAmount"]),
   /** Noncurrent carrying subtype: completeness evidence, never an additive synonym. */

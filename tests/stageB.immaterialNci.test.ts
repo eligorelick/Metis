@@ -22,7 +22,7 @@ function withNci(nci: number, noncontrollingIncome = 0) {
   for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
     const statement = bundle.statements[key];
     if (!statement.ok) throw new Error("fixture has income");
-    for (const row of statement.value.data.rows) (row as { noncontrollingIncome?: number }).noncontrollingIncome = noncontrollingIncome;
+    for (const row of statement.value.data.rows) (row as { netIncomeAttributableToNoncontrollingInterest?: number }).netIncomeAttributableToNoncontrollingInterest = noncontrollingIncome;
   }
   return runStageB(bundle);
 }
@@ -35,6 +35,12 @@ describe("NCI materiality for parent-common P/FCF (audit SNOW-2)", () => {
     const out = withNci(3e6, 100_000); // 0.6% of 503M
     expect(cashOwnershipGap(out)).toBe(false);
     expect(priceToFcf(out)).not.toBeNull();
+  });
+
+  it("withholds P/FCF when the NCI share of earnings is material, even at a zero balance", () => {
+    const out = withNci(0, 40e6); // a stake bought out before the balance date
+    expect(cashOwnershipGap(out)).toBe(true);
+    expect(priceToFcf(out)).toBeNull();
   });
 
   it("still withholds P/FCF for material NCI", () => {

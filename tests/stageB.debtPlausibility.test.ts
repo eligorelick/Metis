@@ -38,6 +38,19 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     expect(out.gaps.some((gap) => /statements\.balance\.2026-03-31\.totalDebt/.test(gap.field) && /implies 30.0%/.test(gap.reason))).toBe(true);
   });
 
+  it("withholds the long-term component too, which the forensic leverage tests read on its own", () => {
+    const bundle = currencyBundle({ debt: 50, siblingQuarterCurrencies: USD });
+    for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
+      const statement = bundle.statements[key];
+      if (!statement.ok) throw new Error("fixture has balances");
+      for (const row of statement.value.data.rows) row.longTermDebt = row.totalDebt;
+    }
+    const out = runStageB(bundle);
+    for (const date of ["2025-12-31", "2026-03-31"]) {
+      expect(out.gaps.some((gap) => gap.field === `statements.balance.${date}.longTermDebt` && /implies 30.0%/.test(gap.reason))).toBe(true);
+    }
+  });
+
   it("leaves ordinary debt alone", () => {
     const out = runStageB(currencyBundle({ siblingQuarterCurrencies: USD }));
     expect(out.gaps.some((gap) => /implies .* on resolved financing debt/.test(gap.reason))).toBe(false);

@@ -3714,7 +3714,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // D-62: provider market and consensus data (quote, shares, EV, FY+1/FY+2
   // consensus, price targets, grade counts, short interest) for the page-1
   // key-data box. Copied as served; the payload the model saw is unchanged.
-  const marketData = buildMarketData(args.bundle, { isAdr: args.computed.route?.overlays?.includes("adr") === true });
+  const marketData = buildMarketData(args.bundle, { isAdr: args.computed.route?.overlays?.includes("adr") === true, stageBGaps: args.computed.gaps });
   if (marketData) candidate.marketData = marketData;
 
   // A failed verification pass still persists final assembly. Establish the

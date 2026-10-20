@@ -46,7 +46,12 @@ function iso(value: unknown): string | null {
   return /^[A-Z]{3}$/.test(code) ? code : null;
 }
 
-export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean } = {}): MarketData | undefined {
+/** Balance dates whose total debt Stage B withheld (audit O-2); a derived EV built on that debt is refused. */
+function stageBWithheldDebtDates(gaps: readonly { field: string }[] | undefined): Set<string> {
+  return new Set((gaps ?? []).flatMap((gap) => /^statements\.balance\.(\d{4}-\d{2}-\d{2})\.totalDebt$/.exec(gap.field)?.[1] ?? []));
+}
+
+export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; stageBGaps?: readonly { field: string }[] } = {}): MarketData | undefined {
   const profile = rows(bundle.profile)[0];
   let currencies: { trading: string | null; model: string | null };
   try {
@@ -93,10 +98,11 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean }
   const evOrigin = evEnvelope?.source === "computed" && evEnvelope.endpoint === DERIVED_EV_ENDPOINT ? "computed" as const
     : evEnvelope?.source === "fmp" ? "provider" as const : undefined;
   const currencyEvidence = statementCurrencyEvidence(bundle);
+  const withheldDebt = stageBWithheldDebtDates(options.stageBGaps);
   const historicalEv = admitHistoricalEnterpriseValue(enterpriseValue, evOrigin, currencies.trading,
     [...rows(bundle.statements?.balanceQuarterly), ...rows(bundle.statements?.balanceAnnual)].map((row) => ({
       date: day(row.date) ?? "", currency: establishedCurrencyOn([row], day(row.date), currencyEvidence), value: n(row.totalDebt),
-      usable: !["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"].some((field) =>
+      usable: !withheldDebt.has(day(row.date) ?? "") && !["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"].some((field) =>
         (row.fieldConflicts as Record<string, { usable?: boolean }> | undefined)?.[field]?.usable === false),
     })));
   if (evOrigin === "computed" && historicalEv.enterpriseValue !== null) {
