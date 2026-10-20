@@ -18,7 +18,7 @@ This change made no provider or model calls, no paid runs, no deployment and no 
 
 ## Data rights
 
-The fixtures are SEC EDGAR companyfacts, a U.S. government work ([DATA-RIGHTS](../DATA-RIGHTS.md)). The audit's run-input snapshots also hold FMP, Yahoo, Finnhub and FRED observations, so none of them is committed. The pipeline test uses synthetic prices instead.
+The fixtures are SEC EDGAR companyfacts, a U.S. government work ([DATA-RIGHTS](../DATA-RIGHTS.md)). The audit's run-input snapshots also hold FMP, Yahoo, Finnhub and FRED observations, so none of them is committed. The pipeline test uses instead a synthetic weekday price series ending at each run's quoted price, one fixed DGS10 observation, and a submissions list rebuilt from the accessions the facts cite.
 
 ## Choices for the owner to confirm
 
