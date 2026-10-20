@@ -92,6 +92,20 @@ describe("research reliability report surfaces", () => {
       expect(rendered).not.toContain("11 excluded");
     }
   });
+  // Codex review of PR #42: every reason the peer loader treats as a terminal
+  // provider failure is the provider's, not the screen's.
+  it.each(["FMP invalid API key", "FMP subscription denied for this endpoint", "entitlement required", "request aborted"])("counts a candidate refused with %j as unserved", (reason) => {
+    const report = fixture();
+    report.valuation.peerCoverage = { methodology: ["Exact normalized industry AND sector."], candidates: 3, evaluated: 1, eligible: [], comparisons: [],
+      exclusions: [
+        { symbol: "PEERA", reason },
+        ...["PEERB", "PEERC"].map((symbol) => ({ symbol, reason: "provider unavailable or optional deadline exhausted; candidate not requested" })),
+      ] };
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).toContain("1 of 3 candidate issuers evaluated; eligible: none; 3 not compared because the peer data provider was unavailable or its deadline passed.");
+      expect(rendered).not.toContain("excluded at the screen");
+    }
+  });
   // Independent review of these fixes: candidates past the house's own
   // candidate cap are neither screened out nor the provider's failure.
   it("counts candidates beyond the house candidate limit on their own", () => {
