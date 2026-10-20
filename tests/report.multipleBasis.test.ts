@@ -67,4 +67,22 @@ describe("P/E on gain-inflated earnings (AMZN audit 2026-10-20)", () => {
     expect(reportToMarkdown(stored)).toContain("caveat: non-operating income is 46% of pre-tax income");
     expect(JSON.stringify(judgeOutputToJsonSchema())).not.toContain("earningsCaveat");
   });
+
+  // Codex review of PR #41: the caveat says the P/E is not ranked, so the
+  // multiples table must not show an own-history rank for it either.
+  it("shows no own-history rank for a P/E the caveat says is not ranked", () => {
+    const { computed, report } = fixture();
+    const pe = computed.valuation.multiples!.multiples.find(m => m.key === "peTtm")!;
+    pe.ownHistory = { ...(pe.ownHistory ?? {}), percentileRank: 2.7, observations: 20, basis: "20 quarter-end observations", observationDetails: [] } as unknown as typeof pe.ownHistory;
+    pe.gainInflatedEarnings = { nonOperatingSharePct: 46, basis: "non-operating income is 46% of pre-tax income" };
+    const flagged = applyMultiples(report.valuation, computed.valuation).multiples.find(m => /^P\/E/.test(m.name))!;
+    expect(flagged.own5yPercentile).toBeNull();
+    expect(flagged.ownHistoryObservations).toBeNull();
+    expect(flagged).not.toHaveProperty("ownHistoryDetails");
+    expect(flagged.ownHistoryBasis).toBe("not ranked: non-operating income is 46% of pre-tax income");
+    delete pe.gainInflatedEarnings;
+    const ranked = applyMultiples(report.valuation, computed.valuation).multiples.find(m => /^P\/E/.test(m.name))!;
+    expect(ranked.own5yPercentile).toBe(2.7);
+    expect(ranked.ownHistoryObservations).toBe(20);
+  });
 });
