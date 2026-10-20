@@ -286,6 +286,18 @@ describe("bounded EDGAR collection", () => {
 });
 
 describe("other issuers' phrasing and unreadable filings", () => {
+  // Codex review of PR #41: an outlook heading can name its quarter after the
+  // heading word ("Outlook for Second Quarter 2026") as well as before it.
+  it("never reads a quarter an outlook heading introduces as the quarter the release reports", () => {
+    const release = "Acme Corp. Reports Results. Revenue for the quarter ended March 31, 2026 was $1.1 billion. " +
+      "Outlook for Second Quarter 2026 Acme expects revenue to be in the range of $1.20 billion to $1.25 billion. About Acme Corp. Acme makes things.";
+    expect(parseReportedPeriod(release)).toEqual({ fiscal: null, periodEnd: "2026-03-31" });
+    const titled = "Acme Corp. Reports First Quarter 2026 Results. Revenue for the quarter ended March 31, 2026 was $1.1 billion. " +
+      "Business Outlook for the Second Quarter of 2026 Acme expects revenue to be in the range of $1.20 billion to $1.25 billion.";
+    expect(parseReportedPeriod(titled)).toEqual({ fiscal: { label: "Q1 FY2026", fiscalYear: 2026, fiscalQuarter: 1 }, periodEnd: "2026-03-31" });
+  });
+
+
   it("reads explicit ranges and full-year outlooks, and turns unreadable 8-Ks and instances into disclosed gaps", async () => {
     const release = "Acme Corp. Reports Fourth Quarter and Full Year 2026 Results. Revenue for the fourth quarter ended December 31, 2026 was $1.1 billion. " +
       "Business Outlook For the first quarter of 2027, Acme expects revenue to be in the range of $1.20 billion to $1.25 billion. " +
