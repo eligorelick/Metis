@@ -157,3 +157,28 @@ describe("terminal tax rate (D-58)", () => {
     expect(buildDcfAssumptions(nvda({ incomeHistory: taxed })).assumptions!.taxRatePath.value[9]).toBeCloseTo(26, 9);
   });
 });
+
+/**
+ * AMZN audit 2026-10-20, finding 2: consensus was missing because FMP's rate
+ * limit refused it, yet the record the report cited said only "no usable
+ * analyst revenue estimates", at info severity. The record now names the cause
+ * and marks the valuation degraded.
+ */
+describe("analyst estimates refused by a rate limit", () => {
+  const refusal = "FMP quota/rate limit (HTTP 429): Limit Reach. Live requests paused until 2026-10-20T06:58:38.292Z. still refused after waiting 60 s (bound 90 s).";
+
+  it("names the rate limit in the analyst-growth record and raises it to a warning", () => {
+    const { gaps, notes } = buildDcfAssumptions(nvda({ analystEstimatesRefusal: refusal }));
+    const entry = gaps.find((g) => g.field === "valuation.dcf.analystGrowth");
+    expect(entry?.severity).toBe("warn");
+    expect(entry?.reason).toMatch(/rate limit \(HTTP 429\)/);
+    expect(entry?.reason).toMatch(/valuation is degraded/);
+    expect(notes.some((n) => /degraded/.test(n) && /HTTP 429/.test(n))).toBe(true);
+  });
+
+  it("keeps the informational record when estimates are simply uncovered", () => {
+    const entry = buildDcfAssumptions(nvda()).gaps.find((g) => g.field === "valuation.dcf.analystGrowth");
+    expect(entry?.severity).toBe("info");
+    expect(entry?.reason).not.toMatch(/rate limit/);
+  });
+});

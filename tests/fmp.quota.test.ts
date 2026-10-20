@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createFmpClient, resetFmpPlanLimits, type FmpClientConfig } from "@/providers/fmp";
+import { createFmpClient, FMP_RATE_LIMIT_PROBE_MS, FMP_RATE_LIMIT_WAIT_BUDGET_MS, resetFmpPlanLimits, type FmpClientConfig } from "@/providers/fmp";
 import { fetchWithPolicy, makeLimiter } from "@/providers/http";
 
 const START = Date.parse("2026-10-16T12:00:00Z");
@@ -225,5 +225,82 @@ describe("FMP quota cooldown", () => {
     await vi.runAllTimersAsync();
     await second;
     expect(fetchImpl).toHaveBeenCalledTimes(attempts);
+  });
+});
+
+/**
+ * AMZN audit 2026-10-20, finding 2: one burst of HTTP 429s cost the run its
+ * analyst consensus and the vendor balance sheet, because a refused request
+ * was never asked again. A valuation-critical request now waits out the pause
+ * once, inside a fixed bound, and says so when it is still refused.
+ */
+describe("FMP rate-limit retry for valuation-critical requests", () => {
+  const estimates = [{ symbol: "AAPL", date: "2027-09-30", revenueAvg: 500 }];
+
+  function clocked(fetchImpl: typeof fetch) {
+    let clock = START;
+    const slept: number[] = [];
+    const c = client(fetchImpl, {
+      now: () => new Date(clock),
+      sleep: async (ms: number) => { slept.push(ms); clock += ms; },
+    });
+    return { c, slept };
+  }
+
+  it("waits out a vendor-stated pause inside the bound and asks again", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => ++calls === 1
+      ? new Response("Too many requests", { status: 429, headers: { "retry-after": "20" } })
+      : json(estimates));
+    const { c, slept } = clocked(fetchImpl);
+    const result = await c.retryRateLimited(() => c.analystEstimates("AAPL"));
+    expect(result.ok).toBe(true);
+    expect(slept).toEqual([20_000]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("probes once after one rate window when the vendor names no pause", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => ++calls === 1
+      ? json({ "Error Message": "Limit Reach . Please upgrade your plan" }, 429)
+      : json(estimates));
+    const { c, slept } = clocked(fetchImpl);
+    const result = await c.retryRateLimited(() => c.analystEstimates("AAPL"));
+    expect(result.ok).toBe(true);
+    expect(slept).toEqual([FMP_RATE_LIMIT_PROBE_MS]);
+    expect(slept.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(FMP_RATE_LIMIT_WAIT_BUDGET_MS);
+  });
+
+  it("stops at the bound and names the wait in the gap when the limit persists", async () => {
+    const fetchImpl = vi.fn(async () => json({ "Error Message": "Limit Reach . Please upgrade your plan" }, 429));
+    const { c, slept } = clocked(fetchImpl);
+    const result = await c.retryRateLimited(() => c.analystEstimates("AAPL"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.gap.reason).toContain("HTTP 429");
+      expect(result.gap.reason).toMatch(/still refused after waiting 60 s \(bound 90 s\)/);
+      expect(result.gap.severity).toBe("warn");
+    }
+    expect(slept.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(FMP_RATE_LIMIT_WAIT_BUDGET_MS);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not wait for a vendor-stated pause longer than the bound", async () => {
+    const fetchImpl = vi.fn(async () => new Response("Too many requests", { status: 429, headers: { "retry-after": "600" } }));
+    const { c, slept } = clocked(fetchImpl);
+    const result = await c.retryRateLimited(() => c.analystEstimates("AAPL"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.gap.reason).toMatch(/pause exceeds the 90 s retry bound/);
+    expect(slept).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns any other refusal untouched, without waiting", async () => {
+    const fetchImpl = vi.fn(async () => json({ "Error Message": "Invalid API key" }, 401));
+    const { c, slept } = clocked(fetchImpl);
+    const result = await c.retryRateLimited(() => c.analystEstimates("AAPL"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.gap.reason).not.toMatch(/still refused|retry bound/);
+    expect(slept).toEqual([]);
   });
 });

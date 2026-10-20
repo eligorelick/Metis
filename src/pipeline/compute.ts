@@ -1,4 +1,4 @@
-import { admittedStatementRow, quotePriceObservationDay } from "@/providers/fmp";
+import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
  * pure Stage B module's own input types, runs sector routing FIRST, then feeds
@@ -3181,6 +3181,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // WS6 (D-18): the log-linear regression method of the growth anchor.
           revenueLogLinear: growth.revenueLogLinear,
           analystEstimates,
+          // AMZN audit 2026-10-20, finding 2: a rate-limit refusal is named, not shown as "uncovered".
+          ...(!bundle.analystEstimates.ok && isFmpQuotaReason(bundle.analystEstimates.gap.reason)
+            ? { analystEstimatesRefusal: bundle.analystEstimates.gap.reason }
+            : {}),
           waccPct: wacc.waccPct ?? 0,
           // WS6 (D-19): every WACC input named in the assumption block.
           waccBasis: ctx.waccInputs.summary,

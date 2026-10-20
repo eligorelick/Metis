@@ -591,6 +591,12 @@ export interface DcfAssumptionInputs {
   fcfSbc?: DcfSbcTreatment | null;
   /** Forward annual analyst estimates (FMP names); null/empty when uncovered. */
   analystEstimates: AnalystEstimateRow[] | null;
+  /**
+   * The provider's rate-limit refusal when that, not coverage, is why
+   * `analystEstimates` is null (AMZN audit 2026-10-20, finding 2). It makes the
+   * analyst-growth record name the cause and mark the valuation degraded.
+   */
+  analystEstimatesRefusal?: string | null;
   waccPct: number;
   riskFreePct: number;
   /**
@@ -1543,9 +1549,18 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
   }
   if (analyst.value === null) {
-    gaps.push(
-      gapEntry("valuation.dcf.analystGrowth", "no usable analyst revenue estimates — the analyst-consensus growth method was excluded from the median", "info"),
-    );
+    const refusal = inputs.analystEstimatesRefusal ?? null;
+    if (refusal !== null) {
+      const degraded =
+        `the valuation is degraded: analyst revenue estimates were refused by the data provider's rate limit (HTTP 429) — ${refusal.replace(/\.$/, "")} — ` +
+        "so the analyst-consensus growth method was excluded from the median and no year is anchored to consensus";
+      notes.push(`Valuation degraded: ${degraded}.`);
+      gaps.push(gapEntry("valuation.dcf.analystGrowth", `no usable analyst revenue estimates because ${degraded}`, "warn"));
+    } else {
+      gaps.push(
+        gapEntry("valuation.dcf.analystGrowth", "no usable analyst revenue estimates — the analyst-consensus growth method was excluded from the median", "info"),
+      );
+    }
   }
 
   const gMidBasis =

@@ -2446,3 +2446,23 @@ since the composite already weights each aspect by its evidence. A route that
 designs a single signal and observes it in full, such as the REIT P/FFO rank, is
 not affected. A P/TBV rank that falls back to P/B is labelled a P/B rank
 (audit PGR-4).
+
+### AMZN audit fixes (October 20, 2026)
+
+**Rate limits on the inputs the valuation depends on.** FMP answers a burst of
+requests with HTTP 429. The client then pauses every live request for that key:
+for as long as the vendor's `Retry-After` says, or 15 minutes when the vendor
+names no pause. The AMZN run of October 20 lost its analyst consensus and the
+vendor balance sheet this way, and nothing asked again. Seven requests now wait
+out the pause once: analyst estimates and the annual and quarterly income
+statement, balance sheet and cash flow. Each waits for the vendor's stated
+pause, or for one rate window (60 seconds) when the vendor named none, and then
+asks again. No request waits more than 90 seconds in total, and a pause longer
+than that is not waited for. A request still refused keeps its rate-limit gap,
+which then says how long it waited. One more warning entry, `fmp.rateLimit`,
+names every such member and says the valuation is degraded. When the refused
+member is the analyst estimates, the DCF's `valuation.dcf.analystGrowth` record
+becomes a warning that names the rate limit as the cause, instead of the
+informational "no usable analyst revenue estimates", and the DCF notes carry a
+"Valuation degraded" line. The report is still published. Statements still come from
+the keyless SEC substitutes, which carry their own entries.

@@ -1545,3 +1545,26 @@ describe("TTM window whose quarters are not in one currency", () => {
     expect(computed.valuation.assumptions?.startRevenue.basis).toMatch(/^latest annual FY 2025-12-31 revenue/);
   });
 });
+
+// AMZN audit 2026-10-20, finding 2: the bundle's rate-limit refusal of the
+// analyst estimates reaches the DCF record, which names it as the cause.
+describe("runStageB wiring — analyst estimates refused by a rate limit", () => {
+  it("names the HTTP 429 refusal in the valuation's analyst-growth record", () => {
+    const bundle = wiringBundle();
+    const refused = {
+      ok: false,
+      gap: {
+        field: "fmp.analystEstimates(GEN,annual)",
+        reason: "FMP quota/rate limit (HTTP 429): Limit Reach. Live requests paused until 2026-07-05T00:15:00.000Z. still refused after waiting 60 s (bound 90 s).",
+        severity: "warn",
+        attemptedSources: ["/stable/analyst-estimates?symbol=GEN"],
+      },
+    };
+    const computed = runStageB({ ...bundle, analystEstimates: refused } as unknown as DataBundle);
+    const entry = computed.gaps.find((g) => g.field === "valuation.dcf.analystGrowth");
+    expect(entry?.severity).toBe("warn");
+    expect(entry?.reason).toMatch(/rate limit \(HTTP 429\)/);
+    const plain = runStageB(wiringBundle()).gaps.find((g) => g.field === "valuation.dcf.analystGrowth");
+    expect(plain?.severity).toBe("info");
+  });
+});

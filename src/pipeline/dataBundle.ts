@@ -39,6 +39,8 @@ import {
   type FmpEodBarRow,
   type FmpPayload,
   type FmpRawRow,
+  FMP_RATE_LIMIT_WAIT_BUDGET_MS,
+  isFmpQuotaReason,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
@@ -1714,6 +1716,35 @@ export function planLimitManifestEntry(
   };
 }
 
+/**
+ * One entry naming every valuation-critical FMP member that its rate limit
+ * still refused after the bounded wait (AMZN audit 2026-10-20, finding 2). The
+ * member gaps say the same thing one by one; this one says what it does to the
+ * valuation, so the coverage section names the cause instead of a bare
+ * "unavailable". Substitutes, where the keyless layer found any, carry their
+ * own entries.
+ */
+export function rateLimitedValuationEntry(
+  members: ReadonlyArray<readonly [string, FetchResult<unknown>]>,
+): ManifestEntry | null {
+  const refused = members.filter(([, result]) => !result.ok && isFmpQuotaReason(result.gap.reason));
+  if (refused.length === 0) return null;
+  const consensus = refused.some(([label]) => label === "analyst estimates");
+  const statements = refused.some(([label]) => label !== "analyst estimates");
+  const effects = [
+    ...(consensus ? ["no analyst consensus enters the growth anchor or the year-one revenue anchor"] : []),
+    ...(statements ? ["the statements come from the substitutes named in their own entries, or are missing"] : []),
+  ];
+  return {
+    field: "fmp.rateLimit",
+    reason:
+      `FMP's rate limit (HTTP 429) still refused ${refused.map(([label]) => label).join(", ")} after waiting up to ` +
+      `${FMP_RATE_LIMIT_WAIT_BUDGET_MS / 1000} s, so the valuation is degraded: ${effects.join("; ")}`,
+    severity: "warn",
+    attemptedSources: refused.flatMap(([, result]) => (result.ok ? [] : result.gap.attemptedSources ?? [])),
+  };
+}
+
 /** How far a provider client's fetch stamp may run ahead of the bundle clock and still count as this build's acquisition. */
 const SOURCE_CLOCK_SKEW_MS = 60_000;
 
@@ -1835,12 +1866,16 @@ export async function buildDataBundle(
   // Provider token buckets pace the actual requests (http.ts limiters).
   progress("fetch: FMP statements, metrics, analysts, ownership, prices");
   const pQuote = settle(`fmp.quote(${sym})`, fmp.quote(sym));
-  const pIncomeA = settle(`fmp.incomeStatement(${sym},annual)`, fmp.incomeStatement(sym, "annual", ANNUAL_PERIODS));
-  const pIncomeQ = settle(`fmp.incomeStatement(${sym},quarter)`, fmp.incomeStatement(sym, "quarter", QUARTERLY_PERIODS));
-  const pBalanceA = settle(`fmp.balanceSheet(${sym},annual)`, fmp.balanceSheet(sym, "annual", ANNUAL_PERIODS));
-  const pBalanceQ = settle(`fmp.balanceSheet(${sym},quarter)`, fmp.balanceSheet(sym, "quarter", QUARTERLY_PERIODS));
-  const pCashA = settle(`fmp.cashFlow(${sym},annual)`, fmp.cashFlow(sym, "annual", ANNUAL_PERIODS));
-  const pCashQ = settle(`fmp.cashFlow(${sym},quarter)`, fmp.cashFlow(sym, "quarter", QUARTERLY_PERIODS));
+  // AMZN audit 2026-10-20, finding 2: the members the valuation depends on
+  // wait out a short FMP rate-limit pause once instead of failing on the first
+  // HTTP 429 (FMP_RATE_LIMIT_WAIT_BUDGET_MS bounds the wait).
+  const critical = <T>(call: () => Promise<FetchResult<T>>): Promise<FetchResult<T>> => fmp.retryRateLimited(call);
+  const pIncomeA = settle(`fmp.incomeStatement(${sym},annual)`, critical(() => fmp.incomeStatement(sym, "annual", ANNUAL_PERIODS)));
+  const pIncomeQ = settle(`fmp.incomeStatement(${sym},quarter)`, critical(() => fmp.incomeStatement(sym, "quarter", QUARTERLY_PERIODS)));
+  const pBalanceA = settle(`fmp.balanceSheet(${sym},annual)`, critical(() => fmp.balanceSheet(sym, "annual", ANNUAL_PERIODS)));
+  const pBalanceQ = settle(`fmp.balanceSheet(${sym},quarter)`, critical(() => fmp.balanceSheet(sym, "quarter", QUARTERLY_PERIODS)));
+  const pCashA = settle(`fmp.cashFlow(${sym},annual)`, critical(() => fmp.cashFlow(sym, "annual", ANNUAL_PERIODS)));
+  const pCashQ = settle(`fmp.cashFlow(${sym},quarter)`, critical(() => fmp.cashFlow(sym, "quarter", QUARTERLY_PERIODS)));
   const pKeyMetrics = settle(`fmp.keyMetrics(${sym})`, fmp.keyMetrics(sym, "annual", ANNUAL_PERIODS));
   const pKeyMetricsTtm = settle(`fmp.keyMetricsTtm(${sym})`, fmp.keyMetricsTtm(sym));
   const pRatios = settle(`fmp.ratios(${sym})`, fmp.ratios(sym, "annual", ANNUAL_PERIODS));
@@ -1851,7 +1886,7 @@ export async function buildDataBundle(
     `fmp.enterpriseValues(${sym},quarter)`,
     fmp.enterpriseValues(sym, "quarter", QUARTERLY_PERIODS),
   );
-  const pEstimates = settle(`fmp.analystEstimates(${sym})`, fmp.analystEstimates(sym, "annual", 0, 10));
+  const pEstimates = settle(`fmp.analystEstimates(${sym})`, critical(() => fmp.analystEstimates(sym, "annual", 0, 10)));
   const pPtConsensus = settle(`fmp.priceTargetConsensus(${sym})`, fmp.priceTargetConsensus(sym));
   const pPtSummary = settle(`fmp.priceTargetSummary(${sym})`, fmp.priceTargetSummary(sym));
   const pGrades = settle(`fmp.gradesConsensus(${sym})`, fmp.gradesConsensus(sym));
@@ -1942,6 +1977,17 @@ export async function buildDataBundle(
     cashflowQuarterly: sortRows(await pCashQ),
     periods: { annualRequested: ANNUAL_PERIODS, quarterlyRequested: QUARTERLY_PERIODS },
   };
+
+  const rateLimitEntry = rateLimitedValuationEntry([
+    ["analyst estimates", await pEstimates],
+    ["income statement (annual)", statements.incomeAnnual],
+    ["income statement (quarterly)", statements.incomeQuarterly],
+    ["balance sheet (annual)", statements.balanceAnnual],
+    ["balance sheet (quarterly)", statements.balanceQuarterly],
+    ["cash flow (annual)", statements.cashflowAnnual],
+    ["cash flow (quarterly)", statements.cashflowQuarterly],
+  ]);
+  if (rateLimitEntry !== null) configuredFallbackGaps.push(rateLimitEntry);
 
   let quote = await pQuote;
   const keyMetrics = sortRows(await pKeyMetrics);
