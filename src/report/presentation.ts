@@ -554,7 +554,7 @@ export interface ExecutiveGroups {
   notAssessed: ExecutiveRecord[];
   /** The lines that name them, one per distinct reason. */
   notAssessedLines: string[];
-  /** Their recorded claims (pay, succession events), kept under the line. */
+  /** Their cited facts (pay, succession events), kept under the line; their judgments are not. */
   notAssessedClaims: SourcedClaim[];
 }
 
@@ -573,7 +573,12 @@ export function executiveGroups(executives: readonly ExecutiveRecord[]): Executi
   }
   const notAssessedLines = [...byReason.entries()].map(([reason, people]) =>
     `Not assessed: ${people.map((e) => `${e.name} (${e.title})`).join("; ")}.${reason ? ` ${reason}` : ""}`);
-  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])]);
+  // AMZN audit 2026-10-20 finding 20: only cited facts go under the line. The
+  // officer's judgments are the model's case for a grade the evidence gate
+  // withheld, so "Not assessed" was followed by "X's execution grade
+  // recognizes ...".
+  const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])])
+    .filter((claim) => claim.label !== "JUDGMENT");
   return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
 }
 

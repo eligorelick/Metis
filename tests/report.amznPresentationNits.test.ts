@@ -8,8 +8,12 @@ import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { computeAccruals, type ForensicsPeriod } from "@/pipeline/stageB/forensics";
-import { metricLabel, sourceLabel } from "@/report/presentation";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody } from "@/report/export/printHtml";
+import { executiveGroups, metricLabel, sourceLabel } from "@/report/presentation";
+import { ReportSchema, type SourcedClaim } from "@/report/schema";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { loadTask28Fixture } from "./helpers/task28Report";
 
 /** Adobe's captured 10-Q bundle (see tests/adbeReportAudit.regressions.test.ts). */
 function adobeBundle() {
@@ -53,6 +57,31 @@ describe("the accrual scaler's label", () => {
       expect(metricLabel(id)).not.toMatch(/net operating assets/i);
       expect(sourceLabel(id)).toBe(metricLabel(id));
       expect(metricLabel(id)).toMatch(/^Accrual scaler/);
+    }
+  });
+});
+
+describe("officers the report does not assess", () => {
+  it("lists their cited facts under the not-assessed line, not the withdrawn assessment", () => {
+    const report = loadTask28Fixture();
+    const base = report.leadership.executives[0]!;
+    const claim = (label: SourcedClaim["label"], text: string): SourcedClaim => ({ label, text, source: "edgar:10-Q item2", asOf: "2026-06-30" });
+    const assessment = "Matthew S. Garman's execution grade recognizes AWS commercial growth and profitability.";
+    report.leadership.executives = [base, { ...base, name: "Matthew S. Garman", title: "CEO Amazon Web Services",
+      grade: "not-assessed", credibilityGrade: "not-assessed",
+      assessmentReason: "Attributable, validated execution and/or guidance-versus-actual evidence is absent.",
+      reasoning: [claim("FACT", "Matthew S. Garman has served as CEO Amazon Web Services since June 2024."), claim("JUDGMENT", assessment)],
+      evidence: { capitalAllocation: [claim("FACT", "Matthew S. Garman: AWS revenue for the quarter ended 2026-06-30 was USD 42.23 billion.")] } }];
+    const groups = executiveGroups(report.leadership.executives);
+    expect(groups.notAssessedClaims.map((c) => c.text)).toEqual([
+      "Matthew S. Garman has served as CEO Amazon Web Services since June 2024.",
+      "Matthew S. Garman: AWS revenue for the quarter ended 2026-06-30 was USD 42.23 billion.",
+    ]);
+    const parsed = ReportSchema.parse(report);
+    for (const text of [reportToMarkdown(parsed), reportToPrintBody(parsed)]) {
+      expect(text).toContain("Not assessed: Matthew S. Garman (CEO Amazon Web Services).");
+      expect(text).toContain("AWS revenue for the quarter ended 2026-06-30");
+      expect(text).not.toContain("execution grade recognizes AWS commercial growth");
     }
   });
 });
