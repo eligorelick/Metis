@@ -74,7 +74,9 @@ describe("officers the report does not assess", () => {
     report.leadership.executives = [base, { ...base, name: "Matthew S. Garman", title: "CEO Amazon Web Services",
       grade: "not-assessed", credibilityGrade: "not-assessed",
       assessmentReason: "Attributable, validated execution and/or guidance-versus-actual evidence is absent.",
-      reasoning: [claim("FACT", "Matthew S. Garman has served as CEO Amazon Web Services since June 2024."), claim("JUDGMENT", assessment)],
+      // Independent review of these fixes: an ESTIMATE is not a cited fact either.
+      reasoning: [claim("FACT", "Matthew S. Garman has served as CEO Amazon Web Services since June 2024."), claim("JUDGMENT", assessment),
+        claim("ESTIMATE", "Matthew S. Garman's AWS margin will likely exceed 40% next year.")],
       evidence: { capitalAllocation: [claim("FACT", "Matthew S. Garman: AWS revenue for the quarter ended 2026-06-30 was USD 42.23 billion.")] } }];
     const groups = executiveGroups(report.leadership.executives);
     expect(groups.notAssessedClaims.map((c) => c.text)).toEqual([
@@ -86,6 +88,7 @@ describe("officers the report does not assess", () => {
       expect(text).toContain("Not assessed: Matthew S. Garman (CEO Amazon Web Services).");
       expect(text).toContain("AWS revenue for the quarter ended 2026-06-30");
       expect(text).not.toContain("execution grade recognizes AWS commercial growth");
+      expect(text).not.toContain("will likely exceed 40%");
     }
   });
 });

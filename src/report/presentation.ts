@@ -580,7 +580,7 @@ export function executiveGroups(executives: readonly ExecutiveRecord[]): Executi
   // withheld, so "Not assessed" was followed by "X's execution grade
   // recognizes ...".
   const notAssessedClaims = notAssessed.flatMap((e) => [...e.reasoning, ...EXECUTIVE_EVIDENCE_GROUPS.flatMap((group) => e.evidence[group.key] ?? [])])
-    .filter((claim) => claim.label !== "JUDGMENT");
+    .filter((claim) => claim.label === "FACT");
   return { assessed, notAssessed, notAssessedLines, notAssessedClaims };
 }
 
