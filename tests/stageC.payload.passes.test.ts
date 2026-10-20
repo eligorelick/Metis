@@ -595,6 +595,10 @@ describe("payload determinism + provenance", () => {
     const accrualSignal = precedingFinance.scores.aspects.quality.signals.find((s: { id: string }) => s.id === "accrualsRatioAbs");
     expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).");
     accrualSignal.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI \u2212 CFO).";
+    // Audit 2026-10-19 FCX-14 names a data gap rather than route applicability
+    // when an applicable aspect has no data. Restore only that text.
+    expect(precedingFinance.scores.aspects.technicals.notApplicableReason).toBe("applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored");
+    precedingFinance.scores.aspects.technicals.notApplicableReason = "no applicable signals available for this route — aspect not scored";
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
@@ -926,7 +930,9 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "40b97db8",
+      // Audit 2026-10-19 FCX-14: only the technicals aspect's no-data note
+      // changes (restored above); prompt bytes and registries are unchanged.
+      financeHash: "b5e8d179",
     });
   });
 

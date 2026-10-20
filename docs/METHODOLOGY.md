@@ -926,6 +926,16 @@ the combined figure would strip an unknown amount of finance-lease debt out of
 EV. The same entry fires when no lease liability is disclosed at all. Nothing is
 guessed, and nothing unknown is netted.
 
+**The operating slice is removed only when total debt is shown to hold it.**
+The removal assumes the operating-lease liability is inside `totalDebt`. It is
+proven when the row's total lease liability covers the operating slice, or
+when current plus noncurrent borrowings plus the leases reconcile to the total.
+An operating lease enriched from SEC onto a provider row whose total is
+borrowings only is not removed. Net debt and EV are then used as reported, and a
+warning-level `valuation.dcf.netDebt.leaseScope` entry says so (audit
+2026-10-19, CODE-1). The same proof applies to the WACC debt leg and to the key
+data net debt excluding operating leases.
+
 Both enterprise values — as reported, and less the operating-lease liability —
 are computed, together with the total lease liability and its finance slice.
 They are published in the EV bridge basis string, which is a computed valuation
@@ -2368,3 +2378,23 @@ A withheld noncurrent figure withholds total and net debt.
 - interest below 0.25% of total assets;
 - resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
 - the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
+
+**A missing operating-lease maturity.** Some filers tag only one maturity of
+their operating-lease liability: Freeport-McMoRan tags the noncurrent portion
+and reports the current one inside accrued liabilities. That alone used to
+withhold total debt, which removed WACC, the DCF, EV multiples and the Balance
+Sheet aspect. The tagged portion is now kept, disclosed as one maturity, and
+included in total debt. Its provenance names the one maturity, so the existing
+lease-scope rule admits the row only on the lease-excluded basis. That basis
+requires same-filing current and noncurrent financing components that reconcile
+to the total with the disclosed portion. The lease-inclusive basis stays
+unavailable. On that excluded basis:
+- the DCF measures invested capital without the operating portion;
+- net debt/EBITDA states net debt without it, since EBITDA is already after
+  operating-lease cost.
+
+Each basis note says so. A missing finance-lease maturity still withholds total
+and net debt, because finance leases are debt in every frame (audit FCX-1).
+An aspect whose signals apply to the route but whose inputs were withheld or
+missing reads "applicable signals unavailable (data gap…)", not a route
+choice (audit FCX-14).

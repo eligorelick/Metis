@@ -7,7 +7,8 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 const annual = () => computeCapital([{ date: "2025-12-31", revenue: 100, operatingIncome: 40, netIncome: 30, interestExpense: 1 }], [{ date: "2025-12-31", operatingCashFlow: 50, capitalExpenditure: -10, depreciationAndAmortization: 5, stockBasedCompensation: 5 }], [{ date: "2025-12-31", totalDebt: 20, cashAndShortTermInvestments: 15 }], [], { price: null });
 const income = { date: "2026-06-30", revenue: 120, operatingIncome: 30, netIncome: 20, interestExpense: 2 };
 const cash = { date: "2026-06-30", operatingCashFlow: 40, capitalExpenditure: -25, depreciationAndAmortization: 6, stockBasedCompensation: 9, financeLeasePrincipalPayments: 3, issuerFreeCashFlow: 12, issuerFreeCashFlowDefinition: "Issuer cash definition includes finance-lease principal" };
-const balance = { date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10 };
+// The lease total shows the operating lease inside total debt (audit 2026-10-19 CODE-1).
+const balance = { date: "2026-06-30", totalDebt: 30, cashAndShortTermInvestments: 15, operatingLeaseLiability: 10, capitalLeaseObligations: 10 };
 
 describe("capital grading snapshot", () => {
   it("uses complete current TTM flows and same-period balance without replacing annual history", () => {
@@ -159,7 +160,7 @@ describe("capital grading snapshot", () => {
 
   it("keeps unknown liquidity unknown and resolves component cash without a vendor net-debt shortcut", () => {
     expect(debtBridge({date:balance.date,totalDebt:30,cashAndCashEquivalents:10,netDebt:1})).toMatchObject({cashAndShortTermInvestments:null,netDebtIncludingLeases:null});
-    expect(debtBridge({date:balance.date,totalDebt:30,cashAndCashEquivalents:10,shortTermInvestments:5,netDebt:1,operatingLeaseLiability:2,financeLeaseLiability:4})).toMatchObject({cashAndShortTermInvestments:15,netDebtIncludingLeases:15,netDebtExcludingOperatingLeases:13,financeLeases:4});
+    expect(debtBridge({date:balance.date,totalDebt:30,cashAndCashEquivalents:10,shortTermInvestments:5,netDebt:1,operatingLeaseLiability:2,financeLeaseLiability:4,capitalLeaseObligations:6})).toMatchObject({cashAndShortTermInvestments:15,netDebtIncludingLeases:15,netDebtExcludingOperatingLeases:13,financeLeases:4});
   });
 
   it.each([

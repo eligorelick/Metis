@@ -125,7 +125,7 @@ import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
-import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
@@ -1558,7 +1558,7 @@ function bookDebtOnLeaseBasis(
   if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
   if (leaseDebtScopeRefusal(row, includeOperatingLeases) !== null) return { value: null, leaseRemoved: false };
   const operatingLease = row ? num(row.operatingLeaseLiability) : null;
-  if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total) {
+  if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total && operatingLeaseScopeUnproven(row ?? {}) === null) {
     return { value: total - operatingLease, leaseRemoved: true };
   }
   return { value: total, leaseRemoved: false };
@@ -3074,6 +3074,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         leaseCoverageNote: incompleteLeaseCoverage(balPoint)?.note,
         fieldProvenance: balPoint.fieldProvenance,
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability), financeLeaseLiability: num(balPoint.financeLeaseLiability), capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
+        shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
         date: String(balPoint.date ?? ""),
         basis: balPointBasis,
         totalDebt: num(balPoint.totalDebt),

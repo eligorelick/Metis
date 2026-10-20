@@ -153,7 +153,9 @@ describe("lease scope is an admission rule for numeric consumers", () => {
     expect(computeRoic(income, balances(false), { includeOperatingLeases: false }).latestRoicPct === null).toBe(kind === "Finance");
     expect(computeRoic(income, balances(true), { includeOperatingLeases: true }).latestRoicPct).not.toBeNull();
   });
-  it.each(["Operating", "Finance"] as const)("withholds the raw lease-inclusive S2c input for incomplete %s leases", kind => {
+  // Audit 2026-10-19 FCX-1: only a missing finance maturity withholds the
+  // DCF; a proven operating portion moves invested capital to the excluded basis.
+  it.each(["Finance"] as const)("withholds the raw lease-inclusive S2c input for incomplete %s leases", kind => {
     const result = buildDcfAssumptions({ revenueCagr3yPct: 8, revenueCagr5yPct: 8, analystEstimates: null, waccPct: 10, riskFreePct: 4, marketCap: 20e9,
       incomeTtm: { date: "2026-03-31", revenue: 1000e6, operatingIncome: 200e6, incomeBeforeTax: 180e6, incomeTaxExpense: 36e6 },
       incomeHistory: [2023, 2024, 2025].map(y => ({ date: `${y}-12-31`, revenue: 900e6, operatingIncome: 180e6, incomeBeforeTax: 160e6, incomeTaxExpense: 32e6 })),

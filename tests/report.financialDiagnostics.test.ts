@@ -10,7 +10,7 @@ const report = () => ReportSchema.parse(JSON.parse(fs.readFileSync("fixtures/rep
 const capital = () => attachCurrentCapital(computeCapital([],[],[],[],{ price: null }), {
   income: { date:"2026-06-30",revenue:100,netIncome:20,operatingIncome:30,interestExpense:2 },
   cashFlow: {date:"2026-06-30",operatingCashFlow:40,capitalExpenditure:-25,stockBasedCompensation:9,financeLeasePrincipalPayments:3},
-  balance: {date:"2026-06-30",totalDebt:30,cashAndShortTermInvestments:15,operatingLeaseLiability:10},currency:"USD",
+  balance: {date:"2026-06-30",totalDebt:30,cashAndShortTermInvestments:15,operatingLeaseLiability:10,capitalLeaseObligations:10},currency:"USD",
 });
 describe("deterministic financial explanation",()=>{
   it("renders the current basis and its cash/debt bridge without changing annual history",()=>{

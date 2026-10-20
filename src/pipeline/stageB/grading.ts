@@ -221,7 +221,10 @@ function scoreAspect(
         notApplicableReason:
           notApplicableReason ??
           noDataReason ??
-          "no applicable signals available for this route — aspect not scored",
+          // Audit 2026-10-19 FCX-14: a data gap is not a route design choice.
+          (applicableWeight > 0
+            ? "applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored"
+            : "no applicable signals for this route — aspect not scored"),
         note,
       },
       applicableWeight,

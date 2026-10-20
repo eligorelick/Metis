@@ -665,6 +665,9 @@ function describeDerivedEbit(ctx: {
  * publishes the operating slice as its own field, because that is the only slice
  * the enterprise-value bridge may remove (WS6 review, BLOCKER 1).
  */
+const OPERATING_LEASE_PORTION_DISCLOSURE =
+  "only one maturity of the operating-lease liability is tagged for the period; the other portion is unverified, so lease-inclusive debt is unavailable and only the lease-excluded basis can use this row";
+
 const LEASE_LIABILITY_SPEC: ChainSpec = {
   kind: "sumAnyOf",
   unit: "money",
@@ -677,6 +680,11 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
         steps: [
           { kind: "first", tags: tagsFor("operatingLeaseLiability"), unit: "money" },
           { kind: "sum", tags: tagsFor("operatingLeaseLiabilityParts"), unit: "money" },
+          // Audit 2026-10-19 FCX-1: one tagged maturity (Freeport tags only the
+          // noncurrent portion; the current sits in accrued liabilities) is
+          // kept, disclosed, and its scope is left to the lease-scope rule,
+          // which admits it only on the lease-excluded basis.
+          { kind: "first", tags: [...tagsFor("operatingLeaseLiabilityParts")].reverse(), unit: "money", disclose: OPERATING_LEASE_PORTION_DISCLOSURE },
         ],
       },
     },
@@ -1959,7 +1967,11 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     `totalDebt ${ctx}`,
   );
   const refusedCurrent = notes.withheld.find((held) => (held.field === "shortTermDebt" || held.field === "longTermDebt") && held.periods.includes(ctx));
-  const partialLease = (["Operating", "Finance"] as const).find(prefix =>
+  // Finance leases are debt in every frame, so a missing finance maturity
+  // leaves debt incomplete. A missing operating maturity does not: the lease
+  // chain keeps the tagged portion and the lease-scope rule confines the row
+  // to the lease-excluded basis (audit 2026-10-19 FCX-1).
+  const partialLease = (["Finance"] as const).find(prefix =>
     cc.resolved.get("capitalLeaseObligations")?.parts?.[`${prefix.toLowerCase()}LeaseLiability`] === undefined &&
     ((cc.money(`${prefix}LeaseLiabilityCurrent`) === null) !== (cc.money(`${prefix}LeaseLiabilityNoncurrent`) === null)));
   const incomplete = partialLease !== undefined

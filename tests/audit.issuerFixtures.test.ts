@@ -144,3 +144,21 @@ describe("financing debt from instrument-class tags (audit O-1, SNOW-1, SNOW-10)
     expect(row.totalDebt).toBeNull();
   });
 });
+
+describe("a missing operating-lease maturity does not blank debt (audit FCX-1)", () => {
+  it("FCX: total debt carries the issuer's $9,386m plus the tagged noncurrent operating lease", () => {
+    const row = latestBalance("FCX");
+    expect(row.date).toBe("2026-06-30");
+    expect(row.operatingLeaseLiability).toBe(973_000_000);
+    expect(row.totalDebt).toBe(9_386_000_000 + 973_000_000);
+    expect((row.totalDebt as number) - (row.operatingLeaseLiability as number)).toBe(9_386_000_000);
+  });
+
+  it("still withholds total debt when a finance-lease maturity is missing", () => {
+    const row = latestOf((gaap) => {
+      gaap.FinanceLeaseLiabilityNoncurrent = { units: { USD: [{ ...point(gaap, "LongTermDebtNoncurrent", "2026-06-30"), val: 50_000_000 }] } };
+    }, "FCX");
+    expect(row.totalDebt).toBeNull();
+    expect(row.netDebt).toBeNull();
+  });
+});

@@ -1,6 +1,6 @@
 import { computeCapital, type CapitalBalanceRow, type CapitalCashFlowRow, type CapitalIncomeRow, type CapitalResult } from "./capital";
 import { deriveFcf } from "./financialValues";
-import { leaseDebtConflict, resolveNetDebt } from "./netDebt";
+import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt } from "./netDebt";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "./leaseScope";
 import type { SectorRoute } from "@/types/core";
 
@@ -67,12 +67,12 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
     ...(incomplete.finance === "noncurrent" ? { financeLeasesNoncurrent: finance } : incomplete.finance === "current" ? { financeLeasesCurrent: finance } : {}),
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
     netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
-    netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null && leaseDebtScopeRefusal(row, false) === null ? sub(net, operating) : null,
+    netDebtExcludingDisclosedOperatingLeasePortion: leaseDebtConflict(row ?? {}) === null && leaseDebtScopeRefusal(row, false) === null && operatingLeaseScopeUnproven(row ?? {}) === null ? sub(net, operating) : null,
     leaseScopeNote: incomplete.note,
   };
   return { totalDebtIncludingLeases: debt, operatingLeases: operating, financeLeases: finance, cashAndShortTermInvestments: liquidity,
     ...(equity !== undefined && liquidity !== null ? { marketableEquitySecurities: equity, cashForNetDebt: liquidity - equity } : {}),
-    netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null ? sub(net, operating) : null };
+    netDebtIncludingLeases: net, netDebtExcludingOperatingLeases: leaseDebtConflict(row ?? {}) === null && operatingLeaseScopeUnproven(row ?? {}) === null ? sub(net, operating) : null };
 }
 function periodEndTime(value: string | null | undefined): number | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;

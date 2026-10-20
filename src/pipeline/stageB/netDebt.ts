@@ -46,6 +46,28 @@ export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
   return null;
 }
 
+/**
+ * Removing the operating-lease liability from net debt or EV presumes totalDebt
+ * holds it (audit 2026-10-19, CODE-1). An operating lease enriched from SEC
+ * onto a vendor row whose totalDebt is borrowings only would otherwise be
+ * subtracted from debt it was never in. Proven when the row's total lease
+ * liability covers the operating slice, or when totalDebt reconciles to
+ * current plus noncurrent borrowings plus the leases. Returns the reason the
+ * removal is unproven, or null.
+ */
+export function operatingLeaseScopeUnproven(row: LeaseDebtInputs & { shortTermDebt?: number | null; longTermDebt?: number | null }): string | null {
+  const operating = finite(row.operatingLeaseLiability);
+  if (operating === null || operating === 0) return null;
+  const tolerance = (value: number): number => Math.max(1, Math.abs(value) * 1e-6);
+  const total = finite(row.capitalLeaseObligations);
+  if (total !== null && total >= operating - tolerance(operating)) return null;
+  const debt = finite(row.totalDebt), short = finite(row.shortTermDebt), long = finite(row.longTermDebt);
+  if (debt !== null && short !== null && long !== null &&
+      Math.abs(short + long + operating + (finite(row.financeLeaseLiability) ?? 0) - debt) <= tolerance(debt)) return null;
+  return `operating-lease scope unproven: the operating-lease liability ${operating} is not shown to be inside total debt ${debt ?? "unavailable"} ` +
+    "(no total lease liability covers it and borrowings plus leases do not reconcile to the total), so it is not removed; net debt is used as reported";
+}
+
 export interface NetDebtInputs extends LeaseDebtInputs {
   date?: string | null;
   totalDebt?: number | null;
