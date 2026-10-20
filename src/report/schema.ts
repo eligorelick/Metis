@@ -121,7 +121,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // IREN source-scope corrections: disjoint cash investment/FCF, historical share admission, EPS and class-scope refusals. Old stored reports/snapshots retain their original contracts.
 // Company-model eligibility and independent AFFO comparison boundaries.
 // D-97: withheld-debt EV/EBITDA marker and the single-signal evidence floor.
-export const REPORT_SPEC_VERSION = "1.33.0" as const;
+// D-98: P/E earnings caveat, report-level evidence-scope line and contradicted figures in the header count.
+export const REPORT_SPEC_VERSION = "1.34.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

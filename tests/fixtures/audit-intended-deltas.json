@@ -9440,20 +9440,6 @@
       ]
     },
     {
-      "name": "independent-audit-fixes-20261020",
-      "decisions": [
-        "D-97"
-      ],
-      "reason": "Independent audit 2026-10-19 items 1-6 and 9: report spec 1.33.0 identifies the withheld-debt EV/EBITDA marker and the single-signal evidence floor, with instrument-class financing debt, debt plausibility, operating-lease portion scope and zero/immaterial NCI in Stage B. This provider-free DEMO control has none of the affected filer shapes: every financial amount, grade, weight, registry and manifest remains pinned. The sole reclassified leaf is report.meta.specVersion. Prior stored reports retain their original stamps and bytes. See docs/audit/2026-10-20-independent-audit-fixes.md.",
-      "deltas": [
-        {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.33.0"
-        }
-      ]
-    },
-    {
       "name": "amzn-2026-10-20-investments-after-tax",
       "decisions": [
         "D-98"
@@ -10075,6 +10061,20 @@
           "path": "stageB.valuation.sensitivity.perShare.4.4",
           "before": 128.38543965803257,
           "after": 126.095847948011
+        }
+      ]
+    },
+    {
+      "name": "amzn-audit-fixes-20261020",
+      "decisions": [
+        "D-98"
+      ],
+      "reason": "AMZN report audit 2026-10-20 fixes 1-5 with findings 12, 14 and 17 and independent-audit recommendations 7 and 15: report spec 1.34.0 identifies the gain-inflated P/E caveat, the report-level evidence-scope line and contradicted figures in the header count, with rate-limit degradation, SEC-statement investment stakes and their tax, the guided year-over-year pace, the improving-margin fade and the one-off margin seed in Stage B. The investment-tax leaves of this provider-free DEMO control are classified in amzn-2026-10-20-investments-after-tax; the sole leaf reclassified here is report.meta.specVersion. Prior stored reports retain their original stamps and bytes. See docs/audit/2026-10-20-amzn-audit-fixes.md.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.34.0"
         }
       ]
     }
