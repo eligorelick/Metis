@@ -26,6 +26,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Infer zero NCI only from the filing's own pattern, and add a 1% NCI materiality floor for parent P/FCF (SNOW-2, DOC-1).
 - Count inferred parent equity as parent equity in P/B, returns and DCF inputs, and withhold composed debt when two instrument classes lie within 2% of each other (review of this change).
 - Keep composed long-term debt that holds current notes out of the forensic leverage tests, require a known NCI earnings figure before the 1% NCI floor applies, and keep each lease slice's own tags so a partial operating maturity stays visible beside a finance lease (second review of this change).
+- Let a zero current-debt figure compose debt, read zero interest as undisclosed in the debt plausibility check, count quarterly balances in the annual check, join interest across ±5 days of fiscal-date drift, and state the single-signal grade floor in the data-only report (third review of this change).
 - Withhold a grade letter that rests on one partial signal, and name P/B fallbacks (PGR-4).
 - Commit trimmed SEC companyfacts fixtures for FCX, PGR, O, SNOW and NNN (GATE-21).
 - Advance report/payload/Stage B conventions to 1.33.0/1.38.0/ACCOUNTING_EVIDENCE_15. Stored reports remain immutable. See the [disposition record](docs/audit/2026-10-20-independent-audit-fixes.md) and D-97.

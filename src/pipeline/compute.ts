@@ -1717,13 +1717,31 @@ function totalDebtSnapshot(
 
 export interface StageBReplayConfig { evIncludeLeases: boolean }
 
-/** Four consecutive quarters of interest expense ending on `date`, or null when any is missing. */
+/** FMP reports undisclosed interest as 0 (the zero-vs-undisclosed policy), so a zero is missing evidence. */
+function disclosedInterest(row: FmpIncomeStatementRow | undefined): number | null {
+  const value = num(row?.interestExpense);
+  return value === 0 ? null : value;
+}
+
+/** Index of the income row dated nearest `date`, within the ±5-day fiscal-date drift statement joins tolerate. */
+function incomeIndexNear(rows: readonly FmpIncomeStatementRow[], date: string): number {
+  const target = Date.parse(date);
+  let best = -1;
+  let bestDelta = 5 * 86_400_000;
+  rows.forEach((row, index) => {
+    const delta = Math.abs(Date.parse(isoDay(row.date) ?? "") - target);
+    if (delta <= bestDelta) { best = index; bestDelta = delta; }
+  });
+  return best;
+}
+
+/** Four consecutive quarters of disclosed interest expense ending on `date`, or null when any is missing. */
 function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: string): number | null {
-  const start = quarters.findIndex((row) => isoDay(row.date) === date);
+  const start = incomeIndexNear(quarters, date);
   const window = start < 0 ? [] : quarters.slice(start, start + 4);
   if (window.length < 4) return null;
   const span = (Date.parse(date) - Date.parse(isoDay(window[3]!.date) ?? "")) / 86_400_000;
-  const values = window.map((row) => num(row.interestExpense));
+  const values = window.map(disclosedInterest);
   if (!(span >= 250 && span <= 300) || values.some((value) => value === null)) return null;
   return values.reduce((sum, value) => sum! + value!, 0);
 }
@@ -1732,10 +1750,11 @@ function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: 
  * Withhold total, net and long-term debt on every balance row whose year's interest
  * expense shows its debt to be incomplete. The interest is judged against the
  * most debt resolved at any balance date of that year, so a borrowing repaid
- * mid-year still explains the interest it carried. A row with no debt figure
- * at all is left to the balance-anchor rules.
+ * mid-year still explains the interest it carried. `interim` adds balance
+ * dates inside the year (quarterly rows for an annual check). A row with no
+ * debt figure at all is left to the balance-anchor rules.
  */
-function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[]): FmpBalanceSheetRow[] {
+function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = []): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
     const parts = [num(row.shortTermDebt), num(row.longTermDebt), num(row.financeLeaseLiability)];
     // A row without components (vendor rows) is judged on its published total.
@@ -1746,7 +1765,7 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
     const closing = financingDebt(row);
     if (date === null || closing === null) return row;
     const yearStart = Date.parse(date) - 380 * 86_400_000;
-    const opening = rows.filter((other) => {
+    const opening = [...rows, ...interim].filter((other) => {
       const day = isoDay(other.date);
       return day !== null && day < date && Date.parse(day) >= yearStart;
     }).map(financingDebt).filter((debt): debt is number => debt !== null);
@@ -1914,13 +1933,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // incomplete is withheld before any consumer reads it. Financial routes are
   // excluded: their interest expense funds deposits and float, not debt.
   if (!(route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage")) {
-    balanceAnnual = withholdImplausibleDebt(balanceAnnual, (date) => num(incomeAnnual.find((row) => isoDay(row.date) === date)?.interestExpense), ttmGaps);
+    balanceAnnual = withholdImplausibleDebt(balanceAnnual, (date) => {
+      const index = incomeIndexNear(incomeAnnual, date);
+      return index < 0 ? null : disclosedInterest(incomeAnnual[index]);
+    }, ttmGaps, balanceQuarterly);
     // A quarter is judged on the smaller of its trailing year and the latest
     // fiscal year, so a one-off quarter (an extinguishment cost tagged as
     // interest) cannot withhold debt on its own.
     const latestAnnualInterest = (date: string): number | null => {
       const year = incomeAnnual.find((row) => { const day = isoDay(row.date); return day !== null && day <= date && Date.parse(date) - Date.parse(day) < 380 * 86_400_000; });
-      return year === undefined ? null : num(year.interestExpense);
+      return disclosedInterest(year);
     };
     balanceQuarterly = withholdImplausibleDebt(balanceQuarterly, (date) => {
       const bases = [trailingYearInterest(incomeQuarterly, date), latestAnnualInterest(date)].filter((value): value is number => value !== null);

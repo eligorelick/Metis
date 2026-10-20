@@ -280,7 +280,7 @@ function gradeBlock(
     confidence: aspect.dataCompleteness >= 0.75 ? "medium" : "low",
     keyNumbers: aspect.drivers,
     interpretation:
-      "This is a reproducible deterministic score, not a completed analyst assessment. Headline grades are withheld when fewer than half of the intended signals have data; the raw score and band remain visible for audit.",
+      "This is a reproducible deterministic score, not a completed analyst assessment. Headline grades are withheld when fewer than half of the intended signals have data, or when the score rests on one signal that carries only part of the intended evidence; the raw score and band remain visible for audit.",
   };
 }
 

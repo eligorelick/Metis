@@ -2181,11 +2181,13 @@ function resolveDebtOverlaps(
     const currentLine = tagsOf("shortTermDebt").find((tag) => CURRENT_MATURITY_TAGS.includes(tag) || tag === MATURITIES_NEXT_YEAR_TAG);
     const inclusive = longTermTags.filter((tag) => INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag));
     const currentClass = longTermTags.filter((tag) => CURRENT_DEBT_COMPONENT_TAGS.has(tag));
-    const reason = composedFrom("debtCombinedTotal") && v.shortTermDebt != null
+    // A current-debt figure of zero holds nothing that could be counted twice.
+    const currentDebt = v.shortTermDebt != null && v.shortTermDebt !== 0;
+    const reason = composedFrom("debtCombinedTotal") && currentDebt
       ? "financing debt unresolved: DebtLongtermAndShorttermCombinedAmount is all debt, current included, and a current-debt figure also resolved"
-      : currentClass.length > 0 && v.shortTermDebt != null
+      : currentClass.length > 0 && currentDebt
         ? `financing debt unresolved: ${currentClass.join(" + ")} carry current debt that the current-debt figure (${tagsOf("shortTermDebt").join(" + ")}) may also carry`
-      : currentLine !== undefined && inclusive.length > 0
+      : currentLine !== undefined && inclusive.length > 0 && currentDebt
         ? `financing debt unresolved: ${inclusive.join(" + ")} include their current portions, which ${currentLine} also carries`
         : composedFrom("longTermDebtNotes") && composedFrom("longTermDebtConvertible")
           ? "financing debt unresolved: a notes total and a convertible-notes total are both tagged, and the notes total may already include the convertible notes"

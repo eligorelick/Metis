@@ -41,6 +41,14 @@ A second Codex pass, on the commit that made those fixes, raised four more point
 - **Partial operating-lease maturity beside a finance lease (fixed).** The operating slice carried no tags of its own, so once a finance lease was also tagged, `incompleteLeaseCoverage` could not see that only one operating maturity was present. Each lease slice now keeps the tags that served it. Test: `tests/audit.issuerFixtures.test.ts`.
 - **Analysis cutoff crossing UTC midnight (not changed).** A build whose acquisition crosses 00:00 UTC gets a cutoff dated the next day, while its sources were selected on the start day. Everything the cutoff admits was observed before it, so no point-in-time look-ahead can result. The cost is that such a build may hold statements one filing day older than its cutoff date suggests. Capping the cutoff at the end of the start day would refuse the SEC facts fetched after midnight, which is the PGR-1 failure item 1 fixed.
 
+A third Codex pass raised five more points, all fixed with tests. Each change makes the check judge more evidence or refuse less wrongly:
+
+- **Zero current debt beside composed debt.** A current-debt figure of exactly zero triggered the overlap withhold, although it holds nothing to count twice. Only a non-zero figure now withholds. Test: `tests/audit.issuerFixtures.test.ts`.
+- **Zero interest in the plausibility basis.** A quarter is judged on the smaller of its trailing year and the latest fiscal year. FMP's zero-for-undisclosed interest therefore won that choice and switched the check off. Zero interest is now read as undisclosed, as `IMPLAUSIBLE_ZERO_FIELDS` already treats it. Test: `tests/stageB.debtPlausibility.test.ts`.
+- **Intra-year borrowings in the annual check.** The annual check saw only year-end balances, so interest on a borrowing repaid between them could withhold complete debt. Quarterly balances inside the year now count. Test: `tests/stageB.debtPlausibility.test.ts`.
+- **Fiscal-date drift.** Interest was joined to balances by exact date. It now joins within ±5 days, the tolerance `matchByDate` uses. Test: `tests/stageB.debtPlausibility.test.ts`.
+- **Data-only grade interpretation.** The sentence explaining withheld letters named only the half-evidence floor. It now also names the single-signal rule. Test: `tests/stageC.payload.passes.test.ts`.
+
 ## Departures from the recommendation text
 
 - **Item 2: `DebtInstrumentCarryingAmount`.** Item 2 suggests treating a missing `DebtInstrumentCarryingAmount` as unproven. That would withhold debt for every filer that does not tag it. The interest-plausibility check, which the same item recommends, is used instead as the fail-closed guard. A filer missing that tag is still judged against the interest it paid.

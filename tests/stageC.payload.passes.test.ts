@@ -2877,6 +2877,15 @@ describe("financial forward assumption propagation", () => {
     expect(report.routeMetrics?.notes.join(" ")).toMatch(/terminal ROE 12\.5%/i);
     expect(report.routeMetrics?.metrics.find((row) => row.key === "justifiedPTbv")?.basis).not.toMatch(/adds no continuing value/);
   });
+
+  it("explains both evidence floors in the data-only grade interpretation (audit PGR-4)", () => {
+    const { bundle, computed } = financialInputs();
+    const report = enrichDataOnlyReport(assemble(computed, judgeOutput()), { bundle, computed, reason: "offline fixture" });
+    const interpretations = [report.fundamentals.graded, report.valuation.graded, report.quality.graded]
+      .map((block) => block.interpretation).filter((text): text is string => text !== undefined);
+    expect(interpretations.length).toBeGreaterThan(0);
+    for (const text of interpretations) expect(text).toMatch(/fewer than half .* or when the score rests on one signal that carries only part of the intended evidence/);
+  });
 });
 
 describe("common-holder compute adapters", () => {

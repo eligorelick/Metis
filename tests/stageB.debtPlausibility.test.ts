@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { runStageB } from "@/pipeline/compute";
+import type { DataBundle } from "@/pipeline/types";
 import { currencyBundle, M } from "./helpers/currencyBundle";
 
 describe("implausibleDebtReason", () => {
@@ -49,6 +50,38 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     for (const date of ["2025-12-31", "2026-03-31"]) {
       expect(out.gaps.some((gap) => gap.field === `statements.balance.${date}.longTermDebt` && /implies 30.0%/.test(gap.reason))).toBe(true);
     }
+  });
+
+  const rowsOf = (bundle: DataBundle, key: "incomeAnnual" | "incomeQuarterly" | "balanceAnnual") => {
+    const statement = bundle.statements[key];
+    if (!statement.ok) throw new Error("fixture has rows");
+    return statement.value.data.rows as unknown as Record<string, unknown>[];
+  };
+  const judged = (out: ReturnType<typeof runStageB>, date: string) =>
+    out.gaps.filter((gap) => gap.field === `statements.balance.${date}.totalDebt` && /on resolved financing debt/.test(gap.reason)).map((gap) => gap.reason);
+
+  it("reads a zero annual interest as undisclosed, so the trailing quarters still judge the debt", () => {
+    // 16 of trailing interest on 50 of debt is 32%; FMP's 0 must not win the smaller-basis choice.
+    const bundle = currencyBundle({ debt: 50, siblingQuarterCurrencies: USD });
+    for (const row of rowsOf(bundle, "incomeAnnual")) row.interestExpense = 0;
+    expect(judged(runStageB(bundle), "2026-03-31").join()).toMatch(/implies 32\.0%/);
+  });
+
+  it("joins quarterly interest across a few days of fiscal-date drift", () => {
+    const bundle = currencyBundle({ debt: 50, siblingQuarterCurrencies: USD });
+    for (const row of rowsOf(bundle, "incomeAnnual")) row.interestExpense = null;
+    for (const row of rowsOf(bundle, "incomeQuarterly")) row.date = new Date(Date.parse(String(row.date)) - 2 * 86_400_000).toISOString().slice(0, 10);
+    expect(judged(runStageB(bundle), "2026-03-31").join()).toMatch(/implies 32\.0%/);
+  });
+
+  it("judges a year's interest against the debt its quarterly balances carried", () => {
+    // Year-end debt of 50 against 15 of interest is 30%, but the quarters of
+    // FY2025 carried 300, which explains it. FY2024 has no quarters in the bundle.
+    const bundle = currencyBundle({ debt: 300, siblingQuarterCurrencies: USD });
+    for (const row of rowsOf(bundle, "balanceAnnual")) { row.totalDebt = 50 * M; row.netDebt = -10 * M; }
+    const out = runStageB(bundle);
+    expect(judged(out, "2025-12-31")).toEqual([]);
+    expect(judged(out, "2024-12-31").join()).toMatch(/implies 30\.0%/);
   });
 
   it("leaves ordinary debt alone", () => {

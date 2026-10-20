@@ -180,6 +180,15 @@ describe("financing debt from instrument-class tags (audit O-1, SNOW-1, SNOW-10)
     expect(row.longTermDebt).toBeNull();
     expect(row.totalDebt).toBeNull();
   });
+
+  it("keeps the combined debt amount beside a current-debt figure of zero, which holds nothing to count twice", () => {
+    const row = latestOf((gaap) => {
+      gaap.ShortTermBorrowings = { units: { USD: [{ ...point(gaap, "DebtLongtermAndShorttermCombinedAmount", "2026-06-30"), val: 0 }] } };
+    }, "PGR");
+    expect(row.shortTermDebt).toBe(0);
+    expect(row.totalDebt).toBe(latestBalance("PGR").totalDebt);
+    expect(row.longTermDebt).not.toBeNull();
+  });
 });
 
 describe("a missing operating-lease maturity does not blank debt (audit FCX-1)", () => {
