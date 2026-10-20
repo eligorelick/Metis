@@ -252,6 +252,7 @@ describe("the rendered forensic table carries the decompositions", () => {
     }
     expect(out.beneish.zone).toMatch(/growth-led/);
     expect(out.piotroski.zone).toMatch(/^4\/9/);
-    expect(out.piotroski.zone).toMatch(/failed: .*ΔROA.*CFO > net income.*current ratio.*gross margin.*asset turnover/);
+    // AMZN audit 2026-10-20 finding 20: a failure says what happened, never the pass condition.
+    expect(out.piotroski.zone).toMatch(/failed: ROA did not improve, CFO did not exceed net income, current ratio did not rise, gross margin did not rise, asset turnover did not rise$/);
   });
 });
