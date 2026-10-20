@@ -135,6 +135,7 @@ import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { longTermDebtHoldsCurrent } from "@/edgar/statements";
 import { implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import {
@@ -623,7 +624,9 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     totalLiabilities: num(r.totalLiabilities),
     totalCurrentLiabilities: num(r.totalCurrentLiabilities),
     shortTermDebt: num(r.shortTermDebt),
-    longTermDebt: num(r.longTermDebt),
+    // Leverage tests read long-term debt alone; a composed figure holding
+    // current notes would count those notes twice beside current liabilities.
+    longTermDebt: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) ? null : num(r.longTermDebt),
     taxPayables: num(r.taxPayables),
     retainedEarnings: num(r.retainedEarnings),
     totalStockholdersEquity: num(r.totalStockholdersEquity),
@@ -2131,6 +2134,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       sicCode: str(bundle.edgar?.sic),
     },
   });
+  if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
+    forensics.gaps.push({ field: "forensics.longTermDebt", severity: "info", reason:
+      "long-term debt is composed from instrument-class tags that include current debt, so the leverage tests that read long-term debt alone (Piotroski leverage, Beneish LVGI) are not evaluated; total debt is unaffected" });
+  }
   if (forensicEquityScope.status === "unresolved") {
     forensics.gaps.push({ field: "forensics.economicClassBasis", reason: forensicEquityScope.basis, severity: "warn", attemptedSources: forensicEquityScope.sourceIds });
   }

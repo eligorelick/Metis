@@ -442,6 +442,18 @@ const LONG_TERM_DEBT_COMPONENT_DISCLOSURE =
   "no LongTermDebt aggregate is tagged for the period; financing debt is composed from the filer's instrument-class tags (notes, loans, secured, convertible, revolver or the combined debt amount), which include any current portion";
 /** Inclusive instrument-class totals: each includes its own current portion. */
 const INCLUSIVE_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(["DebtLongtermAndShorttermCombinedAmount", "NotesPayable", "SeniorNotes", "LoansPayable", "SecuredDebt", "ConvertibleNotesPayable"]);
+/**
+ * Whether a long-term-debt figure was composed from tags that hold current debt
+ * (an inclusive class total or a class's current variant). Its total is right,
+ * but it is not noncurrent debt, so consumers that read long-term debt on its
+ * own (the forensic leverage tests) must not use it.
+ */
+export function longTermDebtHoldsCurrent(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).some((tag) => {
+    const name = tag.replace(/^us-gaap\//, "");
+    return INCLUSIVE_DEBT_COMPONENT_TAGS.has(name) || CURRENT_DEBT_COMPONENT_TAGS.has(name);
+  });
+}
 /** Each instrument class with the tag family of its current portion, which its noncurrent variants exclude. */
 const DEBT_COMPONENT_CLASSES = [
   ["longTermDebtNotes", "longTermDebtNotesCurrent"],
@@ -2529,6 +2541,15 @@ function buildStatementRows<TRow>(
     }
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
+    }
+    // Each lease slice keeps the tags that served it, so a partial operating
+    // maturity stays visible beside a finance lease (the summed total's tags
+    // describe neither slice once both are present).
+    for (const field of ["operatingLeaseLiability", "financeLeaseLiability"] as const) {
+      const total = fieldProvenance.capitalLeaseObligations;
+      const family = [...tagsFor(field), ...tagsFor(`${field}Parts`)].map((tag) => `us-gaap/${tag}`);
+      const tags = total?.tags.filter((tag) => family.includes(tag)) ?? [];
+      if (def.statement === "balance" && values[field] != null && fieldProvenance[field] === undefined && total && tags.length > 0) fieldProvenance[field] = { ...total, tags };
     }
     // Parent equity inferred from an NCI-inclusive total is that total's fact,
     // marked so the ownership basis reads it as parent equity, not consolidated.

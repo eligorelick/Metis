@@ -2383,7 +2383,7 @@ The row discloses the substitution. These class figures can include current debt
 - both a generic notes total and a convertible-notes total are tagged;
 - two class figures lie within 2% of each other. Secured debt classifies by collateral, so it can hold the same notes or loans another class holds. Across SEC filers' FY2025 facts, every multi-class pair this close was one obligation tagged twice (Sun Communities' `LoansPayable` 2,429.0m beside `SecuredDebt` 2,472.2m, for example). REIT mortgages beside unsecured notes sit far apart and still compose. A secured class that holds only part of another class cannot be seen from the tags; the debt plausibility check below catches understatement, not that overlap.
 
-A withheld noncurrent figure withholds total and net debt.
+A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
 
 **Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. The year's interest expense is divided by the most debt resolved at any balance date of that year. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. The check does not run in three cases:
 - interest below 0.25% of total assets;
@@ -2427,7 +2427,9 @@ and its history are withheld for outside ownership only when the known NCI
 balance or the NCI share of earnings exceeds 1% of consolidated equity. Below
 that, NCI cannot move the multiple (audit SNOW-2). A stake bought out before
 the balance date leaves a zero balance but still earned its share of the cash
-flow, so earnings above the floor still withhold P/FCF.
+flow, so earnings above the floor still withhold P/FCF. A non-zero NCI balance
+with no NCI earnings figure also withholds it: an ending balance cannot bound
+the period's earnings.
 
 **A grade needs corroborating evidence.** No surface shows an aspect's letter
 when its score rests on less than half of its intended signal weight (D-67).

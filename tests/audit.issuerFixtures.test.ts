@@ -20,6 +20,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { buildStatementsFromCompanyFacts, type BuiltStatements } from "@/edgar/statements";
+import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
 import type { CompanyFacts } from "@/edgar/xbrl";
 
 const ASOF = "2026-10-20";
@@ -182,6 +183,14 @@ describe("financing debt from instrument-class tags (audit O-1, SNOW-1, SNOW-10)
 });
 
 describe("a missing operating-lease maturity does not blank debt (audit FCX-1)", () => {
+  it("keeps the partial operating maturity visible beside a separately tagged finance lease", () => {
+    const row = latestOf((gaap) => {
+      gaap.FinanceLeaseLiability = { units: { USD: [{ ...point(gaap, "OperatingLeaseLiabilityNoncurrent", "2026-06-30"), val: 50_000_000 }] } };
+    }, "FCX");
+    expect(row.capitalLeaseObligations).toBe(973_000_000 + 50_000_000);
+    expect(incompleteLeaseCoverage(row as Parameters<typeof incompleteLeaseCoverage>[0])?.operating).toBe("noncurrent");
+  });
+
   it("FCX: total debt carries the issuer's $9,386m plus the tagged noncurrent operating lease", () => {
     const row = latestBalance("FCX");
     expect(row.date).toBe("2026-06-30");

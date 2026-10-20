@@ -302,6 +302,15 @@ describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-
     expect(run("SNOW").out.valuation.multiples!.enterpriseValue.noncontrollingInterestBasis).toBe("none-disclosed");
   });
 
+  it("keep long-term debt that holds current notes out of the forensic leverage tests", () => {
+    // O and NNN compose debt from inclusive class totals (NotesPayable, LoansPayable).
+    for (const ticker of ["O", "NNN"] as const) {
+      expect(run(ticker).out.forensics.piotroski?.signals.leverageDown.value, ticker).toBeNull();
+      expect(run(ticker).out.forensics.beneish?.neutralized, ticker).toContain("LVGI");
+    }
+    expect(run("FCX").out.forensics.piotroski?.signals.leverageDown.value).not.toBeNull();
+  });
+
   it("price SNOW's book from the parent equity the zero-NCI inference established", () => {
     const { bundle, out } = run("SNOW");
     const marketCap = bundle.quote.ok ? bundle.quote.value.data.rows[0]?.marketCap : null;

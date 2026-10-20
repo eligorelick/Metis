@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
-function withNci(nci: number, noncontrollingIncome = 0) {
+function withNci(nci: number, noncontrollingIncome: number | null = 0) {
   const bundle = completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
   for (const key of ["balanceAnnual", "balanceQuarterly"] as const) {
     const statement = bundle.statements[key];
@@ -22,7 +22,11 @@ function withNci(nci: number, noncontrollingIncome = 0) {
   for (const key of ["incomeAnnual", "incomeQuarterly"] as const) {
     const statement = bundle.statements[key];
     if (!statement.ok) throw new Error("fixture has income");
-    for (const row of statement.value.data.rows) (row as { netIncomeAttributableToNoncontrollingInterest?: number }).netIncomeAttributableToNoncontrollingInterest = noncontrollingIncome;
+    for (const row of statement.value.data.rows) {
+      const income = row as { netIncomeAttributableToNoncontrollingInterest?: number };
+      if (noncontrollingIncome === null) delete income.netIncomeAttributableToNoncontrollingInterest;
+      else income.netIncomeAttributableToNoncontrollingInterest = noncontrollingIncome;
+    }
   }
   return runStageB(bundle);
 }
@@ -39,6 +43,12 @@ describe("NCI materiality for parent-common P/FCF (audit SNOW-2)", () => {
 
   it("withholds P/FCF when the NCI share of earnings is material, even at a zero balance", () => {
     const out = withNci(0, 40e6); // a stake bought out before the balance date
+    expect(cashOwnershipGap(out)).toBe(true);
+    expect(priceToFcf(out)).toBeNull();
+  });
+
+  it("withholds P/FCF when a small NCI balance comes with no NCI earnings figure", () => {
+    const out = withNci(3e6, null); // the ending balance cannot bound the period's NCI earnings
     expect(cashOwnershipGap(out)).toBe(true);
     expect(priceToFcf(out)).toBeNull();
   });

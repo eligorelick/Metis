@@ -3137,15 +3137,16 @@ function unknownNoncontrollingAllocation(balance: { totalEquity?: number | null;
  * Known NCI at or below this share of consolidated equity cannot move a
  * parent-common cash multiple. Without the floor, $5-7M of NCI against $2.4-3.0bn
  * of equity withheld P/FCF and its whole history (audit SNOW-2). The NCI
- * share of earnings must be as small: a stake bought out before the balance
- * date leaves a zero balance but still earned its share of the cash flow.
+ * share of earnings must be as small, and known: a stake bought out before
+ * the balance date leaves a zero balance but still earned its share of the
+ * cash flow, so an ending balance alone cannot bound it.
  */
 const IMMATERIAL_NCI_SHARE_OF_EQUITY = 0.01;
 
 function immaterialNoncontrollingInterest(row: { totalEquity?: number | null; minorityInterest?: number | null } | null, noncontrollingIncome?: number | null): boolean {
   if (!isNum(row?.minorityInterest) || !isNum(row?.totalEquity) || row.totalEquity <= 0) return false;
   const floor = row.totalEquity * IMMATERIAL_NCI_SHARE_OF_EQUITY;
-  return Math.abs(row.minorityInterest) <= floor && (!isNum(noncontrollingIncome) || Math.abs(noncontrollingIncome) <= floor);
+  return Math.abs(row.minorityInterest) <= floor && isNum(noncontrollingIncome) && Math.abs(noncontrollingIncome) <= floor;
 }
 
 function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
@@ -3485,7 +3486,7 @@ export function multiplesFramework(
   const cashEnd = cf?.date ?? "";
   const cashStart = /^\d{4}-\d{2}-\d{2}$/.test(cashEnd) ? `${Number(cashEnd.slice(0, 4)) - 1}${cashEnd.slice(4)}` : "";
   const currentCashRows = (inputs.quarterlyFundamentals ?? []).filter(row => cashStart && row.date > cashStart && row.date <= cashEnd);
-  const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership(bal)) ||
+  const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership({ ...bal, noncontrollingIncome: inc?.noncontrollingIncome })) ||
     (!immaterialNoncontrollingInterest(bal, inc?.noncontrollingIncome) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
     (isNum(inc?.preferredDividendsPaid) && inc.preferredDividendsPaid !== 0) || currentCashRows.some(unresolvedCashOwnership);
   const parentFcfScope = unresolvedParentFcf
