@@ -26,6 +26,7 @@
  */
 
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
 
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
@@ -1231,6 +1232,8 @@ export const FMP_RATE_LIMIT_WAIT_BUDGET_MS = 90_000;
 export const FMP_RATE_LIMIT_PROBE_MS = 60_000;
 /** Each retry needs a fresh refusal to wait for, so a few attempts exhaust any bound. */
 const RATE_LIMIT_MAX_RETRIES = 3;
+/** Wall-clock end of the rate-limit bound for a retry in flight (`retryRateLimited`). */
+const fmpRetryDeadline = new AsyncLocalStorage<number>();
 
 /**
  * True for the gap an FmpQuotaError leaves (its message starts this way), so a
@@ -1401,32 +1404,56 @@ export class FmpClient {
    * cause. Any other result is returned untouched.
    */
   async retryRateLimited<T>(call: () => Promise<FetchResult<T>>): Promise<FetchResult<T>> {
+    // The bound is wall-clock time for the whole request (Codex review of
+    // PR #41): it starts before the first attempt, and each retry gets only
+    // the time that is left.
+    const start = this.now().getTime();
     let result = await call();
     if (this.apiKey === undefined) return result;
     const key = fmpAccessKey(this.apiKey, this.baseUrl);
-    const start = this.now().getTime();
     const deadline = start + FMP_RATE_LIMIT_WAIT_BUDGET_MS;
     let beyondBound = false;
+    let outOfTime = false;
+    let retries = 0;
     for (let attempt = 0; attempt < RATE_LIMIT_MAX_RETRIES && !result.ok && isFmpQuotaReason(result.gap.reason); attempt++) {
       const now = this.now().getTime();
       const pause = currentFmpQuota(key, now);
       const resumeAt = pause === undefined
         ? now
         : pause.vendorStated ? pause.expiresAt : Math.min(pause.expiresAt, pause.observedAt + FMP_RATE_LIMIT_PROBE_MS);
-      if (resumeAt > deadline) {
+      if (resumeAt >= deadline) {
         beyondBound = true;
         break;
       }
       if (resumeAt > now) await this.sleep(resumeAt - now);
       if (pause !== undefined) releaseGuessedFmpQuota(key, pause);
-      result = await call();
+      retries++;
+      let retried: FetchResult<T>;
+      try {
+        retried = await fmpRetryDeadline.run(deadline, call);
+      } catch (error) {
+        // A retry the bound timed out keeps the rate limit as its cause; a
+        // cancelled job, or any failure before the bound, still throws.
+        if (this.signal?.aborted || this.now().getTime() < deadline) throw error;
+        outOfTime = true;
+        break;
+      }
+      if (!retried.ok && !isFmpQuotaReason(retried.gap.reason) && this.now().getTime() >= deadline) {
+        // The retry was cut off by the bound, not refused for another reason:
+        // the rate limit is still the cause the report should name.
+        outOfTime = true;
+        break;
+      }
+      result = retried;
     }
     if (result.ok || !isFmpQuotaReason(result.gap.reason)) return result;
     const waitedS = Math.round((this.now().getTime() - start) / 1000);
     const boundS = FMP_RATE_LIMIT_WAIT_BUDGET_MS / 1000;
-    const note = beyondBound && waitedS === 0
-      ? `not retried: the pause exceeds the ${boundS} s retry bound`
-      : `still refused after waiting ${waitedS} s (bound ${boundS} s)`;
+    const note = outOfTime
+      ? `still refused: after waiting ${waitedS} s the retry ran out of the ${boundS} s bound`
+      : beyondBound && retries === 0
+        ? `not retried: the pause exceeds the ${boundS} s retry bound`
+        : `still refused after waiting ${waitedS} s (bound ${boundS} s)`;
     return { ok: false, gap: { ...result.gap, reason: `${result.gap.reason} ${note}.` } };
   }
 
@@ -1571,9 +1598,15 @@ export class FmpClient {
           observed.vendorAnswered = true;
           observed.appliedLimit = appliedLimit;
         }
+        // A rate-limit retry runs inside its wall-clock bound: one attempt,
+        // timed out when the bound ends.
+        const retryDeadline = fmpRetryDeadline.getStore();
         const policy: FetchPolicy = {
           provider: "fmp",
-          timeoutMs: this.timeoutMs,
+          timeoutMs: retryDeadline === undefined
+            ? this.timeoutMs
+            : Math.max(1, Math.min(this.timeoutMs, retryDeadline - this.now().getTime())),
+          ...(retryDeadline === undefined ? {} : { maxRetries: 0 }),
           signal: this.signal,
           retryOn429: false,
           beforeAttempt: () => assertFmpQuotaAvailable(accessKey, this.now().getTime()),

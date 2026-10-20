@@ -295,6 +295,47 @@ describe("FMP rate-limit retry for valuation-critical requests", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  // Codex review of PR #41: the 90 s is a wall-clock bound on the whole
+  // request, so it starts before the first attempt and also caps the retry.
+  it("counts the first request's own time against the bound", async () => {
+    let clock = START + 86_400_000;
+    const slept: number[] = [];
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      if (++calls > 1) return json(estimates);
+      clock += 25_000;
+      return new Response("Too many requests", { status: 429, headers: { "retry-after": "70" } });
+    });
+    const c = client(fetchImpl, { now: () => new Date(clock), sleep: async (ms: number) => { slept.push(ms); clock += ms; } });
+    const result = await c.retryRateLimited(() => c.analystEstimates("AAPL"));
+    // 25 s inside the first request plus a 70 s pause ends past the 90 s bound.
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.gap.reason).toMatch(/not retried: the pause exceeds the 90 s retry bound/);
+    expect(slept).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the retry only the time left in the bound, and keeps naming the rate limit", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(START + 2 * 86_400_000);
+    let calls = 0;
+    const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => ++calls === 1
+      ? new Promise<Response>((resolve) => setTimeout(() => resolve(new Response("Too many requests", { status: 429, headers: { "retry-after": "60" } })), 25_000))
+      : new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true }))) as unknown as typeof fetch;
+    const c = client(fetchImpl, { now: () => new Date() });
+    let settled: Awaited<ReturnType<typeof c.retryRateLimited>> | undefined;
+    void c.retryRateLimited(() => c.analystEstimates("AAPL")).then((r) => { settled = r; });
+    // 25 s first request, 60 s pause, then 5 s left for the retry.
+    await vi.advanceTimersByTimeAsync(FMP_RATE_LIMIT_WAIT_BUDGET_MS + 1_000);
+    expect(settled).toBeDefined();
+    expect(settled!.ok).toBe(false);
+    if (settled && !settled.ok) {
+      expect(settled.gap.reason).toContain("HTTP 429");
+      expect(settled.gap.reason).toMatch(/the retry ran out of the 90 s bound/);
+    }
+    expect(calls).toBe(2);
+  });
+
   it("returns any other refusal untouched, without waiting", async () => {
     const fetchImpl = vi.fn(async () => json({ "Error Message": "Invalid API key" }, 401));
     const { c, slept } = clocked(fetchImpl);
