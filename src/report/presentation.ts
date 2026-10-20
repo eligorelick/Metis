@@ -177,8 +177,11 @@ const EXACT_LABELS: Record<string, string> = {
   "computed.forensics.absolute-cash-flow-versus-balance-sheet-accrual-divergence": "Accrual divergence (cash-flow vs balance-sheet)",
   "computed.forensics.accruals.noaCurrent": "Net operating assets (current year)",
   "computed.forensics.accruals.noaPrior": "Net operating assets (prior year)",
-  "computed.forensics.accruals.scalerValue": "Average net operating assets",
-  "computed.forensics.accrual-scaler-value": "Average net operating assets",
+  // AMZN audit 2026-10-20 finding 20: the scaler is average NOA, or average
+  // total assets when NOA is not positive (the forensic notes say which); one
+  // label serves both, so it names neither.
+  "computed.forensics.accruals.scalerValue": "Accrual scaler (average NOA or total assets)",
+  "computed.forensics.accrual-scaler-value": "Accrual scaler (average NOA or total assets)",
   "computed.forensics.accruals.cashFlowAccrualRatio": "Accrual ratio (cash-flow)",
   "computed.forensics.accruals.balanceSheetAccrualRatio": "Accrual ratio (balance-sheet)",
   "computed.forensics.accrual-ratio-cash-flow": "Accrual ratio (cash-flow)",
