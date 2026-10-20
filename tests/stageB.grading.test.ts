@@ -1127,3 +1127,45 @@ describe("grading — P/E rank on gain-inflated earnings", () => {
     expect(plain.aspects.valuation.signals?.find((x) => x.id === "peOwnHistoryRank")?.raw).toBe(3);
   });
 });
+
+// AMZN audit 2026-10-20 finding 8: SBC / FCF was left out whenever free cash
+// flow before SBC was zero or negative, so a cash-burning issuer's SBC (Amazon:
+// $19.3B against TTM FCF of -$11.6B) carried no weight at all.
+describe("grading — SBC against zero or negative free cash flow", () => {
+  const sbcSignal = (cap: CapitalResult) =>
+    computeScores(makeInputs({ capital: cap })).aspects.balanceSheet.signals?.find((x) => x.id === "sbcPctOfFcf");
+  const current = (fcfBeforeSbc: number | null, sbc: number | null) => ({
+    industrialMetricsApplicable: true, basis: "ttm", asOf: "2026-06-30", periodStart: "2025-07-01", currency: "USD", fallbackReason: null,
+    netDebtToEbitda: 0.7, netDebt: 700, ebitda: 1000, interestCoverage: 28, ebit: 900, interestExpense: 32,
+    fcfBeforeSbc, netIncome: 1350, fcfConversionBeforeSbc: fcfBeforeSbc === null ? null : fcfBeforeSbc / 1350,
+    sbcPctOfFcf: fcfBeforeSbc !== null && fcfBeforeSbc > 0 && sbc !== null ? (sbc / fcfBeforeSbc) * 100 : null,
+    cashBridge: { stockBasedCompensation: sbc }, debtBridge: {},
+  }) as unknown as CapitalResult["current"];
+
+  it("grades positive SBC against FCF at or below zero at the band floor, and says why", () => {
+    const cap = capital({ sbc: { latest: 50, pctOfRevenue: 3, pctOfFcf: null } });
+    cap.fcf = { ...cap.fcf, latestFcfBeforeSbc: -35 };
+    const signal = sbcSignal(cap);
+    expect(signal?.transformedScore).toBe(10);
+    expect(signal?.fallbackReason).toMatch(/exceeds all of the free cash flow/i);
+    expect(signal?.fallbackReason).toMatch(/band floor/i);
+    cap.fcf = { ...cap.fcf, latestFcfBeforeSbc: 0 };
+    expect(sbcSignal(cap)?.transformedScore).toBe(10);
+  });
+
+  it("grades the current TTM snapshot the same way", () => {
+    const cap = capital({ current: current(-11.625, 19.314) });
+    const signal = sbcSignal(cap);
+    expect(signal?.transformedScore).toBe(10);
+    expect(signal?.operands.find((o) => o.name === "SBC")?.value).toBe(19.314);
+    expect(signal?.operands.find((o) => o.name === "SBC / FCF before SBC, percent")?.value).toBeNull();
+    // A positive FCF is still graded on the measured ratio.
+    expect(sbcSignal(capital({ current: current(100, 20) }))?.raw).toBe(20);
+  });
+
+  it("stays unscored when SBC is unknown or a credit, or FCF is unknown", () => {
+    expect(sbcSignal(capital({ current: current(-11.625, null) }))).toBeUndefined();
+    expect(sbcSignal(capital({ current: current(-11.625, -2) }))).toBeUndefined();
+    expect(sbcSignal(capital({ current: current(null, 19.314) }))).toBeUndefined();
+  });
+});

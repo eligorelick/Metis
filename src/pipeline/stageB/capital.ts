@@ -375,6 +375,16 @@ const BUYBACK_HEURISTIC_NOTE =
 export const BUYBACK_EXECUTION_PLAUSIBLE_RATIO = 1.6;
 export const BUYBACK_TIMING_MIN_COVERAGE_PCT = 50;
 
+/**
+ * AMZN audit 2026-10-20 finding 8: SBC / FCF is undefined when free cash flow
+ * before SBC is zero or negative, yet positive SBC then exceeds all of that
+ * free cash flow. True only in that case; unknown or credited SBC, or unknown
+ * FCF, is not evidence of anything.
+ */
+export function sbcExceedsAllFcf(fcfBeforeSbc: number | null | undefined, sbc: number | null | undefined): boolean {
+  return isFiniteNumber(fcfBeforeSbc) && fcfBeforeSbc <= 0 && isFiniteNumber(sbc) && sbc > 0;
+}
+
 function fmt(n: number): string {
   return String(Number(n.toFixed(4)));
 }

@@ -31,7 +31,7 @@ import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { scoringMargin, windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
-import type { CapitalResult } from "@/pipeline/stageB/capital";
+import { sbcExceedsAllFcf, type CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
@@ -880,6 +880,16 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   );
 
   // --- Balance sheet & capital --------------------------------------------
+  // AMZN audit 2026-10-20 finding 8: the ratio is undefined when FCF before
+  // SBC is zero or negative, and leaving the signal out let a cash-burning
+  // issuer's SBC carry no weight. Positive SBC then exceeds all of the free
+  // cash flow, past the band's last breakpoint, so it is graded there (the
+  // band floor). Unknown SBC or FCF still leaves the signal unscored.
+  const sbcRatio = currentCapital ? currentCapital.sbcPctOfFcf : capital.sbc.pctOfFcf;
+  const sbcPctOfFcfForGrading = sbcRatio ?? (sbcExceedsAllFcf(
+    currentCapital ? currentCapital.fcfBeforeSbc : capital.fcf.latestFcfBeforeSbc,
+    currentCapital ? currentCapital.cashBridge.stockBasedCompensation : capital.sbc.latest,
+  ) ? SBC_FCF_BAND[SBC_FCF_BAND.length - 1][0] : null);
   const balanceSheet = route.base === "bank"
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
     : financial
@@ -896,7 +906,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
           // sbcPctOfFcf below already scores it. The driver name states which
           // ratio it is; both ratios are reported.
           { name: "fcfConversionBeforeSbc", raw: currentCapital ? currentCapital.fcfConversionBeforeSbc : capital.fcf.latestConversionBeforeSbc, unit: "frac", weight: 0.2, band: FCF_CONVERSION_BAND },
-          { name: "sbcPctOfFcf", raw: currentCapital ? currentCapital.sbcPctOfFcf : capital.sbc.pctOfFcf, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
+          { name: "sbcPctOfFcf", raw: sbcPctOfFcfForGrading, unit: "%", weight: 0.15, band: SBC_FCF_BAND },
           // D-49: net share-count change is scored once, under leadership,
           // where it reads as stewardship net of buybacks. Scoring it here as
           // well double-weighted one signal.

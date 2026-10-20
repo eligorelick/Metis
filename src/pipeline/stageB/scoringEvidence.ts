@@ -1,6 +1,7 @@
 import type { ScoreAspect, ScoreSignal } from "@/report/schema";
 import type { ScoringInputs } from "./grading";
 import { CAGR_SPAN_TOLERANCE_YEARS, scoringMargin, windowCagr, yearsBetweenDates, type CagrPoint } from "./growth";
+import { sbcExceedsAllFcf } from "./capital";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const day = (value: string | null | undefined): string | null => {
@@ -144,6 +145,14 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         operand("SBC", current ? current.cashBridge.stockBasedCompensation : i.capital.sbc.latest, `${source}.${current ? "cashBridge.stockBasedCompensation" : "sbc.latest"}`);
         if (!current || "fcfBeforeSbc" in current) operand("FCF before SBC", current ? current.fcfBeforeSbc : i.capital.fcf.latestFcfBeforeSbc, `${source}.${current ? "fcfBeforeSbc" : "fcf.latestFcfBeforeSbc"}`);
         if (current) operand("SBC / FCF before SBC, percent", current.sbcPctOfFcf, `${source}.sbcPctOfFcf`);
+        // AMZN audit 2026-10-20 finding 8: the grader scores this case at the band floor.
+        if ((current ? current.sbcPctOfFcf : i.capital.sbc.pctOfFcf) === null &&
+          sbcExceedsAllFcf(current ? current.fcfBeforeSbc : i.capital.fcf.latestFcfBeforeSbc, current ? current.cashBridge.stockBasedCompensation : i.capital.sbc.latest)) {
+          result.fallbackReason = [result.fallbackReason,
+            "Free cash flow before SBC is zero or negative while SBC is positive, so SBC exceeds all of the free cash flow: " +
+            "SBC / FCF is undefined, and the signal is graded at the band floor (SBC at 100% or more of FCF). " +
+            "The value shown is that floor, not a measured ratio."].filter(Boolean).join(" ");
+        }
       }
       if (current && ["fcfConversionBeforeSbc", "sbcPctOfFcf"].includes(id) && !("fcfBeforeSbc" in current)) {
         result.fallbackReason = [result.fallbackReason, "Graded FCF operands are not retained in this snapshot; standardized FCF and annual operands are not substituted for the graded vendor/reported ratio."].filter(Boolean).join(" ");
