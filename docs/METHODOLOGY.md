@@ -2259,6 +2259,19 @@ quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
 
+The report header's verification line and the Verification table count as
+contradicted both the prose claims the coverage counts contradicted and the
+cited figures the verification log marks contradicted (a value, period, unit or
+currency mismatch). These are the records the audit export prints. When a figure
+is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
+prose claims)". The audit export's prose-claim sentence still counts prose
+claims only. A pass that ran on a plan allowance (ChatGPT or Gemini CLI) sends
+the supplied evidence with no web-search tool. When any pass did, the report
+header and run details carry an Evidence line, for example "bull, bear and judge
+used only the supplied evidence (payload-only; no web search)". It is derived
+from the same execution entries whose per-pass note the audit export prints (see
+"AMZN audit fixes (October 20, 2026)").
+
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The
 report's execution metadata distinguishes requested mode and actual outcome;
@@ -2617,3 +2630,15 @@ $73M impairment) lowers the margin seed from 26.8% to about 24.3%. The tag list
 is an owner decision (D-98). Impairments are assumed to sit inside operating
 income, where US GAAP places them when an operating-income subtotal is shown.
 Restructuring charges are not treated as one-offs.
+
+**What the report itself discloses.** Two facts appeared only in the audit
+export. First, all three Amazon passes ran on the ChatGPT plan with only the
+supplied evidence and no web search. That was stated only in the export's
+per-pass notes. The report header, run details and print header now carry an
+Evidence line derived from the same execution entries. Second, the export marked
+the $185,000 salary figure contradicted (a unit mismatch against its cited 8-K),
+but the header said "0 contradicted", because it counted prose claims only. The
+header and the Verification table now add cited figures the verification log
+marks contradicted and name the split. The prose claims still come from the
+coverage count, so a stored report without a log keeps its count. The live
+report view shows both lines too.

@@ -12,6 +12,7 @@
  */
 
 import { parseSubscriptionModel } from "@/ai/contracts";
+import { subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
@@ -42,6 +43,7 @@ import type {
   ScoreSignal,
   SourcedClaim,
   TracedNumber,
+  VerificationLogEntry,
 } from "@/report/schema";
 
 /* ======================================================================== *
@@ -942,7 +944,22 @@ function ratio(supported: number, total: number, rate: number | null): string {
  * "0/N validated" headline; the numeric-claim ratio covers only claims that
  * state a figure.
  */
-export function trustRows(coverage: ProvenanceCoverage | undefined): TrustRow[] {
+/**
+ * Prose claims the coverage counts contradicted plus cited figures the
+ * verification log marks contradicted: the two records the audit export
+ * prints (AMZN audit 2026-10-20 finding 12: the export marked a cited salary
+ * figure contradicted while the header, counting prose claims only, said 0).
+ */
+function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"]>, log: readonly VerificationLogEntry[] | undefined): { count: number; split: string | null } {
+  const figures = (log ?? []).filter((entry) => entry.evidenceKind === "number" && entry.validationStatus === "contradicted").length;
+  const claims = v.contradicted;
+  return {
+    count: claims + figures,
+    split: figures === 0 ? null : `${figures} cited figure${figures === 1 ? "" : "s"}, ${claims} prose claim${claims === 1 ? "" : "s"}`,
+  };
+}
+
+export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
   if (!coverage) return [];
   const rows: TrustRow[] = [
     { label: "Figures traced to a cited source", value: ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate) },
@@ -959,7 +976,8 @@ export function trustRows(coverage: ProvenanceCoverage | undefined): TrustRow[] 
         ? "none to check — no factual claim states a figure"
         : `${v.validated}/${numericClaims}${uncheckedNumeric > 0 ? `; ${uncheckedNumeric} not matched to a cited figure` : ""}`,
     });
-    rows.push({ label: "Claims contradicted by their cited source", value: String(v.contradicted) });
+    const contradicted = contradictedCount(v, log);
+    rows.push({ label: "Claims contradicted by their cited source", value: contradicted.split === null ? String(contradicted.count) : `${contradicted.count} (${contradicted.split})` });
     if (v.qualitative !== undefined) rows.push({ label: "Qualitative factual claims (cited; not machine-checkable)", value: String(qualitative) });
   }
   if (coverage.judgments.total > 0) rows.push({ label: "Judgments carrying a citation", value: ratio(coverage.judgments.cited, coverage.judgments.total, coverage.judgments.rate) });
@@ -967,7 +985,7 @@ export function trustRows(coverage: ProvenanceCoverage | undefined): TrustRow[] 
 }
 
 /** One-line header form of {@link trustRows}. */
-export function trustHeadline(coverage: ProvenanceCoverage | undefined): string | null {
+export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
   if (!coverage) return null;
   const parts = [
     `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source`,
@@ -978,7 +996,8 @@ export function trustHeadline(coverage: ProvenanceCoverage | undefined): string 
     const qualitative = v.qualitative ?? 0;
     const numericClaims = v.total - qualitative;
     parts.push(numericClaims === 0 ? "no factual claim states a figure to validate" : `${v.validated}/${numericClaims} numeric claims validated`);
-    parts.push(`${v.contradicted} contradicted`);
+    const contradicted = contradictedCount(v, log);
+    parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
     if (qualitative > 0) parts.push(`${qualitative} qualitative claims cited, not machine-checkable`);
   }
   return parts.join("; ");
@@ -1260,6 +1279,20 @@ export function runSummary(report: Pick<Report, "meta">): string {
   if (adjusted.length > 0) parts.push(`adjusted — ${adjusted.join("; ")}`);
   if (m.judgeProtocol?.sharedModelFamily.shared) parts.push("the judge shares the analysts' model family");
   return parts.join("; ");
+}
+
+/**
+ * Which model passes used only the supplied evidence, from the execution
+ * entries whose per-pass note the audit export prints (AMZN audit 2026-10-20
+ * finding 17: the report itself never said the analysis had no web search).
+ * Null when no pass ran on a plan allowance.
+ */
+export function evidenceScopeSummary(report: Pick<Report, "meta">): string | null {
+  const stepName = (step: string) => (step === "synthesize" ? "judge" : step);
+  const steps = modelPasses(report.meta.execution).filter((entry) => subscriptionExecution(entry) !== null).map((entry) => stepName(entry.step));
+  if (steps.length === 0) return null;
+  const list = steps.length <= 1 ? steps.join("") : `${steps.slice(0, -1).join(", ")} and ${steps[steps.length - 1]}`;
+  return `${list} used only the supplied evidence (payload-only; no web search)`;
 }
 
 function total(values: readonly (number | undefined)[]): number | null {

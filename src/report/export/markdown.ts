@@ -109,6 +109,7 @@ import {
   scorecardTable,
   sourceLabel,
   splitCommonLines,
+  evidenceScopeSummary,
   trustHeadline,
   trustRows,
   usageSummary,
@@ -137,6 +138,12 @@ import {
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
+
+/** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
+function evidenceRow(report: Report): string[][] {
+  const scope = evidenceScopeSummary(report);
+  return scope === null ? [] : [["Evidence", scope]];
+}
 
 /* ======================================================================== *
  * Deterministic value formatting (no locale, no grouping — stable text)
@@ -317,7 +324,8 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Model", runSummary(report)],
         ["Usage", usageSummary(report)],
         ["Data completeness", dataStateText(completeness)],
-        ["Verification", trustHeadline(m.provenanceCoverage) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+        ...evidenceRow(report),
+        ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
         ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
       ],
     ),
@@ -843,6 +851,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
     ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
     ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
     ["Usage", usageSummary(report)],
+    ...evidenceRow(report),
     ["Spec version", m.specVersion],
     ["Pipeline version", m.pipelineVersion],
     ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
@@ -853,7 +862,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
   if (a.missingData.some((gap) => gap.field === "analysis.llm")) {
     lines.push("No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.", "");
   } else {
-    const rows = trustRows(a.provenanceCoverage ?? m.provenanceCoverage);
+    const rows = trustRows(a.provenanceCoverage ?? m.provenanceCoverage, a.verificationLog);
     if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   }
   lines.push(

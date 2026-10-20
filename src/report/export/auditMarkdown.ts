@@ -131,7 +131,7 @@ function renderVerification(report: Report): string {
   const a = report.appendix;
   const lines: string[] = ["## Verification", ""];
   const coverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
-  const rows = trustRows(coverage);
+  const rows = trustRows(coverage, a.verificationLog);
   if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   const detail = factualValidationText(coverage);
   if (detail) lines.push(markdownProse(detail), "");

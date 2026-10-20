@@ -79,6 +79,16 @@ export interface ExecutionMetadataEntry {
   note?: string;
 }
 
+/**
+ * The plan-allowance path a pass ran on, or null for an API pass. A plan pass
+ * sends the supplied evidence with no web-search tool, so this one test is
+ * both the per-pass audit note below and the report's evidence-scope line
+ * (AMZN audit 2026-10-20 finding 17).
+ */
+export function subscriptionExecution(entry: Pick<ExecutionMetadataEntry, "requestedModel" | "effectiveModel">): ReturnType<typeof parseSubscriptionModel> {
+  return parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel);
+}
+
 /** Whether the model registry says a model accepts output_config.effort; unknown ids do not. */
 export function modelSupportsEffort(model: string): boolean {
   return resolveRegistryModel(model)?.entry.effort.supported === true;
@@ -123,7 +133,7 @@ export function buildExecutionMetadataEntry(input: {
     : null;
   const adjustments: ExecutionAdjustment[] = [];
   const notes: string[] = [];
-  const subscription = parseSubscriptionModel(effectiveModel) ?? parseSubscriptionModel(requestedModel);
+  const subscription = subscriptionExecution({ effectiveModel, requestedModel });
   if (subscription) {
     const provider = subscription.provider === "chatgpt" ? "ChatGPT plan" : "Google Gemini CLI";
     notes.push(input.execution?.usageReported === false
