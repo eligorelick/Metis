@@ -20,7 +20,10 @@ export function leaseDebtScopeRefusal(row: LeaseScopeRow | null | undefined, inc
   if (!scope || !row) return null;
   if (scope.finance !== null || includeOperatingLeases) return `Debt basis unavailable: ${scope.note}`;
   const op = row.operatingLeaseLiability;
-  const fields = ["shortTermDebt", "longTermDebt", "operatingLeaseLiability"] as const;
+  // A complete finance lease stays in debt on this basis; it must come from the same filing and reconcile too.
+  const finance = row.financeLeaseLiability ?? 0;
+  const fields = finance === 0 ? ["shortTermDebt", "longTermDebt", "operatingLeaseLiability"] as const
+    : ["shortTermDebt", "longTermDebt", "operatingLeaseLiability", "financeLeaseLiability"] as const;
   const provenance = fields.map(field => row.fieldProvenance?.[field] ?? (field === "operatingLeaseLiability" && op === row.capitalLeaseObligations ? row.fieldProvenance?.capitalLeaseObligations : undefined));
   const first = provenance[0];
   const sameSource = first?.source === "edgar" && !!first.unit && first.periodEnd === row.date &&
@@ -29,7 +32,7 @@ export function leaseDebtScopeRefusal(row: LeaseScopeRow | null | undefined, inc
   const completeFinancing = provenance[0]?.tags.includes("us-gaap/LongTermDebtCurrent") && provenance[1]?.tags.includes("us-gaap/LongTermDebtNoncurrent");
   if (sameSource && completeFinancing && typeof short === "number" && Number.isFinite(short) && short >= 0 && typeof long === "number" && Number.isFinite(long) && long >= 0 &&
     typeof op === "number" && Number.isFinite(op) && op >= 0 && typeof total === "number" && Number.isFinite(total) &&
-    (row.financeLeaseLiability == null || row.financeLeaseLiability === 0) && Math.abs(total - short - long - op) <= Math.max(1, Math.abs(total) * 1e-9)) return null;
+    Number.isFinite(finance) && finance >= 0 && Math.abs(total - short - long - op - finance) <= Math.max(1, Math.abs(total) * 1e-9)) return null;
   return `Lease-excluded debt unavailable: same-period primary financing components do not prove cancellation of the embedded operating-lease portion. ${scope.note}`;
 }
 

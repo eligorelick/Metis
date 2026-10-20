@@ -32,7 +32,7 @@ import { createFmpClient, type CachedFetchFn, type FmpClient } from "@/providers
 import { isReservedFixtureSymbol } from "@/providers/reservedSymbols";
 import { getLatestDoneReport } from "@/report/query";
 import { listRunRefsForSymbol, type RunRef } from "@/report/history";
-import { gradeDisplayLabel, gradeForDisplay, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import { gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, restsOnSingleSignal } from "@/report/assessment";
 import {
   gradeSurfaceEntries,
   type GradeSurfaceKey,
@@ -367,8 +367,8 @@ function extractGradeLabels(report: Report): WatchlistGradeLabels {
   for (const { descriptor, block } of gradeSurfaceEntries(report.verdict.gradeStrip)) {
     const aspect = report.scores?.aspects[descriptor.key];
     const label = gradeDisplayLabel(block, aspect);
-    labels[descriptor.key] = gradeForDisplay(block) === null && aspect && aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE
-      ? `${label}; ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% evidence required for a letter grade`
+    labels[descriptor.key] = gradeForDisplay(block) === null && aspect && hasLimitedEvidence(aspect)
+      ? `${label}; ${restsOnSingleSignal(aspect) && aspect.dataCompleteness >= MIN_HEADLINE_EVIDENCE ? "two signals" : `${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% evidence`} required for a letter grade`
       : label;
   }
   return labels;

@@ -23,7 +23,7 @@ export function applyReportAssessmentStatus(report: Report): Report {
     // Existing withheld assessments can become more restrictive, never less.
     const status = unavailable || statuses.includes("not-assessed")
       ? "not-assessed"
-      : aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE || statuses.includes("limited-evidence")
+      : hasLimitedEvidence(aspect) || statuses.includes("limited-evidence")
         ? "limited-evidence"
         : undefined;
     if (status === undefined) continue;
@@ -54,11 +54,21 @@ export function gradeContractText(block: GradeBlock): string | null {
 }
 
 /** The deterministic score fields a limited-evidence label reads. */
-export type AspectEvidence = Pick<AspectScore, "score" | "band" | "dataCompleteness">;
+export type AspectEvidence = Pick<AspectScore, "score" | "band" | "dataCompleteness"> & Partial<Pick<AspectScore, "signals">>;
 
-/** True when an aspect has a score but evidence for less than half its signal weight. */
+/**
+ * Audit PGR-4: one signal carrying part of an aspect's intended evidence is
+ * not corroborated, however large its weight. A route that designs a single
+ * signal (the REIT P/FFO rank) and observes it in full is not affected.
+ */
+export function restsOnSingleSignal(aspect: AspectEvidence): boolean {
+  return aspect.signals?.length === 1 && aspect.dataCompleteness < 1;
+}
+
+/** True when an aspect has a score but evidence for less than half its signal weight, or from one partial signal. */
 export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): boolean {
-  return aspect != null && aspect.score !== null && aspect.band !== null && aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE;
+  return aspect != null && aspect.score !== null && aspect.band !== null &&
+    (aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE || restsOnSingleSignal(aspect));
 }
 
 /**
@@ -69,7 +79,7 @@ export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): b
  * it already weights each aspect by its evidence share.
  */
 export function limitedEvidenceText(aspect: AspectEvidence): string {
-  return `score ${Math.round(aspect.score ?? 0)}/100 on ${Math.round(aspect.dataCompleteness * 100)}% of signals`;
+  return `score ${Math.round(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${Math.round(aspect.dataCompleteness * 100)}% of signals`;
 }
 
 export function gradeDisplayLabel(block: GradeBlock, aspect?: AspectEvidence | null): string {

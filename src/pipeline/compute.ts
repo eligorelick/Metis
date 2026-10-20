@@ -125,7 +125,7 @@ import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
-import { leaseDebtConflict, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
@@ -135,6 +135,8 @@ import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
+import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
+import { implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import {
   normalizeQuarterRows,
@@ -487,7 +489,8 @@ function statementEquityOwnershipBasis(row: FmpBalanceSheetRow | null | undefine
   const parentTags = row.fieldProvenance?.totalStockholdersEquity?.tags ?? [];
   const fromConsolidatedTotal = tagsFor("totalEquity").some(tag => parentTags.includes(`us-gaap/${tag}`));
   const parentEstablished = tagsFor("totalStockholdersEquity").some(tag => parentTags.includes(`us-gaap/${tag}`)) ||
-    tagsFor("minorityInterest").some(tag => parentTags.includes(`us-gaap/${tag}`));
+    tagsFor("minorityInterest").some(tag => parentTags.includes(`us-gaap/${tag}`)) ||
+    row.fieldProvenance?.totalStockholdersEquity?.calculation === "nci-inferred-zero";
   if (fromConsolidatedTotal && !parentEstablished) return "consolidated";
   if (num(row.totalStockholdersEquity) !== null) return "parent";
   return num(row.totalEquity) !== null ? "consolidated" : undefined;
@@ -621,7 +624,9 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     totalLiabilities: num(r.totalLiabilities),
     totalCurrentLiabilities: num(r.totalCurrentLiabilities),
     shortTermDebt: num(r.shortTermDebt),
-    longTermDebt: num(r.longTermDebt),
+    // Leverage tests read long-term debt alone; a composed figure holding
+    // current notes would count those notes twice beside current liabilities.
+    longTermDebt: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) ? null : num(r.longTermDebt),
     taxPayables: num(r.taxPayables),
     retainedEarnings: num(r.retainedEarnings),
     totalStockholdersEquity: num(r.totalStockholdersEquity),
@@ -1557,7 +1562,7 @@ function bookDebtOnLeaseBasis(
   if (leaseDebtConflict(row ?? {}) !== null) return { value: null, leaseRemoved: false };
   if (leaseDebtScopeRefusal(row, includeOperatingLeases) !== null) return { value: null, leaseRemoved: false };
   const operatingLease = row ? num(row.operatingLeaseLiability) : null;
-  if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total) {
+  if (!includeOperatingLeases && operatingLease !== null && operatingLease > 0 && operatingLease <= total && operatingLeaseScopeUnproven(row ?? {}) === null) {
     return { value: total - operatingLease, leaseRemoved: true };
   }
   return { value: total, leaseRemoved: false };
@@ -1712,6 +1717,76 @@ function totalDebtSnapshot(
 
 export interface StageBReplayConfig { evIncludeLeases: boolean }
 
+/** FMP reports undisclosed interest as 0 (the zero-vs-undisclosed policy), so a zero is missing evidence. */
+function disclosedInterest(row: FmpIncomeStatementRow | undefined): number | null {
+  const value = num(row?.interestExpense);
+  return value === 0 ? null : value;
+}
+
+/** Index of the income row dated nearest `date`, within the ±5-day fiscal-date drift statement joins tolerate. */
+function incomeIndexNear(rows: readonly FmpIncomeStatementRow[], date: string): number {
+  const target = Date.parse(date);
+  let best = -1;
+  let bestDelta = 5 * 86_400_000;
+  rows.forEach((row, index) => {
+    const delta = Math.abs(Date.parse(isoDay(row.date) ?? "") - target);
+    if (delta <= bestDelta) { best = index; bestDelta = delta; }
+  });
+  return best;
+}
+
+/** Four consecutive quarters of disclosed interest expense ending on `date`, or null when any is missing. */
+function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: string): number | null {
+  const start = incomeIndexNear(quarters, date);
+  const window = start < 0 ? [] : quarters.slice(start, start + 4);
+  if (window.length < 4) return null;
+  const span = (Date.parse(date) - Date.parse(isoDay(window[3]!.date) ?? "")) / 86_400_000;
+  const values = window.map(disclosedInterest);
+  if (!(span >= 250 && span <= 300) || values.some((value) => value === null)) return null;
+  return values.reduce((sum, value) => sum! + value!, 0);
+}
+
+/**
+ * Withhold total, net and long-term debt on every balance row whose year's interest
+ * expense shows its debt to be incomplete. The interest is judged against the
+ * most debt resolved at any balance date of that year, so a borrowing repaid
+ * mid-year still explains the interest it carried. `interim` adds balance
+ * dates inside the year (quarterly rows for an annual check). A row with no
+ * debt figure at all is left to the balance-anchor rules.
+ */
+function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = []): FmpBalanceSheetRow[] {
+  const financingDebt = (row: FmpBalanceSheetRow): number | null => {
+    // Long-term debt tagged with its finance leases already holds them.
+    const financeLeases = longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
+    const parts = [num(row.shortTermDebt), num(row.longTermDebt), financeLeases];
+    // A row without components (vendor rows) is judged on its published total.
+    return parts.every((part) => part === null) ? num(row.totalDebt) : parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
+  };
+  return rows.map((row) => {
+    const date = isoDay(row.date);
+    const closing = financingDebt(row);
+    if (date === null || closing === null) return row;
+    const yearStart = Date.parse(date) - 380 * 86_400_000;
+    const opening = [...rows, ...interim].filter((other) => {
+      const day = isoDay(other.date);
+      return day !== null && day < date && Date.parse(day) >= yearStart;
+    }).map(financingDebt).filter((debt): debt is number => debt !== null);
+    const reason = implausibleDebtReason({ annualInterestExpense: interestFor(date), financingDebt: closing,
+      priorFinancingDebt: opening.length === 0 ? null : Math.max(...opening), totalAssets: num(row.totalAssets) });
+    if (reason === null) return row;
+    let out = row;
+    // Long-term debt is the component the missing borrowings most often belong
+    // to, and the forensic leverage tests read it on its own.
+    const fields = num(row.longTermDebt) === null ? ["totalDebt", "netDebt"] as const : ["totalDebt", "netDebt", "longTermDebt"] as const;
+    for (const field of fields) {
+      out = { ...out, [field]: null, fieldConflicts: { ...out.fieldConflicts, [field]: {
+        vendorValue: num(row[field]), secValue: null, usable: false, reason } } };
+      gaps.push({ field: `statements.balance.${date}.${field}`, reason, severity: "warn" });
+    }
+    return out;
+  });
+}
+
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
@@ -1819,9 +1894,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ttmGaps.push(...admitted.gaps);
     return admitted.row;
   };
-  const balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance);
+  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance);
   const cashflowAnnual = compatible.cashflowAnnual.rows;
-  const balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance);
+  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance);
   for (const family of Object.values(compatible)) if (family.gap !== null) ttmGaps.push(family.gap);
 
   const routingCashflowTtm: RoutingCashflowRow | null = ttmCf
@@ -1855,6 +1930,27 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     // and says so in the routing note and the manifest.
     { today: todayIso, evidence: routingEvidence },
   );
+
+  // Audit 2026-10-19 O-2: debt the year's interest expense shows to be
+  // incomplete is withheld before any consumer reads it. Financial routes are
+  // excluded: their interest expense funds deposits and float, not debt.
+  if (!(route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage")) {
+    balanceAnnual = withholdImplausibleDebt(balanceAnnual, (date) => {
+      const index = incomeIndexNear(incomeAnnual, date);
+      return index < 0 ? null : disclosedInterest(incomeAnnual[index]);
+    }, ttmGaps, balanceQuarterly);
+    // A quarter is judged on the smaller of its trailing year and the latest
+    // fiscal year, so a one-off quarter (an extinguishment cost tagged as
+    // interest) cannot withhold debt on its own.
+    const latestAnnualInterest = (date: string): number | null => {
+      const year = incomeAnnual.find((row) => { const day = isoDay(row.date); return day !== null && day <= date && Date.parse(date) - Date.parse(day) < 380 * 86_400_000; });
+      return disclosedInterest(year);
+    };
+    balanceQuarterly = withholdImplausibleDebt(balanceQuarterly, (date) => {
+      const bases = [trailingYearInterest(incomeQuarterly, date), latestAnnualInterest(date)].filter((value): value is number => value !== null);
+      return bases.length === 0 ? null : Math.min(...bases);
+    }, ttmGaps);
+  }
 
   const policy = metricPolicy(route);
   const isSuppressed = (key: string): boolean => policy.suppress.includes(key);
@@ -2062,6 +2158,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       sicCode: str(bundle.edgar?.sic),
     },
   });
+  if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
+    forensics.gaps.push({ field: "forensics.longTermDebt", severity: "info", reason:
+      "long-term debt is composed from instrument-class tags that include current debt, so the leverage tests that read long-term debt alone (Piotroski leverage, Beneish LVGI) are not evaluated; total debt is unaffected" });
+  }
   if (forensicEquityScope.status === "unresolved") {
     forensics.gaps.push({ field: "forensics.economicClassBasis", reason: forensicEquityScope.basis, severity: "warn", attemptedSources: forensicEquityScope.sourceIds });
   }
@@ -3009,6 +3109,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         leaseCoverageNote: incompleteLeaseCoverage(balPoint)?.note,
         fieldProvenance: balPoint.fieldProvenance,
         operatingLeaseLiability: num(balPoint.operatingLeaseLiability), financeLeaseLiability: num(balPoint.financeLeaseLiability), capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
+        shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
         date: String(balPoint.date ?? ""),
         basis: balPointBasis,
         totalDebt: num(balPoint.totalDebt),

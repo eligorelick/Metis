@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-19",
+  "generatedAt": "2026-10-20",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10033,14 +10033,14 @@
       ]
     },
     {
-      "name": "company-eligibility-affo",
-      "decisions": ["D-96"],
-      "reason": "A1-A4: report spec 1.32.0 identifies independent AFFO historical comparability, explicit security classification and unresolved financial-route applicability safeguards. This classified industrial DEMO control is unaffected: every financial amount, grade, weight, registry and manifest remains pinned. The sole reclassified leaf is report.meta.specVersion. Prior stored reports retain their original stamps and bytes. See docs/audit/2026-10-19-company-eligibility-affo.md.",
+      "name": "independent-audit-fixes-20261020",
+      "decisions": ["D-97"],
+      "reason": "Independent audit 2026-10-19 items 1-6 and 9: report spec 1.33.0 identifies the withheld-debt EV/EBITDA marker and the single-signal evidence floor, with instrument-class financing debt, debt plausibility, operating-lease portion scope and zero/immaterial NCI in Stage B. This provider-free DEMO control has none of the affected filer shapes: every financial amount, grade, weight, registry and manifest remains pinned. The sole reclassified leaf is report.meta.specVersion. Prior stored reports retain their original stamps and bytes. See docs/audit/2026-10-20-independent-audit-fixes.md.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.32.0"
+          "after": "1.33.0"
         }
       ]
     }

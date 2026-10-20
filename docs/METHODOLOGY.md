@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.32.0 / payload 1.37.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_14 (2026-10-19). Its bounded evidence fixes
+The current source declares report 1.33.0 / payload 1.38.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_15 (2026-10-20). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -68,7 +68,13 @@ reconciliation availability as full-report verification.
 Quote observation, source acquisition, established filing, publication,
 financial period, calculation basis and report generation describe different
 events. Unknown timing remains unknown. An analysis cutoff is not a measured
-calculation timestamp. Live FMP quote/batch-quote observations demonstrably after
+calculation timestamp. A bundle's analysis cutoff (`builtAt`) is stamped when
+source acquisition completes, and never before the newest fetch stamp of this
+build (a provider stamp up to 60 seconds ahead of the bundle clock still counts
+as this build's), so facts the build itself fetched are available at its
+cutoff and a cache miss values the same filings exactly as a cache hit
+(audit 2026-10-19, PGR-1). Point-in-time availability still rests on each
+fact's filing and acceptance dates. Live FMP quote/batch-quote observations demonstrably after
 the original acquisition or injected client cutoff fail admission and cache
 retrieval; this adds no arbitrary stale-price expiry rule. Synthetic fixtures
 and historical report bytes retain their original conventions.
@@ -827,11 +833,23 @@ EV = market capitalisation
 ```
 
 Preferred and minority interests are claims senior to common equity, so they
-belong in EV; undisclosed means zero, following the provider's convention. The
-DCF's equity bridge is the same identity read backwards: equity value =
-EV − net debt − minority interest − preferred equity + non-operating
+belong in EV. Undisclosed preferred stock is treated as zero. Minority interest
+is not zero-filled. When consolidated equity has no resolved parent/NCI split,
+or differs from parent equity with no NCI figure, the NCI allocation is unknown.
+EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
+NCI is taken as zero only from the filing itself. That happens when the filer
+tags only equity including NCI at that date, its net income attributable to NCI
+for the period ending there is explicitly zero, and its latest earlier NCI
+balance, within about a year, was zero. One of those zero periods must start
+by the day after that balance, so the zero earnings cover the whole span since
+it; a zero final quarter alone does not show the earlier quarters held none.
+The row discloses the inference (audit
+SNOW-2), and the inferred figure counts as parent equity wherever parent equity
+is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
+value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
-investments sales-to-capital removed as non-operating (D-65).
+investments sales-to-capital removed as non-operating (D-65). Minority interest
+enters both at its book carrying amount, not a market or earnings-share value.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
@@ -919,6 +937,16 @@ is made at all** — enterprise value is reported as-is and an info-level
 the combined figure would strip an unknown amount of finance-lease debt out of
 EV. The same entry fires when no lease liability is disclosed at all. Nothing is
 guessed, and nothing unknown is netted.
+
+**The operating slice is removed only when total debt is shown to hold it.**
+The removal assumes the operating-lease liability is inside `totalDebt`. It is
+proven when the row's total lease liability covers the operating slice, or
+when current plus noncurrent borrowings plus the leases reconcile to the total.
+An operating lease enriched from SEC onto a provider row whose total is
+borrowings only is not removed. Net debt and EV are then used as reported, and a
+warning-level `valuation.dcf.netDebt.leaseScope` entry says so (audit
+2026-10-19, CODE-1). The same proof applies to the WACC debt leg and to the key
+data net debt excluding operating leases.
 
 Both enterprise values — as reported, and less the operating-lease liability —
 are computed, together with the total lease liability and its finance slice.
@@ -2339,8 +2367,82 @@ The runner reports model and paired-baseline MAE, RMSE and bias; interval covera
 
 A generic cash-PPE tag is not a complete cash-investment total when the primary filing explicitly excludes a separately disclosed hardware payment. The reviewed IREN FY26 adapter admits only disjoint, same-issuer, same-period, consolidated USD cash PPE and hardware components, retaining primary-document identity, namespace, scale and source provenance. The result excludes all other investing flows. Either operating-cash-flow alias can supply FCF when valid; populated aliases must agree with each other and with a compatible directly filed CFO operand. Contradictory aliases and dependent FCF are withheld, without comparing cumulative CFO with a quarter. A corrected or refused capex basis recomputes or invalidates existing FCF and aliases, and a refused recent-quarter investment scope withholds burn-based runway rather than substituting older quarters. Cross-filing quarter reconstruction remains withheld until component-definition and filing-lineage continuity are proved. Direct-quarter evidence is resolved by actual interval before filing priority, so later cumulative observations cannot mask it. Multiple eligible intervals without an explicit row start and conflicting latest observations for one interval are refused; newer exact-period refusals and currency conflicts cannot fall back to older favorable values.
 
-Noncurrent convertible carrying debt is completeness evidence for noncurrent financing debt. It is not automatically added to a generic aggregate that may already include it. A lease-only or otherwise insufficient partition is withheld. Historical EV separately requires exact-date, class-compatible outstanding shares and a compatible split basis; weighted-average EPS shares and post-period cover counts never establish historical capitalization. A balance-date count can be reported in a later filing once that filing is available by the acquisition cutoff; the prospective effective interval used for current capitalization does not govern this historical observation. Missing convertible debt alone is an isolated sensitivity, not a corrected EV.
+Noncurrent convertible carrying debt is completeness evidence for noncurrent financing debt. It is not automatically added to a generic aggregate that may already include it. Where no long-term-debt aggregate is tagged, it composes the noncurrent financing debt itself (see the instrument-class rule below). A lease-only or otherwise insufficient partition is withheld. Historical EV separately requires exact-date, class-compatible outstanding shares and a compatible split basis; weighted-average EPS shares and post-period cover counts never establish historical capitalization. A balance-date count can be reported in a later filing once that filing is available by the acquisition cutoff; the prospective effective interval used for current capitalization does not govern this historical observation. Missing convertible debt alone is an isolated sensitivity, not a corrected EV.
 
 Broad disclosed SIC 6199 remains statutory source evidence, with an unresolved economic sector/methodology rather than an automatic Credit Services or Technology assignment. When both sector and industry remain unresolved on a general route, Beneish and accrual exclusions and the reduced Piotroski battery retain their numerical withholding, but all qualifications, labels and manifest reasons describe unresolved operating-method eligibility rather than an established financial company. The live company panel also labels that reduced Piotroski result as eligibility unresolved and displays its evaluable-signal denominator. Direct reported EPS is preserved. A derived basic EPS requires an established common-earnings numerator and complete compatible weighted-share lineage, and its provenance uses currency per share. Annual and earlier-quarter diluted weighted shares alone do not establish quarter-specific diluted EPS or antidilution treatment. Dated class observations do not establish complete economic class coverage or aligned measurement dates. Segment-member continuity and geographic allocation bases remain explicit admission requirements.
 
 Primary sources: [IREN FY2026 10-K](https://www.sec.gov/Archives/edgar/data/1878848/000187884826000052/iren-20260630.htm), F-10 and pages 122–123; [March 2026 10-Q](https://www.sec.gov/Archives/edgar/data/1878848/000187884826000026/iren-20260331.htm), balance sheet and convertible note. Exact issuer, period, scope and refusal examples are retained in the source-admission unit fixtures. These conventions are versioned as report spec 1.31.0, payload 1.36.0 and Stage B accounting evidence 13; historical stored outputs are not rewritten.
+
+### Independent audit fixes (October 20, 2026)
+
+**Financing debt from instrument-class tags.** Some filers tag no long-term-debt aggregate (`LongTermDebtNoncurrent`, `LongTermDebtAndCapitalLeaseObligations`, `LongTermDebt`). REITs tag their unsecured notes and term loans as `NotesPayable` and `LoansPayable`. Some issuers tag their only debt as a convertible note, and some tag all debt as `DebtLongtermAndShorttermCombinedAmount`. For such a filer, the keyless build used to publish total debt as leases and commercial paper alone. When every aggregate misses, noncurrent financing debt now comes from the filer's own classes:
+- the combined debt amount, when tagged;
+- otherwise, the sum of one figure per class (notes, loans, secured debt, convertible notes and long-term revolver). Each class takes its inclusive total first. Otherwise it takes its noncurrent variant plus the current variant that the noncurrent tag excludes (`ConvertibleDebtCurrent` beside `ConvertibleDebtNoncurrent`, for example). Notes falling due within a year therefore stay in debt, and no class is counted twice.
+
+The row discloses the substitution. These class figures can include current debt, or the same obligation under two classes, so the figure is withheld, never doubled, in five cases. A current-debt figure of zero holds nothing that could be counted twice, so it never triggers the first three:
+- the combined amount sits beside a separately resolved current-debt figure;
+- a current-variant class figure sits beside any resolved current-debt figure;
+- an inclusive class total sits beside a current-maturities line;
+- both a generic notes total and a convertible-notes total are tagged;
+- two class figures lie within 2% of each other. Secured debt classifies by collateral, so it can hold the same notes or loans another class holds. Across SEC filers' FY2025 facts, every multi-class pair this close was one obligation tagged twice (Sun Communities' `LoansPayable` 2,429.0m beside `SecuredDebt` 2,472.2m, for example). REIT mortgages beside unsecured notes sit far apart and still compose. A secured class that holds only part of another class cannot be seen from the tags; the debt plausibility check below catches understatement, not that overlap.
+
+A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
+
+**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations`). The year's interest expense is divided by the most debt resolved at any balance date of that year; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains its interest. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
+- interest below 0.25% of total assets;
+- resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
+- the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
+
+**A missing operating-lease maturity.** Some filers tag only one maturity of
+their operating-lease liability: Freeport-McMoRan tags the noncurrent portion
+and reports the current one inside accrued liabilities. That alone used to
+withhold total debt, which removed WACC, the DCF, EV multiples and the Balance
+Sheet aspect. The tagged portion is now kept, disclosed as one maturity, and
+included in total debt. Its provenance names the one maturity, so the existing
+lease-scope rule admits the row only on the lease-excluded basis. That basis
+requires same-filing current and noncurrent financing components that reconcile
+to the total with the disclosed portion. A complete finance-lease liability may
+sit in that total too, when it comes from the same filing and reconciles with
+the rest; it stays in debt on the excluded basis. The lease-inclusive basis stays
+unavailable. On that excluded basis:
+- the DCF measures invested capital without the operating portion;
+- net debt/EBITDA states net debt without it, since EBITDA is already after
+  operating-lease cost.
+
+Each basis note says so. A missing finance-lease maturity still withholds total
+and net debt, because finance leases are debt in every frame (audit FCX-1).
+An aspect whose signals apply to the route but whose inputs were withheld or
+missing reads "applicable signals unavailable (data gap…)", not a route
+choice (audit FCX-14).
+
+**Withheld debt leaves no leverage figure.** Once a total-debt figure is
+withheld, the Balance Sheet aspect scores without net debt/EBITDA and
+renormalises over its remaining signals; it does not fall back to an older
+balance. EV and the EV multiples are withheld with it. The report's Key data box
+then shows EV/EBITDA as "withheld" whenever the current EV lacks net debt,
+whichever stage withheld the debt, rather than omitting the row as if the
+input were merely absent (audit O-3).
+
+**Zero and immaterial outside ownership.** A filer that deconsolidates its last
+partly owned subsidiary may stop tagging parent equity and minority interest.
+It then keeps only the total including NCI, and Métis used to read that as
+unknown outside ownership, which withheld every EV multiple. The builder now
+infers zero NCI when the filing shows it (see "EV bridge"). Parent-common P/FCF
+and its history are withheld for outside ownership only when the known NCI
+balance or the NCI share of earnings exceeds 1% of consolidated equity. Below
+that, NCI cannot move the multiple (audit SNOW-2). A stake bought out before
+the balance date leaves a zero balance but still earned its share of the cash
+flow, so earnings above the floor still withhold P/FCF. A non-zero NCI balance
+with no NCI earnings figure also withholds it: an ending balance cannot bound
+the period's earnings.
+
+**A grade needs corroborating evidence.** No surface shows an aspect's letter
+when its score rests on less than half of its intended signal weight (D-67).
+It also shows none when the score rests on one signal carrying only part of
+that weight, such as an insurer's own-history P/B rank without the ROE
+reverse-solve signal. The label is "Not assessed — limited evidence (score N/100
+on one signal, X% of signals)". The score and the composite are unchanged,
+since the composite already weights each aspect by its evidence. A route that
+designs a single signal and observes it in full, such as the REIT P/FFO rank, is
+not affected. A P/TBV rank that falls back to P/B is labelled a P/B rank
+(audit PGR-4).

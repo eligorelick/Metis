@@ -169,11 +169,15 @@ function fakeYahoo(opts: { fail?: Set<string>; instrumentType?: string } = {}) {
   return createYahooClient({ fetchImpl: impl, limiter: makeLimiter(1000, 1000), now: () => NOW, maxRetries: 0 });
 }
 
-/** EDGAR transport serving company_tickers.json, submissions and companyfacts for AAPL; 404 otherwise. */
-function edgarTransport(): EdgarTransport {
+/**
+ * EDGAR transport serving company_tickers.json, submissions and companyfacts for AAPL; 404 otherwise.
+ * `factsFetchedAt` stamps the companyfacts response: a live client stamps its
+ * own clock when the request completes, which is after the build started.
+ */
+function edgarTransport(factsFetchedAt: string = NOW.toISOString()): EdgarTransport {
   return {
     fetchText(url: string): Promise<EdgarTransportResponse> {
-      const ok = (body: unknown): EdgarTransportResponse => ({ status: 200, body: JSON.stringify(body), fetchedAt: NOW.toISOString(), fromCache: false, stale: false });
+      const ok = (body: unknown): EdgarTransportResponse => ({ status: 200, body: JSON.stringify(body), fetchedAt: url.includes("companyfacts/") ? factsFetchedAt : NOW.toISOString(), fromCache: false, stale: false });
       if (url.includes("company_tickers.json")) return Promise.resolve(ok({ "0": { cik_str: 320193, ticker: "AAPL", title: "Apple Inc." } }));
       if (url.includes("submissions/CIK0000320193.json")) return Promise.resolve(ok({ cik: "320193", name: "Apple Inc.", sic: "3571", sicDescription: "ELECTRONIC COMPUTERS", fiscalYearEnd: "0927", stateOfIncorporation: "CA", tickers: ["AAPL"], exchanges: ["Nasdaq"], filings: { recent: { accessionNumber: ["0000320193-25-000079"], filingDate: ["2025-10-31"], reportDate: ["2025-09-27"], form: ["10-K"], primaryDocument: ["aapl-20250927.htm"] }, files: [] } }));
       if (url.includes("companyfacts/CIK0000320193.json")) return Promise.resolve(ok(appleFacts()));
@@ -516,6 +520,47 @@ describe("buildDataBundle without an FMP key", () => {
 // ---------------------------------------------------------------------------
 // Synthetic market inputs must stay with the fictional issuers
 // ---------------------------------------------------------------------------
+
+describe("analysis cutoff after source acquisition (audit 2026-10-19 PGR-1, PGR-2)", () => {
+  const build = (factsFetchedAt: string) => buildDataBundle("AAPL", {
+    now: () => NOW,
+    fmp: createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" }),
+    edgar: createEdgarClient({ transport: edgarTransport(factsFetchedAt) }),
+    yahoo: fakeYahoo(),
+    ...noNetworkConfigs(),
+  });
+  const observedStamps = (bundle: Awaited<ReturnType<typeof build>>): string[] => {
+    const stamps = new Set<string>();
+    const visit = (value: unknown): void => {
+      if (value === null || typeof value !== "object") return;
+      for (const [key, child] of Object.entries(value)) {
+        if (key === "observedAt" && typeof child === "string" && child !== "") stamps.add(child);
+        else visit(child);
+      }
+    };
+    visit(bundle.statements);
+    return [...stamps];
+  };
+  const commonEarningsView = (out: ReturnType<typeof runStageB>) => ({
+    peTtm: out.valuation.multiples?.multiples.find((m) => m.key === "peTtm")?.current ?? null,
+    rote: out.returns.rote?.latestRotePct ?? null,
+    commonGaps: out.gaps.filter((g) => /common earnings|commonIncome/.test(`${g.field} ${g.reason}`)).map((g) => g.field).sort(),
+  });
+
+  it("admits SEC facts fetched during the build: a live fetch 619 ms after the start is not refused", async () => {
+    const live = await build(new Date(NOW.getTime() + 619).toISOString());
+    for (const stamp of observedStamps(live)) expect(Date.parse(stamp)).toBeLessThanOrEqual(Date.parse(live.builtAt));
+    const out = runStageB(live);
+    expect(JSON.stringify(out)).not.toContain("not proven available at the analysis cutoff");
+    expect(commonEarningsView(out).rote).not.toBeNull();
+  });
+
+  it("values the same filings identically on a cache miss and a cache hit", async () => {
+    const live = runStageB(await build(new Date(NOW.getTime() + 619).toISOString()));
+    const cached = runStageB(await build(new Date(NOW.getTime() - 86_400_000).toISOString()));
+    expect(commonEarningsView(live)).toEqual(commonEarningsView(cached));
+  });
+});
 
 describe("market-wide inputs for a real ticker without an FMP key", () => {
   // The two FMP endpoints that carry no symbol (treasury rates, the market risk

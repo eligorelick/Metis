@@ -14,7 +14,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-84: common-payout history excludes explicit source refusals, including total zero.
 // IREN source-scope corrections: disjoint cash investment/FCF, historical share admission, EPS and class-scope refusals. Old stored reports/snapshots retain their original contracts.
 // Separate AFFO comparability and unresolved company/security-model admission.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_14" as const;
+// D-97: instrument-class financing debt, debt plausibility, operating-lease portion scope and zero/immaterial NCI.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_15" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

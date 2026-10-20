@@ -46,6 +46,16 @@ describe("lease scope is an admission rule for numeric consumers", () => {
     if (mode === "nonfinite") row.longTermDebt = NaN;
     expect(leaseDebtScopeRefusal(row, false)).toMatch(/unavailable/);
   });
+  it.each(["same-filing", "unsourced", "unreconciled"])("keeps a complete finance lease in debt beside a partial operating maturity only when it is proven (%s)", mode => {
+    const row = operands("2026-06-30", "Operating");
+    const tagged = (tags: string[]) => ({ ...row.fieldProvenance.longTermDebt, tags });
+    Object.assign(row, { financeLeaseLiability: 5e6, capitalLeaseObligations: 15e6, totalDebt: 315e6 + (mode === "unreconciled" ? 5e6 : 0) });
+    Object.assign(row.fieldProvenance, { operatingLeaseLiability: tagged(["us-gaap/OperatingLeaseLiabilityNoncurrent"]),
+      ...(mode === "unsourced" ? {} : { financeLeaseLiability: tagged(["us-gaap/FinanceLeaseLiability"]) }) });
+    if (mode === "same-filing") expect(leaseDebtScopeRefusal(row, false)).toBeNull();
+    else expect(leaseDebtScopeRefusal(row, false)).toMatch(/unavailable/);
+    expect(leaseDebtScopeRefusal(row, true)).toMatch(/unavailable/);
+  });
   it.each(["valid", "future", "stale", "currency", "accession", "value", "existing", "unscoped", "ambiguous"])("restores only unchanged financing provenance from exact admitted primary facts (%s)", mode => {
     const row = { ...operands("2026-06-30", "Operating"), reportedCurrency: "USD" };
     row.shortTermDebt = 0; row.totalDebt = row.longTermDebt + row.operatingLeaseLiability;
@@ -153,7 +163,9 @@ describe("lease scope is an admission rule for numeric consumers", () => {
     expect(computeRoic(income, balances(false), { includeOperatingLeases: false }).latestRoicPct === null).toBe(kind === "Finance");
     expect(computeRoic(income, balances(true), { includeOperatingLeases: true }).latestRoicPct).not.toBeNull();
   });
-  it.each(["Operating", "Finance"] as const)("withholds the raw lease-inclusive S2c input for incomplete %s leases", kind => {
+  // Audit 2026-10-19 FCX-1: only a missing finance maturity withholds the
+  // DCF; a proven operating portion moves invested capital to the excluded basis.
+  it.each(["Finance"] as const)("withholds the raw lease-inclusive S2c input for incomplete %s leases", kind => {
     const result = buildDcfAssumptions({ revenueCagr3yPct: 8, revenueCagr5yPct: 8, analystEstimates: null, waccPct: 10, riskFreePct: 4, marketCap: 20e9,
       incomeTtm: { date: "2026-03-31", revenue: 1000e6, operatingIncome: 200e6, incomeBeforeTax: 180e6, incomeTaxExpense: 36e6 },
       incomeHistory: [2023, 2024, 2025].map(y => ({ date: `${y}-12-31`, revenue: 900e6, operatingIncome: 180e6, incomeBeforeTax: 160e6, incomeTaxExpense: 32e6 })),

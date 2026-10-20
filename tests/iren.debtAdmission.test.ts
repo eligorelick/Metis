@@ -14,11 +14,13 @@ function facts(extra: Record<string, unknown> = {}): CompanyFacts {
   } } };
 }
 describe("convertible carrying debt completeness", () => {
+  // Audit 2026-10-19 SNOW-10: the convertible carrying tag is now read as
+  // financing debt, so the total is complete rather than withheld.
   it("does not publish a lease-only March debt total when noncurrent convertible carrying debt is available", () => {
     const out = buildStatementsFromCompanyFacts(facts(), { symbol: "IREN", cik: "0001878848", asOf: "2026-10-19", annualPeriods: 1, quarterlyPeriods: 4, vendorSplits: { status: "retrieved", source: "fixture", events: [], coverage: [{ from: "2020-01-01", to: "2026-10-19" }] } });
     const row = out.balanceQuarterly.rows.find(r => r.date === "2026-03-31");
-    expect(row).toMatchObject({ totalDebt: null, netDebt: null });
-    expect(row?.fieldConflicts?.totalDebt?.reason).toMatch(/convertible/i);
+    expect(row).toMatchObject({ longTermDebt: 3_687_832_000, totalDebt: 3_964_913_000, netDebt: 1_751_639_000 });
+    expect(row?.fieldConflicts?.totalDebt).toBeUndefined();
   });
   it("invalidates non-null partial vendor debt and net debt without substituting principal or adding twice", () => {
     const row = { date: "2026-03-31", totalDebt: 277_081_000, netDebt: -1_936_193_000, financeLeaseLiability: 274_256_000, operatingLeaseLiability: 2_825_000 };

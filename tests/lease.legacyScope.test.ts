@@ -86,14 +86,18 @@ describe("legacy lease operands retain their disclosed maturity scope", () => {
     expect(section?.figures.some(f => f.label === "total debt including leases" && f.value !== null)).toBe(false);
     expect(payload.statements.find(s => /^Balance sheet.*quarterly$/.test(s.title))?.notes.join(" ")).toContain("current portion is unverified");
   });
-  it("withholds sales-to-capital when retained debt has incomplete lease-inclusive coverage", () => {
+  // Audit 2026-10-19 FCX-1: proven financing components let sales-to-capital
+  // run on the lease-excluded basis rather than withholding the DCF.
+  it("measures sales-to-capital excluding the disclosed operating-lease portion when lease-inclusive coverage is incomplete", () => {
     const note = incompleteLeaseCoverage(fixture().row)!.note;
     const result = buildDcfAssumptions({ revenueCagr3yPct: 8, revenueCagr5yPct: 8, analystEstimates: null, waccPct: 10, riskFreePct: 4, marketCap: 20e9,
       incomeTtm: { date: "2026-03-31", revenue: 1000e6, operatingIncome: 200e6, incomeBeforeTax: 180e6, incomeTaxExpense: 36e6 },
       incomeHistory: [2023, 2024, 2025].map(y => ({ date: `${y}-12-31`, revenue: 900e6, operatingIncome: 180e6, incomeBeforeTax: 160e6, incomeTaxExpense: 32e6 })),
-      balance: { ...fixture().row, date: "2026-03-31", basis: "quarter", totalDebt: 5685e6, totalStockholdersEquity: 3000e6, cashAndShortTermInvestments: 7127e6, leaseCoverageNote: note },
+      balance: { ...fixture().row, date: "2026-03-31", basis: "quarter", totalDebt: 5685e6, totalStockholdersEquity: 3000e6, totalEquity: 3000e6, cashAndShortTermInvestments: 7127e6, leaseCoverageNote: note },
     });
-    expect(result.assumptions).toBeNull();
-    expect(result.gaps.find(g => g.field === "valuation.dcf.salesToCapital")?.reason).toContain("current portion is unverified");
+    expect(result.assumptions).not.toBeNull();
+    expect(result.gaps.some(g => g.field === "valuation.dcf.salesToCapital")).toBe(false);
+    expect(result.assumptions!.salesToCapital.basis).toContain("current portion is unverified");
+    expect(result.assumptions!.salesToCapital.basis).toContain("excludes the disclosed operating-lease portion 226000000");
   });
 });

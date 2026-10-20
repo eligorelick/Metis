@@ -664,9 +664,17 @@ export function computeCapital(
       marketableEquitySecurities: latestBal?.marketableEquitySecurities,
       vendorNetDebt: latestBal?.netDebt,
     });
-    const debtScopeRefusal = leaseDebtScopeRefusal(latestBal, true);
-    const netDebt = debtScopeRefusal ? null : resolution.value;
+    // Audit 2026-10-19 FCX-1: with only an operating-lease maturity missing
+    // and the financing components proven, net debt is stated excluding
+    // operating leases (EBITDA is already after their cost) rather than withheld.
+    const inclusiveRefusal = leaseDebtScopeRefusal(latestBal, true);
+    const debtScopeRefusal = inclusiveRefusal === null ? null : leaseDebtScopeRefusal(latestBal, false);
+    const operatingLease = latestBal?.operatingLeaseLiability;
+    const leaseExcluded = inclusiveRefusal !== null && debtScopeRefusal === null && isFiniteNumber(operatingLease);
+    const netDebt = debtScopeRefusal ? null
+      : leaseExcluded && resolution.value !== null ? resolution.value - (operatingLease as number) : resolution.value;
     if (debtScopeRefusal) ndNotes.push(debtScopeRefusal);
+    if (leaseExcluded) ndNotes.push(`net debt excludes the disclosed operating-lease portion ${fmt(operatingLease as number)}: ${inclusiveRefusal}`);
     ndNotes.push(`${resolution.version}: ${resolution.reason}`);
     // EBITDA: own computation preferred (operatingIncome + cash-flow D&A), vendor fallback noted.
     const latestInc: CapitalIncomeRow | undefined = inc.length > 0 ? inc[0] : undefined;

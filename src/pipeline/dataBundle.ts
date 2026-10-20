@@ -1714,6 +1714,9 @@ export function planLimitManifestEntry(
   };
 }
 
+/** How far a provider client's fetch stamp may run ahead of the bundle clock and still count as this build's acquisition. */
+const SOURCE_CLOCK_SKEW_MS = 60_000;
+
 export async function buildDataBundle(
   symbol: string,
   opts: BuildDataBundleOptions = {},
@@ -2329,6 +2332,19 @@ export async function buildDataBundle(
     Object.entries(sourceManifest).map(([field, entry]) => [field, entry.asOf]),
   );
 
+  // The analysis cutoff is the end of acquisition, not the start of the build.
+  // A live fetch is stamped when it completes, so a cutoff taken before the
+  // first request refused the very SEC facts this build fetched, and a cache
+  // miss valued the same filings differently from a cache hit (audit
+  // 2026-10-19, PGR-1). Provider clients keep their own clocks, so a stamp a
+  // little past this clock still belongs to this build; a stamp further ahead
+  // is not trusted to move the analysis date.
+  const startedAt = nowDate.getTime();
+  const acquiredAt = Math.max(now().getTime(), startedAt);
+  const analysisCutoff = new Date(Math.max(acquiredAt, ...Object.values(sourceManifest)
+    .map((entry) => Date.parse(entry.fetchedAt))
+    .filter((stamp) => stamp >= startedAt && stamp <= acquiredAt + SOURCE_CLOCK_SKEW_MS))).toISOString();
+
   // ---- gaps ---------------------------------------------------------------------
   const allResults = Object.values(resultRegistry);
   const recordedGaps = mergeManifest(
@@ -2368,6 +2384,7 @@ export async function buildDataBundle(
 
   return {
     ...bundleCore,
+    builtAt: analysisCutoff,
     sourceManifest,
     asOf,
     gaps,

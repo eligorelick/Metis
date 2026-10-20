@@ -25,7 +25,7 @@ import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stage
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
-import { leaseDebtConflict, resolveNetDebt } from "@/pipeline/stageB/netDebt";
+import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
@@ -519,6 +519,9 @@ export interface DcfBalanceRow {
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
   capitalLeaseObligations?: number | null;
+  /** The financing components that prove a partial operating lease's scope (audit 2026-10-19 FCX-1). */
+  shortTermDebt?: number | null;
+  longTermDebt?: number | null;
   leaseCoverageNote?: string;
   date: string;
   basis: "quarter" | "annual";
@@ -1779,15 +1782,22 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
 
   // --- Sales-to-capital ------------------------------------------------------
   const bal = inputs.balance;
-  const debtScopeRefusal = leaseDebtScopeRefusal(bal, true);
+  // Audit 2026-10-19 FCX-1: a missing operating-lease maturity leaves the
+  // lease-inclusive total unknown, but where the financing components prove the
+  // tagged operating portion is the only lease in totalDebt, invested capital
+  // is measured excluding operating leases instead of the DCF being withheld.
+  // A missing finance maturity still withholds it.
+  const debtScopeRefusal = leaseDebtScopeRefusal(bal, true) === null ? null : leaseDebtScopeRefusal(bal, false);
   if (debtScopeRefusal) {
     gaps.push(gapEntry("valuation.dcf.salesToCapital", `${debtScopeRefusal} Raw lease-inclusive invested capital cannot support sales-to-capital; DCF withheld.`, "critical"));
     return { assumptions: null, notes, gaps };
   }
+  const leaseExcluded = leaseDebtScopeRefusal(bal, true) !== null && bal !== null && isNum(bal.operatingLeaseLiability);
+  const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : 0) : null;
   const equity = resolveConsolidatedEquity(bal ?? {});
   const ic =
-    bal && isNum(bal.totalDebt) && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
-      ? bal.totalDebt + equity.value - bal.cashAndShortTermInvestments
+    bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
+      ? icDebt + equity.value - bal.cashAndShortTermInvestments
       : null;
   if (bal === null || ic === null || ic <= 0) {
     gaps.push(
@@ -1813,6 +1823,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
+  if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
   if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
 
@@ -3122,9 +3133,26 @@ function unknownNoncontrollingAllocation(balance: { totalEquity?: number | null;
     Math.abs(balance.totalEquity - balance.totalStockholdersEquity) > Math.max(1, Math.abs(balance.totalEquity) * 1e-10);
 }
 
+/**
+ * Known NCI at or below this share of consolidated equity cannot move a
+ * parent-common cash multiple. Without the floor, $5-7M of NCI against $2.4-3.0bn
+ * of equity withheld P/FCF and its whole history (audit SNOW-2). The NCI
+ * share of earnings must be as small, and known: a stake bought out before
+ * the balance date leaves a zero balance but still earned its share of the
+ * cash flow, so an ending balance alone cannot bound it.
+ */
+const IMMATERIAL_NCI_SHARE_OF_EQUITY = 0.01;
+
+function immaterialNoncontrollingInterest(row: { totalEquity?: number | null; minorityInterest?: number | null } | null, noncontrollingIncome?: number | null): boolean {
+  if (!isNum(row?.minorityInterest) || !isNum(row?.totalEquity) || row.totalEquity <= 0) return false;
+  const floor = row.totalEquity * IMMATERIAL_NCI_SHARE_OF_EQUITY;
+  return Math.abs(row.minorityInterest) <= floor && isNum(noncontrollingIncome) && Math.abs(noncontrollingIncome) <= floor;
+}
+
 function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
-  return unknownNoncontrollingAllocation(row) || (isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
-    (isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
+  const nciImmaterial = immaterialNoncontrollingInterest(row, row?.noncontrollingIncome);
+  return unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
+    (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
     (isNum(row?.preferredDividendsPaid) && row.preferredDividendsPaid !== 0);
 }
@@ -3458,8 +3486,8 @@ export function multiplesFramework(
   const cashEnd = cf?.date ?? "";
   const cashStart = /^\d{4}-\d{2}-\d{2}$/.test(cashEnd) ? `${Number(cashEnd.slice(0, 4)) - 1}${cashEnd.slice(4)}` : "";
   const currentCashRows = (inputs.quarterlyFundamentals ?? []).filter(row => cashStart && row.date > cashStart && row.date <= cashEnd);
-  const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership(bal)) ||
-    (isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
+  const unresolvedParentFcf = (bal !== null && unresolvedCashOwnership({ ...bal, noncontrollingIncome: inc?.noncontrollingIncome })) ||
+    (!immaterialNoncontrollingInterest(bal, inc?.noncontrollingIncome) && isNum(inc?.noncontrollingIncome) && inc.noncontrollingIncome !== 0) ||
     (isNum(inc?.preferredDividendsPaid) && inc.preferredDividendsPaid !== 0) || currentCashRows.some(unresolvedCashOwnership);
   const parentFcfScope = unresolvedParentFcf
     ? "Parent-common cash-flow attribution unresolved: the numerator is parent-common capitalization and the denominator is consolidated operating cash flow less capital expenditure before SBC. Retained disclosures do not allocate that cash flow among parent common holders, noncontrolling interests or preferred claims. P/FCF, its own-history rank and peer comparison are withheld as parent-common valuation measures."
@@ -3495,8 +3523,10 @@ export function multiplesFramework(
     isNum(bal?.capitalLeaseObligations) && bal.capitalLeaseObligations >= 0
       ? bal.capitalLeaseObligations
       : null;
+  // Audit 2026-10-19 CODE-1: removed only when totalDebt is shown to hold it.
+  const evLeaseScope = operatingLeaseScopeUnproven(bal ?? {});
   const leaseLiability =
-    isNum(bal?.operatingLeaseLiability) && bal.operatingLeaseLiability >= 0
+    evLeaseScope === null && isNum(bal?.operatingLeaseLiability) && bal.operatingLeaseLiability >= 0
       ? bal.operatingLeaseLiability
       : null;
   const financeLeaseLiability =
@@ -3529,7 +3559,9 @@ export function multiplesFramework(
       ? ` excluding ${fmtNum(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
       : "") +
     (leaseLiability === null
-      ? totalLeaseLiability === null
+      ? evLeaseScope !== null
+        ? `; ${evLeaseScope}, and EV is reported as-is`
+        : totalLeaseLiability === null
         ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
         : `; a total lease liability of ${fmtNum(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
       : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtNum(leaseLiability)}` +
@@ -3571,7 +3603,9 @@ export function multiplesFramework(
     gaps.push(
       gapEntry(
         "valuation.multiples.enterpriseValue.leases",
-        totalLeaseLiability === null
+        evLeaseScope !== null
+          ? `${evLeaseScope}; enterprise value is reported as-is`
+          : totalLeaseLiability === null
           ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV regardless of THESIS_EV_INCLUDE_LEASES"
           : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
         "info",
@@ -4887,7 +4921,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   }
 
   if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(inputs.multiples.balance)) && inputs.dcfInputs !== null) {
-    const reason = "Consolidated equity differs from parent equity, establishing outside ownership, but its NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
+    const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
@@ -5178,8 +5212,14 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       // below EBIT; its amortisation is inside EBIT and added back in EBITDA.
       const totalLeaseLiability =
         isNum(inputs.leaseLiability) && inputs.leaseLiability >= 0 ? inputs.leaseLiability : null;
+      // Audit 2026-10-19 CODE-1: the operating lease leaves net debt only when
+      // totalDebt is shown to hold it; otherwise net debt is used as reported.
+      const bridgeLeaseScope = operatingLeaseScopeUnproven({ ...inputs.multiples.balance,
+        capitalLeaseObligations: inputs.leaseLiability ?? inputs.multiples.balance?.capitalLeaseObligations,
+        operatingLeaseLiability: inputs.operatingLeaseLiability ?? inputs.multiples.balance?.operatingLeaseLiability });
+      if (bridgeLeaseScope !== null) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", bridgeLeaseScope, "warn"));
       const leaseLiability =
-        isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability >= 0
+        bridgeLeaseScope === null && isNum(inputs.operatingLeaseLiability) && inputs.operatingLeaseLiability >= 0
           ? inputs.operatingLeaseLiability
           : null;
       const financeLeaseLiability =
@@ -5206,7 +5246,9 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         notes.push(
           `DCF equity bridge: EV − net debt − minority interest − preferred equity. ` +
             (leaseLiability === null
-              ? totalLeaseLiability === null
+              ? bridgeLeaseScope !== null
+                ? `${bridgeLeaseScope}.`
+                : totalLeaseLiability === null
                 ? "Lease liabilities were not disclosed separately, so they could not be separated from total debt; net debt is used as reported."
                 : `A total lease liability of ${fmtNum(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made; net debt is used as reported.`
               : `Net debt as reported ${fmtNum(netDebtIncludingLeases)}; less the OPERATING lease liability ${fmtNum(netDebtExcludingLeases as number)}; ` +

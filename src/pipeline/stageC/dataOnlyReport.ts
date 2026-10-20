@@ -47,7 +47,7 @@ import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
-import { MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import { hasLimitedEvidence } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
@@ -264,7 +264,7 @@ function gradeBlock(
     };
   }
   const completenessPct = Math.round(aspect.dataCompleteness * 100);
-  const limited = aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE;
+  const limited = hasLimitedEvidence(aspect);
   return {
     grade: aspect.band,
     assessmentStatus: limited ? "limited-evidence" : "deterministic",
@@ -280,7 +280,7 @@ function gradeBlock(
     confidence: aspect.dataCompleteness >= 0.75 ? "medium" : "low",
     keyNumbers: aspect.drivers,
     interpretation:
-      "This is a reproducible deterministic score, not a completed analyst assessment. Headline grades are withheld when fewer than half of the intended signals have data; the raw score and band remain visible for audit.",
+      "This is a reproducible deterministic score, not a completed analyst assessment. Headline grades are withheld when fewer than half of the intended signals have data, or when the score rests on one signal that carries only part of the intended evidence; the raw score and band remain visible for audit.",
   };
 }
 
@@ -771,7 +771,7 @@ function synthesis(
     const bands = (Object.keys(ASPECT_LABEL) as ScoreAspect[])
       .map((key) => {
         const aspect = computed.scores.aspects[key];
-        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : aspect.dataCompleteness < MIN_HEADLINE_EVIDENCE ? "limited evidence" : aspect.band}`;
+        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band}`;
       })
       .join(", ");
     parts.push(
@@ -900,7 +900,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const filingDisclosures = buildFilingDisclosures(bundle);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data for the key-data box.
-  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true });
+  const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps });
   if (marketData) candidate.marketData = marketData;
 
   // Share exact registry-backed facts with the full verification path. Rebuild

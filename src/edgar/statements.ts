@@ -437,6 +437,46 @@ function standInSteps(standIns: readonly TagStandIn[], unit: UnitKind): ChainSpe
   return standIns.map((s) => ({ kind: "first", tags: [s.tag], unit, disclose: s.disclose }));
 }
 
+/** Disclosure for debt composed from instrument-class tags when no long-term-debt aggregate is tagged. */
+const LONG_TERM_DEBT_COMPONENT_DISCLOSURE =
+  "no LongTermDebt aggregate is tagged for the period; financing debt is composed from the filer's instrument-class tags (notes, loans, secured, convertible, revolver or the combined debt amount), which include any current portion";
+/** Inclusive instrument-class totals: each includes its own current portion. */
+const INCLUSIVE_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(["DebtLongtermAndShorttermCombinedAmount", "NotesPayable", "SeniorNotes", "LoansPayable", "SecuredDebt", "ConvertibleNotesPayable"]);
+/**
+ * Whether a long-term-debt figure was composed from tags that hold current debt
+ * (an inclusive class total or a class's current variant). Its total is right,
+ * but it is not noncurrent debt, so consumers that read long-term debt on its
+ * own (the forensic leverage tests) must not use it.
+ */
+/** True when long-term debt came from the tag that already includes finance-lease obligations (overlap case 1). */
+export function longTermDebtHoldsFinanceLeases(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).includes("us-gaap/LongTermDebtAndCapitalLeaseObligations");
+}
+
+export function longTermDebtHoldsCurrent(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).some((tag) => {
+    const name = tag.replace(/^us-gaap\//, "");
+    return INCLUSIVE_DEBT_COMPONENT_TAGS.has(name) || CURRENT_DEBT_COMPONENT_TAGS.has(name);
+  });
+}
+/** Each instrument class with the tag family of its current portion, which its noncurrent variants exclude. */
+const DEBT_COMPONENT_CLASSES = [
+  ["longTermDebtNotes", "longTermDebtNotesCurrent"],
+  ["longTermDebtLoans", "longTermDebtLoansCurrent"],
+  ["longTermDebtSecured", "longTermDebtSecuredCurrent"],
+  ["longTermDebtConvertible", "longTermDebtConvertibleCurrent"],
+  ["longTermDebtRevolver", "longTermDebtRevolverCurrent"],
+] as const;
+const CURRENT_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(DEBT_COMPONENT_CLASSES.flatMap(([, current]) => tagsFor(current)));
+/**
+ * Two instrument classes within this share of each other are taken to be one
+ * obligation tagged twice: secured debt is a collateral class that can hold the
+ * same notes or loans. Across SEC filers' FY2025 facts, every multi-class pair
+ * this close was a duplicate (Sun Communities, UMH, American Assets, Babcock &
+ * Wilcox), while REIT mortgages beside unsecured notes sit far apart.
+ */
+const DUPLICATE_DEBT_CLASS_SHARE = 0.02;
+
 /** A line item's own tags first, then its stand-ins one at a time. */
 function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): ChainSpec {
   const standIns = standInsFor(item);
@@ -659,6 +699,9 @@ function describeDerivedEbit(ctx: {
  * publishes the operating slice as its own field, because that is the only slice
  * the enterprise-value bridge may remove (WS6 review, BLOCKER 1).
  */
+const OPERATING_LEASE_PORTION_DISCLOSURE =
+  "only one maturity of the operating-lease liability is tagged for the period; the other portion is unverified, so lease-inclusive debt is unavailable and only the lease-excluded basis can use this row";
+
 const LEASE_LIABILITY_SPEC: ChainSpec = {
   kind: "sumAnyOf",
   unit: "money",
@@ -671,6 +714,11 @@ const LEASE_LIABILITY_SPEC: ChainSpec = {
         steps: [
           { kind: "first", tags: tagsFor("operatingLeaseLiability"), unit: "money" },
           { kind: "sum", tags: tagsFor("operatingLeaseLiabilityParts"), unit: "money" },
+          // Audit 2026-10-19 FCX-1: one tagged maturity (Freeport tags only the
+          // noncurrent portion; the current sits in accrued liabilities) is
+          // kept, disclosed, and its scope is left to the lease-scope rule,
+          // which admits it only on the lease-excluded basis.
+          { kind: "first", tags: [...tagsFor("operatingLeaseLiabilityParts")].reverse(), unit: "money", disclose: OPERATING_LEASE_PORTION_DISCLOSURE },
         ],
       },
     },
@@ -799,7 +847,38 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
       },
     ],
   },
-  longTermDebt: lineItemChain("longTermDebt", "money"),
+  longTermDebt: {
+    kind: "chain",
+    unit: "money",
+    steps: [
+      lineItemChain("longTermDebt", "money"),
+      { kind: "first", tags: tagsFor("debtCombinedTotal"), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE },
+      {
+        kind: "sumAnyOf",
+        unit: "money",
+        // A class is its inclusive total, else its noncurrent and current
+        // portions, which are tagged separately.
+        parts: DEBT_COMPONENT_CLASSES.map(([item, current]) => ({
+          label: item,
+          spec: {
+            kind: "chain",
+            unit: "money",
+            steps: [
+              { kind: "first", tags: tagsFor(item).filter((tag) => INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag)), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE },
+              {
+                kind: "sumAnyOf",
+                unit: "money",
+                parts: [
+                  { label: `${item} noncurrent`, spec: { kind: "first", tags: tagsFor(item).filter((tag) => !INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag)), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE } },
+                  { label: `${item} current`, spec: { kind: "first", tags: tagsFor(current), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE } },
+                ],
+              },
+            ],
+          } satisfies ChainSpec,
+        })),
+      },
+    ],
+  },
   totalCurrentLiabilities: lineItemChain("totalCurrentLiabilities", "money"),
   totalLiabilities: lineItemChain("totalLiabilities", "money"),
   deferredRevenue: lineItemChain("deferredRevenue", "money"),
@@ -1815,6 +1894,8 @@ function sumAnyValues(parts: [string, number | null][], notes: NoteSink, label: 
 interface ComputeContext {
   resolved: ReadonlyMap<string, Resolved>;
   temporaryEquityDisclosed?: boolean;
+  /** The filing shows zero noncontrolling interest here without tagging it (see {@link inferredZeroNciPeriods}). */
+  nciInferredZero?: boolean;
   /** The value of one money tag at this period, or null. */
   money(tag: string): number | null;
 }
@@ -1909,11 +1990,16 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     for (const field of ["cashAndShortTermInvestments", "netDebt"]) notes.withhold(field, ctx, reason);
     notes.add(`cashAndShortTermInvestments ${ctx}: ${reason}`);
   }
+  const hasTemporaryEquity = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"]
+    .some(field => v[field] != null) || cc.temporaryEquityDisclosed === true;
+  if (cc.nciInferredZero === true && !hasTemporaryEquity && v.totalStockholdersEquity == null && v.minorityInterest == null && v.totalEquity != null) {
+    v.minorityInterest = 0;
+    v.totalStockholdersEquity = v.totalEquity;
+    for (const field of ["minorityInterest", "totalStockholdersEquity"]) notes.substitute(field, ctx, NCI_INFERRED_ZERO_DISCLOSURE);
+  }
   // `totalEquity` deliberately stays strict: `validate.ts` and `forensics.ts`
   // both fall back to `totalStockholdersEquity`, so nothing is suppressed.
   v.totalEquity ??= add(v.totalStockholdersEquity ?? null, v.minorityInterest ?? null);
-  const hasTemporaryEquity = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"]
-    .some(field => v[field] != null) || cc.temporaryEquityDisclosed === true;
   // A - permanent equity includes mezzanine capital. Do not relabel it as
   // liabilities when a temporary category is disclosed but its full scope may
   // be unknown. Only a directly filed liability total is usable in that case.
@@ -1937,8 +2023,12 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes,
     `totalDebt ${ctx}`,
   );
-  const refusedCurrent = notes.withheld.find((held) => held.field === "shortTermDebt" && held.periods.includes(ctx));
-  const partialLease = (["Operating", "Finance"] as const).find(prefix =>
+  const refusedCurrent = notes.withheld.find((held) => (held.field === "shortTermDebt" || held.field === "longTermDebt") && held.periods.includes(ctx));
+  // Finance leases are debt in every frame, so a missing finance maturity
+  // leaves debt incomplete. A missing operating maturity does not: the lease
+  // chain keeps the tagged portion and the lease-scope rule confines the row
+  // to the lease-excluded basis (audit 2026-10-19 FCX-1).
+  const partialLease = (["Finance"] as const).find(prefix =>
     cc.resolved.get("capitalLeaseObligations")?.parts?.[`${prefix.toLowerCase()}LeaseLiability`] === undefined &&
     ((cc.money(`${prefix}LeaseLiabilityCurrent`) === null) !== (cc.money(`${prefix}LeaseLiabilityNoncurrent`) === null)));
   const incomplete = partialLease !== undefined
@@ -1989,6 +2079,19 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
  * reader can see which concepts a debt figure is made of. Returns the label the
  * lease component carries into the `totalDebt` sum.
  */
+/** The reason two composed classes look like one obligation tagged twice, or null. */
+function duplicateDebtClasses(parts: Record<string, number>): string | null {
+  const classes = Object.entries(parts).filter(([, value]) => value !== 0);
+  for (const [i, [a, x]] of classes.entries()) {
+    for (const [b, y] of classes.slice(i + 1)) {
+      if (Math.abs(x - y) <= DUPLICATE_DEBT_CLASS_SHARE * Math.max(Math.abs(x), Math.abs(y))) {
+        return `financing debt unresolved: ${a} (${x}) and ${b} (${y}) are within ${DUPLICATE_DEBT_CLASS_SHARE * 100}% of each other, so they may be one obligation tagged under two instrument classes`;
+      }
+    }
+  }
+  return null;
+}
+
 function resolveDebtOverlaps(
   v: FieldValues,
   notes: NoteSink,
@@ -2072,6 +2175,35 @@ function resolveDebtOverlaps(
     }
   }
 
+  // Case 6: debt composed from instrument-class tags (no aggregate tagged).
+  // An inclusive class total already holds its current portion, so beside a
+  // current-debt line it may count that portion twice; a generic notes total
+  // may already hold the convertible notes. Neither overlap can be resolved
+  // from the tags, so the figure is withheld rather than doubled.
+  const composedFrom = (item: Parameters<typeof tagsFor>[0]): boolean => tagsFor(item).some((tag) => longTermTags.includes(tag));
+  const composed = v.longTermDebt != null && !tagsFor("longTermDebt").some((tag) => longTermTags.includes(tag));
+  if (composed) {
+    const currentLine = tagsOf("shortTermDebt").find((tag) => CURRENT_MATURITY_TAGS.includes(tag) || tag === MATURITIES_NEXT_YEAR_TAG);
+    const inclusive = longTermTags.filter((tag) => INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag));
+    const currentClass = longTermTags.filter((tag) => CURRENT_DEBT_COMPONENT_TAGS.has(tag));
+    // A current-debt figure of zero holds nothing that could be counted twice.
+    const currentDebt = v.shortTermDebt != null && v.shortTermDebt !== 0;
+    const reason = composedFrom("debtCombinedTotal") && currentDebt
+      ? "financing debt unresolved: DebtLongtermAndShorttermCombinedAmount is all debt, current included, and a current-debt figure also resolved"
+      : currentClass.length > 0 && currentDebt
+        ? `financing debt unresolved: ${currentClass.join(" + ")} carry current debt that the current-debt figure (${tagsOf("shortTermDebt").join(" + ")}) may also carry`
+      : currentLine !== undefined && inclusive.length > 0 && currentDebt
+        ? `financing debt unresolved: ${inclusive.join(" + ")} include their current portions, which ${currentLine} also carries`
+        : composedFrom("longTermDebtNotes") && composedFrom("longTermDebtConvertible")
+          ? "financing debt unresolved: a notes total and a convertible-notes total are both tagged, and the notes total may already include the convertible notes"
+          : duplicateDebtClasses(cc.resolved.get("longTermDebt")?.parts ?? {});
+    if (reason !== null) {
+      v.longTermDebt = null;
+      notes.withhold("longTermDebt", ctx, reason);
+      notes.add(`longTermDebt ${ctx}: ${reason}`);
+    }
+  }
+
   // Case 1. `capitalLeaseObligations` itself keeps the full lease figure — that
   // is what FMP publishes — and the exclusion is applied only to the sum.
   const leases = cc.resolved.get("capitalLeaseObligations");
@@ -2141,11 +2273,58 @@ interface PeriodSlot {
 interface BuildState {
   filesTwentyF: boolean;
   temporaryEquityPeriods: ReadonlySet<string>;
+  nciZeroPeriods: ReadonlySet<string>;
   balanceRefusals: ReadonlyMap<string, string>;
 }
 
 const TEMPORARY_EQUITY_FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"] as const;
 const TEMPORARY_EQUITY_TAGS = new Set(TEMPORARY_EQUITY_FIELDS.flatMap(field => tagsFor(field)));
+
+const NCI_INFERRED_ZERO_DISCLOSURE =
+  "noncontrolling interest inferred zero: the filer tags only equity including noncontrolling interest here, reports zero net income attributable to noncontrolling interest for the period ending here, and its latest earlier noncontrolling-interest balance was zero; parent equity is that total";
+/** How far back the zero noncontrolling-interest balance an inference rests on may lie. */
+const NCI_PRIOR_ZERO_MAX_DAYS = 400;
+
+/**
+ * Balance dates whose filing shows zero noncontrolling interest without tagging
+ * it (audit SNOW-2). A filer that deconsolidates its last partly owned
+ * subsidiary often stops tagging `StockholdersEquity` and `MinorityInterest`
+ * and keeps only the NCI-inclusive total. Treating that as unknown outside
+ * ownership withheld every EV multiple. NCI is inferred zero only when, at
+ * that date, no NCI balance is tagged, every net income attributable to NCI
+ * for a period ending there is explicitly 0, and the latest earlier NCI
+ * balance, within about a year, was 0. One of those zero periods must start by
+ * the day after that balance, so the zero earnings cover the whole span since
+ * it: a zero final quarter alone does not show the earlier quarters held none. Temporary equity still refuses it in
+ * {@link computeBalance}.
+ */
+function inferredZeroNciPeriods(facts: CompanyFacts, asOf: string): Set<string> {
+  const day = asOf.slice(0, 10);
+  const points = (tags: readonly string[], instant: boolean): FactPoint[] => tags.flatMap((tag) => {
+    const raw = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+    if (!raw.success) return [];
+    return Object.values(raw.data.units).flat().flatMap((input): FactPoint[] => {
+      if (input === null || typeof input !== "object") return [];
+      const p = input as Partial<FactPoint>;
+      return typeof p.end === "string" && typeof p.filed === "string" && typeof p.form === "string" && typeof p.val === "number" &&
+        Number.isFinite(p.val) && CORE_FACT_FORMS.has(p.form) && p.filed <= day && p.end <= day && (p.start === undefined) === instant ? [p as FactPoint] : [];
+    });
+  });
+  const balances = points(tagsFor("minorityInterest"), true);
+  const income = points(tagsFor("netIncomeAttributableToNoncontrollingInterest"), false);
+  const out = new Set<string>();
+  for (const end of new Set(income.map((p) => p.end))) {
+    const ending = income.filter((p) => p.end === end);
+    if (ending.some((p) => p.val !== 0)) continue;
+    if (balances.some((p) => withinDays(p.end, end, TOLERANCE_DAYS))) continue;
+    const prior = balances.filter((p) => p.end < end && withinDays(p.end, end, NCI_PRIOR_ZERO_MAX_DAYS));
+    if (prior.length === 0) continue;
+    const latest = prior.reduce((a, b) => (b.end > a.end ? b : a)).end;
+    const spansSinceZero = ending.some((p) => p.start !== undefined && dateMs(p.start) <= dateMs(latest) + (TOLERANCE_DAYS + 1) * DAY_MS);
+    if (spansSinceZero && prior.filter((p) => p.end === latest).every((p) => p.val === 0)) out.add(end);
+  }
+  return out;
+}
 
 /** Admission guard for these newly used balance categories, before the general
  * index's same-version first-wins dedup can hide contradictory amounts. Raw
@@ -2335,6 +2514,7 @@ function buildStatementRows<TRow>(
     def.compute(values, notes, ctxLabel, {
       resolved: resolutions,
       temporaryEquityDisclosed: [...state.temporaryEquityPeriods].some(end => withinDays(end, slot.date, TOLERANCE_DAYS)),
+      nciInferredZero: [...state.nciZeroPeriods].some(end => withinDays(end, slot.date, TOLERANCE_DAYS)),
       money: (tag) => {
         const r = sameRowEvidence(tag, "money");
         return r === null ? null : tidy(r.value, MONEY_DECIMALS);
@@ -2371,6 +2551,20 @@ function buildStatementRows<TRow>(
     }
     for (const [alias, source] of Object.entries(def.aliases)) {
       if (fieldProvenance[source] !== undefined) fieldProvenance[alias] = fieldProvenance[source]!;
+    }
+    // Each lease slice keeps the tags that served it, so a partial operating
+    // maturity stays visible beside a finance lease (the summed total's tags
+    // describe neither slice once both are present).
+    for (const field of ["operatingLeaseLiability", "financeLeaseLiability"] as const) {
+      const total = fieldProvenance.capitalLeaseObligations;
+      const family = [...tagsFor(field), ...tagsFor(`${field}Parts`)].map((tag) => `us-gaap/${tag}`);
+      const tags = total?.tags.filter((tag) => family.includes(tag)) ?? [];
+      if (def.statement === "balance" && values[field] != null && fieldProvenance[field] === undefined && total && tags.length > 0) fieldProvenance[field] = { ...total, tags };
+    }
+    // Parent equity inferred from an NCI-inclusive total is that total's fact,
+    // marked so the ownership basis reads it as parent equity, not consolidated.
+    if (def.statement === "balance" && values.totalStockholdersEquity != null && !resolutions.has("totalStockholdersEquity") && fieldProvenance.totalEquity) {
+      fieldProvenance.totalStockholdersEquity = { ...fieldProvenance.totalEquity, calculation: "nci-inferred-zero" };
     }
     if (def.statement === "income" && values.grossProfit != null && !resolutions.has("grossProfit") && fieldProvenance.revenue && fieldProvenance.costOfRevenue) {
       fieldProvenance.grossProfit = { ...fieldProvenance.revenue, tags: [...fieldProvenance.revenue.tags, ...fieldProvenance.costOfRevenue.tags], calculation: "revenue-minus-cost" };
@@ -2790,7 +2984,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const shareBasisWithheld: ShareBasisWithheld[] = [];
   const factExclusions: StatementFactExclusion[] = [];
   const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
-  const state: BuildState = { filesTwentyF: false, ...balanceEvidenceGuards(facts, opts.asOf) };
+  const state: BuildState = { filesTwentyF: false, ...balanceEvidenceGuards(facts, opts.asOf), nciZeroPeriods: inferredZeroNciPeriods(facts, opts.asOf) };
 
   const allFiscalYears = discoverFiscalYears(index);
   const fiscalYearEnds = new Set(allFiscalYears.map((fy) => fy.end));

@@ -595,6 +595,10 @@ describe("payload determinism + provenance", () => {
     const accrualSignal = precedingFinance.scores.aspects.quality.signals.find((s: { id: string }) => s.id === "accrualsRatioAbs");
     expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).");
     accrualSignal.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI \u2212 CFO).";
+    // Audit 2026-10-19 FCX-14 names a data gap rather than route applicability
+    // when an applicable aspect has no data. Restore only that text.
+    expect(precedingFinance.scores.aspects.technicals.notApplicableReason).toBe("applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored");
+    precedingFinance.scores.aspects.technicals.notApplicableReason = "no applicable signals available for this route — aspect not scored";
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
@@ -900,7 +904,9 @@ describe("payload determinism + provenance", () => {
       // D-93: admitted-input explanations add 150 prompt bytes. The exact
       // preceding whole-finance hash and every numeric registry pin stay above.
       // D-96 changes the versioned header and its hash only for this control.
-      fingerprint: "1.37.0:5064497c",
+      // D-97: only the versioned header and its hash change here; prompt bytes,
+      // registries and every numeric pin stay exact.
+      fingerprint: "1.38.0:bfee2895",
       promptBytes: 139_657,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
@@ -926,7 +932,9 @@ describe("payload determinism + provenance", () => {
       // accruals signal reads operating accruals — see the comment above.
       // D-65: the DCF (reported-half year one, quote-date roll-forward), the
       // EPS interest run-rate and the scenario construction text — see above.
-      financeHash: "40b97db8",
+      // Audit 2026-10-19 FCX-14: only the technicals aspect's no-data note
+      // changes (restored above); prompt bytes and registries are unchanged.
+      financeHash: "b5e8d179",
     });
   });
 
@@ -1050,7 +1058,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.37.0");
+    expect(first.payloadVersion).toBe("1.38.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2545,7 +2553,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.32.0");
+    expect(report.meta.specVersion).toBe("1.33.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2868,6 +2876,15 @@ describe("financial forward assumption propagation", () => {
     expect(report.verdict.synthesis).toMatch(/continuing value 321\.97/i);
     expect(report.routeMetrics?.notes.join(" ")).toMatch(/terminal ROE 12\.5%/i);
     expect(report.routeMetrics?.metrics.find((row) => row.key === "justifiedPTbv")?.basis).not.toMatch(/adds no continuing value/);
+  });
+
+  it("explains both evidence floors in the data-only grade interpretation (audit PGR-4)", () => {
+    const { bundle, computed } = financialInputs();
+    const report = enrichDataOnlyReport(assemble(computed, judgeOutput()), { bundle, computed, reason: "offline fixture" });
+    const interpretations = [report.fundamentals.graded, report.valuation.graded, report.quality.graded]
+      .map((block) => block.interpretation).filter((text): text is string => text !== undefined);
+    expect(interpretations.length).toBeGreaterThan(0);
+    for (const text of interpretations) expect(text).toMatch(/fewer than half .* or when the score rests on one signal that carries only part of the intended evidence/);
   });
 });
 

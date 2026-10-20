@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { incompleteLeaseCoverage } from "@/pipeline/stageB/leaseScope";
 import { computeRoic, type ReturnsBalanceRow } from "@/pipeline/stageB/returns";
 import { computeAccruals, classifyAccrualBand, type ForensicsIncomeRow } from "@/pipeline/stageB/forensics";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
@@ -67,7 +68,7 @@ describe("earnings ownership scope", () => {
 });
 
 describe("lease liability completeness", () => {
-  it.each(["Operating", "Finance"].flatMap(prefix => ["Current", "Noncurrent"].map(part => ({ prefix, part }))))("does not publish a $prefix $part-only lease component as the full liability or complete debt", ({ prefix, part }) => {
+  it.each(["Finance"].flatMap(prefix => ["Current", "Noncurrent"].map(part => ({ prefix, part }))))("does not publish a $prefix $part-only lease component as the full liability or complete debt", ({ prefix, part }) => {
     const point = (val: number) => ({ val, end: "2025-12-31", filed: "2026-02-01", form: "10-K", fp: "FY", fy: 2025, accn: "0000000001-26-000001" });
     const facts = { cik: 1, entityName: "Ordinary issuer", facts: { "us-gaap": Object.fromEntries(Object.entries({
       Assets: 2000, LongTermDebtNoncurrent: 100, [`${prefix}LeaseLiability${part}`]: 30,
@@ -77,6 +78,20 @@ describe("lease liability completeness", () => {
     expect(result.balanceAnnual.rows[0].capitalLeaseObligations).toBeNull();
     expect(result.balanceAnnual.rows[0].totalDebt).toBeNull();
     expect(result.balanceAnnual.withheld).toContainEqual(expect.objectContaining({ field: "totalDebt", text: expect.stringMatching(/lease.*incomplete/i) }));
+  });
+  // Audit 2026-10-19 FCX-1: an operating maturity alone keeps total debt; its
+  // provenance names the one maturity, which confines the row to the
+  // lease-excluded basis downstream.
+  it.each(["Current", "Noncurrent"])("keeps total debt beside an Operating %s-only lease component, scoped by its provenance", part => {
+    const point = (val: number) => ({ val, end: "2025-12-31", filed: "2026-02-01", form: "10-K", fp: "FY", fy: 2025, accn: "0000000001-26-000001" });
+    const facts = { cik: 1, entityName: "Ordinary issuer", facts: { "us-gaap": Object.fromEntries(Object.entries({
+      Assets: 2000, LongTermDebtNoncurrent: 100, [`OperatingLeaseLiability${part}`]: 30,
+    }).map(([tag, val]) => [tag, { units: { USD: [point(val)] } }])) } } as unknown as CompanyFacts;
+    const result = buildStatementsFromCompanyFacts(facts, { symbol: "TEST", cik: "0000000001", asOf: "2026-10-16", annualPeriods: 2, quarterlyPeriods: 4,
+      vendorSplits: { status: "retrieved", source: "test", events: [], coverage: [{ from: "2020-01-01", to: "2026-10-16" }] } });
+    const row = result.balanceAnnual.rows[0]!;
+    expect(row).toMatchObject({ capitalLeaseObligations: 30, operatingLeaseLiability: 30, totalDebt: 130 });
+    expect(incompleteLeaseCoverage(row)?.operating).toBe(part.toLowerCase());
   });
   it("retains a complete tagged finance total even when only its current portion is also tagged", () => {
     const point = (val: number) => ({ val, end: "2025-12-31", filed: "2026-02-01", form: "10-K", fp: "FY", fy: 2025, accn: "0000000001-26-000001" });
