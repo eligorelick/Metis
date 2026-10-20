@@ -2398,3 +2398,10 @@ and net debt, because finance leases are debt in every frame (audit FCX-1).
 An aspect whose signals apply to the route but whose inputs were withheld or
 missing reads "applicable signals unavailable (data gap…)", not a route
 choice (audit FCX-14).
+
+**Withheld debt leaves no leverage figure.** Once a total-debt figure is
+withheld, the Balance Sheet aspect scores without net debt/EBITDA and
+renormalises over its remaining signals; it does not fall back to an older
+balance. EV and the EV multiples are withheld with it. The report's Key data box
+then shows EV/EBITDA as "withheld" with the reason "debt incomplete", rather than
+omitting the row as if the input were merely absent (audit O-3).
