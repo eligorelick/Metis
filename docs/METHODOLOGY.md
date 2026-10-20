@@ -1869,7 +1869,8 @@ from at least three paired annual observations. The margin shift is applied
 only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
-1.17pp margin cut). Missing correlation leaves
+1.17pp margin cut). The scenario paths and targets carry the method stamps
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D99. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -2768,19 +2769,21 @@ performance obligations (backlog, contracted revenue not yet recognized) keeps
 the amount and timing sentences first: Amazon's $496B and 6.4 years had been
 dropped. The 25% reservation for pending cases also holds government cases
 (an agency or attorney general as plaintiff), antitrust or monopolization
-claims actually alleged (not a risk the issuer may face), relief in the
-billions or structural relief beside a legal proceeding, a regulator's fine,
-and a trial a legal proceeding has scheduled (never a clinical or commercial
-trial). The FTC case against Amazon
+claims actually alleged, relief in the billions or structural relief beside a
+legal proceeding, a regulator's fine, and a trial a legal proceeding has
+scheduled (never a clinical or commercial trial). None of them holds a passage
+that only states a risk the issuer may face ("regulators could bring
+actions"). The notes and risk readings carry the selection version
+section-evidence-4. The FTC case against Amazon
 now reaches the passes. Its 2027 trial date was in no filing the run had.
 
 **Peers (finding 7).** The audit read the empty peer table as a screen that was
 too strict. Replaying the run shows the screen excluded nobody it should have
 kept: the vendor's rate limit stopped peer collection after one candidate, and
 the provider's peer list holds no cloud company. The peer summary now counts
-candidates the provider never served, and those past the house's own
-candidate limit, separately from those the screen excluded, and leaves out the
-subject itself. Segment-aware peers would need a peer source
+candidates the provider never served (any refusal the peer loader treats as
+terminal), and those past the house's own candidate limit, separately from
+those the screen excluded, and leaves out the subject itself. Segment-aware peers would need a peer source
 per segment; none is fabricated.
 
 **Verdict stance (finding 18).** The judge's executive summary now opens with a

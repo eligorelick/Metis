@@ -45,6 +45,17 @@ One fresh reviewer read the whole change against the audit's findings. It confir
 
 It also noted that the SBC floor ignores how large SBC is: any positive SBC beside non-positive FCF scores the floor, as any SBC above all positive FCF already did. That is left as an owner choice below. The docs now say exactly what the loss-year ROIC and the seasonal-shape quarter checks test.
 
+## Codex review
+
+The automated Codex review of the pull request raised four P2 findings. All four were real, and each fix began with a test that failed, where a test could:
+
+| Finding | Fix | Commit |
+|---|---|---|
+| A modal before a proceeding verb ("regulators could bring actions", "proceedings may seek structural relief") still took the pending-case reservation | A modal within a few words of any proceeding verb keeps a passage out of every clause | `cfa3bc4` |
+| An invalid key, a denied subscription, a missing entitlement or an aborted request stopped peer collection but read as a screen exclusion | The loader and the summary share one list of terminal provider failures | `dd1fb93` |
+| The scenario construction changed without its method stamps | SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D99 | `97e6476` |
+| The notes and risk selection changed without its version | section-evidence-4 | `97e6476` |
+
 ## What moves on the stored inputs
 
 Replayed offline on `1f555a7` and on this branch. AMZN's figures use the SEC statements re-read from its stored filings, as in #41.
