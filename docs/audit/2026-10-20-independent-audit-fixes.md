@@ -16,6 +16,21 @@ This change made no provider or model calls, no paid runs, no deployment and no 
 | 6 Minimum evidence for a grade | PGR-4 | Fixed at the display floor that D-67 already applies on every surface. A score resting on one signal with partial evidence shows no letter. Scores and the composite are unchanged. A P/TBV rank that fell back to P/B is named as a P/B rank. | `tests/audit.valuationEvidence.test.ts`, `tests/audit.scoringFreshness.test.ts` |
 | 9 Live-shaped issuer fixtures | GATE-21 | Fixed. Trimmed SEC companyfacts for FCX, PGR, O, SNOW and NNN are committed. Every statement row dated 2021 or later builds identically from the full and the trimmed files. A keyless pipeline test runs Stage A and Stage B over them with synthetic prices. | `tests/audit.issuerFixtures.test.ts`, `tests/audit.issuerPipeline.test.ts` |
 
+## Review corrections
+
+An independent review of the whole diff found five problems, all fixed in their own commit with tests:
+
+- **Current portions of debt classes.** Composition read only the noncurrent tags, so notes falling due within a year (`ConvertibleDebtCurrent`) would have dropped out. Each class now adds its current variant, and is withheld beside a current-debt line that could hold the same notes.
+- **NCI earnings under the 1% floor.** The floor also switched off the NCI earnings test, so a stake bought out before the balance date published parent P/FCF. Earnings above the floor now still withhold it.
+- **The report's derived historical EV.** It was refused for debt the builder withheld, but not for debt Stage B withheld. It is now refused for both.
+- **The Key data "withheld" marker.** It now reads Stage B's current-period net-debt gap. That covers builder-withheld debt and ignores older periods.
+- **Long-term debt on rejected rows.** Rows the plausibility check rejects now also withhold long-term debt, which the forensic leverage tests read on its own.
+
+## Departures from the recommendation text
+
+- **Item 2: `DebtInstrumentCarryingAmount`.** Item 2 suggests treating a missing `DebtInstrumentCarryingAmount` as unproven. That would withhold debt for every filer that does not tag it. The interest-plausibility check, which the same item recommends, is used instead as the fail-closed guard. A filer missing that tag is still judged against the interest it paid.
+- **SNOW-10's warning gap.** SNOW-10's spec also asks for a warning gap that names any unmapped debt element above 1% of liabilities. That warning is not implemented. What this change provides is the live-shaped fixtures of item 9, which would have caught SNOW-1 and SNOW-2. A generic unmapped-element scan would flag many disclosure-only elements, such as `DebtInstrumentFaceAmount`, and is left with the deferred items.
+
 ## Data rights
 
 The fixtures are SEC EDGAR companyfacts, a U.S. government work ([DATA-RIGHTS](../DATA-RIGHTS.md)). The audit's run-input snapshots also hold FMP, Yahoo, Finnhub and FRED observations, so none of them is committed. The pipeline test uses instead a synthetic weekday price series ending at each run's quoted price, one fixed DGS10 observation, and a submissions list rebuilt from the accessions the facts cite.
