@@ -2570,8 +2570,8 @@ governs something else ("the impact from foreign currency, revenue for the
 fourth quarter of 2026") does not skip the period. The reported quarter is read from the phrase
 that names the same quarter as the "quarter ended" sentence; when the only
 such phrase is a comparison base, the year after it is taken. A phrase heading
-an outlook ("Third Quarter 2026 Guidance") is never taken as the reported
-quarter, so a release whose "quarter ended" sentence names no quarter is not
+an outlook ("Third Quarter 2026 Guidance", or "Outlook for Second Quarter
+2026" with the heading word first) is never taken as the reported quarter, so a release whose "quarter ended" sentence names no quarter is not
 labelled with the quarter it guides. On Amazon's five
 releases from July 2025 to July 2026 every reported and guided quarter now
 carries its own year, and the three prior quarters' outlooks are all scored.

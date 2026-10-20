@@ -25,7 +25,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Fade an improving operating margin up to a bounded target, and state the per-share value with the margin held flat (AMZN finding 4).
 - Stop ranking a P/E that rests on gains outside operating income (more than 25% of pre-tax income), caveat it in Key data, and keep tagged one-off items out of the DCF margin seed (AMZN finding 5, recommendation 15).
 - Say on the report itself when passes used only the supplied evidence with no web search, and count contradicted cited figures in the header's contradicted count (AMZN findings 12 and 17, recommendation 7).
-- Close the four gaps the Codex review found: withhold a one-off item the filings don't place inside the TTM window, show no own-history rank beside a P/E the caveat says is not ranked, hold a rate-limited request to 90 seconds of wall-clock time with its retry, and leave failed or never-sent passes out of the Evidence line. The owner accepted the D-98 choices as recorded.
+- Close the four gaps the Codex review found: withhold a one-off item the filings don't place inside the TTM window, show no own-history rank beside a P/E the caveat says is not ranked, hold a rate-limited request to 90 seconds of wall-clock time with its retry, leave failed or never-sent passes out of the Evidence line, and never read a quarter an outlook heading introduces ("Outlook for Second Quarter 2026") as the reported quarter. The owner accepted the D-98 choices as recorded.
 - Advance report/payload/Stage B conventions to 1.34.0/1.39.0/ACCOUNTING_EVIDENCE_16. Stored reports remain immutable. See the [disposition record](docs/audit/2026-10-20-amzn-audit-fixes.md) and D-98.
 
 ## Proposed independent audit fixes (2026-10-20)

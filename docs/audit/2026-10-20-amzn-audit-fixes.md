@@ -19,7 +19,7 @@ Every new test failed before its fix, except one regression guard in fix 3: the 
 
 ## Review fixes (Codex review of PR #41)
 
-The automated Codex review of the pull request at `b25c9c0` raised one P1 and three P2 findings. Each was confirmed against the code, and each fix began with a test that failed because of the problem.
+The automated Codex review of the pull request at `b25c9c0` raised one P1 and three P2 findings, and its re-review of the fixes two more P2 findings. Each was confirmed against the code, and each fix began with a test that failed because of the problem.
 
 | Finding | Disposition | Tests |
 |---|---|---|
@@ -27,6 +27,8 @@ The automated Codex review of the pull request at `b25c9c0` raised one P1 and th
 | P2 P/E rank shown beside the "not ranked" caveat | Fixed (`dc8f79b`). The report row carries no rank, sample size or detail for that multiple, and its history basis says why. | `tests/report.multipleBasis.test.ts` |
 | P2 The 90-second bound capped only the wait | Fixed (`4c5c356`). The clock starts before the first attempt; the retry is one attempt timed out when the bound ends; a retry the bound cut off still names the rate limit; a cancelled job still stops the run. | `tests/fmp.quota.test.ts` |
 | P2 Failed passes counted in the Evidence line | Fixed (`748afcf`). Only passes that ran to a usable analysis count: not a failed attempt a data-only report lists, nor a model the registry refused. | `tests/report.runDisclosure.test.ts` |
+| P2 (re-review) Outlook heading with the heading word first | Fixed (`516555a`). "Outlook for Second Quarter 2026" marks its quarter as guided, as "Third Quarter 2026 Guidance" already did; a release with no other quarter phrase keeps its reported quarter unknown rather than wrong. | `tests/currentReports.test.ts` |
+| P2 (re-review) Improving-margin ceiling bypassed by the median | Not changed. D-98 states the improving target is never below the current margin or the five-year median, and the stable regime fades to the median with no ceiling; the ceiling bounds only how far the trend may carry the margin above history. Capping the median for improving issuers alone would make the improving rule stricter than the stable one. | — |
 
 The owner accepted the choices below as recorded (D-98).
 
