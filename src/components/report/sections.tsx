@@ -1027,7 +1027,7 @@ export function ValuationSection({
       </SubBlock>
       {report && <ExtraAuditTables tables={consensusTables(report)} />}
 
-      <ValuationReview scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} />
+      <ValuationReview scenarioPresentation={scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
 
       <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
         <p className="mb-2 text-[11px] leading-snug text-faint">

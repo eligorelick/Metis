@@ -6,6 +6,8 @@ export interface ValuationReviewInputs {
   scenarioPresentation?: Report["scenarioPresentation"];
   thesisTriggers?: Report["thesisTriggers"];
   peerCoverage?: Valuation["peerCoverage"];
+  /** The subject's symbol: its own comparability exclusions are not a candidate's. */
+  symbol?: string;
 }
 
 export interface ReviewBlock {
@@ -23,14 +25,32 @@ type PeerCoverage = NonNullable<Valuation["peerCoverage"]>;
  * per-metric notes and every exclusion (about 56 lines for NVDA) are in the
  * audit export ({@link peerCoverageAuditLines}).
  */
-export function peerCoverageSummary(peers: PeerCoverage): string[] {
+/**
+ * AMZN audit 2026-10-20 finding 7: an exclusion that is the peer provider's
+ * unavailability (a rate limit or quota, a refused request, the deadline, a
+ * candidate never requested), not a screen rule. The body counted six such
+ * AMZN candidates, and the subject itself, as "excluded at the screen".
+ */
+const PROVIDER_UNAVAILABLE = /\b(?:candidate not requested|provider unavailable|deadline|cancellation|budget limit|HTTP (?:401|402|403|429)|quota|rate.?limit|timed? ?out)\b/i;
+const RATE_LIMITED = /\b(?:HTTP 429|quota|rate.?limit)\b/i;
+
+export function peerCoverageSummary(peers: PeerCoverage, subject?: string): string[] {
   const eligible = new Set(peers.eligible);
-  const screenedOut = new Set(peers.exclusions.filter((e) => !eligible.has(e.symbol)).map((e) => e.symbol)).size;
+  const self = subject?.trim().toUpperCase();
+  const excluded = new Map<string, string[]>();
+  for (const e of peers.exclusions) {
+    if (eligible.has(e.symbol) || e.symbol.trim().toUpperCase() === self) continue;
+    excluded.set(e.symbol, [...(excluded.get(e.symbol) ?? []), e.reason]);
+  }
+  const unserved = [...excluded.values()].filter((reasons) => reasons.every((reason) => PROVIDER_UNAVAILABLE.test(reason)));
+  const screenedOut = excluded.size - unserved.length;
+  const cause = unserved.some((reasons) => reasons.some((reason) => RATE_LIMITED.test(reason)))
+    ? "the peer data provider hit its rate limit or quota" : "the peer data provider was unavailable or its deadline passed";
   const caveat = peers.methodology.some((line) => /comparability caveat/i.test(line))
     ? " Medians that are shown carry a comparability caveat: business-model, accounting and metric-definition evidence is not independently sourced."
     : "";
   return [
-    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}.${caveat}`,
+    `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated; eligible: ${peers.eligible.join(", ") || "none"}${screenedOut > 0 ? `; ${screenedOut} excluded at the screen` : ""}${unserved.length > 0 ? `; ${unserved.length} not compared because ${cause}` : ""}.${caveat}`,
     "The screen rules, the per-metric notes and each exclusion with its reason are in the audit export.",
   ];
 }
@@ -79,7 +99,7 @@ export function valuationReviewBlocks(input: ValuationReviewInputs): ReviewBlock
     const comparisons = peers.comparisons ?? [];
     blocks.push({
       title: "Peer comparison coverage",
-      paragraphs: peerCoverageSummary(peers),
+      paragraphs: peerCoverageSummary(peers, input.symbol),
       items: [],
       ...(comparisons.length === 0 ? {} : {
         table: {

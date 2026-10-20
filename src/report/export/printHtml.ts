@@ -497,7 +497,7 @@ function sectionValuation(
       ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
       : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
   }
-  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage })) {
+  for (const block of valuationReviewBlocks({ ...review, peerCoverage: v.peerCoverage, symbol: report.meta.symbol })) {
     parts.push(`<h3>${esc(block.title)}</h3>`, ...block.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     if (block.table) parts.push(bodyTable(block.table.headers, block.table.rows));

@@ -72,6 +72,27 @@ describe("research reliability report surfaces", () => {
     expect(result.print).not.toContain("<untrusted>");
   });
 
+  // AMZN audit 2026-10-20 finding 7: the body said "1 of 7 candidate issuers
+  // evaluated; eligible: none; 11 excluded at the screen" when a rate limit had
+  // stopped collection: six candidates got no data, and the subject's own
+  // exclusion was counted as a candidate's. The audit read that as a screen too strict.
+  it("does not count candidates the peer provider never served, or the subject, as excluded at the screen", () => {
+    const report = fixture();
+    const limited = "FMP quota/rate limit (HTTP 429): Limit Reach. Live requests paused until 2026-10-20T06:58:38.335Z.";
+    report.valuation.peerCoverage = { methodology: ["Exact normalized industry AND sector."], candidates: 7, evaluated: 1, eligible: [], comparisons: [],
+      exclusions: [
+        ...["SMALLA", "SMALLB", "SMALLC"].map((symbol) => ({ symbol, reason: "size screen: market cap 6.67B is 424× smaller than the subject's 2.83T, outside the 100× comparable-size band (house rule D-65)" })),
+        { symbol: "ADRA", reason: "ordinary active non-ADR equity status not established" },
+        ...["PEERB", "PEERC", "PEERD", "PEERE", "PEERF"].map((symbol) => ({ symbol, reason: "provider unavailable or optional deadline exhausted; candidate not requested" })),
+        { symbol: "DEMO", reason: "Common earnings comparison: common ownership unproven" },
+        { symbol: "PEERA", reason: limited },
+      ] };
+    for (const rendered of Object.values(surfaces(report))) {
+      expect(rendered).toContain("1 of 7 candidate issuers evaluated; eligible: none; 4 excluded at the screen; 6 not compared because the peer data provider hit its rate limit or quota.");
+      expect(rendered).not.toContain("11 excluded");
+    }
+  });
+
   it("keeps legacy reports readable without inventing a new review block", () => {
     const report = JSON.parse(readFileSync("fixtures/report/DEMO-sample.json", "utf8")) as Report;
     for (const rendered of Object.values(surfaces(report))) {
