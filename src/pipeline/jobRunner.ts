@@ -72,6 +72,7 @@ import {
   annotateSharedModelFamily,
   attributeJudgeProtocolDisclosures,
   buildExecutionMetadataEntry,
+  failedPassNote,
   sharedModelFamilyOf,
   type ProviderExecution,
 } from "@/report/execution";
@@ -4600,7 +4601,7 @@ function readSuccessfulExecutions(jobId: string, requestedModel: string, include
       usage: { input_tokens: artifact.telemetry.inputTokens, output_tokens: artifact.telemetry.outputTokens },
     });
     if (artifact.envelope.outcome === "failure") {
-      execution.note = `${execution.note ? `${execution.note} ` : ""}${step}: no usable analysis was completed; the execution and usage above describe the failed attempt.`;
+      execution.note = `${execution.note ? `${execution.note} ` : ""}${failedPassNote(step)}`;
     }
     return execution;
     });

@@ -801,6 +801,45 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
       { kind: "sumAny", tags: tagsFor("intangibleAssetsParts"), unit: "money" },
     ],
   },
+  /**
+   * The filed total, else the non-current pieces present (absent ones are
+   * named, not zero). A filed other-investments line already holds the
+   * non-marketable and equity-method stakes, so those two are summed only
+   * when it is absent: Alphabet tags both beside its "Non-marketable
+   * securities" line.
+   */
+  longTermInvestments: {
+    kind: "chain",
+    unit: "money",
+    steps: [
+      lineItemChain("longTermInvestments", "money"),
+      {
+        kind: "sumAnyOf",
+        unit: "money",
+        parts: [
+          { label: "non-current debt securities", spec: lineItemChain("noncurrentDebtSecurities", "money") },
+          {
+            label: "other long-term investments",
+            spec: {
+              kind: "chain",
+              unit: "money",
+              steps: [
+                lineItemChain("otherLongTermInvestments", "money"),
+                {
+                  kind: "sumAnyOf",
+                  unit: "money",
+                  parts: [
+                    { label: "non-marketable equity securities", spec: lineItemChain("nonMarketableEquitySecurities", "money") },
+                    { label: "equity-method investments", spec: lineItemChain("equityMethodInvestments", "money") },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  },
   totalAssets: lineItemChain("totalAssets", "money"),
   /**
    * D-13 order: the filed total (`DebtCurrent`) first; then the sum of the

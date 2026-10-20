@@ -2386,3 +2386,68 @@ describe("buildStatementsFromCompanyFacts — one filing lineage per derived qua
     ).toBe(true);
   });
 });
+
+describe("buildStatementsFromCompanyFacts — non-current investments (AMZN audit 2026-10-20)", () => {
+  const K = { form: "10-Q", fp: "Q2", fy: 2026, filed: "2026-07-31" } as const;
+  const instant = (val: number): Pt[] => [{ end: "2026-06-30", val, ...K }];
+  const quarter = (val: number): Pt[] => [{ start: "2026-04-01", end: "2026-06-30", val, ...K }];
+  const B = 1e9;
+
+  function holder(extra: Record<string, Pt[]>): CompanyFacts {
+    return facts({
+      Revenues: quarter(180 * B),
+      NetIncomeLoss: quarter(60 * B),
+      Assets: instant(900 * B),
+      CashAndCashEquivalentsAtCarryingValue: instant(70 * B),
+      ...extra,
+    });
+  }
+  const quarterRow = (f: CompanyFacts) => {
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "AMZN" });
+    return { row: built.balanceQuarterly.rows.find((r) => r.date === "2026-06-30")!, notes: built.balanceQuarterly.notes };
+  };
+
+  it("sums the non-current stakes an issuer files in other assets (Amazon's 10-Q for 2026-06-30)", () => {
+    // us-gaap facts from AMZN's 10-Q (0001018724-26-000026). Before this the
+    // EDGAR balance path had no longTermInvestments chain at all, so $122.7B of
+    // private and equity-method stakes were worth zero in the bridge and sat
+    // inside the operating capital the sales-to-capital ratio divides by.
+    const { row, notes } = quarterRow(holder({
+      MarketableSecuritiesCurrent: instant(44.77 * B),
+      EquitySecuritiesWithoutReadilyDeterminableFairValueAmount: instant(122.3 * B),
+      EquityMethodInvestments: instant(0.4 * B),
+      AvailableForSaleSecuritiesDebtSecurities: instant(97.9 * B),
+    }));
+    expect(row.longTermInvestments).toBeCloseTo(122.7 * B, -3);
+    expect(row.shortTermInvestments).toBeCloseTo(44.77 * B, -3);
+    // The undivided available-for-sale total is not split into a current and
+    // a non-current part, so it is named and left out rather than guessed.
+    expect(notes.some((n) => /^longTermInvestments 2026-06-30:/.test(n) && /non-current debt securities/.test(n))).toBe(true);
+  });
+
+  it("takes the filed long-term investments total alone when the issuer tags one", () => {
+    const { row } = quarterRow(holder({
+      LongTermInvestments: instant(36.35 * B),
+      EquitySecuritiesWithoutReadilyDeterminableFairValueAmount: instant(12.4 * B),
+      EquityMethodInvestments: instant(12 * B),
+    }));
+    expect(row.longTermInvestments).toBeCloseTo(36.35 * B, -3);
+  });
+
+  it("does not add the stakes inside a filed other-investments line to that line again", () => {
+    // Alphabet's "Non-marketable securities" (OtherLongTermInvestments) holds
+    // its measurement-alternative equity and its equity-method investments.
+    const { row } = quarterRow(holder({
+      OtherLongTermInvestments: instant(131.46 * B),
+      EquitySecuritiesWithoutReadilyDeterminableFairValueAmount: instant(124.26 * B),
+      EquityMethodInvestments: instant(2.3 * B),
+      MarketableSecuritiesNoncurrent: instant(5 * B),
+    }));
+    expect(row.longTermInvestments).toBeCloseTo(136.46 * B, -3);
+  });
+
+  it("leaves long-term investments null when no non-current investment is tagged", () => {
+    const { row } = quarterRow(holder({ MarketableSecuritiesCurrent: instant(44.77 * B) }));
+    expect(row.longTermInvestments).toBeNull();
+  });
+});

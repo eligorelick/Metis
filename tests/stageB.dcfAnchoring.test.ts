@@ -157,3 +157,122 @@ describe("terminal tax rate (D-58)", () => {
     expect(buildDcfAssumptions(nvda({ incomeHistory: taxed })).assumptions!.taxRatePath.value[9]).toBeCloseTo(26, 9);
   });
 });
+
+/**
+ * AMZN audit 2026-10-20, finding 2: consensus was missing because FMP's rate
+ * limit refused it, yet the record the report cited said only "no usable
+ * analyst revenue estimates", at info severity. The record now names the cause
+ * and marks the valuation degraded.
+ */
+describe("analyst estimates refused by a rate limit", () => {
+  const refusal = "FMP quota/rate limit (HTTP 429): Limit Reach. Live requests paused until 2026-10-20T06:58:38.292Z. still refused after waiting 60 s (bound 90 s).";
+
+  it("names the rate limit in the analyst-growth record and raises it to a warning", () => {
+    const { gaps, notes } = buildDcfAssumptions(nvda({ analystEstimatesRefusal: refusal }));
+    const entry = gaps.find((g) => g.field === "valuation.dcf.analystGrowth");
+    expect(entry?.severity).toBe("warn");
+    expect(entry?.reason).toMatch(/rate limit \(HTTP 429\)/);
+    expect(entry?.reason).toMatch(/valuation is degraded/);
+    expect(notes.some((n) => /degraded/.test(n) && /HTTP 429/.test(n))).toBe(true);
+  });
+
+  it("keeps the informational record when estimates are simply uncovered", () => {
+    const entry = buildDcfAssumptions(nvda()).gaps.find((g) => g.field === "valuation.dcf.analystGrowth");
+    expect(entry?.severity).toBe("info");
+    expect(entry?.reason).not.toMatch(/rate limit/);
+  });
+});
+
+/**
+ * AMZN audit 2026-10-20, finding 3: year one carried the guided quarter at its
+ * SEQUENTIAL pace — Q3 2026 guidance $199.5B over Q2's $200.6B, annualized,
+ * −2.2% a year — though Amazon guided +9% to +12% over Q3 2025. Q3 is below Q2
+ * every year (the season), so the sequential pace understated the outlook.
+ * Year one now carries at the guided year-over-year pace. Inputs from Amazon's
+ * 10-Q/10-K quarters and its 2026-07-30 release ($B).
+ */
+describe("guided quarter carried at its year-over-year pace", () => {
+  const amzn = (quarterRevenue: DcfAssumptionInputs["quarterRevenue"]) => nvda({
+    incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: 775.7 * B, operatingIncome: 0.11 * 775.7 * B, incomeBeforeTax: 90 * B, incomeTaxExpense: 15 * B },
+    balance: { date: "2026-06-30", basis: "quarter", totalDebt: 60 * B, totalStockholdersEquity: 380 * B, cashAndShortTermInvestments: 90 * B },
+    marketCap: 2.4e12,
+    quarterRevenue,
+    guidance: { revenue: 199.5 * B, revenueLow: 197 * B, revenueHigh: 202 * B, periodEnd: "2026-09-30", asOf: "2026-07-30", source: "8-K EX-99.1" },
+  });
+  const latest = { date: "2026-06-30", revenue: 200.6 * B };
+  const yearAgo = { date: "2025-06-30", revenue: 167.7 * B };
+  const yearOne = (inputs: DcfAssumptionInputs) => 775.7 * B * (1 + buildDcfAssumptions(inputs).assumptions!.growthPath.value[0] / 100);
+
+  it("carries guidance × 4 at the guided quarter's growth over the same quarter a year earlier", () => {
+    const inputs = amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-09-30", revenue: 180.2 * B } });
+    const anchor = buildDcfAssumptions(inputs).assumptions!.revenueAnchor!;
+    expect(anchor.source).toBe("guidance");
+    // 199.5 / 180.2 − 1 = 10.71%; 798B × 1.1071^0.375 = 829.0B. Before: the
+    // sequential −2.18% gave 798B × 0.9782^0.375 = 791.4B.
+    expect(anchor.evidence!.guidedYoyPct).toBeCloseTo(10.71, 2);
+    expect(anchor.evidence!.guidedPacePct).toBeCloseTo(-2.18, 2);
+    expect(yearOne(inputs)).toBeCloseTo(829.04 * B, -9);
+    expect(anchor.basis).toMatch(/guided year-over-year pace 10\.71%/);
+  });
+
+  it("falls back to the sequential pace without a year-ago quarter in the same currency and calendar", () => {
+    expect(yearOne(amzn({ latest, yearAgo }))).toBeCloseTo(791.4 * B, -9);
+    // A row 457 days before the guided quarter is not its year-ago quarter.
+    expect(yearOne(amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-06-30", revenue: 167.7 * B } }))).toBeCloseTo(791.4 * B, -9);
+  });
+});
+
+// AMZN audit 2026-10-20 (finding 4): a declining margin faded down to its
+// history while an improving one was held flat at today's level for ten
+// years. The improving fade is bounded by the efficiency the issuer has
+// already shown (today's gross margin less its leanest operating-expense
+// ratio) and by half its dated trend carried over the fade years.
+describe("improving margins fade up toward a bounded target", () => {
+  /** Margin 5→9% over FY2021-25 (slope +1pp/yr); FY2023 ran the leanest opex ratio, 43 − 7 = 36%. */
+  const improving = ([
+    ["2021-12-31", 100, 45, 5], ["2022-12-31", 110, 46, 6], ["2023-12-31", 120, 43, 7],
+    ["2024-12-31", 130, 48, 8], ["2025-12-31", 140, 49, 9],
+  ] as const).map(([date, revenue, grossPct, marginPct]) => ({
+    date, revenue: revenue * B, grossProfit: (grossPct / 100) * revenue * B, operatingIncome: (marginPct / 100) * revenue * B,
+    incomeBeforeTax: (marginPct / 100) * revenue * B, incomeTaxExpense: (marginPct / 500) * revenue * B,
+  }));
+  const ttmRevenue = 150 * B;
+  const inputs = (over: Partial<DcfAssumptionInputs> = {}): DcfAssumptionInputs => nvda({
+    incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: ttmRevenue, grossProfit: 0.5 * ttmRevenue, operatingIncome: 0.11 * ttmRevenue, incomeBeforeTax: 0.11 * ttmRevenue, incomeTaxExpense: 0.022 * ttmRevenue },
+    incomeHistory: improving,
+    quarterRevenue: { latest: { date: "2026-06-30", revenue: 38 * B }, yearAgo: { date: "2025-06-30", revenue: 35 * B } },
+    ...over,
+  });
+
+  it("fades to the lower of the demonstrated-efficiency ceiling and half the trend, never below today", () => {
+    const a = buildDcfAssumptions(inputs()).assumptions!;
+    // Ceiling: gross 50% (TTM) − leanest opex 36% (FY2023) = 14%; half the
+    // 1pp/yr trend over five years is 11 + 2.5 = 13.5%, which binds.
+    expect(a.ebitMarginPath.value[0]).toBeCloseTo(11, 6);
+    expect(a.ebitMarginPath.value[4]).toBeCloseTo(13.5, 2);
+    expect(a.ebitMarginPath.value[9]).toBeCloseTo(13.5, 2);
+    expect(a.ebitMarginPath.basis).toMatch(/fade current 11% .* -> 13\.5% by year 5 under improving/);
+    expect(a.ebitMarginPath.basis).toMatch(/half the dated trend/);
+    expect(a.improvingMarginFade).toEqual({ currentPct: 11, targetPct: expect.closeTo(13.5, 2) });
+  });
+
+  it("stops at the gross-margin-less-leanest-opex ceiling when the trend would carry past it", () => {
+    // TTM gross margin 48%: ceiling 48 − 36 (FY2023) = 12%, below the 13.5% trend bound.
+    const a = buildDcfAssumptions(inputs({
+      incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: ttmRevenue, grossProfit: 0.48 * ttmRevenue, operatingIncome: 0.11 * ttmRevenue, incomeBeforeTax: 0.11 * ttmRevenue, incomeTaxExpense: 0.022 * ttmRevenue },
+    })).assumptions!;
+    expect(a.scenarioMarginCeiling!.pct).toBeCloseTo(12, 6);
+    expect(a.ebitMarginPath.value[4]).toBeCloseTo(12, 6);
+    expect(a.ebitMarginPath.basis).toMatch(/gross margin less the leanest operating-expense ratio/);
+  });
+
+  it("holds the margin flat when no gross margin is filed to bound the target", () => {
+    const noGross = improving.map((row) => ({ ...row, grossProfit: null }));
+    const a = buildDcfAssumptions(inputs({
+      incomeHistory: noGross,
+      incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: ttmRevenue, operatingIncome: 0.11 * ttmRevenue, incomeBeforeTax: 0.11 * ttmRevenue, incomeTaxExpense: 0.022 * ttmRevenue },
+    })).assumptions!;
+    expect(a.ebitMarginPath.value.every((m) => Math.abs(m - 11) < 1e-9)).toBe(true);
+    expect(a.improvingMarginFade).toBeUndefined();
+  });
+});

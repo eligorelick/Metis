@@ -3342,19 +3342,26 @@ export function applyMultiples(
   const rows =
     mr === null
       ? []
-      : mr.multiples.map((stat) => ({
-          name: stat.key === "priceToFcf" && stat.ownershipScope ? "P/FCF (before SBC; cash attribution unresolved)" : MULTIPLE_LABELS[stat.key],
-          current: stat.current,
-          ...(typeof stat.basis === "string" && stat.basis.trim() ? { basis: stat.basis } : {}),
-          peerMedian: stat.peers?.median ?? null,
-          peerCount: stat.peers?.count ?? null,
-          own5yPercentile: stat.ownHistory?.percentileRank ?? null,
-          // N is sample size, separate from the normalized percentile scale.
-          ownHistoryObservations: stat.ownHistory?.observations ?? null,
-          ...(stat.ownHistory?.observationDetails ? { ownHistoryDetails: stat.ownHistory.observationDetails } : {}),
-          ...(typeof stat.ownHistory?.basis === "string" ? { ownHistoryBasis: stat.ownHistory.basis } : {}),
-          sectorAppropriate: mr.sectorAppropriate.includes(stat.key),
-        }));
+      : mr.multiples.map((stat) => {
+          // A multiple on gain-inflated earnings is not ranked (AMZN audit
+          // 2026-10-20), so the table shows no rank beside its caveat
+          // (Codex review of PR #41).
+          const history = stat.gainInflatedEarnings ? null : stat.ownHistory;
+          return {
+            name: stat.key === "priceToFcf" && stat.ownershipScope ? "P/FCF (before SBC; cash attribution unresolved)" : MULTIPLE_LABELS[stat.key],
+            current: stat.current,
+            ...(typeof stat.basis === "string" && stat.basis.trim() ? { basis: stat.basis } : {}),
+            peerMedian: stat.peers?.median ?? null,
+            peerCount: stat.peers?.count ?? null,
+            own5yPercentile: history?.percentileRank ?? null,
+            // N is sample size, separate from the normalized percentile scale.
+            ownHistoryObservations: history?.observations ?? null,
+            ...(history?.observationDetails ? { ownHistoryDetails: history.observationDetails } : {}),
+            ...(typeof history?.basis === "string" ? { ownHistoryBasis: history.basis } : {}),
+            ...(stat.gainInflatedEarnings ? { ownHistoryBasis: `not ranked: ${stat.gainInflatedEarnings.basis}`, earningsCaveat: stat.gainInflatedEarnings.basis } : {}),
+            sectorAppropriate: mr.sectorAppropriate.includes(stat.key),
+          };
+        });
   const { peerCoverage: _modelCoverage, multiplesBasis: _modelMultiplesBasis, marketValueScope: _modelMarketValueScope, ...rest } = valuation;
   void _modelCoverage;
   void _modelMultiplesBasis;

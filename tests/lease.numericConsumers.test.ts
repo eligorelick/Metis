@@ -174,3 +174,18 @@ describe("lease scope is an admission rule for numeric consumers", () => {
     expect(result.gaps.find(gap => gap.field === "valuation.dcf.salesToCapital")?.reason).toMatch(/lease.*unverified|unverified.*lease/i);
   });
 });
+
+// AMZN audit 2026-10-20 (finding 5): a P/E on earnings that non-operating
+// gains inflated is flagged, so the grade does not rank it and the report
+// caveats it.
+describe("P/E on gain-inflated earnings", () => {
+  const run = (incomeBeforeTax: number) => multiplesFramework("general", { quote: { price: 100, marketCap: 8000e6, currency: "USD" }, reportedCurrency: "USD",
+    incomeTtm: { date: "2027-06-30", revenue: 400e6, operatingIncome: 80e6, incomeBeforeTax, depreciationAndAmortization: 8e6, netIncome: 40e6, epsDiluted: 1 }, cashFlowTtm: null,
+    balance: null, quarterlyFundamentals: [] });
+  it("flags the P/E when non-operating income exceeds 25% of pre-tax income", () => {
+    const flagged = run(150e6).multiples.find((m) => m.key === "peTtm");
+    expect(flagged?.gainInflatedEarnings?.nonOperatingSharePct).toBeCloseTo(46.67, 2);
+    expect(flagged?.gainInflatedEarnings?.basis).toMatch(/non-operating income .* 46\.67% of pre-tax income/);
+    expect(run(100e6).multiples.find((m) => m.key === "peTtm")?.gainInflatedEarnings).toBeUndefined();
+  });
+});

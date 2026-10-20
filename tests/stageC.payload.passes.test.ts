@@ -599,6 +599,11 @@ describe("payload determinism + provenance", () => {
     // when an applicable aspect has no data. Restore only that text.
     expect(precedingFinance.scores.aspects.technicals.notApplicableReason).toBe("applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored");
     precedingFinance.scores.aspects.technicals.notApplicableReason = "no applicable signals available for this route — aspect not scored";
+    // AMZN audit 2026-10-20 (D-98): the assumptions record the marginal rate
+    // the bridge taxes non-operating investments at. This fixture holds none,
+    // so no bridge line or value moves; remove only that leaf.
+    expect(precedingFinance.valuation.assumptions.investmentTax.ratePct).toBe(21);
+    delete precedingFinance.valuation.assumptions.investmentTax;
     expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
@@ -906,7 +911,9 @@ describe("payload determinism + provenance", () => {
       // D-96 changes the versioned header and its hash only for this control.
       // D-97: only the versioned header and its hash change here; prompt bytes,
       // registries and every numeric pin stay exact.
-      fingerprint: "1.38.0:bfee2895",
+      // D-98: the versioned header moves with the payload version; the finance
+      // hash change for the investment-tax leaf is pinned and explained below.
+      fingerprint: "1.39.0:05faa11a",
       promptBytes: 139_657,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
@@ -934,7 +941,10 @@ describe("payload determinism + provenance", () => {
       // EPS interest run-rate and the scenario construction text — see above.
       // Audit 2026-10-19 FCX-14: only the technicals aspect's no-data note
       // changes (restored above); prompt bytes and registries are unchanged.
-      financeHash: "b5e8d179",
+      // AMZN audit 2026-10-20 (D-98): only the new assumptions.investmentTax
+      // leaf (removed above for the preceding pin) moves financeHash; this
+      // fixture has no investments, so no bridge value, byte or record moves.
+      financeHash: "2b159805",
     });
   });
 
@@ -1058,7 +1068,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.38.0");
+    expect(first.payloadVersion).toBe("1.39.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2553,7 +2563,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.33.0");
+    expect(report.meta.specVersion).toBe("1.34.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

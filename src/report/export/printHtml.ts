@@ -127,6 +127,7 @@ import {
   seeAlsoText,
   sourceLabel,
   splitCommonLines,
+  evidenceScopeSummary,
   trustHeadline,
   trustRows,
   usageSummary,
@@ -139,6 +140,12 @@ import {
   reportSection,
   type ReportSectionKey,
 } from "@/report/sectionManifest";
+
+/** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
+function evidenceRow(report: Report): string[][] {
+  const scope = evidenceScopeSummary(report);
+  return scope === null ? [] : [["Evidence", scope]];
+}
 
 /* ======================================================================== *
  * Escaping + deterministic formatting
@@ -298,7 +305,8 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Model", runSummary(report)],
       ["Usage", usageSummary(report)],
       ["Data completeness", dataStateText(completeness)],
-      ["Verification", trustHeadline(m.provenanceCoverage) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+      ...evidenceRow(report),
+      ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
       ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
     ].map((r) => r.map((c) => esc(String(c)))),
   );
@@ -674,13 +682,14 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
     ...(m.judgeProtocol !== undefined ? [["Judgement protocol", m.judgeProtocol.note]] : []),
     ...(m.verifyModel !== undefined ? [["Verify model", m.verifyModel]] : []),
     ["Usage", usageSummary(report)],
+    ...evidenceRow(report),
     ["Spec version", m.specVersion],
     ["Pipeline version", m.pipelineVersion],
     ...(m.runSnapshot ? [["Frozen input snapshot", `${m.runSnapshot.hash} (${m.runSnapshot.formatVersion}; ${m.runSnapshot.capturedAt})`]] : []),
   ];
   const run = `<h3>Run details</h3>${table(["Item", "Detail"], runRows.map((row) => row.map(esc)))}`;
   const dataOnly = a.missingData.some((gap) => gap.field === "analysis.llm");
-  const trust = trustRows(a.provenanceCoverage ?? m.provenanceCoverage);
+  const trust = trustRows(a.provenanceCoverage ?? m.provenanceCoverage, a.verificationLog);
   const checks = a.consistencyChecks;
   const checkLine = checks
     ? (() => {

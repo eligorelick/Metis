@@ -92,6 +92,12 @@ export const MARGIN_WARN_BAND_PP: readonly [number, number] = [0, 35];
 export const MARGIN_FADE_YEARS = 5;
 /** Dated margin slope needed to classify a clear improving/declining regime. */
 export const MARGIN_TREND_THRESHOLD_PP_PER_YEAR = 0.5;
+/**
+ * AMZN audit 2026-10-20: the share of an improving regime's dated slope the
+ * fade carries over the fade years. Half the trend, and never past the
+ * scenario margin ceiling (docs/METHODOLOGY.md "Fade and horizon").
+ */
+export const IMPROVING_MARGIN_TREND_SHARE = 0.5;
 /** Terminal-growth axis of the sensitivity grid (pp around the base terminal growth). */
 export const SENSITIVITY_STEPS_PP: readonly number[] = [-1, -0.5, 0, 0.5, 1];
 /**
@@ -591,6 +597,12 @@ export interface DcfAssumptionInputs {
   fcfSbc?: DcfSbcTreatment | null;
   /** Forward annual analyst estimates (FMP names); null/empty when uncovered. */
   analystEstimates: AnalystEstimateRow[] | null;
+  /**
+   * The provider's rate-limit refusal when that, not coverage, is why
+   * `analystEstimates` is null (AMZN audit 2026-10-20, finding 2). It makes the
+   * analyst-growth record name the cause and mark the valuation degraded.
+   */
+  analystEstimatesRefusal?: string | null;
   waccPct: number;
   riskFreePct: number;
   /**
@@ -604,6 +616,11 @@ export interface DcfAssumptionInputs {
   quoteCurrency?: string | null;
   /** Base income statement: four-quarter TTM, or an explicitly labeled annual fallback. */
   incomeTtm: DcfIncomeRow | null;
+  /**
+   * Audit item 15 (FCX-9): tagged one-off items inside the base period's
+   * operating income, removed from the margin seed in both directions.
+   */
+  unusualOperatingItems?: import("./unusualItems").UnusualOperatingItems | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
@@ -640,6 +657,8 @@ export interface DcfAssumptionInputs {
 export interface DcfQuarterRevenue {
   latest: { date: string; revenue: number | null };
   yearAgo: { date: string; revenue: number | null } | null;
+  /** The same fiscal quarter a year before the guided quarter, model currency (AMZN audit 2026-10-20). */
+  guidedYearAgo?: { date: string; revenue: number | null } | null;
 }
 
 /** D-58: management's outlook for the next fiscal quarter (an 8-K earnings release). */
@@ -712,6 +731,8 @@ export interface RevenueAnchor {
     guidedRunRate: number | null;
     /** Guided quarter over the latest reported quarter, annualized, percent. */
     guidedPacePct: number | null;
+    /** Guided quarter over the same quarter a year earlier, percent; absent before the AMZN audit 2026-10-20. */
+    guidedYoyPct?: number | null;
     /** Calendarized consensus for the year-one and year-two windows. */
     consensusYearOne: number | null;
     consensusYearTwo: number | null;
@@ -928,6 +949,11 @@ export interface DcfAssumptions {
    */
   scenarioMarginCeiling?: ScenarioMarginCeiling | null;
   /**
+   * AMZN audit 2026-10-20: present only when an improving regime faded the
+   * margin up, so runStageB can show the value with the margin held flat.
+   */
+  improvingMarginFade?: { currentPct: number; targetPct: number };
+  /**
    * D-65: the date the value is stated at. The explicit years are windows
    * from the statement date, so their flows are discounted from it; every
    * discount exponent then moves back by `elapsedYears`, which rolls the whole
@@ -941,6 +967,14 @@ export interface DcfAssumptions {
    * an asset left out of operating capital is never left out of value too.
    */
   nonOperatingInvestments?: { value: number; balanceDate: string };
+  /**
+   * AMZN audit 2026-10-20: the rate at which the bridge taxes the non-operating
+   * investments it adds — the marginal-rate floor the terminal tax converges
+   * to (D-58) — applied to their whole carrying value, as if their tax basis
+   * were zero. Selling a stake is how its value reaches shareholders, and the
+   * gain is taxed; the filed carrying value is before that tax.
+   */
+  investmentTax?: { ratePct: number; basis: string };
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
 }
@@ -1111,16 +1145,20 @@ function nextQuarterGuidance(guidance: DcfGuidance | null | undefined, ttmEnd: s
  *     D-58 grew consensus year-two growth from a guidance year one, which put
  *     both years ~15% below the consensus levels without saying so.
  *  2. Next-quarter guidance × 4, carried to the year-one midpoint at the
- *     GUIDED sequential pace (guided quarter over the latest reported quarter,
- *     annualized) — D-58 carried it at the clamped near-term rate, which is a
- *     statement about history, not about the guided trajectory. Year two then
+ *     GUIDED year-over-year pace (guided quarter over the same quarter a year
+ *     earlier), else the guided sequential pace (guided quarter over the latest
+ *     reported quarter, annualized) — D-58 carried it at the clamped near-term
+ *     rate, which is a statement about history, not about the guided
+ *     trajectory. The sequential pace carries the season (AMZN audit
+ *     2026-10-20: Q3 below Q2 read as −2.2% a year against a guided +9% to
+ *     +12%), so it serves only without the year-ago quarter. Year two then
  *     takes consensus growth when covered, with the gap to the consensus
  *     level stated.
  *  3. The run-rate (or the TTM) carried at the near-term growth rate.
  * The house clamp bounds the result relative to the run-rate as a
  * broken-input guard. Its range is [−10%, +25%] widened to the evidenced pace
- * (the guided sequential pace and the latest quarter's year-over-year
- * growth), so it cannot overrule the issuer's own reported trajectory.
+ * (the guided pace used and the latest quarter's year-over-year growth), so
+ * it cannot overrule the issuer's own reported trajectory.
  */
 function buildRevenueAnchor(args: {
   inputs: DcfAssumptionInputs;
@@ -1183,12 +1221,20 @@ function buildRevenueAnchor(args: {
   // D-60: the guided sequential pace, annualized.
   const latestQuarter = inputs.quarterRevenue?.latest.date === ttmEnd ? posOrNull(inputs.quarterRevenue?.latest.revenue) : null;
   const guidedPacePct = guide !== null && latestQuarter !== null ? (Math.pow(guide.revenue / latestQuarter, 4) - 1) * 100 : null;
+  // AMZN audit 2026-10-20: the guided quarter over the same quarter a year earlier.
+  const yearAgoRow = inputs.quarterRevenue?.guidedYearAgo ?? null;
+  const yearAgoRevenue = posOrNull(yearAgoRow?.revenue);
+  const yearAgoDays = guide === null || yearAgoRow === null ? null : daysBetween(yearAgoRow.date, guide.periodEnd);
+  const guidedYearAgo = guide !== null && yearAgoRow !== null && yearAgoRevenue !== null && yearAgoDays !== null &&
+    yearAgoDays >= YEAR_AGO_QUARTER_DAYS[0] && yearAgoDays <= YEAR_AGO_QUARTER_DAYS[1] ? { date: yearAgoRow.date, revenue: yearAgoRevenue } : null;
+  const guidedYoyPct = guide !== null && guidedYearAgo !== null ? (guide.revenue / guidedYearAgo.revenue - 1) * 100 : null;
+  const guidedRatePct = guidedYoyPct ?? guidedPacePct;
   const guidedRunRate = guide === null ? null : 4 * guide.revenue;
   const guidedFloor = guide === null ? null : 4 * (posOrNull(guide.revenueLow) ?? guide.revenue);
   const consensusConsistent = ntm1 !== null && (guidedFloor === null || ntm1 >= guidedFloor);
 
   // Broken-input guard, widened to the evidenced pace.
-  const pace = [guidedPacePct, runRate?.yoyPct ?? null].filter((v): v is number => isNum(v));
+  const pace = [guidedRatePct, runRate?.yoyPct ?? null].filter((v): v is number => isNum(v));
   const lo = Math.min(NEAR_TERM_GROWTH_CLAMP_PP[0], ...pace);
   const hi = Math.max(NEAR_TERM_GROWTH_CLAMP_PP[1], ...pace);
   const rangeText = lo === NEAR_TERM_GROWTH_CLAMP_PP[0] && hi === NEAR_TERM_GROWTH_CLAMP_PP[1]
@@ -1208,11 +1254,14 @@ function buildRevenueAnchor(args: {
       (guide === null ? "" : `, at or above the guided run-rate (${guidanceText}${guidedFloor !== guidedRunRate ? `; low end × 4 = ${fmtMoney(guidedFloor as number)}` : ""}), so consistent with the outlook`);
   } else if (guide !== null) {
     source = "guidance";
-    const rate = guidedPacePct ?? gMid;
-    nearTermRateUsed = guidedPacePct === null;
+    const rate = guidedRatePct ?? gMid;
+    nearTermRateUsed = guidedRatePct === null;
     raw = carry(4 * guide.revenue, GUIDED_QUARTER_TO_YEAR_ONE_YEARS, rate);
     rawText = `model extrapolation of quarterly guidance: ${guidanceText}, carried 4.5 months to the year-one midpoint at ` +
-      (guidedPacePct === null
+      (guidedYoyPct !== null && guidedYearAgo !== null
+        ? `the guided year-over-year pace ${fmtNum(guidedYoyPct)}% (guided quarter over the quarter ending ${guidedYearAgo.date}, ${fmtMoney(guidedYearAgo.revenue)}; ` +
+          `the sequential pace${guidedPacePct === null ? "" : ` ${fmtNum(guidedPacePct)}%/yr`} is not used because it carries the season)`
+        : guidedPacePct === null
         ? `the near-term growth rate ${fmtNum(gMid)}% (no latest reported quarter to measure the guided pace against)`
         : `the guided sequential pace ${fmtNum(guidedPacePct)}%/yr (guided quarter over the quarter ending ${ttmEnd}, ${fmtMoney(latestQuarter as number)}, annualized)`) +
       (ntm1 === null
@@ -1331,7 +1380,7 @@ function buildRevenueAnchor(args: {
     consensusYears,
     consensusPath: path.map((row) => ({ year: row.year, label: row.label, startDate: row.startDate, endDate: row.endDate,
       consensus: row.consensus, anchored: row.anchored, status: row.status, fiscalYears: row.fiscalYears })),
-    evidence: { guidedRunRate, guidedPacePct, consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
+    evidence: { guidedRunRate, guidedPacePct, ...(guidedYoyPct === null ? {} : { guidedYoyPct }), consensusYearOne: ntm1, consensusYearTwo: ntm2, nearTermRateUsed,
       guidedQuarter: statedGuide === null ? null : { periodEnd: statedGuide.periodEnd, revenueLow: posOrNull(statedGuide.revenueLow) ?? statedGuide.revenue, revenueMid: statedGuide.revenue,
         grossMarginLowPct: isNum(statedGuide.grossMarginLowPct) ? statedGuide.grossMarginLowPct : null, source: statedGuide.source, asOf: statedGuide.asOf } },
   };
@@ -1543,9 +1592,18 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     );
   }
   if (analyst.value === null) {
-    gaps.push(
-      gapEntry("valuation.dcf.analystGrowth", "no usable analyst revenue estimates — the analyst-consensus growth method was excluded from the median", "info"),
-    );
+    const refusal = inputs.analystEstimatesRefusal ?? null;
+    if (refusal !== null) {
+      const degraded =
+        `the valuation is degraded: analyst revenue estimates were refused by the data provider's rate limit (HTTP 429) — ${refusal.replace(/\.$/, "")} — ` +
+        "so the analyst-consensus growth method was excluded from the median and no year is anchored to consensus";
+      notes.push(`Valuation degraded: ${degraded}.`);
+      gaps.push(gapEntry("valuation.dcf.analystGrowth", `no usable analyst revenue estimates because ${degraded}`, "warn"));
+    } else {
+      gaps.push(
+        gapEntry("valuation.dcf.analystGrowth", "no usable analyst revenue estimates — the analyst-consensus growth method was excluded from the median", "info"),
+      );
+    }
   }
 
   const gMidBasis =
@@ -1578,7 +1636,20 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const guide = nextQuarterGuidance(inputs.guidance, ttm?.date ?? null);
 
   // --- EBIT margin path -----------------------------------------------------
-  const ttmMarginRaw = safeDiv(ttm?.operatingIncome ?? null, startRev);
+  // Audit item 15 (FCX-9): a one-off inside operating income (FCX's $699m
+  // insurance gain, an impairment) would set the margin for every year, so
+  // the seed leaves tagged one-offs out, gains and charges alike.
+  const unusual = inputs.unusualOperatingItems ?? null;
+  const baseOperatingIncome = ttm?.operatingIncome ?? null;
+  const normalizeUnusual = unusual !== null && unusual.value !== 0 && isNum(baseOperatingIncome);
+  const ttmMarginRaw = safeDiv(normalizeUnusual ? (baseOperatingIncome as number) - unusual.value : baseOperatingIncome, startRev);
+  if (normalizeUnusual) {
+    notes.push(
+      `EBIT margin seed excludes tagged one-off items of ${fmtNum(unusual.value)} from ${periodBasis} operating income ${fmtNum(baseOperatingIncome as number)}: ${unusual.basis}`,
+    );
+  } else if (unusual !== null && unusual.withheld.length > 0) {
+    notes.push(`EBIT margin seed keeps tagged one-off items the filings don't place inside the ${periodBasis} window: ${unusual.basis}`);
+  }
   const histMarginPoints = inputs.incomeHistory
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -1601,7 +1672,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // D-58: guidance, when it implies an operating margin, sets year one.
   const guidedMargin = guide !== null && isNum(guide.operatingMarginPct) ? guide.operatingMarginPct : null;
   let m0 = guidedMargin ?? (ttmMarginRaw !== null ? ttmMarginRaw * 100 : null);
-  let m0Source = guidedMargin !== null ? `guided (${guide!.source})` : periodBasis;
+  let m0Source = guidedMargin !== null
+    ? `guided (${guide!.source})`
+    : normalizeUnusual ? `${periodBasis}, excluding tagged one-off items` : periodBasis;
   if (m0 === null && median5y !== null) {
     m0 = median5y;
     m0Source = "5y median";
@@ -1656,6 +1729,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   let regime: string | null = null;
   let slopeBasis = "unavailable";
   let targetMargin = m0;
+  let improvingBound: string | null = null;
   if (median5y === null) {
     gaps.push(gapEntry("valuation.dcf.marginTarget", "no annual margin history — margin held flat", "info"));
   } else {
@@ -1666,11 +1740,27 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         : marginSlope < -MARGIN_TREND_THRESHOLD_PP_PER_YEAR
           ? "declining"
           : "stable";
+    // AMZN audit 2026-10-20: a declining margin fades down to its history, so
+    // an improving one fades up rather than being held at today's level for
+    // ten years. The target is bounded twice: half the dated trend carried
+    // over the fade years, and the efficiency the issuer has already shown
+    // (today's gross margin less its leanest operating-expense ratio, the
+    // scenario ceiling). Without a gross margin to bound it, it stays flat.
+    const improvingCeiling = regime === "improving" && marginSlope !== null
+      ? scenarioMarginCeiling(ttm, inputs.incomeHistory)
+      : null;
+    const trendTarget = marginSlope !== null ? m0 + IMPROVING_MARGIN_TREND_SHARE * marginSlope * fadeYears : m0;
+    const improvingTarget = improvingCeiling === null ? m0 : Math.min(trendTarget, improvingCeiling.pct);
     targetMargin = regime === "improving"
-      ? Math.max(m0, median5y)
+      ? Math.max(m0, median5y, improvingTarget)
       : regime === "declining"
         ? Math.min(m0, median5y)
         : median5y;
+    if (regime === "improving" && improvingCeiling !== null && improvingTarget > Math.max(m0, median5y)) {
+      improvingBound = trendTarget <= improvingCeiling.pct
+        ? `half the dated trend over ${fadeYears} years (${fmtNum(m0)}% + ${IMPROVING_MARGIN_TREND_SHARE} × ${fmtNum(marginSlope as number)}pp × ${fadeYears}), below the ${fmtNum(improvingCeiling.pct)}% gross margin less the leanest operating-expense ratio`
+        : `the gross margin less the leanest operating-expense ratio, ${fmtNum(improvingCeiling.pct)}% (${fmtNum(improvingCeiling.grossMarginPct)}% ${improvingCeiling.grossMarginPeriod} less ${fmtNum(improvingCeiling.minOpexRatioPct)}% ${improvingCeiling.minOpexRatioPeriod}), below half the dated trend (${fmtNum(trendTarget)}%)`;
+    }
     slopeBasis = marginSlope === null ? "unavailable" : `${fmtNum(marginSlope)}pp/year`;
     notes.push(
       `EBIT margin regime ${regime}: dated 5y slope ${slopeBasis}; target ${fmtNum(targetMargin)}% versus current ${fmtNum(m0)}% and median ${fmtNum(median5y)}%`,
@@ -1697,7 +1787,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     : `${regime} dated-margin regime (5y median ${fmtNum(median5y as number)}%, slope ${slopeBasis})`;
   const marginBasis = cappedTarget === m0
     ? `held flat at current ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
-    : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}${capText}, flat thereafter`;
+    : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
+      `${improvingBound !== null ? `; the improving target is ${improvingBound}` : ""}${capText}, flat thereafter`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
     notes.push(
       `EBIT margin path leaves [${MARGIN_WARN_BAND_PP[0]}%, ${MARGIN_WARN_BAND_PP[1]}%] — unusual outside software; review (house-rule warning)`,
@@ -1819,7 +1910,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const rawS2c = startRev / (operatingIc ?? ic);
   const s2c = clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
   let s2cBasis = operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value, house rule D-65)`
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
     : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
@@ -1926,6 +2017,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         "The year-one revenue anchor and the near-term growth rows state their own bases.",
     },
     ebitMarginPath: { value: marginPath, basis: marginBasis },
+    ...(improvingBound !== null && cappedTarget > m0 ? { improvingMarginFade: { currentPct: m0, targetPct: cappedTarget } } : {}),
     taxRatePath: { value: taxRatePath, basis: taxBasis },
     salesToCapital: { value: s2c, basis: s2cBasis },
     terminal: {
@@ -1943,6 +2035,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     scenarioMarginCeiling: scenarioCeiling,
     ...(valuationDate ? { valuationDate } : {}),
     ...(operatingIc !== null && lti !== null ? { nonOperatingInvestments: { value: lti, balanceDate: bal.date } } : {}),
+    investmentTax: { ratePct: taxFloor, basis: taxFloorText },
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
   };
@@ -1976,9 +2069,13 @@ export interface DcfRunOptions {
   nonOperatingComponents?: NonOperatingAssetComponent[] | null;
 }
 
-/** D-65: one non-operating asset the equity bridge adds, at its filed carrying or fair value. */
+/**
+ * D-65: one non-operating asset the equity bridge adds, at its filed carrying
+ * or fair value. The "investment-tax" line is negative: the tax a sale of the
+ * others would owe (AMZN audit 2026-10-20).
+ */
 export interface NonOperatingAssetComponent {
-  kind: "marketable-equity-securities" | "long-term-investments";
+  kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax";
   label: string;
   value: number;
   basis: string;
@@ -2764,6 +2861,8 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   basis?: "ttm" | "annual";
   revenue: number | null;
   operatingIncome: number | null;
+  /** AMZN audit 2026-10-20: pre-tax income, to measure how much of it is non-operating. */
+  incomeBeforeTax?: number | null;
   depreciationAndAmortization?: number | null;
   netIncome: number | null;
   epsDiluted: number | null;
@@ -3058,7 +3157,16 @@ export interface MultipleStat {
   historyScope?: string;
   ownHistory: OwnHistoryBand | null;
   peers: PeerStats | null;
+  /**
+   * AMZN audit 2026-10-20: set on the P/E when non-operating income is more
+   * than GAIN_INFLATED_NON_OPERATING_SHARE of pre-tax income. The grade then
+   * ranks the next own-history multiple and the report caveats the P/E.
+   */
+  gainInflatedEarnings?: { nonOperatingSharePct: number; basis: string };
 }
+
+/** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
+export const GAIN_INFLATED_NON_OPERATING_SHARE = 0.25;
 
 export interface MultiplesResult {
   multiples: MultipleStat[];
@@ -3937,6 +4045,23 @@ export function multiplesFramework(
       peers: peerStats(comparison.eligible.map((p) => p.multiples[key]), notes, key),
     };
   });
+  // AMZN audit 2026-10-20: GAAP earnings can be carried by gains below
+  // operating income (Amazon's TTM pre-tax income included about $80B of
+  // investment gains, so its P/E read 21x against roughly 40x on operating
+  // earnings). The P/E is still shown, flagged, and is not ranked.
+  const pretaxTtm = inc?.incomeBeforeTax ?? null;
+  const operatingTtm = inc?.operatingIncome ?? null;
+  if (isNum(pretaxTtm) && pretaxTtm > 0 && isNum(operatingTtm)) {
+    const share = (pretaxTtm - operatingTtm) / pretaxTtm;
+    const pe = multiples.find((m) => m.key === "peTtm");
+    if (pe !== undefined && pe.current !== null && share > GAIN_INFLATED_NON_OPERATING_SHARE) {
+      const basis = `pre-tax income ${fmtNum(pretaxTtm)} (${incomeBasisLabel}) includes non-operating income of ${fmtNum(pretaxTtm - operatingTtm)}, ` +
+        `${fmtNum(share * 100)}% of pre-tax income (above ${GAIN_INFLATED_NON_OPERATING_SHARE * 100}%): the P/E rests on earnings that gains, not operations, carry, ` +
+        "so it is not ranked against its own history";
+      pe.gainInflatedEarnings = { nonOperatingSharePct: share * 100, basis };
+      notes.push(`peTtm: ${basis}.`);
+    }
+  }
   // WS6 (D-19): state N per multiple. The report's multiples table carries the
   // rank but not the window size, so the sentence that makes the number
   // readable - "rank among N quarters", never "percentile" - is published here.
@@ -5273,13 +5398,27 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         components.push({ kind: "long-term-investments", label: "long-term investments (filed carrying value)", value: lti.value,
           basis: inputs.longTermInvestmentsBasis ?? `long-term investments ${fmtMoney(lti.value)} on the ${lti.balanceDate} balance sheet, at carrying value: the amount the sales-to-capital denominator removes as non-operating` });
       }
-      const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       for (const c of components) {
         notes.push(
           `DCF equity bridge adds ${c.label} of ${fmtNum(c.value)}: ${c.basis}. ` +
             "They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied.",
         );
       }
+      // AMZN audit 2026-10-20: a stake reaches shareholders by being sold, and
+      // the gain is taxed. The basis of each holding is not in the statements,
+      // so the whole carrying value is taxed at the marginal rate: an upper
+      // bound on the tax, exact for stakes bought for next to nothing.
+      const investmentTax = assumptions.investmentTax ?? null;
+      const grossInvestments = components.reduce((sum, c) => sum + c.value, 0);
+      if (investmentTax !== null && grossInvestments > 0 && investmentTax.ratePct > 0) {
+        const value = -grossInvestments * investmentTax.ratePct / 100;
+        const label = `estimated tax on non-operating investments (${fmtNum(investmentTax.ratePct)}% marginal rate, zero tax basis assumed)`;
+        const basis = `${fmtNum(investmentTax.ratePct)}% of the ${fmtNum(grossInvestments)} added above; the rate is ${investmentTax.basis}. ` +
+          "The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost";
+        components.push({ kind: "investment-tax", label, value, basis });
+        notes.push(`DCF equity bridge subtracts the ${label} of ${fmtNum(-value)}: ${basis}.`);
+      }
+      const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       const runOpts: DcfRunOptions = {
         waccPct: inputs.waccPct,
         netDebt: netDebtForBridge,
@@ -5289,6 +5428,21 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
+      // AMZN audit 2026-10-20: the improving fade is a judgment, so the reader
+      // sees what it is worth: the value with the margin held at today's level.
+      const fade = assumptions.improvingMarginFade;
+      if (fade !== undefined && dcf.perShare !== null) {
+        const flat = runDcf(
+          { ...assumptions, ebitMarginPath: { ...assumptions.ebitMarginPath, value: assumptions.ebitMarginPath.value.map(() => fade.currentPct) } },
+          runOpts,
+        );
+        if (flat.perShare !== null) {
+          const text = `margin-fade sensitivity: ${fmtNum(dcf.perShare)} a share on the faded path to ${fmtNum(fade.targetPct)}%, ` +
+            `${fmtNum(flat.perShare)} with the margin held flat at ${fmtNum(fade.currentPct)}%`;
+          assumptions.ebitMarginPath.basis = `${assumptions.ebitMarginPath.basis}; ${text}`;
+          notes.push(`DCF ${text}.`);
+        }
+      }
       sensitivity = sensitivityGrid(assumptions, runOpts);
       growthMargin = growthMarginGrid(assumptions, runOpts);
       // D-60: the terminal transition, stated. The explicit years reinvest

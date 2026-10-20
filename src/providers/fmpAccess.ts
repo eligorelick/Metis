@@ -41,6 +41,8 @@ export class FmpQuotaError extends Error {
     readonly observedAt: number,
     readonly expiresAt: number,
     reason: string,
+    /** True when the vendor's Retry-After set the pause; false when it is this client's default guess. */
+    readonly vendorStated = false,
   ) {
     super(`FMP quota/rate limit (HTTP ${status}): ${reason}. Live requests paused until ${new Date(expiresAt).toISOString()}.`);
     this.name = "FmpQuotaError";
@@ -72,7 +74,7 @@ export function fmpQuotaError(status: number, bodyText: string, retryAfter: stri
   const duration = retryAfter !== null && Number(retryAfter) < 0
     ? null : parseRetryAfterMs(retryAfter, QUOTA_COOLDOWN_MS, observedAt);
   const expiresAt = observedAt + Math.max(1_000, duration ?? QUOTA_COOLDOWN_MS);
-  return new FmpQuotaError(status, observedAt, expiresAt, phrase?.replace(/\s+/g, " ") ?? "Too many requests");
+  return new FmpQuotaError(status, observedAt, expiresAt, phrase?.replace(/\s+/g, " ") ?? "Too many requests", duration !== null);
 }
 
 interface Observation {
@@ -105,6 +107,21 @@ export function assertFmpQuotaAvailable(key: string, now: number): void {
     return;
   }
   throw quota;
+}
+
+/** The pause in force for this credential, if any; read-only. */
+export function currentFmpQuota(key: string, now: number): FmpQuotaError | undefined {
+  const quota = quotaCooldowns.get(key);
+  if (quota === undefined || !Number.isFinite(now) || now < quota.observedAt || now >= quota.expiresAt) return undefined;
+  return quota;
+}
+
+/**
+ * Lifts a pause this client guessed (no Retry-After) so one valuation-critical
+ * probe can ask again. A vendor-stated pause, or a newer observation, stays.
+ */
+export function releaseGuessedFmpQuota(key: string, quota: FmpQuotaError): void {
+  if (!quota.vendorStated && quotaCooldowns.get(key) === quota) quotaCooldowns.delete(key);
 }
 
 function rememberQuota(key: string, quota: FmpQuotaError): void {

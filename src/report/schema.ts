@@ -121,7 +121,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // IREN source-scope corrections: disjoint cash investment/FCF, historical share admission, EPS and class-scope refusals. Old stored reports/snapshots retain their original contracts.
 // Company-model eligibility and independent AFFO comparison boundaries.
 // D-97: withheld-debt EV/EBITDA marker and the single-signal evidence floor.
-export const REPORT_SPEC_VERSION = "1.33.0" as const;
+// D-98: P/E earnings caveat, report-level evidence-scope line and contradicted figures in the header count.
+export const REPORT_SPEC_VERSION = "1.34.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1081,6 +1082,8 @@ export const MultipleRowSchema = z
     }).strict()).optional(),
     ownHistoryBasis: z.string().optional(),
     // WS6 (D-19) end ---------------------------------------------------------
+    /** AMZN audit 2026-10-20: why a P/E on gain-inflated earnings is caveated and not ranked; pipeline-owned. */
+    earningsCaveat: z.string().optional(),
     sectorAppropriate: z.boolean(),
   })
   .strict();
@@ -3072,8 +3075,9 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         delete props.ownHistoryDetails;
         delete props.ownHistoryBasis;
         delete props.basis;
+        delete props.earningsCaveat;
         if (Array.isArray(obj.required)) {
-          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis", "basis"].includes(key));
+          obj.required = (obj.required as string[]).filter((key) => !["ownHistoryObservations", "ownHistoryDetails", "ownHistoryBasis", "basis", "earningsCaveat"].includes(key));
         }
       }
     }

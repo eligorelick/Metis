@@ -51,6 +51,7 @@ import {
   scorecardTable,
   seeAlsoText,
   splitCommonLines,
+  evidenceScopeSummary,
   trustHeadline,
   trustRows,
   usageSummary,
@@ -1959,7 +1960,8 @@ export function AppendixSection({
   const rate = appendix.verificationRate;
   const dataOnly = appendix.missingData.some((gap) => gap.field === "analysis.llm");
   const presentation = completeness ?? deriveReportCompletenessPresentation(m.dataCompleteness, appendix.missingData, appendix.sources);
-  const trust = trustRows(appendix.provenanceCoverage ?? m.provenanceCoverage);
+  const trust = trustRows(appendix.provenanceCoverage ?? m.provenanceCoverage, appendix.verificationLog);
+  const evidenceScope = evidenceScopeSummary(report);
   const checks = appendix.consistencyChecks; // WS7 (D-20)
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
   const failed = checks ? checks.direction.failed + checks.period.failed + checks.unit.failed + checks.namedIndividual.failed : 0;
@@ -1998,6 +2000,7 @@ export function AppendixSection({
           {m.judgeProtocol && <li>{m.judgeProtocol.note}</li>}
           {m.verifyModel !== undefined && <li>verify model {m.verifyModel}</li>}
           <li>{usageSummary(report)}</li>
+          {evidenceScope !== null && <li>evidence · {evidenceScope}</li>}
           <li className="mono">spec {m.specVersion} · pipeline {m.pipelineVersion}</li>
           {m.runSnapshot && <li className="mono break-all">frozen input snapshot {m.runSnapshot.hash} · {m.runSnapshot.capturedAt}</li>}
         </ul>
@@ -2075,7 +2078,8 @@ export function ReportMetaStrip({
     report.appendix.missingData,
     report.appendix.sources,
   );
-  const verification = trustHeadline(m.provenanceCoverage);
+  const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
+  const evidenceScope = evidenceScopeSummary(report);
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border border-edge bg-panel px-3 py-2">
       <div className="flex items-baseline gap-3">
@@ -2092,6 +2096,11 @@ export function ReportMetaStrip({
         <span>
           usage <span className="mono text-muted">{usageSummary(report)}</span>
         </span>
+        {evidenceScope !== null && (
+          <span>
+            evidence <span className="text-muted">{evidenceScope}</span>
+          </span>
+        )}
         <span>
           generated{" "}
           <span className="mono text-muted">

@@ -3,8 +3,8 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.33.0 / payload 1.38.0 and Stage B
-STAGE_B_2026_10_ACCOUNTING_EVIDENCE_15 (2026-10-20). Its bounded evidence fixes
+The current source declares report 1.34.0 / payload 1.39.0 and Stage B
+STAGE_B_2026_10_ACCOUNTING_EVIDENCE_16 (2026-10-20). Its bounded evidence fixes
 extend the growth-anchor, scenario-horizon, research-reliability and prior audit
 rules; final independent review and report acceptance remain gates. The historical literature citations remain the project's
 research rationale; a passing test validates implementation behavior, not the
@@ -430,9 +430,13 @@ first available of three sources:
    (`DcfAssumptionInputs.guidance`, from the 8-K earnings release). The guided
    quarter is annualized (× 4) and carried 4.5 months, from the guided
    quarter's midpoint to the year-one window's midpoint, at the **guided
-   sequential pace**: guided quarter over the latest reported quarter,
-   annualized. D-58 carried it at the clamped near-term rate, a statement about
-   history rather than about the guided trajectory. Guidance must end 80–100
+   year-over-year pace**: guided quarter over the same fiscal quarter a year
+   earlier (350–380 days before it, established in the model currency). Without
+   that quarter it carries at the **guided sequential pace**: guided quarter
+   over the latest reported quarter, annualized, which also carries the season
+   (see "AMZN audit fixes (October 20, 2026)"). D-58 carried it at the clamped
+   near-term rate, a statement about history rather than about the guided
+   trajectory. Guidance must end 80–100
    days after the TTM and be published after it. A guided operating margin, if
    present, sets the year-one margin; a guided GAAP tax rate sets the year-one
    tax rate.
@@ -449,8 +453,8 @@ the anchor falls back to the pre-D-58 rule: TTM revenue grown one year at the
 near-term growth rate.
 
 **A broken-input guard bounds year-one revenue relative to the run-rate.** Its
-range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided
-sequential pace and the latest quarter's year-over-year growth. It catches a
+range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided pace
+the anchor uses and the latest quarter's year-over-year growth. It catches a
 mis-scaled estimate without overruling the issuer's own reported trajectory.
 Without a run-rate it is measured against the TTM. When it binds, the anchor
 row prints both values.
@@ -547,10 +551,19 @@ year one kept a +78% consensus year one above 50% growth for four years. The
 half-life is a house convention pending the backtest in RESEARCH §8.2.
 
 **Margin path.** The EBIT margin starts at the current margin: guided, else
-TTM, else the five-year median. It fades to a target over 5 years and is held
-flat thereafter. The target is the five-year median, or the better/worse of
-median and current under a dated improving/declining margin regime (a slope of
-more than ±0.5pp per year).
+TTM, else the five-year median. The TTM (or annual) margin leaves out tagged
+one-off items inside operating income, gains and charges alike (see "AMZN
+audit fixes (October 20, 2026)"). It fades to a target over 5 years and is held
+flat thereafter. The target is the five-year median under a stable regime. Under a
+dated declining regime (a slope below −0.5pp per year) it is the lower of median
+and current. Under a dated improving regime (a slope above +0.5pp per year) it is
+the higher of median and current, raised toward a bounded target: half the
+dated slope carried over the five fade years, but never past the scenario
+margin ceiling (today's gross margin less the leanest operating-expense ratio
+on record). With no gross margin on record the improving target stays at the
+higher of median and current. When the target was raised, the margin basis
+states the value with the margin held flat (see "AMZN audit fixes (October 20,
+2026)").
 
 **Tax path (D-58).** The tax rate fades from the observed effective rate to a
 terminal rate. The terminal rate is the company's own historical median,
@@ -848,7 +861,8 @@ SNOW-2), and the inferred figure counts as parent equity wherever parent equity
 is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
 value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
-investments sales-to-capital removed as non-operating (D-65). Minority interest
+investments sales-to-capital removed as non-operating (D-65) − the estimated tax
+on those investments (see "AMZN audit fixes (October 20, 2026)"). Minority interest
 enters both at its book carrying amount, not a market or earnings-share value.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
@@ -872,10 +886,12 @@ carry the issuer's non-marketable carrying value
 (`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`: cost less
 impairment, adjusted for observable price changes) it is cited beside the line
 (NVDA: $51.16B, of which $47.90B non-marketable equity). No fair-value estimate
-or marketability discount is applied. Equity stakes a filing places inside
-other assets (NVDA's $4.96B long-term portion of locked-up public equity, 10-Q
-Note 5) are tagged only with a dimension the companyfacts omit, so they stay in
-operating capital and outside the bridge.
+or marketability discount is applied, but since the AMZN audit of October 20,
+2026 the bridge subtracts an estimated tax on the investments it adds (below).
+Equity stakes a filing places inside other assets are counted when the filing
+tags them with a non-current investment element (below). Those tagged only with
+a dimension the companyfacts omit (NVDA's $4.96B long-term portion of locked-up
+public equity, 10-Q Note 5) stay in operating capital and outside the bridge.
 
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution; the bridge table also
@@ -1029,6 +1045,14 @@ optional-parameter budget. The score drivers built from the rank are named
 unit `rank`, the valuation aspect note says rank, and the Stage C prompt
 instructs the model in the same terms, so the narrative cannot call it a
 percentile either.
+
+The P/E is not ranked when non-operating income is more than 25% of pre-tax
+income: the earnings then rest on gains, not operations. `peOwnHistoryRank`
+then ranks the next multiple in its list (EV/EBITDA, then Price/FCF), the score
+driver is labelled with the multiple it ranks and says why, and Key data
+caveats the headline P/E. The multiples table shows no own-history rank for
+that P/E, and its history basis says it is not ranked (see "AMZN audit fixes
+(October 20, 2026)").
 
 Fewer than 8 quarters produces no rank at all. Fewer than 20 (a full five
 years) flags the window as low-sample, because at those sizes the 5th and 95th
@@ -2237,6 +2261,21 @@ quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
 
+The report header's verification line and the Verification table count as
+contradicted both the prose claims the coverage counts contradicted and the
+cited figures the verification log marks contradicted (a value, period, unit or
+currency mismatch). These are the records the audit export prints. When a figure
+is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
+prose claims)". The audit export's prose-claim sentence still counts prose
+claims only. A pass that ran on a plan allowance (ChatGPT or Gemini CLI) sends
+the supplied evidence with no web-search tool. When any pass did, the report
+header and run details carry an Evidence line, for example "bull, bear and judge
+used only the supplied evidence (payload-only; no web search)". It is derived
+from the same execution entries whose per-pass note the audit export prints,
+counting only passes that ran to a usable analysis: a failed attempt a
+data-only report lists, or a model the registry refused, is left out (see
+"AMZN audit fixes (October 20, 2026)").
+
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The
 report's execution metadata distinguishes requested mode and actual outcome;
@@ -2446,3 +2485,180 @@ since the composite already weights each aspect by its evidence. A route that
 designs a single signal and observes it in full, such as the REIT P/FFO rank, is
 not affected. A P/TBV rank that falls back to P/B is labelled a P/B rank
 (audit PGR-4).
+
+### AMZN audit fixes (October 20, 2026)
+
+**Rate limits on the inputs the valuation depends on.** FMP answers a burst of
+requests with HTTP 429. The client then pauses every live request for that key:
+for as long as the vendor's `Retry-After` says, or 15 minutes when the vendor
+names no pause. The AMZN run of October 20 lost its analyst consensus and the
+vendor balance sheet this way, and nothing asked again. Seven requests now wait
+out the pause once: analyst estimates and the annual and quarterly income
+statement, balance sheet and cash flow. Each waits for the vendor's stated
+pause, or for one rate window (60 seconds) when the vendor named none, and then
+asks again. No request takes more than 90 seconds of wall-clock time in total:
+the clock starts before the first attempt, a pause that would end at the bound
+is not waited for, and the retry is a single attempt that times out when the
+bound ends. A request still refused keeps its rate-limit gap, which then says
+how long it waited; a retry the bound cut off still names the rate limit. One more warning entry, `fmp.rateLimit`,
+names every such member and says the valuation is degraded. When the refused
+member is the analyst estimates, the DCF's `valuation.dcf.analystGrowth` record
+becomes a warning that names the rate limit as the cause, instead of the
+informational "no usable analyst revenue estimates", and the DCF notes carry a
+"Valuation degraded" line. The report is still published. Statements still come from
+the keyless SEC substitutes, which carry their own entries.
+
+**Investment stakes on the SEC statements, and the tax on them.** The
+statements rebuilt from SEC companyfacts had no long-term investments line, so
+when a run fell back to them (Amazon's did, after the rate limit above) every
+stake counted as zero in the equity bridge and stayed inside the operating
+capital that sales-to-capital divides by. Amazon carries its Anthropic and
+OpenAI stakes in "Other assets", not on a line of their own. The SEC statements
+now fill `longTermInvestments` with the filed `LongTermInvestments` total when
+the filing tags one. Otherwise they add up the non-current pieces the filing does
+tag:
+
+- non-current debt securities (`MarketableSecuritiesNoncurrent`, else
+  `AvailableForSaleSecuritiesDebtSecuritiesNoncurrent`);
+- a filed other-investments line (`OtherLongTermInvestments`), or, when there is
+  none, non-marketable equity securities
+  (`EquitySecuritiesWithoutReadilyDeterminableFairValueAmount`) plus
+  equity-method investments (`EquityMethodInvestments`). The other-investments
+  line already holds those two, as Alphabet's "Non-marketable securities" does,
+  so they are never added to it.
+
+An absent piece is named in the statement notes, never taken as zero. The
+undivided `AvailableForSaleSecuritiesDebtSecurities` total is never a piece:
+in most filings it also holds current and cash-equivalent securities that are
+already in cash and short-term investments, and the statements cannot split it.
+For Amazon at June 30, 2026 the line is $122.7B: $122.3B of non-marketable
+equity and $0.4B of equity-method investments. Its $97.9B of Anthropic
+convertible notes are tagged only with that undivided total, so they stay out.
+This is a known understatement, not an estimate.
+
+The bridge then subtracts one more line: **estimated tax on non-operating
+investments**. A stake reaches shareholders when it is sold, and the gain is
+taxed. The rate is the marginal-rate floor the DCF's terminal tax converges to
+(D-58): the 21% US federal rate for a US issuer, and the 15% global minimum
+where no statutory rate is sourced. It is charged on the whole carrying value
+of every non-operating asset the bridge adds, meaning the D-60 marketable
+equity securities and the long-term investments. The filings do not give each
+holding's tax basis, so a zero basis is assumed. That makes this the most the
+tax could be. It is exact for stakes bought for next to nothing, and it
+overstates the tax for holdings carried near cost, such as bond portfolios.
+This treatment is an owner decision (D-98). The bridge table prints the line as
+"Less estimated tax on non-operating investments (21% marginal rate, zero tax
+basis assumed)". The scenario assumptions and the DCF notes state the amount
+and the basis.
+
+**Guided quarters: the year a release names, and the pace year one carries.**
+Amazon's releases name the year-ago quarter in their comparisons ("compared
+with $167.7 billion in second quarter 2025", "to grow between 9% and 12%
+compared with third quarter 2025") and name no other year in those sentences.
+The release parser took the first quarter-and-year phrase it found, so both
+the quarter a release reported and the quarter it guided were labelled a year
+early: the Q3 2026 outlook read "Q3 FY2025". The two mistakes cancelled in the
+check that the outlook lies ahead, but the outlook-against-actual comparison
+matches the guided quarter to the release that reported it, so the Q4 2025
+outlook ($206.0B to $213.0B, actual $213.4B) was never scored. A quarter-and-year
+phrase that directly follows a comparison word in its own clause ("compared with", "versus",
+"vs.", "relative to", "against", "from"), with nothing between them but amounts
+and connecting words ("compared with $18.2 billion, or $1.68 per diluted share,
+in second quarter 2025"), is now skipped when a guidance
+sentence or block is labelled. A comparison word earlier in the clause that
+governs something else ("the impact from foreign currency, revenue for the
+fourth quarter of 2026") does not skip the period. The reported quarter is read from the phrase
+that names the same quarter as the "quarter ended" sentence; when the only
+such phrase is a comparison base, the year after it is taken. A phrase heading
+an outlook ("Third Quarter 2026 Guidance", or "Outlook for Second Quarter
+2026" with the heading word first) is never taken as the reported quarter, so a release whose "quarter ended" sentence names no quarter is not
+labelled with the quarter it guides. On Amazon's five
+releases from July 2025 to July 2026 every reported and guided quarter now
+carries its own year, and the three prior quarters' outlooks are all scored.
+
+Year one then carried the guided quarter at its sequential pace: Q3 2026
+guidance of $199.5B over Q2's $200.6B, annualized, is −2.2% a year, though
+Amazon guided +9% to +12% over Q3 2025. Q3 is below Q2 every year, so the
+sequential pace read the season as a slowdown. Guidance × 4 now carries at the
+guided year-over-year pace, the guided quarter over the same quarter a year
+earlier: $199.5B over $180.2B, +10.7%. That puts year one at about $829B
+instead of $791B. The sequential pace is used only when the statements lack
+that quarter in the model currency.
+
+**Improving margins fade up to a bounded target.** A declining margin regime
+faded the margin down toward its five-year median, but an improving one was
+held at today's level for ten years: Amazon's 12.08% stayed flat under an
+improving regime with a dated slope of +2.01pp a year, while its quarterly
+operating margin had already reached 13.7%. The improving target is now the
+lower of two bounds, and never below the current margin or the median:
+
+- half the dated slope carried over the five fade years (current + 0.5 × slope
+  × 5), so a trend is not extrapolated in full;
+- the scenario margin ceiling, today's gross margin less the leanest
+  operating-expense ratio among the TTM and the last five fiscal years. That is
+  the margin the issuer would earn at today's gross margin with costs it has
+  already run at. It also bounds the bull and bear scenarios (D-60).
+
+Without a gross margin on record the ceiling is unavailable and the margin is
+held flat, as before. The broken-input margin cap still applies on top. For
+Amazon the trend bound is 17.1% and the ceiling 14.03% (50.77% gross margin less
+FY2021's 36.74% operating-expense ratio), so the margin fades from 12.08% to
+14.03% by year five. Both the half-trend share and the ceiling as the bound are
+owner decisions (D-98). Because the raised target is a judgment, the margin
+basis and the DCF notes state its value: the per-share value on the faded path
+and with the margin held flat at the current level ("margin-fade
+sensitivity").
+
+**Earnings carried by one-off gains.** Amazon's TTM pre-tax income included
+about $80B of investment gains, below operating income. Its GAAP P/E read 21.1x
+against roughly 36x to 40x on operating earnings, and a rank of that P/E in its
+own history (2.72, scored 88) was the valuation grade's only positive signal.
+The headline P/E carried no caveat. When non-operating income (pre-tax income
+less operating income) is more than 25% of positive pre-tax income, the P/E is
+now flagged as resting on gain-inflated earnings. It is still shown, with a
+caveat in Key data that states the share. The valuation grade does not rank it:
+`peOwnHistoryRank` takes the next multiple in its list, EV/EBITDA and then
+Price/FCF, which do not include those gains. The 25% line is an owner decision
+(D-98). Non-operating losses are not flagged; they make the P/E look dear, not
+cheap.
+
+The same idea applies inside operating income (audit item 15, FCX-9): a one-off
+there set the DCF margin for every forecast year. Freeport-McMoRan's TTM to June
+30, 2026 included a $699M insurance settlement gain. The TTM (or annual) margin
+that seeds the DCF now leaves out tagged one-off items over the same twelve
+months, in both directions:
+
+- gains (`InsuredEventGainLoss`) are subtracted;
+- impairment charges are added back: `AssetImpairmentCharges` when it is filed,
+  else `GoodwillImpairmentLoss`, `ImpairmentOfLongLivedAssetsHeldForUse` and
+  `ImpairmentOfIntangibleAssetsExcludingGoodwill`, so a total and its parts are
+  never both counted.
+
+Each tag is summed as the fiscal-year fact plus the year to date less the prior
+year to date, from facts filed by the build. An untagged current year to date
+counts as zero, because a one-off is tagged in the filing for the period it fell
+in and that filing is the latest. The fiscal year and the prior year to date
+split the year at the window's start, so when one of them carries an amount the
+other must be filed too. Otherwise the tag is withheld: none of it is removed,
+and the DCF notes say which tag was kept and why. Amazon's 10-K tags a $1.3B
+impairment for 2025, $610M of it in the fourth quarter, but its 10-Qs never tag
+the rest, so how much fell inside a June 2026 TTM is unknown and none of it is
+removed. The margin basis says "excluding tagged one-off items" when any item is
+removed, and the DCF notes name each tag and amount. For Freeport-McMoRan the
+$699M gain lowers the margin seed from 26.8% to about 24.1%; its 2025 impairment
+of $73M has no filed half-year amount and stays in. The tag list
+is an owner decision (D-98). Impairments are assumed to sit inside operating
+income, where US GAAP places them when an operating-income subtotal is shown.
+Restructuring charges are not treated as one-offs.
+
+**What the report itself discloses.** Two facts appeared only in the audit
+export. First, all three Amazon passes ran on the ChatGPT plan with only the
+supplied evidence and no web search. That was stated only in the export's
+per-pass notes. The report header, run details and print header now carry an
+Evidence line derived from the same execution entries. Second, the export marked
+the $185,000 salary figure contradicted (a unit mismatch against its cited 8-K),
+but the header said "0 contradicted", because it counted prose claims only. The
+header and the Verification table now add cited figures the verification log
+marks contradicted and name the split. The prose claims still come from the
+coverage count, so a stored report without a log keeps its count. The live
+report view shows both lines too.

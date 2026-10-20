@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.33.0** and
-payload **1.38.0** (independent audit fixes, 2026-10-20). The checked-in
+Current source declares application **0.1.0**, report spec **1.34.0** and
+payload **1.39.0** (AMZN audit fixes, 2026-10-20). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,17 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed AMZN audit fixes (2026-10-20)
+
+- Wait out a short FMP rate limit (HTTP 429) on analyst estimates and the income, balance-sheet and cash-flow statements, at most 90 seconds per request. A request still refused marks the valuation degraded and names the rate limit as the cause (AMZN finding 2).
+- Fill long-term investments on the SEC statements from the filed non-current investment tags, and subtract an estimated tax on non-operating investments in the equity bridge (AMZN finding 1).
+- Label a guided or reported quarter by its own year, not by the year-ago quarter it is compared with, and carry guided revenue at the guided year-over-year pace instead of the seasonal sequential pace (AMZN findings 3 and 14).
+- Fade an improving operating margin up to a bounded target, and state the per-share value with the margin held flat (AMZN finding 4).
+- Stop ranking a P/E that rests on gains outside operating income (more than 25% of pre-tax income), caveat it in Key data, and keep tagged one-off items out of the DCF margin seed (AMZN finding 5, recommendation 15).
+- Say on the report itself when passes used only the supplied evidence with no web search, and count contradicted cited figures in the header's contradicted count (AMZN findings 12 and 17, recommendation 7).
+- Close the four gaps the Codex review found: withhold a one-off item the filings don't place inside the TTM window, show no own-history rank beside a P/E the caveat says is not ranked, hold a rate-limited request to 90 seconds of wall-clock time with its retry, leave failed or never-sent passes out of the Evidence line, and never read a quarter an outlook heading introduces ("Outlook for Second Quarter 2026") as the reported quarter. The owner accepted the D-98 choices as recorded.
+- Advance report/payload/Stage B conventions to 1.34.0/1.39.0/ACCOUNTING_EVIDENCE_16. Stored reports remain immutable. See the [disposition record](docs/audit/2026-10-20-amzn-audit-fixes.md) and D-98.
 
 ## Proposed independent audit fixes (2026-10-20)
 

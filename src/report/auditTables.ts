@@ -90,7 +90,7 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
       ["Explicit cash-flow present value",money(b.presentValueExplicit)],["Terminal present value",money(b.presentValueTerminal)],
       ["Intrinsic enterprise value (DCF, operating assets)",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
       ["Less minority interest",claim(b.minorityInterest)],["Less preferred equity",claim(b.preferredEquity)],
-      ...components.map((c) => [`Plus non-operating ${c.label}`, money(c.value)]),
+      ...components.map((c) => c.value < 0 ? [`Less ${c.label}`, money(-c.value)] : [`Plus non-operating ${c.label}`, money(c.value)]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
       ...(b.sharesOutstandingAtQuote === undefined ? [] : [["Shares outstanding at the quote (market cap ÷ price; not the divisor)", formatLargeNumber(b.sharesOutstandingAtQuote)]]),
       ...(b.valuationDate === undefined

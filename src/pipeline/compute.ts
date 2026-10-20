@@ -1,4 +1,4 @@
-import { admittedStatementRow, quotePriceObservationDay } from "@/providers/fmp";
+import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
  * pure Stage B module's own input types, runs sector routing FIRST, then feeds
@@ -138,6 +138,7 @@ import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnri
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
 import { implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   normalizeQuarterRows,
   quarterWindowViolation,
@@ -3130,6 +3131,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     return days >= 350 && days <= 380;
   });
   const yearAgoDate = yearAgoQuarter === undefined ? null : isoDay(yearAgoQuarter.date);
+  // AMZN audit 2026-10-20: the same fiscal quarter a year before the guided
+  // quarter, so the guidance carries at its year-over-year pace, under the
+  // same currency rule.
+  const guidance = dcfGuidance(bundle, ctx.modelCurrency);
+  const guidedYearAgoQuarter = guidance === null ? undefined : incomeQuarterly.find((r) => {
+    const days = (Date.parse(guidance.periodEnd) - Date.parse(String(r.date))) / SPREAD_DAYS;
+    return days >= 350 && days <= 380;
+  });
+  const guidedYearAgoDate = guidedYearAgoQuarter === undefined ? null : isoDay(guidedYearAgoQuarter.date);
   const dcfQuarterRevenue: DcfQuarterRevenue | null = ttmInc && latestQuarter
     ? {
         latest: { date: ttmInc.date, revenue: num(latestQuarter.revenue) },
@@ -3137,6 +3147,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           establishedCurrencyOn([yearAgoQuarter], yearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
           ? { date: yearAgoDate, revenue: num(yearAgoQuarter.revenue) }
           : null,
+        ...(guidedYearAgoQuarter !== undefined && guidedYearAgoDate !== null &&
+          establishedCurrencyOn([guidedYearAgoQuarter], guidedYearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
+          ? { guidedYearAgo: { date: guidedYearAgoDate, revenue: num(guidedYearAgoQuarter.revenue) } }
+          : {}),
       }
     : null;
 
@@ -3181,6 +3195,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // WS6 (D-18): the log-linear regression method of the growth anchor.
           revenueLogLinear: growth.revenueLogLinear,
           analystEstimates,
+          // AMZN audit 2026-10-20, finding 2: a rate-limit refusal is named, not shown as "uncovered".
+          ...(!bundle.analystEstimates.ok && isFmpQuotaReason(bundle.analystEstimates.gap.reason)
+            ? { analystEstimatesRefusal: bundle.analystEstimates.gap.reason }
+            : {}),
           waccPct: wacc.waccPct ?? 0,
           // WS6 (D-19): every WACC input named in the assumption block.
           waccBasis: ctx.waccInputs.summary,
@@ -3211,6 +3229,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
+          // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
+          unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
+            ttmEnd: dcfIncomeTtm.date,
+            fiscalYearEnd: incomeAnnual.map((r) => rowDate(r)).find((d) => d !== "" && d <= dcfIncomeTtm.date) ?? null,
+            unit: ctx.modelCurrency,
+            observedAt: bundle.builtAt,
+          }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
           marketCap,
@@ -3235,7 +3260,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // anchor is the 8-K earnings release's next-quarter revenue outlook,
           // used only in the model currency and when its quarter end is known.
           quarterRevenue: dcfQuarterRevenue,
-          guidance: dcfGuidance(bundle, ctx.modelCurrency),
+          guidance,
           domicileCountry: str(profile?.country),
           // D-65: the fiscal year's reported revenue so far, and the quote date the value is stated at.
           fiscalYearToDate,
@@ -3275,6 +3300,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         basis: "ttm",
         revenue: ttmInc.revenue,
         operatingIncome: ttmInc.operatingIncome,
+        incomeBeforeTax: ttmInc.incomeBeforeTax,
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
         netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
@@ -3301,6 +3327,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           basis: "annual",
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),
+          incomeBeforeTax: num(inc0.incomeBeforeTax),
           depreciationAndAmortization: num(inc0.depreciationAndAmortization),
           netIncome: num(inc0.netIncome),
           netIncomeAvailableToCommon: num(inc0.netIncomeAvailableToCommon),
@@ -3588,7 +3615,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       const b = (v: number) => `${(v / 1e9).toFixed(2)}B`;
       return `long-term investments ${b(lti)} on the ${date} ${balPointBasis ?? ""} balance sheet${filed ? ` (filed ${filed})` : ""}, at carrying value — the amount the sales-to-capital denominator removes as non-operating` +
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
-        "; equity stakes the filing places in other assets are not separable from the statements and stay in operating capital";
+        "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
     dcfInputs,
     multiples,

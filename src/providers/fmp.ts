@@ -26,6 +26,7 @@
  */
 
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
 
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
@@ -38,7 +39,7 @@ import { fetchWithPolicy, HttpTransportError, type FetchPolicy, type TokenBucket
 import { canonicalEntitySymbol, isValidSymbol, sameEntitySymbol } from "@/symbol";
 // WS4 (D-11): DEMO and DBNK are reserved fixture symbols and never reach the vendor.
 import { anyReservedFixtureSymbol, isReservedFixtureSymbol } from "@/providers/reservedSymbols";
-import { FmpAccessError, FmpQuotaError, assertFmpQuotaAvailable, fmpAccessKey, fmpQuotaError, parseFmpRestriction, resetFmpAccess, withFmpAccess } from "@/providers/fmpAccess";
+import { FmpAccessError, FmpQuotaError, assertFmpQuotaAvailable, currentFmpQuota, fmpAccessKey, fmpQuotaError, parseFmpRestriction, releaseGuessedFmpQuota, resetFmpAccess, withFmpAccess } from "@/providers/fmpAccess";
 
 // ---------------------------------------------------------------------------
 // Cache contract (implemented by @/cache/apiCache — injected to keep this
@@ -1216,6 +1217,47 @@ export interface FmpClientConfig {
   timeoutMs?: number;
   /** Job/request cancellation signal, composed with each per-attempt timeout. */
   signal?: AbortSignal;
+  /** Injectable wait for `retryRateLimited` (tests); defaults to an abortable timer. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/**
+ * Total time one valuation-critical request may spend waiting out FMP rate
+ * limits before the run goes on without it (AMZN audit 2026-10-20, finding 2).
+ * Long enough for one per-minute rate window plus slack; short enough that a
+ * daily-quota refusal costs the report at most a minute and a half.
+ */
+export const FMP_RATE_LIMIT_WAIT_BUDGET_MS = 90_000;
+/** When FMP names no pause, the client probes again after one rate window. */
+export const FMP_RATE_LIMIT_PROBE_MS = 60_000;
+/** Each retry needs a fresh refusal to wait for, so a few attempts exhaust any bound. */
+const RATE_LIMIT_MAX_RETRIES = 3;
+/**
+ * Wall-clock end of the rate-limit bound for a retry in flight
+ * (`retryRateLimited`). Pure, so the offline Stage B replay graph, which uses
+ * only this file's helpers, drops it with the client (freeze-stageb-replay).
+ */
+const fmpRetryDeadline = /* @__PURE__ */ new AsyncLocalStorage<number>();
+
+/**
+ * True for the gap an FmpQuotaError leaves (its message starts this way), so a
+ * consumer can name the rate limit as the cause. Kept here, not in fmpAccess,
+ * because the offline Stage B replay may use this module but not that one.
+ */
+export function isFmpQuotaReason(reason: string): boolean {
+  return reason.startsWith("FMP quota/rate limit");
+}
+
+function abortableSleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, ms);
+    const abort = () => { clearTimeout(timer); reject(signal?.reason); };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 export interface FmpEntityScope {
@@ -1327,6 +1369,7 @@ export class FmpClient {
   private readonly now: () => Date;
   private readonly timeoutMs: number;
   private readonly signal: AbortSignal | undefined;
+  private readonly sleep: (ms: number) => Promise<void>;
   /**
    * Set only on the client `fixturesOnly()` builds for a reserved-symbol run.
    * The `<method>/default.json` fixtures are synthetic values invented for the
@@ -1348,11 +1391,74 @@ export class FmpClient {
     this.now = config.now ?? (() => new Date());
     this.timeoutMs = config.timeoutMs ?? 30_000;
     this.signal = config.signal;
+    this.sleep = config.sleep ?? ((ms) => abortableSleep(ms, this.signal));
   }
 
   /** True when no API key is configured and fixtures serve all methods. */
   get fixtureMode(): boolean {
     return this.apiKey === undefined;
+  }
+
+  /**
+   * Re-issues a request the valuation depends on when FMP refused it with a
+   * rate limit: it waits out the vendor's stated pause, or one rate window when
+   * the vendor named none, and asks again, never waiting more than
+   * FMP_RATE_LIMIT_WAIT_BUDGET_MS in total. A request still refused keeps its
+   * quota gap, which then says how long it waited, so the report can name the
+   * cause. Any other result is returned untouched.
+   */
+  async retryRateLimited<T>(call: () => Promise<FetchResult<T>>): Promise<FetchResult<T>> {
+    // The bound is wall-clock time for the whole request (Codex review of
+    // PR #41): it starts before the first attempt, and each retry gets only
+    // the time that is left.
+    const start = this.now().getTime();
+    let result = await call();
+    if (this.apiKey === undefined) return result;
+    const key = fmpAccessKey(this.apiKey, this.baseUrl);
+    const deadline = start + FMP_RATE_LIMIT_WAIT_BUDGET_MS;
+    let beyondBound = false;
+    let outOfTime = false;
+    let retries = 0;
+    for (let attempt = 0; attempt < RATE_LIMIT_MAX_RETRIES && !result.ok && isFmpQuotaReason(result.gap.reason); attempt++) {
+      const now = this.now().getTime();
+      const pause = currentFmpQuota(key, now);
+      const resumeAt = pause === undefined
+        ? now
+        : pause.vendorStated ? pause.expiresAt : Math.min(pause.expiresAt, pause.observedAt + FMP_RATE_LIMIT_PROBE_MS);
+      if (resumeAt >= deadline) {
+        beyondBound = true;
+        break;
+      }
+      if (resumeAt > now) await this.sleep(resumeAt - now);
+      if (pause !== undefined) releaseGuessedFmpQuota(key, pause);
+      retries++;
+      let retried: FetchResult<T>;
+      try {
+        retried = await fmpRetryDeadline.run(deadline, call);
+      } catch (error) {
+        // A retry the bound timed out keeps the rate limit as its cause; a
+        // cancelled job, or any failure before the bound, still throws.
+        if (this.signal?.aborted || this.now().getTime() < deadline) throw error;
+        outOfTime = true;
+        break;
+      }
+      if (!retried.ok && !isFmpQuotaReason(retried.gap.reason) && this.now().getTime() >= deadline) {
+        // The retry was cut off by the bound, not refused for another reason:
+        // the rate limit is still the cause the report should name.
+        outOfTime = true;
+        break;
+      }
+      result = retried;
+    }
+    if (result.ok || !isFmpQuotaReason(result.gap.reason)) return result;
+    const waitedS = Math.round((this.now().getTime() - start) / 1000);
+    const boundS = FMP_RATE_LIMIT_WAIT_BUDGET_MS / 1000;
+    const note = outOfTime
+      ? `still refused: after waiting ${waitedS} s the retry ran out of the ${boundS} s bound`
+      : beyondBound && retries === 0
+        ? `not retried: the pause exceeds the ${boundS} s retry bound`
+        : `still refused after waiting ${waitedS} s (bound ${boundS} s)`;
+    return { ok: false, gap: { ...result.gap, reason: `${result.gap.reason} ${note}.` } };
   }
 
   // -- core plumbing --------------------------------------------------------
@@ -1496,9 +1602,15 @@ export class FmpClient {
           observed.vendorAnswered = true;
           observed.appliedLimit = appliedLimit;
         }
+        // A rate-limit retry runs inside its wall-clock bound: one attempt,
+        // timed out when the bound ends.
+        const retryDeadline = fmpRetryDeadline.getStore();
         const policy: FetchPolicy = {
           provider: "fmp",
-          timeoutMs: this.timeoutMs,
+          timeoutMs: retryDeadline === undefined
+            ? this.timeoutMs
+            : Math.max(1, Math.min(this.timeoutMs, retryDeadline - this.now().getTime())),
+          ...(retryDeadline === undefined ? {} : { maxRetries: 0 }),
           signal: this.signal,
           retryOn429: false,
           beforeAttempt: () => assertFmpQuotaAvailable(accessKey, this.now().getTime()),
