@@ -604,7 +604,7 @@ describe("payload determinism + provenance", () => {
     // so no bridge line or value moves; remove only that leaf.
     expect(precedingFinance.valuation.assumptions.investmentTax.ratePct).toBe(21);
     delete precedingFinance.valuation.assumptions.investmentTax;
-    // D-99 (the deferred AMZN audit fixes) changes three explanatory leaves of
+    // D-99 (the deferred AMZN audit fixes) changes explanatory leaves of
     // this fixture's finance block and no number: the scenario margin's
     // direction clause (finding 11) and the even-spread reason of the
     // consensus calendarization (finding 19). Each exact occurrence is
@@ -613,6 +613,9 @@ describe("payload determinism + provenance", () => {
       ["observed growth/margin correlation (0.19), applied only when it moves with the scenario.", "observed growth/margin correlation (0.19).", 4],
       ["(0.19), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.", "(0.19), not assumed perfectly correlated.", 1],
       ["fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it;", "fiscal-year estimates weighted by day overlap;", 3],
+      // AMZN audit finding 20(h), from its independent review: the undisclosed
+      // lease gap no longer names the environment variable.
+      ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -935,12 +938,12 @@ describe("payload determinism + provenance", () => {
       // registries and every numeric pin stay exact.
       // D-98: the versioned header moves with the payload version; the finance
       // hash change for the investment-tax leaf is pinned and explained below.
-      // D-99 (+832 prompt bytes): the consensus-target reconciliation note
-      // (AMZN audit finding 18) and the reworded scenario and calendarization
-      // notes; dropping the one and restoring the others reproduces the
-      // preceding prompt above, and no registry or citation record moves.
-      fingerprint: "1.40.0:670cd866",
-      promptBytes: 140_489,
+      // D-99 (+820 prompt bytes): the consensus-target reconciliation note
+      // (AMZN audit finding 18) and the reworded scenario, calendarization and
+      // lease-gap notes; dropping the one and restoring the others reproduces
+      // the preceding prompt above, and no registry or citation record moves.
+      fingerprint: "1.40.0:b9a85ecf",
+      promptBytes: 140_477,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
       provenanceIdsHash: "623dfb46",
@@ -970,9 +973,10 @@ describe("payload determinism + provenance", () => {
       // AMZN audit 2026-10-20 (D-98): only the new assumptions.investmentTax
       // leaf (removed above for the preceding pin) moves financeHash; this
       // fixture has no investments, so no bridge value, byte or record moves.
-      // D-99: only the three reworded leaves restored above (scenario margin
-      // direction, even-spread calendarization reason) move financeHash.
-      financeHash: "bf34aac3",
+      // D-99: only the reworded leaves restored above (scenario margin
+      // direction, even-spread calendarization reason, the undisclosed lease
+      // gap without the environment variable) move financeHash.
+      financeHash: "f74c0523",
     });
   });
 

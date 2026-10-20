@@ -3862,7 +3862,7 @@ export function multiplesFramework(
         evLeaseScope !== null
           ? `${evLeaseScope}; enterprise value is reported as-is`
           : totalLeaseLiability === null
-          ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV regardless of THESIS_EV_INCLUDE_LEASES"
+          ? "lease liabilities (capitalLeaseObligations) not disclosed — they could not be separated from totalDebt, so enterprise value is reported as-is and any lease liability inside totalDebt stays in EV under either lease setting"
           : `lease liabilities of ${fmtNum(totalLeaseLiability)} are disclosed only as a combined operating + finance figure (the FMP route publishes no split) — only the OPERATING slice may be netted out of EV, so enterprise value is reported as-is rather than removing an unknown mix`,
         "info",
       ),
