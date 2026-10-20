@@ -47,7 +47,7 @@ It also noted that the SBC floor ignores how large SBC is: any positive SBC besi
 
 ## Codex review
 
-The automated Codex review of the pull request raised four P2 findings. All four were real, and each fix began with a test that failed, where a test could:
+The automated Codex review of the pull request raised four P2 findings, and its re-review of the fixes two more. All six were real, and each fix began with a test that failed, where a test could:
 
 | Finding | Fix | Commit |
 |---|---|---|
@@ -55,6 +55,8 @@ The automated Codex review of the pull request raised four P2 findings. All four
 | An invalid key, a denied subscription, a missing entitlement or an aborted request stopped peer collection but read as a screen exclusion | The loader and the summary share one list of terminal provider failures | `dd1fb93` |
 | The scenario construction changed without its method stamps | SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D99 | `97e6476` |
 | The notes and risk selection changed without its version | section-evidence-4 | `97e6476` |
+| *(re-review)* A missing annual row stretched the buyback-timing window past three fiscal years | The window runs back two fiscal years from the latest annual row by date | `306cf6a` |
+| *(re-review)* The modal guard dropped an actual case whose sentence went on to a possible consequence | The guard reads only the words up to and including the matched claim | `dca542e` |
 
 ## What moves on the stored inputs
 

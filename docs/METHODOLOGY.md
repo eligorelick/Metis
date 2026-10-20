@@ -347,8 +347,9 @@ fiscal year.
   year's average price (Dittmar & Field 2015). The report labels it "year-average
   cost vs cost paid; negative = paid above average", because "price paid vs the
   year's average" read the sign backwards (AMZN audit 2026-10-20 finding 15).
-- **Recency.** Timing is graded only when a priced year is one of the issuer's
-  last three annual cash-flow years. Older timing is named as stale in the
+- **Recency.** Timing is graded only when a priced year falls within the
+  issuer's last three fiscal years, counted back by date from the latest
+  annual cash-flow row, so a missing year cannot stretch the window. Older timing is named as stale in the
   capital notes and left ungraded; with no repurchase at all in those three
   years the signal is absent, as for an issuer that never repurchased (finding 15).
 - **Exclusions.** A year whose paid price is more than 1.6× away from its
@@ -2773,7 +2774,8 @@ claims actually alleged, relief in the billions or structural relief beside a
 legal proceeding, a regulator's fine, and a trial a legal proceeding has
 scheduled (never a clinical or commercial trial). None of them holds a passage
 that only states a risk the issuer may face ("regulators could bring
-actions"). The notes and risk readings carry the selection version
+actions"); the check reads the words up to the matched claim, so a case that
+goes on to a possible consequence keeps its place. The notes and risk readings carry the selection version
 section-evidence-4. The FTC case against Amazon
 now reaches the passes. Its 2027 trial date was in no filing the run had.
 
