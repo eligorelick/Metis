@@ -566,3 +566,96 @@ describe("D-63 filing evidence", () => {
     expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, true]);
   });
 });
+
+describe("a period named as a comparison base (AMZN audit 2026-10-20)", () => {
+  // Excerpts of Amazon's EX-99.1 releases (public SEC filings
+  // 0001018724-25-000121, -26-000002 and -26-000024) as the HTML text
+  // extraction lays them out: one line, each bullet after a "•".
+  const release = (lines: string[]) => lines.join(" ");
+  const Q3_2025 = release([
+    "AMAZON.COM ANNOUNCES THIRD QUARTER RESULTS",
+    "SEATTLE—(BUSINESS WIRE) October 30, 2025—Amazon.com, Inc. (NASDAQ: AMZN) today announced financial results for its third quarter ended September 30, 2025.",
+    "• Net sales increased 13% to $180.2 billion in the third quarter, compared with $158.9 billion in third quarter 2024.",
+    "Financial Guidance",
+    "The following forward-looking statements reflect Amazon.com’s expectations as of October 30, 2025, and are subject to substantial uncertainty.",
+    "Fourth Quarter 2025 Guidance",
+    "• Net sales are expected to be between $206.0 billion and $213.0 billion, or to grow between 10% and 13% compared with fourth quarter 2024.",
+    "Conference Call Information",
+  ]);
+  const Q4_2025 = release([
+    "AMAZON.COM ANNOUNCES FOURTH QUARTER RESULTS",
+    "SEATTLE—(BUSINESS WIRE) February 5, 2026—Amazon.com, Inc. (NASDAQ: AMZN) today announced financial results for its fourth quarter ended December 31, 2025.",
+    "Fourth Quarter 2025",
+    "• Net sales increased 14% to $213.4 billion in the fourth quarter, compared with $187.8 billion in fourth quarter 2024.",
+    "Financial Guidance",
+    "The following forward-looking statements reflect Amazon.com’s expectations as of February 5, 2026, and are subject to substantial uncertainty.",
+    "First Quarter 2026 Guidance",
+    "• Net sales are expected to be between $173.5 billion and $178.5 billion, or to grow between 11% and 15% compared with first quarter 2025.",
+    "Conference Call Information",
+  ]);
+  const Q2_2026 = release([
+    "AMAZON.COM ANNOUNCES SECOND QUARTER RESULTS",
+    "Net sales increased 20% year-over-year",
+    "SEATTLE—(BUSINESS WIRE) July 30, 2026—Amazon.com, Inc. (NASDAQ: AMZN) today announced financial results for its second quarter ended June 30, 2026.",
+    "• Net sales increased 20% to $200.6 billion in the second quarter, compared with $167.7 billion in second quarter 2025.",
+    "Financial Guidance",
+    "The following forward-looking statements reflect Amazon.com’s expectations as of July 30, 2026, and are subject to substantial uncertainty.",
+    "Third Quarter 2026 Guidance",
+    "• Net sales are expected to be between $197.0 billion and $202.0 billion, or to grow between 9% and 12% compared with third quarter 2025.",
+    "Conference Call Information",
+  ]);
+
+  it("labels the reported quarter and the guided quarter with their own fiscal year, not the year-ago base", () => {
+    // Before: Q2 FY2025 and Q3 FY2025, the years of the comparison bases.
+    expect(parseReportedPeriod(Q2_2026)).toEqual({ fiscal: { label: "Q2 FY2026", fiscalYear: 2026, fiscalQuarter: 2 }, periodEnd: "2026-06-30" });
+    expect(parseReportedPeriod(Q3_2025).fiscal?.label).toBe("Q3 FY2025");
+    expect(parseReportedPeriod(Q4_2025).fiscal?.label).toBe("Q4 FY2025");
+    const guided = parseGuidance(Q2_2026)!;
+    expect(guided.period?.label).toBe("Q3 FY2026");
+    expect(guided.items.map((i) => [i.metric, i.period.label, i.low, i.high])).toEqual([["revenue", "Q3 FY2026", 197e9, 202e9]]);
+    expect(parseGuidance(Q3_2025)!.items.map((i) => i.period.label)).toEqual(["Q4 FY2025"]);
+  });
+
+  const Q1_2026 = release([
+    "AMAZON.COM ANNOUNCES FIRST QUARTER RESULTS",
+    "SEATTLE—(BUSINESS WIRE) April 29, 2026—Amazon.com, Inc. (NASDAQ: AMZN) today announced financial results for its first quarter ended March 31, 2026.",
+    "• Net sales increased 17% to $181.5 billion in the first quarter, compared with $155.7 billion in first quarter 2025.",
+    "Financial Guidance",
+    "The following forward-looking statements reflect Amazon.com’s expectations as of April 29, 2026, and are subject to substantial uncertainty.",
+    "Second Quarter 2026 Guidance",
+    "• Net sales are expected to be between $194.0 billion and $199.0 billion, or to grow between 16% and 19% compared with second quarter 2025.",
+    "Conference Call Information",
+  ]);
+
+  it("carries the guided quarter at its growth over the same quarter a year earlier in the statements", () => {
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD", estimates: false });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
+    const quarters: Record<string, number> = { "2026-03-31": 181_519e6, "2025-12-31": 213_386e6, "2025-09-30": 180_169e6, "2025-06-30": 167_702e6 };
+    for (const row of bundle.statements.incomeQuarterly.value.data.rows) row.revenue = quarters[String(row.date)] ?? row.revenue;
+    const q1 = buildEarningsReleaseRecord({ filing: filing("0001018724-26-000012", "2026-04-29"), releaseUrl: "https://www.sec.gov/q1", commentaryUrl: null, releaseText: Q1_2026, commentaryText: null, includeNarrative: false });
+    bundle.edgar.currentReports = { ok: true, value: { data: { version: CURRENT_REPORTS_VERSION, releases: [q1], events: [], notes: [] },
+      asOf: "2026-04-29", source: "edgar", endpoint: "fixture", fetchedAt: "2026-10-15T00:00:00.000Z" } };
+    // The outlook is the quarter after the reported one, so it stays forward.
+    expect(buildFilingDisclosures(bundle)!.guidance?.rows.map((r) => [r.period, r.metric])).toEqual([["Q2 FY2026", "revenue"]]);
+    const valuation = runStageB(bundle).valuation;
+    const anchor = valuation.kind === "dcf" ? valuation.assumptions?.revenueAnchor : undefined;
+    // $196.5B over the $167.7B of the quarter ended 2025-06-30: +17.17%.
+    expect(anchor?.evidence?.guidedYoyPct).toBeCloseTo((196.5 / 167.702 - 1) * 100, 6);
+    expect(anchor?.basis ?? "").toMatch(/guided year-over-year pace 17\.17% \(guided quarter over the quarter ending 2025-06-30/);
+  });
+
+  it("scores the fourth-quarter outlook against the quarter that reported it", () => {
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
+    const q4Row = bundle.statements.incomeQuarterly.value.data.rows.find((r) => r.date === "2025-12-31")!;
+    q4Row.revenue = 213_386e6;
+    const q3 = buildEarningsReleaseRecord({ filing: filing("0001018724-25-000121", "2025-10-30"), releaseUrl: "https://www.sec.gov/q3", commentaryUrl: null, releaseText: Q3_2025, commentaryText: null, includeNarrative: false });
+    const q4 = buildEarningsReleaseRecord({ filing: filing("0001018724-26-000002", "2026-02-05"), releaseUrl: "https://www.sec.gov/q4", commentaryUrl: null, releaseText: Q4_2025, commentaryText: null, includeNarrative: false });
+    bundle.edgar.currentReports = { ok: true, value: { data: { version: CURRENT_REPORTS_VERSION, releases: [q4, q3], events: [], notes: [] },
+      asOf: "2026-02-05", source: "edgar", endpoint: "fixture", fetchedAt: "2026-10-15T00:00:00.000Z" } };
+    // Before: the Q4 outlook was labelled Q4 FY2024 and no check was made.
+    expect(buildFilingDisclosures(bundle)!.guidanceChecks.find((c) => c.metric === "revenue")).toMatchObject({
+      period: "Q4 FY2025", periodEnd: "2025-12-31", guidedLow: 206e9, guidedHigh: 213e9, actual: 213_386e6, position: "above",
+    });
+  });
+});

@@ -430,9 +430,13 @@ first available of three sources:
    (`DcfAssumptionInputs.guidance`, from the 8-K earnings release). The guided
    quarter is annualized (× 4) and carried 4.5 months, from the guided
    quarter's midpoint to the year-one window's midpoint, at the **guided
-   sequential pace**: guided quarter over the latest reported quarter,
-   annualized. D-58 carried it at the clamped near-term rate, a statement about
-   history rather than about the guided trajectory. Guidance must end 80–100
+   year-over-year pace**: guided quarter over the same fiscal quarter a year
+   earlier (350–380 days before it, established in the model currency). Without
+   that quarter it carries at the **guided sequential pace**: guided quarter
+   over the latest reported quarter, annualized, which also carries the season
+   (see "AMZN audit fixes (October 20, 2026)"). D-58 carried it at the clamped
+   near-term rate, a statement about history rather than about the guided
+   trajectory. Guidance must end 80–100
    days after the TTM and be published after it. A guided operating margin, if
    present, sets the year-one margin; a guided GAAP tax rate sets the year-one
    tax rate.
@@ -449,8 +453,8 @@ the anchor falls back to the pre-D-58 rule: TTM revenue grown one year at the
 near-term growth rate.
 
 **A broken-input guard bounds year-one revenue relative to the run-rate.** Its
-range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided
-sequential pace and the latest quarter's year-over-year growth. It catches a
+range is [−10%, +25%], widened (D-60) to the evidenced pace: the guided pace
+the anchor uses and the latest quarter's year-over-year growth. It catches a
 mis-scaled estimate without overruling the issuer's own reported trajectory.
 Without a run-rate it is measured against the TTM. When it binds, the anchor
 row prints both values.
@@ -2512,3 +2516,30 @@ This treatment is an owner decision (D-98). The bridge table prints the line as
 "Less estimated tax on non-operating investments (21% marginal rate, zero tax
 basis assumed)". The scenario assumptions and the DCF notes state the amount
 and the basis.
+
+**Guided quarters: the year a release names, and the pace year one carries.**
+Amazon's releases name the year-ago quarter in their comparisons ("compared
+with $167.7 billion in second quarter 2025", "to grow between 9% and 12%
+compared with third quarter 2025") and name no other year in those sentences.
+The release parser took the first quarter-and-year phrase it found, so both
+the quarter a release reported and the quarter it guided were labelled a year
+early: the Q3 2026 outlook read "Q3 FY2025". The two mistakes cancelled in the
+check that the outlook lies ahead, but the outlook-against-actual comparison
+matches the guided quarter to the release that reported it, so the Q4 2025
+outlook ($206.0B to $213.0B, actual $213.4B) was never scored. A quarter-and-year
+phrase that follows a comparison word in its own clause ("compared with", "versus",
+"vs.", "relative to", "against", "from") is now skipped when a guidance
+sentence or block is labelled. The reported quarter is read from the phrase
+that names the same quarter as the "quarter ended" sentence; when the only
+such phrase is a comparison base, the year after it is taken. On Amazon's five
+releases from July 2025 to July 2026 every reported and guided quarter now
+carries its own year, and the three prior quarters' outlooks are all scored.
+
+Year one then carried the guided quarter at its sequential pace: Q3 2026
+guidance of $199.5B over Q2's $200.6B, annualized, is −2.2% a year, though
+Amazon guided +9% to +12% over Q3 2025. Q3 is below Q2 every year, so the
+sequential pace read the season as a slowdown. Guidance × 4 now carries at the
+guided year-over-year pace, the guided quarter over the same quarter a year
+earlier: $199.5B over $180.2B, +10.7%. That puts year one at about $829B
+instead of $791B. The sequential pace is used only when the statements lack
+that quarter in the model currency.

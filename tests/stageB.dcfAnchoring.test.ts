@@ -182,3 +182,42 @@ describe("analyst estimates refused by a rate limit", () => {
     expect(entry?.reason).not.toMatch(/rate limit/);
   });
 });
+
+/**
+ * AMZN audit 2026-10-20, finding 3: year one carried the guided quarter at its
+ * SEQUENTIAL pace — Q3 2026 guidance $199.5B over Q2's $200.6B, annualized,
+ * −2.2% a year — though Amazon guided +9% to +12% over Q3 2025. Q3 is below Q2
+ * every year (the season), so the sequential pace understated the outlook.
+ * Year one now carries at the guided year-over-year pace. Inputs from Amazon's
+ * 10-Q/10-K quarters and its 2026-07-30 release ($B).
+ */
+describe("guided quarter carried at its year-over-year pace", () => {
+  const amzn = (quarterRevenue: DcfAssumptionInputs["quarterRevenue"]) => nvda({
+    incomeTtm: { date: "2026-06-30", basis: "ttm", revenue: 775.7 * B, operatingIncome: 0.11 * 775.7 * B, incomeBeforeTax: 90 * B, incomeTaxExpense: 15 * B },
+    balance: { date: "2026-06-30", basis: "quarter", totalDebt: 60 * B, totalStockholdersEquity: 380 * B, cashAndShortTermInvestments: 90 * B },
+    marketCap: 2.4e12,
+    quarterRevenue,
+    guidance: { revenue: 199.5 * B, revenueLow: 197 * B, revenueHigh: 202 * B, periodEnd: "2026-09-30", asOf: "2026-07-30", source: "8-K EX-99.1" },
+  });
+  const latest = { date: "2026-06-30", revenue: 200.6 * B };
+  const yearAgo = { date: "2025-06-30", revenue: 167.7 * B };
+  const yearOne = (inputs: DcfAssumptionInputs) => 775.7 * B * (1 + buildDcfAssumptions(inputs).assumptions!.growthPath.value[0] / 100);
+
+  it("carries guidance × 4 at the guided quarter's growth over the same quarter a year earlier", () => {
+    const inputs = amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-09-30", revenue: 180.2 * B } });
+    const anchor = buildDcfAssumptions(inputs).assumptions!.revenueAnchor!;
+    expect(anchor.source).toBe("guidance");
+    // 199.5 / 180.2 − 1 = 10.71%; 798B × 1.1071^0.375 = 829.0B. Before: the
+    // sequential −2.18% gave 798B × 0.9782^0.375 = 791.4B.
+    expect(anchor.evidence!.guidedYoyPct).toBeCloseTo(10.71, 2);
+    expect(anchor.evidence!.guidedPacePct).toBeCloseTo(-2.18, 2);
+    expect(yearOne(inputs)).toBeCloseTo(829.04 * B, -9);
+    expect(anchor.basis).toMatch(/guided year-over-year pace 10\.71%/);
+  });
+
+  it("falls back to the sequential pace without a year-ago quarter in the same currency and calendar", () => {
+    expect(yearOne(amzn({ latest, yearAgo }))).toBeCloseTo(791.4 * B, -9);
+    // A row 457 days before the guided quarter is not its year-ago quarter.
+    expect(yearOne(amzn({ latest, yearAgo, guidedYearAgo: { date: "2025-06-30", revenue: 167.7 * B } }))).toBeCloseTo(791.4 * B, -9);
+  });
+});

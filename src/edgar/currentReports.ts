@@ -112,11 +112,35 @@ function fiscalPeriod(fiscalYear: number, fiscalQuarter: 1 | 2 | 3 | 4 | null): 
   return { label: fiscalQuarter === null ? `FY${fiscalYear}` : `Q${fiscalQuarter} FY${fiscalYear}`, fiscalYear, fiscalQuarter };
 }
 
-/** "third quarter of fiscal 2027", "Q3 FY27", "fourth quarter of 2026". */
+/**
+ * AMZN audit 2026-10-20: a period named as the base of a comparison ("compared
+ * with $167.7 billion in second quarter 2025", "to grow between 9% and 12%
+ * compared with third quarter 2025") is the year-ago quarter, never the one a
+ * release reports or guides. Amazon's releases name no other year in those
+ * sentences, so the base year labelled both its reported and its guided quarter.
+ */
+const COMPARISON_CUE = /\b(?:compared (?:with|to)|versus|vs\.|relative to|against|from)\s/i;
+
+/** Whether the phrase at `index` follows a comparison cue in its own clause. */
+function comparisonBase(text: string, index: number): boolean {
+  const before = text.slice(Math.max(0, index - 80), index);
+  const clause = before.split(/[;•\n]|\.\s/).at(-1) ?? before;
+  return COMPARISON_CUE.test(clause);
+}
+
+/** The first match of a global `pattern` that is not a comparison base. */
+function firstNonComparison(pattern: RegExp, text: string): RegExpExecArray | null {
+  for (const m of text.matchAll(pattern)) {
+    if (!comparisonBase(text, m.index)) return m as RegExpExecArray;
+  }
+  return null;
+}
+
+/** "third quarter of fiscal 2027", "Q3 FY27", "fourth quarter of 2026"; a comparison base is skipped. */
 export function quarterPhrase(text: string): FiscalPeriod | null {
-  const words = /\b(first|second|third|fourth)[ -]quarter(?: of)?(?: (?:fiscal|fiscal year|FY))? ?'?(\d{4})\b/i.exec(text);
+  const words = firstNonComparison(/\b(first|second|third|fourth)[ -]quarter(?: of)?(?: (?:fiscal|fiscal year|FY))? ?'?(\d{4})\b/gi, text);
   if (words) return fiscalPeriod(Number(words[2]), ORDINAL_QUARTER[words[1]!.toLowerCase()]!);
-  const short = /\bQ([1-4])\s?(?:FY|fiscal )?'?(\d{4}|\d{2})\b/i.exec(text);
+  const short = firstNonComparison(/\bQ([1-4])\s?(?:FY|fiscal )?'?(\d{4}|\d{2})\b/gi, text);
   if (short) {
     const year = short[2]!.length === 2 ? 2000 + Number(short[2]) : Number(short[2]);
     return fiscalPeriod(year, Number(short[1]) as 1 | 2 | 3 | 4);
@@ -125,7 +149,7 @@ export function quarterPhrase(text: string): FiscalPeriod | null {
 }
 
 function fullYearPhrase(text: string): FiscalPeriod | null {
-  const m = /\bfull[ -](?:fiscal )?year(?: of)?(?: fiscal)?(?: year)? (\d{4})\b|\bfiscal (?:year )?(\d{4}) full[ -]year\b/i.exec(text);
+  const m = firstNonComparison(/\bfull[ -](?:fiscal )?year(?: of)?(?: fiscal)?(?: year)? (\d{4})\b|\bfiscal (?:year )?(\d{4}) full[ -]year\b/gi, text);
   return m ? fiscalPeriod(Number(m[1] ?? m[2]), null) : null;
 }
 
@@ -329,10 +353,21 @@ export interface ReportedPeriod {
 
 export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const text = normalizeFilingText(rawText).slice(0, 6_000);
-  const title = /\b(First|Second|Third|Fourth) Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/i.exec(text);
-  const fiscal = title ? fiscalPeriod(Number(title[2]), ORDINAL_QUARTER[title[1]!.toLowerCase()]!) : null;
-  const ended = /\bquarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/i.exec(text);
-  return { fiscal, periodEnd: ended ? isoFromMonthDate(ended[1]!) : null };
+  const ended = /\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/i.exec(text);
+  const titles = [...text.matchAll(/\b(First|Second|Third|Fourth) Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
+    .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index) }));
+  // AMZN audit 2026-10-20: the first title phrase was taken, and Amazon's
+  // first is the year-ago base ("compared with $167.7 billion in second
+  // quarter 2025"), its next the guided quarter's heading. When the "quarter
+  // ended" sentence names its quarter, only a phrase for that quarter counts:
+  // one the release reports, else a year-ago base read one year on.
+  const reportedQuarter = ended?.[1] ? ORDINAL_QUARTER[ended[1].toLowerCase()]! : null;
+  const own = titles.find((t) => !t.base && (reportedQuarter === null || t.quarter === reportedQuarter));
+  const yearAgo = reportedQuarter === null ? undefined : titles.find((t) => t.base && t.quarter === reportedQuarter);
+  const fiscal = own !== undefined ? fiscalPeriod(own.year, own.quarter)
+    : yearAgo !== undefined ? fiscalPeriod(yearAgo.year + 1, yearAgo.quarter)
+    : null;
+  return { fiscal, periodEnd: ended ? isoFromMonthDate(ended[2]!) : null };
 }
 
 export interface FreeCashFlowFact {

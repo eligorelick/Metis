@@ -3130,6 +3130,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     return days >= 350 && days <= 380;
   });
   const yearAgoDate = yearAgoQuarter === undefined ? null : isoDay(yearAgoQuarter.date);
+  // AMZN audit 2026-10-20: the same fiscal quarter a year before the guided
+  // quarter, so the guidance carries at its year-over-year pace, under the
+  // same currency rule.
+  const guidance = dcfGuidance(bundle, ctx.modelCurrency);
+  const guidedYearAgoQuarter = guidance === null ? undefined : incomeQuarterly.find((r) => {
+    const days = (Date.parse(guidance.periodEnd) - Date.parse(String(r.date))) / SPREAD_DAYS;
+    return days >= 350 && days <= 380;
+  });
+  const guidedYearAgoDate = guidedYearAgoQuarter === undefined ? null : isoDay(guidedYearAgoQuarter.date);
   const dcfQuarterRevenue: DcfQuarterRevenue | null = ttmInc && latestQuarter
     ? {
         latest: { date: ttmInc.date, revenue: num(latestQuarter.revenue) },
@@ -3137,6 +3146,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           establishedCurrencyOn([yearAgoQuarter], yearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
           ? { date: yearAgoDate, revenue: num(yearAgoQuarter.revenue) }
           : null,
+        ...(guidedYearAgoQuarter !== undefined && guidedYearAgoDate !== null &&
+          establishedCurrencyOn([guidedYearAgoQuarter], guidedYearAgoDate, ctx.currencyEvidence) === ctx.modelCurrency
+          ? { guidedYearAgo: { date: guidedYearAgoDate, revenue: num(guidedYearAgoQuarter.revenue) } }
+          : {}),
       }
     : null;
 
@@ -3239,7 +3252,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // anchor is the 8-K earnings release's next-quarter revenue outlook,
           // used only in the model currency and when its quarter end is known.
           quarterRevenue: dcfQuarterRevenue,
-          guidance: dcfGuidance(bundle, ctx.modelCurrency),
+          guidance,
           domicileCountry: str(profile?.country),
           // D-65: the fiscal year's reported revenue so far, and the quote date the value is stated at.
           fiscalYearToDate,
