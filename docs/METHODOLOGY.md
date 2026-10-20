@@ -1050,7 +1050,9 @@ The P/E is not ranked when non-operating income is more than 25% of pre-tax
 income: the earnings then rest on gains, not operations. `peOwnHistoryRank`
 then ranks the next multiple in its list (EV/EBITDA, then Price/FCF), the score
 driver is labelled with the multiple it ranks and says why, and Key data
-caveats the headline P/E (see "AMZN audit fixes (October 20, 2026)").
+caveats the headline P/E. The multiples table shows no own-history rank for
+that P/E, and its history basis says it is not ranked (see "AMZN audit fixes
+(October 20, 2026)").
 
 Fewer than 8 quarters produces no rank at all. Fewer than 20 (a full five
 years) flags the window as low-sample, because at those sizes the 5th and 95th
@@ -2269,7 +2271,9 @@ claims only. A pass that ran on a plan allowance (ChatGPT or Gemini CLI) sends
 the supplied evidence with no web-search tool. When any pass did, the report
 header and run details carry an Evidence line, for example "bull, bear and judge
 used only the supplied evidence (payload-only; no web search)". It is derived
-from the same execution entries whose per-pass note the audit export prints (see
+from the same execution entries whose per-pass note the audit export prints,
+counting only passes that ran to a usable analysis: a failed attempt a
+data-only report lists, or a model the registry refused, is left out (see
 "AMZN audit fixes (October 20, 2026)").
 
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
@@ -2492,9 +2496,11 @@ vendor balance sheet this way, and nothing asked again. Seven requests now wait
 out the pause once: analyst estimates and the annual and quarterly income
 statement, balance sheet and cash flow. Each waits for the vendor's stated
 pause, or for one rate window (60 seconds) when the vendor named none, and then
-asks again. No request waits more than 90 seconds in total, and a pause longer
-than that is not waited for. A request still refused keeps its rate-limit gap,
-which then says how long it waited. One more warning entry, `fmp.rateLimit`,
+asks again. No request takes more than 90 seconds of wall-clock time in total:
+the clock starts before the first attempt, a pause that would end at the bound
+is not waited for, and the retry is a single attempt that times out when the
+bound ends. A request still refused keeps its rate-limit gap, which then says
+how long it waited; a retry the bound cut off still names the rate limit. One more warning entry, `fmp.rateLimit`,
 names every such member and says the valuation is degraded. When the refused
 member is the analyst estimates, the DCF's `valuation.dcf.analystGrowth` record
 becomes a warning that names the rate limit as the cause, instead of the
@@ -2629,11 +2635,18 @@ months, in both directions:
   never both counted.
 
 Each tag is summed as the fiscal-year fact plus the year to date less the prior
-year to date, from facts filed by the build. A period the filings do not tag
+year to date, from facts filed by the build. An untagged current year to date
 counts as zero, because a one-off is tagged in the filing for the period it fell
-in. The margin basis says "excluding tagged one-off items", and the DCF notes
-name each tag and amount. For Freeport-McMoRan the net $626M ($699M gain less a
-$73M impairment) lowers the margin seed from 26.8% to about 24.3%. The tag list
+in and that filing is the latest. The fiscal year and the prior year to date
+split the year at the window's start, so when one of them carries an amount the
+other must be filed too. Otherwise the tag is withheld: none of it is removed,
+and the DCF notes say which tag was kept and why. Amazon's 10-K tags a $1.3B
+impairment for 2025, $610M of it in the fourth quarter, but its 10-Qs never tag
+the rest, so how much fell inside a June 2026 TTM is unknown and none of it is
+removed. The margin basis says "excluding tagged one-off items" when any item is
+removed, and the DCF notes name each tag and amount. For Freeport-McMoRan the
+$699M gain lowers the margin seed from 26.8% to about 24.1%; its 2025 impairment
+of $73M has no filed half-year amount and stays in. The tag list
 is an owner decision (D-98). Impairments are assumed to sit inside operating
 income, where US GAAP places them when an operating-income subtotal is shown.
 Restructuring charges are not treated as one-offs.

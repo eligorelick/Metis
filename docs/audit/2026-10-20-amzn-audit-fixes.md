@@ -12,10 +12,23 @@ This change made no provider or model calls, no paid runs, no deployment and no 
 | 2 Investment stakes | AMZN 1 | Fixed in part (`dc91a95`). The SEC statements now fill long-term investments from the filed non-current investment tags, so stakes no longer count as zero or sit inside the operating capital sales-to-capital divides by. The bridge subtracts an estimated tax on non-operating investments. For Amazon at June 30, 2026 the line is $122.7B. Its $97.9B of Anthropic notes are tagged only in the undivided available-for-sale total and still count as zero: see the departures below. | `tests/edgar.statements.test.ts`, `tests/currency.dataOnlyCashFlow.test.ts` |
 | 3 Guided quarters | AMZN 3, 14 | Fixed (`fbca9f7`; the review fix narrowed the rule to the period a comparison word governs). A quarter named directly after a comparison word ("compared with ... second quarter 2025") no longer labels the reported or the guided quarter. On Amazon's five releases from July 2025 to July 2026 every label now carries its own year, where four of five were a year early, and the Q4 2025 outlook is scored (three beats of three). Guided revenue carries at the guided year-over-year pace: Amazon's year one is about $829B instead of $791B. | `tests/currentReports.test.ts`, `tests/stageB.dcfAnchoring.test.ts` |
 | 4 Improving margins | AMZN 4 | Fixed (`eb5c5b1`). An improving margin fades up to the lower of half its dated trend carried five years and the scenario margin ceiling. The margin basis states the value with the margin held flat. Amazon's margin fades from 12.08% to 14.03%, the ceiling. | `tests/stageB.dcfAnchoring.test.ts`, `tests/stageB.ttm.compute.test.ts` |
-| 5 One-off gains | AMZN 5, recommendation 15 | Fixed (`43d41d4`). The P/E is not ranked against its own history when non-operating income exceeds 25% of positive pre-tax income, and Key data caveats it. Tagged one-off items inside operating income leave the DCF margin seed, gains and charges alike. On Freeport-McMoRan's public filings the seed falls from 26.76% to 24.34%. | `tests/stageB.unusualItems.test.ts`, `tests/stageB.grading.test.ts`, `tests/lease.numericConsumers.test.ts`, `tests/report.multipleBasis.test.ts`, `tests/audit.issuerPipeline.test.ts` |
+| 5 One-off gains | AMZN 5, recommendation 15 | Fixed (`43d41d4`). The P/E is not ranked against its own history when non-operating income exceeds 25% of positive pre-tax income, and Key data caveats it. Tagged one-off items inside operating income leave the DCF margin seed, gains and charges alike. On Freeport-McMoRan's public filings the seed falls from 26.76% to 24.34%, and to 24.06% after the review fix below keeps its $73M impairment in. | `tests/stageB.unusualItems.test.ts`, `tests/stageB.grading.test.ts`, `tests/lease.numericConsumers.test.ts`, `tests/report.multipleBasis.test.ts`, `tests/audit.issuerPipeline.test.ts` |
 | 6 Report disclosure | AMZN 12, 17, recommendation 7 | Fixed (`5d4c76e`). Passes that used only the supplied evidence, with no web search, add an Evidence line to the report header and run details, the print header and the live view. The header's contradicted count includes cited figures the verification log marks contradicted, and names the split. | `tests/report.runDisclosure.test.ts` |
 
 Every new test failed before its fix, except one regression guard in fix 3: the sequential-pace fallback, whose behaviour did not change.
+
+## Review fixes (Codex review of PR #41)
+
+The automated Codex review of the pull request at `b25c9c0` raised one P1 and three P2 findings. Each was confirmed against the code, and each fix began with a test that failed because of the problem.
+
+| Finding | Disposition | Tests |
+|---|---|---|
+| P1 One-off items summed missing periods as zero | Fixed (`c789f63`), narrower than suggested. Requiring all three periods would also drop FCX's 2026 insurance gain, whose fiscal 2025 has no fact because the gain had not happened. The rule now needs the prior year to date only when the fiscal year carries an amount, and the reverse; otherwise the tag is withheld and the DCF notes name it. Amazon's FY2025 $1.3B impairment ($610M in Q4, the rest untagged by quarter) is now kept in the margin seed: 12.25% becomes 12.08%. FCX keeps its $73M 2025 impairment: 24.34% becomes 24.06%. | `tests/stageB.unusualItems.test.ts` |
+| P2 P/E rank shown beside the "not ranked" caveat | Fixed (`dc8f79b`). The report row carries no rank, sample size or detail for that multiple, and its history basis says why. | `tests/report.multipleBasis.test.ts` |
+| P2 The 90-second bound capped only the wait | Fixed (`4c5c356`). The clock starts before the first attempt; the retry is one attempt timed out when the bound ends; a retry the bound cut off still names the rate limit; a cancelled job still stops the run. | `tests/fmp.quota.test.ts` |
+| P2 Failed passes counted in the Evidence line | Fixed (`748afcf`). Only passes that ran to a usable analysis count: not a failed attempt a data-only report lists, nor a model the registry refused. | `tests/report.runDisclosure.test.ts` |
+
+The owner accepted the choices below as recorded (D-98).
 
 ## Departures from the audit text
 
@@ -33,7 +46,7 @@ The stored AMZN inputs never fetched the analyst consensus, so the replay cannot
 
 The new parser and statement tests use public SEC EX-99.1 text and companyfacts shapes ([DATA-RIGHTS](../DATA-RIGHTS.md)). No vendor data is committed.
 
-## Choices for the owner to confirm
+## Choices the owner confirmed
 
 - **The rate-limit bound.** A request waits at most 90 seconds, or 60 seconds when the vendor names no pause. A request still refused publishes a degraded valuation rather than stopping the run.
 - **The investment tax.** It applies the 21% marginal-rate floor to the whole carrying value, which assumes a zero tax basis, and it covers marketable equity securities as well as long-term investments. This is the most the tax could be.
