@@ -166,11 +166,19 @@ const NON_LEGAL_TRIAL = /\b(?:clinical|Phase\s*(?:[0-9]|I{1,3}V?|IV)\S*|pivotal|
 // ("regulators could bring actions", "proceedings may seek structural
 // relief") states a risk, whichever clause would otherwise keep it.
 const HYPOTHETICAL_CLAIM = /^\s*(?:if|should)\b|\b(?:may|could|might|would)\s+(?:\w+\s+){0,2}?(?:be|become|face|incur|result|bring|seek|file|commence|impose|levy|allege|sue|pursue|initiate)\b/i;
-const materialProceeding = (passage: string): boolean => !HYPOTHETICAL_CLAIM.test(passage) && (
-  GOVERNMENT_CASE.test(passage)
-  || ALLEGED_ANTITRUST.test(passage)
-  || (MATERIAL_RELIEF.test(passage) && LEGAL_CONTEXT.test(passage))
-  || (SCHEDULED_TRIAL.test(passage) && LEGAL_CONTEXT.test(passage) && !NON_LEGAL_TRIAL.test(passage)));
+// Codex re-review of PR #42: the modal guard reads only the words up to and
+// including the matched claim, so "the FTC filed a case ..., which could
+// result in structural relief" stays an actual case while "regulators could
+// bring actions alleging ..." does not.
+const actualClaim = (pattern: RegExp, passage: string): boolean => {
+  const match = pattern.exec(passage);
+  return match !== null && !HYPOTHETICAL_CLAIM.test(passage.slice(0, match.index + match[0].length));
+};
+const materialProceeding = (passage: string): boolean =>
+  actualClaim(GOVERNMENT_CASE, passage)
+  || actualClaim(ALLEGED_ANTITRUST, passage)
+  || (actualClaim(MATERIAL_RELIEF, passage) && LEGAL_CONTEXT.test(passage))
+  || (actualClaim(SCHEDULED_TRIAL, passage) && LEGAL_CONTEXT.test(passage) && !NON_LEGAL_TRIAL.test(passage));
 const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage) || materialProceeding(passage);
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },

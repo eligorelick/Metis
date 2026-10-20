@@ -146,6 +146,15 @@ describe("bounded material filing evidence", () => {
     expect(selected.text.length).toBeLessThanOrEqual(budget);
     for (const span of selected.spans) expect(original.slice(span.start, span.end)).toBe(span.text);
   });
+  // Codex re-review of PR #42: a real case keeps its place when a later clause
+  // only describes a possible consequence.
+  it("keeps an actual government case whose sentence goes on to a possible consequence", () => {
+    const sentence = "In 2023 the FTC filed a case alleging monopolization, which could result in structural relief.";
+    for (const profile of ["notes", "risk"] as const) {
+      const original = [...Array.from({ length: 300 }, (_, i) => `Collaboration revenue of $ ${i + 3}.1 billion and milestone payments of $ 0.${i % 9} billion were recognized under license agreements.`), sentence].join(" ");
+      expect(selectMaterialEvidence(original, 4_000, profile).text).toContain(sentence);
+    }
+  });
   it("does not read a clinical trial's schedule as a pending case", () => {
     const original = [...Array.from({ length: 300 }, (_, i) => `Collaboration revenue of $ ${i + 3}.1 billion and milestone payments of $ 0.${i % 9} billion were recognized under license agreements.`),
       "The Phase 3 trial is scheduled to begin in February 2027."].join(" ");
