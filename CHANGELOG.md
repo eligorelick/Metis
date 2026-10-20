@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.34.0** and
-payload **1.39.0** (AMZN audit fixes, 2026-10-20). The checked-in
+Current source declares application **0.1.0**, report spec **1.35.0** and
+payload **1.40.0** (deferred AMZN audit fixes, 2026-10-20). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,22 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed deferred AMZN audit fixes (2026-10-20)
+
+- Score SBC at its band floor when it exceeds all free cash flow, instead of dropping the signal (AMZN finding 8).
+- Tax a pre-tax-loss year's operating income at the marginal-rate floor in ROIC, so the moat's ROIC floor keeps the year, and name any year still missing (AMZN finding 9).
+- State the buyback-timing sign in its label, grade timing only when a priced year is among the last three, and date the payload figure by that year (AMZN finding 15).
+- Grade a reverse DCF whose price lies beyond the growth range at that end of the range, and point its thesis triggers away from the base case (AMZN finding 10).
+- Keep a scenario's correlated margin shift from moving against the scenario (AMZN finding 11).
+- Calendarize consensus by the issuer's own quarterly revenue shape when its last complete fiscal year supplies one (AMZN finding 19).
+- Put net debt/EBITDA on the enterprise value's lease basis (AMZN finding 20b).
+- Nest a segment row only where its sum holds in every jointly tagged quarter (AMZN finding 13).
+- Say what a failed Piotroski signal's figures did, label the accrual scaler correctly, read the remaining repurchase authorization from the 10-Q notes, keep withheld officer assessments out from under "not assessed", and state the EV bridge once without the environment-variable name (AMZN finding 20).
+- Keep remaining performance obligations, government antitrust cases, their relief, regulators' fines and dated trials in the filing evidence the passes see (AMZN findings 6 and 16).
+- Count peers the data provider never served apart from those the screen excluded (AMZN finding 7).
+- Ask the judge for a stance on the price, and state and require reconciling a material gap between the consensus target and the model's value (AMZN finding 18).
+- Advance report/payload/Stage B conventions to 1.35.0/1.40.0/ACCOUNTING_EVIDENCE_17. Stored reports remain immutable. See the [disposition record](docs/audit/2026-10-20-amzn-deferred-fixes.md) and D-99.
 
 ## Proposed AMZN audit fixes (2026-10-20)
 

@@ -604,7 +604,21 @@ describe("payload determinism + provenance", () => {
     // so no bridge line or value moves; remove only that leaf.
     expect(precedingFinance.valuation.assumptions.investmentTax.ratePct).toBe(21);
     delete precedingFinance.valuation.assumptions.investmentTax;
-    expect(fnv1a32(JSON.stringify(precedingFinance))).toBe("666a1ab0");
+    // D-99 (the deferred AMZN audit fixes) changes three explanatory leaves of
+    // this fixture's finance block and no number: the scenario margin's
+    // direction clause (finding 11) and the even-spread reason of the
+    // consensus calendarization (finding 19). Each exact occurrence is
+    // asserted, then the preceding wording is restored for the whole pin.
+    const d99Restorations: [string, string, number][] = [
+      ["observed growth/margin correlation (0.19), applied only when it moves with the scenario.", "observed growth/margin correlation (0.19).", 4],
+      ["(0.19), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.", "(0.19), not assumed perfectly correlated.", 1],
+      ["fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it;", "fiscal-year estimates weighted by day overlap;", 3],
+    ];
+    const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
+      typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
+    const financeText = JSON.stringify(precedingFinance);
+    for (const [now, , count] of d99Restorations) expect(financeText.split(now).length - 1).toBe(count);
+    expect(fnv1a32(JSON.stringify(restoreD99(precedingFinance)))).toBe("666a1ab0");
     // D-89 adds only declared fraction-scale metadata to this registry.
     // Removing that one optional property must reproduce the preceding whole
     // registry, preserving every value, unit, identity, date and order.
@@ -616,7 +630,15 @@ describe("payload determinism + provenance", () => {
     });
     expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     // Restoring only the preceding version must reproduce its whole prompt.
-    expect(payloadFingerprint({ ...payload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
+    // D-99 adds one payload note, the consensus-target reconciliation (AMZN
+    // audit finding 18), and carries the reworded finance notes above.
+    // Dropping that note and restoring the wording reproduces the preceding
+    // version's whole prompt.
+    const isTargetNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Consensus target vs our value:");
+    expect(JSON.stringify(payload).split("Consensus target vs our value:").length - 1).toBe(1);
+    const precedingPayload = JSON.parse(JSON.stringify(restoreD99(payload), (_key, leaf: unknown) =>
+      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item)) : leaf)) as typeof payload;
+    expect(payloadFingerprint({ ...precedingPayload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -913,8 +935,12 @@ describe("payload determinism + provenance", () => {
       // registries and every numeric pin stay exact.
       // D-98: the versioned header moves with the payload version; the finance
       // hash change for the investment-tax leaf is pinned and explained below.
-      fingerprint: "1.39.0:05faa11a",
-      promptBytes: 139_657,
+      // D-99 (+832 prompt bytes): the consensus-target reconciliation note
+      // (AMZN audit finding 18) and the reworded scenario and calendarization
+      // notes; dropping the one and restoring the others reproduces the
+      // preceding prompt above, and no registry or citation record moves.
+      fingerprint: "1.40.0:670cd866",
+      promptBytes: 140_489,
       provenanceCount: 531,
       provenanceHash: "f57574b3",
       provenanceIdsHash: "623dfb46",
@@ -944,7 +970,9 @@ describe("payload determinism + provenance", () => {
       // AMZN audit 2026-10-20 (D-98): only the new assumptions.investmentTax
       // leaf (removed above for the preceding pin) moves financeHash; this
       // fixture has no investments, so no bridge value, byte or record moves.
-      financeHash: "2b159805",
+      // D-99: only the three reworded leaves restored above (scenario margin
+      // direction, even-spread calendarization reason) move financeHash.
+      financeHash: "bf34aac3",
     });
   });
 
@@ -1068,7 +1096,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.39.0");
+    expect(first.payloadVersion).toBe("1.40.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2597,7 +2625,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.34.0");
+    expect(report.meta.specVersion).toBe("1.35.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

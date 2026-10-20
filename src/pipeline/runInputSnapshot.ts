@@ -16,7 +16,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // Separate AFFO comparability and unresolved company/security-model admission.
 // D-97: instrument-class financing debt, debt plausibility, operating-lease portion scope and zero/immaterial NCI.
 // D-98: SEC-statement investment stakes and their tax, YoY guided pace, improving-margin fade, one-off margin seed and gain-inflated P/E.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_16" as const;
+// D-99: one-off split withholding, SBC beyond negative FCF, loss-year ROIC at the marginal-rate floor, recent buyback timing, bounded reverse DCF, scenario margin direction, seasonal consensus calendarization and lease-consistent leverage.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_17" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }
