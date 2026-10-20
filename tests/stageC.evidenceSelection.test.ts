@@ -129,6 +129,29 @@ describe("bounded material filing evidence", () => {
     expect(selected.text).toMatch(/Approximately 42 % of revenue from contracts greater than one year in length will be recognized over the next twelve months/);
   });
 
+  // AMZN audit 2026-10-20 finding 16: the antitrust cases brought by the FTC
+  // and state attorneys general (public text, Amazon.com 10-Q for the quarter
+  // ended June 30, 2026) named no notes family and no pending-case clause, so
+  // only an orphaned "one class action has been certified" reached the passes.
+  const antitrust = "Since March 2020, private litigants, state Attorneys General, and the Federal Trade Commission have filed cases in the U.S., Canada, and the United Kingdom alleging, among other things: price fixing arrangements between each of Amazon and its vendors and Amazon and its third-party sellers; abuse of dominance, monopolization, and attempted monopolization; and consumer protection and unjust enrichment claims, in violation of federal and state antitrust, state consumer protection, and Canadian and U.K. antitrust laws.";
+  const relief = "These complaints seek billions of dollars of alleged damages, treble damages, punitive damages, injunctive relief, structural relief, civil penalties, attorneys’ fees, and costs.";
+  // Synthetic: a dated trial, as legal notes state one.
+  const trial = "The trial in the Federal Trade Commission’s case is scheduled to begin in February 2027.";
+  const patentFiller = (i: number) => `In March 202${i % 6}, Example Patents ${i} LLC filed a complaint alleging that a device infringes U.S. Patent No. ${7_000_000 + i}; the complaint sought an unspecified amount of damages, enhanced damages, attorneys’ fees, costs, and interest of $ ${i + 1}.2 million.`;
+  it.each([["notes", 14_000], ["risk", 14_000]] as const)("keeps government antitrust cases, the relief they seek and a dated trial in the %s reading", (profile, budget) => {
+    const original = [...Array.from({ length: 200 }, (_, i) => patentFiller(i)), antitrust, relief, trial,
+      ...Array.from({ length: 200 }, (_, i) => `Litigation and other contingencies of $ ${i + 2}.4 billion, $ 1.1 billion and $ 0.${i % 9} billion were accrued for tax matters and commitments.`)].join(" ");
+    const selected = selectMaterialEvidence(original, budget, profile);
+    for (const sentence of [antitrust, relief, trial]) expect(selected.text).toContain(sentence);
+    expect(selected.text.length).toBeLessThanOrEqual(budget);
+    for (const span of selected.spans) expect(original.slice(span.start, span.end)).toBe(span.text);
+  });
+  it("does not read a clinical trial's schedule as a pending case", () => {
+    const original = [...Array.from({ length: 300 }, (_, i) => `Collaboration revenue of $ ${i + 3}.1 billion and milestone payments of $ 0.${i % 9} billion were recognized under license agreements.`),
+      "The Phase 3 trial is scheduled to begin in February 2027."].join(" ");
+    expect(selectMaterialEvidence(original, 4_000, "notes").text).not.toContain("Phase 3 trial");
+  });
+
   it.each([0, 1, 30, 210, 500])("does not invent retained evidence in a %i-character budget", (budget) => {
     const original = longMdna();
     const selected = selectMaterialEvidence(original, budget);

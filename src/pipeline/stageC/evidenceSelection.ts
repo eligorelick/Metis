@@ -132,7 +132,25 @@ const DATED_LEAD = /^\s*(?:Item \d\.\d{2} \([^)]*\):\s*)?(?:\([a-z]\)\s*)?On (?:
 const CONTROL_DISCLOSURE = /\b(?:(?:we|Company)\s+(?:(?:have|had|has)\s+)?(?:previously\s+)?identified material weaknesses?|material weaknesses? identified pertained|material weaknesses? (?:continued|continue) to exist|(?:deficiencies|material weaknesses?)\b[^.]{0,160}\b(?:did not|have not|has not)\b[^.]{0,100}\bmaterial misstatement|insufficient segregation of duties|lack of (?:a )?sufficient\b[^.]{0,120}\b(?:qualified|expertise))\b/i;
 const HYPOTHETICAL_CONTROL = /^\s*(?:if|should|in (?:the )?future)\b|\b(?:may|could|might)\s+(?:identify|develop)\b/i;
 const LITIGATION_DISCLOSURE = /\b(?:class action\b[^.]{0,180}|(?:actions?|complaints?) (?:were|was|have been) filed|(?:filed|consolidated)\b[^.]{0,120}\b(?:Derivative Actions?|Securities Action)|claims\b[^.]{0,100}\bwithout merit|(?:loss|range of loss)\b[^.]{0,100}\bcannot be reasonably estimated|not accrued any material potential loss)\b/i;
-const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage);
+/**
+ * AMZN audit 2026-10-20 finding 16: the proceedings that can change a thesis.
+ * A case a government brought ("state Attorneys General, and the Federal
+ * Trade Commission have filed cases … alleging … monopolization"), antitrust
+ * claims actually alleged, relief that reaches billions of dollars or the
+ * structure of the business, a regulator's fine, and a dated trial. They
+ * named no family and no clause above, so only an orphaned "one class action
+ * has been certified" reached the passes.
+ */
+const AGENCY = String.raw`(?:Federal Trade Commission|FTC|Department of Justice|DOJ|Attorneys? General|European Commission|Competition and Markets Authority|Securities and Exchange Commission|Competition Authority)`;
+const MATERIAL_PROCEEDING = new RegExp([
+  String.raw`\b${AGENCY}\b[^.]{0,120}?\b(?:sued|(?:filed|brought|commenced)\s+(?:(?:a|an|the)\s+)?(?:cases?|complaints?|lawsuits?|suits?|actions?|charges|proceedings?))\b`,
+  String.raw`\b(?:filed|brought|commenced)\s+by\b[^.]{0,120}?\b${AGENCY}\b`,
+  String.raw`\balleg(?:e|es|ed|ing|ations?)\b[^.]{0,200}?\b(?:monopoli[sz](?:ation|e|ed|ing)|antitrust|abuse of (?:a )?dominan(?:ce|t position)|anticompetitive)\b`,
+  String.raw`\bseek(?:s|ing)?\b[^.]{0,80}?\b(?:billions? of dollars|structural relief|divestitures?)\b`,
+  String.raw`\b(?:impos(?:es|ed)|levied)\s+(?:remedial actions and\s+)?(?:a\s+)?fines?\s+of\b`,
+  String.raw`(?<!\b(?:clinical|Phase (?:[1-3]|I{1,3})|pivotal|registrational)\s)\btrials?\b[^.]{0,60}?\b(?:scheduled|set)\s+(?:to\s+(?:begin|start|commence)\s+)?(?:for|in|on)\b`,
+].join("|"), "i");
+const criticalDisclosure = (passage: string): boolean => (CONTROL_DISCLOSURE.test(passage) && !HYPOTHETICAL_CONTROL.test(passage)) || LITIGATION_DISCLOSURE.test(passage) || MATERIAL_PROCEEDING.test(passage);
 const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   financial: { categories: MATERIAL_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
   // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
