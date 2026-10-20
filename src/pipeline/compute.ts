@@ -111,6 +111,7 @@ import {
   type DcfBalanceRow,
   type AnalystEstimateRow,
   type FiscalYearToDate,
+  type RevenueSeasonality,
   type MultiplesFrameworkInputs,
   type MultiplesQuoteInputs,
   type MultiplesIncomeTtm,
@@ -3179,6 +3180,28 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     return { priorFiscalYearEnd, through: ttmInc.date, revenue, quarters: quarters.length };
   })();
 
+  // AMZN audit 2026-10-20, finding 19: the last complete fiscal year's four
+  // reported quarters (the quarter ends inside the 330 days to its year end,
+  // which leaves out the year before's), each in the model currency, give
+  // consensus its seasonal shape; valuation.ts checks they are consecutive
+  // 13/14-week quarters.
+  const revenueSeasonality: RevenueSeasonality | null = (() => {
+    const fiscalYearEnd = isoDay(inc0?.date);
+    if (fiscalYearEnd === null) return null;
+    const quarters = incomeQuarterly
+      .filter((r) => { const d = isoDay(r.date); return d !== null && d <= fiscalYearEnd && (Date.parse(fiscalYearEnd) - Date.parse(d)) / SPREAD_DAYS < 330; })
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (quarters.length !== 4 || new Set(quarters.map((q) => isoDay(q.date))).size !== 4) return null;
+    const rows: RevenueSeasonality["quarters"] = [];
+    for (const q of quarters) {
+      const day = isoDay(q.date) as string;
+      const value = num(q.revenue);
+      if (value === null || value <= 0 || establishedCurrencyOn([q], day, ctx.currencyEvidence) !== ctx.modelCurrency) return null;
+      rows.push({ date: day, revenue: value });
+    }
+    return { fiscalYearEnd, quarters: rows };
+  })();
+
   const rf = riskFreePct(bundle);
   const revenueCagr3y = windowCagr(growth.revenueCagrs, 3);
   const revenueCagr5y = windowCagr(growth.revenueCagrs, 5);
@@ -3264,6 +3287,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           domicileCountry: str(profile?.country),
           // D-65: the fiscal year's reported revenue so far, and the quote date the value is stated at.
           fiscalYearToDate,
+          revenueSeasonality,
           valuationDate: quotePriceObservationDay(quote),
         }
       : null;
