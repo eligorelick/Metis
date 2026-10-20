@@ -582,10 +582,13 @@ describe("public release contract", () => {
       read("tests/edgar.debtNoteCarrying.test.ts"),
         // D-79: thirteen recorded EXPE facts prove a partial subtotal is not total operating expenses.
         read("tests/edgar.operatingExpenseScope.test.ts"),
+      // Independent audit 2026-10-19: five trimmed live-run companyfacts payloads.
+      read("tests/audit.issuerFixtures.test.ts"),
     ].join("\n");
 
-    // D-87 adds only the referenced public cash and carrying-debt fixtures.
-    expect(edgarFixtures).toHaveLength(46);
+    // D-87 adds only the referenced public cash and carrying-debt fixtures;
+    // the 2026-10-19 independent audit adds five issuer companyfacts.
+    expect(edgarFixtures).toHaveLength(51);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
