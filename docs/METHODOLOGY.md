@@ -840,7 +840,10 @@ EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
 NCI is taken as zero only from the filing itself. That happens when the filer
 tags only equity including NCI at that date, its net income attributable to NCI
 for the period ending there is explicitly zero, and its latest earlier NCI
-balance, within about a year, was zero. The row discloses the inference (audit
+balance, within about a year, was zero. One of those zero periods must start
+by the day after that balance, so the zero earnings cover the whole span since
+it; a zero final quarter alone does not show the earlier quarters held none.
+The row discloses the inference (audit
 SNOW-2), and the inferred figure counts as parent equity wherever parent equity
 is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equity bridge is the same identity read backwards: equity
 value = EV − net debt − minority interest − preferred equity + non-operating
@@ -2385,7 +2388,7 @@ The row discloses the substitution. These class figures can include current debt
 
 A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
 
-**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. The year's interest expense is divided by the most debt resolved at any balance date of that year; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains its interest. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
+**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations`). The year's interest expense is divided by the most debt resolved at any balance date of that year; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains its interest. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
 - interest below 0.25% of total assets;
 - resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
 - the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
@@ -2398,7 +2401,9 @@ Sheet aspect. The tagged portion is now kept, disclosed as one maturity, and
 included in total debt. Its provenance names the one maturity, so the existing
 lease-scope rule admits the row only on the lease-excluded basis. That basis
 requires same-filing current and noncurrent financing components that reconcile
-to the total with the disclosed portion. The lease-inclusive basis stays
+to the total with the disclosed portion. A complete finance-lease liability may
+sit in that total too, when it comes from the same filing and reconciles with
+the rest; it stays in debt on the excluded basis. The lease-inclusive basis stays
 unavailable. On that excluded basis:
 - the DCF measures invested capital without the operating portion;
 - net debt/EBITDA states net debt without it, since EBITDA is already after

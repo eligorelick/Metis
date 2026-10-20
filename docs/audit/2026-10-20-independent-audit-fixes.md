@@ -49,6 +49,14 @@ A third Codex pass raised five more points, all fixed with tests. Each change ma
 - **Fiscal-date drift.** Interest was joined to balances by exact date. It now joins within ±5 days, the tolerance `matchByDate` uses. Test: `tests/stageB.debtPlausibility.test.ts`.
 - **Data-only grade interpretation.** The sentence explaining withheld letters named only the half-evidence floor. It now also names the single-signal rule. Test: `tests/stageC.payload.passes.test.ts`.
 
+A fourth Codex pass raised five more points, all fixed with tests:
+
+- **The price-attractiveness summary line.** It printed the valuation band directly, so the HTML view and both exports still showed a letter withheld elsewhere. It now shows "limited evidence" under the same rule. Test: `tests/audit.valuationEvidence.test.ts`.
+- **Debt-recovery info entries.** A successful same-filing debt recovery logs an info entry on the total-debt field, and the historical-EV refusal read it as a withhold. Only non-info entries now refuse. Test: `tests/audit.withheldLeverage.test.ts`.
+- **Zero-NCI earnings span.** A zero final-quarter NCI earnings fact alone admitted the inference for every row at that date, including the annual one. One zero period must now start by the day after the last zero NCI balance. Snowflake's six-month zero from 1 February 2026 meets that, and a three-month zero alone does not. Test: `tests/audit.issuerFixtures.test.ts`.
+- **Finance leases in the plausibility basis.** When long-term debt came from `LongTermDebtAndCapitalLeaseObligations`, the basis added the finance leases a second time, which made the check more lenient. They are no longer added in that case. The combined current tag (overlap case 4b) double counts only the current finance slice, and removing the whole lease would understate the basis, so it is left alone. Test: `tests/stageB.debtPlausibility.test.ts`.
+- **A finance lease on the lease-excluded basis.** A row with a partial operating maturity and a complete finance lease was refused, because the proof accepted only rows without finance leases. A finance lease from the same filing that reconciles with the rest now stays in debt. Test: `tests/lease.numericConsumers.test.ts`.
+
 ## Departures from the recommendation text
 
 - **Item 2: `DebtInstrumentCarryingAmount`.** Item 2 suggests treating a missing `DebtInstrumentCarryingAmount` as unproven. That would withhold debt for every filer that does not tag it. The interest-plausibility check, which the same item recommends, is used instead as the fail-closed guard. A filer missing that tag is still judged against the interest it paid.

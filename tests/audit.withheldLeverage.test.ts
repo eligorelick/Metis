@@ -77,5 +77,8 @@ describe("withheld debt leaves no leverage figure behind (audit O-3)", () => {
     const md = buildMarketData(b, { stageBGaps })!;
     expect(md.enterpriseValue).toBeNull();
     expect(md.enterpriseValueNote).toMatch(/withheld/);
+    // An info entry records a debt recovery, not a withhold.
+    const recovered = buildMarketData(b, { stageBGaps: [{ field: `statements.balance.${periodEnd}.totalDebt`, severity: "info" }] })!;
+    expect(recovered.enterpriseValue?.value).toBe(50e9 + 1928e6 - 500e6);
   });
 });

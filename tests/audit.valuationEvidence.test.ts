@@ -11,7 +11,7 @@ import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import type { ValuationResult } from "@/pipeline/stageB/valuation";
 import { applyReportAssessmentStatus, gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence } from "@/report/assessment";
-import { scoreDriverTable } from "@/report/presentation";
+import { assessmentLine, scoreDriverTable } from "@/report/presentation";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { task28SentinelReport } from "./helpers/task28Report";
 
@@ -52,6 +52,14 @@ describe("a valuation grade needs corroborating evidence (audit PGR-4)", () => {
     expect(gradeForDisplay(shown.valuation.graded)).toBeNull();
     expect(gradeForDisplay(shown.verdict.gradeStrip.valuation)).toBeNull();
     expect(gradeDisplayLabel(shown.valuation.graded, valuation)).toBe(`Not assessed — limited evidence (score ${Math.round(valuation.score!)}/100 on one signal, 50% of signals)`);
+  });
+
+  it("withholds the letter from the price-attractiveness summary line as well", () => {
+    const scores = computeScores(insurerInputs(null));
+    expect(scores.assessments?.valuation.band).toBe("A");
+    const line = assessmentLine(scores)!;
+    expect(line).toMatch(/price attractiveness \d+ \(limited evidence\)/);
+    expect(line).not.toMatch(/price attractiveness \d+ \(A\)/);
   });
 
   it("keeps the letter when both excess-return signals score", () => {

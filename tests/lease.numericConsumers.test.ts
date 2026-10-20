@@ -46,6 +46,16 @@ describe("lease scope is an admission rule for numeric consumers", () => {
     if (mode === "nonfinite") row.longTermDebt = NaN;
     expect(leaseDebtScopeRefusal(row, false)).toMatch(/unavailable/);
   });
+  it.each(["same-filing", "unsourced", "unreconciled"])("keeps a complete finance lease in debt beside a partial operating maturity only when it is proven (%s)", mode => {
+    const row = operands("2026-06-30", "Operating");
+    const tagged = (tags: string[]) => ({ ...row.fieldProvenance.longTermDebt, tags });
+    Object.assign(row, { financeLeaseLiability: 5e6, capitalLeaseObligations: 15e6, totalDebt: 315e6 + (mode === "unreconciled" ? 5e6 : 0) });
+    Object.assign(row.fieldProvenance, { operatingLeaseLiability: tagged(["us-gaap/OperatingLeaseLiabilityNoncurrent"]),
+      ...(mode === "unsourced" ? {} : { financeLeaseLiability: tagged(["us-gaap/FinanceLeaseLiability"]) }) });
+    if (mode === "same-filing") expect(leaseDebtScopeRefusal(row, false)).toBeNull();
+    else expect(leaseDebtScopeRefusal(row, false)).toMatch(/unavailable/);
+    expect(leaseDebtScopeRefusal(row, true)).toMatch(/unavailable/);
+  });
   it.each(["valid", "future", "stale", "currency", "accession", "value", "existing", "unscoped", "ambiguous"])("restores only unchanged financing provenance from exact admitted primary facts (%s)", mode => {
     const row = { ...operands("2026-06-30", "Operating"), reportedCurrency: "USD" };
     row.shortTermDebt = 0; row.totalDebt = row.longTermDebt + row.operatingLeaseLiability;

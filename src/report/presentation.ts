@@ -1595,7 +1595,8 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
   if (!a) return null;
   return [
     `Business quality ${a.businessQuality.score === null ? "—" : formatNumber(a.businessQuality.score, 0)} (${a.businessQuality.band ?? "—"})`,
-    `price attractiveness ${a.valuation.score === null ? "—" : formatNumber(a.valuation.score, 0)} (${a.valuation.band ?? "—"})`,
+    // D-67: the valuation letter is withheld under the evidence floor here too.
+    `price attractiveness ${a.valuation.score === null ? "—" : formatNumber(a.valuation.score, 0)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band ?? "—"})`,
     `evidence available for ${formatPct(a.evidenceCompleteness * 100, 0)} of the signal weight`,
   ].join(" · ");
 }

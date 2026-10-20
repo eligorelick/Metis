@@ -448,6 +448,11 @@ const INCLUSIVE_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(["DebtLongter
  * but it is not noncurrent debt, so consumers that read long-term debt on its
  * own (the forensic leverage tests) must not use it.
  */
+/** True when long-term debt came from the tag that already includes finance-lease obligations (overlap case 1). */
+export function longTermDebtHoldsFinanceLeases(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).includes("us-gaap/LongTermDebtAndCapitalLeaseObligations");
+}
+
 export function longTermDebtHoldsCurrent(tags: readonly string[] | undefined): boolean {
   return (tags ?? []).some((tag) => {
     const name = tag.replace(/^us-gaap\//, "");
@@ -2288,7 +2293,9 @@ const NCI_PRIOR_ZERO_MAX_DAYS = 400;
  * ownership withheld every EV multiple. NCI is inferred zero only when, at
  * that date, no NCI balance is tagged, every net income attributable to NCI
  * for a period ending there is explicitly 0, and the latest earlier NCI
- * balance, within about a year, was 0. Temporary equity still refuses it in
+ * balance, within about a year, was 0. One of those zero periods must start by
+ * the day after that balance, so the zero earnings cover the whole span since
+ * it: a zero final quarter alone does not show the earlier quarters held none. Temporary equity still refuses it in
  * {@link computeBalance}.
  */
 function inferredZeroNciPeriods(facts: CompanyFacts, asOf: string): Set<string> {
@@ -2313,7 +2320,8 @@ function inferredZeroNciPeriods(facts: CompanyFacts, asOf: string): Set<string> 
     const prior = balances.filter((p) => p.end < end && withinDays(p.end, end, NCI_PRIOR_ZERO_MAX_DAYS));
     if (prior.length === 0) continue;
     const latest = prior.reduce((a, b) => (b.end > a.end ? b : a)).end;
-    if (prior.filter((p) => p.end === latest).every((p) => p.val === 0)) out.add(end);
+    const spansSinceZero = ending.some((p) => p.start !== undefined && dateMs(p.start) <= dateMs(latest) + (TOLERANCE_DAYS + 1) * DAY_MS);
+    if (spansSinceZero && prior.filter((p) => p.end === latest).every((p) => p.val === 0)) out.add(end);
   }
   return out;
 }

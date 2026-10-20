@@ -52,7 +52,7 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     }
   });
 
-  const rowsOf = (bundle: DataBundle, key: "incomeAnnual" | "incomeQuarterly" | "balanceAnnual") => {
+  const rowsOf = (bundle: DataBundle, key: "incomeAnnual" | "incomeQuarterly" | "balanceAnnual" | "balanceQuarterly") => {
     const statement = bundle.statements[key];
     if (!statement.ok) throw new Error("fixture has rows");
     return statement.value.data.rows as unknown as Record<string, unknown>[];
@@ -82,6 +82,14 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     const out = runStageB(bundle);
     expect(judged(out, "2025-12-31")).toEqual([]);
     expect(judged(out, "2024-12-31").join()).toMatch(/implies 30\.0%/);
+  });
+
+  it("does not count finance leases twice when long-term debt was tagged with them", () => {
+    // 15 of interest on 50 of debt that already holds its 20 of finance leases is 30%, not 15/70.
+    const bundle = currencyBundle({ debt: 50, siblingQuarterCurrencies: USD });
+    for (const row of [...rowsOf(bundle, "balanceAnnual"), ...rowsOf(bundle, "balanceQuarterly")]) Object.assign(row, { shortTermDebt: 0, longTermDebt: 50 * M, financeLeaseLiability: 20 * M,
+      fieldProvenance: { longTermDebt: { source: "edgar", tags: ["us-gaap/LongTermDebtAndCapitalLeaseObligations"] } } });
+    expect(judged(runStageB(bundle), "2025-12-31").join()).toMatch(/implies 30\.0%/);
   });
 
   it("leaves ordinary debt alone", () => {

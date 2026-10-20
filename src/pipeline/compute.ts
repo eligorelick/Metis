@@ -135,7 +135,7 @@ import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
-import { longTermDebtHoldsCurrent } from "@/edgar/statements";
+import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
 import { implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import {
@@ -1756,7 +1756,9 @@ function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: 
  */
 function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = []): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
-    const parts = [num(row.shortTermDebt), num(row.longTermDebt), num(row.financeLeaseLiability)];
+    // Long-term debt tagged with its finance leases already holds them.
+    const financeLeases = longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
+    const parts = [num(row.shortTermDebt), num(row.longTermDebt), financeLeases];
     // A row without components (vendor rows) is judged on its published total.
     return parts.every((part) => part === null) ? num(row.totalDebt) : parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
   };

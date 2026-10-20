@@ -241,6 +241,17 @@ describe("zero noncontrolling interest shown by the filing (audit SNOW-2)", () =
     expect(row.minorityInterest).toBeNull();
   });
 
+  it("does not infer when the zero NCI earnings cover only the last quarter since the zero balance", () => {
+    // SNOW's last zero NCI balance is 2026-01-31; drop the six-month zero so
+    // only the three-month zero from 2026-05-01 ends at the latest date.
+    const row = latestOf((gaap) => {
+      const facts = durations(gaap, "NetIncomeLossAttributableToNoncontrollingInterest");
+      gaap.NetIncomeLossAttributableToNoncontrollingInterest!.units.USD = facts.filter((fact) => !(fact.end === SNOW_LATEST && fact.start === "2026-02-01"));
+    }, "SNOW");
+    expect(row.totalStockholdersEquity).toBeNull();
+    expect(row.minorityInterest).toBeNull();
+  });
+
   it("does not infer when the latest earlier NCI balance was not zero", () => {
     const row = latestOf((gaap) => {
       for (const fact of durations(gaap, "MinorityInterest")) if (fact.end === "2026-01-31") fact.val = 5_000_000;

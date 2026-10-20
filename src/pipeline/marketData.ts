@@ -46,12 +46,13 @@ function iso(value: unknown): string | null {
   return /^[A-Z]{3}$/.test(code) ? code : null;
 }
 
-/** Balance dates whose total debt Stage B withheld (audit O-2); a derived EV built on that debt is refused. */
-function stageBWithheldDebtDates(gaps: readonly { field: string }[] | undefined): Set<string> {
-  return new Set((gaps ?? []).flatMap((gap) => /^statements\.balance\.(\d{4}-\d{2}-\d{2})\.totalDebt$/.exec(gap.field)?.[1] ?? []));
+/** Balance dates whose total debt Stage B withheld (audit O-2); a derived EV built on that debt is refused.
+ * An info entry records a recovery, not a withhold. */
+function stageBWithheldDebtDates(gaps: readonly { field: string; severity?: string }[] | undefined): Set<string> {
+  return new Set((gaps ?? []).filter((gap) => gap.severity !== "info").flatMap((gap) => /^statements\.balance\.(\d{4}-\d{2}-\d{2})\.totalDebt$/.exec(gap.field)?.[1] ?? []));
 }
 
-export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; stageBGaps?: readonly { field: string }[] } = {}): MarketData | undefined {
+export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; stageBGaps?: readonly { field: string; severity?: string }[] } = {}): MarketData | undefined {
   const profile = rows(bundle.profile)[0];
   let currencies: { trading: string | null; model: string | null };
   try {
