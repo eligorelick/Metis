@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
 
@@ -98,6 +100,33 @@ describe("bounded material filing evidence", () => {
     const narrative = "We rely on a concentrated supplier base, and interruptions may delay deliveries to customers.";
     const original = `Management discussion.\n${narrative}\n${"Operational description without numeric claims. ".repeat(100)}`;
     expect(selectMaterialEvidence(original, 800).text).toContain(narrative);
+  });
+
+  // AMZN audit 2026-10-20 finding 6: the revenue note's backlog (public text,
+  // Amazon.com 10-Q for the quarter ended June 30, 2026) lost its family turn
+  // to higher-scoring commitments; only the lead sentence, without the amount,
+  // reached the passes.
+  const rpoLead = "Additionally, we have performance obligations, primarily related to AWS, associated with commitments in customer contracts for future services that we expect to fulfill but have not yet been recognized in our financial statements.";
+  const rpoAmount = "For contracts with original terms that exceed one year, those commitments not yet recognized were approximately $ 496 billion as of June 30, 2026.";
+  const rpoLife = "The weighted-average remaining life of our long-term contracts is 6.4 years.";
+  const crowdedNotes = (filler: number): string => [
+    ...Array.from({ length: filler }, (_, i) => `Purchase obligations and supply commitments for program ${i} were $ ${i + 12}.1 billion, $ 8.4 billion and $ 3.2 billion, including guarantees of $ 1.${i % 10} billion.`),
+    `${rpoLead} ${rpoAmount} ${rpoLife}`,
+    ...Array.from({ length: filler }, (_, i) => `Unconditional purchase obligations and capacity agreements for site ${i} were $ ${i + 30}.5 billion, $ 6.1 billion and $ 2.7 billion as of June 30, 2026.`),
+  ].join(" ");
+  it("keeps a quantified remaining-performance-obligation backlog with its referent and life in crowded notes", () => {
+    const original = crowdedNotes(120);
+    const selected = selectMaterialEvidence(original, 14_000, "notes");
+    expect(selected.text).toContain(`${rpoLead} ${rpoAmount} ${rpoLife}`);
+    expect(selected.text.length).toBeLessThanOrEqual(14_000);
+    expect(selected.coverage.categories).toContainEqual(expect.objectContaining({ category: "performance-obligations", status: "retained" }));
+    for (const span of selected.spans) expect(original.slice(span.start, span.end)).toBe(span.text);
+  });
+  it("keeps the annual notes' remaining performance obligations and their twelve-month share (NVDA 10-K)", () => {
+    const annual = readFileSync(path.join(process.cwd(), "fixtures", "edgar", "nvda-periodic-sections", "nvda-10k-fy2026-notes.txt"), "utf8");
+    const selected = selectMaterialEvidence(annual, 10_000, "notes");
+    expect(selected.text).toContain("revenue related to remaining performance obligations from contracts greater than one year in length was $ 2.3 billion");
+    expect(selected.text).toMatch(/Approximately 42 % of revenue from contracts greater than one year in length will be recognized over the next twelve months/);
   });
 
   it.each([0, 1, 30, 210, 500])("does not invent retained evidence in a %i-character budget", (budget) => {
