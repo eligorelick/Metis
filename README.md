@@ -267,4 +267,4 @@ Contributions should preserve source tracing, add regressions and pass `npm run 
 
 ## License and data rights
 
-The code is [MIT](LICENSE); separate [data rights](docs/DATA-RIGHTS.md) apply to retrieved data and model output, including shared reports.
+Metis is source-available under the [Metis No-Sale Attribution License 1.0](LICENSE), which permits internal business use with attribution but prohibits charging for copies, downloads or access without separate written permission. Distribution/download pages and software interfaces require visible credit: **Metis by [Eli Gorelick](https://eligorelick.com) — https://eligorelick.com**; see the license for CLI/headless equivalents. This is not an OSI-approved open-source license. Earlier MIT-licensed copies retain their prior rights. Preserve third-party notices; separate [data rights](docs/DATA-RIGHTS.md) apply to retrieved data and model output, including shared reports.

@@ -2,7 +2,7 @@
   "name": "@metis/next-eslint-glob",
   "version": "1.0.0",
   "private": true,
-  "license": "MIT",
+  "license": "SEE LICENSE IN ../../LICENSE",
   "main": "index.cjs",
   "dependencies": { "tinyglobby": "0.2.17" }
 }

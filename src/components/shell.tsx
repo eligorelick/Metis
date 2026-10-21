@@ -52,6 +52,9 @@ export function AppShell({
 
       {/* Global disclaimer footer — hard product requirement */}
       <footer className="shrink-0 border-t border-edge bg-panel px-4 py-1">
+        <a href="https://eligorelick.com" className="text-[11px] text-muted underline hover:text-accent">
+          Metis by Eli Gorelick — https://eligorelick.com
+        </a>
         <p className="text-[10px] uppercase tracking-[0.08em] text-faint">
           informational only — not investment advice
         </p>
