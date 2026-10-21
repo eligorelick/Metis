@@ -20,8 +20,8 @@
     "type": "git",
     "url": "git+https://github.com/eligorelick/Metis.git"
   },
-  "license": "MIT",
-  "author": "eligorelick",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Eli Gorelick",
   "engines": {
     "node": ">=22.18.0"
   },

@@ -17,6 +17,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - license and attribution (2026-10-21)
+
+- Offer current Metis source under the Metis No-Sale Attribution License 1.0,
+  with visible credit to Eli Gorelick on distribution/download pages and
+  software interfaces. Internal business use with attribution is allowed;
+  charging for copies, downloads or access requires separate written permission.
+- Update first-party package metadata and the application footer. Third-party
+  licenses and notices remain in force. Earlier MIT-licensed copies retain
+  their prior rights; the historical v0.1.0 tag is unchanged.
+
 ## Proposed deferred AMZN audit fixes (2026-10-20)
 
 - Score SBC at its band floor when it exceeds all free cash flow, instead of dropping the signal (AMZN finding 8).

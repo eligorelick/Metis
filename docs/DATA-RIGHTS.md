@@ -2,8 +2,13 @@
 
 ## The code license and the data are separate
 
-Metis is MIT licensed ([`LICENSE`](../LICENSE)). That license covers this
-source code. It does not grant rights to provider data, issuer-authored text,
+Metis is source-available under the [Metis No-Sale Attribution License 1.0](../LICENSE).
+That license covers the rights the Licensor owns or is authorized to grant in
+this source code, requires visible attribution to Eli Gorelick, and prohibits
+charging for copies, downloads or access to Metis or derivatives without separate
+written permission. Earlier copies validly received under MIT retain their
+prior license rights. Third-party dependency licenses and notices remain in force.
+The code license does not grant rights to provider data, issuer-authored text,
 transcripts, news articles, trademarks or other third-party material retrieved
 by the application. A working endpoint, keyless access or an accepted API key
 establishes technical access, not permission for every use.

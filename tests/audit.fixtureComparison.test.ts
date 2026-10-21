@@ -34,9 +34,10 @@
  * parents' ranges (^1.1.7, ^5.0.5); only those two lock entries changed, and
  * the projection was re-run against the new tree under Node 24 before the pin
  * moved. Roll the pin forward again only with the same evidence.
- * The Metis rebrand keeps this historical pin: only three guarded package-name
- * metadata fields are restored to their historical values before hashing. All
- * dependency/version/integrity bytes and historical evidence remain pinned.
+ * The Metis rebrand and license transition keep this historical pin: three
+ * guarded package-name fields and two first-party license fields are restored
+ * to historical values before hashing. Dependency/version/integrity/license
+ * bytes and historical evidence remain pinned.
  */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -147,11 +148,11 @@ function fixtureTreeSha256(root: string): string {
   return hash.digest("hex");
 }
 
-/** Restore exactly the authorized brand metadata, never dependency fields. */
+/** Restore exactly the authorized first-party metadata, never dependency fields. */
 function comparisonLockBlob(source: string): string {
   const lock = JSON.parse(source) as {
     name: string;
-    packages: Record<string, { name?: string }>;
+    packages: Record<string, { name?: string; license?: string }>;
   };
   if (
     lock.name !== "metis" ||
@@ -160,14 +161,23 @@ function comparisonLockBlob(source: string): string {
   ) {
     throw new Error("unexpected canonical package-lock branding metadata");
   }
+  if (
+    lock.packages[""]?.license !== "SEE LICENSE IN LICENSE" ||
+    lock.packages["scripts/next-eslint-glob"]?.license !== "SEE LICENSE IN ../../LICENSE"
+  ) {
+    throw new Error("unexpected canonical package-lock first-party license metadata");
+  }
   const newline = source.includes("\r\n") ? "\r\n" : "\n";
   const serialize = () => JSON.stringify(lock, null, 2).replaceAll("\n", newline) + newline;
   // Prove parsing/stringifying loses or normalizes no bytes before editing
-  // the three explicit field paths; arbitrary formatting drift stays rejected.
+  // the five explicit field paths; arbitrary formatting drift stays rejected.
   if (serialize() !== source) throw new Error("package-lock formatting drift");
   lock.name = "thesis";
   lock.packages[""].name = "thesis";
   lock.packages["scripts/next-eslint-glob"].name = "@thesis/next-eslint-glob";
+  // Historical comparison metadata only; current license terms stay in LICENSE.
+  lock.packages[""].license = "MIT";
+  lock.packages["scripts/next-eslint-glob"].license = "MIT";
   return execFileSync("git", ["hash-object", "--stdin", "--path=package-lock.json"], {
     cwd: ROOT,
     encoding: "utf8",
@@ -190,10 +200,10 @@ afterEach(() => {
 });
 
 describe("Task 32 provider-free historical fixture comparison", () => {
-  it("keeps dependency versions and integrity pinned through the branding compatibility check", () => {
+  it("keeps dependency versions, integrity and licenses pinned through the metadata compatibility check", () => {
     const source = readFileSync(path.join(ROOT, "package-lock.json"), "utf8");
     const expected = loadBaseline().provenance.generator.comparisonPackageLockBlob;
-    for (const field of ["version", "integrity"] as const) {
+    for (const field of ["version", "integrity", "license"] as const) {
       const changed = JSON.parse(source);
       expect(typeof changed.packages["node_modules/next"][field]).toBe("string");
       changed.packages["node_modules/next"][field] += "-tampered";
@@ -204,6 +214,13 @@ describe("Task 32 provider-free historical fixture comparison", () => {
     expect(() => comparisonLockBlob(JSON.stringify(unexpectedBrand, null, 2) + "\n")).toThrow(
       /unexpected canonical package-lock branding/,
     );
+    for (const entry of ["", "scripts/next-eslint-glob"]) {
+      const unexpectedLicense = JSON.parse(source);
+      unexpectedLicense.packages[entry].license = "unexpected";
+      expect(() => comparisonLockBlob(JSON.stringify(unexpectedLicense, null, 2) + "\n")).toThrow(
+        /unexpected canonical package-lock first-party license/,
+      );
+    }
     expect(() => comparisonLockBlob(source + " ")).toThrow(/formatting drift/);
   });
 
