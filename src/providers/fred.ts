@@ -529,6 +529,7 @@ export async function series(
     throw new TypeError(`fred.series: invalid series id "${id}" (single series only)`);
   }
   const units = opts.units ?? "lin";
+  let apiFailure: string | undefined;
 
   if (config.apiKey) {
     const params = new URLSearchParams({
@@ -550,20 +551,25 @@ export async function series(
       }
       const parsed = observationsSchema.safeParse(body);
       if (!parsed.success) {
-        return { ok: false, gap: gap(seriesId, `FRED API returned an unrecognized payload for ${seriesId}`, "warn") };
+        // Maintenance pages can be served with HTTP 200. They are failures,
+        // not empty observations, and must still allow the keyless fallback.
+        apiFailure = /<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i.test(res.text)
+          ? "FRED API returned a site maintenance page (HTTP 200); retry after provider maintenance"
+          : `FRED API returned an unrecognized payload for ${seriesId} (HTTP ${res.status})`;
+      } else {
+        const rows: FredObservation[] = [];
+        for (const o of parsed.data.observations) {
+          if (o.value === ".") continue; // missing observation
+          const value = Number(o.value);
+          if (!Number.isFinite(value)) continue;
+          rows.push({ date: o.date, value });
+        }
+        if (rows.length === 0) {
+          return { ok: false, gap: gap(seriesId, `FRED series ${seriesId} returned no numeric observations in range`, "info") };
+        }
+        const endpoint = `api.stlouisfed.org/fred/series/observations?series_id=${seriesId}${units !== "lin" ? `&units=${units}` : ""}`;
+        return { ok: true, value: sourced(rows, rows[rows.length - 1].date, endpoint) };
       }
-      const rows: FredObservation[] = [];
-      for (const o of parsed.data.observations) {
-        if (o.value === ".") continue; // missing observation
-        const value = Number(o.value);
-        if (!Number.isFinite(value)) continue;
-        rows.push({ date: o.date, value });
-      }
-      if (rows.length === 0) {
-        return { ok: false, gap: gap(seriesId, `FRED series ${seriesId} returned no numeric observations in range`, "info") };
-      }
-      const endpoint = `api.stlouisfed.org/fred/series/observations?series_id=${seriesId}${units !== "lin" ? `&units=${units}` : ""}`;
-      return { ok: true, value: sourced(rows, rows[rows.length - 1].date, endpoint) };
     }
     if (res.status === 400) {
       // Bad/unregistered key or bad series id — fall through to keyless CSV.
@@ -578,13 +584,15 @@ export async function series(
   const res = await fredRequest(`${CSV_BASE}?${csvParams.toString()}`, config);
   if (!res.ok) {
     const via = config.apiKey ? "FRED API and fredgraph.csv fallback both failed" : "fredgraph.csv (keyless mode) failed";
-    return { ok: false, gap: gap(seriesId, `${via}: ${res.failure ?? "unknown failure"}`, "warn") };
+    return { ok: false, gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}${via}: ${res.failure ?? "unknown failure"}`, "warn") };
   }
   const parsed = parseFredCsv(res.text, units !== "lin");
   if (parsed === null) {
     return {
       ok: false,
-      gap: gap(seriesId, `fredgraph.csv returned non-CSV for ${seriesId} (unknown series id?)`, "warn"),
+      gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}${/<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i.test(res.text)
+        ? "fredgraph.csv returned a site maintenance page; retry after provider maintenance"
+        : `fredgraph.csv returned non-CSV for ${seriesId} (unknown series id?)`}`, "warn"),
     };
   }
   const rows = units === "lin" ? parsed : applyFredUnits(parsed, units);

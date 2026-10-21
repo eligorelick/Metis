@@ -257,10 +257,13 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
   } catch (error) {
     if (error instanceof PassSettlementHookError) throw error;
     const observed = error instanceof ChatGptStreamError ? error.observed : undefined;
-    const reason = error instanceof Error && /^(ChatGPT|Gemini|Invalid completed|Invalid subscription)/.test(error.message)
+    const runtimeConflict = error instanceof Error && error.message === "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
+    const reason = error instanceof Error && (/^(ChatGPT|Gemini|Invalid completed|Invalid subscription)/.test(error.message)
+      || runtimeConflict)
       ? error.message : `${parsed.provider} pass failed or was canceled. No paid fallback was attempted.`;
     return { ok: false, gap: { field, reason, severity: "critical", attemptedSources: [parsed.provider] },
       error: { kind: "transport", message: reason, model: observed?.model ? subscriptionModel(parsed.provider, observed.model) : args.model, costUsd: 0, fallbackUsed: false, aborted: args.signal?.aborted === true,
+        ...(runtimeConflict ? { notLaunched: true } : {}),
         ...(observed?.usage ? { usage: observed.usage } : {}),
         ...(observed?.partialText ? { partialText: observed.partialText } : {}),
         execution: { requestedModel: args.model, requestedEffort: parsed.provider === "chatgpt" ? options.effort ?? null : null, effectiveEffort: observed?.effort ?? null,
