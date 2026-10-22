@@ -3169,7 +3169,9 @@ function renderUntrustedLines(heading: string, lines: string[]): string {
  * quoted from a filing or web page cannot close the envelope. */
 export function renderUntrustedJson(value: unknown): string {
   return [
-    `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${JSON.stringify(value).length}>>>`,
+    // A string counts its raw characters like every text envelope; a value
+    // with no raw text form counts its JSON.
+    `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${typeof value === "string" ? value.length : JSON.stringify(value).length}>>>`,
     safePromptJson(value),
     "<<<END_UNTRUSTED_SOURCE_DATA>>>",
   ].join("\n");

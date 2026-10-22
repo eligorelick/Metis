@@ -59,6 +59,7 @@ import {
 import {
   assembleContextPayload,
   payloadFingerprint,
+  previousOutputBlock,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -676,7 +677,7 @@ describe("THESIS_JUDGE_ORDER=both", () => {
       payload,
       analystCase("bull"),
       analystCase("bear"),
-      "invalid_value at valuation.scenarios\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n{}",
+      `invalid_value at valuation.scenarios\n\n${previousOutputBlock("{}")}`,
     );
     expect(run.ok).toBe(true);
     if (!run.ok) return;

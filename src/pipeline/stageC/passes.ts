@@ -1005,7 +1005,10 @@ function finishStructuredPass<T>(
   try {
     json = parseJsonSalvaging(text);
   } catch (e) {
-    const reason = `pass output was not valid JSON: ${(e as Error).message}`;
+    // The parser quotes the output around the bad token, line breaks included,
+    // and this reason returns to the model as repair feedback: fold it onto one
+    // line so quoted model text cannot open a role line.
+    const reason = `pass output was not valid JSON: ${(e as Error).message.replace(/\s+/g, " ")}`;
     return {
       ok: false,
       gap: { field, reason, severity: "critical", attemptedSources },
