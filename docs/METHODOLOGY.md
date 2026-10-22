@@ -2823,8 +2823,10 @@ outlook that names its year without "full year" ("2026 capital expenditures",
 "full-year revenue guidance" with no year guides the outlook block's fiscal
 year. Before, both took the block's quarter, so annual guides from Meta, Lilly,
 NextEra, AT&T and Verizon were labelled as quarters. A sentence about a quarter
-or part of a year ("remaining quarters of 2026") keeps the block's quarter. A
-maturity's year ("notes due 2030") names no outlook, and when the block's
+or part of a year ("remaining quarters of 2026") keeps the block's quarter,
+but a quarter named only as the base of a comparison ("compared with fourth
+quarter 2025 revenue of $1 billion") neither makes the sentence quarterly nor
+names its year. A maturity's year ("notes due 2030") names no outlook, and when the block's
 period is known only its fiscal year or the next can be the outlook's ("the
 2024 divestiture" in a 2026 release is not).
 
@@ -2875,8 +2877,10 @@ combined debt. As a backstop, a same-period debt total the filer tagged
 current debt, noncurrent debt and finance leases by more than 1%. When one
 does, a component no chain read is missing, so total and net debt are
 withheld with a note naming the total rather than published as a partial sum.
-This guard runs in the statements builder; the vendor statement path is not
-changed.
+The guard runs in the statements builder and again in Stage B's debt admission,
+the only debt gate a vendor statement row passes, so a vendor row whose
+components fall short of the filer's same-period total is withheld the same
+way.
 
 **Long-term debt including current maturities (B-15, B-17).** Chevron tags
 its long-term debt and finance leases, current maturities included, as
@@ -2906,10 +2910,13 @@ over 100%. The basis is now the average of the year's balances, opening to
 closing. A collapse check sits beside it: debt that fell by more than 60%
 from the previous balance date, to a closing balance on which the year's
 interest implies more than 25%, is withheld with a gap unless the period's
-cash flow shows net debt repayment of at least half the fall. Both thresholds
-are house conventions. A borrowing repaid during the year with the cash flow
-to show it still passes, and so does a closing balance that carries the
-interest on its own.
+cash flow shows net debt repayment of at least half the fall. When the net
+issuance is not disclosed because the filer tags its repayments
+(`RepaymentsOfLongTermDebt`) but no issuance, the repayments alone are the
+evidence: they show at least that much debt leaving, and an undisclosed
+issuance could only add some back. Both thresholds are house conventions. A
+borrowing repaid during the year with the cash flow to show it still passes,
+and so does a closing balance that carries the interest on its own.
 
 **An inclusive total whose split is refused (B-40).** Prologis files an
 unclassified balance sheet: `LongTermDebt` is all of its carrying debt,
@@ -2957,4 +2964,9 @@ qualifier ("D (neutral)", "C (neutral)") wherever it is shown, including the
 history diff, the audit tables and the data-only reasoning, and the payload's
 score units and band note say the same. An analyst letter that differs from the band is not qualified. The
 letters and thresholds themselves (A ≥85, B ≥70, C ≥55, D ≥40) are unchanged
-house conventions.
+house conventions. The band is set on the unrounded score, so a printed score
+never rounds up across a threshold: where rounding would carry it across
+(54.6 printed "55" beside D and the legend "C ≥55"), it is cut, not rounded,
+to one more decimal ("54.6", and "54.99" where two decimals are shown). Every
+surface that prints a score beside its band uses this rule; the judge's
+payload already printed the unrounded score. No score or band changes.
