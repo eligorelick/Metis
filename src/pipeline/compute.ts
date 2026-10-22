@@ -3698,6 +3698,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             1e-9 * Math.max(1, Math.abs(num(balPoint.totalEquity) as number), Math.abs(num(balPoint.totalStockholdersEquity) as number)))),
     minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
     preferred: balPoint ? num(balPoint.preferredStock) : null,
+    // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
+    // Consolidated profit is the filed ProfitLoss, else net income on a
+    // consolidated basis, else parent plus NCI income (as forensics does).
+    noncontrollingEarnings: ttmInc === null ? null : {
+      noncontrollingIncome: ttmInc.netIncomeAttributableToNoncontrollingInterest ?? null,
+      consolidatedProfit: ttmInc.netIncomeConsolidated ??
+        (ttmInc.netIncomeOwnershipBasis === "consolidated" ? ttmInc.netIncome
+          : ttmInc.netIncome !== null && num(ttmInc.netIncomeAttributableToNoncontrollingInterest) !== null ? ttmInc.netIncome + (ttmInc.netIncomeAttributableToNoncontrollingInterest as number)
+          : null),
+      asOf: ttmInc.date || null,
+    },
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
     leaseLiability: balPoint ? num(balPoint.capitalLeaseObligations) : null,
     operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,

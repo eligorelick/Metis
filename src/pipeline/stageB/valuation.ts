@@ -2222,6 +2222,15 @@ export interface DcfRunOptions {
   /** Preferred equity — same treatment as minority interest above. */
   preferred?: number | null;
   /**
+   * Audit 2026-10-22 E-5: NCI's share of trailing consolidated profit (a
+   * fraction). Above NCI_EARNINGS_KEY_MATERIALITY_PCT, the bridge deducts NCI
+   * at this share of consolidated equity value whenever that exceeds the book
+   * `minorityInterest`. Omit/null ⇒ the book deduction.
+   */
+  noncontrollingEarningsShare?: number | null;
+  /** E-5: the end of the trailing window the share was measured over, for the disclosure. */
+  noncontrollingEarningsAsOf?: string | null;
+  /**
    * D-60: non-operating assets ADDED to equity value, at a sourced fair value
    * (marketable equity securities excluded from cash). Their returns are below
    * EBIT, so the FCFF path does not value them. Omit/null ⇒ none.
@@ -2304,6 +2313,12 @@ export interface DcfBridge {
    * beside the diluted denominator; disclosure only, never the divisor.
    */
   sharesOutstandingAtQuote?: number;
+  /** E-5: NCI's share of trailing consolidated profit, when the earnings key was established. */
+  noncontrollingEarningsShare?: number;
+  noncontrollingEarningsAsOf?: string | null;
+  /** E-5: the NCI amount the base bridge deducted (book, or the earnings share of consolidated equity value). */
+  noncontrollingDeducted?: number;
+  noncontrollingDeductionBasis?: "book" | "earnings-share";
 }
 
 export interface DcfResult {
@@ -2557,24 +2572,66 @@ function bridgeToPerShare(
   minorityInterest: number | null = null,
   preferred: number | null = null,
   nonOperatingAssets: number | null = null,
-): { equityValue: number | null; perShare: number | null } {
+  noncontrollingEarningsShare: number | null = null,
+): { equityValue: number | null; perShare: number | null; noncontrollingDeducted: number; noncontrollingBasis: "book" | "earnings-share" } {
+  const book = isNum(minorityInterest) ? minorityInterest : 0;
   if (!isNum(netDebt)) {
     gaps.push(
       gapEntry("valuation.dcf.netDebt", "net debt unavailable — enterprise value cannot be bridged to equity", "warn"),
     );
-    return { equityValue: null, perShare: null };
+    return { equityValue: null, perShare: null, noncontrollingDeducted: book, noncontrollingBasis: "book" };
   }
-  const equityValue =
-    enterpriseValue - netDebt - (isNum(minorityInterest) ? minorityInterest : 0) - (isNum(preferred) ? preferred : 0) +
-    (isNum(nonOperatingAssets) ? nonOperatingAssets : 0);
+  // E-5: consolidated equity value, the claim common and NCI holders share.
+  const consolidatedEquity =
+    enterpriseValue - netDebt - (isNum(preferred) ? preferred : 0) + (isNum(nonOperatingAssets) ? nonOperatingAssets : 0);
+  const { deducted, basis } = noncontrollingDeduction(consolidatedEquity, book, noncontrollingEarningsShare);
+  const equityValue = consolidatedEquity - deducted;
   const shares = posOrNull(dilutedShares);
   if (shares === null) {
     gaps.push(
       gapEntry("valuation.dcf.dilutedShares", "diluted share count missing or non-positive — per-share value unavailable", "warn"),
     );
-    return { equityValue, perShare: null };
+    return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
   }
-  return { equityValue, perShare: equityValue / shares };
+  return { equityValue, perShare: equityValue / shares, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
+}
+
+/**
+ * HOUSE CONVENTION (owner decision, audit 2026-10-22 E-5): NCI's share of
+ * trailing consolidated profit must exceed this before it can replace the book
+ * deduction.
+ */
+export const NCI_EARNINGS_KEY_MATERIALITY_PCT = 10;
+
+/**
+ * E-5: a consolidated FCFF DCF values the outside holders' share of the
+ * subsidiaries too. When NCI earns more than NCI_EARNINGS_KEY_MATERIALITY_PCT
+ * of trailing consolidated profit and that share of consolidated equity value
+ * exceeds the book NCI (profit share > book ÷ consolidated equity value), NCI is
+ * deducted at the profit share; otherwise at book.
+ */
+function noncontrollingDeduction(consolidatedEquity: number, book: number, share: number | null): { deducted: number; basis: "book" | "earnings-share" } {
+  if (isNum(share) && share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT && consolidatedEquity > 0 && share * consolidatedEquity > book) {
+    return { deducted: share * consolidatedEquity, basis: "earnings-share" };
+  }
+  return { deducted: book, basis: "book" };
+}
+
+/** E-5: the DCF note naming which NCI basis the bridge used, and the other one. */
+function noncontrollingBridgeNote(bridge: DcfBridge, consolidatedEquity: number | null): string {
+  const book = bridge.minorityInterest ?? 0;
+  const share = bridge.noncontrollingEarningsShare;
+  const window = bridge.noncontrollingEarningsAsOf ? ` to ${bridge.noncontrollingEarningsAsOf}` : "";
+  if (bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(share)) {
+    return `equity bridge deducts noncontrolling interest at its ${(share * 100).toFixed(1)}% share of trailing consolidated profit${window}: ` +
+      `${fmtNum(bridge.noncontrollingDeducted ?? 0)} of consolidated equity value ${consolidatedEquity === null ? "unavailable" : fmtNum(consolidatedEquity)}, ` +
+      `above its book value ${fmtNum(book)} (house rule: the earnings key applies above ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% of profit when it exceeds the book deduction; audit 2026-10-22 E-5)`;
+  }
+  return `equity bridge deducts noncontrolling interest at its book value ${fmtNum(book)}` +
+    (isNum(share)
+      ? ` — its ${(share * 100).toFixed(1)}% share of trailing consolidated profit${window} ${share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT ? "would deduct no more than book" : `is not above the ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% house threshold`}`
+      : "") +
+    " (a filed book-value proxy, not a market value)";
 }
 
 /**
@@ -2588,6 +2645,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     dilutedShares: opts.dilutedShares,
     minorityInterest: opts.minorityInterest ?? null,
     preferred: opts.preferred ?? null,
+    ...(isNum(opts.noncontrollingEarningsShare) ? { noncontrollingEarningsShare: opts.noncontrollingEarningsShare, noncontrollingEarningsAsOf: opts.noncontrollingEarningsAsOf ?? null } : {}),
     ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 ? { nonOperatingAssets: opts.nonOperatingAssets } : {}),
     ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 && opts.nonOperatingComponents && opts.nonOperatingComponents.length > 0
       ? { nonOperatingComponents: opts.nonOperatingComponents.map((c) => ({ ...c })) } : {}),
@@ -2610,7 +2668,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
       gaps: [gapEntry("valuation.dcf", "degenerate WACC input", "critical")],
     };
   }
-  const { equityValue, perShare } = bridgeToPerShare(
+  const { equityValue, perShare, noncontrollingDeducted, noncontrollingBasis } = bridgeToPerShare(
     core.enterpriseValue,
     opts.netDebt,
     opts.dilutedShares,
@@ -2618,10 +2676,17 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     opts.minorityInterest ?? null,
     opts.preferred ?? null,
     opts.nonOperatingAssets ?? null,
+    opts.noncontrollingEarningsShare ?? null,
   );
   const notes = [...core.notes];
   if ((isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || (isNum(opts.preferred) && opts.preferred !== 0)) {
     notes.push("equity bridge nets minority interest and preferred equity out of EV (in addition to net debt)");
+  }
+  // E-5: which NCI basis the bridge used, beside the other.
+  if (isNum(opts.minorityInterest) && opts.minorityInterest !== 0 && equityValue !== null) {
+    bridge.noncontrollingDeducted = noncontrollingDeducted;
+    bridge.noncontrollingDeductionBasis = noncontrollingBasis;
+    notes.push(noncontrollingBridgeNote(bridge, equityValue + noncontrollingDeducted));
   }
   return {
     enterpriseValue: core.enterpriseValue,
@@ -2713,6 +2778,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
         base.minorityInterest ?? null,
         base.preferred ?? null,
         base.nonOperatingAssets ?? null,
+        base.noncontrollingEarningsShare ?? null,
       );
       return bridged.perShare;
     });
@@ -2762,7 +2828,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       const core = dcfCore(assumptions, base.waccPct, { growthPathPct: growth, ebitMarginPathPct: margins, guardMode: "clamp" });
       if (core === null) return null;
       return bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
-        base.preferred ?? null, base.nonOperatingAssets ?? null).perShare;
+        base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null).perShare;
     }),
   );
   return { growthShiftsPp, marginShiftsPp, perShare, notes };
@@ -2930,6 +2996,7 @@ export function reverseDcf(
       opts.minorityInterest ?? null,
       opts.preferred ?? null,
       opts.nonOperatingAssets ?? null,
+      opts.noncontrollingEarningsShare ?? null,
     ).perShare;
   };
 
@@ -5309,6 +5376,13 @@ export interface ValuationBundleInputs {
   minorityInterest?: number | null;
   preferred?: number | null;
   /**
+   * Audit 2026-10-22 E-5: trailing profit attributable to noncontrolling
+   * interests and trailing consolidated profit (ProfitLoss), the key the DCF
+   * bridge uses for NCI. Null/absent ⇒ the key is unestablished, and a DCF
+   * with a noncontrolling interest withholds its per-share value.
+   */
+  noncontrollingEarnings?: { noncontrollingIncome: number | null; consolidatedProfit: number | null; asOf: string | null } | null;
+  /**
    * WS6 (D-19): TOTAL lease liabilities (FMP `capitalLeaseObligations`), already
    * inside `totalDebt` and therefore inside `netDebt`. Null when undisclosed.
    * Disclosure context only — the bridge adjusts by `operatingLeaseLiability`.
@@ -5434,6 +5508,28 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
+  }
+
+  // Audit 2026-10-22 E-5: a consolidated DCF bridged to common equity needs the
+  // outside holders' share of profit to size their claim. Without it the
+  // per-share value is withheld rather than resting on book NCI alone.
+  let noncontrollingEarningsShare: number | null = null;
+  const noncontrollingEarningsAsOf = inputs.noncontrollingEarnings?.asOf ?? null;
+  if (isNum(inputs.minorityInterest) && inputs.minorityInterest !== 0 && inputs.dcfInputs !== null) {
+    const earnings = inputs.noncontrollingEarnings ?? null;
+    if (earnings !== null && isNum(earnings.noncontrollingIncome) && isNum(earnings.consolidatedProfit) && earnings.consolidatedProfit > 0) {
+      noncontrollingEarningsShare = earnings.noncontrollingIncome / earnings.consolidatedProfit;
+    } else {
+      const reason = `Noncontrolling interest of ${fmtNum(inputs.minorityInterest)} sits in the consolidated DCF, but its share of trailing consolidated profit could not be established ` +
+        (earnings === null ? "(no trailing noncontrolling or consolidated profit)"
+          : !isNum(earnings.noncontrollingIncome) ? "(trailing profit attributable to noncontrolling interests unavailable)"
+          : !isNum(earnings.consolidatedProfit) ? "(trailing consolidated profit unavailable)"
+          : `(trailing consolidated profit ${fmtNum(earnings.consolidatedProfit)} is not positive)`) +
+        ". The per-share value is withheld: book NCI alone can understate the outside holders' claim on a consolidated valuation (audit 2026-10-22 E-5).";
+      gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey", reason, "warn"));
+      notes.push(reason);
+      inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
+    }
   }
 
   if (route.overlays.includes("pre-revenue")) {
@@ -5811,6 +5907,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         dilutedShares: inputs.dilutedShares,
         minorityInterest: inputs.minorityInterest ?? null,
         preferred: inputs.preferred ?? null,
+        ...(noncontrollingEarningsShare !== null ? { noncontrollingEarningsShare, noncontrollingEarningsAsOf } : {}),
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);

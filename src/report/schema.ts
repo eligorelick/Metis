@@ -1033,6 +1033,9 @@ export const DcfSchema = z
       rollForwardFactor: z.number().optional(),
       /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
       sharesOutstandingAtQuote: z.number().optional(),
+      /** E-5: how the NCI deducted in minorityInterest was sized. */
+      noncontrollingBasis: z.string().optional(),
+      noncontrollingBook: z.number().optional(),
     }).strict().optional(),
     /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
     consensusPath: z.array(z.object({

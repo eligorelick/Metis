@@ -22,7 +22,7 @@
  * value is SUPPRESSED, never fabricated.
  */
 
-import { consensusYearsText, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, type DcfAssumptions, type DcfYearRow, type ValuationResult } from "@/pipeline/stageB/valuation";
+import { consensusYearsText, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 
@@ -102,6 +102,15 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
       ],
       reasons: [{ field: "valuation.dcf.domain", reason: domain.reason, severity: "critical" }],
     };
+  }
+
+  // Audit 2026-10-22 E-5: withheld because NCI's earnings key is unestablished.
+  const nciKey = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
+  if ((method === null || !isNum(perShareValue)) && nciKey !== undefined) {
+    return suppressed(
+      [{ field: nciKey.field, reason: nciKey.reason, severity: "warn" }],
+      [`Intrinsic value per share unavailable: ${nciKey.reason}`],
+    );
   }
 
   if (method === null || !isNum(perShareValue)) {
@@ -300,6 +309,18 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
   ];
 }
 
+/** E-5: the reader-facing basis of the NCI deduction in the bridge. */
+function noncontrollingBasisText(bridge: DcfBridge): string {
+  const share = bridge.noncontrollingEarningsShare;
+  const window = bridge.noncontrollingEarningsAsOf ? ` to ${bridge.noncontrollingEarningsAsOf}` : "";
+  if (bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(share)) {
+    return `its ${(share * 100).toFixed(1)}% share of trailing consolidated profit${window} × consolidated equity value, above its book value`;
+  }
+  return isNum(share)
+    ? `book value; its ${(share * 100).toFixed(1)}% share of trailing consolidated profit${window} would not deduct more`
+    : "book value";
+}
+
 export interface DcfDisplay {
   assumptions: DcfAssumption[];
   sensitivityGrid: SensitivityCell[];
@@ -314,6 +335,10 @@ export interface DcfDisplay {
     valuationDate?: string; rollForwardFactor?: number;
     /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
     sharesOutstandingAtQuote?: number;
+    /** E-5: how the NCI deducted in `minorityInterest` was sized (book, or its share of trailing profit). */
+    noncontrollingBasis?: string;
+    /** E-5: the filed book NCI, shown beside an earnings-share deduction. */
+    noncontrollingBook?: number;
   };
   /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
   consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
@@ -382,7 +407,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
       })
     : [];
   return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid, bridge: {
-    enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.minorityInterest,
+    enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.noncontrollingDeducted ?? dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
     asOf: valuation.assumptions.asOf.statements,
@@ -390,5 +415,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ...(dcf.bridge.nonOperatingComponents ? { nonOperatingComponents: dcf.bridge.nonOperatingComponents.map((c) => ({ label: c.label, value: c.value })) } : {}),
     ...(vd !== undefined ? { valuationDate: vd.value, rollForwardFactor: Math.pow(1 + a.wacc.value / 100, vd.elapsedYears) } : {}),
     ...(dcf.bridge.sharesOutstandingAtQuote !== undefined ? { sharesOutstandingAtQuote: dcf.bridge.sharesOutstandingAtQuote } : {}),
+    ...(dcf.bridge.noncontrollingDeductionBasis !== undefined ? { noncontrollingBasis: noncontrollingBasisText(dcf.bridge) } : {}),
+    ...(dcf.bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(dcf.bridge.minorityInterest) ? { noncontrollingBook: dcf.bridge.minorityInterest } : {}),
   }, forecastRows: dcf.yearRows.map(mapRow), ...(consensusPath.length > 0 ? { consensusPath } : {}) };
 }

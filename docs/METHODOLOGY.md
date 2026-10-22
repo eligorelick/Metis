@@ -876,7 +876,42 @@ value = EV − net debt − minority interest − preferred equity + non-operati
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
 on those investments (see "AMZN audit fixes (October 20, 2026)"). Minority interest
-enters both at its book carrying amount, not a market or earnings-share value.
+enters the market EV at its book carrying amount, not a market or earnings-share
+value.
+
+**NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
+values consolidated free cash flow, so its enterprise value includes the outside
+holders' share of partly owned subsidiaries. Book NCI can understate that claim
+by a wide margin: FCX's outside holders earned 35.8% of trailing consolidated
+profit (1,645 of 4,590 million to 2026-06-30), and on that share their claim on
+the about $44.3B consolidated equity value is about $15.9B, against $12.11B at
+book. Deducting book published $22.31 a share, about 13% above common holders'
+claim. The bridge now works out consolidated equity value (EV − net debt −
+preferred equity + non-operating assets). It then works out NCI's share of
+trailing four-quarter consolidated profit: profit attributable to noncontrolling
+interests ÷ the filed ProfitLoss (else net income on a consolidated basis, else
+parent plus NCI income).
+
+When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
+convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
+that share of consolidated equity value. Otherwise it is deducted at book. So
+when the share is above 10%, the deduction is the larger of the two.
+
+This rule is an owner decision. It replaces the audit's "NCI book ÷ total book
+equity" wording, which would have kept FCX at book (its book ratio is 37.6%,
+above the 35.8% profit share). FCX now values at about $19.70.
+
+The sensitivity grid, the growth × margin grid, the reverse DCF and the scenario
+paths apply the same rule to their own consolidated equity value. The bridge
+table shows the amount deducted with its basis and, when the earnings share is
+used, the book figure beside it. The DCF notes name the basis that was not used.
+
+When a noncontrolling interest is on the balance sheet but its share of trailing
+profit cannot be established, the DCF per-share value is withheld with a
+`valuation.dcf.noncontrollingEarningsKey` warning. That covers three cases: no
+trailing NCI income, no consolidated profit, or consolidated profit that is not
+positive. Book NCI alone is not presented as the outside holders' claim. The
+market EV and the EV multiples still use book NCI.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
