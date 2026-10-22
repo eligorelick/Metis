@@ -2812,14 +2812,18 @@ high end takes the low end's currency symbol ("$73-76 billion", "$58–$61
 billion", "between $58 and $61 billion"). In a percent range the high end's %
 covers the low end, and a hyphen that follows a number or % is never a sign. A
 stated range with only one readable end is left unread rather than published as
-a point. An amount the guide is compared with ("an increase from our prior
-outlook of 13-16%", "versus $3.00 in 2025") is not read as the guide. An
+a point, but a span of years ("from 2027 to 2028") is not a range of values. An
+amount the guide is compared with ("an increase from our prior outlook of
+13-16%", "versus $3.00 in 2025", "vs. $4.5 billion") is not read as the guide. An
 outlook that names its year without "full year" ("2026 capital expenditures",
 "Adjusted EPS of $2.25 to $2.35 in 2026") guides that fiscal year, and
 "full-year revenue guidance" with no year guides the outlook block's fiscal
 year. Before, both took the block's quarter, so annual guides from Meta, Lilly,
 NextEra, AT&T and Verizon were labelled as quarters. A sentence about a quarter
-or part of a year ("remaining quarters of 2026") keeps the block's quarter.
+or part of a year ("remaining quarters of 2026") keeps the block's quarter. A
+maturity's year ("notes due 2030") names no outlook, and when the block's
+period is known only its fiscal year or the next can be the outlook's ("the
+2024 divestiture" in a 2026 release is not).
 
 As a backstop, a revenue outlook must lie within 0.2 to 5 times the revenue of
 the latest quarter its release could see (four such quarters for a full-year

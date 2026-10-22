@@ -216,13 +216,25 @@ const MONTH = String.raw`(?:January|February|March|April|May|June|July|August|Se
  * ("2026 capital expenditures", "Adjusted EPS of $2.25 to $2.35 in 2026",
  * "investment goals for 2025") guides that fiscal year. It took the outlook
  * block's quarter. A sentence about a quarter or part of a year keeps the
- * block's quarter, and a date's year ("December 31, 2025") names no outlook.
+ * block's quarter, and a date's year ("December 31, 2025") or a maturity's
+ * ("notes due 2030") names no outlook. With the block's period known, only
+ * its fiscal year or the next is an outlook's ("the 2024 divestiture" in a
+ * 2026 release is not).
  */
-function namedYearPhrase(text: string): FiscalPeriod | null {
+function namedYearPhrase(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
   if (PART_OF_YEAR.test(text)) return null;
-  const m = firstNonComparison(new RegExp(String.raw`(?<!\d,\s?)(?<!${MONTH}\s)\b(?:fiscal (?:year )?|FY\s?)?(20\d{2})\b`, "gi"), text);
-  return m ? fiscalPeriod(Number(m[1]), null) : null;
+  const unmatured = text.replace(MATURITY_YEAR, (m) => m.replace(/\d/g, "#"));
+  for (const m of unmatured.matchAll(new RegExp(String.raw`(?<!\d,\s?)(?<!${MONTH}\s)\b(?:fiscal (?:year )?|FY\s?)?(20\d{2})\b`, "gi"))) {
+    const year = Number(m[1]);
+    if (comparisonBase(unmatured, m.index)) continue;
+    if (block !== null && (year < block.fiscalYear || year > block.fiscalYear + 1)) continue;
+    return fiscalPeriod(year, null);
+  }
+  return null;
 }
+
+/** "notes due 2030", "a facility maturing in 2029": a maturity's year. */
+const MATURITY_YEAR = /\b(?:due|matur(?:es|ing|ity)|expir(?:es|ing|y))\s+(?:in\s+)?(?:fiscal\s+)?20\d{2}\b/gi;
 
 /** B-25: "full-year revenue guidance" with no year is the outlook block's fiscal year. */
 function unyearedFullYear(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
@@ -325,7 +337,7 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   if (!EXPECTATION.test(sentence)) return [];
   const rule = METRIC_RULES.find((r) => r.pattern.test(sentence));
   if (!rule) return [];
-  const period = fullYearPhrase(sentence) ?? quarterPhrase(sentence) ?? namedYearPhrase(sentence) ?? unyearedFullYear(sentence, defaultPeriod) ?? defaultPeriod;
+  const period = fullYearPhrase(sentence) ?? quarterPhrase(sentence) ?? namedYearPhrase(sentence, defaultPeriod) ?? unyearedFullYear(sentence, defaultPeriod) ?? defaultPeriod;
   if (period === null) return [];
   const verb = /\b(?:(?:is|are) expected to (?:be|range|total)|expects?\b[^.]{0,120}?\bto (?:be|range|total)|to be|of)\b/i.exec(sentence);
   if (!verb) return [];
@@ -333,7 +345,7 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   clause = clause.split(/\b(?:inclusive of|including|excluding|exclusive of|which includes|reflecting)\b/i)[0]!;
   // B-25: the amount a guide is compared with ("an increase from our prior
   // outlook of 13-16%", "versus $3.00 in 2025") is not the guide.
-  clause = clause.split(/\b(?:compared (?:with|to)|versus|vs\.|relative to|an? (?:increase|decrease|rise|decline|change) from|up from|down from|from (?:our|the|its) (?:prior|previous))\b/i)[0]!;
+  clause = clause.split(/\b(?:compared (?:with|to)|versus|relative to|an? (?:increase|decrease|rise|decline|change) from|up from|down from|from (?:our|the|its) (?:prior|previous))\b|\bvs\.(?=\s|$)/i)[0]!;
 
   // A tolerance applies to every value it follows: "± 2%" scales a money
   // point; "± 50 basis points" widens a percentage by 0.5pp.
@@ -363,7 +375,10 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
 
   const bases = basesOf(sentence);
   const respectively = /\brespectively\b/i.test(clause);
-  const isRange = /\bbetween\b|\brange of\b|\bin the range\b|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(valueClause);
+  // A span of years ("from 2027 to 2028", "between now and 2028") is not a
+  // range of values: the test reads the clause with its years blanked out.
+  const yearless = valueClause.replace(/(?<![\d,.$])(?:19|20)\d{2}(?![\d,.]\d|\s*(?:%|billion|million|thousand))/g, "Y");
+  const isRange = /\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
   // B-25: one end of a stated range is never published as a point.
   if (isRange && values.length < 2) return [];
 

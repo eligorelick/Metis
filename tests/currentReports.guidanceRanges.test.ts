@@ -57,6 +57,15 @@ describe("hyphenated outlook ranges (audit 2026-10-22 B-25)", () => {
   it("leaves a stated range unread rather than publishing one end as a point", () => {
     expect(read("We expect fourth quarter 2026 total revenue to be in the range of $73 billion to the high seventies.")).toEqual([]);
   });
+
+  it("never takes a span of years for a range of values, and drops a 'vs.' comparison", () => {
+    expect(read("Revenue for the fourth quarter of 2026 is expected to be approximately $5.0 billion, with growth continuing from 2027 to 2028."))
+      .toEqual([["Q4 FY2026", "revenue", "approximate", 5e9, 5e9, 5e9]]);
+    expect(read("We expect our tax rate for the fourth quarter of 2026 to be approximately 16%, and between now and 2028 to trend lower."))
+      .toEqual([["Q4 FY2026", "tax-rate", "approximate", 16, 16, 16]]);
+    expect(read("We expect fourth quarter 2026 revenue to be approximately $5.0 billion vs. $4.5 billion a year ago."))
+      .toEqual([["Q4 FY2026", "revenue", "approximate", 5e9, 5e9, 5e9]]);
+  });
 });
 
 describe("a full-year outlook that names its year without \"full year\" (audit 2026-10-22 B-25)", () => {
@@ -69,6 +78,11 @@ describe("a full-year outlook that names its year without \"full year\" (audit 2
       .toEqual([["FY2026", "eps", "range", 2.25, 2.3, 2.35]]);
     expect(read("In addition, Verizon remains on track to meet its investment goals for 2025 and expects capital expenditures to be within or below the previously guided range of $17.5 billion to $18.5 billion.", q(2025, 1)))
       .toEqual([["FY2025", "capital-expenditures", "range", 17.5e9, 18e9, 18.5e9]]);
+  });
+
+  it("never takes a maturity year or a past year for the outlook's year", () => {
+    expect(read("We expect capital expenditures to be approximately $2.0 billion, funded in part by notes due 2030.", q(2026, 2))?.[0]?.[0]).toBe("Q2 FY2026");
+    expect(read("Excluding the impact of the 2024 divestiture, we expect revenue to be approximately $5.0 billion.", q(2026, 3))?.[0]?.[0]).toBe("Q3 FY2026");
   });
 
   it("labels an unyeared full-year outlook with the outlook block's fiscal year", () => {
