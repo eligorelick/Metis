@@ -1954,8 +1954,8 @@ interface ComputeContext {
   money(tag: string): number | null;
   /** One money tag's resolved fact at this period, for a field recomposed from it. */
   fact?(tag: string): Resolved | null;
-  /** Re-points a field's provenance at the facts it was recomposed from. */
-  replace?(field: string, resolved: Resolved): void;
+  /** Re-points a field's provenance at the facts it was recomposed from, or drops it. */
+  replace?(field: string, resolved: Resolved | null): void;
 }
 
 function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
@@ -2168,7 +2168,7 @@ function resolveDebtOverlaps(
   }
 
   // Case 3 first: it changes `shortTermDebt`, which case 2 does not read.
-  const shortTermTags = tagsOf("shortTermDebt");
+  let shortTermTags = tagsOf("shortTermDebt");
   if (shortTermTags.includes("ShortTermBorrowings") && shortTermTags.includes("CommercialPaper")) {
     const commercialPaper = cc.money("CommercialPaper");
     if (commercialPaper !== null && v.shortTermDebt != null) {
@@ -2196,9 +2196,31 @@ function resolveDebtOverlaps(
   // short-term borrowings as readily as alone. When such a tag DID resolve the
   // schedule figure never entered the sum, and it is named anyway, because a
   // reader has to see the figure the filer disclosed either way.
-  const maturitiesStand = shortTermTags.includes(MATURITIES_NEXT_YEAR_TAG);
+  let maturitiesStand = shortTermTags.includes(MATURITIES_NEXT_YEAR_TAG);
   const maturities = cc.money(MATURITIES_NEXT_YEAR_TAG);
   const fiscalRemainder = cc.money("LongTermDebtMaturitiesRepaymentsOfPrincipalRemainderOfFiscalYear");
+  // The balance sheet's own split: a LongTermDebt total equal to its
+  // noncurrent part carries no current maturities, so the schedule's bucket
+  // is not current debt and does not stand in (audit 2026-10-22 A-10).
+  const inclusiveLong = cc.money("LongTermDebt");
+  const noncurrentLong = cc.money("LongTermDebtNoncurrent");
+  const noCurrentPortion = maturitiesStand && maturities !== null && inclusiveLong !== null && noncurrentLong !== null &&
+    Math.abs(inclusiveLong - noncurrentLong) <= Math.max(1, Math.abs(inclusiveLong) * 1e-6);
+  const standing = cc.resolved.get("shortTermDebt");
+  if (noCurrentPortion && standing !== undefined && v.shortTermDebt != null) {
+    // With no other current component, current debt is the balance sheet's
+    // own zero: LongTermDebt less LongTermDebtNoncurrent.
+    const rest = standing.tags.filter((tag) => tag !== MATURITIES_NEXT_YEAR_TAG);
+    const split = cc.fact?.("LongTermDebt") ?? null;
+    v.shortTermDebt = rest.length === 0 ? 0 : tidy(v.shortTermDebt - maturities!, MONEY_DECIMALS);
+    cc.replace?.("shortTermDebt", rest.length > 0 ? { ...standing, value: v.shortTermDebt, tags: rest }
+      : split === null ? null : { ...split, value: 0, tags: ["LongTermDebt", "LongTermDebtNoncurrent"] });
+    shortTermTags = rest;
+    maturitiesStand = false;
+    notes.add(
+      `shortTermDebt ${ctx}: ${MATURITIES_NEXT_YEAR_TAG} ${maturities} not taken as current maturities — the balance sheet's LongTermDebt (${inclusiveLong}) equals its LongTermDebtNoncurrent, so it carries no current portion`,
+    );
+  }
   const scopeReason = maturitiesStand ? fiscalMaturityScopeReason(maturities, fiscalRemainder) : null;
   if (scopeReason !== null) {
     v.shortTermDebt = null;
@@ -2660,7 +2682,7 @@ function buildStatementRows<TRow>(
         return r === null ? null : tidy(r.value, MONEY_DECIMALS);
       },
       fact: (tag) => sameRowEvidence(tag, "money"),
-      replace: (field, resolved) => { resolutions.set(field, resolved); },
+      replace: (field, resolved) => { if (resolved === null) resolutions.delete(field); else resolutions.set(field, resolved); },
     });
     // A withheld aggregate-dividend proxy has no common-dividend provenance.
     if (def.statement === "cashflow" && values.commonDividendsPaid === null) resolutions.delete("commonDividendsPaid");

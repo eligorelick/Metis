@@ -2909,3 +2909,15 @@ leases, with a note that only the split is withheld. The statements builder
 and Stage B's debt admission apply the same rule. Short-term borrowings beside
 the refused bucket still withhold the total, because the bucket's share of
 them is unknown.
+
+**A zero remainder-of-year bucket (A-10).** Meta's June 2026 10-Q tags the
+remainder of its fiscal year at zero and $2.75B "in next twelve months",
+which is the next fiscal year's bucket. Only a remainder above zero refused
+the bucket, so it stood in as current debt that Meta's balance sheet does not
+carry, and total debt counted $2.75B twice. Any tagged remainder-of-year
+bucket, zero included, now shows the schedule runs by fiscal year, and the
+next-twelve-months figure beside it is refused as current debt. Before that
+test, when the balance sheet's own `LongTermDebt` equals its
+`LongTermDebtNoncurrent`, the balance sheet carries no current maturities,
+so the bucket is declined. With no other current component, short-term debt
+is that zero, sourced to both tags.

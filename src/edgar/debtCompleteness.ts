@@ -48,8 +48,13 @@ export function uncomposedDebtReason(row: {
       `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`;
 }
 
+/**
+ * A tagged remainder-of-fiscal-year bucket, zero included, shows the schedule
+ * runs by fiscal year, so the next-twelve-months figure beside it can be the
+ * next fiscal year's bucket rather than current debt (audit 2026-10-22 A-10).
+ */
 export function fiscalMaturityScopeReason(maturities: number | null, remainder: number | null): string | null {
-  return maturities !== null && remainder !== null && remainder > 0
+  return maturities !== null && remainder !== null && remainder >= 0
     ? `debt maturity scope unresolved: LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths ${maturities} is accompanied by remainder-of-fiscal-year ` +
       `principal ${remainder}; the first fiscal maturity bucket is not established as current balance-sheet carrying debt.`
     : null;

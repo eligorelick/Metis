@@ -12,6 +12,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { fiscalMaturityScopeReason } from "@/edgar/debtCompleteness";
 import { admitDebtFields } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, type BuiltStatements } from "@/edgar/statements";
 import type { CompanyFacts } from "@/edgar/xbrl";
@@ -124,5 +125,32 @@ describe("an inclusive LongTermDebt whose current/noncurrent split is refused (a
       gaap.ShortTermBorrowings = { units: { USD: [{ ...at, val: 500e6 }] } };
     }), "2026-03-31");
     expect(row.totalDebt).toBeNull();
+  });
+});
+
+describe("a zero remainder-of-year maturity bucket (audit 2026-10-22 A-10)", () => {
+  // Meta's June 2026 10-Q tags the remainder of the fiscal year at 0 and
+  // 2.75B "in next twelve months", which is the next fiscal year's bucket;
+  // its balance sheet carries no current debt (LongTermDebt = LongTermDebtNoncurrent).
+  it("META: declines the maturity bucket as current debt the balance sheet does not carry", () => {
+    const row = quarter(build("META"), "2026-06-30");
+    expect(row.shortTermDebt ?? 0).toBe(0);
+    near(row.longTermDebt, 83.664 * B);
+    near(financing(row), 83.664 * B);
+    near(row.totalDebt, 83.664 * B + (row.capitalLeaseObligations as number));
+    expect(row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect((row.fieldProvenance as { shortTermDebt?: { tags: string[] } } | undefined)?.shortTermDebt?.tags ?? []).not.toContain("us-gaap/LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths");
+  });
+
+  it("META: Stage B's debt admission keeps the total", () => {
+    const row = quarter(build("META"), "2026-06-30");
+    const admitted = admitDebtFields(row as never, fixture.issuers.META.facts as unknown as CompanyFacts, "USD", `${fixture.asOf}T00:00:00.000Z`).row as unknown as Row;
+    near(admitted.totalDebt, row.totalDebt as number);
+    expect(admitted.shortTermDebt).toBe(0);
+  });
+
+  it("refuses the next-twelve-months bucket beside any tagged remainder-of-year bucket, zero included", () => {
+    expect(fiscalMaturityScopeReason(2.75e9, 0)).toMatch(/remainder-of-fiscal-year/);
+    expect(fiscalMaturityScopeReason(2.75e9, null)).toBeNull();
   });
 });
