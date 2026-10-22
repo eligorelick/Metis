@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-20",
+  "generatedAt": "2026-10-22",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -6953,96 +6953,6 @@
       ]
     },
     {
-      "name": "d76-dividend-units-and-output-evidence",
-      "decisions": [
-        "D-73",
-        "D-76"
-      ],
-      "reason": "D-76: report 1.19.4 distinguishes an explicitly printed dividend total from its per-share restatement and identifies historical EV origin. This fixture has no affected dividend claim or withheld EV. Exact new output leaves are report.meta.specVersion and report.marketData.enterpriseValueOrigin (provider); the latter is inside the existing whole-object marketData delta. The original marketData insertion and float.asOf attribution remain D-73; D-76 adds only origin classification and the report stamp. All financial values, formulas, grades and weights remain pinned. Saved reports retain their original conventions.",
-      "deltas": [
-        {
-          "path": "report.marketData",
-          "beforeMissing": true,
-          "after": {
-            "version": "1",
-            "currency": "USD",
-            "estimateCurrency": "USD",
-            "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)",
-            "quote": {
-              "price": 40,
-              "marketCap": 8000000000,
-              "yearHigh": 44,
-              "yearLow": 28,
-              "volume": 1200000,
-              "priceAvg50": 39,
-              "priceAvg200": 36,
-              "asOf": "2025-12-31"
-            },
-            "shares": {
-              "outstanding": 200000000,
-              "float": 180000000,
-              "freeFloatPct": 90,
-              "asOf": "2025-12-31",
-              "floatAsOf": "2025-12-31"
-            },
-            "enterpriseValue": {
-              "value": 7200000000,
-              "periodEnd": "2025-12-31",
-              "marketCap": 8000000000,
-              "totalDebt": 1200000000,
-              "cash": 2000000000
-            },
-            "enterpriseValueOrigin": "provider",
-            "estimates": [
-              {
-                "fiscalYearEnd": "2026-12-31",
-                "revenueAvg": 13500000000,
-                "revenueLow": 13200000000,
-                "revenueHigh": 13800000000,
-                "epsAvg": 9.1,
-                "epsLow": 8.19,
-                "epsHigh": 10.01,
-                "analystsRevenue": 8,
-                "analystsEps": 7
-              },
-              {
-                "fiscalYearEnd": "2027-12-31",
-                "revenueAvg": 14550000000,
-                "revenueLow": 14100000000,
-                "revenueHigh": 15000000000,
-                "epsAvg": 10,
-                "epsLow": 9,
-                "epsHigh": 11,
-                "analystsRevenue": 7,
-                "analystsEps": 6
-              }
-            ],
-            "estimatesAsOf": "2026-07-06",
-            "priceTarget": {
-              "consensus": 44,
-              "median": 45,
-              "high": 52,
-              "low": 36,
-              "asOf": "2026-07-06",
-              "lastMonthCount": 2,
-              "lastMonthAverage": 44,
-              "lastQuarterCount": 5,
-              "lastQuarterAverage": 43
-            },
-            "gradeCounts": {
-              "strongPositive": 2,
-              "positive": 3,
-              "neutral": 4,
-              "negative": 1,
-              "strongNegative": 0,
-              "asOf": "2026-07-06"
-            },
-            "shortInterest": null
-          }
-        }
-      ]
-    },
-    {
       "name": "expe-ownership-and-evidence",
       "decisions": [
         "D-78"
@@ -9691,11 +9601,6 @@
           "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.35.0"
-        },
-        {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D99"
@@ -10132,6 +10037,103 @@
           "path": "stageB.valuation.reverseDcf.notes.0",
           "before": "implied CONSTANT revenue growth over 10 explicit years (no fade); all other assumptions frozen at base case",
           "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
+        }
+      ]
+    },
+    {
+      "name": "audit-batch1-headline-numbers-20261022",
+      "decisions": [
+        "D-73",
+        "D-76",
+        "D-100"
+      ],
+      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap Métis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md.",
+      "deltas": [
+        {
+          "path": "report.marketData",
+          "beforeMissing": true,
+          "after": {
+            "version": "1",
+            "currency": "USD",
+            "estimateCurrency": "USD",
+            "estimateCurrencyBasis": "inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)",
+            "quote": {
+              "price": 40,
+              "marketCap": 8000000000,
+              "yearHigh": 44,
+              "yearLow": 28,
+              "volume": 1200000,
+              "priceAvg50": 39,
+              "priceAvg200": 36,
+              "asOf": "2025-12-31",
+              "marketCapOrigin": "provider"
+            },
+            "shares": {
+              "outstanding": 200000000,
+              "float": 180000000,
+              "freeFloatPct": 90,
+              "asOf": "2025-12-31",
+              "floatAsOf": "2025-12-31"
+            },
+            "enterpriseValue": {
+              "value": 7200000000,
+              "periodEnd": "2025-12-31",
+              "marketCap": 8000000000,
+              "totalDebt": 1200000000,
+              "cash": 2000000000
+            },
+            "enterpriseValueOrigin": "provider",
+            "estimates": [
+              {
+                "fiscalYearEnd": "2026-12-31",
+                "revenueAvg": 13500000000,
+                "revenueLow": 13200000000,
+                "revenueHigh": 13800000000,
+                "epsAvg": 9.1,
+                "epsLow": 8.19,
+                "epsHigh": 10.01,
+                "analystsRevenue": 8,
+                "analystsEps": 7
+              },
+              {
+                "fiscalYearEnd": "2027-12-31",
+                "revenueAvg": 14550000000,
+                "revenueLow": 14100000000,
+                "revenueHigh": 15000000000,
+                "epsAvg": 10,
+                "epsLow": 9,
+                "epsHigh": 11,
+                "analystsRevenue": 7,
+                "analystsEps": 6
+              }
+            ],
+            "estimatesAsOf": "2026-07-06",
+            "priceTarget": {
+              "consensus": 44,
+              "median": 45,
+              "high": 52,
+              "low": 36,
+              "asOf": "2026-07-06",
+              "lastMonthCount": 2,
+              "lastMonthAverage": 44,
+              "lastQuarterCount": 5,
+              "lastQuarterAverage": 43
+            },
+            "gradeCounts": {
+              "strongPositive": 2,
+              "positive": 3,
+              "neutral": 4,
+              "negative": 1,
+              "strongNegative": 0,
+              "asOf": "2026-07-06"
+            },
+            "shortInterest": null
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.36.0"
         }
       ]
     }

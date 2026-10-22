@@ -407,7 +407,8 @@ export interface ContextPayload {
 // D-97: independently audited debt, lease-scope and NCI admission alter admitted context.
 // D-98: investment tax, rate-limit degradation, guided YoY pace, margin fade and gain-inflated P/E alter admitted context.
 // D-99: backlog and government-case evidence, the consensus-target reconciliation note and the deferred AMZN audit fixes alter admitted context.
-export const PAYLOAD_VERSION = "1.40.0" as const;
+// D-100: the composite's evidence floor, the neutral-band qualifier and the band thresholds alter admitted context.
+export const PAYLOAD_VERSION = "1.41.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

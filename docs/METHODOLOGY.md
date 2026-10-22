@@ -2506,7 +2506,9 @@ It also shows none when the score rests on one signal carrying only part of
 that weight, such as an insurer's own-history P/B rank without the ROE
 reverse-solve signal. The label is "Not assessed — limited evidence (score N/100
 on one signal, X% of signals)". The score and the composite are unchanged,
-since the composite already weights each aspect by its evidence. A route that
+since the composite already weights each aspect by its evidence. The
+composite's own letter has the same floor, measured over the whole route
+(F-19, under audit batch 1 below). A route that
 designs a single signal and observes it in full, such as the REIT P/FFO rank, is
 not affected. A P/TBV rank that falls back to P/B is labelled a P/B rank
 (audit PGR-4).

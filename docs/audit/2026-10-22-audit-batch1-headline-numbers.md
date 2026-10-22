@@ -1,0 +1,59 @@
+# Audit batch 1: headline numbers (2026-10-22)
+
+Base: `bc71121` (main). Scope: batch 1 of the independent audit of 2026-10-22, findings B-25, B-19, B-14, B-15, B-17, B-16, B-40, A-10 and F-19: reports that published wrong headline figures with no warning. Decision: D-100 in [DECISIONS](DECISIONS.md). The audit evidence folders stay out of the repository.
+
+This change made no model calls and no paid provider calls. The only provider traffic was the keyless, data-only control panel below, served from the run cache. The only new fixture is `tests/fixtures/batch1-debt-facts.json`: public SEC companyfacts for Oracle, Chevron, Prologis and Meta, trimmed to the debt facts the tests read.
+
+## Disposition
+
+| Finding | Disposition | Commit | Tests |
+|---|---|---|---|
+| B-25 Guidance ranges and periods | Fixed. "$73-76 billion" was read as an unscaled $73 point and "15-17%" as −17%. A money range shares the scale printed after its high end, a percent range shares its %, a range hyphen is never a sign, a range with one readable end is left unread, and an amount the guide is compared with is not the guide. An outlook naming its year without "full year" guides that fiscal year, not the block's quarter (Meta, Lilly, NextEra, AT&T, Verizon). Backstop: a revenue guide outside 0.2–5× the latest quarter its release could see (four quarters for a full-year guide) is left out of the DCF anchor, the outlook table and the checks, with a note. | `42dfd51`, `53d9b7d` | `tests/currentReports.guidanceRanges.test.ts`, `tests/currentReports.test.ts`, `tests/filingDisclosures.integrity.test.ts` |
+| B-19 ADR market cap | Fixed. TSM printed $11.2T: the ADS price times the 25.93B ordinary shares on the 20-F cover (one ADS is five shares). The ADR flag now falls back to the 20-F/40-F forms when no statement row was built, and a flagged issuer's keyless market cap, quote market cap and market-cap history are withheld with a gap naming the missing depositary ratio. A market cap Métis computes is labelled derived. Panel: TSM $11.2T → withheld. | `038a21e` | `tests/keyless.test.ts`, `tests/marketData.integrity.test.ts`, `tests/stageB.economicShareScope.test.ts` |
+| B-14 `LongTermNotesAndLoans` | Fixed. Long-term debt reads the tag with its current portion, netted against a current-debt line that already carries it. A same-period debt total the filer tagged that exceeds the composed debt by more than 1% now withholds total and net debt instead of publishing a partial sum. Panel: ORCL $16.8B → $134.5B, which is the oracle's $125.3B of borrowings plus $9.2B of finance leases the census column includes. | `83c989a` | `tests/edgar.debtChains.audit20261022.test.ts` |
+| B-15 Inclusive long-term debt tag | Fixed. `LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities` is the last long-term-debt aggregate, netted like `LongTermDebt` and holding finance leases. Panel: CVX $0.4B → $37.1B (oracle $37.1B). | `83c989a` | `tests/edgar.debtChains.audit20261022.test.ts` |
+| B-17 CVX reclassified current debt | Fixed. A composition more than 1% from the inclusive total plus short-term borrowings is recomposed from them; with no borrowings tagged, a higher composition is withheld. CVX FY2025 $50.7B → $40.8B. | `83c989a` | `tests/edgar.debtChains.audit20261022.test.ts` |
+| B-16 Partial debt published | Fixed. The interest check uses the average of the year's balances, opening to closing, instead of the year's largest. A collapse check withholds debt that fell more than 60% to a balance on which the year's interest implies over 25%, unless the cash flow shows net repayment of at least half the fall. It runs after B-14/B-15/B-17, and re-withholds none of the correctly composed panel rows. | `3c45c81` | `tests/stageB.debtPlausibility.test.ts` |
+| B-40 Inclusive total withheld with its split | Fixed. When `LongTermDebt` is the only long-term tag and the refused maturity bucket was the only current component, total debt is `LongTermDebt` plus leases and only the split is withheld; the statements builder and Stage B's debt admission agree. Panel: PLD withheld → $34.7B at 2026-03-31 (oracle $36.4B at 2026-06-30; the June quarter still has borrowings beside the refused bucket). | `e0171dd` | `tests/edgar.debtChains.audit20261022.test.ts`, `tests/edgar.debtAdmission.review.test.ts` |
+| A-10 Zero remainder-of-year bucket | Fixed. Any tagged remainder-of-year bucket, zero included, refuses the next-twelve-months figure as current debt, and a balance sheet whose `LongTermDebt` equals its `LongTermDebtNoncurrent` declines it first. Panel: META $86.4B → $83.7B (oracle $83.7B). | `a13219f` | `tests/edgar.debtChains.audit20261022.test.ts` |
+| F-19 Composite letter | Fixed. Below evidence for 50% of the route-applicable signal weight the composite prints "Not graded: evidence N%" with its score and no letter, on every surface, in both exports and in the judge payload; Key data prints the evidence share and the band thresholds beside it. A deterministic band letter for a score from 45 to 55 inclusive carries "neutral" wherever it is shown. | `f3583d0` | `tests/report.compositeEvidenceFloor.test.ts`, `tests/stageC.payload.passes.test.ts` |
+
+Every new test failed before its fix.
+
+## Control panel
+
+45 tickers, keyless and data-only (no FMP key, no model), on `bc71121` and on this branch, compared with the audit's oracle (`oracle-compare.csv`). Debt is total debt including leases less operating leases, as the census measures it.
+
+| Ticker | Debt before | Debt after | Oracle | Market cap before → after |
+|---|---|---|---|---|
+| ORCL | $16.8B | $134.5B ($125.3B borrowings + $9.2B finance leases) | $125.3B | unchanged |
+| CVX | $0.4B | $37.1B | $37.1B | unchanged |
+| META | $86.4B | $83.7B | $83.7B | unchanged |
+| PLD | withheld | $34.7B (2026-03-31) | $36.4B (2026-06-30) | unchanged |
+| TSM | withheld | withheld | $1,033B | $11.2T → withheld (oracle $2.24T) |
+
+Every other row's headline debt and market cap is unchanged. No headline figure was lost. The guards withhold these historical rows, each with a gap naming the reason:
+
+- GOOGL FY2018 and NFLX FY2020 and Q3 2021: a tagged `LongTermDebt` exceeds the composed debt;
+- ORCL May 2022: a `LongTermNotesAndLoans` total exceeds the composed $3.7B, and the collapse check fires;
+- O FY2017: debt fell from $4.0B to $0.4B with no repayment shown;
+- JPM 2016–2022: the inclusive tag cannot be separated from the maturity bucket. JPM's headline debt was already withheld.
+
+GOOGL and JPM gain a forensics gap. In some periods their long-term debt is now composed from tags that include current debt, so the leverage tests that read it alone are not evaluated there. Their Piotroski and Beneish scores and both composites are unchanged. NFLX FY2019 total debt is published again (B-40). PLD and JPM now produce a WACC. JPM's debt is now read at about $533B, so its effective cost of debt is 19.3%. A bank's interest expense includes deposit interest, and BAC already showed 22.7% before this batch. The financial route does not consume a WACC; this is left for later (below).
+
+Cache: both runs read the same run cache, with keyless traffic only (SEC EDGAR, Yahoo charts, FRED and Finnhub). During the head run the cache stored fresh companyfacts for 14 issuers: AAPL, AMT, AMZN, BA, BAC, BRK.B, META, NEE, NNN, O, ORCL, PG, PLD and SNOW. Five of these (AMT, AMZN, BA, BAC and BRK.B) were also refreshed during the base run. Background refreshes that timed out (34 EDGAR, 49 Finnhub) left the cached copy in use. Every difference between the two runs is one of the changes listed above. The ORCL, CVX, PLD and META debt moves reproduce offline from the trimmed fixture.
+
+## Owner decisions
+
+- Debt-chain order: B-14, B-15 and B-17 before B-16, and B-16 does not re-withhold correctly composed debt (checked on ORCL, CVX and the oracle-correct rows).
+- F-19: the composite uses the aspects' 50% floor of route-applicable signal weight; below it, "Not graded: evidence N%" with the score and no letter.
+- F-19: scores from 45 to 55 inclusive carry "neutral" beside the band letter wherever a grade is shown and in the judge payload; Key data prints the thresholds and the evidence share beside the composite. An analyst letter that differs from the band is not qualified.
+- B-19: withhold the ADS market cap when the ratio is not established from filings.
+- B-25: a revenue guide is bounded to 0.2–5× the last quarter.
+- House conventions introduced here: the 1% composition tolerance (B-14, B-17), the 60% fall and 25% implied-rate collapse thresholds and the half-the-fall repayment test (B-16), and the 45–55 neutral band (F-19).
+
+## Left for later
+
+- Stage B's debt admission (`admitDebtFields`) does not repeat the statements builder's uncomposed-total guard; vendor statement rows are not checked against the filer's tagged totals.
+- A bank's effective cost of debt includes deposit interest (JPM 19.3%, BAC 22.7%) and still yields a displayed WACC that the financial route never consumes.
+- The payload labels a keyless Yahoo quote's source as `fmp:quote` (`src/pipeline/stageC/payload.ts`).

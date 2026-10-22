@@ -967,8 +967,9 @@ describe("payload determinism + provenance", () => {
       // restoring them reproduces every preceding pin above.
       // Audit 2026-10-22 F-19 (D-100, +146 prompt bytes): the band thresholds
       // in the scores note and one neutral-band qualifier; restoring them
-      // reproduces the preceding prompt above, and no record moves.
-      fingerprint: "1.40.0:f02f961c",
+      // reproduces the preceding prompt above, and no record moves. The
+      // versioned header moves with payload 1.41.0.
+      fingerprint: "1.41.0:9267c1b7",
       promptBytes: 140_623,
       provenanceCount: 531,
       provenanceHash: "6ad4263f",
@@ -1126,7 +1127,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.40.0");
+    expect(first.payloadVersion).toBe("1.41.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2655,7 +2656,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.35.0");
+    expect(report.meta.specVersion).toBe("1.36.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
