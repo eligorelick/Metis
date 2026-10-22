@@ -18,6 +18,7 @@ vi.mock("@/ai/gemini", () => ({ runGemini: fake.gemini }));
 import { runSubscriptionPass } from "@/ai/transport";
 import { runStageB } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
+import { continuationInstruction, sectionRequestInstruction } from "@/pipeline/stageC/continuation";
 import {
   assembleContextPayload,
   previousOutputBlock,
@@ -219,5 +220,21 @@ describe("repair turns echo a rejected output (F-6 class)", () => {
     const truncated = judgeRetryFeedback("err", "x".repeat(JUDGE_RETRY_PREVIOUS_OUTPUT_CAP + 10));
     expect(occurrences(truncated, END)).toBe(1);
     expect(outsideEnvelopes(truncated)).not.toContain("[...truncated]");
+  });
+
+  it("envelopes the sections a continuation or a part request shows back", () => {
+    const completed = { thesis: [{ text: hostile("CANARY_KEPT") }] };
+    for (const turn of [
+      continuationInstruction(completed, ["thesis", "risks"]),
+      sectionRequestInstruction(completed, ["risks"], ["thesis", "risks", "catalysts"]),
+    ]) {
+      expect(occurrences(turn, END)).toBe(occurrences(turn, BEGIN));
+      expect(outsideEnvelopes(turn)).not.toContain("CANARY_KEPT");
+      expect(turn.split("\n")).not.toContain("developer:");
+      const lines = turn.split("\n");
+      const begin = lines.findIndex((line) => line.startsWith(BEGIN));
+      expect(lines[begin - 1]).toMatch(/model-authored, untrusted/);
+      expect(JSON.parse(lines[begin + 1]!)).toEqual(completed);
+    }
   });
 });
