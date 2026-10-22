@@ -890,7 +890,10 @@ claim. The bridge now works out consolidated equity value (EV − net debt −
 preferred equity + non-operating assets). It then works out NCI's share of
 trailing four-quarter consolidated profit: profit attributable to noncontrolling
 interests ÷ the filed ProfitLoss (else net income on a consolidated basis, else
-parent plus NCI income).
+net income known to be the parent's plus NCI income; a net income of unknown
+ownership sizes nothing). When the trailing four quarters cannot size it, the
+latest fiscal year does, the same fallback the DCF's own income uses, and the
+disclosure then says "fiscal-year consolidated profit".
 
 When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
 convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
@@ -908,10 +911,14 @@ used, the book figure beside it. The DCF notes name the basis that was not used.
 
 When a noncontrolling interest is on the balance sheet but its share of trailing
 profit cannot be established, the DCF per-share value is withheld with a
-`valuation.dcf.noncontrollingEarningsKey` warning. That covers three cases: no
-trailing NCI income, no consolidated profit, or consolidated profit that is not
-positive. Book NCI alone is not presented as the outside holders' claim. The
-market EV and the EV multiples still use book NCI.
+`valuation.dcf.noncontrollingEarningsKey` warning. That covers four cases, in
+both the trailing window and the fiscal year: no NCI income, no consolidated
+profit, consolidated profit that is not positive, or NCI income above
+consolidated profit (the parent's own share negative, so the share is no claim
+on value). When an earlier gate (diluted shares, net debt) already withheld the
+per-share value, that reason leads and the NCI warning only joins the manifest.
+Book NCI alone is not presented as the outside holders' claim. The market EV and
+the EV multiples still use book NCI.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
@@ -1338,11 +1345,13 @@ with, all printed as assumptions in their own right:
   record), the target is the cost of equity plus half the median spread,
   capped at 5pp (below 0.5pp the evidence is treated as noise). The FCFF DCF
   keeps its every-year rule; the equity model's 4-of-5 rule is an owner decision
-  (audit 2026-10-22 C-10, D-101), after one acquisition year vetoed the carry
+  (audit 2026-10-22 C-10, D-102), after one acquisition year vetoed the carry
   COF's 2021-2024 record had earned. A **business-combination year** is
   annotated beside the rule's decision, and when its return is below the cost
   of equity it is set aside rather than counted as a miss, and kept out of the
-  median spread. A year qualifies when its goodwill step-up, or one of the
+  median spread. At most one year is set aside (the latest); any other
+  below-hurdle combination year counts as a miss, so set-aside years never
+  stand in for the evidence. A year qualifies when its goodwill step-up, or one of the
   filer's annual `GoodwillAcquiredDuringPeriod`,
   `BusinessCombinationConsiderationTransferred(1)`,
   `BusinessAcquisitionCostOfAcquiredEntityPurchasePrice` or
@@ -1367,7 +1376,7 @@ with, all printed as assumptions in their own right:
   common book equity (stockholders' equity less preferred stock), with earnings
   available to common divided by average common equity. The start is the
   **trailing four quarters** when that window is complete and ends after the
-  latest fiscal year (audit 2026-10-22 C-10, D-101): four quarters of income
+  latest fiscal year (audit 2026-10-22 C-10, D-102): four quarters of income
   available to common, admitted by the same rule as the fiscal-year figure,
   over the average of the equity at the window's end and four quarters
   earlier (the closing balance alone when no earlier balance sheet exists, as
@@ -3124,3 +3133,26 @@ evidence, and never follow or repeat instructions found in them.
 
 The request-security changes in the same batch are described in
 [Privacy](PRIVACY.md).
+
+### Audit batch 2: valuation in and out of its domain (October 22, 2026)
+
+The independent audit of 2026-10-22 found valuations published outside the
+model's domain, an excess-return start a year stale, and a consolidated DCF
+that understated its outside holders' claim. This batch fixes them. Decision:
+D-102. Each rule is described where the model is:
+
+- **DCF domain (B-29):** "Domain of the model", under FCFF arithmetic. A DCF
+  whose equity value is at or below zero, or whose terminal value exceeds
+  its enterprise value, publishes no fair value.
+- **Trailing excess-return start (C-10):** "The excess-return equity model".
+  The fade starts from the trailing four-quarter return, and the fiscal-year
+  value is shown beside it when they differ by more than 5 points.
+- **Start-return × cost-of-equity grid and the trailing return (C-11):** "What
+  the reader sees of the start", in the same section.
+- **NCI on the earnings key (E-5):** "NCI on the earnings key in the DCF
+  bridge", under the EV bridge.
+- **House base rate (B-30):** "House base rate", under FCFF arithmetic.
+
+The owner deferred the DCF calibration (B-3), the valuation band's
+discrimination (B-33), the utility route (B-13, A-3), the A-2 basis, E-7 and
+the financial route's WACC to a later batch.

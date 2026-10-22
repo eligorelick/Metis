@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.36.0** and
-payload **1.41.0** (audit batch 1, headline numbers, 2026-10-22). The checked-in
+Current source declares application **0.1.0**, report spec **1.37.0** and
+payload **1.42.0** (audit batch 2, valuation domain, 2026-10-22). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -25,6 +25,15 @@ original versions and bytes; source merge does not deploy or publish a release.
 - **Migration:** Node 24 or newer is now required (`engines.node >=24`), the version CI tests (F-10).
 - Tests clear `METIS_`/`THESIS_` settings inherited from the shell (GATE-1); remove a stray `.gitignore` line (F-11); the docs now say ChatGPT inference has run live and Gemini's has not (DOC-1).
 - See the [disposition record](docs/audit/2026-10-22-security-audit-fixes.md) and D-101.
+
+## Proposed audit batch 2: valuation in and out of its domain (2026-10-22)
+
+- Publish no fair value from a DCF outside its domain: equity value at or below zero, or a terminal value above 100% of enterprise value. Withhold its grids, reverse DCF and scenario targets, and keep its signals out of the valuation grade (B-29: NEE $0.00, TSLA $10.19 → "Model outside its domain").
+- Start the excess-return fade from the trailing four-quarter ROTE or common ROE, print the fiscal-year value beside it when the starts differ by more than 5pp, evidence the terminal carry on 4 of the last 5 years, and set aside one business-combination year below the cost of equity (C-10: COF $81.38 → $153.65 on the audit snapshot).
+- Show the trailing return as a row and payload figure, add a start-return × cost-of-equity grid, and warn when base-case text has returns recovering toward the cost of equity from above the terminal target (C-11).
+- Deduct noncontrolling interest at its share of trailing consolidated profit (the latest fiscal year when the trailing window cannot size it) when that exceeds 10% and the book deduction, and withhold the per-share value when the share cannot be established (E-5: FCX $22.27 → $19.67).
+- State the house DCF base rate from the 2026-10-22 census (16 of 18 below price, median −53%) beside the general-route DCF headline (B-30).
+- Report 1.37.0, payload 1.42.0 and Stage B ACCOUNTING_EVIDENCE_19 (D-102). See the [disposition record](docs/audit/2026-10-22-audit-batch2-valuation-domain.md).
 
 ## Proposed audit batch 1: headline numbers (2026-10-22)
 
