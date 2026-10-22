@@ -647,7 +647,18 @@ describe("payload determinism + provenance", () => {
     expect(JSON.stringify(payload).split("Consensus target vs our value:").length - 1).toBe(1);
     // Codex review of PR #42: the notes and risk readings' selection version.
     expect(JSON.stringify(payload).split("section-evidence-4/").length - 1).toBe(2);
-    const precedingPayload = JSON.parse(JSON.stringify(restoreD99(payload), (_key, leaf: unknown) =>
+    // Audit 2026-10-22 F-19 (D-100) names the band thresholds and the neutral
+    // range in the scores note, and marks a 45–55 band letter neutral. Each
+    // exact occurrence is asserted, then the preceding wording is restored.
+    const f19Restorations: [string, string, number][] = [
+      [" (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)", "", 1],
+      [", neutral 45–55)", ")", 1],
+    ];
+    const payloadText = JSON.stringify(payload);
+    for (const [now, , count] of f19Restorations) expect(payloadText.split(now).length - 1).toBe(count);
+    const restoreF19 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
+      typeof leaf === "string" ? f19Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
+    const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
       Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
         : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
     expect(payloadFingerprint({ ...precedingPayload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
@@ -954,8 +965,11 @@ describe("payload determinism + provenance", () => {
       // Codex review of PR #42: the scenario and notes/risk selection method
       // stamps move the fingerprint, the provenance hash and financeHash;
       // restoring them reproduces every preceding pin above.
-      fingerprint: "1.40.0:71f423e5",
-      promptBytes: 140_477,
+      // Audit 2026-10-22 F-19 (D-100, +146 prompt bytes): the band thresholds
+      // in the scores note and one neutral-band qualifier; restoring them
+      // reproduces the preceding prompt above, and no record moves.
+      fingerprint: "1.40.0:f02f961c",
+      promptBytes: 140_623,
       provenanceCount: 531,
       provenanceHash: "6ad4263f",
       provenanceIdsHash: "623dfb46",

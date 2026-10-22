@@ -2921,3 +2921,21 @@ test, when the balance sheet's own `LongTermDebt` equals its
 `LongTermDebtNoncurrent`, the balance sheet carries no current maturities,
 so the bucket is declined. With no other current component, short-term debt
 is that zero, sourced to both tags.
+
+**The composite's evidence floor and the neutral band (F-19).** Each aspect
+already withheld its letter below evidence for half its signal weight, but
+the composite did not. TSM's composite printed "D (51/100)" on evidence for
+5% of the route-applicable signal weight, its one scored aspect a technicals
+B. The composite now carries the same floor. Below evidence for 50% of the
+route-applicable signal weight it prints "Not graded: evidence N%" with the
+numeric score and no letter, on every surface, in both exports and in the
+judge's payload. Key data also prints the evidence share and the band
+thresholds beside the composite. The score itself and its calculation are
+unchanged. A second problem was the band table. It puts the neutral prior
+(50) in D, so a technicals score of 50.4 printed as D and the judge read it
+as weak momentum. A deterministic band letter for a score from 45 to 55
+inclusive now carries a "neutral" qualifier ("D (neutral)", "C (neutral)")
+wherever it is shown, and the payload's score units and band note say the
+same. An analyst letter that differs from the band is not qualified. The
+letters and thresholds themselves (A ≥85, B ≥70, C ≥55, D ≥40) are unchanged
+house conventions.

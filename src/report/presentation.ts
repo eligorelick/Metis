@@ -15,7 +15,7 @@ import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import { compositeNote, compositeText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -864,9 +864,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   if (bear && bull) {
     rows.push({ label: "Scenario range (bear – bull, model)", value: `${formatFinancialAmount(bear.value, bear.unit, bear.currency)} – ${formatFinancialAmount(bull.value, bull.unit, bull.currency)}` });
   }
-  const composite = report.scores?.composite;
-  if (composite && composite.score !== null) {
-    rows.push({ label: "Composite grade", value: `${composite.band ?? "—"} (${Math.round(composite.score)}/100)` });
+  const scores = report.scores;
+  if (scores && scores.composite.score !== null) {
+    // F-19: the aspects' evidence floor and the neutral qualifier, with the
+    // evidence share and the band thresholds beside the figure.
+    rows.push({ label: "Composite grade", value: compositeText(scores), note: compositeNote(scores) });
   }
   return rows;
 }
@@ -1617,7 +1619,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         SCORE_ASPECT_LABEL[key],
         aspect.score === null ? "—" : String(Math.round(aspect.score)),
         // D-67: the letter is withheld under the evidence floor on every surface.
-        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band ?? "—",
+        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : withNeutral(aspect.band, aspect.score),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         `${Math.round(aspect.dataCompleteness * 100)}%`,
         aspect.notApplicableReason ?? aspect.note,
@@ -1644,9 +1646,9 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
   const a = scores.assessments;
   if (!a) return null;
   return [
-    `Business quality ${a.businessQuality.score === null ? "—" : formatNumber(a.businessQuality.score, 0)} (${a.businessQuality.band ?? "—"})`,
+    `Business quality ${a.businessQuality.score === null ? "—" : formatNumber(a.businessQuality.score, 0)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
-    `price attractiveness ${a.valuation.score === null ? "—" : formatNumber(a.valuation.score, 0)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band ?? "—"})`,
+    `price attractiveness ${a.valuation.score === null ? "—" : formatNumber(a.valuation.score, 0)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
     `evidence available for ${formatPct(a.evidenceCompleteness * 100, 0)} of the signal weight`,
   ].join(" · ");
 }

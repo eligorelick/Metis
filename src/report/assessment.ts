@@ -1,9 +1,68 @@
-import type { AspectScore, GradeBlock, Report } from "@/report/schema";
+import type { AspectScore, GradeBlock, Report, Scoring } from "@/report/schema";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 import type { Grade } from "@/types/core";
 
 /** Presentation threshold only: raw scores and the composite calculation stay unchanged. */
 export const MIN_HEADLINE_EVIDENCE = 0.5;
+
+/**
+ * Audit 2026-10-22 F-19: the house band table puts the composite's neutral
+ * prior (50) in D, so a score from 45 to 55 inclusive carries a "neutral"
+ * qualifier wherever its letter is shown. The letter itself is unchanged.
+ */
+export const NEUTRAL_SCORE_BAND = { low: 45, high: 55 } as const;
+
+/** The band thresholds printed beside the composite (grading.ts scoreToBand). */
+export const BAND_THRESHOLDS_TEXT = "A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral";
+
+export function isNeutralScore(score: number | null | undefined): boolean {
+  return typeof score === "number" && Number.isFinite(score) && score >= NEUTRAL_SCORE_BAND.low && score <= NEUTRAL_SCORE_BAND.high;
+}
+
+/** "D (neutral)" for a band letter whose score sits in the neutral range, else the letter. */
+export function withNeutral(letter: string, score: number | null | undefined): string {
+  return isNeutralScore(score) ? `${letter} (neutral)` : letter;
+}
+
+/** A whole-percent evidence share, never rounded up across the floor. */
+export function evidencePct(share: number): number {
+  return Math.floor(share * 100 + 1e-9);
+}
+
+/**
+ * F-19: the composite carries the aspects' evidence floor. Below half of the
+ * route-applicable signal weight no letter is shown, only the score and the
+ * evidence share; an older report without the share keeps its letter.
+ */
+export function compositeDisplay(scores: Pick<Scoring, "composite" | "assessments">): {
+  grade: Scoring["composite"]["band"]; label: string; evidence: number | null;
+} {
+  const { score, band } = scores.composite;
+  const share = scores.assessments?.evidenceCompleteness;
+  const evidence = typeof share === "number" && Number.isFinite(share) ? share : null;
+  if (score === null || band === null) return { grade: null, label: "—", evidence };
+  if (evidence !== null && evidence < MIN_HEADLINE_EVIDENCE) {
+    return { grade: null, label: `Not graded: evidence ${evidencePct(evidence)}%`, evidence };
+  }
+  return { grade: band, label: withNeutral(band, score), evidence };
+}
+
+/** "B (71/100)", or "Not graded: evidence 5% (score 51/100)" under the floor. */
+export function compositeText(scores: Pick<Scoring, "composite" | "assessments">): string {
+  const view = compositeDisplay(scores);
+  const score = scores.composite.score;
+  if (score === null) return view.label;
+  return view.grade === null && view.label !== "—"
+    ? `${view.label} (score ${Math.round(score)}/100)`
+    : `${view.label} (${Math.round(score)}/100)`;
+}
+
+/** The evidence share and the band thresholds, printed beside the composite. */
+export function compositeNote(scores: Pick<Scoring, "composite" | "assessments">): string {
+  const { evidence } = compositeDisplay(scores);
+  const floor = `a letter needs ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}%`;
+  return `${evidence === null ? "" : `evidence for ${evidencePct(evidence)}% of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
+}
 
 /**
  * Apply the same evidence floor to every headline, including completed AI
@@ -82,8 +141,17 @@ export function limitedEvidenceText(aspect: AspectEvidence): string {
   return `score ${Math.round(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${Math.round(aspect.dataCompleteness * 100)}% of signals`;
 }
 
+/**
+ * The shown letter, qualified "neutral" (F-19) when it is the deterministic
+ * band of a score in the neutral range. An analyst letter that differs from
+ * the band is the analyst's, and is not qualified by the score.
+ */
+function shownLetter(block: GradeBlock, aspect?: AspectEvidence | null): string {
+  return aspect && aspect.band === block.grade ? withNeutral(block.grade, aspect.score) : block.grade;
+}
+
 export function gradeDisplayLabel(block: GradeBlock, aspect?: AspectEvidence | null): string {
-  if (gradeForDisplay(block) !== null) return block.grade;
+  if (gradeForDisplay(block) !== null) return shownLetter(block, aspect);
   const limited = block.assessmentStatus === "limited-evidence" || /on (\d+)% of intended signals/.test(block.oneLineWhy);
   if (!limited) return "Not assessed";
   return aspect && aspect.score !== null && aspect.band !== null
@@ -93,5 +161,5 @@ export function gradeDisplayLabel(block: GradeBlock, aspect?: AspectEvidence | n
 
 /** "Grade A", or the not-assessed label: the heading of a graded section. */
 export function gradeHeading(block: GradeBlock, aspect?: AspectEvidence | null): string {
-  return gradeForDisplay(block) !== null ? `Grade ${block.grade}` : gradeDisplayLabel(block, aspect);
+  return gradeForDisplay(block) !== null ? `Grade ${shownLetter(block, aspect)}` : gradeDisplayLabel(block, aspect);
 }

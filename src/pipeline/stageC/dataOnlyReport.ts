@@ -47,7 +47,7 @@ import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
-import { hasLimitedEvidence } from "@/report/assessment";
+import { compositeDisplay, hasLimitedEvidence, withNeutral } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
@@ -268,7 +268,7 @@ function gradeBlock(
   return {
     grade: aspect.band,
     assessmentStatus: limited ? "limited-evidence" : "deterministic",
-    oneLineWhy: `${limited ? "Not assessed — limited evidence. " : ""}Deterministic score ${fmtNum(aspect.score, 1)}/100 (raw band ${aspect.band}) on ${completenessPct}% of intended signals; no completed analyst assessment is available.`,
+    oneLineWhy: `${limited ? "Not assessed — limited evidence. " : ""}Deterministic score ${fmtNum(aspect.score, 1)}/100 (raw band ${withNeutral(aspect.band, aspect.score)}) on ${completenessPct}% of intended signals; no completed analyst assessment is available.`,
     reasoning: [
       fact(
         `Deterministic ${ASPECT_LABEL[key]} score ${fmtNum(aspect.score, 2)}/100 maps to band ${aspect.band} under the versioned house band table; ${completenessPct}% of the aspect's intended signal weight had data. ${aspect.note}`,
@@ -771,11 +771,13 @@ function synthesis(
     const bands = (Object.keys(ASPECT_LABEL) as ScoreAspect[])
       .map((key) => {
         const aspect = computed.scores.aspects[key];
-        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band}`;
+        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : withNeutral(aspect.band, aspect.score)}`;
       })
       .join(", ");
+    // Audit 2026-10-22 F-19: the composite carries the aspects' evidence floor.
+    const shown = compositeDisplay(computed.scores);
     parts.push(
-      `The deterministic composite score is ${fmtNum(composite.score, 1)}/100 (band ${composite.band}); aspect bands — ${bands}.`,
+      `The deterministic composite score is ${fmtNum(composite.score, 1)}/100 (${shown.grade === null ? shown.label.replace(/^Not/, "not") : `band ${shown.label}`}); aspect bands — ${bands}.`,
     );
   }
   const fv = computed.fairValue;
