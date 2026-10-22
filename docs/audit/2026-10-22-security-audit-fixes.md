@@ -4,7 +4,8 @@ Base: `1d90f4b` (main after pull request #45). Scope: batch 8 of the
 2026-10-22 audit, covering findings F-4 to F-8, F-10 and F-11, the prior
 audits' GATE-1 and GATE-22, and DOC-1, which the owner had deferred under
 D-97 item 17. Decision: D-101 in [DECISIONS](DECISIONS.md). The audit
-evidence folders stay out of the repository.
+evidence folders stay out of the repository. Audit batch 1 (pull request
+#47, `fd06eee`) merged first and is merged into this branch.
 
 This change made no paid provider or model calls and no new reports. It
 changes no deterministic figure. The only provider traffic was the data-only
@@ -29,6 +30,23 @@ Each fix's new test failed before the fix and passes after it. Some tests
 added alongside pin behaviour that was already right (loopback, light
 pages, requests with Fetch Metadata), and some existing tests were re-pinned to the new
 prompt text. GATE-22 has no test because nothing changed.
+
+## Control run
+
+The 45-ticker control panel (the `oracle-compare.csv` tickers) ran data-only
+from a fresh copy of the same cached data for each side, with zero cost caps
+and the model keys blank.
+
+- Base `1d90f4b` against the batch: 45 of 45 finished on both sides, no
+  census column changed, the gap families matched, and the Stage B output
+  differed only in `builtAt`. Debt was within 5% of `oracle-compare.csv` for
+  28 of the 33 tickers with a figure, with identical values on both sides.
+- Batch 1's head `fd06eee` against this branch after the merge, with
+  outbound traffic blocked so both sides served the same cache: 45 of 45
+  finished, all 57 census columns matched except the run time, the gap
+  families matched, and the Stage B output differed only in `builtAt`. An
+  earlier pair run with the network open differed only because one side's
+  background refresh fetched FRED's next 10-year Treasury observation.
 
 ## Version stamps
 
