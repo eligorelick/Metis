@@ -73,9 +73,20 @@ export const TERMINAL_G_CAP_PCT = 2.5;
  * spread is carried in perpetuity, capped at TERMINAL_EXCESS_RETURN_CAP_PP.
  * Anything short of that evidence keeps the default, and the reason is
  * written into the assumption notes.
+ *
+ * The excess-return equity model (banks, insurers) applies the rule as "at
+ * least 4 of the last 5 fiscal years", and a below-hurdle year with material
+ * business-combination evidence does not count against it (audit 2026-10-22
+ * C-10, owner decision); the FCFF DCF keeps the every-year rule.
  */
 export const TERMINAL_EXCESS_RETURN_CAP_PP = 5;
 export const TERMINAL_EXCESS_RETURN_MIN_YEARS = 4;
+/**
+ * HOUSE CONVENTION (owner decision, audit 2026-10-22 C-10): the excess-return
+ * model's fiscal-year start is shown beside the headline when it differs from
+ * the trailing start by more than this many percentage points.
+ */
+export const EXCESS_RETURN_START_GAP_PP = 5;
 export const TERMINAL_EXCESS_RETURN_CARRY = 0.5;
 /** Below this carried spread the evidence is noise; the default applies. */
 export const TERMINAL_EXCESS_RETURN_MIN_PP = 0.5;
@@ -851,6 +862,13 @@ export interface DcfRoicYear {
   waccPct?: number | null;
   /** Date of the risk-free observation behind `waccPct`. */
   waccAsOf?: string | null;
+  /**
+   * Audit 2026-10-22 C-10: material business-combination evidence for this
+   * fiscal year (excessReturnStart.ts `businessCombinationYears`), printed
+   * beside the year. Under the four-of-five rule a below-hurdle year carrying
+   * it does not count against the terminal carry.
+   */
+  combinationEvidence?: string | null;
 }
 
 export interface TerminalRoic {
@@ -892,8 +910,16 @@ export function terminalRoic(
    * the cost of equity, so its disclosures must not say ROIC and WACC.
    */
   labels: { ret: string; rate: string } = { ret: "ROIC", rate: "WACC" },
+  /**
+   * "every-year" (the FCFF DCF): the return beat the hurdle in every one of the
+   * last 4+ years. "four-of-five" (the excess-return model, audit 2026-10-22
+   * C-10): in at least 4 of the last 5, where a below-hurdle year with
+   * business-combination evidence is set aside rather than counted as a miss.
+   */
+  options: { rule?: "every-year" | "four-of-five" } = {},
 ): TerminalRoic {
   const { ret: RET, rate: RATE } = labels;
+  const fourOfFive = options.rule === "four-of-five";
   const hold = (
     note: string | null,
     waccBasis: TerminalRoic["waccBasis"],
@@ -947,7 +973,28 @@ export function terminalRoic(
     );
   }
   const below = years.filter((y) => y.roicPct <= waccForYear(y));
-  if (below.length > 0) {
+  const setAside = fourOfFive ? below.filter((y) => typeof y.combinationEvidence === "string" && y.combinationEvidence !== "") : [];
+  const misses = below.filter((y) => !setAside.includes(y));
+  const above = n - below.length;
+  const missText = (list: typeof years): string =>
+    list.map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`).join("; ");
+  const setAsideText = setAside.length === 0
+    ? ""
+    : `; set aside as business-combination year${setAside.length === 1 ? "" : "s"}, not counted as a miss: ${setAside.map((y) => `${y.date} (${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%, ${y.combinationEvidence})`).join("; ")}`;
+  const combinationAbove = fourOfFive
+    ? years.filter((y) => !below.includes(y) && typeof y.combinationEvidence === "string" && y.combinationEvidence !== "")
+    : [];
+  const annotatedText = combinationAbove.length === 0
+    ? ""
+    : `; business-combination year${combinationAbove.length === 1 ? "" : "s"} (above the hurdle, annotated): ${combinationAbove.map((y) => `${y.date} (${y.combinationEvidence})`).join("; ")}`;
+  if (fourOfFive && above + setAside.length < TERMINAL_EXCESS_RETURN_MIN_YEARS) {
+    return hold(
+      `terminal ${RET} held at ${RATE}: ${RET} beat that year's ${RATE} in only ${above} of the last ${n} fiscal years (${missText(misses)}${setAsideText}) — at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 are needed to evidence durable excess returns (house convention)`,
+      waccBasis,
+      waccBasisNote,
+    );
+  }
+  if (!fourOfFive && below.length > 0) {
     return hold(
       `terminal ${RET} held at ${RATE}: ${RET} was at or below that year's ${RATE} in ${below.length} of the last ${n} fiscal years (${below
         .map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`)
@@ -956,12 +1003,16 @@ export function terminalRoic(
       waccBasisNote,
     );
   }
-  const spreads = years.map((y) => y.roicPct - waccForYear(y));
+  // A set-aside combination year is not evidence either way, so it stays out of the median too.
+  const counted = years.filter((y) => !setAside.includes(y));
+  const spreads = counted.map((y) => y.roicPct - waccForYear(y));
   const median = medianOf(spreads) as number;
   const excess = Math.min(TERMINAL_EXCESS_RETURN_CAP_PP, TERMINAL_EXCESS_RETURN_CARRY * median);
   if (excess < TERMINAL_EXCESS_RETURN_MIN_PP) {
     return hold(
-      `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
+      fourOfFive
+        ? `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in ${above} of the last ${n} fiscal years${setAsideText}${annotatedText} but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`
+        : `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
       waccBasis,
       waccBasisNote,
     );
@@ -972,8 +1023,12 @@ export function terminalRoic(
     roicTermPct: waccPct + excess,
     excessPp: excess,
     basis:
-      `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ${RET} exceeded ${RATE} in each of the last ${n} fiscal years ` +
-      `(${oldest} to ${newest}, median spread ${fmtNum(median)}pp); half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
+      `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ` +
+      (fourOfFive
+        ? `${RET} exceeded ${RATE} in ${above} of the last ${n} fiscal years, at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 being required ` +
+          `(${oldest} to ${newest}${misses.length > 0 ? `; miss: ${missText(misses)}` : ""}${setAsideText}${annotatedText}; median spread ${fmtNum(median)}pp over the years counted); `
+        : `${RET} exceeded ${RATE} in each of the last ${n} fiscal years (${oldest} to ${newest}, median spread ${fmtNum(median)}pp); `) +
+      `half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
       "(HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md)",
     note: null,
     waccBasis,
@@ -4318,9 +4373,22 @@ export interface ExcessReturnInputs {
    * (net income / average fiscal-year equity), so the printed assumption must
    * not keep calling that "TTM ROE". Defaults to `"ttm"`.
    */
-  currentRoeBasis?: "ttm" | "fiscal-year-dupont" | "fiscal-year-rote" | "fiscal-year-common-roe";
-  /** Fiscal-year end for any annual return basis. */
+  currentRoeBasis?: "ttm" | "fiscal-year-dupont" | "fiscal-year-rote" | "fiscal-year-common-roe" | "ttm-rote" | "ttm-common-roe";
+  /** Fiscal-year end for any annual return basis; the window's end for a trailing one. */
   currentRoeAsOf?: string | null;
+  /**
+   * Audit 2026-10-22 C-10: the fiscal-year start the model did not use, when it
+   * starts from the trailing four quarters. It is valued with the same fade,
+   * terminal target and payout from its own fiscal-year book value, and shown
+   * beside the headline when the two starts differ by more than
+   * EXCESS_RETURN_START_GAP_PP.
+   */
+  startAlternative?: {
+    roePct: number;
+    basis: "fiscal-year-rote" | "fiscal-year-common-roe";
+    asOf: string | null;
+    bookValue: number;
+  } | null;
   /**
    * Optional caller override of the TERMINAL ROE (percent). Without an override,
    * the terminal target follows roeHistory's evidenced-excess convention, or
@@ -4395,6 +4463,22 @@ export interface PriceToTangibleBookVsRote {
   withheldReason: string | null;
 }
 
+/** Audit 2026-10-22 C-10: the excess-return value from the start the model did not use. */
+export interface ExcessReturnStartAlternative {
+  basis: "fiscal-year-rote" | "fiscal-year-common-roe";
+  asOf: string | null;
+  startRoePct: number;
+  bookValue: number;
+  equityValue: number;
+  perShare: number | null;
+  /** Alternative start minus the start used, percentage points. */
+  differencePp: number;
+  /** True when |differencePp| > EXCESS_RETURN_START_GAP_PP: the value is printed beside the headline. */
+  besideHeadline: boolean;
+  /** e.g. "FY 2025-12-31 ROTE start 4.2%". */
+  label: string;
+}
+
 export interface ExcessReturnResult {
   equityValue: number | null;
   perShare: number | null;
@@ -4422,6 +4506,8 @@ export interface ExcessReturnResult {
   /** Additive: legacy objects may not retain these forward parameters. */
   financialAssumptions?: FinancialValuationAssumptions;
   reverseSolve: { impliedCurrentRoePct: number | null; notes: string[] };
+  /** Audit 2026-10-22 C-10: present when the model started from the trailing four quarters and a fiscal-year start exists. */
+  startAlternative?: ExcessReturnStartAlternative;
   asOf: string | null;
   notes: string[];
   gaps: ManifestEntry[];
@@ -4765,11 +4851,12 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
   const roeStart = inputs.currentRoePct;
   const overrideTerminal = isNum(inputs.analystImpliedRoePct);
-  const retLabel = inputs.currentRoeBasis === "fiscal-year-rote" ? "ROTE" : "ROE";
-  // The DCF's terminal excess-return house convention, on the equity side.
+  const retLabel = inputs.currentRoeBasis === "fiscal-year-rote" || inputs.currentRoeBasis === "ttm-rote" ? "ROTE" : "ROE";
+  // The DCF's terminal excess-return house convention, on the equity side, as
+  // "4 of the last 5 years" with business-combination years set aside (C-10).
   const evidenced =
     !overrideTerminal && inputs.roeHistory != null
-      ? terminalRoic(coe, inputs.roeHistory, { ret: retLabel, rate: "cost of equity" })
+      ? terminalRoic(coe, inputs.roeHistory, { ret: retLabel, rate: "cost of equity" }, { rule: "four-of-five" })
       : null;
   if (evidenced?.note) notes.push(evidenced.note);
   if (evidenced?.waccBasisNote) notes.push(evidenced.waccBasisNote);
@@ -4797,7 +4884,11 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       ? `FY ${inputs.currentRoeAsOf ?? "unknown"} ROTE (common earnings / average tangible common equity)`
       : inputs.currentRoeBasis === "fiscal-year-common-roe"
         ? `FY ${inputs.currentRoeAsOf ?? "unknown"} common-equity ROE (common earnings / average common equity)`
-        : inputs.currentRoeBasis === "fiscal-year-dupont"
+        : inputs.currentRoeBasis === "ttm-rote"
+          ? `TTM ROTE to ${inputs.currentRoeAsOf ?? "unknown"} (four quarters of common earnings / average tangible common equity)`
+          : inputs.currentRoeBasis === "ttm-common-roe"
+            ? `TTM common-equity ROE to ${inputs.currentRoeAsOf ?? "unknown"} (four quarters of common earnings / average common equity)`
+            : inputs.currentRoeBasis === "fiscal-year-dupont"
       ? `${inputs.currentRoeAsOf != null ? `FY ${inputs.currentRoeAsOf} ` : ""}DuPont ROE`
       : "TTM ROE";
   const roeBasis = `linear fade from ${startBasis} ${fmtNum(roeStart)}% to ${endBasis} by year ${years}`;
@@ -4808,6 +4899,32 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const perShare = shares !== null ? equityValue / shares : null;
   if (shares === null) {
     gaps.push(gapEntry("valuation.excessReturn.dilutedShares", "diluted shares missing — per-share value unavailable", "info"));
+  }
+  // C-10: the fiscal-year start, valued with the same fade target, carry and
+  // payout from its own book value, so the reader sees what the start choice is worth.
+  let startAlternative: ExcessReturnStartAlternative | undefined;
+  const alt = inputs.startAlternative;
+  if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
+    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payout, continuing).equityValue;
+    const differencePp = alt.roePct - roeStart;
+    const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
+    startAlternative = {
+      basis: alt.basis,
+      asOf: alt.asOf,
+      startRoePct: alt.roePct,
+      bookValue: alt.bookValue,
+      equityValue: altValue,
+      perShare: shares !== null ? altValue / shares : null,
+      differencePp,
+      besideHeadline: Math.abs(differencePp) > EXCESS_RETURN_START_GAP_PP,
+      label: altLabel,
+    };
+    notes.push(
+      `start ${retLabel}: ${startBasis} ${fmtNum(roeStart)}% (newer than the latest fiscal year); the ${altLabel} from book value ${alt.bookValue} ` +
+        `would value the equity at ${fmtNum(altValue)}${shares !== null ? ` (${fmtNum(altValue / shares)} per share)` : ""}, ` +
+        `${fmtNum(Math.abs(differencePp))}pp ${differencePp < 0 ? "below" : "above"} the start used` +
+        (startAlternative.besideHeadline ? ` — more than ${EXCESS_RETURN_START_GAP_PP}pp apart, so it is shown beside the headline (house convention)` : ""),
+    );
   }
   const impliedPToBv = safeDiv(equityValue, bv0);
   if (impliedPToBv !== null && (impliedPToBv > 3 || impliedPToBv < 0.3)) {
@@ -4927,6 +5044,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     terminalExcess,
     financialAssumptions,
     reverseSolve: { impliedCurrentRoePct, notes: reverseNotes },
+    ...(startAlternative !== undefined ? { startAlternative } : {}),
     asOf: inputs.asOf ?? null,
     notes,
     gaps,
@@ -5375,6 +5493,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       const guarded: ExcessReturnResult = {
         ...er,
         perShare: null,
+        startAlternative: undefined,
         reverseSolve: {
           impliedCurrentRoePct: null,
           notes: [

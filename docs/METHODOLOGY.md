@@ -1299,9 +1299,22 @@ with, all printed as assumptions in their own right:
   target over exactly that horizon. The target is the DCF core's own terminal
   excess-return house convention, applied on the equity side (D-41): when the
   same return (ROTE for banks, common ROE otherwise) beat that fiscal year's own
-  cost of equity in **every** one of the last 4+ years, the target is the cost
-  of equity plus half the median spread, capped at 5pp (below 0.5pp the
-  evidence is treated as noise). That carried spread is valued past year `N` as
+  cost of equity in **at least 4 of the last 5** fiscal years (4+ years on
+  record), the target is the cost of equity plus half the median spread,
+  capped at 5pp (below 0.5pp the evidence is treated as noise). The FCFF DCF
+  keeps its every-year rule; the equity model's 4-of-5 rule is an owner decision
+  (audit 2026-10-22 C-10, D-101), after one acquisition year vetoed the carry
+  COF's 2021-2024 record had earned. A **business-combination year** is
+  annotated beside the rule's decision, and when its return is below the cost
+  of equity it is set aside rather than counted as a miss, and kept out of the
+  median spread. A year qualifies when its goodwill step-up, or one of the
+  filer's annual `GoodwillAcquiredDuringPeriod`,
+  `BusinessCombinationConsiderationTransferred(1)`,
+  `BusinessAcquisitionCostOfAcquiredEntityPurchasePrice` or
+  `FinancingReceivableAllowanceForCreditLossesAcquiredWithDeterioratedCreditQuality`
+  (the Day-1 allowance on purchased credit-deteriorated loans) facts, is at
+  least **10% of the opening common equity** — a house threshold, not a
+  standard (`src/pipeline/stageB/excessReturnStart.ts`). That carried spread is valued past year `N` as
   residual income growing at `min(2.5%, risk-free)`:
   `CV_N = (ROE_T − CoE) × BV_N / (CoE − g)`, discounted `N` years, behind the
   DCF's 2pp `CoE − g` guard. Without that evidence the target is the cost of
@@ -1313,12 +1326,25 @@ with, all printed as assumptions in their own right:
   in the cost of deposits, policy reserves or repo, which are this company's raw
   material rather than its financing. A null cost of equity **suppresses** the
   model with a critical gap rather than defaulting a rate.
-- **Opening book value `BV0`** — banks use annual tangible common equity
-  (stockholders' equity less goodwill, other intangibles and preferred stock)
-  with the matching fiscal-year ROTE. Insurers and mortgage REITs use annual
+- **Opening book value `BV0` and the starting return** — banks use tangible
+  common equity (stockholders' equity less goodwill, other intangibles and
+  preferred stock) with the matching ROTE. Insurers and mortgage REITs use
   common book equity (stockholders' equity less preferred stock), with earnings
-  available to common divided by average common equity. Return and opening
-  book value share a dated fiscal-year basis; vendor total-equity ROE is never
+  available to common divided by average common equity. The start is the
+  **trailing four quarters** when that window is complete and ends after the
+  latest fiscal year (audit 2026-10-22 C-10, D-101): four quarters of income
+  available to common, admitted by the same rule as the fiscal-year figure,
+  over the average of the equity at the window's end and four quarters
+  earlier (the closing balance alone when no earlier balance sheet exists, as
+  for the fiscal year), with `BV0` the equity at the window's end. Otherwise
+  the latest fiscal year is the start. When the trailing start is used, the
+  fiscal-year start is valued with the same fade target, carry and payout from
+  its own fiscal-year book value, and whenever the two starts are more than
+  **5pp** apart (house convention) that value is printed beside the headline
+  and in the fair-value basis. COF's FY2025 ROTE of 4.2% (the Day-1 allowance on
+  the acquired Discover loans went through provision) against about 17% over
+  the trailing four quarters is the case that set the rule. Return and opening
+  book value always share one dated basis; vendor total-equity ROE is never
   substituted into a common-equity valuation. Later
   years compound at `ROE × retention`, where retention is `1 − payout`. A loss is
   retained in full: `roe × retention` on a negative ROE would return a fraction

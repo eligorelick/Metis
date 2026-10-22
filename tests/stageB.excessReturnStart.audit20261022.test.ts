@@ -1,0 +1,201 @@
+/**
+ * Audit 2026-10-22 C-10: the excess-return fair value started from an
+ * acquisition-depressed fiscal-year ROTE, and that one year also cancelled the
+ * terminal carry.
+ *
+ * COF's FY2025 ROTE was 4.20% (the $8.8B Day-1 allowance on the acquired
+ * Discover loans went through provision) while its trailing four quarters
+ * earned about 17% and FY2021-24 earned 29.2 / 19.0 / 13.0 / 11.3% against a
+ * 9.6% cost of equity. The model faded from 4.2% and the "every one of the last
+ * 4+ years" terminal rule held the terminal ROTE at the cost of equity, so the
+ * headline read $81.38 (−61%). The owner's rule:
+ *  - start from the trailing four quarters when that window is complete and
+ *    newer than the latest fiscal year, and show the fiscal-year start beside
+ *    the headline whenever the two starts differ by more than 5pp;
+ *  - carry the terminal excess when the return beat the cost of equity in at
+ *    least 4 of the last 5 fiscal years;
+ *  - a year with business-combination evidence is annotated and does not count
+ *    against that rule.
+ */
+import { describe, expect, it } from "vitest";
+
+import {
+  BUSINESS_COMBINATION_MATERIALITY_PCT,
+  businessCombinationYears,
+  computeTtmCommonReturn,
+  EXCESS_RETURN_START_GAP_PP,
+} from "@/pipeline/stageB/excessReturnStart";
+import { computeFairValue } from "@/pipeline/stageB/fairValue";
+import { excessReturnModel, terminalRoic, valueCompany, type DcfRoicYear, type ExcessReturnInputs, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
+import type { CompanyFacts } from "@/edgar/xbrl";
+import type { CompanyRoute } from "@/types/core";
+import { keyDataRows } from "@/report/presentation";
+import { task28SentinelReport } from "./helpers/task28Report";
+
+const COE = 9.6;
+const acquisitionYear = "2025-12-31";
+const history = (combination: string | null): DcfRoicYear[] => [
+  { date: "2021-12-31", roicPct: 29.2, waccPct: COE },
+  { date: "2022-12-31", roicPct: 19.0, waccPct: COE },
+  { date: "2023-12-31", roicPct: 13.0, waccPct: COE },
+  { date: "2024-12-31", roicPct: 11.3, waccPct: COE },
+  { date: acquisitionYear, roicPct: 4.2, waccPct: COE, combinationEvidence: combination },
+];
+
+const bank = (over: Partial<ExcessReturnInputs> = {}): ExcessReturnInputs => ({
+  bookValue: 1000,
+  bookValueBasis: "tangible-common-equity",
+  currentRoePct: 16.5,
+  currentRoeBasis: "ttm-rote",
+  currentRoeAsOf: "2026-06-30",
+  asOf: "2026-06-30",
+  costOfEquityPct: COE,
+  payoutRatioPct: 30,
+  dilutedShares: 100,
+  marketCap: 2000,
+  riskFreePct: 4.2,
+  tangibleCommonEquity: 1000,
+  rotePct: 16.5,
+  roeHistory: history("goodwill rose 1,345 (24% of opening common equity)"),
+  startAlternative: { roePct: 4.2, basis: "fiscal-year-rote", asOf: acquisitionYear, bookValue: 950 },
+  ...over,
+});
+
+describe("C-10: the terminal carry needs 4 of the last 5 years, and a combination year does not count against it", () => {
+  it("carries the evidenced excess when one of five years missed, and annotates the combination year", () => {
+    const rule = terminalRoic(COE, history("goodwill rose 1,345 (24% of opening common equity)"), { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
+    expect(rule.excessPp).toBeGreaterThan(0);
+    expect(rule.basis).toMatch(/4 of the last 5 fiscal years/);
+    expect(rule.basis).toMatch(/set aside as business-combination year, not counted as a miss: 2025-12-31 \(ROTE 4\.2%/);
+  });
+
+  it("sets a below-hurdle combination year aside, so a second ordinary miss alone does not veto the carry", () => {
+    const twoMisses = history("goodwill rose 1,345 (24% of opening common equity)");
+    twoMisses[3] = { ...twoMisses[3], roicPct: 8 };
+    const withEvidence = terminalRoic(COE, twoMisses, { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
+    expect(withEvidence.excessPp).toBeGreaterThan(0);
+    expect(withEvidence.basis).toMatch(/set aside/i);
+
+    const noEvidence = terminalRoic(COE, twoMisses.map((y) => ({ ...y, combinationEvidence: null })), { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
+    expect(noEvidence.excessPp).toBe(0);
+    expect(noEvidence.note).toMatch(/3 of the last 5/);
+  });
+
+  it("leaves the general DCF's every-year rule unchanged", () => {
+    const dcfRule = terminalRoic(COE, history(null));
+    expect(dcfRule.excessPp).toBe(0);
+    expect(dcfRule.note).toMatch(/1 of the last 5/);
+  });
+});
+
+describe("C-10: the model starts from the trailing return and exposes the fiscal-year start", () => {
+  it("fades from the TTM ROTE, carries the evidenced excess, and prices the fiscal-year start beside it", () => {
+    const er = excessReturnModel(bank());
+    expect(er.roePathPct.value[0]).toBeCloseTo(16.5, 6);
+    expect(er.roePathPct.basis).toMatch(/TTM .*ROTE/);
+    expect(er.financialAssumptions?.terminalExcessReturnPp).toBeGreaterThan(0);
+    expect(er.roePathPct.basis).toMatch(/4 of the last 5 fiscal years/);
+    expect(er.roePathPct.basis).toMatch(/business-combination year.*2025-12-31/i);
+
+    const alt = er.startAlternative;
+    expect(alt).toBeDefined();
+    expect(alt!.startRoePct).toBe(4.2);
+    expect(alt!.asOf).toBe(acquisitionYear);
+    expect(alt!.differencePp).toBeCloseTo(-12.3, 6);
+    expect(alt!.besideHeadline).toBe(true);
+    expect(alt!.perShare!).toBeLessThan(er.perShare!);
+    expect(alt!.label).toMatch(/FY 2025-12-31 ROTE start 4\.2%/);
+  });
+
+  it("does not put the alternative beside the headline when the two starts are within 5pp", () => {
+    const er = excessReturnModel(bank({ startAlternative: { roePct: 16.5 - EXCESS_RETURN_START_GAP_PP + 0.1, basis: "fiscal-year-rote", asOf: acquisitionYear, bookValue: 950 } }));
+    expect(er.startAlternative?.besideHeadline).toBe(false);
+  });
+
+  it("names the alternative in the fair value and beside the Key data headline", () => {
+    const route: CompanyRoute = { base: "bank", overlays: [], evidence: { sector: null, industry: null } };
+    const multiples: MultiplesFrameworkInputs = {
+      quote: { price: 20, marketCap: 2000, currency: "USD" },
+      reportedCurrency: "USD",
+      incomeTtm: null,
+      cashFlowTtm: null,
+      balance: null,
+    };
+    const valuation = valueCompany(route, { currentPrice: 20, waccPct: null, netDebt: null, dilutedShares: 100, dcfInputs: null, multiples, excessReturn: bank(), reit: null });
+    const fairValue = computeFairValue({ valuation, currentPrice: 20, currency: "USD", asOf: "2026-10-22" });
+    expect(fairValue.status).toBe("available");
+    expect(fairValue.alternative?.perShare).toBeGreaterThan(0);
+    expect(fairValue.alternative?.label).toMatch(/FY 2025-12-31 ROTE start/);
+    expect(fairValue.basis.join(" ")).toMatch(/TTM ROTE to 2026-06-30/);
+    expect(fairValue.basis.join(" ")).toMatch(/FY 2025-12-31 ROTE start 4\.2% gives/);
+
+    const report = task28SentinelReport();
+    report.fairValue = fairValue;
+    // Stage C's applyFairValue writes the fair value over the DCF headline.
+    report.valuation.dcf.perShare = fairValue.perShare;
+    report.valuation.dcf.upsidePct = fairValue.upsidePct;
+    const row = keyDataRows(report).find((r) => r.label === "Model fair value (DCF)");
+    expect(row?.note).toMatch(/FY 2025-12-31 ROTE start 4\.2%: \$/);
+  });
+});
+
+describe("C-10: TTM common return and business-combination evidence", () => {
+  const balances = [
+    { date: "2026-06-30", totalStockholdersEquity: 1200, goodwill: 150, intangibleAssets: 30, preferredStock: 20 },
+    { date: "2026-03-31", totalStockholdersEquity: 1180, goodwill: 150, intangibleAssets: 30, preferredStock: 20 },
+    { date: "2025-12-31", totalStockholdersEquity: 1100, goodwill: 150, intangibleAssets: 30, preferredStock: 20 },
+    { date: "2025-06-30", totalStockholdersEquity: 1000, goodwill: 150, intangibleAssets: 30, preferredStock: 20 },
+    { date: "2024-12-31", totalStockholdersEquity: 700, goodwill: 15, intangibleAssets: 5, preferredStock: 20 },
+  ];
+
+  it("divides four quarters of common earnings by the average equity at the window's two ends", () => {
+    const ttm = computeTtmCommonReturn({ income: { netIncome: 170, netIncomeAvailableToCommon: 160 }, asOf: "2026-06-30", periodStart: "2025-07-01", balances, basis: "tangible-common-equity" });
+    // TCE 1000 at 2026-06-30 and 800 at 2025-06-30.
+    expect(ttm.closingEquity).toBe(1000);
+    expect(ttm.averageEquity).toBe(900);
+    expect(ttm.returnPct).toBeCloseTo((160 / 900) * 100, 9);
+    expect(ttm.withheldReason).toBeNull();
+
+    const insurer = computeTtmCommonReturn({ income: { netIncome: 170, netIncomeAvailableToCommon: 160 }, asOf: "2026-06-30", periodStart: "2025-07-01", balances, basis: "common-equity" });
+    expect(insurer.averageEquity).toBe(1080);
+  });
+
+  it("withholds the return when the common earnings or the closing balance are missing", () => {
+    expect(computeTtmCommonReturn({ income: { netIncome: 170, commonIncomeWithheldReason: "preferred allocation unknown" }, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/preferred allocation unknown/);
+    expect(computeTtmCommonReturn({ income: { netIncome: 170, netIncomeAvailableToCommon: 160 }, asOf: "2027-06-30", balances, basis: "tangible-common-equity" }).returnPct).toBeNull();
+    // Preferred stock is outstanding, so plain net income cannot stand in for common earnings.
+    expect(computeTtmCommonReturn({ income: { netIncome: 170 }, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/preferred claims/);
+    expect(computeTtmCommonReturn({ income: null, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/no complete trailing/);
+  });
+
+  it("flags a year whose goodwill step-up or acquisition tags reach the materiality threshold", () => {
+    const facts: CompanyFacts = {
+      cik: 1,
+      entityName: "Fixture Bancorp",
+      facts: {
+        "us-gaap": {
+          GoodwillAcquiredDuringPeriod: {
+            units: { USD: [{ start: "2023-01-01", end: "2023-12-31", val: 5, accn: "a", fy: 2023, fp: "FY", form: "10-K", filed: "2024-02-01" }] },
+          },
+          BusinessCombinationConsiderationTransferred1: {
+            units: { USD: [{ start: "2025-01-01", end: "2025-12-31", val: 400, accn: "b", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-01" }] },
+          },
+        },
+      },
+    };
+    const annual = [
+      { date: "2025-12-31", totalStockholdersEquity: 1100, goodwill: 150, intangibleAssets: 30, preferredStock: 20 },
+      { date: "2024-12-31", totalStockholdersEquity: 700, goodwill: 15, intangibleAssets: 5, preferredStock: 20 },
+      { date: "2023-12-31", totalStockholdersEquity: 650, goodwill: 15, intangibleAssets: 5, preferredStock: 20 },
+      { date: "2022-12-31", totalStockholdersEquity: 600, goodwill: 10, intangibleAssets: 5, preferredStock: 20 },
+    ];
+    const years = businessCombinationYears(facts, annual);
+    // 2025: goodwill +135 and consideration 400 against opening common equity 680.
+    expect(years.get("2025-12-31")).toMatch(/goodwill rose 135/);
+    expect(years.get("2025-12-31")).toMatch(/BusinessCombinationConsiderationTransferred1 400/);
+    // 2023: GoodwillAcquiredDuringPeriod 5 and a 5 step-up are under 10% of 580.
+    expect(years.has("2023-12-31")).toBe(false);
+    expect(BUSINESS_COMBINATION_MATERIALITY_PCT).toBe(10);
+    expect(businessCombinationYears(null, annual).get("2025-12-31")).toMatch(/goodwill rose 135/);
+  });
+});

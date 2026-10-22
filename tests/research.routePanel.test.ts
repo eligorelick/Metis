@@ -74,9 +74,15 @@ describe("synthetic accounting-route integration panel", () => {
     const valuation = computed.valuation.excessReturn;
     // FY equity 500m, preferred 50m, intangibles 50m. Prior equity 450m.
     // Common FY income 140m; bank averages tangible common, insurer common.
-    expect(valuation.openingBookValue.value).toBe(book);
+    // Audit 2026-10-22 C-10: the newer trailing window is the start, from the
+    // book value at its end; the fiscal-year start is valued beside it.
+    const ttm = computed.returns.commonReturnTtm!;
+    expect(ttm.basis).toBe(route === "bank" ? "tangible-common-equity" : "common-equity");
+    expect(valuation.openingBookValue.value).toBe(ttm.closingEquity);
     expect(valuation.openingBookValue.basis).toMatch(basis);
-    expect(valuation.roePathPct.value[0]).toBeCloseTo(roe, 10);
+    expect(valuation.roePathPct.value[0]).toBeCloseTo(ttm.returnPct!, 10);
+    expect(valuation.startAlternative).toMatchObject({ asOf: "2025-12-31", bookValue: book });
+    expect(valuation.startAlternative!.startRoePct).toBeCloseTo(roe, 10);
     expect(valuation.payoutRatioPct.value).toBeCloseTo((40 / 140 + 56 / 130 + 39 / 120) / 3 * 100, 10);
     expect(report.fairValue).toMatchObject({ status: "available", method: "excess-return" });
     expect(report.valuation.dcf.perShare).toEqual(report.fairValue?.perShare);
@@ -195,7 +201,7 @@ describe("synthetic accounting-route integration panel", () => {
     expect(computed.returns.wacc.costOfEquityPct).toBeNull();
     expect(computed.valuation.kind).toBe("excess-return");
     if (computed.valuation.kind !== "excess-return") throw new Error("expected financial route");
-    expect(computed.valuation.excessReturn.openingBookValue.value).toBe(400 * M);
+    expect(computed.valuation.excessReturn.openingBookValue.value).toBe(computed.returns.commonReturnTtm!.closingEquity);
     expect(report.fairValue).toMatchObject({ status: "suppressed", perShare: null });
     expect(report.valuation.dcf.perShare).toBeNull();
     for (const surface of Object.values(surfaces)) expect(surface).toContain("cost of equity");
@@ -276,7 +282,9 @@ describe("synthetic accounting-route integration panel", () => {
     expect(computed.route).toMatchObject({ base: "reit-mortgage", reitSubmap: "mortgage" });
     expect(computed.valuation.kind).toBe("excess-return");
     if (computed.valuation.kind !== "excess-return") throw new Error("expected mortgage book route");
-    expect(computed.valuation.excessReturn.openingBookValue.value).toBe(500 * M);
+    // C-10: the trailing window's closing common equity is the opening book.
+    expect(computed.valuation.excessReturn.openingBookValue.value).toBe(computed.returns.commonReturnTtm!.closingEquity);
+    expect(computed.valuation.excessReturn.startAlternative?.bookValue).toBe(500 * M);
     expect(report.fairValue).toMatchObject({ status: "available", method: "excess-return" });
     expect(report.valuation.multiples.some((row) => row.name === "P/FFO" || row.name === "P/AFFO")).toBe(false);
     expect(report.projections?.series).toEqual([]);

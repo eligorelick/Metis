@@ -154,6 +154,27 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
       ? (perShare.value / inputs.currentPrice - 1) * 100
       : null;
 
+  // Audit 2026-10-22 C-10: the excess-return start, and the fiscal-year start
+  // beside it when the two differ by more than the house threshold.
+  const startLines: string[] = [];
+  let alternative: FairValue["alternative"];
+  if (valuation.kind === "excess-return") {
+    const er = valuation.excessReturn;
+    startLines.push(`Excess-return path: ${er.roePathPct.basis}.`);
+    const alt = er.startAlternative;
+    if (alt?.besideHeadline === true && isNum(alt.perShare)) {
+      const altPerShare = round2(Math.max(0, alt.perShare));
+      alternative = {
+        label: alt.label,
+        perShare: altPerShare,
+        upsidePct: isNum(inputs.currentPrice) && inputs.currentPrice > 0 ? (altPerShare / inputs.currentPrice - 1) * 100 : null,
+      };
+      startLines.push(
+        `The ${alt.label} gives ${altPerShare} per share from its own fiscal-year book value; the two starts are ${round2(Math.abs(alt.differencePp))}pp apart, so it is shown beside the headline (house convention: more than 5pp).`,
+      );
+    }
+  }
+
   return {
     status: "available",
     method,
@@ -168,8 +189,10 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
             `The model's per-share is ${round2(perShareValue)}: enterprise value sits at or below net debt and the senior claims, so the intrinsic value is published as 0 under limited liability and the upside is capped at −100%.`,
           ]
         : []),
+      ...startLines,
     ],
     reasons,
+    ...(alternative !== undefined ? { alternative } : {}),
   };
 }
 

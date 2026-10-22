@@ -139,6 +139,7 @@ import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnri
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   normalizeQuarterRows,
@@ -215,6 +216,12 @@ export interface ReturnsBlock {
   waccHistory: WaccHistoryResult;
   roic: RoicResult;
   rote: RoteResult;
+  /**
+   * Audit 2026-10-22 C-10/C-11: the trailing-four-quarter return on common
+   * equity on the financial routes (tangible for banks, book common equity for
+   * insurers and mortgage REITs); null on every other route.
+   */
+  commonReturnTtm: TtmCommonReturn | null;
   dupont: DupontResult;
   roicVsWacc: RoicVsWaccSpread;
   notes: string[];
@@ -2234,6 +2241,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     dupont: returns.dupont,
     // WS5: P/TBV against ROTE on the financial routes.
     rote: returns.rote,
+    commonReturnTtm: returns.commonReturnTtm,
     profile,
     quote,
   });
@@ -2906,6 +2914,31 @@ function computeReturns(
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
+  // C-10/C-11: the trailing four quarters on the fiscal-year return's basis,
+  // from the quarterly rows already fetched.
+  const commonReturnTtm = isFinancial
+    ? computeTtmCommonReturn({
+        // The same earnings evidence the TTM P/E admits common income from.
+        income: ttmInc === null ? null : {
+          netIncome: ttmInc.netIncome,
+          netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
+          commonIncomeWithheldReason: ttmInc.commonIncomeWithheldReason,
+          netIncomeWithheldReason: ttmInc.netIncomeWithheldReason,
+          netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis,
+          noncontrollingIncome: ttmInc.netIncomeAttributableToNoncontrollingInterest,
+          incomeScope: ttmInc.incomeScope, commonIncomeScope: ttmInc.commonIncomeScope, noncontrollingIncomeScope: ttmInc.noncontrollingIncomeScope,
+          targetScope: ttmInc.targetScope, admissionAsOf: ttmInc.admissionAsOf,
+          preferredClaimsInPeriod: preferredClaimsInFlow(ttmInc.incomeScope ?? { periodEnd: ttmInc.date, basis: "ttm" },
+            [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
+            [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
+        },
+        asOf: ttmInc?.date ?? null,
+        periodStart: ttmInc?.commonIncomeScope?.periodStart ?? ttmInc?.incomeScope?.periodStart ?? null,
+        balances: [...balanceQuarterly, ...balanceAnnual].map(toReturnsBalance),
+        basis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
+      })
+    : null;
+  if (commonReturnTtm !== null) notes.push(commonReturnTtm.basisText);
   const dupont = computeDupont(returnsIncome, returnsBalance);
   const roicVsWacc = computeRoicVsWaccSpread(roic.latestRoicPct, wacc.waccPct);
 
@@ -2944,7 +2977,7 @@ function computeReturns(
   // block discloses it, but that block only raises its own gap when NO year
   // carried its own WACC — a partial shortfall was disclosed nowhere.
   gaps.push(...wacc.gaps, ...roic.gaps, ...rote.gaps, ...dupont.gaps, ...waccHistory.gaps);
-  return { wacc, waccInputs, waccHistory, roic, rote, dupont, roicVsWacc, notes, gaps };
+  return { wacc, waccInputs, waccHistory, roic, rote, commonReturnTtm, dupont, roicVsWacc, notes, gaps };
 }
 
 // ---------------------------------------------------------------------------
@@ -2978,6 +3011,8 @@ interface ValuationCtx {
   dupont: DupontResult;
   /** WS5: return on tangible common equity — the return P/TBV is read against. */
   rote: RoteResult;
+  /** C-10: the trailing-four-quarter common return (financial routes). */
+  commonReturnTtm: TtmCommonReturn | null;
   /** THESIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
   evIncludeLeases: boolean;
   profile: FmpRawRow | null;
@@ -3558,14 +3593,29 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       ? incomeAvailableToCommon(income, num(balance?.preferredStock), num(balance?.minorityInterest)) ?? undefined : undefined };
   });
 
+  // Audit 2026-10-22 C-10: start from the trailing four quarters when that
+  // return is complete and newer than the latest fiscal year, from the book
+  // value at the window's end; the fiscal-year start is valued beside it.
+  const ttmReturn = ctx.commonReturnTtm;
+  const fyBasis = route.base === "bank" ? "fiscal-year-rote" as const : "fiscal-year-common-roe" as const;
+  const ttmStart = ttmReturn !== null && ttmReturn.returnPct !== null && ttmReturn.closingEquity !== null && ttmReturn.closingEquity > 0 &&
+    ttmReturn.asOf !== null && (commonReturns.asOf === null || ttmReturn.asOf > commonReturns.asOf)
+    ? { roePct: ttmReturn.returnPct, bookValue: ttmReturn.closingEquity, asOf: ttmReturn.asOf }
+    : null;
+  const combinationYears = financialRoute
+    ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance))
+    : new Map<string, string>();
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
-          bookValue: commonReturns.latestTangibleCommonEquity,
+          bookValue: ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
-          currentRoePct: commonReturns.latestRotePct,
-          currentRoeBasis: route.base === "bank" ? "fiscal-year-rote" : "fiscal-year-common-roe",
-          currentRoeAsOf: commonReturns.asOf,
+          currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,
+          currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
+          currentRoeAsOf: ttmStart?.asOf ?? commonReturns.asOf,
+          startAlternative: ttmStart !== null && commonReturns.latestRotePct !== null && commonReturns.latestTangibleCommonEquity !== null && commonReturns.latestTangibleCommonEquity > 0
+            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity }
+            : null,
           // Audit M5: null CoE SUPPRESSES the model inside excessReturnModel
           // (critical gap) — never a silent 10% default.
           costOfEquityPct: wacc.costOfEquityPct,
@@ -3574,11 +3624,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares,
           marketCap,
-          asOf: commonReturns.asOf,
+          asOf: ttmStart?.asOf ?? commonReturns.asOf,
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
-          tangibleCommonEquity: ctx.rote?.latestTangibleCommonEquity ?? null,
-          rotePct: ctx.rote?.latestRotePct ?? null,
+          // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
+          tangibleCommonEquity: route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
+          rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
           // The justified-P/TBV cross-check caps its growth rate at the same
           // ceiling the DCF terminal value uses: nothing grows faster than the
           // risk-free rate forever. Null leaves the house terminal-growth cap
@@ -3593,6 +3644,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               roicPct: y.rotePct,
               waccPct: point?.costOfEquityPct ?? null,
               waccAsOf: point?.riskFreeAsOf ?? null,
+              combinationEvidence: combinationYears.get(y.date) ?? null,
             };
           }),
         }

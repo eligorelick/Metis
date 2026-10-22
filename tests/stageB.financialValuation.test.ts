@@ -118,12 +118,22 @@ describe("excessReturnModel — evidenced excess returns (D-41)", () => {
     expect(r.equityValue).toBeCloseTo(1_000 + 25 / 1.1 + (0.025 * 1_062.5) / 0.075 / 1.1, 6);
   });
 
-  it("keeps the competitive fade when any year fell to the cost of equity", () => {
-    const broken = durable.map((y, i) => (i === 2 ? { ...y, roicPct: 9 } : y));
+  // Audit 2026-10-22 C-10 (owner decision): the equity model needs the return
+  // above the cost of equity in at least 4 of the last 5 years, not all of them.
+  it("keeps the competitive fade when two of five years fell to the cost of equity", () => {
+    const broken = durable.map((y, i) => (i === 2 || i === 4 ? { ...y, roicPct: 9 } : y));
     const r = excessReturnModel({ ...BASE, roeHistory: broken });
     expect(r.equityValue).toBeCloseTo(excessReturnModel(BASE).equityValue!, 8);
     expect(r.terminalExcess).toBe(0);
-    expect(r.notes.join(" ")).toContain("at or below that year's cost of equity");
+    expect(r.notes.join(" ")).toContain("beat that year's cost of equity in only 3 of the last 5 fiscal years");
+  });
+
+  it("still carries the evidenced excess when one of five years fell to the cost of equity", () => {
+    const oneMiss = durable.map((y, i) => (i === 2 ? { ...y, roicPct: 9 } : y));
+    const r = excessReturnModel({ ...BASE, roeHistory: oneMiss, riskFreePct: 4 });
+    expect(r.terminalExcess).toBeGreaterThan(0);
+    expect(r.roePathPct.basis).toContain("exceeded cost of equity in 4 of the last 5 fiscal years");
+    expect(r.roePathPct.basis).toContain("miss: 2023-12-31: ROE 9% vs cost of equity 10%");
   });
 
   it("does not carry the excess when the cost of equity leaves less than 2pp over g", () => {

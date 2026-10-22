@@ -1974,6 +1974,12 @@ export const FairValueSchema = z
     basis: z.array(z.string()),
     /** Why suppressed (ManifestEntry gaps). */
     reasons: z.array(ManifestEntrySchema),
+    /**
+     * Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start
+     * when the model started from the trailing four quarters and the two starts
+     * differ by more than 5pp; printed beside the headline.
+     */
+    alternative: z.object({ label: z.string(), perShare: z.number(), upsidePct: z.number().nullable() }).strict().optional(),
   })
   .strict();
 export type FairValue = z.infer<typeof FairValueSchema>;

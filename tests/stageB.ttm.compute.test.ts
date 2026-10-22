@@ -1166,6 +1166,41 @@ describe("runStageB wiring — excess-return CoE suppression + payout wiring (au
  * Task 8 — fallbacks the live keyless (SEC + Yahoo) run on JPM needed.
  * ------------------------------------------------------------------------- */
 
+describe("runStageB wiring — trailing excess-return start (audit 2026-10-22 C-10)", () => {
+  // TTM window 2025-04-01..2026-03-31: four quarters of 37.5 = 150 to common,
+  // over tangible common equity 470 (2026-03-31) and 420 (2025-03-31).
+  const quarterlyBalances = [
+    { date: "2026-03-31", totalAssets: 2050, totalLiabilities: 1530, totalStockholdersEquity: 520, totalEquity: 520, totalDebt: 280, netDebt: 210, cashAndCashEquivalents: 70, cashAndShortTermInvestments: 120, goodwill: 40, intangibleAssets: 10, minorityInterest: 0, preferredStock: 0 },
+    { date: "2025-03-31", totalAssets: 1950, totalLiabilities: 1480, totalStockholdersEquity: 470, totalEquity: 470, totalDebt: 280, netDebt: 210, cashAndCashEquivalents: 70, cashAndShortTermInvestments: 120, goodwill: 40, intangibleAssets: 10, minorityInterest: 0, preferredStock: 0 },
+  ];
+
+  it("starts the bank's fade from the TTM ROTE at the window's end and values the fiscal-year start beside it", () => {
+    const computed = runStageB(wiringBundle({ bank: true, balanceQuarterly: quarterlyBalances }));
+    const ttm = computed.returns.commonReturnTtm;
+    expect(ttm?.returnPct).toBeCloseTo((150 / 445) * 100, 6);
+    expect(ttm?.asOf).toBe("2026-03-31");
+    if (computed.valuation.kind !== "excess-return") throw new Error("expected the excess-return route");
+    const er = computed.valuation.excessReturn;
+    expect(er.roePathPct.value[0]).toBeCloseTo(ttm!.returnPct!, 9);
+    expect(er.roePathPct.basis).toMatch(/TTM ROTE to 2026-03-31/);
+    expect(er.openingBookValue.value).toBe(470 * M);
+    expect(er.startAlternative?.asOf).toBe("2025-12-31");
+    expect(er.startAlternative?.startRoePct).toBeCloseTo(computed.returns.rote.latestRotePct!, 9);
+    // 33.7% against 35.3%: within 5pp, so nothing beside the headline.
+    expect(er.startAlternative?.besideHeadline).toBe(false);
+  });
+
+  it("keeps the fiscal-year start when the trailing window is not newer than the fiscal year", () => {
+    const bundle = wiringBundle({ bank: true, balanceQuarterly: quarterlyBalances });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+    bundle.statements.incomeQuarterly.value.data.rows = bundle.statements.incomeQuarterly.value.data.rows.slice(1);
+    const computed = runStageB(bundle);
+    if (computed.valuation.kind !== "excess-return") throw new Error("expected the excess-return route");
+    expect(computed.valuation.excessReturn.roePathPct.basis).toMatch(/FY 2025-12-31 ROTE/);
+    expect(computed.valuation.excessReturn.startAlternative).toBeUndefined();
+  });
+});
+
 describe("runStageB wiring — keyless excess-return and WACC fallbacks (task 8)", () => {
   // DuPont FY2025: net income 150 / average equity (500 + 450) / 2 = 475.
   const DUPONT_ROE_PCT = (150 / 475) * 100;
@@ -1176,8 +1211,9 @@ describe("runStageB wiring — keyless excess-return and WACC fallbacks (task 8)
     expect(computed.valuation.kind).toBe("excess-return");
     if (computed.valuation.kind !== "excess-return") return;
     const er = computed.valuation.excessReturn;
-    // The model RUNS on the statements-derived ROE instead of being suppressed.
-    expect(er.roePathPct.value[0]).toBeCloseTo(computed.returns.rote.latestRotePct!, 9);
+    // The model RUNS on the statements-derived ROE instead of being suppressed;
+    // since audit 2026-10-22 C-10 that is the newer trailing-four-quarter ROTE.
+    expect(er.roePathPct.value[0]).toBeCloseTo(computed.returns.commonReturnTtm!.returnPct!, 9);
     expect(er.equityValue).not.toBeNull();
     expect(er.perShare).not.toBeNull();
     expect(er.gaps.some((g) => g.field === "valuation.excessReturn.currentRoe")).toBe(false);
@@ -1194,7 +1230,7 @@ describe("runStageB wiring — keyless excess-return and WACC fallbacks (task 8)
     const computed = runStageB(wiringBundle({ bank: true }));
     expect(computed.valuation.kind).toBe("excess-return");
     if (computed.valuation.kind !== "excess-return") return;
-    expect(computed.valuation.excessReturn.roePathPct.value[0]).toBeCloseTo(computed.returns.rote.latestRotePct!, 9);
+    expect(computed.valuation.excessReturn.roePathPct.value[0]).toBeCloseTo(computed.returns.commonReturnTtm!.returnPct!, 9);
     expect(computed.valuation.notes.some((n) => /DuPont/i.test(n))).toBe(false);
   });
 
@@ -1210,8 +1246,8 @@ describe("runStageB wiring — keyless excess-return and WACC fallbacks (task 8)
     const computed = runStageB(bundle);
     expect(computed.valuation.kind).toBe("excess-return");
     if (computed.valuation.kind !== "excess-return") return;
-    expect(computed.valuation.excessReturn.roePathPct.value[0]).toBeCloseTo(computed.returns.rote.latestRotePct!, 9);
-    expect(computed.valuation.excessReturn.roePathPct.basis).toMatch(/FY 2025-12-31 ROTE/);
+    expect(computed.valuation.excessReturn.roePathPct.value[0]).toBeCloseTo(computed.returns.commonReturnTtm!.returnPct!, 9);
+    expect(computed.valuation.excessReturn.roePathPct.basis).toMatch(/TTM ROTE to 2026-03-31/);
   });
 
   it("values only common equity and common earnings for banks, insurers and mortgage REITs", () => {

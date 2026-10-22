@@ -857,7 +857,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({
       label: "Model fair value (DCF)",
       value: formatFinancialAmount(dcf.value, dcf.unit, dcf.currency),
-      note: report.valuation.dcf.upsidePct === null ? undefined : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
+      note: [
+        report.valuation.dcf.upsidePct === null ? null : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
+        // Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
+        report.fairValue?.alternative ? `${report.fairValue.alternative.label}: ${formatFinancialAmount(report.fairValue.alternative.perShare, dcf.unit, dcf.currency)}` : null,
+      ].filter((part): part is string => part !== null).join("; ") || undefined,
     });
   } else if (report.fairValue?.status === "outside-domain") {
     // Audit 2026-10-22 B-29: the headline says why no DCF value is shown.
