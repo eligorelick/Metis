@@ -485,6 +485,16 @@ describe("public release contract", () => {
     expect(forbiddenReleaseFiles(files)).toEqual([]);
   });
 
+  // A stray `=` line (a pasted-in fragment) silently ignored any file named
+  // "=" (2026-10-22 audit, F-11). Every pattern must name something.
+  it("keeps every .gitignore line a comment, a blank, or a real pattern", () => {
+    const stray = read(".gitignore")
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== "" && !line.startsWith("#"))
+      .filter((line) => !/[A-Za-z0-9*.]/.test(line));
+    expect(stray).toEqual([]);
+  });
+
   it("ignores unrelated untracked files but rejects the same paths if tracked", () => {
     const tempRepo = mkdtempSync(path.join(os.tmpdir(), "metis-release-index-"));
     try {
