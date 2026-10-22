@@ -248,6 +248,8 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       generator: {
         helperSha256: "48af864a1d2a5bb165eb2832871bc2651f34a5951959450d2074512e4a7a26d7",
         basePackageLockBlob: "66f7242846b6d20cfe99e21400d2dada27bbfbfd",
+          // 2026-10-22: vitest and @vitest/coverage-v8 4.1.11 -> 4.1.12 for GHSA-qxg6-89mg-rqv8 and
+          // GHSA-xp26-3454-mjgp; test-runner tooling only, outside the Stage B replay.
           // 2026-10-20: vite pinned to 8.3.3 for the launch-editor advisories;
           // vite is the test runner's dev tool and is outside the Stage B replay.
           // 2026-10-17: direct esbuild pin already resolved at 0.28.1 freezes
@@ -255,7 +257,7 @@ describe("Task 32 provider-free historical fixture comparison", () => {
           // 2026-10-15: happy-dom is dev-only for credential UI interaction tests.
         // Reproduced the comparison with no additional financial deltas;
         // historical source/fixture hashes and projection remain pinned.
-        comparisonPackageLockBlob: "3b853e45ba81626c425814fe1f0ca636432d2f51",
+        comparisonPackageLockBlob: "7e4806edd0fd7b09430013dc712c85c6ad450d0e",
         generationNode: "v24.11.1",
         generationNpm: "11.6.2",
         command:
