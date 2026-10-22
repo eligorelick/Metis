@@ -398,8 +398,9 @@ ChatGPT credentials stay server-side in protected per-user storage (Windows
 DPAPI; owner-only files on macOS/Linux). Disconnect stops local requests and
 attempts ChatGPT session revocation. Google disconnect clears Metis's CLI
 state; revoke the Google grant from your Google Account if desired. See
-[Privacy](PRIVACY.md). The OAuth paths have offline regression coverage;
-live inference has not been verified for this release.
+[Privacy](PRIVACY.md). The OAuth paths have offline regression coverage.
+Complete reports have run live through a ChatGPT connection (October 2026);
+inference through a live Gemini connection has not been verified for this release.
 
 ### Model and speed controls
 

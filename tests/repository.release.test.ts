@@ -640,6 +640,20 @@ describe("public release contract", () => {
     expect(implementationText).not.toMatch(/research[\\/]/);
   });
 
+  // Both documents said no live ChatGPT or Gemini inference had been verified,
+  // after complete reports had run live through a ChatGPT connection (reports
+  // #40 to #45, October 2026). Gemini has no such run (audit DOC-1, deferred
+  // under D-97 item 17, corrected on 2026-10-22).
+  it("states which subscription connection has run live inference", () => {
+    for (const name of ["README.md", "docs/PRIVACY.md"]) {
+      const prose = read(name).replace(/\s+/g, " ");
+      expect(prose, name).not.toMatch(/live inference has not been verified/);
+      expect(prose, name).not.toMatch(/ChatGPT or Gemini account has not been verified/);
+      expect(prose, name).toContain("run live through a ChatGPT connection");
+      expect(prose, name).toMatch(/live Gemini[^.]* has not been verified/);
+    }
+  });
+
   it("documents setup, privacy, safety, and verification in README", () => {
     const readme = read("README.md");
     const prose = readme.replace(/\s+/g, " ");

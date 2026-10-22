@@ -51,7 +51,7 @@ reasoning choices and opt-in Fast speed. Reports retain actual execution details
 Sign-in runs no inference; failures never switch to paid API usage. Claude API
 remains separately billed. Plan allowances and credit settings apply; API dollar
 caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
-Connections have offline test coverage only; inference through a live ChatGPT or Gemini account has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
+Connections have offline test coverage, and complete reports have run live through a ChatGPT connection; inference through a live Gemini account has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
 ## Configuration
 
