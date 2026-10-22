@@ -23,7 +23,8 @@
 import type { ReactNode } from "react";
 
 import { Badge, GradeChip, type Tone } from "@/components/ui";
-import { gradeContractText, gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, type AspectEvidence } from "@/report/assessment";
+import { gradeContractText, gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import type {
   GradeBlock,
@@ -247,7 +248,16 @@ export function HeadlineGrade({ block, aspect }: { block: GradeBlock; aspect?: A
   if (grade === null && block.assessmentStatus === "limited-evidence" && hasLimitedEvidence(aspect)) {
     return (
       <span className="mono text-[10px] text-warn" aria-label="not assessed — limited evidence" title={gradeDisplayLabel(block, aspect)}>
-        {Math.round(aspect!.score ?? 0)}/100 · limited evidence
+        {formatScore(aspect!.score ?? 0)}/100 · limited evidence
+      </span>
+    );
+  }
+  // F-19: the deterministic band of a 45–55 score carries the neutral qualifier.
+  if (grade !== null && aspect != null && aspect.band === grade && isNeutralScore(aspect.score)) {
+    return (
+      <span className="flex items-center gap-1" title={gradeDisplayLabel(block, aspect)}>
+        <GradeChip grade={grade} />
+        <span className="mono text-[9px] text-faint">neutral</span>
       </span>
     );
   }

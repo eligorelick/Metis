@@ -12,6 +12,9 @@ function rows(bundle: DataBundle, key: "incomeQuarterly" | "incomeAnnual" | "cas
   return result.value.data.rows;
 }
 
+/** Quarterly revenue at the scale of the NVIDIA releases these tests read, inside the 0.2-5x revenue-guide band. */
+const NVDA_QUARTER = 90_000;
+
 function withRelease(bundle: DataBundle): DataBundle {
   const release = buildEarningsReleaseRecord({
     filing: { accessionNumber: "0001045810-26-000073", filingDate: "2026-08-26", acceptanceDateTime: undefined },
@@ -88,7 +91,7 @@ describe("filing disclosures statement integrity", () => {
   });
 
   it("keeps current release currency across a quarterly/annual reporting-currency transition", () => {
-    const bundle = withRelease(currencyBundle({ annualCurrency: "EUR", quarterCurrencies: ["USD", "USD", "EUR", "EUR"], siblingQuarterCurrencies: ["USD", "USD", "EUR", "EUR"] }));
+    const bundle = withRelease(currencyBundle({ annualCurrency: "EUR", quarterCurrencies: ["USD", "USD", "EUR", "EUR"], siblingQuarterCurrencies: ["USD", "USD", "EUR", "EUR"], quarterlyRevenue: NVDA_QUARTER }));
     if (bundle.edgar.currentReports?.ok) bundle.edgar.currentReports.value.data.releases[0]!.reported.periodEnd = "2026-03-31";
     expect(statementReportingCurrency(bundle)).toBe("USD");
     expect(nextPeriodRevenueGuidance(bundle)).toMatchObject({ currency: "USD", mid: 108e9 });
@@ -145,7 +148,7 @@ describe("filing disclosures statement integrity", () => {
   });
 
   it("does not relabel an older CAD release's implicit dollars as current USD", () => {
-    const bundle = withRelease(currencyBundle({ quarterCurrencies: ["USD", "CAD", "CAD", "CAD"], annualCurrency: "CAD" }));
+    const bundle = withRelease(currencyBundle({ quarterCurrencies: ["USD", "CAD", "CAD", "CAD"], annualCurrency: "CAD", quarterlyRevenue: NVDA_QUARTER }));
     const reports = bundle.edgar.currentReports;
     if (!reports?.ok) throw new Error("Missing fixture releases");
     const release = reports.value.data.releases[0]!;
@@ -189,7 +192,7 @@ describe("filing disclosures statement integrity", () => {
   });
 
   it("does not compare prior CAD implicit-dollar guidance against a USD actual", () => {
-    const bundle = withRelease(currencyBundle({ quarterCurrencies: ["USD", "CAD", "CAD", "CAD"], annualCurrency: "CAD" }));
+    const bundle = withRelease(currencyBundle({ quarterCurrencies: ["USD", "CAD", "CAD", "CAD"], annualCurrency: "CAD", quarterlyRevenue: NVDA_QUARTER }));
     const reports = bundle.edgar.currentReports;
     if (!reports?.ok) throw new Error("Missing fixture releases");
     reports.value.data.releases[0]!.reported.periodEnd = "2026-03-31";
@@ -203,7 +206,7 @@ describe("filing disclosures statement integrity", () => {
     expect(buildFilingDisclosures(bundle)!.guidanceChecks.some((c) => c.metric === "revenue")).toBe(false);
     const revenueGuide = prior.guidance!.items.find((i) => i.metric === "revenue")!;
     revenueGuide.symbol = "US$";
-    expect(buildFilingDisclosures(bundle)!.guidanceChecks.find((c) => c.metric === "revenue")?.actual).toBe(300 * M);
+    expect(buildFilingDisclosures(bundle)!.guidanceChecks.find((c) => c.metric === "revenue")?.actual).toBe(NVDA_QUARTER * M);
   });
 
   it("keeps an unmatched release period unknown instead of inheriting the latest quarter", () => {

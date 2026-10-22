@@ -2804,6 +2804,38 @@ describe("history diff route-used SSR renderer", () => {
     }
   });
 
+  // Audit 2026-10-22 F-19: the diff shows the composite as every other surface does.
+  it("withholds the composite letter under the evidence floor and marks a neutral score", async () => {
+    const older = loadFixtureReport();
+    const newer = clone(older);
+    older.scores!.composite.score = 51.3;
+    older.scores!.composite.band = "D";
+    older.scores!.assessments = { ...older.scores!.assessments!, evidenceCompleteness: 0.05 };
+    newer.scores!.composite.score = 52;
+    newer.scores!.composite.band = "D";
+    newer.scores!.assessments = { ...newer.scores!.assessments!, evidenceCompleteness: 0.9 };
+    const diff = diffReports(older, newer, persistedVersions(older, newer));
+    const comp = diff.scoreChanges.find((s) => s.aspect === "composite");
+    expect(comp).toMatchObject({ fromBand: null, toBand: "D" });
+    const html = await renderDiffBody(diff);
+    expect(html).toContain("52.00 D (neutral)");
+    expect(html).not.toContain("51.30 D");
+  });
+
+  // PR #47 review: a score shown to two decimals never rounds up across its band's cutoff.
+  it("never prints a diff score rounded across its band's cutoff", async () => {
+    const older = loadFixtureReport();
+    const newer = clone(older);
+    older.scores!.composite.score = 60;
+    older.scores!.composite.band = "C";
+    newer.scores!.composite.score = 54.996;
+    newer.scores!.composite.band = "D";
+    const diff = diffReports(older, newer, persistedVersions(older, newer));
+    const html = await renderDiffBody(diff);
+    expect(html).toContain("54.99 D (neutral)");
+    expect(html).not.toContain("55.00 D");
+  });
+
   it("renders all four projection metric descriptors through the route-used DiffBody", async () => {
     const older = loadFixtureReport();
     const newer = clone(older);

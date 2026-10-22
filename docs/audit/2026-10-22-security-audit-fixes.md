@@ -3,7 +3,7 @@
 Base: `1d90f4b` (main after pull request #45). Scope: batch 8 of the
 2026-10-22 audit, covering findings F-4 to F-8, F-10 and F-11, the prior
 audits' GATE-1 and GATE-22, and DOC-1, which the owner had deferred under
-D-97 item 17. Decision: D-100 in [DECISIONS](DECISIONS.md). The audit
+D-97 item 17. Decision: D-101 in [DECISIONS](DECISIONS.md). The audit
 evidence folders stay out of the repository.
 
 This change made no paid provider or model calls and no new reports. It
@@ -34,7 +34,7 @@ prompt text. GATE-22 has no test because nothing changed.
 
 The envelopes change the serialized prompt, so the payload fingerprint moves
 (`tests/stageC.payload.passes.test.ts` re-pins it, dated). No calculation or
-payload field changes meaning, so payload 1.40.0 and report spec 1.35.0 stay.
+payload field changes meaning, so payload 1.41.0 and report spec 1.36.0 (as Batch 1 left them) stay.
 A partial report whose analyst passes ran before this change cannot resume
 after it: the resume stops on the fingerprint mismatch and asks for a fresh job.
 The repair and continuation turns are not part of the payload, so their new

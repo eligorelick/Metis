@@ -312,7 +312,19 @@ export const LINE_ITEM_TAGS = {
   commercialPaper: entry(["CommercialPaper"]),
   /** The current portion of long-term debt; the maturity-schedule figure stands in only when both miss. */
   currentMaturitiesOfLongTermDebt: entry(["LongTermDebtCurrent", COMBINED_CURRENT_DEBT_TAG], [MATURITIES_STAND_IN]),
-  longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt"]),
+  /**
+   * Chevron's 10-Qs tag their long-term debt only as the last element, which
+   * holds current maturities and finance leases (audit 2026-10-22 B-15);
+   * `resolveDebtOverlaps` nets both overlaps out.
+   */
+  longTermDebt: entry(["LongTermDebtNoncurrent", "LongTermDebtAndCapitalLeaseObligations", "LongTermDebt", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"]),
+  /**
+   * All noncurrent notes and loans, excluding their current portion: Oracle's
+   * balance-sheet line (audit 2026-10-22 B-14). Its current portion is the
+   * notes-and-loans current tag, else the notes one.
+   */
+  longTermNotesAndLoans: entry(["LongTermNotesAndLoans"]),
+  longTermNotesAndLoansCurrent: entry(["NotesAndLoansPayableCurrent", "NotesPayableCurrent"]),
   /**
    * Financing debt for a filer that tags none of the `longTermDebt` aggregates
    * (audit 2026-10-19, O-1/SNOW-1). Realty Income and NNN tag their unsecured

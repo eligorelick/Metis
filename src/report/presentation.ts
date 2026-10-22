@@ -15,7 +15,8 @@ import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { hasLimitedEvidence, MIN_HEADLINE_EVIDENCE } from "@/report/assessment";
+import { compositeNote, compositeText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -751,7 +752,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const marketCap = scope?.status === "resolved" ? scope.marketCap : quotedCap;
   if (marketCap !== null) rows.push(scope?.status === "resolved"
     ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}; main quote as of ${admittedPriceAsOf ?? "unavailable date"}${scope.approximate ? "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
-    : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
+    : md?.quote?.marketCapOrigin === "computed" && md.quote.marketCap === marketCap
+      ? { label: scope ? "Derived market cap (scope unverified)" : "Market cap (derived)", value: money(marketCap, priceCurrency), note: `quote price × filed share count, computed by Métis${scope ? "; complete issuer-common coverage unverified" : ""}${priceAsOf ? `; as of ${priceAsOf}` : ""}` }
+      : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
   if (scope?.status === "resolved" && scope.enterpriseValue !== null) {
     rows.push({ label: "Enterprise value (market)", value: money(scope.enterpriseValue, scope.currency), note: scope.enterpriseValueBasis });
   } else if (!scope && marketCap !== null && bridge && bridge.netDebt !== null) {
@@ -862,9 +865,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   if (bear && bull) {
     rows.push({ label: "Scenario range (bear – bull, model)", value: `${formatFinancialAmount(bear.value, bear.unit, bear.currency)} – ${formatFinancialAmount(bull.value, bull.unit, bull.currency)}` });
   }
-  const composite = report.scores?.composite;
-  if (composite && composite.score !== null) {
-    rows.push({ label: "Composite grade", value: `${composite.band ?? "—"} (${Math.round(composite.score)}/100)` });
+  const scores = report.scores;
+  if (scores && scores.composite.score !== null) {
+    // F-19: the aspects' evidence floor and the neutral qualifier, with the
+    // evidence share and the band thresholds beside the figure.
+    rows.push({ label: "Composite grade", value: compositeText(scores), note: compositeNote(scores) });
   }
   return rows;
 }
@@ -925,7 +930,7 @@ export function consensusTables(report: Report): BodyTable[] {
       si.changePct !== null ? `${formatPct(si.changePct, 1, true)} vs prior settlement` : null,
     ].filter(Boolean).join("; ")]);
   }
-  if (md.quote?.marketCap != null) rows.push(["Market cap (quote)", `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
+  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? "Market cap (derived: quote × filed shares)" : "Market cap (quote)", `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
   if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
     : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";
@@ -1613,9 +1618,9 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
       const weight = scores.composite.weights[key];
       return [
         SCORE_ASPECT_LABEL[key],
-        aspect.score === null ? "—" : String(Math.round(aspect.score)),
+        aspect.score === null ? "—" : formatScore(aspect.score),
         // D-67: the letter is withheld under the evidence floor on every surface.
-        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band ?? "—",
+        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : withNeutral(aspect.band, aspect.score),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         `${Math.round(aspect.dataCompleteness * 100)}%`,
         aspect.notApplicableReason ?? aspect.note,
@@ -1642,9 +1647,9 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
   const a = scores.assessments;
   if (!a) return null;
   return [
-    `Business quality ${a.businessQuality.score === null ? "—" : formatNumber(a.businessQuality.score, 0)} (${a.businessQuality.band ?? "—"})`,
+    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
-    `price attractiveness ${a.valuation.score === null ? "—" : formatNumber(a.valuation.score, 0)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band ?? "—"})`,
+    `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
     `evidence available for ${formatPct(a.evidenceCompleteness * 100, 0)} of the signal weight`,
   ].join(" · ");
 }

@@ -68,10 +68,16 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
   });
 
   const q = rows(bundle.quote)[0];
+  // Yahoo's chart carries no market cap, so one on a Yahoo quote is the keyless
+  // price × filed share count, not a provider observation.
+  const quoteSource = bundle.quote?.ok ? bundle.quote.value.source : null;
+  const marketCapOrigin = n(q?.marketCap) === null ? undefined
+    : quoteSource === "fmp" ? "provider" as const : quoteSource === "yahoo" ? "computed" as const : undefined;
   const quote: MarketData["quote"] = q
     ? {
         price: n(q.price), marketCap: n(q.marketCap), yearHigh: n(q.yearHigh), yearLow: n(q.yearLow),
         volume: n(q.volume), priceAvg50: n(q.priceAvg50), priceAvg200: n(q.priceAvg200), asOf: quotePriceObservationDay(q),
+        ...(marketCapOrigin ? { marketCapOrigin } : {}),
       }
     : null;
 

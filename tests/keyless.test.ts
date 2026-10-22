@@ -1034,6 +1034,53 @@ describe("applyKeylessFallbacks", () => {
     expect(out.members.profile.ok && out.members.profile.value.data.rows[0]!.isAdr).toBe(true);
   });
 
+  // Audit 2026-10-22 B-19: TSM's dei count is 25.93B ordinary shares while
+  // Yahoo quotes the ADS (1 ADS = 5 shares), so price × count printed $11.2T.
+  it("flags an IFRS-only 20-F filer as an ADR and never multiplies a depositary price by the ordinary-share count", async () => {
+    const ifrsOnly = facts({}, { EntityCommonStockSharesOutstanding: [{ end: "2026-02-28", val: 25_930_000_000, form: "20-F", fy: 2025, fp: "FY", filed: "2026-04-16" }] });
+    ifrsOnly.facts["ifrs-full"] = { Revenue: { label: "Revenue", units: { TWD: [{ start: "2025-01-01", end: "2025-12-31", val: 3.8e12, accn: "0001046179-26-000010", fy: 2025, fp: "FY", form: "20-F", filed: "2026-04-16" }] } } };
+    const out = await applyKeylessFallbacks(inputs({ symbol: "TSM", edgar: { ...inputs().edgar,
+      registrant: { ...inputs().edgar.registrant!, name: "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD", stateOfIncorporation: "F5", forms: ["20-F", "6-K"] },
+      companyFacts: { ok: true, value: { data: ifrsOnly, asOf: "2026-02-28", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() } } } }));
+    const profile = out.members.profile.ok ? out.members.profile.value.data.rows[0]! : null;
+    expect(profile).toMatchObject({ isAdr: true, marketCap: null });
+    const quote = out.members.quote.ok ? out.members.quote.value.data.rows[0]! : null;
+    expect(quote?.price).toBeGreaterThan(0);
+    expect(quote?.marketCap ?? null).toBeNull();
+    expect(out.members.marketCapHistory.ok).toBe(false);
+    const withheld = out.gaps.find((g) => g.field === "keyless.profile.marketCap");
+    expect(withheld?.reason).toMatch(/depositary/i);
+    expect(withheld?.reason).toMatch(/ordinary shares per quoted share/);
+    expect(out.gaps.find((g) => g.field === "keyless.quote.marketCap")?.reason).toMatch(/depositary/i);
+  });
+
+  it("withholds the market cap of a US-GAAP 20-F filer too: its cover count is not established as quoted shares", async () => {
+    const facts20F = appleFacts();
+    for (const concept of Object.values(facts20F.facts["us-gaap"]!)) {
+      for (const pts of Object.values((concept as { units: Record<string, { form: string }[]> }).units)) for (const p of pts) if (p.form === "10-K") p.form = "20-F";
+    }
+    const out = await applyKeylessFallbacks(inputs({ edgar: { ...inputs().edgar, registrant: { ...inputs().edgar.registrant!, stateOfIncorporation: "E9", forms: ["20-F", "6-K"] }, companyFacts: { ok: true, value: { data: facts20F, asOf: "2025-09-27", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() } } } }));
+    expect(out.members.profile.ok && out.members.profile.value.data.rows[0]).toMatchObject({ isAdr: true, marketCap: null });
+    expect(out.members.quote.ok && (out.members.quote.value.data.rows[0]!.marketCap ?? null)).toBeNull();
+    expect(out.members.marketCapHistory.ok).toBe(false);
+    // A domestic filer is unchanged.
+    const domestic = await applyKeylessFallbacks(inputs());
+    expect(domestic.members.profile.ok && domestic.members.profile.value.data.rows[0]!.marketCap).toBeGreaterThan(0);
+  });
+
+  it("keeps the market cap of a Form 40-F filer: a Canadian MJDS issuer lists its common shares, not depositary shares", async () => {
+    const facts40F = appleFacts();
+    for (const concept of Object.values(facts40F.facts["us-gaap"]!)) {
+      for (const pts of Object.values((concept as { units: Record<string, { form: string }[]> }).units)) for (const p of pts) if (p.form === "10-K") p.form = "40-F";
+    }
+    for (const forms of [["40-F", "6-K"], []]) {
+      const out = await applyKeylessFallbacks(inputs({ edgar: { ...inputs().edgar, registrant: { ...inputs().edgar.registrant!, stateOfIncorporation: "A6", forms }, companyFacts: { ok: true, value: { data: facts40F, asOf: "2025-09-27", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() } } } }));
+      expect(out.members.profile.ok && out.members.profile.value.data.rows[0]).toMatchObject({ isAdr: true });
+      expect(out.members.profile.ok && out.members.profile.value.data.rows[0]!.marketCap).toBeGreaterThan(0);
+      expect(out.gaps.some((g) => /depositary/i.test(g.reason))).toBe(false);
+    }
+  });
+
   it("keeps the six statement gaps when companyfacts is unavailable and records the EDGAR attempt", async () => {
     const out = await applyKeylessFallbacks(
       inputs({

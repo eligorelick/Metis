@@ -49,6 +49,7 @@ import { consensusYearsText } from "@/pipeline/stageB/valuation";
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
+import { BAND_THRESHOLDS_TEXT, compositeDisplay, evidencePct, isNeutralScore, MIN_HEADLINE_EVIDENCE, NEUTRAL_SCORE_BAND } from "@/report/assessment";
 import {
   PROJECTION_PATH_ORDER,
   SCORE_ASPECT_ORDER,
@@ -406,7 +407,8 @@ export interface ContextPayload {
 // D-97: independently audited debt, lease-scope and NCI admission alter admitted context.
 // D-98: investment tax, rate-limit degradation, guided YoY pace, margin fade and gain-inflated P/E alter admitted context.
 // D-99: backlog and government-case evidence, the consensus-target reconciliation note and the deferred AMZN audit fixes alter admitted context.
-export const PAYLOAD_VERSION = "1.40.0" as const;
+// D-100: the composite's evidence floor, the neutral-band qualifier and the band thresholds alter admitted context.
+export const PAYLOAD_VERSION = "1.41.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1114,16 +1116,26 @@ function computedSections(
   // --- Deterministic aspect scores (feature 1.1.0) -------------------------
   if (computed.scores) {
     const sc = computed.scores;
+    // Audit 2026-10-22 F-19: the composite letter carries the aspects'
+    // evidence floor, and a band letter for a 45-55 score is marked neutral.
+    const neutral = `neutral ${NEUTRAL_SCORE_BAND.low}–${NEUTRAL_SCORE_BAND.high}`;
+    const composite = compositeDisplay(sc);
+    // A null value drops its unit, so an ungraded composite states its reason
+    // in the value itself.
+    const notGraded = composite.grade === null && sc.composite.band !== null && composite.evidence !== null;
+    const compositeGradeUnit = notGraded
+      ? `(score shown above; evidence for ${evidencePct(composite.evidence!)}% of the route-applicable signal weight, below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter)`
+      : isNeutralScore(sc.composite.score) ? neutral : "";
     const scoreFigures: PayloadFigureInput[] = [
       { label: "COMPOSITE score", value: sc.composite.score, unit: "0-100", source: "computed.scores.composite", asOf: null },
-      { label: "COMPOSITE grade", value: sc.composite.band, unit: "", source: "computed.scores.composite", asOf: null },
+      { label: "COMPOSITE grade", value: notGraded ? composite.label : composite.grade, unit: compositeGradeUnit, source: "computed.scores.composite", asOf: null },
     ];
     for (const key of SCORE_ASPECT_ORDER) {
       const a = sc.aspects[key];
       scoreFigures.push({
         label: `${key} score`,
         value: a.score,
-        unit: `0-100 (grade ${a.band ?? "n/a"})`,
+        unit: `0-100 (grade ${a.band ?? "n/a"}${a.band !== null && isNeutralScore(a.score) ? `, ${neutral}` : ""})`,
         source: `computed.scores.${key}`,
         asOf: null,
       });
@@ -1144,7 +1156,7 @@ function computedSections(
       figures: scoreFigures,
       notes: [
         sc.composite.methodology,
-        `band table: ${sc.bandsVersion}`,
+        `band table: ${sc.bandsVersion} (${BAND_THRESHOLDS_TEXT}: a 45–55 score is the neutral prior, neither weak nor strong)`,
         // D-61 (NVDA report #34: a leadership grade justified by guidance
         // execution that the score never measured).
         "The leadership score is a capital-stewardship proxy: repurchase timing (the price actually paid against the same fiscal year's average price) and annualized weighted-average diluted common-share change. That share measure is not net economic dilution. Management quality, guidance execution and governance are not inputs to it; a leadership grade that rests on them is a judgment beyond the band and must say so, not cite the band as support.",

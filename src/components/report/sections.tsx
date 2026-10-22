@@ -14,7 +14,8 @@
  */
 
 import type { ReactNode } from "react";
-import { hasLimitedEvidence, type AspectEvidence } from "@/report/assessment";
+import { compositeDisplay, compositeNote, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
@@ -346,6 +347,8 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
 
 export function CompositeScorecard({ scores }: { scores: Scoring }) {
   const c = scores.composite;
+  // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+  const shown = compositeDisplay(scores);
   return (
     <div className="border border-edge-strong bg-panel">
       <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-1.5">
@@ -359,10 +362,15 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
               {SCORE_SURFACE_BY_KEY.composite.label.toLowerCase()}
             </span>
             <span className="mono text-[30px] leading-none text-fg">
-              {c.score === null ? "n/a" : Math.round(c.score)}
+              {formatScore(c.score)}
             </span>
           </div>
-          {c.band && <GradeChip grade={c.band} />}
+          {c.band && (shown.grade === null
+            ? <span className="mono text-[10px] text-warn">{shown.label}</span>
+            : <span className="flex items-center gap-1">
+                <GradeChip grade={shown.grade} />
+                {isNeutralScore(c.score) && <span className="mono text-[10px] text-faint">neutral</span>}
+              </span>)}
         </div>
         <div className="grid flex-1 grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-7">
           {SCORE_SURFACES.map((descriptor) => {
@@ -379,7 +387,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
                 <div className="flex items-center justify-between gap-1">
                   {hasLimitedEvidence(a)
                     ? <span className="mono text-[10px] text-warn">limited evidence</span>
-                    : <ScorePill score={a.score} band={a.band} />}
+                    : <ScorePill score={a.score} band={a.band} neutral={isNeutralScore(a.score)} />}
                   {a.score !== null && a.dataCompleteness < 1 && (
                     <span
                       className="mono text-[9px] text-warn"
@@ -395,6 +403,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
         </div>
       </div>
       <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
+        <p className="text-[11px] text-muted">Composite: {compositeNote(scores)}</p>
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
         <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />
       </div>
