@@ -172,8 +172,8 @@ function presentedToken(request: Request): string | null {
 
 /**
  * True when the request presents the token this process already minted. It
- * never mints: the request-wide proxy calls it, and minting there would
- * overwrite the csrf-token file that instrumentation wrote at startup.
+ * never mints: the request-wide proxy calls it, and a request must never be
+ * what creates or writes the csrf-token file instrumentation owns.
  */
 export function requestCarriesToken(request: Request): boolean {
   const minted = tokenStash().current;

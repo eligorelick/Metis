@@ -940,11 +940,13 @@ describe("request-wide proxy", () => {
       for (const headers of attempts) {
         await expect403(await runProxy(lanRequest("/company/AAPL", headers)));
       }
+      // Checking the token in the proxy never creates the startup token file.
+      expect(existsSync(requestTokenPath())).toBe(false);
     });
 
     it("checks the token without minting or writing one", () => {
       // The proxy compares against the token instrumentation minted at startup;
-      // minting there would overwrite the csrf-token file scripts read.
+      // a request must never be what creates or writes the csrf-token file.
       expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "a".repeat(64) }))).toBe(false);
       expect(existsSync(requestTokenPath())).toBe(false);
       const minted = ensureRequestToken().token;

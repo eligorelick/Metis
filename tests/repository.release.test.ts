@@ -475,9 +475,12 @@ describe("public release contract", () => {
     expect(pkg.engines.node).toBe(">=24");
     expect(lock.packages[""]?.engines?.node).toBe(pkg.engines.node);
     const workflow = await parseWorkflow(read(".github/workflows/ci.yml"));
+    // Jobs without setup-node (lint-only helpers) have no lane; a setup-node
+    // step without an explicit node-version fails the comparison below.
     const lanes = Object.values(workflow.jobs ?? {})
-      .map((job) => job.steps?.find((step) => step.uses?.startsWith("actions/setup-node"))?.with?.["node-version"])
-      .filter((version) => version !== undefined);
+      .map((job) => job.steps?.find((step) => step.uses?.startsWith("actions/setup-node")))
+      .filter((step) => step !== undefined)
+      .map((step) => step.with?.["node-version"]);
     expect(lanes.length).toBeGreaterThan(0);
     for (const lane of lanes) expect(`>=${lane}`).toBe(pkg.engines.node);
     expect(readme).toContain(`Node.js ${pkg.engines.node.slice(2)} or newer`);
