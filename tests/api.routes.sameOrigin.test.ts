@@ -16,7 +16,7 @@ import "next/dist/server/node-environment";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -48,6 +48,7 @@ import { createJob as createJobReal } from "@/pipeline/jobRunner";
 import {
   assertSameOrigin,
   ensureRequestToken,
+  requestCarriesToken,
   requestTokenPath,
   REQUEST_TOKEN_FILE_NAME,
   REQUEST_TOKEN_HEADER,
@@ -466,11 +467,13 @@ describe("assertAllowedHost", () => {
 });
 
 describe("assertHeavyGetMetadata", () => {
-  type HeavyGuard = (request: Request) => Response | null;
+  type HeavyGuard = (request: Request, carriesToken: (request: Request) => boolean) => Response | null;
 
-  function heavyGuard(): HeavyGuard | undefined {
-    return (requestSecurityModule as unknown as { assertHeavyGetMetadata?: HeavyGuard })
+  /** The guard with a token check that never matches; the token arm is tested through the proxy. */
+  function heavyGuard(): ((request: Request) => Response | null) | undefined {
+    const guard = (requestSecurityModule as unknown as { assertHeavyGetMetadata?: HeavyGuard })
       .assertHeavyGetMetadata;
+    return guard === undefined ? undefined : (request) => guard(request, () => false);
   }
 
   function heavyRequest(
@@ -937,6 +940,19 @@ describe("request-wide proxy", () => {
       for (const headers of attempts) {
         await expect403(await runProxy(lanRequest("/company/AAPL", headers)));
       }
+    });
+
+    it("checks the token without minting or writing one", () => {
+      // The proxy compares against the token instrumentation minted at startup;
+      // minting there would overwrite the csrf-token file scripts read.
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "a".repeat(64) }))).toBe(false);
+      expect(existsSync(requestTokenPath())).toBe(false);
+      const minted = ensureRequestToken().token;
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: minted }))).toBe(true);
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { "x-thesis-token": minted }))).toBe(true);
+      expect(
+        requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "bad", "x-thesis-token": minted })),
+      ).toBe(false);
     });
 
     it("accepts the startup token from a script", async () => {

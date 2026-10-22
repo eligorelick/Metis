@@ -159,17 +159,26 @@ export function _resetRequestTokenForTests(): void {
 }
 
 /** Constant-time comparison over digests so neither length nor content leaks. */
-function presentedTokenMatches(presented: string): boolean {
-  const expected = ensureRequestToken().token;
+function presentedTokenMatches(presented: string, expected = ensureRequestToken().token): boolean {
   const presentedDigest = createHash("sha256").update(presented.trim()).digest();
   const expectedDigest = createHash("sha256").update(expected).digest();
   return timingSafeEqual(presentedDigest, expectedDigest);
 }
 
-/** True when the request presents this server's startup token; the primary header wins when both are sent. */
+/** The presented token; presence precedence keeps an invalid primary header from falling back to a valid legacy one. */
+function presentedToken(request: Request): string | null {
+  return request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
+}
+
+/**
+ * True when the request presents the token this process already minted. It
+ * never mints: the request-wide proxy calls it, and minting there would
+ * overwrite the csrf-token file that instrumentation wrote at startup.
+ */
 export function requestCarriesToken(request: Request): boolean {
-  const presented = request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
-  return presented !== null && presentedTokenMatches(presented);
+  const minted = tokenStash().current;
+  const presented = presentedToken(request);
+  return minted !== undefined && presented !== null && presentedTokenMatches(presented, minted.token);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -209,8 +218,7 @@ export function assertSameOrigin(request: Request): NextResponse | null {
   // does is accepted here without a token (see the header note above).
   if (secFetchSite !== undefined) return null;
 
-  // Presence precedence prevents an invalid primary header from falling back to a valid legacy token.
-  const presented = request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
+  const presented = presentedToken(request);
   if (presented === null) return forbid(MISSING_CREDENTIALS_REASON);
   if (!presentedTokenMatches(presented)) {
     return forbid("request token does not match the token this server minted at startup");
