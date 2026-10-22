@@ -110,6 +110,8 @@ export const DEBT_COLLAPSE_SHARE = 0.6;
 export function collapsedDebtReason(input: {
   annualInterestExpense: number | null; financingDebt: number | null; previousFinancingDebt: number | null; previousDate: string;
   netDebtIssuance: number | null; totalAssets: number | null;
+  /** Repayments over the same span, negative = outflow; read only when the net issuance is not disclosed. */
+  debtRepayment?: number | null;
 }): string | null {
   const finite = (value: number | null): value is number => value !== null && Number.isFinite(value);
   const { annualInterestExpense: interest, financingDebt: closing, previousFinancingDebt: previous } = input;
@@ -117,9 +119,15 @@ export function collapsedDebtReason(input: {
   if (finite(input.totalAssets) && input.totalAssets > 0 && interest < MATERIAL_INTEREST_TO_ASSETS * input.totalAssets) return null;
   const fall = previous - closing;
   if (fall <= DEBT_COLLAPSE_SHARE * previous || interest / closing <= IMPLAUSIBLE_DEBT_RATE) return null;
+  // The net figure is the evidence when disclosed; without it, repayments alone
+  // show at least that much debt leaving (any undisclosed issuance only adds back).
+  const repayment = finite(input.netDebtIssuance) ? null : finite(input.debtRepayment ?? null) ? input.debtRepayment! : null;
   if (finite(input.netDebtIssuance) && -input.netDebtIssuance >= fall / 2) return null;
+  if (repayment !== null && -repayment >= fall / 2) return null;
+  const evidence = finite(input.netDebtIssuance) ? `net debt issuance of ${input.netDebtIssuance}`
+    : repayment !== null ? `debt repayments of ${repayment} (issuance not disclosed)` : "no net debt repayment disclosed";
   return `incomplete debt carrying value: resolved financing debt fell from ${previous} at ${input.previousDate} to ${closing} ` +
-    `(${(-fall / previous * 100).toFixed(1)}%) with ${finite(input.netDebtIssuance) ? `net debt issuance of ${input.netDebtIssuance}` : "no net debt repayment disclosed"} ` +
+    `(${(-fall / previous * 100).toFixed(1)}%) with ${evidence} ` +
     `to explain it, and annual interest expense ${interest} implies ${(interest / closing * 100).toFixed(1)}% on the closing balance; ` +
     `a debt component is missing, so total debt and net debt are withheld rather than published as a collapse`;
 }

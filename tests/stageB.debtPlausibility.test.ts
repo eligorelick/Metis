@@ -50,6 +50,12 @@ describe("collapsedDebtReason (audit 2026-10-22 B-16)", () => {
     expect(collapsedDebtReason({ ...collapse, financingDebt: 0 })).toBeNull();
     expect(collapsedDebtReason({ ...collapse, previousFinancingDebt: null })).toBeNull();
   });
+  it("reads one-sided repayments when the net issuance is not disclosed (PR #47 review)", () => {
+    expect(collapsedDebtReason({ ...collapse, debtRepayment: -49_600 * M })).toBeNull();
+    expect(collapsedDebtReason({ ...collapse, debtRepayment: -1_000 * M })).toMatch(/debt repayments of -1000000000 \(issuance not disclosed\)/);
+    // A disclosed net figure is the better evidence and wins.
+    expect(collapsedDebtReason({ ...collapse, netDebtIssuance: -1_000 * M, debtRepayment: -49_600 * M })).toMatch(/net debt issuance of -1000000000/);
+  });
 });
 
 const USD = ["USD", "USD", "USD", "USD"] as const;
@@ -137,6 +143,11 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     it("keeps it when the quarter's cash flow repaid the debt", () => {
       const bundle = collapsed();
       Object.assign(rowsOf(bundle, "cashflowQuarterly").find((row) => row.date === "2026-03-31")!, { netDebtIssuance: -49_600 * M });
+      expect(runStageB(bundle).gaps.some((g) => g.field === "statements.balance.2026-03-31.totalDebt")).toBe(false);
+    });
+    it("keeps it when the cash flow shows only the repayment, with no issuance tagged (PR #47 review)", () => {
+      const bundle = collapsed();
+      Object.assign(rowsOf(bundle, "cashflowQuarterly").find((row) => row.date === "2026-03-31")!, { netDebtIssuance: null, debtRepayment: -49_600 * M });
       expect(runStageB(bundle).gaps.some((g) => g.field === "statements.balance.2026-03-31.totalDebt")).toBe(false);
     });
   });

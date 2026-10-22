@@ -994,6 +994,9 @@ const CASHFLOW_CHAINS: Record<string, ChainSpec> = {
     minus: tagsFor("debtRepayment")[0] as string,
     unit: "money",
   },
+  // One-sided: a filer that tags repayments but no issuance still shows debt
+  // leaving the balance sheet (the collapse check in Stage B reads it).
+  debtRepayment: { kind: "first", tags: tagsFor("debtRepayment"), unit: "money", sign: -1 },
   netStockIssuance: {
     kind: "diff",
     plus: tagsFor("commonStockIssuance")[0] as string,

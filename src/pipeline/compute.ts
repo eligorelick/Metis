@@ -1748,15 +1748,15 @@ function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: 
   return values.reduce((sum, value) => sum! + value!, 0);
 }
 
-/** Net debt issuance over (from, to]: the discrete quarters that cover it, else the fiscal year ending at `to`. */
-function netDebtIssuanceBetween(quarters: readonly FmpCashFlowRow[], years: readonly FmpCashFlowRow[], from: string, to: string): number | null {
+/** A cash-flow field over (from, to]: the discrete quarters that cover it, else the fiscal year ending at `to`. */
+function cashFlowBetween(field: "netDebtIssuance" | "debtRepayment", quarters: readonly FmpCashFlowRow[], years: readonly FmpCashFlowRow[], from: string, to: string): number | null {
   const near = (row: FmpCashFlowRow, day: string): boolean => Math.abs(Date.parse(isoDay(row.date) ?? "") - Date.parse(day)) <= 5 * 86_400_000;
   const span = (Date.parse(to) - Date.parse(from)) / 86_400_000;
   const inside = quarters.filter((row) => { const day = isoDay(row.date); return day !== null && Date.parse(day) > Date.parse(from) + 5 * 86_400_000 && Date.parse(day) <= Date.parse(to) + 5 * 86_400_000; });
-  const values = inside.map((row) => num(row.netDebtIssuance));
+  const values = inside.map((row) => num(row[field]));
   if (inside.length > 0 && inside.length === Math.round(span / 91) && values.every((value) => value !== null)) return values.reduce((sum, value) => sum! + value!, 0);
   const year = span >= 300 ? years.find((row) => near(row, to)) : undefined;
-  return year === undefined ? null : num(year.netDebtIssuance);
+  return year === undefined ? null : num(year[field]);
 }
 
 /**
@@ -1769,7 +1769,7 @@ function netDebtIssuanceBetween(quarters: readonly FmpCashFlowRow[], years: read
  * row with no debt figure at all is left to the balance-anchor rules.
  */
 function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = [],
-  netDebtIssuance: (from: string, to: string) => number | null = () => null): FmpBalanceSheetRow[] {
+  cashFlow: (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => number | null = () => null): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
     // Long-term debt tagged with its finance leases already holds them.
     const financeLeases = longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
@@ -1795,7 +1795,8 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
     const reason = implausibleDebtReason({ annualInterestExpense: interest, financingDebt: closing,
       priorFinancingDebts: opening.map(([, debt]) => debt), totalAssets: num(row.totalAssets) }) ??
       (previous === undefined ? null : collapsedDebtReason({ annualInterestExpense: interest, financingDebt: closing, previousFinancingDebt: previous[1],
-        previousDate: previous[0], netDebtIssuance: netDebtIssuance(previous[0], date), totalAssets: num(row.totalAssets) }));
+        previousDate: previous[0], netDebtIssuance: cashFlow("netDebtIssuance", previous[0], date), debtRepayment: cashFlow("debtRepayment", previous[0], date),
+        totalAssets: num(row.totalAssets) }));
     if (reason === null) return row;
     let out = row;
     // Long-term debt is the component the missing borrowings most often belong
@@ -1958,7 +1959,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // incomplete is withheld before any consumer reads it. Financial routes are
   // excluded: their interest expense funds deposits and float, not debt.
   if (!(route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage")) {
-    const issuance = (from: string, to: string) => netDebtIssuanceBetween(cashflowQuarterly, cashflowAnnual, from, to);
+    const issuance = (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => cashFlowBetween(field, cashflowQuarterly, cashflowAnnual, from, to);
     balanceAnnual = withholdImplausibleDebt(balanceAnnual, (date) => {
       const index = incomeIndexNear(incomeAnnual, date);
       return index < 0 ? null : disclosedInterest(incomeAnnual[index]);

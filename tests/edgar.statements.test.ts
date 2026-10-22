@@ -655,6 +655,13 @@ describe("buildStatementsFromCompanyFacts — chain and derivation coverage", ()
     ]);
   });
 
+  it("keeps one-sided repayment evidence when no issuance is tagged (PR #47 review)", () => {
+    const f = calendarQuarters();
+    delete f.facts["us-gaap"]!.ProceedsFromIssuanceOfLongTermDebt;
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "CAL" });
+    expect(built.cashflowAnnual.rows[0]).toMatchObject({ netDebtIssuance: null, debtRepayment: -40 });
+  });
+
   it("prefers the fiscal-year end when a 10-Q instant lands within the date tolerance of it", () => {
     const f = appleLike();
     const assets = (f.facts["us-gaap"]!.Assets as { units: { USD: { end: string; val: number }[] } }).units.USD;
