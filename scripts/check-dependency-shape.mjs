@@ -5,8 +5,8 @@ import path from "node:path";
 import { isEntryPoint } from "./lib/entrypoint.mjs";
 
 export const APPROVED_VERSIONS = {
-  next: ["16.3.8"],
-  "eslint-config-next": ["16.3.8"],
+  next: ["16.4.2"],
+  "eslint-config-next": ["16.4.2"],
   postcss: ["8.5.26"],
   sharp: ["0.35.5"],
   "js-yaml": ["4.3.2"],
