@@ -517,6 +517,7 @@ describe("buildStatementsFromCompanyFacts — edge cases", () => {
     expect(built.incomeAnnual.rows[0]!.reportedCurrency).toBe("EUR");
     expect(built.reportedCurrency).toBe("EUR");
     expect(built.filesTwentyF).toBe(true);
+    expect(built.filesForm20F).toBe(true);
     expect(built.incomeQuarterly.rows).toEqual([]);
     expect(built.incomeQuarterly.gaps[0]?.reason).toMatch(/no quarterly/i);
   });
@@ -1699,6 +1700,8 @@ describe("buildStatementsFromCompanyFacts — audit 2026-09-06", () => {
     const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "CNQ" });
     expect(built.incomeAnnual.rows[0]).toMatchObject({ date: "2025-12-31", fiscalYear: "2025", period: "FY", revenue: 500, reportedCurrency: "CAD" });
     expect(built.filesTwentyF).toBe(true);
+    // A 40-F filer quotes its common shares; only a 20-F may quote a depositary share.
+    expect(built.filesForm20F).toBe(false);
   });
 
   it("resolves common dividends from their own element, else total less preferred, else the total", () => {

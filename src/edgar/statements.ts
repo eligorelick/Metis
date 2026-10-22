@@ -283,6 +283,12 @@ export interface BuiltStatements {
    */
   filesTwentyF: boolean;
   /**
+   * True when a Form 20-F point was used. A 40-F filer is a Canadian MJDS
+   * issuer whose quoted security is its common share; a 20-F filer's may be a
+   * depositary share, so the keyless market cap reads this flag.
+   */
+  filesForm20F: boolean;
+  /**
    * The resolved stock splits (see src/edgar/splits.ts) and one note per split.
    * The note texts are also carried on the income and balance rows' notes.
    */
@@ -2434,6 +2440,7 @@ interface PeriodSlot {
 
 interface BuildState {
   filesTwentyF: boolean;
+  filesForm20F: boolean;
   temporaryEquityPeriods: ReadonlySet<string>;
   nciZeroPeriods: ReadonlySet<string>;
   balanceRefusals: ReadonlyMap<string, string>;
@@ -2691,6 +2698,7 @@ function buildStatementRows<TRow>(
     if (isForeignAnnualForm(anchor.point.form.trim()) || isForeignAnnualForm(anchor.reporter.form.trim())) {
       state.filesTwentyF = true;
     }
+    if (anchor.point.form.trim().startsWith("20-F") || anchor.reporter.form.trim().startsWith("20-F")) state.filesForm20F = true;
 
     const row: Record<string, unknown> = {
       symbol: opts.symbol,
@@ -3148,7 +3156,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
   const shareBasisWithheld: ShareBasisWithheld[] = [];
   const factExclusions: StatementFactExclusion[] = [];
   const index = buildFactIndex(facts, { splits, day: basisDay, withheld: shareBasisWithheld }, opts.asOf, factExclusions);
-  const state: BuildState = { filesTwentyF: false, ...balanceEvidenceGuards(facts, opts.asOf), nciZeroPeriods: inferredZeroNciPeriods(facts, opts.asOf) };
+  const state: BuildState = { filesTwentyF: false, filesForm20F: false, ...balanceEvidenceGuards(facts, opts.asOf), nciZeroPeriods: inferredZeroNciPeriods(facts, opts.asOf) };
 
   const allFiscalYears = discoverFiscalYears(index);
   const fiscalYearEnds = new Set(allFiscalYears.map((fy) => fy.end));
@@ -3333,6 +3341,7 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     },
     reportedCurrency: currency,
     filesTwentyF: state.filesTwentyF,
+    filesForm20F: state.filesForm20F,
     splits,
     basisDay,
     shareBasisWithheld,

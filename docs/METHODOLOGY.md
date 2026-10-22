@@ -2836,11 +2836,15 @@ while one ADS is five shares, so the report printed $11.2 trillion. The issuer
 was not even flagged as an ADR: the flag came from the statements builder,
 which builds nothing from a filer that reports under IFRS. The flag now falls
 back to the filed forms (20-F or 40-F) whenever no statement row could be
-built, not only when there are no company facts at all. For any issuer so
-flagged, the keyless market cap, quote market cap and market-cap history are
+built, not only when there are no company facts at all. For an issuer that
+files Form 20-F, the keyless market cap, quote market cap and market-cap
+history (including days derived beside a plan-limited vendor history) are
 withheld with a gap that says why: no filed fact read here states how many
-ordinary shares one quoted share represents. Métis does not compute the figure
-from the static ADR table or guess a ratio. A market cap Métis computed from a
+ordinary shares one quoted share represents. A Form 40-F filer is a Canadian
+issuer whose listed security is its common share, so its market cap stands. A
+20-F filer that lists its ordinary shares directly loses the keyless figure
+too, because the filed facts read here do not say which security is quoted.
+Métis does not compute the figure from the static ADR table or guess a ratio. A market cap Métis computed from a
 quote and a filed count is now labelled "derived" in Key data and the market
 data table, with the note "quote price × filed share count, computed by
 Métis", instead of "raw provider observation".

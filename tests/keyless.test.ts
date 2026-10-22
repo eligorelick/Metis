@@ -1068,6 +1068,19 @@ describe("applyKeylessFallbacks", () => {
     expect(domestic.members.profile.ok && domestic.members.profile.value.data.rows[0]!.marketCap).toBeGreaterThan(0);
   });
 
+  it("keeps the market cap of a Form 40-F filer: a Canadian MJDS issuer lists its common shares, not depositary shares", async () => {
+    const facts40F = appleFacts();
+    for (const concept of Object.values(facts40F.facts["us-gaap"]!)) {
+      for (const pts of Object.values((concept as { units: Record<string, { form: string }[]> }).units)) for (const p of pts) if (p.form === "10-K") p.form = "40-F";
+    }
+    for (const forms of [["40-F", "6-K"], []]) {
+      const out = await applyKeylessFallbacks(inputs({ edgar: { ...inputs().edgar, registrant: { ...inputs().edgar.registrant!, stateOfIncorporation: "A6", forms }, companyFacts: { ok: true, value: { data: facts40F, asOf: "2025-09-27", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() } } } }));
+      expect(out.members.profile.ok && out.members.profile.value.data.rows[0]).toMatchObject({ isAdr: true });
+      expect(out.members.profile.ok && out.members.profile.value.data.rows[0]!.marketCap).toBeGreaterThan(0);
+      expect(out.gaps.some((g) => /depositary/i.test(g.reason))).toBe(false);
+    }
+  });
+
   it("keeps the six statement gaps when companyfacts is unavailable and records the EDGAR attempt", async () => {
     const out = await applyKeylessFallbacks(
       inputs({

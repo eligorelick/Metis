@@ -1447,11 +1447,16 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   const isAdr = builtRows
     ? built!.filesTwentyF
     : registrant?.forms.some((form) => form.trim().startsWith("20-F") || form.trim().startsWith("40-F")) ?? false;
-  // A foreign private issuer's quote may be a depositary share while its cover
-  // count is of ordinary shares (TSM: 1 ADS = 5 shares), and no filed fact read
-  // here states the ratio. Price × count is then not a market capitalization.
-  const depositaryIssue = isAdr && outstanding !== null
-    ? `the issuer files Form 20-F/40-F, so the quoted security may be an American depositary share while dei:${DEI_SHARES_TAG} ` +
+  // A 20-F filer's quote may be a depositary share while its cover count is of
+  // ordinary shares (TSM: 1 ADS = 5 shares), and no filed fact read here
+  // states the ratio. Price × count is then not a market capitalization, for
+  // the latest count and for every derived history day alike. A 40-F filer is
+  // a Canadian MJDS issuer whose quoted security is its common share.
+  const filesForm20F = builtRows
+    ? built!.filesForm20F
+    : registrant?.forms.some((form) => form.trim().startsWith("20-F")) ?? false;
+  const depositaryIssue = filesForm20F
+    ? `the issuer files Form 20-F, so the quoted security may be an American depositary share while dei:${DEI_SHARES_TAG} ` +
       "counts ordinary shares; no filed evidence read here establishes the ordinary shares per quoted share, so price × the filed count is withheld rather than published as a market cap"
     : null;
   const spotIssue = price === null || outstanding === null ? null : basisGap(priceBasisDay, basisDay);
