@@ -67,6 +67,19 @@ describe("issuer economic-share scope", () => {
     expect(JSON.stringify(judgeOutputToJsonSchema())).not.toContain('"marketValueScope"');
   });
 
+  // Audit 2026-10-22 B-19: a keyless cap is Métis's price × filed count.
+  it("labels a market cap Métis computed as derived, never as a provider observation", () => {
+    const report = loadTask28Fixture();
+    report.valuation = applyMultiples(report.valuation, { kind: "dcf-suppressed", route: "general", multiples: multiplesFramework("general", base()), notes: [], gaps: [] });
+    report.marketData = { version: "1", currency: "USD", estimateCurrency: null, estimateCurrencyBasis: null,
+      quote: { price: 288.95, marketCap: 114_473_000 * 288.95, yearHigh: null, yearLow: null, volume: null, priceAvg50: null, priceAvg200: null, asOf: "2026-10-15", marketCapOrigin: "computed" },
+      shares: null, enterpriseValue: null, estimates: [], estimatesAsOf: null, priceTarget: null, gradeCounts: null, shortInterest: null };
+    const rows = keyDataRows(ReportSchema.parse(report));
+    expect(rows.find(row => row.label === "Derived market cap (scope unverified)")?.note).toBe("quote price × filed share count, computed by Métis; complete issuer-common coverage unverified; as of 2026-10-15");
+    expect(rows.some(row => row.label === "Provider market cap (scope unverified)")).toBe(false);
+    expect(reportToMarkdown(report)).not.toContain("raw provider observation");
+  });
+
   it("withholds a known unresolved second common class found in retained filing statements", () => {
     const bundle = completeCurrencyBundle({});
     bundle.edgar.tenQNotes = { ok: true, value: { data: { sectionName: "tenQNotes", text: "Capital stock", statementsText: "Common stock, issued and outstanding: 114,473 shares. Class B common stock, issued and outstanding: 5,523 shares.", method: "header-regex", chars: 13, accession: "filing", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/filing" }, source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: bundle.builtAt } };

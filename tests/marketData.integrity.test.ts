@@ -60,3 +60,17 @@ describe("float measurement compatibility", () => {
     expect(text).not.toContain("104.7");
   });
 });
+
+// Audit 2026-10-22 B-19: Yahoo's chart has no market cap, so a cap on a Yahoo
+// quote is the keyless price × filed share count.
+describe("quoted market cap origin", () => {
+  function withQuote(source: string) {
+    const bundle = currencyBundle();
+    bundle.quote = { ok: true, value: { source, endpoint: "quote", asOf: "2026-07-01", fetchedAt: bundle.builtAt, data: { rows: [{ symbol: "TEST", price: 10, marketCap: 1e9 }], raw: {} } } } as typeof bundle.quote;
+    return MarketDataSchema.parse(buildMarketData(bundle)).quote;
+  }
+  it("marks a Yahoo quote's market cap as computed and a vendor's as provided", () => {
+    expect(withQuote("yahoo")?.marketCapOrigin).toBe("computed");
+    expect(withQuote("fmp")?.marketCapOrigin).toBe("provider");
+  });
+});

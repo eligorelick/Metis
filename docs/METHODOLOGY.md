@@ -2826,3 +2826,19 @@ the outlook table and the checks against actuals, and a note names the guide
 and the quarter it was compared with. The band is a house convention: no
 issuer guides a quarter at a fifth or five times its last one, and a lost
 "billion" misses by a factor of a billion.
+
+**Depositary-share market cap (B-19).** Without an FMP key, the market cap is
+the quoted price times the share count on the filing cover. For TSM that is the
+price of one American depositary share times 25.93 billion ordinary shares,
+while one ADS is five shares, so the report printed $11.2 trillion. The issuer
+was not even flagged as an ADR: the flag came from the statements builder,
+which builds nothing from a filer that reports under IFRS. The flag now falls
+back to the filed forms (20-F or 40-F) whenever no statement row could be
+built, not only when there are no company facts at all. For any issuer so
+flagged, the keyless market cap, quote market cap and market-cap history are
+withheld with a gap that says why: no filed fact read here states how many
+ordinary shares one quoted share represents. Métis does not compute the figure
+from the static ADR table or guess a ratio. A market cap Métis computed from a
+quote and a filed count is now labelled "derived" in Key data and the market
+data table, with the note "quote price × filed share count, computed by
+Métis", instead of "raw provider observation".

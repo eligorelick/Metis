@@ -2385,6 +2385,8 @@ export const MarketDataSchema = z
     quote: z.object({
       price: NullableNumber, marketCap: NullableNumber, yearHigh: NullableNumber, yearLow: NullableNumber,
       volume: NullableNumber, priceAvg50: NullableNumber, priceAvg200: NullableNumber, asOf: z.string().nullable(),
+      /** Absent on older reports. "computed": Métis multiplied the quote by a filed share count; no vendor served it. */
+      marketCapOrigin: z.enum(["computed", "provider"]).optional(),
     }).strict().nullable(),
     shares: z.object({
       outstanding: NullableNumber, float: NullableNumber, freeFloatPct: NullableNumber, asOf: z.string().nullable(),
