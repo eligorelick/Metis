@@ -85,6 +85,7 @@ import {
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
   guidanceLowCitation,
+  renderUntrustedJson,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -1881,9 +1882,11 @@ export function judgeUserTurns(
     const truncationNote = capped?.presentation.truncated === true
       ? " — TRUNCATED to the shared length cap; the omitted entries are disclosed in the report"
       : "";
+    // The case is model-authored but can quote filing or web text, so it is
+    // enveloped like provider data: arguments to weigh, never instructions.
     return [
-      `${side.toUpperCase()} CASE (independent analyst${truncationNote}):`,
-      JSON.stringify(cases[side]),
+      `${side.toUpperCase()} CASE (independent analyst; model-authored, untrusted${truncationNote}):`,
+      renderUntrustedJson(cases[side]),
     ].join("\n");
   };
   const [first, second] = orderedSides(order);

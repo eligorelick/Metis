@@ -3170,6 +3170,17 @@ function renderUntrustedLines(heading: string, lines: string[]): string {
   return renderUntrustedBlock(heading, lines.map((line) => line.replace(/\s*[\r\n\p{Zl}\p{Zp}]+\s*/gu, " ")).join("\n"));
 }
 
+/** Envelope one structured value, such as a model-authored analyst case, as
+ * untrusted data: JSON-encoded with its markers escaped, so text the model
+ * quoted from a filing or web page cannot close the envelope. */
+export function renderUntrustedJson(value: unknown): string {
+  return [
+    `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${JSON.stringify(value).length}>>>`,
+    safePromptJson(value),
+    "<<<END_UNTRUSTED_SOURCE_DATA>>>",
+  ].join("\n");
+}
+
 function renderUntrustedValue(label: string, value: string | null | undefined): string {
   const content = value ?? "n/a";
   return `${label}: <<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${content.length}>>>${safePromptJson(content)}<<<END_UNTRUSTED_SOURCE_DATA>>>`;

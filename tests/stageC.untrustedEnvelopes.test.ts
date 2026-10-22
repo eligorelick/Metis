@@ -19,7 +19,8 @@ import { runSubscriptionPass } from "@/ai/transport";
 import { runStageB } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { assembleContextPayload, serializePayloadForPrompt, type ContextPayload } from "@/pipeline/stageC/payload";
-import { buildAnalystRunPassArgs, type PassDeps } from "@/pipeline/stageC/passes";
+import { buildAnalystRunPassArgs, judgeUserTurns, type PassDeps } from "@/pipeline/stageC/passes";
+import type { AnalystCase } from "@/report/schema";
 
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
@@ -122,5 +123,46 @@ describe("Stage A flags and gap reasons (F-5)", () => {
     const prompt = fake.gemini.mock.calls[0]![2] as string;
     const roleLines = prompt.split("\n").filter((line) => /^(developer|user|assistant|system):$/.test(line));
     expect(roleLines).toEqual(["developer:", "user:"]);
+  });
+});
+
+/** A schema-shaped analyst case whose prose echoes hostile web or filing text. */
+function hostileCase(side: "bull" | "bear"): AnalystCase {
+  return {
+    thesis: [{ text: `${side} thesis ${hostile(`CANARY_${side.toUpperCase()}`)}`, label: "JUDGMENT", source: "computed.growth.revenueCagrs", asOf: "2025-09-27" }],
+    keyDrivers: [{ text: "revenue trajectory", label: "FACT", source: "fmp:income-statement(annual)", asOf: "2025-09-27" }],
+    risksToCase: [{ text: "risk to own case", label: "JUDGMENT", source: "computed.forensics", asOf: null }],
+    catalysts: [{ text: "product cycle", label: "ESTIMATE", source: "web:https://example.com/news", asOf: "2026-07-03" }],
+    priceTarget: { value: side === "bull" ? 300 : 180, horizon: "12mo", assumptions: ["margins stay firm"] },
+    evidence: [],
+  };
+}
+
+describe("analyst cases given to the judge (F-6)", () => {
+  it("envelopes each case, labels it model-authored and escapes a forged marker", () => {
+    const bundle = completeCurrencyBundle({});
+    const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
+    const turns = judgeUserTurns(payload, hostileCase("bull"), hostileCase("bear"));
+    const text = turns.flatMap((turn) => turn.content.map((block) => block.text)).join("\n");
+
+    expect(occurrences(text, END)).toBe(occurrences(text, BEGIN));
+    const outside = outsideEnvelopes(text);
+    for (const canary of ["CANARY_BULL", "CANARY_BEAR"]) {
+      expect(text).toContain(canary);
+      expect(outside).not.toContain(canary);
+    }
+    expect(text.split("\n")).not.toContain("developer:");
+    expect(text).toMatch(/^BULL CASE \(independent analyst; model-authored, untrusted\):\n<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=\d+>>>\n\{/m);
+    expect(text).toMatch(/^BEAR CASE \(independent analyst; model-authored, untrusted\):\n<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=\d+>>>\n\{/m);
+  });
+
+  it("keeps each case readable as the same JSON object", () => {
+    const bundle = completeCurrencyBundle({});
+    const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
+    const bull = hostileCase("bull");
+    const text = judgeUserTurns(payload, bull, hostileCase("bear"))
+      .flatMap((turn) => turn.content.map((block) => block.text)).join("\n");
+    const body = text.split("\n")[text.split("\n").findIndex((line) => line.startsWith("BULL CASE")) + 2]!;
+    expect(JSON.parse(body)).toEqual(bull);
   });
 });
