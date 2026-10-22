@@ -31,6 +31,33 @@ function csvResponse(body: string): Response {
 const NO_THROTTLE = { minRequestIntervalMs: 0, timeoutMs: 0 } as const;
 
 describe("FRED unreadable response bodies", () => {
+  it("uses the keyless fallback when the keyed endpoint returns HTTP 200 HTML instead of observations", async () => {
+    const fetchImpl = vi.fn(async (input: unknown) => String(input).includes("api.stlouisfed.org")
+      ? new Response("<html><title>FRED</title></html>", { headers: { "content-type": "text/html" } })
+      : csvResponse("observation_date,DGS10\n2026-10-01,4.25\n"));
+    const result = await series("DGS10", {}, { ...NO_THROTTLE, apiKey: "FRED-KEY", retryDelaysMs: [], fetchImpl });
+    expect(result).toMatchObject({ ok: true, value: { data: [{ date: "2026-10-01", value: 4.25 }] } });
+  });
+
+  it("discloses the invalid keyed response and failed fallback without exposing provider bodies", async () => {
+    const fetchImpl = vi.fn(async (input: unknown) => String(input).includes("api.stlouisfed.org")
+      ? new Response("<html>private upstream content</html>")
+      : new Response("<html>private fallback content</html>"));
+    const result = await series("DGS10", {}, { ...NO_THROTTLE, apiKey: "FRED-KEY", retryDelaysMs: [], fetchImpl });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.gap.reason).toMatch(/FRED API returned an unrecognized payload.*fredgraph.csv returned non-CSV/);
+    expect(JSON.stringify(result)).not.toContain("private");
+    expect(JSON.stringify(result)).not.toContain("FRED-KEY");
+  });
+
+  it("identifies the live provider maintenance page without inventing observations or blaming the key", async () => {
+    // The provider's actual maintenance page has an extra '<' before </title>.
+    const fetchImpl = async () => new Response("<html><title>Site Maintenance | St. Louis Fed<</title></html>");
+    const result = await series("DGS10", {}, { ...NO_THROTTLE, apiKey: "FRED-KEY", retryDelaysMs: [], fetchImpl });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.gap.reason).toMatch(/FRED API returned a site maintenance page.*fredgraph.csv returned a site maintenance page/);
+    expect(JSON.stringify(result)).not.toContain("unknown series");
+  });
   it("retries a mid-body read failure instead of accepting an empty success", async () => {
     const fetchImpl = vi.fn(async (input: unknown) => {
       if (fetchImpl.mock.calls.length === 1) return unreadableBody();

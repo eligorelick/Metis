@@ -16,6 +16,21 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("provider dispatch and catalog lifecycle", () => {
+  it("discloses the local runtime ownership conflict instead of suggesting a dropped subscription transport", async () => {
+    const reason = "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
+    fake.access.mockRejectedValueOnce(new Error(reason));
+    const result = await runSubscriptionPass(args, "account");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.gap.reason).toBe(reason);
+      expect(result.error.message).toBe(reason);
+      expect(result.error.costUsd).toBe(0);
+      expect(result.error.fallbackUsed).toBe(false);
+      // A local ownership refusal must not enter the dropped-stream retry path.
+      expect(result.error.notLaunched).toBe(true);
+    }
+    expect(remote).not.toHaveBeenCalled();
+  });
   it("sends only the OAuth Responses contract and releases the account request", async () => {
     const result = await runSubscriptionPass(args, "account");
     expect(result.ok).toBe(true);
