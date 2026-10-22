@@ -3150,13 +3150,24 @@ function renderUntrustedNews(section: PayloadSection): string {
  * outside the data trust boundary. JSON encoding plus HTML-marker escaping
  * keeps provider text from terminating the envelope semantically. */
 function renderUntrustedSection(section: PayloadSection): string {
-  const content = renderSection(section);
+  return renderUntrustedBlock(`## ${section.title} (untrusted provider data)`, renderSection(section));
+}
+
+function renderUntrustedBlock(heading: string, content: string): string {
   return [
-    `## ${section.title} (untrusted provider data)`,
+    heading,
     `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${content.length}>>>`,
     safePromptJson({ content }),
     "<<<END_UNTRUSTED_SOURCE_DATA>>>",
   ].join("\n");
+}
+
+/** Stage A flags and gap reasons can quote provider text verbatim (an error
+ * body, a transport message), so these lists travel in an envelope like
+ * provider prose. Line breaks inside an entry collapse to one space, so each
+ * flag or gap stays one line of the enveloped content. */
+function renderUntrustedLines(heading: string, lines: string[]): string {
+  return renderUntrustedBlock(heading, lines.map((line) => line.replace(/\s*[\r\n\p{Zl}\p{Zp}]+\s*/gu, " ")).join("\n"));
 }
 
 function renderUntrustedValue(label: string, value: string | null | undefined): string {
@@ -3219,18 +3230,21 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
   parts.push(renderUntrustedNews(payload.news));
 
   // Validation + missing data — DISCLOSED, never filled.
-  const vflags = ["## Data-quality flags (Stage A validation)"];
+  const vflags: string[] = [];
   if (payload.validationFlags.length === 0) vflags.push("- (no failed/skipped checks)");
   for (const f of payload.validationFlags) vflags.push(`- ${f}`);
-  parts.push(vflags.join("\n"));
+  parts.push(renderUntrustedLines("## Data-quality flags (Stage A validation; untrusted provider data)", vflags));
 
-  const missing = ["## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4)"];
+  const missing: string[] = [];
   if (payload.missingData.length === 0) missing.push("- (no recorded gaps)");
   for (const m of payload.missingData) {
     const id = manifestCitationId(m.field);
     missing.push(`- [${m.severity}] ${m.field}: ${m.reason}${id === null ? "" : ` ${provenanceTag(id, null)}`}`);
   }
-  parts.push(missing.join("\n"));
+  parts.push(renderUntrustedLines(
+    "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)",
+    missing,
+  ));
 
   return parts.join("\n\n");
 }
