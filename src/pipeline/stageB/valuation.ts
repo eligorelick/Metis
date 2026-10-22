@@ -2273,6 +2273,56 @@ export interface DcfResult {
   yearRows: DcfYearRow[];
   notes: string[];
   gaps: ManifestEntry[];
+  /**
+   * Audit 2026-10-22 B-29: set only when the base DCF failed a domain test.
+   * `perShare` is then null; the model's own figure is kept here for the record.
+   */
+  domain?: DcfDomainFailure;
+}
+
+/** A domain test the base DCF failed (audit 2026-10-22 B-29). */
+export interface DcfDomainTest {
+  test: "equity-value-non-positive" | "terminal-share-above-100pct";
+  detail: string;
+}
+
+export interface DcfDomainFailure {
+  status: "outside";
+  failures: DcfDomainTest[];
+  /** The per-share the model computed before it was withheld (null when no share count). */
+  rawPerShare: number | null;
+  reason: string;
+}
+
+/**
+ * Audit 2026-10-22 B-29: an FCFF DCF is outside its domain when its equity
+ * value is at or below zero (enterprise value at or below net debt and the
+ * senior claims), or when its terminal value is more than all of enterprise
+ * value (explicit-period present value below zero, so the explicit forecast
+ * destroys value and the terminal year alone carries it). Either way the
+ * per-share figure describes the balance sheet or the Gordon year, not the
+ * operating business. Returns null when the DCF is inside the domain.
+ */
+export function dcfDomainFailure(dcf: DcfResult): DcfDomainFailure | null {
+  const failures: DcfDomainTest[] = [];
+  if (isNum(dcf.equityValue) && dcf.equityValue <= 0) {
+    failures.push({
+      test: "equity-value-non-positive",
+      detail: `equity value ${fmtMoney(dcf.equityValue)} is at or below zero: enterprise value ${fmtMoney(dcf.enterpriseValue)} does not cover net debt and the senior claims`,
+    });
+  }
+  if (dcf.pvExplicit < 0) {
+    const share = dcf.enterpriseValue > 0 ? ` (${fmtNum((dcf.pvTerminal / dcf.enterpriseValue) * 100)}% of enterprise value ${fmtMoney(dcf.enterpriseValue)})` : "";
+    failures.push({
+      test: "terminal-share-above-100pct",
+      detail: `the terminal value's present value ${fmtMoney(dcf.pvTerminal)} exceeds the whole enterprise value${share}: the explicit-period present value is ${fmtMoney(dcf.pvExplicit)}, below zero`,
+    });
+  }
+  if (failures.length === 0) return null;
+  const reason =
+    `FCFF DCF outside its domain: ${failures.map((f) => f.detail).join("; ")}. ` +
+    "The per-share value, sensitivity grids, reverse DCF and scenario targets are withheld, and the valuation grade does not use the DCF";
+  return { status: "outside", failures, rawPerShare: dcf.perShare, reason };
 }
 
 interface DcfCoreOverrides {
@@ -5576,6 +5626,17 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
+      // Audit 2026-10-22 B-29: a DCF outside its domain publishes nothing
+      // built from its per-share. The bridge and year rows stay, so a reader
+      // sees why; the critical gap names the failed test.
+      const domain = dcfDomainFailure(dcf);
+      if (domain !== null) {
+        dcf.domain = domain;
+        dcf.perShare = null;
+        notes.push(`${domain.reason}.`);
+        gaps.push(gapEntry("valuation.dcf.domain", domain.reason, "critical"), ...dcf.gaps);
+        return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
+      }
       // AMZN audit 2026-10-20: the improving fade is a judgment, so the reader
       // sees what it is worth: the value with the margin held at today's level.
       const fade = assumptions.improvingMarginFade;

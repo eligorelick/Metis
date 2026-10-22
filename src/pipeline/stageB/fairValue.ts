@@ -87,6 +87,23 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     perShareValue = valuation.excessReturn.perShare;
   }
 
+  // Audit 2026-10-22 B-29: a DCF outside its domain is not a fair value.
+  if (valuation.kind === "dcf" && valuation.dcf?.domain !== undefined) {
+    const domain = valuation.dcf.domain;
+    return {
+      status: "outside-domain",
+      method: "fcff-dcf",
+      methodVersion: FAIR_VALUE_METHOD_VERSION,
+      perShare: null,
+      upsidePct: null,
+      basis: [
+        `Model outside its domain: ${domain.failures.map((f) => f.detail).join("; ")}.`,
+        "No per-share value, scenario targets, sensitivity grid or reverse DCF is published from it, and the valuation grade does not use it.",
+      ],
+      reasons: [{ field: "valuation.dcf.domain", reason: domain.reason, severity: "critical" }],
+    };
+  }
+
   if (method === null || !isNum(perShareValue)) {
     const reason =
       valuation.kind === "ineligible" ? valuation.gaps[0]?.reason ?? "Model applicability unresolved; intrinsic value withheld."

@@ -103,6 +103,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/export/printHtml.ts",
   "src/report/format.ts",
   "src/report/scoreText.ts",
+  "src/report/fairValueText.ts",
   "src/report/ownHistoryPresentation.ts",
   "src/settings/contracts.ts",
   "src/settings/settings.ts",

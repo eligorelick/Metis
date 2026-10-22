@@ -1742,6 +1742,23 @@ bridging; missing/non-positive diluted shares prevents per-share valuation.
 Preferred and minority claims are subtracted separately, with null treated as
 zero. The bridge recorded on the base result is reused by scenario reruns.
 
+**Domain of the model** (audit 2026-10-22 B-29). The base DCF is outside its
+domain, and publishes no fair value, when either test fails:
+
+- the equity value is at or below zero: enterprise value does not cover net
+  debt and the senior claims;
+- the terminal value is more than 100% of enterprise value: the
+  explicit-period present value is below zero, so the forecast years destroy
+  value and the Gordon year alone carries it.
+
+The fair value then has the status "outside-domain" ("Model outside its
+domain" in Key data, the valuation section and both exports) and a critical
+gap `valuation.dcf.domain` that names the failed test and its figures. The
+per-share value is withheld, and nothing built from it is published: no
+sensitivity grid, growth × margin grid, reverse DCF or scenario targets. The
+valuation grade treats the DCF upside and the reverse-DCF signals as missing.
+The year rows and the bridge stay visible, so the reader can see why.
+
 The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
 percentage points (D-60; ±1pp spanned less than one regression beta's
 uncertainty) and terminal-growth offsets of −1, −0.5, 0, +0.5 and +1. It holds
@@ -1919,7 +1936,8 @@ margin at base; it carries lower growth only when growth itself destroys value
 (incremental returns below the cost of capital), and the ordering disclosure
 names that cause. The base target reuses
 the DCF per-share. Perturbed targets are floored at zero with a warning. A
-non-positive base DCF per-share suppresses the entire target block; thin
+base DCF outside its domain (B-29, above), which includes every non-positive
+base per-share, suppresses the entire target block; thin
 dispersion, unavailable WACC/bridge and non-DCF routes also suppress it. Sigma
 rounding to 0.00pp in either series makes target correlation unavailable and
 gives a degenerate-dispersion disclosure. The fan and targets share the

@@ -33,6 +33,7 @@ import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
@@ -454,7 +455,7 @@ function sectionValuation(
     parts.push(
       fairValue.status === "available"
         ? `<p class="faint">${prose(fairValue.basis.join(" "))}</p>`
-        : `<p class="faint">Intrinsic value per share suppressed &mdash; ${esc(fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" "))}</p>`,
+        : `<p class="faint">${esc(fairValueWithheldText(fairValue))}</p>`,
     );
   }
   parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));

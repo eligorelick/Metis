@@ -1960,7 +1960,8 @@ export type ScenarioTargets = z.infer<typeof ScenarioTargetsSchema>;
 
 export const FairValueSchema = z
   .object({
-    status: z.enum(["available", "suppressed"]),
+    // "outside-domain": audit 2026-10-22 B-29, the DCF failed a domain test; no per-share is published.
+    status: z.enum(["available", "suppressed", "outside-domain"]),
     /** "fcff-dcf" (general route) | "excess-return" (banks/insurers) | null when suppressed. */
     method: z.enum(["fcff-dcf", "excess-return"]).nullable(),
     /** Versioned method prior (e.g. "FAIR_VALUE_2026_07"). */

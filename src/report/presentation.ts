@@ -859,6 +859,13 @@ export function keyDataRows(report: Report): KeyDataRow[] {
       value: formatFinancialAmount(dcf.value, dcf.unit, dcf.currency),
       note: report.valuation.dcf.upsidePct === null ? undefined : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
     });
+  } else if (report.fairValue?.status === "outside-domain") {
+    // Audit 2026-10-22 B-29: the headline says why no DCF value is shown.
+    rows.push({
+      label: "Model fair value (DCF)",
+      value: "Model outside its domain",
+      note: report.fairValue.basis[0]?.replace(/^Model outside its domain: /, "").replace(/\.$/, ""),
+    });
   }
   const bear = report.valuation.scenarios.find((s) => s.name === "bear")?.priceTarget ?? null;
   const bull = report.valuation.scenarios.find((s) => s.name === "bull")?.priceTarget ?? null;

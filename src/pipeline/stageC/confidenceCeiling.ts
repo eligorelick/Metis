@@ -101,7 +101,7 @@ export function confidenceCeilingFor(
     }
   }
   if (aspect === "valuation") {
-    if (report.fairValue?.status === "suppressed") {
+    if (report.fairValue?.status === "suppressed" || report.fairValue?.status === "outside-domain") {
       candidates.push({
         ceiling: "medium",
         reason: "the deterministic fair value (DCF / excess-return) was withheld",

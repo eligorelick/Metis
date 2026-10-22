@@ -123,6 +123,13 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
 
   const assumptions = valuation.assumptions;
   const baseDcf = valuation.dcf;
+  // Audit 2026-10-22 B-29: no fan around a DCF outside its domain.
+  if (baseDcf?.domain !== undefined) {
+    return suppressed(
+      [{ field: "valuation.scenarioTargets", reason: `Scenario price targets withheld: ${baseDcf.domain.reason}`, severity: "warn" }],
+      ["Scenario price targets unavailable: the base DCF is outside its domain."],
+    );
+  }
   if (assumptions === null || baseDcf === null || !isNum(baseDcf.perShare)) {
     return suppressed(
       [
