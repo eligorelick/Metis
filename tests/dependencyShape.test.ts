@@ -13,8 +13,8 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.resolve(__dirname, "..");
 const CHECKER = path.join(ROOT, "scripts", "check-dependency-shape.mjs");
 const EXPECTED = {
-  next: ["16.3.8"],
-  "eslint-config-next": ["16.3.8"],
+  next: ["16.4.2"],
+  "eslint-config-next": ["16.4.2"],
   postcss: ["8.5.26"],
   sharp: ["0.35.5"],
   "js-yaml": ["4.3.2"],
@@ -52,10 +52,10 @@ function syntheticInstalledTree(): unknown {
   return {
     dependencies: {
       next: {
-        version: "16.3.8",
+        version: "16.4.2",
         dependencies: { sharp: { version: "0.35.5" } },
       },
-      "eslint-config-next": { version: "16.3.8" },
+      "eslint-config-next": { version: "16.4.2" },
       postcss: { version: "8.5.26" },
       loaderA: {
         version: "1.0.0",
@@ -96,7 +96,7 @@ describe("dependency shape gate", () => {
     wrong.packages["node_modules/next"]!.version = "16.3.1";
     expect(() =>
       checker.validateExactVersions(checker.collectLockVersions(wrong)),
-    ).toThrow(/lock.*next.*16\.3\.1.*16\.3\.8/i);
+    ).toThrow(/lock.*next.*16\.3\.1.*16\.4\.2/i);
 
     const missing = clone();
     delete missing.packages[
@@ -149,7 +149,7 @@ describe("dependency shape gate", () => {
         checker.APPROVED_VERSIONS,
         "installed tree",
       ),
-    ).toThrow(/installed tree.*eslint-config-next.*16\.3\.8/i);
+    ).toThrow(/installed tree.*eslint-config-next.*16\.4\.2/i);
 
     const extra = syntheticInstalledTree() as {
       dependencies: Record<string, unknown>;
@@ -260,7 +260,7 @@ describe("dependency shape gate", () => {
         env: { ...process.env },
       });
       expect(result.status).not.toBe(0);
-      expect(`${result.stdout}\n${result.stderr}`).toMatch(/next.*0\.0\.0.*16\.3\.8/i);
+      expect(`${result.stdout}\n${result.stderr}`).toMatch(/next.*0\.0\.0.*16\.4\.2/i);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
