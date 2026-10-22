@@ -17,6 +17,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - dependency security patches (2026-10-22)
+
+- Patch Next, `@next/env` and `eslint-config-next` 16.3.8 -> 16.4.2 for the
+  image-optimization remote code execution and Server Actions denial-of-service
+  advisories ([GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw),
+  [GHSA-p3m5-59mp-jv5r](https://github.com/advisories/GHSA-p3m5-59mp-jv5r)). The
+  dependency-shape gate now approves the 16.4.2 family.
+- Patch Vitest and `@vitest/coverage-v8` 4.1.11 -> 4.1.12 for
+  [GHSA-qxg6-89mg-rqv8](https://github.com/advisories/GHSA-qxg6-89mg-rqv8) and
+  [GHSA-xp26-3454-mjgp](https://github.com/advisories/GHSA-xp26-3454-mjgp).
+- The audited fixture comparison reproduces with no financial deltas; only its
+  comparison-lock pin moved. No report, payload or methodology version changes.
+
 ## Unreleased - license and attribution (2026-10-21)
 
 - Offer current Metis source under the Metis No-Sale Attribution License 1.0,
