@@ -665,6 +665,9 @@ describe("a period named as a comparison base (AMZN audit 2026-10-20)", () => {
     const text = Q1_2026.replace("for its first quarter ended March 31, 2026", "for its quarter ended March 31, 2026");
     expect(parseReportedPeriod(text)).toEqual({ fiscal: null, periodEnd: "2026-03-31" });
     const bundle = completeCurrencyBundle({ annualCurrency: "USD", estimates: false });
+    // Amazon's own quarters: a revenue guide must lie within 0.2-5x the last one (audit 2026-10-22 B-25).
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
+    for (const row of bundle.statements.incomeQuarterly.value.data.rows) if (row.date === "2026-03-31") row.revenue = 181_519e6;
     const release = buildEarningsReleaseRecord({ filing: filing("0001018724-26-000012", "2026-04-29"), releaseUrl: "https://www.sec.gov/q1", commentaryUrl: null, releaseText: text, commentaryText: null, includeNarrative: false });
     bundle.edgar.currentReports = { ok: true, value: { data: { version: CURRENT_REPORTS_VERSION, releases: [release], events: [], notes: [] },
       asOf: "2026-04-29", source: "edgar", endpoint: "fixture", fetchedAt: "2026-10-15T00:00:00.000Z" } };
@@ -676,6 +679,8 @@ describe("a period named as a comparison base (AMZN audit 2026-10-20)", () => {
     if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
     const q4Row = bundle.statements.incomeQuarterly.value.data.rows.find((r) => r.date === "2025-12-31")!;
     q4Row.revenue = 213_386e6;
+    // The quarter the Q3 release reported: its revenue guide must lie within 0.2-5x of it (audit 2026-10-22 B-25).
+    bundle.statements.incomeQuarterly.value.data.rows.find((r) => r.date === "2025-09-30")!.revenue = 180_169e6;
     const q3 = buildEarningsReleaseRecord({ filing: filing("0001018724-25-000121", "2025-10-30"), releaseUrl: "https://www.sec.gov/q3", commentaryUrl: null, releaseText: Q3_2025, commentaryText: null, includeNarrative: false });
     const q4 = buildEarningsReleaseRecord({ filing: filing("0001018724-26-000002", "2026-02-05"), releaseUrl: "https://www.sec.gov/q4", commentaryUrl: null, releaseText: Q4_2025, commentaryText: null, includeNarrative: false });
     bundle.edgar.currentReports = { ok: true, value: { data: { version: CURRENT_REPORTS_VERSION, releases: [q4, q3], events: [], notes: [] },

@@ -192,6 +192,7 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   if (!release || !release.guidance) return null;
   const item = release.guidance.items.find((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && i.basis !== "non-gaap" && forwardGuidance(i, releases));
   if (!item || item.period.fiscalQuarter === null) return null;
+  if (implausibleRevenueGuide(bundle, release, item) !== null) return null;
   const sourceCurrency = releaseReportingCurrency(bundle, release);
   const currency = symbolCurrency(item.symbol, sourceCurrency);
   if (currency === null || currency !== statementReportingCurrency(bundle)) return null;
@@ -204,7 +205,8 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const tax = taxItems.find((i) => i.period.label === item.period.label) ?? taxItems.find((i) => i.period.fiscalQuarter === null);
   const annual = release.guidance.items.filter((i) => i.metric === "revenue" && i.unit === "currency" && i.period.fiscalQuarter === null &&
     i.period.fiscalYear === item.period.fiscalYear && i.basis !== "non-gaap" && symbolCurrency(i.symbol, sourceCurrency) === currency &&
-    Number.isFinite(i.low) && Number.isFinite(i.high) && i.low > 0 && i.high >= i.low && forwardGuidance(i, releases));
+    Number.isFinite(i.low) && Number.isFinite(i.high) && i.low > 0 && i.high >= i.low && forwardGuidance(i, releases) &&
+    implausibleRevenueGuide(bundle, release, i) === null);
   const annualRanges = new Map(annual.map(i => [`${i.low}|${i.high}`, i]));
   const annualComparison = annualRanges.size === 1 ? [...annualRanges.values()][0]! : null;
   return {
@@ -238,9 +240,41 @@ function forwardGuidance(item: GuidanceItem, releases: readonly EarningsReleaseR
     : item.period.fiscalYear * 4 + item.period.fiscalQuarter > latest.fiscalYear * 4 + (latest.fiscalQuarter ?? 4);
 }
 
-function guidanceRows(items: readonly GuidanceItem[], currency: string | null, sourceCurrency: string | null, notes: string[]): GuidanceRows {
+/**
+ * Audit 2026-10-22 B-25: a revenue outlook lies within 0.2-5x the revenue of the
+ * latest quarter its release could see (a full-year outlook within 0.2-5x four
+ * such quarters). Outside that band the release reader lost or misread a scale
+ * ("$73" for "$73-76 billion"), so the guide is left out of the DCF anchor, the
+ * outlook table and the checks against actuals, with this reason. With no
+ * reported quarter to compare, the guide stands.
+ */
+export const REVENUE_GUIDE_BAND = { low: 0.2, high: 5 } as const;
+
+function lastReportedQuarterRevenue(bundle: DataBundle, release: EarningsReleaseRecord): number | null {
+  const cutoff = release.reported.periodEnd ?? release.filingDate;
+  const rows = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly)).rows
+    .filter((row) => day(row.date) !== null && day(row.date)! <= cutoff && (num(row.revenue) ?? 0) > 0)
+    .sort((a, b) => day(b.date)!.localeCompare(day(a.date)!));
+  return rows.length > 0 ? num(rows[0]!.revenue) : null;
+}
+
+function implausibleRevenueGuide(bundle: DataBundle, release: EarningsReleaseRecord, item: GuidanceItem): string | null {
+  if (item.metric !== "revenue" || item.unit !== "currency") return null;
+  const quarter = lastReportedQuarterRevenue(bundle, release);
+  if (quarter === null) return null;
+  const base = item.period.fiscalQuarter === null ? quarter * 4 : quarter;
+  if (item.low >= base * REVENUE_GUIDE_BAND.low && item.high <= base * REVENUE_GUIDE_BAND.high) return null;
+  return `${item.period.label} revenue guide of ${item.mid} (8-K ${release.accession}) was left out: it is outside ${REVENUE_GUIDE_BAND.low}-${REVENUE_GUIDE_BAND.high}x the last reported quarter's revenue (${quarter})${item.period.fiscalQuarter === null ? " times four for a full year" : ""}, so its scale was misread.`;
+}
+
+function guidanceRows(items: readonly GuidanceItem[], currency: string | null, sourceCurrency: string | null, notes: string[], implausible: (item: GuidanceItem) => string | null): GuidanceRows {
   const rows: GuidanceRows = [];
   for (const item of items) {
+    const misread = implausible(item);
+    if (misread !== null) {
+      notes.push(misread);
+      continue;
+    }
     if (item.unit !== "%" && item.unit !== "percentage-points") {
       const itemCurrency = symbolCurrency(item.symbol, sourceCurrency);
       if (itemCurrency === null || itemCurrency !== currency) {
@@ -270,6 +304,7 @@ function guidanceChecks(bundle: DataBundle, releases: readonly EarningsReleaseRe
       if (item.period.fiscalQuarter === null || (item.metric !== "revenue" && item.metric !== "gross-margin")) continue;
       if (item.metric === "gross-margin" && item.basis !== "gaap") continue;
       if (item.metric === "revenue" && !releaseCurrencyMatches(bundle, guide, item.symbol, currency)) continue;
+      if (implausibleRevenueGuide(bundle, guide, item) !== null) continue;
       const reporter = releases.find((r) => r.reported.fiscal?.label === item.period.label && r.reported.periodEnd !== null && r.filingDate > guide.filingDate);
       if (!reporter || reporter.reported.periodEnd === null) continue;
       const row = income.find((r) => day(r.date) !== null && daysApart(day(r.date)!, reporter.reported.periodEnd!) <= 3);
@@ -460,7 +495,8 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         source: releaseRef(guided, guided.guidanceExhibit),
         reportedPeriod: guided.reported.fiscal?.label ?? null,
         reportedPeriodEnd: guided.reported.periodEnd,
-        rows: guidanceRows(guided.guidance.items.filter((i) => forwardGuidance(i, releases)), currency, releaseReportingCurrency(bundle, guided), notes),
+        rows: guidanceRows(guided.guidance.items.filter((i) => forwardGuidance(i, releases)), currency, releaseReportingCurrency(bundle, guided), notes,
+          (item) => implausibleRevenueGuide(bundle, guided, item)),
         qualifiers: guided.guidance.qualifiers.map((q) => safeText(q, "An issuer outlook caveat is withheld from display by the rating-language filter; see the release.")),
       }
     : null;

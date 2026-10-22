@@ -2795,3 +2795,34 @@ rating. When the consensus price target, the model's value and the price share a
 currency, the analyst-estimates section states each value's implied move and
 their gap in points of the price. Beyond 20 points (a project convention) the
 summary must reconcile them. For Amazon the gap was about 92 points.
+
+### Audit batch 1: headline numbers (October 22, 2026)
+
+The independent audit of 2026-10-22 found reports publishing wrong headline
+figures with no warning. This batch fixes them. Decision: D-100.
+
+**Outlook ranges and full-year periods (B-25).** Meta prints its outlook as
+"$73-76 billion" and "between 15-17%". The release reader took the scale word
+only when it directly followed a number, so it read $73, and it read the range
+hyphen as a minus sign, so it read −17%. Each was stored as a point. A money
+range now gives the scale printed after its high end to both ends, and a bare
+high end takes the low end's currency symbol ("$73-76 billion", "$58–$61
+billion", "between $58 and $61 billion"). In a percent range the high end's %
+covers the low end, and a hyphen that follows a number or % is never a sign. A
+stated range with only one readable end is left unread rather than published as
+a point. An amount the guide is compared with ("an increase from our prior
+outlook of 13-16%", "versus $3.00 in 2025") is not read as the guide. An
+outlook that names its year without "full year" ("2026 capital expenditures",
+"Adjusted EPS of $2.25 to $2.35 in 2026") guides that fiscal year, and
+"full-year revenue guidance" with no year guides the outlook block's fiscal
+year. Before, both took the block's quarter, so annual guides from Meta, Lilly,
+NextEra, AT&T and Verizon were labelled as quarters. A sentence about a quarter
+or part of a year ("remaining quarters of 2026") keeps the block's quarter.
+
+As a backstop, a revenue outlook must lie within 0.2 to 5 times the revenue of
+the latest quarter its release could see (four such quarters for a full-year
+outlook). Outside that band the guide is left out of the DCF's year-one anchor,
+the outlook table and the checks against actuals, and a note names the guide
+and the quarter it was compared with. The band is a house convention: no
+issuer guides a quarter at a fifth or five times its last one, and a lost
+"billion" misses by a factor of a billion.
