@@ -166,6 +166,12 @@ function presentedTokenMatches(presented: string): boolean {
   return timingSafeEqual(presentedDigest, expectedDigest);
 }
 
+/** True when the request presents this server's startup token; the primary header wins when both are sent. */
+export function requestCarriesToken(request: Request): boolean {
+  const presented = request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
+  return presented !== null && presentedTokenMatches(presented);
+}
+
 /* ------------------------------------------------------------------------ *
  * Guard
  * ------------------------------------------------------------------------ */

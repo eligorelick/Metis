@@ -901,6 +901,80 @@ describe("request-wide proxy", () => {
       ),
     ).toBe("1");
   });
+
+  describe("on a plain-HTTP LAN host (F-8)", () => {
+    // Browsers send Fetch Metadata only to potentially trustworthy origins, so a
+    // cross-site <img> aimed at http://<LAN ip>/company/X arrives header-free,
+    // exactly like a script. On the configured LAN host, header-free is not enough.
+    const LAN = "192.168.1.50:3000";
+
+    function lanRequest(path: string, headers: Record<string, string> = {}, method = "GET"): Request {
+      process.env.THESIS_ALLOWED_HOST = LAN;
+      return new Request(`http://${LAN}${path}`, { method, headers: { host: LAN, ...headers } });
+    }
+
+    it.each(["GET", "HEAD"])("rejects a header-free %s company landing with no token", async (method) => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const error = await expect403(await runProxy(lanRequest("/company/AAPL", {}, method)));
+      expect(error).toContain("X-Metis-Token");
+      // The RSC fetch for the same route is guarded the same way.
+      await expect403(await runProxy(lanRequest("/company/AAPL?_rsc=1")));
+    });
+
+    it("rejects a forged cross-site Referer and a wrong token", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const attempts: Record<string, string>[] = [
+        { referer: "http://evil.example/attack.html" },
+        { referer: "http://192.168.1.50:3001/" },
+        { referer: "https://192.168.1.50:3000/" },
+        { referer: "not a url" },
+        { [REQUEST_TOKEN_HEADER]: "0".repeat(64) },
+      ];
+      for (const headers of attempts) {
+        await expect403(await runProxy(lanRequest("/company/AAPL", headers)));
+      }
+    });
+
+    it("accepts the startup token from a script", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const response = await runProxy(lanRequest("/company/AAPL", tokenHeader()));
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+    });
+
+    it("accepts the app's own links, which carry a same-origin Referer", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      for (const referer of [`http://${LAN}/`, `http://${LAN}/company/MSFT?tab=risk`]) {
+        const response = await runProxy(lanRequest("/company/AAPL?_rsc=1", { referer }));
+        expect(response.headers.get("x-middleware-next")).toBe("1");
+      }
+    });
+
+    it("leaves Fetch Metadata, light pages, and loopback as they were", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const sameOriginMetadata = await runProxy(
+        lanRequest("/company/AAPL", {
+          "sec-fetch-site": "same-origin",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-dest": "empty",
+        }),
+      );
+      expect(sameOriginMetadata.headers.get("x-middleware-next")).toBe("1");
+      expect((await runProxy(lanRequest("/"))).headers.get("x-middleware-next")).toBe("1");
+      expect((await runProxy(lanRequest("/settings"))).headers.get("x-middleware-next")).toBe("1");
+      const loopback = await runProxy(proxyRequest("/company/AAPL", {}));
+      expect(loopback.headers.get("x-middleware-next")).toBe("1");
+    });
+  });
 });
 
 /* ------------------------------------------------------------------------ *

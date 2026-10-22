@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { requestCarriesToken } from "@/app/api/sameOrigin";
 import { assertAllowedHost, assertHeavyGetMetadata } from "@/app/requestSecurity";
 
 const COMPANY_LANDING_PATH = /^\/company\/[^/]+\/?$/;
@@ -31,7 +32,7 @@ export function proxy(request: NextRequest): Response {
   if (method === "GET" || method === "HEAD") {
     const pathname = new URL(request.url).pathname;
     if (COMPANY_LANDING_PATH.test(pathname)) {
-      const rejectedMetadata = assertHeavyGetMetadata(request);
+      const rejectedMetadata = assertHeavyGetMetadata(request, requestCarriesToken);
       if (rejectedMetadata !== null) return denyFraming(rejectedMetadata);
     }
   }

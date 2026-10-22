@@ -145,7 +145,14 @@ framing (`Content-Security-Policy: frame-ancestors 'none'` and
 `X-Frame-Options: DENY`), so another site cannot overlay a Metis page such as
 Settings and steer clicks into it. Company landing GET/HEAD requests additionally reject
 cross-origin subresource/speculation requests using Fetch Metadata, while
-allowing normal top-level navigation and header-free local scripts. Mutating
+allowing normal top-level navigation and header-free local scripts. Browsers
+send Fetch Metadata only to HTTPS or loopback origins, so on a plain-HTTP
+`METIS_ALLOWED_HOST` address a cross-site image request arrives with no
+Fetch Metadata, just like a script. There a header-free company landing needs
+`X-Metis-Token` or a same-origin `Referer`: the app's own links carry the
+Referer, but a typed or bookmarked company URL carries neither and is refused,
+so open company pages from the Metis home page, or serve Metis over HTTPS.
+Loopback is unchanged. Mutating
 routes use the guard above. Metis has no user login or caller authentication;
 allowlisting a LAN host does not add either, and an allowed client can read
 reports and invoke actions. AI connection GET/POST additionally require the
