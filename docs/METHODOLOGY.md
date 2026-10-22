@@ -2452,7 +2452,7 @@ The row discloses the substitution. These class figures can include current debt
 
 A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
 
-**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations`). The year's interest expense is divided by the most debt resolved at any balance date of that year; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains its interest. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
+**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations` or `LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities`). The year's interest expense is divided by the average debt resolved at the balance dates of that year, opening to closing; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains part of its interest. Above 25%, the components cannot be the debt that carried the interest. A collapse is tested as well: debt that fell by more than 60% from the previous balance date, to a closing balance on which the interest implies more than 25%, needs net debt repayment in the period's cash flow of at least half the fall. In either case total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
 - interest below 0.25% of total assets;
 - resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
 - the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
@@ -2881,3 +2881,17 @@ filer's own reconciliation: a composition more than 1% away from the
 inclusive total plus short-term borrowings is recomposed as the short-term
 borrowings plus the inclusive total, with a note. With no short-term
 borrowings tagged, a composition above the inclusive total is withheld.
+
+**Debt plausibility against the published balance (B-16).** The interest
+check divided the year's interest by the largest debt resolved at any balance
+date of the year. One complete balance therefore cleared every later row:
+Chevron's June 2026 quarter published $0.4B of debt beside $56.7B at the
+previous year-end, and the check saw 2.4% where the published balance implied
+over 100%. The basis is now the average of the year's balances, opening to
+closing. A collapse check sits beside it: debt that fell by more than 60%
+from the previous balance date, to a closing balance on which the year's
+interest implies more than 25%, is withheld with a gap unless the period's
+cash flow shows net debt repayment of at least half the fall. Both thresholds
+are house conventions. A borrowing repaid during the year with the cash flow
+to show it still passes, and so does a closing balance that carries the
+interest on its own.

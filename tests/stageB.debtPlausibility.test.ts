@@ -5,27 +5,50 @@
  * resulting 0.27x leverage.
  */
 import { describe, expect, it } from "vitest";
-import { implausibleDebtReason } from "@/edgar/debtCompleteness";
+import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { runStageB } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
 import { currencyBundle, M } from "./helpers/currencyBundle";
 
 describe("implausibleDebtReason", () => {
   it("rejects O's lease-and-paper debt against its interest expense", () => {
-    expect(implausibleDebtReason({ annualInterestExpense: 1_186.7 * M, financingDebt: 1_400 * M, priorFinancingDebt: 1_514 * M, totalAssets: 71_000 * M }))
-      .toMatch(/^incomplete debt carrying value: annual interest expense .* implies 78\.4%/);
+    expect(implausibleDebtReason({ annualInterestExpense: 1_186.7 * M, financingDebt: 1_400 * M, priorFinancingDebts: [1_514 * M], totalAssets: 71_000 * M }))
+      .toMatch(/^incomplete debt carrying value: annual interest expense .* implies 81\.4%/);
   });
 
   it("accepts ordinary rates, immaterial interest and missing interest", () => {
-    expect(implausibleDebtReason({ annualInterestExpense: 1_186.7 * M, financingDebt: 29_289 * M, priorFinancingDebt: 28_000 * M, totalAssets: 71_000 * M })).toBeNull();
-    expect(implausibleDebtReason({ annualInterestExpense: 8.3 * M, financingDebt: 0, priorFinancingDebt: null, totalAssets: 9_000 * M })).toBeNull();
-    expect(implausibleDebtReason({ annualInterestExpense: null, financingDebt: 10 * M, priorFinancingDebt: null, totalAssets: null })).toBeNull();
+    expect(implausibleDebtReason({ annualInterestExpense: 1_186.7 * M, financingDebt: 29_289 * M, priorFinancingDebts: [28_000 * M], totalAssets: 71_000 * M })).toBeNull();
+    expect(implausibleDebtReason({ annualInterestExpense: 8.3 * M, financingDebt: 0, priorFinancingDebts: [], totalAssets: 9_000 * M })).toBeNull();
+    expect(implausibleDebtReason({ annualInterestExpense: null, financingDebt: 10 * M, priorFinancingDebts: [], totalAssets: null })).toBeNull();
     // A debt repaid during the year: the opening balance carried the interest.
-    expect(implausibleDebtReason({ annualInterestExpense: 40 * M, financingDebt: 50 * M, priorFinancingDebt: 600 * M, totalAssets: 2_000 * M })).toBeNull();
+    expect(implausibleDebtReason({ annualInterestExpense: 40 * M, financingDebt: 50 * M, priorFinancingDebts: [600 * M], totalAssets: 2_000 * M })).toBeNull();
   });
 
   it("does not judge resolved debt of zero, whose interest can come without borrowing", () => {
-    expect(implausibleDebtReason({ annualInterestExpense: 40 * M, financingDebt: 0, priorFinancingDebt: 0, totalAssets: 2_000 * M })).toBeNull();
+    expect(implausibleDebtReason({ annualInterestExpense: 40 * M, financingDebt: 0, priorFinancingDebts: [0], totalAssets: 2_000 * M })).toBeNull();
+  });
+
+  it("judges the interest against the year's average balance, not its largest (audit 2026-10-22 B-16)", () => {
+    // 40 on balances of 50, 50, 50 and 600 averages 187.5: 21%. Against the
+    // largest alone a 50 that carried none of the interest passed whatever it was.
+    expect(implausibleDebtReason({ annualInterestExpense: 40 * M, financingDebt: 50 * M, priorFinancingDebts: [600 * M, 50 * M, 50 * M], totalAssets: 2_000 * M })).toBeNull();
+    expect(implausibleDebtReason({ annualInterestExpense: 60 * M, financingDebt: 50 * M, priorFinancingDebts: [600 * M, 50 * M, 50 * M], totalAssets: 2_000 * M }))
+      .toMatch(/implies 32\.0% on resolved financing debt 187500000 \(average of the year's balances/);
+  });
+});
+
+describe("collapsedDebtReason (audit 2026-10-22 B-16)", () => {
+  const collapse = { annualInterestExpense: 2_000 * M, financingDebt: 400 * M, previousFinancingDebt: 50_000 * M, previousDate: "2025-12-31", netDebtIssuance: null, totalAssets: 200_000 * M };
+  it("withholds a fall of more than 60% that leaves the year's interest unexplained and no repayment behind it", () => {
+    expect(collapsedDebtReason(collapse)).toMatch(/fell from 50000000000 at 2025-12-31 to 400000000 \(-99\.2%\).*no net debt repayment/);
+    expect(collapsedDebtReason({ ...collapse, netDebtIssuance: -1_000 * M })).toMatch(/net debt issuance of -1000000000/);
+  });
+  it("keeps a fall the cash flow shows was repaid, a closing balance that carries the interest, and a smaller fall", () => {
+    expect(collapsedDebtReason({ ...collapse, netDebtIssuance: -49_600 * M })).toBeNull();
+    expect(collapsedDebtReason({ ...collapse, financingDebt: 10_000 * M })).toBeNull();
+    expect(collapsedDebtReason({ ...collapse, financingDebt: 21_000 * M, annualInterestExpense: 6_000 * M })).toBeNull();
+    expect(collapsedDebtReason({ ...collapse, financingDebt: 0 })).toBeNull();
+    expect(collapsedDebtReason({ ...collapse, previousFinancingDebt: null })).toBeNull();
   });
 });
 
@@ -52,7 +75,7 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     }
   });
 
-  const rowsOf = (bundle: DataBundle, key: "incomeAnnual" | "incomeQuarterly" | "balanceAnnual" | "balanceQuarterly") => {
+  const rowsOf = (bundle: DataBundle, key: "incomeAnnual" | "incomeQuarterly" | "balanceAnnual" | "balanceQuarterly" | "cashflowQuarterly") => {
     const statement = bundle.statements[key];
     if (!statement.ok) throw new Error("fixture has rows");
     return statement.value.data.rows as unknown as Record<string, unknown>[];
@@ -76,9 +99,11 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
 
   it("judges a year's interest against the debt its quarterly balances carried", () => {
     // Year-end debt of 50 against 15 of interest is 30%, but the quarters of
-    // FY2025 carried 300, which explains it. FY2024 has no quarters in the bundle.
+    // FY2025 carried 300, which explains it, and the fourth quarter's cash
+    // flow repaid the difference. FY2024 has no quarters in the bundle.
     const bundle = currencyBundle({ debt: 300, siblingQuarterCurrencies: USD });
     for (const row of rowsOf(bundle, "balanceAnnual")) { row.totalDebt = 50 * M; row.netDebt = -10 * M; }
+    Object.assign(rowsOf(bundle, "cashflowQuarterly").find((row) => row.date === "2025-12-31")!, { netDebtIssuance: -250 * M });
     const out = runStageB(bundle);
     expect(judged(out, "2025-12-31")).toEqual([]);
     expect(judged(out, "2024-12-31").join()).toMatch(/implies 30\.0%/);
@@ -90,6 +115,30 @@ describe("Stage B withholds implausible debt before any consumer reads it", () =
     for (const row of [...rowsOf(bundle, "balanceAnnual"), ...rowsOf(bundle, "balanceQuarterly")]) Object.assign(row, { shortTermDebt: 0, longTermDebt: 50 * M, financeLeaseLiability: 20 * M,
       fieldProvenance: { longTermDebt: { source: "edgar", tags: ["us-gaap/LongTermDebtAndCapitalLeaseObligations"] } } });
     expect(judged(runStageB(bundle), "2025-12-31").join()).toMatch(/implies 30\.0%/);
+  });
+
+  describe("a quarter whose debt collapsed (audit 2026-10-22 B-16)", () => {
+    // Prior quarters carry 50B; the latest quarter's debt is 0.4B against 2B
+    // of trailing interest. Against the largest balance of the year, 4% passed.
+    const collapsed = () => {
+      const bundle = currencyBundle({ debt: 50_000, siblingQuarterCurrencies: USD });
+      const latest = rowsOf(bundle, "balanceQuarterly").find((row) => row.date === "2026-03-31")!;
+      Object.assign(latest, { totalDebt: 400 * M, netDebt: 330 * M });
+      for (const row of rowsOf(bundle, "incomeQuarterly")) row.interestExpense = 500 * M;
+      for (const row of rowsOf(bundle, "incomeAnnual")) row.interestExpense = 2_000 * M;
+      return bundle;
+    };
+    it("withholds the collapsed quarter's debt with an implausible-debt gap", () => {
+      const out = runStageB(collapsed());
+      const gap = out.gaps.find((g) => g.field === "statements.balance.2026-03-31.totalDebt");
+      expect(gap?.reason).toMatch(/fell from 50000000000 at 2025-12-31 to 400000000/);
+      expect(out.gaps.some((g) => g.field === "statements.balance.2025-12-31.totalDebt")).toBe(false);
+    });
+    it("keeps it when the quarter's cash flow repaid the debt", () => {
+      const bundle = collapsed();
+      Object.assign(rowsOf(bundle, "cashflowQuarterly").find((row) => row.date === "2026-03-31")!, { netDebtIssuance: -49_600 * M });
+      expect(runStageB(bundle).gaps.some((g) => g.field === "statements.balance.2026-03-31.totalDebt")).toBe(false);
+    });
   });
 
   it("leaves ordinary debt alone", () => {
