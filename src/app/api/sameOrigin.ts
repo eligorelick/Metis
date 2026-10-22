@@ -170,15 +170,34 @@ function presentedToken(request: Request): string | null {
   return request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
 }
 
+const TOKEN_SHAPE = /^[0-9a-f]{64}$/;
+
 /**
- * True when the request presents the token this process already minted. It
- * never mints: the request-wide proxy calls it, and a request must never be
- * what creates or writes the csrf-token file instrumentation owns.
+ * The token minted in this process, else the one in the token file. Next may
+ * run the proxy where instrumentation's globals are not visible, so the file
+ * instrumentation wrote is the shared source; it is only ever read here.
+ */
+function existingToken(): string | undefined {
+  const minted = tokenStash().current;
+  if (minted !== undefined) return minted.token;
+  try {
+    const stored = fs.readFileSync(requestTokenPath(), "utf8").trim();
+    return TOKEN_SHAPE.test(stored) ? stored : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * True when the request presents the startup token. It never mints: the
+ * request-wide proxy calls it, and a request must never be what creates or
+ * writes the csrf-token file instrumentation owns.
  */
 export function requestCarriesToken(request: Request): boolean {
-  const minted = tokenStash().current;
   const presented = presentedToken(request);
-  return minted !== undefined && presented !== null && presentedTokenMatches(presented, minted.token);
+  if (presented === null) return false;
+  const expected = existingToken();
+  return expected !== undefined && presentedTokenMatches(presented, expected);
 }
 
 /* ------------------------------------------------------------------------ *

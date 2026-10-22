@@ -957,6 +957,26 @@ describe("request-wide proxy", () => {
       ).toBe(false);
     });
 
+    it("reads the token file when the proxy runs apart from instrumentation (Codex review of PR #48)", () => {
+      // Next may invoke the proxy in a context that cannot see instrumentation's
+      // globals, so the in-memory token is not the only source: the file
+      // instrumentation wrote is read, and never written or replaced.
+      const minted = ensureRequestToken().token;
+      const file = requestTokenPath();
+      _resetRequestTokenForTests();
+      const before = readFileSync(file, "utf8");
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: minted }))).toBe(true);
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "a".repeat(64) }))).toBe(false);
+      expect(readFileSync(file, "utf8")).toBe(before);
+
+      // A file that does not hold a token admits nothing, not even its own text.
+      writeFileSync(file, "not-a-token\n");
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "not-a-token" }))).toBe(false);
+      writeFileSync(file, "\n");
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "" }))).toBe(false);
+      expect(readFileSync(file, "utf8")).toBe("\n");
+    });
+
     it("accepts the startup token from a script", async () => {
       const runProxy = proxyFunction(await loadProxyModule());
       if (runProxy === undefined) return;
