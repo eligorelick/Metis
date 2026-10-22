@@ -115,4 +115,5 @@ Not changed: the review noted that `businessCombinationYears` reads each tag onc
 
 - NEE's trailing NCI income is not established in the keyless data. That is harmless while its DCF is outside the domain, but it will withhold the DCF once the utility route (B-13/A-3) gives it a domain-valid value.
 - The E-5 key is the trailing four quarters. A one-off gain or impairment inside a subsidiary moves the NCI share for a year.
+- NCI income tagged only as `MinorityInterestInNetIncomeLossOfConsolidatedEntities` or `NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` is not read, so such an issuer's DCF would be withheld. No panel issuer is affected. Adding the synonyms changes extraction for every consumer of the NCI-income field.
 - The base rate is a fixed 2026-10-22 panel. A new census is needed to update it, and its calibration (B-3) and the valuation band (B-33) are deferred.
