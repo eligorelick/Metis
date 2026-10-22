@@ -184,6 +184,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { runStageB } from "@/pipeline/compute";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import { pipelinePasses } from "@/pipeline/stageC";
+import { previousOutputBlock } from "@/pipeline/stageC/payload";
 import {
   completeJudgeProtocol,
   resolveJudgeOrder,
@@ -7205,7 +7206,7 @@ describe("runJob — judge retry after a dropped connection", () => {
     expect(feedbacks).toHaveLength(3);
     expect(feedbacks[0]).toBeUndefined();
     expect(feedbacks[1]).toContain("missing outlook");
-    expect(feedbacks[1]).toContain('{"verdict":{}}');
+    expect(feedbacks[1]).toContain(previousOutputBlock('{"verdict":{}}'));
     // The dropped connection did not replace the schema feedback.
     expect(feedbacks[2]).toBe(feedbacks[1]);
     expect(feedbacks[2]).not.toContain("stream ended");
@@ -9017,7 +9018,7 @@ describe("analyst repair attempt after schema-invalid output", () => {
 
     expect(calls.filter((c) => c.startsWith("runAnalystPass:"))).toEqual(["runAnalystPass:bear"]);
     expect(feedbacks[0]).toContain('Invalid ISO date (expected YYYY-MM-DD): "2026-Q1"');
-    expect(feedbacks[0]).toContain(`YOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${RAW}`);
+    expect(feedbacks[0]).toContain(previousOutputBlock(RAW));
     expect(result.status).toBe("done");
     expect(result.dataOnly).toBe(false);
     expect(result.reportId).not.toBeNull();
@@ -9447,7 +9448,7 @@ describe("analyst repair attempt after schema-invalid output", () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).toContain("bad asOf");
-    expect(seen[0]).toContain('{"asOf":"2026-Q1"}');
+    expect(seen[0]).toContain(previousOutputBlock('{"asOf":"2026-Q1"}'));
     expect(result.dataOnly).toBe(false);
   });
 

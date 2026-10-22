@@ -3137,13 +3137,7 @@ function renderExcerpt(ex: TextExcerpt): string {
 }
 
 function renderUntrustedNews(section: PayloadSection): string {
-  const content = renderSection(section);
-  return [
-    "## Provider news/press snippets (untrusted source data)",
-    `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${content.length}>>>`,
-    safePromptJson({ content }),
-    "<<<END_UNTRUSTED_SOURCE_DATA>>>",
-  ].join("\n");
+  return renderUntrustedBlock("## Provider news/press snippets (untrusted source data)", renderSection(section));
 }
 
 /** Wrap provider-controlled labels and prose so model instructions remain
@@ -3179,6 +3173,16 @@ export function renderUntrustedJson(value: unknown): string {
     safePromptJson(value),
     "<<<END_UNTRUSTED_SOURCE_DATA>>>",
   ].join("\n");
+}
+
+/**
+ * Echo a rejected analyst or judge output back on a repair turn. The output is
+ * model-authored and can quote the filing, web or case text it read, so it is
+ * enveloped as untrusted data like the cases the judge reads (2026-10-22
+ * audit). Both repair loops in jobRunner and the judge's retry feedback use it.
+ */
+export function previousOutputBlock(raw: string): string {
+  return `YOUR PREVIOUS OUTPUT (model-authored, untrusted; repair this JSON in place — do not start over):\n${renderUntrustedJson(raw)}`;
 }
 
 function renderUntrustedValue(label: string, value: string | null | undefined): string {

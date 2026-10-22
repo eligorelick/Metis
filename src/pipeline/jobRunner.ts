@@ -95,6 +95,7 @@ import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validat
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
 import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
+import { previousOutputBlock } from "@/pipeline/stageC/payload";
 import {
   getJobSnapshot,
   publishJobEvent,
@@ -3115,7 +3116,7 @@ export async function runJob<TPayload = unknown>(
           const feedback =
             lastFeedbackDetail.length > 0
               ? lastFailedRawOutput.length > 0
-                ? `${lastFeedbackDetail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${lastFailedRawOutput}`
+                ? `${lastFeedbackDetail}\n\n${previousOutputBlock(lastFailedRawOutput)}`
                 : lastFeedbackDetail
               : undefined;
           const judgeCheckpoint = createSettlementCheckpoint<JudgeOutput>(
@@ -3894,7 +3895,7 @@ export async function runJob<TPayload = unknown>(
           let feedback = mode !== "repair"
             ? undefined
             : raw.length > 0
-              ? `${detail}\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${raw}`
+              ? `${detail}\n\n${previousOutputBlock(raw)}`
               : detail;
           let currentDetail = detail;
           // A rejected output gets one repair. A dropped plan-connection request

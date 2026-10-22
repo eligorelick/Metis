@@ -44,6 +44,7 @@ import {
   serializePayloadForPrompt,
   payloadFingerprint,
   fnv1a32,
+  previousOutputBlock,
   projectionProvenanceId,
   truncateWithDisclosure,
   provenanceTag,
@@ -4192,7 +4193,7 @@ describe("mock-driven bull/bear/judge passes", () => {
     const withOutput = judgeRetryFeedback('[{"path":["verdict"]}]', '{"verdict":{}}');
     expect(withOutput).toContain("FAILED report-schema validation");
     expect(withOutput).toContain('[{"path":["verdict"]}]');
-    expect(withOutput).toContain('YOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n{"verdict":{}}');
+    expect(withOutput).toContain(`\n\n${previousOutputBlock('{"verdict":{}}')}`);
     // without previous output, degrades to the error-only message
     const withoutOutput = judgeRetryFeedback("some zod error");
     expect(withoutOutput).toContain("some zod error");

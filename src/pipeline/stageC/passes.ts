@@ -85,6 +85,7 @@ import {
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
   guidanceLowCitation,
+  previousOutputBlock,
   renderUntrustedJson,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
@@ -491,11 +492,11 @@ export const JUDGE_RETRY_PREVIOUS_OUTPUT_CAP = 200_000;
 export function judgeRetryFeedback(zodError: string, previousOutput?: string): string {
   const prev =
     previousOutput && previousOutput.length > 0
-      ? `\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${
+      ? `\n\n${previousOutputBlock(
           previousOutput.length > JUDGE_RETRY_PREVIOUS_OUTPUT_CAP
             ? `${previousOutput.slice(0, JUDGE_RETRY_PREVIOUS_OUTPUT_CAP)}\n[...truncated]`
-            : previousOutput
-        }`
+            : previousOutput,
+        )}`
       : "";
   return `Your previous output FAILED report-schema validation with this error. Fix EXACTLY these issues and re-emit the full JUDGE_OUTPUT schema:\n${zodError}${prev}`;
 }
