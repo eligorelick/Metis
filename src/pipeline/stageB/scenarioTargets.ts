@@ -130,6 +130,14 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
       ["Scenario price targets unavailable: the base DCF is outside its domain."],
     );
   }
+  // Audit 2026-10-22 E-5: withheld because the NCI claim could not be sized.
+  const nciKey = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
+  if (nciKey !== undefined) {
+    return suppressed(
+      [{ field: "valuation.scenarioTargets", reason: `Scenario price targets withheld: ${nciKey.reason}`, severity: "warn" }],
+      ["Scenario price targets unavailable: the noncontrolling interest's share of profit is unestablished."],
+    );
+  }
   if (assumptions === null || baseDcf === null || !isNum(baseDcf.perShare)) {
     return suppressed(
       [

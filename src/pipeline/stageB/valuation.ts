@@ -5511,24 +5511,23 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   }
 
   // Audit 2026-10-22 E-5: a consolidated DCF bridged to common equity needs the
-  // outside holders' share of profit to size their claim. Without it the
-  // per-share value is withheld rather than resting on book NCI alone.
+  // outside holders' share of profit to size their claim. Without it the DCF
+  // runs on book NCI only to test its domain (book is the smallest deduction
+  // the rule allows), and the per-share value is then withheld.
   let noncontrollingEarningsShare: number | null = null;
+  let noncontrollingKeyMissing: string | null = null;
   const noncontrollingEarningsAsOf = inputs.noncontrollingEarnings?.asOf ?? null;
-  if (isNum(inputs.minorityInterest) && inputs.minorityInterest !== 0 && inputs.dcfInputs !== null) {
+  if (isNum(inputs.minorityInterest) && inputs.minorityInterest !== 0) {
     const earnings = inputs.noncontrollingEarnings ?? null;
     if (earnings !== null && isNum(earnings.noncontrollingIncome) && isNum(earnings.consolidatedProfit) && earnings.consolidatedProfit > 0) {
       noncontrollingEarningsShare = earnings.noncontrollingIncome / earnings.consolidatedProfit;
     } else {
-      const reason = `Noncontrolling interest of ${fmtNum(inputs.minorityInterest)} sits in the consolidated DCF, but its share of trailing consolidated profit could not be established ` +
+      noncontrollingKeyMissing = `Noncontrolling interest of ${fmtNum(inputs.minorityInterest)} sits in the consolidated DCF, but its share of trailing consolidated profit could not be established ` +
         (earnings === null ? "(no trailing noncontrolling or consolidated profit)"
           : !isNum(earnings.noncontrollingIncome) ? "(trailing profit attributable to noncontrolling interests unavailable)"
           : !isNum(earnings.consolidatedProfit) ? "(trailing consolidated profit unavailable)"
           : `(trailing consolidated profit ${fmtNum(earnings.consolidatedProfit)} is not positive)`) +
         ". The per-share value is withheld: book NCI alone can understate the outside holders' claim on a consolidated valuation (audit 2026-10-22 E-5).";
-      gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey", reason, "warn"));
-      notes.push(reason);
-      inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
     }
   }
 
@@ -5920,6 +5919,15 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         dcf.perShare = null;
         notes.push(`${domain.reason}.`);
         gaps.push(gapEntry("valuation.dcf.domain", domain.reason, "critical"), ...dcf.gaps);
+        return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
+      }
+      // E-5: inside its domain, but the NCI claim cannot be sized. The bridge
+      // stays visible at book; nothing built from the per-share is published.
+      if (noncontrollingKeyMissing !== null) {
+        dcf.perShare = null;
+        dcf.equityValue = null;
+        notes.push(noncontrollingKeyMissing);
+        gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey", noncontrollingKeyMissing, "warn"), ...dcf.gaps);
         return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
       }
       // AMZN audit 2026-10-20: the improving fade is a judgment, so the reader

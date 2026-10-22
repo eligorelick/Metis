@@ -120,6 +120,30 @@ describe("E-5: NCI on the earnings key", () => {
     }
   });
 
+  it("keeps the bridge at book but publishes no equity value, grids or reverse DCF", () => {
+    const valuation = valueCompany(route, bundle({ minorityInterest: 0.2 * consolidated, noncontrollingEarnings: null }));
+    if (valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    // The bridge stays visible at book, but no equity value or per-share is published.
+    expect(valuation.dcf!.bridge.minorityInterest).toBeCloseTo(0.2 * consolidated, 6);
+    expect(valuation.dcf!.equityValue).toBeNull();
+    expect(valuation.sensitivity).toBeNull();
+    expect(valuation.growthMarginGrid).toBeNull();
+    expect(valuation.reverseDcf).toBeNull();
+  });
+
+  it("does not replace an earlier reason the DCF was not built (panel: ORCL without WACC)", () => {
+    const valuation = valueCompany(route, bundle({ waccPct: null, minorityInterest: 0.2 * consolidated, noncontrollingEarnings: null }));
+    expect(valuation.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(false);
+  });
+
+  it("reports a DCF outside its domain on book NCI as outside the domain, not as an NCI gap (panel: NEE)", () => {
+    // Book is the smallest deduction the rule allows, so a domain failure on book holds on any key.
+    const valuation = valueCompany(route, bundle({ netDebt: consolidated + NET_DEBT + 1, minorityInterest: 0.2 * consolidated, noncontrollingEarnings: null }));
+    expect(valuation.gaps.some((g) => g.field === "valuation.dcf.domain")).toBe(true);
+    expect(valuation.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(false);
+    expect(computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" }).status).toBe("outside-domain");
+  });
+
   it("needs no earnings key without a noncontrolling interest", () => {
     const v = dcfOf({ minorityInterest: 0, noncontrollingEarnings: null });
     expect(v.dcf!.equityValue!).toBeCloseTo(consolidated, 6);
