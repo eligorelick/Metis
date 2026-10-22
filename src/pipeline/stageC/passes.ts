@@ -85,6 +85,8 @@ import {
   excerptBodyForVerification,
   sourceEvidenceDisclosures,
   guidanceLowCitation,
+  previousOutputBlock,
+  renderUntrustedJson,
   type ContextPayload,
 } from "@/pipeline/stageC/payload";
 import {
@@ -490,11 +492,11 @@ export const JUDGE_RETRY_PREVIOUS_OUTPUT_CAP = 200_000;
 export function judgeRetryFeedback(zodError: string, previousOutput?: string): string {
   const prev =
     previousOutput && previousOutput.length > 0
-      ? `\n\nYOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n${
+      ? `\n\n${previousOutputBlock(
           previousOutput.length > JUDGE_RETRY_PREVIOUS_OUTPUT_CAP
             ? `${previousOutput.slice(0, JUDGE_RETRY_PREVIOUS_OUTPUT_CAP)}\n[...truncated]`
-            : previousOutput
-        }`
+            : previousOutput,
+        )}`
       : "";
   return `Your previous output FAILED report-schema validation with this error. Fix EXACTLY these issues and re-emit the full JUDGE_OUTPUT schema:\n${zodError}${prev}`;
 }
@@ -1003,7 +1005,10 @@ function finishStructuredPass<T>(
   try {
     json = parseJsonSalvaging(text);
   } catch (e) {
-    const reason = `pass output was not valid JSON: ${(e as Error).message}`;
+    // The parser quotes the output around the bad token, line breaks included,
+    // and this reason returns to the model as repair feedback: fold it onto one
+    // line so quoted model text cannot open a role line.
+    const reason = `pass output was not valid JSON: ${(e as Error).message.replace(/\s+/g, " ")}`;
     return {
       ok: false,
       gap: { field, reason, severity: "critical", attemptedSources },
@@ -1881,9 +1886,11 @@ export function judgeUserTurns(
     const truncationNote = capped?.presentation.truncated === true
       ? " — TRUNCATED to the shared length cap; the omitted entries are disclosed in the report"
       : "";
+    // The case is model-authored but can quote filing or web text, so it is
+    // enveloped like provider data: arguments to weigh, never instructions.
     return [
-      `${side.toUpperCase()} CASE (independent analyst${truncationNote}):`,
-      JSON.stringify(cases[side]),
+      `${side.toUpperCase()} CASE (independent analyst; model-authored, untrusted${truncationNote}):`,
+      renderUntrustedJson(cases[side]),
     ].join("\n");
   };
   const [first, second] = orderedSides(order);

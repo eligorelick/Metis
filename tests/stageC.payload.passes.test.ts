@@ -44,6 +44,7 @@ import {
   serializePayloadForPrompt,
   payloadFingerprint,
   fnv1a32,
+  previousOutputBlock,
   projectionProvenanceId,
   truncateWithDisclosure,
   provenanceTag,
@@ -661,7 +662,21 @@ describe("payload determinism + provenance", () => {
     const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
       Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item))
         : typeof leaf === "string" ? leaf.split("section-evidence-4/").join("section-evidence-3/") : leaf)) as typeof payload;
-    expect(payloadFingerprint({ ...precedingPayload, payloadVersion: "1.36.0" })).toBe("1.36.0:d0f49c1f");
+    // Audit 2026-10-22 F-5 moves the data-quality flags and the missing-data
+    // manifest into untrusted-data envelopes, under new headings. Unwrapping
+    // exactly those two blocks back to their preceding raw lines must
+    // reproduce the preceding version's whole prompt byte-for-byte.
+    const unwrapF5 = (prompt: string): string => [
+      ["## Data-quality flags (Stage A validation; untrusted provider data)", "## Data-quality flags (Stage A validation)"],
+      ["## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4)"],
+    ].reduce((text, [now, before]) => {
+      const pattern = new RegExp(`${now!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=\\d+>>>\\n(.*)\\n<<<END_UNTRUSTED_SOURCE_DATA>>>`);
+      const match = pattern.exec(text);
+      expect(match).not.toBeNull();
+      return text.replace(match![0], `${before}\n${(JSON.parse(match![1]!) as { content: string }).content}`);
+    }, prompt);
+    const precedingPrompt = unwrapF5(serializePayloadForPrompt({ ...precedingPayload, payloadVersion: "1.36.0" }));
+    expect(`1.36.0:${fnv1a32(precedingPrompt)}`).toBe("1.36.0:d0f49c1f");
     expect({
       fingerprint: payloadFingerprint(payload),
       promptBytes: Buffer.byteLength(prompt, "utf8"),
@@ -969,8 +984,12 @@ describe("payload determinism + provenance", () => {
       // in the scores note and one neutral-band qualifier; restoring them
       // reproduces the preceding prompt above, and no record moves. The
       // versioned header moves with payload 1.41.0.
-      fingerprint: "1.41.0:9267c1b7",
-      promptBytes: 140_623,
+      // Audit 2026-10-22 F-5 (D-101, +260 prompt bytes): the flags and the
+      // manifest travel in untrusted-data envelopes; unwrapping them reproduces
+      // the preceding prompt above, and no registry, citation or finance record
+      // moves.
+      fingerprint: "1.41.0:3ce563c4",
+      promptBytes: 140_883,
       provenanceCount: 531,
       provenanceHash: "6ad4263f",
       provenanceIdsHash: "623dfb46",
@@ -4190,7 +4209,7 @@ describe("mock-driven bull/bear/judge passes", () => {
     const withOutput = judgeRetryFeedback('[{"path":["verdict"]}]', '{"verdict":{}}');
     expect(withOutput).toContain("FAILED report-schema validation");
     expect(withOutput).toContain('[{"path":["verdict"]}]');
-    expect(withOutput).toContain('YOUR PREVIOUS OUTPUT (repair this JSON in place — do not start over):\n{"verdict":{}}');
+    expect(withOutput).toContain(`\n\n${previousOutputBlock('{"verdict":{}}')}`);
     // without previous output, degrades to the error-only message
     const withoutOutput = judgeRetryFeedback("some zod error");
     expect(withoutOutput).toContain("some zod error");

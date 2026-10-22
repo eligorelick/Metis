@@ -185,12 +185,57 @@ function hasPrefetchToken(value: string | null): boolean {
   return value !== null && /(?:^|[\s;,])prefetch(?=$|[\s;,])/i.test(value);
 }
 
+/** True when the Referer names this exact origin (scheme, host and port). */
+function refererMatchesHost(request: Request): boolean {
+  const referer = request.headers.get("referer");
+  if (referer === null) return false;
+  let origin: string;
+  try {
+    origin = new URL(referer).origin;
+  } catch {
+    return false;
+  }
+  return requestOriginMatchesHost(request, origin);
+}
+
+/**
+ * A heavy GET with no Fetch Metadata at all. On loopback that is a script or an
+ * old browser, and is allowed. On the configured LAN host it is not evidence of
+ * anything: browsers send Fetch Metadata only to potentially trustworthy origins
+ * (HTTPS or loopback), so a cross-site `<img>` aimed at a plain-HTTP LAN address
+ * arrives header-free too. There the request needs the startup token or a
+ * same-origin Referer, which a cross-site page cannot forge and which the app's
+ * own links and RSC fetches carry. A typed or bookmarked company URL, a link
+ * from another site, or a browser that strips the Referer carries neither and
+ * is refused; the reason says what to do instead.
+ */
+function assertHeaderFreeHeavyGet(
+  request: Request,
+  carriesToken: (request: Request) => boolean,
+): NextResponse | null {
+  const authority = requestAuthority(request);
+  if (authority !== null && isLoopback(authority)) return null;
+  if (carriesToken(request) || refererMatchesHost(request)) return null;
+  return forbidden(
+    "a company page on a non-loopback host needs Fetch Metadata, a same-origin Referer, " +
+      "or X-Metis-Token; browsers send no Fetch Metadata to a plain-HTTP LAN address, so open " +
+      "company pages from the Metis home page, or serve Metis over HTTPS",
+  );
+}
+
 /**
  * Protect a heavy GET/HEAD after routing has identified it as a company landing.
  * Same-site and cross-site embeds can consume the full provider pipeline, while
- * a top-level navigation remains a supported way to open a shared local link.
+ * a top-level navigation remains a supported way to open a shared local link
+ * where the browser sends Fetch Metadata (HTTPS or loopback). Without it, a
+ * non-loopback Host falls to assertHeaderFreeHeavyGet.
+ * `carriesToken` checks the startup X-Metis-Token (it lives with the mutation
+ * guard, which owns the token).
  */
-export function assertHeavyGetMetadata(request: Request): NextResponse | null {
+export function assertHeavyGetMetadata(
+  request: Request,
+  carriesToken: (request: Request) => boolean,
+): NextResponse | null {
   const method = request.method.toUpperCase();
   if (method !== "GET" && method !== "HEAD") return null;
 
@@ -203,7 +248,7 @@ export function assertHeavyGetMetadata(request: Request): NextResponse | null {
 
   if (site === null) {
     if (speculative) return forbidden("heavy speculation request is not allowed");
-    if (mode === null && destination === null) return null;
+    if (mode === null && destination === null) return assertHeaderFreeHeavyGet(request, carriesToken);
     return forbidden("fetch metadata is incomplete");
   }
   if (site === "same-origin" || site === "none") return null;

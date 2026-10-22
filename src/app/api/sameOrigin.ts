@@ -159,11 +159,45 @@ export function _resetRequestTokenForTests(): void {
 }
 
 /** Constant-time comparison over digests so neither length nor content leaks. */
-function presentedTokenMatches(presented: string): boolean {
-  const expected = ensureRequestToken().token;
+function presentedTokenMatches(presented: string, expected = ensureRequestToken().token): boolean {
   const presentedDigest = createHash("sha256").update(presented.trim()).digest();
   const expectedDigest = createHash("sha256").update(expected).digest();
   return timingSafeEqual(presentedDigest, expectedDigest);
+}
+
+/** The presented token; presence precedence keeps an invalid primary header from falling back to a valid legacy one. */
+function presentedToken(request: Request): string | null {
+  return request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
+}
+
+const TOKEN_SHAPE = /^[0-9a-f]{64}$/;
+
+/**
+ * The token minted in this process, else the one in the token file. Next may
+ * run the proxy where instrumentation's globals are not visible, so the file
+ * instrumentation wrote is the shared source; it is only ever read here.
+ */
+function existingToken(): string | undefined {
+  const minted = tokenStash().current;
+  if (minted !== undefined) return minted.token;
+  try {
+    const stored = fs.readFileSync(requestTokenPath(), "utf8").trim();
+    return TOKEN_SHAPE.test(stored) ? stored : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * True when the request presents the startup token. It never mints: the
+ * request-wide proxy calls it, and a request must never be what creates or
+ * writes the csrf-token file instrumentation owns.
+ */
+export function requestCarriesToken(request: Request): boolean {
+  const presented = presentedToken(request);
+  if (presented === null) return false;
+  const expected = existingToken();
+  return expected !== undefined && presentedTokenMatches(presented, expected);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -203,8 +237,7 @@ export function assertSameOrigin(request: Request): NextResponse | null {
   // does is accepted here without a token (see the header note above).
   if (secFetchSite !== undefined) return null;
 
-  // Presence precedence prevents an invalid primary header from falling back to a valid legacy token.
-  const presented = request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
+  const presented = presentedToken(request);
   if (presented === null) return forbid(MISSING_CREDENTIALS_REASON);
   if (!presentedTokenMatches(presented)) {
     return forbid("request token does not match the token this server minted at startup");

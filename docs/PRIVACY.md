@@ -140,9 +140,22 @@ provider.
 
 The npm dev/start scripts bind to **127.0.0.1**. The request-wide proxy rejects
 direct Hosts outside loopback or the exact `METIS_ALLOWED_HOST` allowlist,
-including read routes. Company landing GET/HEAD requests additionally reject
+including read routes. Every response it passes or rejects also forbids
+framing (`Content-Security-Policy: frame-ancestors 'none'` and
+`X-Frame-Options: DENY`), so another site cannot overlay a Metis page such as
+Settings and steer clicks into it. Company landing GET/HEAD requests additionally reject
 cross-origin subresource/speculation requests using Fetch Metadata, while
-allowing normal top-level navigation and header-free local scripts. Mutating
+allowing top-level navigation that carries Fetch Metadata, and header-free
+scripts on loopback. Browsers send Fetch Metadata only to HTTPS or loopback
+origins, so on a plain-HTTP `METIS_ALLOWED_HOST` address a cross-site image
+request arrives with no Fetch Metadata, just like a script. On any
+non-loopback Host a company landing without Fetch Metadata therefore needs
+`X-Metis-Token` or a same-origin `Referer`. A script there should send the token.
+On a plain-HTTP LAN address the app's own links carry the Referer, but a typed
+or bookmarked company URL, a link clicked on another site, and a browser or
+extension that strips the Referer carry neither and are refused, so open
+company pages from the Metis home page, or serve Metis over HTTPS. Loopback is
+unchanged. Mutating
 routes use the guard above. Metis has no user login or caller authentication;
 allowlisting a LAN host does not add either, and an allowed client can read
 reports and invoke actions. AI connection GET/POST additionally require the
@@ -388,8 +401,9 @@ ChatGPT credentials stay server-side in protected per-user storage (Windows
 DPAPI; owner-only files on macOS/Linux). Disconnect stops local requests and
 attempts ChatGPT session revocation. Google disconnect clears Metis's CLI
 state; revoke the Google grant from your Google Account if desired. See
-[Privacy](PRIVACY.md). The OAuth paths have offline regression coverage;
-live inference has not been verified for this release.
+[Privacy](PRIVACY.md). The OAuth paths have offline regression coverage.
+Complete reports have run live through a ChatGPT connection (October 2026);
+inference through a live Gemini connection has not been verified for this release.
 
 ### Model and speed controls
 

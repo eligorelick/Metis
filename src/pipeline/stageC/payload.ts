@@ -1399,7 +1399,12 @@ function extractStatement<TRow extends FmpRawRow>(
 ): StatementExtractBlock | null {
   const kept = rows.slice(0, periods);
   if (kept.length === 0) return null;
-  const periodLabels = kept.map((r) => isoDay(r.date) ?? "unknown");
+  // Statement blocks render outside the untrusted envelopes: a period label
+  // is a checked ISO day or "unknown", never provider text.
+  const periodLabels = kept.map((r) => {
+    const day = isoDay(r.date);
+    return isFullIsoDate(day) ? day : "unknown";
+  });
   const fiscalLabels = kept.map((r) => issuerFiscalLabel(r));
   const lines: StatementLineExtract[] = lineItems.map((li) => ({
     lineItem: periodKind === "instant" && li.key === "totalDebt" && kept.some(r => incompleteLeaseCoverage(r as FmpBalanceSheetRow) !== null)
@@ -1544,13 +1549,29 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
   const grades = firstRow(bundle.gradesConsensus);
   if (grades) {
     notes.push(
-      `analyst grades consensus string (NOT a rating we adopt): ${strOrNull(grades.consensus) ?? "n/a"} ` +
+      `analyst grades consensus string (NOT a rating we adopt): ${gradesConsensusWord(grades.consensus)} ` +
         `(strongBuy ${numOrNull(grades.strongBuy) ?? "n/a"}, buy ${numOrNull(grades.buy) ?? "n/a"}, hold ${numOrNull(grades.hold) ?? "n/a"}, sell ${numOrNull(grades.sell) ?? "n/a"}, strongSell ${numOrNull(grades.strongSell) ?? "n/a"})`,
     );
   }
   const nextEarnings = nextEarningsNote(bundle);
   if (nextEarnings !== null) notes.push(nextEarnings);
   return payloadSection({ title: "Analyst estimates & targets", figures, notes });
+}
+
+/** FMP's grades-consensus vocabulary, keyed by its lower-case spelling. */
+const GRADES_CONSENSUS_WORDS: ReadonlyMap<string, string> = new Map(
+  ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"].map((word) => [word.toLowerCase(), word]),
+);
+
+/**
+ * The estimates section renders outside the untrusted envelopes, so the
+ * consensus is stated only as one of FMP's rating words; any other provider
+ * string is withheld rather than quoted (Codex review of PR #48).
+ */
+function gradesConsensusWord(value: unknown): string {
+  const raw = strOrNull(value);
+  if (raw === null) return "n/a";
+  return GRADES_CONSENSUS_WORDS.get(raw.trim().replace(/\s+/g, " ").toLowerCase()) ?? "unrecognized provider value (withheld)";
 }
 
 /**
@@ -3149,26 +3170,54 @@ function renderExcerpt(ex: TextExcerpt): string {
 }
 
 function renderUntrustedNews(section: PayloadSection): string {
-  const content = renderSection(section);
-  return [
-    "## Provider news/press snippets (untrusted source data)",
-    `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${content.length}>>>`,
-    safePromptJson({ content }),
-    "<<<END_UNTRUSTED_SOURCE_DATA>>>",
-  ].join("\n");
+  return renderUntrustedBlock("## Provider news/press snippets (untrusted source data)", renderSection(section));
 }
 
 /** Wrap provider-controlled labels and prose so model instructions remain
  * outside the data trust boundary. JSON encoding plus HTML-marker escaping
  * keeps provider text from terminating the envelope semantically. */
 function renderUntrustedSection(section: PayloadSection): string {
-  const content = renderSection(section);
+  return renderUntrustedBlock(`## ${section.title} (untrusted provider data)`, renderSection(section));
+}
+
+function renderUntrustedBlock(heading: string, content: string): string {
   return [
-    `## ${section.title} (untrusted provider data)`,
+    heading,
     `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${content.length}>>>`,
     safePromptJson({ content }),
     "<<<END_UNTRUSTED_SOURCE_DATA>>>",
   ].join("\n");
+}
+
+/** Stage A flags and gap reasons can quote provider text verbatim (an error
+ * body, a transport message), so these lists travel in an envelope like
+ * provider prose. Line breaks inside an entry collapse to one space, so each
+ * flag or gap stays one line of the enveloped content. */
+function renderUntrustedLines(heading: string, lines: string[]): string {
+  return renderUntrustedBlock(heading, lines.map((line) => line.replace(/\s*[\r\n\p{Zl}\p{Zp}]+\s*/gu, " ")).join("\n"));
+}
+
+/** Envelope one structured value, such as a model-authored analyst case, as
+ * untrusted data: JSON-encoded with its markers escaped, so text the model
+ * quoted from a filing or web page cannot close the envelope. */
+export function renderUntrustedJson(value: unknown): string {
+  return [
+    // A string counts its raw characters like every text envelope; a value
+    // with no raw text form counts its JSON.
+    `<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=${typeof value === "string" ? value.length : JSON.stringify(value).length}>>>`,
+    safePromptJson(value),
+    "<<<END_UNTRUSTED_SOURCE_DATA>>>",
+  ].join("\n");
+}
+
+/**
+ * Echo a rejected analyst or judge output back on a repair turn. The output is
+ * model-authored and can quote the filing, web or case text it read, so it is
+ * enveloped as untrusted data like the cases the judge reads (2026-10-22
+ * audit). Both repair loops in jobRunner and the judge's retry feedback use it.
+ */
+export function previousOutputBlock(raw: string): string {
+  return `YOUR PREVIOUS OUTPUT (model-authored, untrusted; repair this JSON in place — do not start over):\n${renderUntrustedJson(raw)}`;
 }
 
 function renderUntrustedValue(label: string, value: string | null | undefined): string {
@@ -3231,18 +3280,21 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
   parts.push(renderUntrustedNews(payload.news));
 
   // Validation + missing data — DISCLOSED, never filled.
-  const vflags = ["## Data-quality flags (Stage A validation)"];
+  const vflags: string[] = [];
   if (payload.validationFlags.length === 0) vflags.push("- (no failed/skipped checks)");
   for (const f of payload.validationFlags) vflags.push(`- ${f}`);
-  parts.push(vflags.join("\n"));
+  parts.push(renderUntrustedLines("## Data-quality flags (Stage A validation; untrusted provider data)", vflags));
 
-  const missing = ["## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4)"];
+  const missing: string[] = [];
   if (payload.missingData.length === 0) missing.push("- (no recorded gaps)");
   for (const m of payload.missingData) {
     const id = manifestCitationId(m.field);
     missing.push(`- [${m.severity}] ${m.field}: ${m.reason}${id === null ? "" : ` ${provenanceTag(id, null)}`}`);
   }
-  parts.push(missing.join("\n"));
+  parts.push(renderUntrustedLines(
+    "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)",
+    missing,
+  ));
 
   return parts.join("\n\n");
 }

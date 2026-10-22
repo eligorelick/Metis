@@ -86,6 +86,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-20-amzn-audit-fixes.md",
   "docs/audit/2026-10-20-amzn-deferred-fixes.md",
   "docs/audit/2026-10-22-audit-batch1-headline-numbers.md",
+  "docs/audit/2026-10-22-security-audit-fixes.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
@@ -463,15 +464,28 @@ describe("public release contract", () => {
     ]);
   });
 
-  // The engines floor moved to 22.18 and the README says so, so the old
-  // "Node.js 24 LTS" requirement line is gone (WS9, D-22). The facts that
-  // matter are pinned: the tested version, the package engine floor,
-  // and that branch protection is a human step.
-  it("documents the supported Node versions and branch protection", () => {
+  // The engines floor was 22.18 (WS9, D-22) while the suite was only known to
+  // pass on Node 24, the one version CI runs; the floor is now 24 so the
+  // supported range is the tested one (2026-10-22 audit, F-10). The facts that
+  // matter are pinned: the package engine floor equals every CI lane's Node,
+  // the README states it, and branch protection is a human step.
+  it("documents the supported Node versions and branch protection", async () => {
     const readme = read("README.md");
     const pkg = JSON.parse(read("package.json")) as { engines: { node: string } };
-    expect(pkg.engines.node).toBe(">=22.18.0");
+    const lock = JSON.parse(read("package-lock.json")) as { packages: Record<string, { engines?: { node: string } }> };
+    expect(pkg.engines.node).toBe(">=24");
+    expect(lock.packages[""]?.engines?.node).toBe(pkg.engines.node);
+    const workflow = await parseWorkflow(read(".github/workflows/ci.yml"));
+    // Jobs without setup-node (lint-only helpers) have no lane; a setup-node
+    // step without an explicit node-version fails the comparison below.
+    const lanes = Object.values(workflow.jobs ?? {})
+      .map((job) => job.steps?.find((step) => step.uses?.startsWith("actions/setup-node")))
+      .filter((step) => step !== undefined)
+      .map((step) => step.with?.["node-version"]);
+    expect(lanes.length).toBeGreaterThan(0);
+    for (const lane of lanes) expect(`>=${lane}`).toBe(pkg.engines.node);
     expect(readme).toContain(`Node.js ${pkg.engines.node.slice(2)} or newer`);
+    expect(readme).not.toMatch(/Node(?:.js)? 22/);
     expect(readme).toMatch(/CI tests Node 24/);
     expect(readme).not.toContain("compatibility lane");
     expect(readme).toMatch(/Protect `main` by requiring\s+the `full` and `windows-smoke` checks/);
@@ -484,6 +498,16 @@ describe("public release contract", () => {
       expect(files).toContain(required);
     }
     expect(forbiddenReleaseFiles(files)).toEqual([]);
+  });
+
+  // A stray `=` line (a pasted-in fragment) silently ignored any file named
+  // "=" (2026-10-22 audit, F-11). Every pattern must name something.
+  it("keeps every .gitignore line a comment, a blank, or a real pattern", () => {
+    const stray = read(".gitignore")
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== "" && !line.startsWith("#"))
+      .filter((line) => !/[A-Za-z0-9*.]/.test(line));
+    expect(stray).toEqual([]);
   });
 
   it("ignores unrelated untracked files but rejects the same paths if tracked", () => {
@@ -620,6 +644,20 @@ describe("public release contract", () => {
 
     expect(implementationText).not.toMatch(new RegExp(removedDocNames));
     expect(implementationText).not.toMatch(/research[\\/]/);
+  });
+
+  // Both documents said no live ChatGPT or Gemini inference had been verified,
+  // after complete reports had run live through a ChatGPT connection (reports
+  // #40 to #45, October 2026). Gemini has no such run (audit DOC-1, deferred
+  // under D-97 item 17, corrected on 2026-10-22).
+  it("states which subscription connection has run live inference", () => {
+    for (const name of ["README.md", "docs/PRIVACY.md"]) {
+      const prose = read(name).replace(/\s+/g, " ");
+      expect(prose, name).not.toMatch(/live inference has not been verified/);
+      expect(prose, name).not.toMatch(/ChatGPT or Gemini account has not been verified/);
+      expect(prose, name).toContain("run live through a ChatGPT connection");
+      expect(prose, name).toMatch(/live Gemini[^.]* has not been verified/);
+    }
   });
 
   it("documents setup, privacy, safety, and verification in README", () => {

@@ -16,7 +16,7 @@ import "next/dist/server/node-environment";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -48,6 +48,7 @@ import { createJob as createJobReal } from "@/pipeline/jobRunner";
 import {
   assertSameOrigin,
   ensureRequestToken,
+  requestCarriesToken,
   requestTokenPath,
   REQUEST_TOKEN_FILE_NAME,
   REQUEST_TOKEN_HEADER,
@@ -466,11 +467,13 @@ describe("assertAllowedHost", () => {
 });
 
 describe("assertHeavyGetMetadata", () => {
-  type HeavyGuard = (request: Request) => Response | null;
+  type HeavyGuard = (request: Request, carriesToken: (request: Request) => boolean) => Response | null;
 
-  function heavyGuard(): HeavyGuard | undefined {
-    return (requestSecurityModule as unknown as { assertHeavyGetMetadata?: HeavyGuard })
+  /** The guard with a token check that never matches; the token arm is tested through the proxy. */
+  function heavyGuard(): ((request: Request) => Response | null) | undefined {
+    const guard = (requestSecurityModule as unknown as { assertHeavyGetMetadata?: HeavyGuard })
       .assertHeavyGetMetadata;
+    return guard === undefined ? undefined : (request) => guard(request, () => false);
   }
 
   function heavyRequest(
@@ -837,6 +840,52 @@ describe("request-wide proxy", () => {
     expect(missingDirectHost.status).toBe(403);
   });
 
+  it.each([
+    "/",
+    "/settings",
+    "/company/AAPL",
+    "/company/AAPL/report/1",
+    "/company/AAPL/report/1/print",
+    "/api/report",
+    "/_next/static/chunks/app.js",
+  ])("forbids framing %s by any site, including a framing of itself (F-4)", async (path) => {
+    const loadedModule = await loadProxyModule();
+    const runProxy = proxyFunction(loadedModule);
+    if (runProxy === undefined) return;
+
+    const response = await runProxy(
+      proxyRequest(path, {
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-dest": "document",
+      }),
+    );
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("forbids framing on the proxy's own rejections too (F-4)", async () => {
+    const loadedModule = await loadProxyModule();
+    const runProxy = proxyFunction(loadedModule);
+    if (runProxy === undefined) return;
+
+    for (const response of [
+      await runProxy(proxyRequest("/settings", { host: "evil.example:3000" })),
+      await runProxy(
+        proxyRequest("/company/AAPL", {
+          "sec-fetch-site": "cross-site",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-dest": "iframe",
+        }),
+      ),
+    ]) {
+      expect(response.status).toBe(403);
+      expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
+    }
+  });
+
   it("guards GET and HEAD heavy landings but leaves mutation metadata to route guards", async () => {
     const loadedModule = await loadProxyModule();
     const runProxy = proxyFunction(loadedModule);
@@ -854,6 +903,115 @@ describe("request-wide proxy", () => {
         "x-middleware-next",
       ),
     ).toBe("1");
+  });
+
+  describe("on a plain-HTTP LAN host (F-8)", () => {
+    // Browsers send Fetch Metadata only to potentially trustworthy origins, so a
+    // cross-site <img> aimed at http://<LAN ip>/company/X arrives header-free,
+    // exactly like a script. On the configured LAN host, header-free is not enough.
+    const LAN = "192.168.1.50:3000";
+
+    function lanRequest(path: string, headers: Record<string, string> = {}, method = "GET"): Request {
+      process.env.THESIS_ALLOWED_HOST = LAN;
+      return new Request(`http://${LAN}${path}`, { method, headers: { host: LAN, ...headers } });
+    }
+
+    it.each(["GET", "HEAD"])("rejects a header-free %s company landing with no token", async (method) => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const error = await expect403(await runProxy(lanRequest("/company/AAPL", {}, method)));
+      expect(error).toContain("X-Metis-Token");
+      // The RSC fetch for the same route is guarded the same way.
+      await expect403(await runProxy(lanRequest("/company/AAPL?_rsc=1")));
+    });
+
+    it("rejects a forged cross-site Referer and a wrong token", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const attempts: Record<string, string>[] = [
+        { referer: "http://evil.example/attack.html" },
+        { referer: "http://192.168.1.50:3001/" },
+        { referer: "https://192.168.1.50:3000/" },
+        { referer: "not a url" },
+        { [REQUEST_TOKEN_HEADER]: "0".repeat(64) },
+      ];
+      for (const headers of attempts) {
+        await expect403(await runProxy(lanRequest("/company/AAPL", headers)));
+      }
+      // Checking the token in the proxy never creates the startup token file.
+      expect(existsSync(requestTokenPath())).toBe(false);
+    });
+
+    it("checks the token without minting or writing one", () => {
+      // The proxy compares against the token instrumentation minted at startup;
+      // a request must never be what creates or writes the csrf-token file.
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "a".repeat(64) }))).toBe(false);
+      expect(existsSync(requestTokenPath())).toBe(false);
+      const minted = ensureRequestToken().token;
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: minted }))).toBe(true);
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { "x-thesis-token": minted }))).toBe(true);
+      expect(
+        requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "bad", "x-thesis-token": minted })),
+      ).toBe(false);
+    });
+
+    it("reads the token file when the proxy runs apart from instrumentation (Codex review of PR #48)", () => {
+      // Next may invoke the proxy in a context that cannot see instrumentation's
+      // globals, so the in-memory token is not the only source: the file
+      // instrumentation wrote is read, and never written or replaced.
+      const minted = ensureRequestToken().token;
+      const file = requestTokenPath();
+      _resetRequestTokenForTests();
+      const before = readFileSync(file, "utf8");
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: minted }))).toBe(true);
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "a".repeat(64) }))).toBe(false);
+      expect(readFileSync(file, "utf8")).toBe(before);
+
+      // A file that does not hold a token admits nothing, not even its own text.
+      writeFileSync(file, "not-a-token\n");
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "not-a-token" }))).toBe(false);
+      writeFileSync(file, "\n");
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "" }))).toBe(false);
+      expect(readFileSync(file, "utf8")).toBe("\n");
+    });
+
+    it("accepts the startup token from a script", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const response = await runProxy(lanRequest("/company/AAPL", tokenHeader()));
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+    });
+
+    it("accepts the app's own links, which carry a same-origin Referer", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      for (const referer of [`http://${LAN}/`, `http://${LAN}/company/MSFT?tab=risk`]) {
+        const response = await runProxy(lanRequest("/company/AAPL?_rsc=1", { referer }));
+        expect(response.headers.get("x-middleware-next")).toBe("1");
+      }
+    });
+
+    it("leaves Fetch Metadata, light pages, and loopback as they were", async () => {
+      const runProxy = proxyFunction(await loadProxyModule());
+      if (runProxy === undefined) return;
+
+      const sameOriginMetadata = await runProxy(
+        lanRequest("/company/AAPL", {
+          "sec-fetch-site": "same-origin",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-dest": "empty",
+        }),
+      );
+      expect(sameOriginMetadata.headers.get("x-middleware-next")).toBe("1");
+      expect((await runProxy(lanRequest("/"))).headers.get("x-middleware-next")).toBe("1");
+      expect((await runProxy(lanRequest("/settings"))).headers.get("x-middleware-next")).toBe("1");
+      const loopback = await runProxy(proxyRequest("/company/AAPL", {}));
+      expect(loopback.headers.get("x-middleware-next")).toBe("1");
+    });
   });
 });
 

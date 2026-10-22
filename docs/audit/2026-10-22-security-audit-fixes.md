@@ -1,0 +1,108 @@
+# Security audit fixes (2026-10-22)
+
+Base: `1d90f4b` (main after pull request #45). Scope: batch 8 of the
+2026-10-22 audit, covering findings F-4 to F-8, F-10 and F-11, the prior
+audits' GATE-1 and GATE-22, and DOC-1, which the owner had deferred under
+D-97 item 17. Decision: D-101 in [DECISIONS](DECISIONS.md). The audit
+evidence folders stay out of the repository. Audit batch 1 (pull request
+#47, `fd06eee`) merged first and is merged into this branch.
+
+This change made no paid provider or model calls and no new reports. It
+changes no deterministic figure. The only provider traffic was the data-only
+control run below, served from cached data.
+
+## Disposition
+
+| Finding | Disposition | Commit | Tests |
+|---|---|---|---|
+| F-4 Clickjacking | Fixed. Every response the request-wide proxy passes or rejects carries `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`. The print view opens in a new window, never a frame, so nothing in the app frames itself. | `a4be826` | `tests/api.routes.sameOrigin.test.ts` |
+| F-5 Flags and gap reasons outside the envelope | Fixed. The Stage A data-quality flags and the missing-data manifest are rendered through the untrusted-data envelope, JSON-encoded with `<`, `>` and `&` escaped, and with each entry's line breaks folded to one line. A forged closing marker or `developer:` line in a provider error stays inside the envelope, and the Gemini flattening gets no forged role line. The sections rendered outside the envelopes carry no free provider text: the grades consensus is one of FMP's five rating words or withheld, and statement period labels and FINRA and FRED observation dates must be ISO days. | `0710dc3`, `adfb7f0` | `tests/stageC.untrustedEnvelopes.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/stageC.plainSectionProviderText.test.ts` |
+| F-6 Judge reads raw analyst cases | Fixed. Each analyst case the judge receives is enveloped and labelled model-authored and untrusted, and the shared rule tells the judge to weigh the cases as arguments, never instructions. Review found the same class in three more places where a pass is shown model output again: the rejected output echoed on an analyst or judge repair, and the sections kept from a response that was cut off or dropped part-way, or produced in parts. A JSON parse error quotes the output around the bad token, line breaks included, and is fed back as repair feedback, so it is now folded onto one line. All are enveloped and labelled the same way. | `281462e`, `3326d15`, `f11e6ab`, `d8ec6e2` | `tests/stageC.untrustedEnvelopes.test.ts`, `tests/stageC.payload.passes.test.ts`, `tests/jobRunner.test.ts` |
+| F-7 Web-search results | Fixed. The shared rule now says web-search results and fetched pages are untrusted, to be used only as quoted evidence, and that instructions in them are never followed or repeated. | `dff2d6a` | `tests/stageC.untrustedEnvelopes.test.ts` |
+| F-8 Heavy GET guard on a plain-HTTP LAN host | Fixed. Browsers send Fetch Metadata only to HTTPS or loopback origins, so a cross-site image aimed at a plain-HTTP `METIS_ALLOWED_HOST` arrived header-free and passed as a script. On any non-loopback host a header-free company landing now needs `X-Metis-Token` or a same-origin `Referer`, so a script there should send the token. On a plain-HTTP LAN host a typed or bookmarked company URL, a link from another site, and a Referer-stripping browser are refused. Loopback is unchanged. The proxy checks the token without minting one: it uses the token this process minted, else reads the startup token file, which it never creates or overwrites. PRIVACY.md and `.env.example` state the caveat. | `cdedaa3`, `6f695ed`, `d58a833`, `dae1409` | `tests/api.routes.sameOrigin.test.ts` |
+| F-11 Stray `.gitignore` line | Fixed. The lone `=` line is gone, and every non-comment line must now be a real pattern. | `4397e44` | `tests/repository.release.test.ts` |
+| F-10 Node engines range | Fixed. `engines.node` is `>=24` in `package.json` and the lockfile, the version CI tests and the suite is known to pass on. README, OPERATIONS, the DECISIONS crosswalk and the August remediation spec's crosswalk say so. No Node 22 CI lane is added. The Task 32 fixture comparison pins the lockfile, so its pin rolled forward; only the root engines field changed, and the recomputed projection still matches the audited baseline. | `4761628`, `dc02067`, `1205aac`, `d58a833` | `tests/repository.release.test.ts`, `tests/audit.fixtureComparison.test.ts` |
+| GATE-1 Ambient `METIS_` settings | Fixed. A new shared setup file clears every `METIS_` and `THESIS_` variable (any case) before each test file and restores them afterwards. With ambient overrides aimed at a sentinel directory, the 15 tests in 5 files that failed now pass and nothing is written to the sentinel. | `f33da76` | `tests/setup.hermeticEnv.test.ts` |
+| GATE-22 Incremental typecheck | Not changed; it cannot make a stale typecheck pass in CI. `*.tsbuildinfo` is gitignored and untracked, CI starts from a fresh checkout, and its only cache is npm's (the workflow parity test pins the exact step list, so a build-info cache cannot be added silently). Locally, a warm `tsconfig.tsbuildinfo` still reported a new type error in an edited file and, after an exported return type changed, 8 errors in its unedited dependents. | — | — |
+| DOC-1 Live inference claim | Fixed. PRIVACY.md and the README said no live ChatGPT or Gemini inference had been verified, but complete reports have run live through a ChatGPT connection since October 2026 (reports #40 to #45). Both now say so, and that live Gemini inference has not been verified. | `751bdd3` | `tests/repository.release.test.ts` |
+
+Each fix's new test failed before the fix and passes after it. Some tests
+added alongside pin behaviour that was already right (loopback, light
+pages, requests with Fetch Metadata), and some existing tests were re-pinned to the new
+prompt text. GATE-22 has no test because nothing changed.
+
+## Control run
+
+The 45-ticker control panel (the `oracle-compare.csv` tickers) ran data-only
+from a fresh copy of the same cached data for each side, with zero cost caps
+and the model keys blank.
+
+- Base `1d90f4b` against the batch: 45 of 45 finished on both sides, no
+  census column changed, the gap families matched, and the Stage B output
+  differed only in `builtAt`. Debt was within 5% of `oracle-compare.csv` for
+  28 of the 33 tickers with a figure, with identical values on both sides.
+- Batch 1's head `fd06eee` against this branch after the merge, with
+  outbound traffic blocked so both sides served the same cache: 45 of 45
+  finished, all 57 census columns matched except the run time, the gap
+  families matched, and the Stage B output differed only in `builtAt`. An
+  earlier pair run with the network open differed only because one side's
+  background refresh fetched FRED's next 10-year Treasury observation.
+
+## Version stamps
+
+The envelopes change the serialized prompt, so the payload fingerprint moves
+(`tests/stageC.payload.passes.test.ts` re-pins it, dated). No calculation or
+payload field changes meaning, so payload 1.41.0 and report spec 1.36.0 (as Batch 1 left them) stay.
+A partial report whose analyst passes ran before this change cannot resume
+after it: the resume stops on the fingerprint mismatch and asks for a fresh job.
+The repair and continuation turns are not part of the payload, so their new
+wording does not move the fingerprint.
+
+## Review
+
+An independent review and a code review read the batch before it was opened.
+
+- Fixed from review: the repair echo and the continuation and part turns
+  (F-6 row); the proxy's token check minted a token (F-8 row); the Node-lane
+  test read jobs without `setup-node`; the news block now reuses the shared
+  envelope helper (byte-identical output); the F-8 wording, which said
+  "plain-HTTP" where the rule covers any non-loopback host and did not name
+  cross-site links or Referer-stripping browsers.
+- Kept: `<`, `>` and `&` inside enveloped text are written as JSON Unicode
+  escapes, as filings and transcripts have been for months; the stored
+  reports #34 to #45 quote none of these escapes back. The GATE-1 test runs a
+  nested Vitest process, as `tests/setup.nativeSqliteTiming.test.ts` already
+  does.
+- Fixed from the second review, which read the fixes above: a JSON parse
+  error quotes the output around the bad token, line breaks included, and
+  went back to the model outside the envelope; it is now folded onto one
+  line. The repair echo counted `chars=` on its JSON form; it now counts the
+  raw text like every text envelope, and only a value with no raw form (an
+  analyst case, the kept sections) counts its JSON. Tests now show that the
+  proxy never writes the token file and that a CI job with `setup-node` but no
+  `node-version` fails the Node check. The docs say a script on a LAN host
+  should, not must, send the token.
+- Fixed from the Codex review of PR #48: Next may run the proxy where
+  instrumentation's globals are not visible, so the token check read only
+  the in-memory token and could refuse the right token from the file. It now
+  falls back to reading the startup token file, which it never writes, and
+  accepts only a 64-character hex token from it (`dae1409`). A later pass
+  found the analyst grades consensus quoted verbatim in the estimates
+  section, which renders outside the envelopes. That section and the other
+  unenveloped ones now carry only allowlisted rating words and checked ISO
+  dates (F-5 row, `adfb7f0`).
+
+## Not changed
+
+- Text the audit's demonstration showed outside the envelopes, the
+  institutional-holdings title quarter and the FRED attribution, is built by
+  code from dates and a constant, not from provider text.
+- The Gemini transport still flattens messages as `role:` lines. Provider
+  text and model output that reach the prompt are JSON-encoded inside an
+  envelope, a validation error quotes a field value through
+  `JSON.stringify`, and a JSON parse error is folded onto one line, so none of
+  them can start a line; per-message JSON framing was
+  not adopted.
+- A reverse proxy that rewrites `Host` to a loopback name makes every request
+  look local to the Host checks. That limit predates this batch and is left
+  for later.

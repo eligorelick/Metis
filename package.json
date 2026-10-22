@@ -23,7 +23,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "author": "Eli Gorelick",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=24"
   },
   "overrides": {
     "postcss": "$postcss",

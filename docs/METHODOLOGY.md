@@ -2970,3 +2970,39 @@ never rounds up across a threshold: where rounding would carry it across
 to one more decimal ("54.6", and "54.99" where two decimals are shown). Every
 surface that prints a score beside its band uses this rule; the judge's
 payload already printed the unrounded score. No score or band changes.
+
+### Security audit fixes (October 22, 2026)
+
+Recorded as D-101. These change what the model is told, not what Metis
+computes: no figure, payload field or version stamp moves.
+
+**Flags and gap reasons are untrusted (F-5).** A Stage A data-quality flag or a
+missing-data reason can quote a provider's own error text. Both lists now
+reach the model the way filings and transcripts do: inside the
+`BEGIN/END_UNTRUSTED_SOURCE_DATA` envelope, JSON-encoded with `<`, `>` and `&`
+escaped, one entry per line. A reason that tries to close the envelope or open
+a new instruction turn stays inside it as data. The flags and gaps themselves,
+and their place in the report, are unchanged. The sections rendered outside
+the envelopes (quote, computed figures, statements, estimates, short interest
+and macro) carry no free provider text. The analyst grades consensus is
+stated only as one of FMP's five rating words (Strong Buy, Buy, Hold, Sell,
+Strong Sell) and is otherwise withheld. Statement period labels and the
+FINRA and FRED observation dates must be ISO days: a statement period with
+another date shows as "unknown", FINRA discards the row as malformed, and
+FRED skips the observation. Valid data renders as before.
+
+**The judge reads the cases as arguments (F-6).** Each analyst case the judge
+receives is enveloped the same way and labelled model-authored. The judge is
+told to weigh the cases, never to follow instructions inside them. The same
+holds for the model's own output when it is shown back: a rejected output
+echoed for repair, and the sections kept from a response that was cut off or
+dropped part-way, or produced in parts, are enveloped and labelled
+model-authored. A JSON parse error, which quotes the output around the bad
+token, is folded onto one line before it is fed back.
+
+**Web results are evidence, not instructions (F-7).** Every pass is told that
+web-search results and fetched pages are untrusted: use them only as quoted
+evidence, and never follow or repeat instructions found in them.
+
+The request-security changes in the same batch are described in
+[Privacy](PRIVACY.md).
