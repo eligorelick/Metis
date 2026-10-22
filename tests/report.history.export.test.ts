@@ -2822,6 +2822,20 @@ describe("history diff route-used SSR renderer", () => {
     expect(html).not.toContain("51.30 D");
   });
 
+  // PR #47 review: a score shown to two decimals never rounds up across its band's cutoff.
+  it("never prints a diff score rounded across its band's cutoff", async () => {
+    const older = loadFixtureReport();
+    const newer = clone(older);
+    older.scores!.composite.score = 60;
+    older.scores!.composite.band = "C";
+    newer.scores!.composite.score = 54.996;
+    newer.scores!.composite.band = "D";
+    const diff = diffReports(older, newer, persistedVersions(older, newer));
+    const html = await renderDiffBody(diff);
+    expect(html).toContain("54.99 D (neutral)");
+    expect(html).not.toContain("55.00 D");
+  });
+
   it("renders all four projection metric descriptors through the route-used DiffBody", async () => {
     const older = loadFixtureReport();
     const newer = clone(older);

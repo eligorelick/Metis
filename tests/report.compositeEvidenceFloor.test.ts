@@ -4,7 +4,11 @@
  * its one scored aspect a technicals B; a technicals score of 50.4 printed as
  * D, and the judge read it as weak momentum.
  */
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+
+import { ScorePill } from "@/components/ui";
 
 import { runStageB } from "@/pipeline/compute";
 import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
@@ -15,6 +19,7 @@ import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { scoreAuditTables } from "@/report/auditTables";
 import { keyDataRows, scorecardTable } from "@/report/presentation";
+import { formatScore, SCORE_BAND_CUTOFFS } from "@/report/scoreText";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { loadTask28Fixture, task28SentinelReport } from "./helpers/task28Report";
 
@@ -110,5 +115,50 @@ describe("a score within 45–55 is labelled neutral (audit 2026-10-22 F-19)", (
     computed.scores.aspects.technicals = { ...computed.scores.aspects.technicals, score: 50, band: "D" };
     const prompt = serializePayloadForPrompt(assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] }));
     expect(prompt).toMatch(/technicals score[^\n]*0-100 \(grade D, neutral 45–55\)/);
+  });
+});
+
+describe("a shown score never rounds across its band's cutoff (PR #47 review)", () => {
+  it("keeps the whole number unless rounding would cross a cutoff, then shows the decimal that stays below it", () => {
+    expect([54.6, 69.96, 54.4, 55, 84.5, 39.5, 50.5].map((score) => formatScore(score))).toEqual(["54.6", "69.9", "54", "55", "84.5", "39.5", "51"]);
+    expect(formatScore(54.996, 2)).toBe("54.99");
+    expect(formatScore(50, 2)).toBe("50.00");
+    expect(formatScore(null)).toBe("n/a");
+    // The cutoffs are the band table's: each one changes the letter.
+    for (const cutoff of SCORE_BAND_CUTOFFS) expect(scoreToBand(cutoff)).not.toBe(scoreToBand(cutoff - 0.01));
+  });
+
+  it("prints 54.6 beside D and 69.6 beside C on every surface, and changes no band", () => {
+    for (const [score, band] of [[54.6, "D"], [69.6, "C"]] as const) {
+      const report = reportWith(1, score);
+      expect(report.scores!.composite.band).toBe(band);
+      const shown = String(score);
+      expect(keyDataRows(report).find((r) => r.label === "Composite grade")!.value).toMatch(new RegExp(`^${band}\\b.*\\(${shown}/100\\)$`));
+      expect(reportToMarkdown(report)).toContain(`**Composite: ${shown} / 100 (`);
+      expect(reportToPrintBody(report)).toContain(`Composite: <strong class="mono">${shown} / 100</strong>`);
+      const technicals = scorecardTable(report.scores!).rows.find((row) => row[0] === "Technicals")!;
+      expect(technicals.slice(1, 3)).toEqual([shown, band === "D" ? "D (neutral)" : "C"]);
+    }
+  });
+
+  it("prints the score pill's number below the cutoff its band sits under", () => {
+    const html = renderToStaticMarkup(createElement(ScorePill, { score: 54.6, band: "D", neutral: true }));
+    expect(html).toContain("54.6");
+    expect(html).not.toMatch(/>55</);
+  });
+
+  it("does the same in the audit tables, the data-only reasoning and the judge payload", () => {
+    const scores = reportWith(0.9, 50).scores!;
+    scores.assessments!.businessQuality = { score: 54.996, band: "D", basis: "" };
+    expect(scoreAuditTables(scores).find((t) => t.heading === "Assessment dimensions")!.rows[0]![1]).toBe("54.99 / D (neutral)");
+    const bundle = completeCurrencyBundle({});
+    const computed = runStageB(bundle);
+    computed.scores.aspects.technicals = { ...computed.scores.aspects.technicals, score: 69.96, band: "C", dataCompleteness: 1 };
+    const report = enrichDataOnlyReport(loadTask28Fixture(), { bundle, computed, reason: "synthetic unit test" });
+    expect(JSON.stringify(report.technicals)).toContain("score 69.96/100 maps to band C");
+    expect(JSON.stringify(report.technicals)).toContain("Deterministic score 69.9/100 (raw band C)");
+    const prompt = serializePayloadForPrompt(assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] }));
+    // The payload prints the score unrounded beside its grade.
+    expect(prompt).toMatch(/technicals score: 69\.96 0-100 \(grade C\)/);
   });
 });

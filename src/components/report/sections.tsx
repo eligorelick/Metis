@@ -15,6 +15,7 @@
 
 import type { ReactNode } from "react";
 import { compositeDisplay, compositeNote, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
@@ -361,7 +362,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
               {SCORE_SURFACE_BY_KEY.composite.label.toLowerCase()}
             </span>
             <span className="mono text-[30px] leading-none text-fg">
-              {c.score === null ? "n/a" : Math.round(c.score)}
+              {formatScore(c.score)}
             </span>
           </div>
           {c.band && (shown.grade === null

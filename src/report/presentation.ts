@@ -16,6 +16,7 @@ import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -1617,7 +1618,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
       const weight = scores.composite.weights[key];
       return [
         SCORE_ASPECT_LABEL[key],
-        aspect.score === null ? "—" : String(Math.round(aspect.score)),
+        aspect.score === null ? "—" : formatScore(aspect.score),
         // D-67: the letter is withheld under the evidence floor on every surface.
         hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : withNeutral(aspect.band, aspect.score),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
@@ -1646,9 +1647,9 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
   const a = scores.assessments;
   if (!a) return null;
   return [
-    `Business quality ${a.businessQuality.score === null ? "—" : formatNumber(a.businessQuality.score, 0)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
+    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
-    `price attractiveness ${a.valuation.score === null ? "—" : formatNumber(a.valuation.score, 0)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
+    `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
     `evidence available for ${formatPct(a.evidenceCompleteness * 100, 0)} of the signal weight`,
   ].join(" · ");
 }

@@ -24,6 +24,7 @@ import type { ReactNode } from "react";
 
 import { Badge, GradeChip, type Tone } from "@/components/ui";
 import { gradeContractText, gradeDisplayLabel, gradeForDisplay, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import type {
   GradeBlock,
@@ -247,7 +248,7 @@ export function HeadlineGrade({ block, aspect }: { block: GradeBlock; aspect?: A
   if (grade === null && block.assessmentStatus === "limited-evidence" && hasLimitedEvidence(aspect)) {
     return (
       <span className="mono text-[10px] text-warn" aria-label="not assessed — limited evidence" title={gradeDisplayLabel(block, aspect)}>
-        {Math.round(aspect!.score ?? 0)}/100 · limited evidence
+        {formatScore(aspect!.score ?? 0)}/100 · limited evidence
       </span>
     );
   }

@@ -1,4 +1,5 @@
 import type { AspectScore, GradeBlock, Report, Scoring } from "@/report/schema";
+import { formatScore } from "@/report/scoreText";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 import type { Grade } from "@/types/core";
 
@@ -62,8 +63,8 @@ export function compositeText(scores: Pick<Scoring, "composite" | "assessments">
   const score = scores.composite.score;
   if (score === null) return view.label;
   return view.grade === null && view.label !== "—"
-    ? `${view.label} (score ${Math.round(score)}/100)`
-    : `${view.label} (${Math.round(score)}/100)`;
+    ? `${view.label} (score ${formatScore(score)}/100)`
+    : `${view.label} (${formatScore(score)}/100)`;
 }
 
 /** The evidence share and the band thresholds, printed beside the composite. */
@@ -147,7 +148,7 @@ export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): b
  * same floor to its own route-applicable evidence (F-19, `compositeDisplay`).
  */
 export function limitedEvidenceText(aspect: AspectEvidence): string {
-  return `score ${Math.round(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${Math.round(aspect.dataCompleteness * 100)}% of signals`;
+  return `score ${formatScore(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${Math.round(aspect.dataCompleteness * 100)}% of signals`;
 }
 
 /**

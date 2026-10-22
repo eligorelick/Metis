@@ -49,6 +49,7 @@ import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { compositeDisplay, hasLimitedEvidence, withNeutral } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
+import { formatScore } from "@/report/scoreText";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
   applyDcfDisplay,
@@ -133,6 +134,12 @@ function fact(text: string, source: string, asOf: string | null): SourcedClaim {
 
 function fmtNum(v: number, dp = 2): string {
   return v.toLocaleString("en-US", { maximumFractionDigits: dp, minimumFractionDigits: 0 });
+}
+
+/** A 0-100 score as `fmtNum` prints it, never rounded across a band cutoff. */
+function fmtScore(v: number, dp: number): string {
+  const text = formatScore(v, dp);
+  return text.includes(".") ? text.replace(/\.?0+$/, "") : text;
 }
 
 function fmtPct(v: number, dp = 1): string {
@@ -268,10 +275,10 @@ function gradeBlock(
   return {
     grade: aspect.band,
     assessmentStatus: limited ? "limited-evidence" : "deterministic",
-    oneLineWhy: `${limited ? "Not assessed — limited evidence. " : ""}Deterministic score ${fmtNum(aspect.score, 1)}/100 (raw band ${withNeutral(aspect.band, aspect.score)}) on ${completenessPct}% of intended signals; no completed analyst assessment is available.`,
+    oneLineWhy: `${limited ? "Not assessed — limited evidence. " : ""}Deterministic score ${fmtScore(aspect.score, 1)}/100 (raw band ${withNeutral(aspect.band, aspect.score)}) on ${completenessPct}% of intended signals; no completed analyst assessment is available.`,
     reasoning: [
       fact(
-        `Deterministic ${ASPECT_LABEL[key]} score ${fmtNum(aspect.score, 2)}/100 maps to band ${withNeutral(aspect.band, aspect.score)} under the versioned house band table; ${completenessPct}% of the aspect's intended signal weight had data. ${aspect.note}`,
+        `Deterministic ${ASPECT_LABEL[key]} score ${fmtScore(aspect.score, 2)}/100 maps to band ${withNeutral(aspect.band, aspect.score)} under the versioned house band table; ${completenessPct}% of the aspect's intended signal weight had data. ${aspect.note}`,
         source,
         asOf,
       ),
@@ -777,7 +784,7 @@ function synthesis(
     // Audit 2026-10-22 F-19: the composite carries the aspects' evidence floor.
     const shown = compositeDisplay(computed.scores);
     parts.push(
-      `The deterministic composite score is ${fmtNum(composite.score, 1)}/100 (${shown.grade === null ? shown.label.replace(/^Not/, "not") : `band ${shown.label}`}); aspect bands — ${bands}.`,
+      `The deterministic composite score is ${fmtScore(composite.score, 1)}/100 (${shown.grade === null ? shown.label.replace(/^Not/, "not") : `band ${shown.label}`}); aspect bands — ${bands}.`,
     );
   }
   const fv = computed.fairValue;

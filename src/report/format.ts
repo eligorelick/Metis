@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { collapseDuplicateLegacyCitationDates } from "@/pipeline/stageC/citations";
 import type { TracedNumber } from "@/report/schema";
+import { formatScore } from "@/report/scoreText";
 
 export const CanonicalFinancialUnitSchema = z.enum([
   "percent",
@@ -214,7 +215,7 @@ function formatPipelineUnit(value: number, unit: string): string | null {
     case "rsi":
       return formatNumber(value, Math.abs(value) >= 10 ? 1 : 2);
     case "0-100":
-      return `${formatNumber(value, 0)}/100`;
+      return `${formatScore(value)}/100`;
     default:
       return null;
   }

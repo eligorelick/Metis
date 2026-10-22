@@ -7,6 +7,7 @@
  */
 
 import type { ReactNode } from "react";
+import { formatScore } from "@/report/scoreText";
 import type { Grade, ManifestEntry } from "@/types/core";
 
 export type Tone = "neutral" | "pos" | "neg" | "warn" | "accent" | "muted";
@@ -144,9 +145,9 @@ export function ScorePill({
         borderColor: color,
         backgroundColor: "color-mix(in srgb, " + color + " 12%, transparent)",
       }}
-      aria-label={`score ${Math.round(score)} of 100, grade ${band}${neutral ? ", neutral" : ""}`}
+      aria-label={`score ${formatScore(score)} of 100, grade ${band}${neutral ? ", neutral" : ""}`}
     >
-      {Math.round(score)}
+      {formatScore(score)}
       <span className="text-[9px] opacity-80">{band}{neutral ? " neutral" : ""}</span>
     </span>
   );
