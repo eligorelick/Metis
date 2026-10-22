@@ -68,6 +68,29 @@ describe("noncurrent notes and loans (audit 2026-10-22 B-14)", () => {
     expect(row.totalDebt).toBeNull();
     expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/LongTermDebt 125337000000 exceeds/);
   });
+
+  // PR #47 review: vendor statement rows reach Stage B through admitDebtFields
+  // alone, so the same tagged-total check runs there too.
+  const vendorRow = (longTermDebt: number) => ({
+    date: "2026-08-31", reportedCurrency: "USD", cik: "0001341439", shortTermDebt: 7.625 * B, longTermDebt, financeLeaseLiability: 9.185 * B,
+    totalDebt: 7.625 * B + longTermDebt + 9.185 * B, cashAndCashEquivalents: 36.369 * B, netDebt: 7.625 * B + longTermDebt + 9.185 * B - 36.369 * B,
+  });
+  const admitVendor = (longTermDebt: number) => admitDebtFields(vendorRow(longTermDebt) as never, fixture.issuers.ORCL.facts as unknown as CompanyFacts, "USD", `${fixture.asOf}T00:00:00.000Z`);
+
+  it("withholds a vendor row's debt that the filer's tagged total shows to be partial", () => {
+    const { row, gaps } = admitVendor(50 * B);
+    const admitted = row as unknown as Row;
+    expect(admitted.totalDebt).toBeNull();
+    expect(admitted.netDebt).toBeNull();
+    expect(admitted.fieldConflicts?.totalDebt?.reason).toMatch(/same-period LongTermNotesAndLoans 117712000000 exceeds the composed current and noncurrent financing debt and finance leases 66810000000/);
+    expect(gaps.map((gap) => gap.field)).toContain("statements.balance.2026-08-31.totalDebt");
+  });
+
+  it("keeps a vendor row whose components cover the tagged total", () => {
+    const admitted = admitVendor(117.712 * B).row as unknown as Row;
+    near(admitted.totalDebt, 134.522 * B);
+    expect(admitted.fieldConflicts?.totalDebt).toBeUndefined();
+  });
 });
 
 describe("long-term debt including current maturities (audit 2026-10-22 B-15, B-17)", () => {

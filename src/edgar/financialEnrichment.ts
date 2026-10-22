@@ -1,7 +1,7 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
-import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason } from "@/edgar/debtCompleteness";
+import { DEBT_AGGREGATE_TAGS, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -340,7 +340,12 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const reason = componentReason ?? presentationReason ?? convertibleReason ??
     (scopeReason !== null && !splitOnly ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason(splitOnly ? { shortTermDebt: 0,
       longTermDebt: inclusiveTotal, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }
-      : { shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null));
+      : { shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null)) ??
+    // The statements builder's tagged-total check (B-14), for vendor rows that
+    // never pass through it: a same-period total above the composed components
+    // shows one is missing. A kept inclusive total has no split to compose.
+    (splitOnly ? null : uncomposedDebtReason({ shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability },
+      DEBT_AGGREGATE_TAGS.map((tag) => ({ tag, value: instant(facts, tag, currency, row.date!, observedAt)?.value ?? null }))));
   for (const field of ["totalDebt", "netDebt"] as const) {
     const prior = out.fieldConflicts?.[field];
     if (reason === null && prior?.usable !== false) continue;
