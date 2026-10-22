@@ -1824,7 +1824,10 @@ non-positive terminal ROIC substitutes zero reinvestment with a note. Negative
 terminal growth is not floored here. Missing net debt prevents EV-to-equity
 bridging; missing/non-positive diluted shares prevents per-share valuation.
 Preferred and minority claims are subtracted separately, with null treated as
-zero. The bridge recorded on the base result is reused by scenario reruns.
+zero. Minority interest is subtracted at book, or at its share of trailing
+consolidated profit when that is the larger claim above 10% ("NCI on the
+earnings key in the DCF bridge", above). The bridge recorded on the base result
+is reused by scenario reruns.
 
 **Domain of the model** (audit 2026-10-22 B-29). The base DCF is outside its
 domain, and publishes no fair value, when either test fails:
@@ -1842,6 +1845,19 @@ per-share value is withheld, and nothing built from it is published: no
 sensitivity grid, growth × margin grid, reverse DCF or scenario targets. The
 valuation grade treats the DCF upside and the reverse-DCF signals as missing.
 The year rows and the bridge stay visible, so the reader can see why.
+
+**House base rate** (audit 2026-10-22 B-30). The house conventions value most
+large caps well below price, and a reader needs to know that before reading any
+one value. The base rate comes from the audit census of 2026-10-22 (FRED DGS10
+5.12% on 2026-10-20, ERP 4.18%, terminal growth capped at 2.5%): 16 of 18
+general-route DCFs in the 2026-10-22 audit census were below price (median
+−53%; 15 of 18 more than 30% below). The Key data note under a general-route
+"Model fair value (DCF)" states it beside the upside, as "house base rate: …"
+(`DCF_BASE_RATE_CENSUS`). The excess-return and REIT routes do not show it,
+because the census figure describes only the FCFF DCF. It is a dated panel, not
+a live statistic, and changes only with a new census. This batch only discloses
+the base rate. The calibration behind it (B-3) and the valuation band's
+dependence on it (B-33) are left for a later batch.
 
 The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
 percentage points (D-60; ±1pp spanned less than one regression beta's

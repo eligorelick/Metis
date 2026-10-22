@@ -309,6 +309,21 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
   ];
 }
 
+/**
+ * HOUSE CONVENTION base rate (audit 2026-10-22 B-30): how the general-route
+ * FCFF DCF compared with price across the audit's census of large caps. Stated
+ * beside every general-route DCF headline so one value far below price is read
+ * against how often the house model sits there. A dated panel, not a live
+ * statistic: update it only from a new census.
+ */
+export const DCF_BASE_RATE_CENSUS = { asOf: "2026-10-22", companies: 18, belowPrice: 16, medianUpsidePct: -53, moreThan30PctBelow: 15 } as const;
+
+export function dcfBaseRateText(): string {
+  const c = DCF_BASE_RATE_CENSUS;
+  return `house base rate: ${c.belowPrice} of ${c.companies} general-route DCFs in the ${c.asOf} audit census were below price ` +
+    `(median ${c.medianUpsidePct < 0 ? "−" : "+"}${Math.abs(c.medianUpsidePct)}%; ${c.moreThan30PctBelow} of ${c.companies} more than 30% below)`;
+}
+
 /** E-5: the reader-facing basis of the NCI deduction in the bridge. */
 function noncontrollingBasisText(bridge: DcfBridge): string {
   const share = bridge.noncontrollingEarningsShare;
