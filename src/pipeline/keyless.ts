@@ -1435,8 +1435,32 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       : (built?.shareBasisWithheld.find(
           (w) => w.concept === `dei:${DEI_SHARES_TAG}` || w.concept === BALANCE_SHEET_SHARES_TAG,
         )?.reason ?? null);
+  // The statements builder reads the form on the facts it actually used, so
+  // `filesTwentyF` describes the periods this profile reports. The submissions
+  // form list is only a fallback for when no statement row could be built (no
+  // companyfacts, or an IFRS filer whose facts sit outside us-gaap): it spans
+  // up to a thousand recent filings, so a single historical 20-F would
+  // otherwise flag an issuer that has since converted to domestic 10-K
+  // reporting as an ADR forever.
+  const builtRows = built !== null && [built.incomeAnnual, built.incomeQuarterly, built.balanceAnnual, built.balanceQuarterly,
+    built.cashflowAnnual, built.cashflowQuarterly].some((statement) => statement.rows.length > 0);
+  const isAdr = builtRows
+    ? built!.filesTwentyF
+    : registrant?.forms.some((form) => form.trim().startsWith("20-F") || form.trim().startsWith("40-F")) ?? false;
+  // A 20-F filer's quote may be a depositary share while its cover count is of
+  // ordinary shares (TSM: 1 ADS = 5 shares), and no filed fact read here
+  // states the ratio. Price × count is then not a market capitalization, for
+  // the latest count and for every derived history day alike. A 40-F filer is
+  // a Canadian MJDS issuer whose quoted security is its common share.
+  const filesForm20F = builtRows
+    ? built!.filesForm20F
+    : registrant?.forms.some((form) => form.trim().startsWith("20-F")) ?? false;
+  const depositaryIssue = filesForm20F
+    ? `the issuer files Form 20-F, so the quoted security may be an American depositary share while dei:${DEI_SHARES_TAG} ` +
+      "counts ordinary shares; no filed evidence read here establishes the ordinary shares per quoted share, so price × the filed count is withheld rather than published as a market cap"
+    : null;
   const spotIssue = price === null || outstanding === null ? null : basisGap(priceBasisDay, basisDay);
-  const marketCap = price !== null && outstanding !== null && spotIssue === null ? price * outstanding.value : null;
+  const marketCap = price !== null && outstanding !== null && spotIssue === null && depositaryIssue === null ? price * outstanding.value : null;
   if (splits !== null && splits.events.length > 0 && deiShares.length > 0) {
     notes.push(`keyless share counts: each is put on the share basis of the price it meets, across ${describeSplits(splits)}`);
   }
@@ -1497,6 +1521,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       );
       if (outstanding === null && outstandingWithheld !== null) {
         withheldForBasis("keyless.profile.marketCap", "market cap", [basisDay], new Set([`every filed share count was withheld: ${outstandingWithheld}`]));
+      } else if (depositaryIssue !== null) {
+        gaps.push({ field: "keyless.profile.marketCap", reason: `market cap withheld: ${depositaryIssue}`, severity: "warn",
+          attemptedSources: ["edgar:submissions", `edgar:companyfacts dei/${DEI_SHARES_TAG}`] });
+        notes.push(`keyless.profile.marketCap: withheld: ${depositaryIssue}`);
       } else if (outstanding !== null && spotIssue !== null) {
         withheldForBasis("keyless.profile.marketCap", "market cap", [priceBasisDay ?? inputs.today], new Set([spotIssue]));
       } else if (outstanding !== null) {
@@ -1545,15 +1573,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         instrumentType: instrument.instrumentType,
         ...(metaResult?.ok ? { instrumentTypeEvidence: { source: metaResult.value.source,
           endpoint: metaResult.value.endpoint, asOf: metaResult.value.asOf, fetchedAt: metaResult.value.fetchedAt } } : {}),
-        // The statements builder reads the form on the facts it actually used,
-        // so `filesTwentyF` describes the periods this profile reports. The
-        // submissions form list is only a fallback for when no statements could
-        // be built at all: it spans up to a thousand recent filings, so a single
-        // historical 20-F would otherwise flag an issuer that has since
-        // converted to domestic 10-K reporting as an ADR forever.
-        isAdr: built !== null
-          ? built.filesTwentyF
-          : registrant.forms.some((form) => form.trim().startsWith("20-F") || form.trim().startsWith("40-F")),
+        isAdr,
         isActivelyTrading: true,
         description: null,
         ceo: null,
@@ -1578,11 +1598,14 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       // Yahoo's chart meta has no share count, so the market cap is EDGAR's.
       const quoteIssue = outstanding === null ? null : basisGap(quoteResult.value.asOf, basisDay);
       const rows = quoteResult.value.data.rows.map((quoteRow) =>
-        outstanding !== null && quoteIssue === null && isFiniteNumber(quoteRow.price)
+        outstanding !== null && quoteIssue === null && depositaryIssue === null && isFiniteNumber(quoteRow.price)
           ? { ...quoteRow, marketCap: quoteRow.price * outstanding.value }
           : quoteRow,
       );
-      if (quoteIssue !== null) {
+      if (depositaryIssue !== null) {
+        gaps.push({ field: "keyless.quote.marketCap", reason: `quote market cap withheld: ${depositaryIssue}`, severity: "warn",
+          attemptedSources: ["edgar:submissions", `edgar:companyfacts dei/${DEI_SHARES_TAG}`] });
+      } else if (quoteIssue !== null) {
         withheldForBasis("keyless.quote.marketCap", "quote market cap", [quoteResult.value.asOf], new Set([quoteIssue]));
       }
       members.quote = {
@@ -1704,7 +1727,9 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     return derived;
   };
 
-  if (needs("marketCapHistory")) {
+  if (needs("marketCapHistory") && depositaryIssue !== null) {
+    failKeyless("marketCapHistory", `no market-cap history: ${depositaryIssue}`, ["edgar:submissions", `edgar:companyfacts dei/${DEI_SHARES_TAG}`]);
+  } else if (needs("marketCapHistory")) {
     const rows = deriveMarketCaps(() => true, {});
     if (rows.length === 0) {
       failKeyless(
@@ -1720,6 +1745,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     }
   } else if (
     inputs.edgarConfirmedIssuer &&
+    depositaryIssue === null &&
     inputs.fmp.marketCapHistory.ok &&
     isPlanLimited(inputs.fmp.marketCapHistory.value.data)
   ) {

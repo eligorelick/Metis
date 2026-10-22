@@ -7,6 +7,7 @@
  */
 
 import type { ReactNode } from "react";
+import { formatScore } from "@/report/scoreText";
 import type { Grade, ManifestEntry } from "@/types/core";
 
 export type Tone = "neutral" | "pos" | "neg" | "warn" | "accent" | "muted";
@@ -118,9 +119,12 @@ export function GradeChip({ grade }: { grade: Grade | "not-assessed" | null }) {
 export function ScorePill({
   score,
   band,
+  neutral = false,
 }: {
   score: number | null;
   band: Grade | null;
+  /** The score sits in the 45–55 neutral range (audit 2026-10-22 F-19). */
+  neutral?: boolean;
 }) {
   if (score === null || band === null) {
     return (
@@ -141,10 +145,10 @@ export function ScorePill({
         borderColor: color,
         backgroundColor: "color-mix(in srgb, " + color + " 12%, transparent)",
       }}
-      aria-label={`score ${Math.round(score)} of 100, grade ${band}`}
+      aria-label={`score ${formatScore(score)} of 100, grade ${band}${neutral ? ", neutral" : ""}`}
     >
-      {Math.round(score)}
-      <span className="text-[9px] opacity-80">{band}</span>
+      {formatScore(score)}
+      <span className="text-[9px] opacity-80">{band}{neutral ? " neutral" : ""}</span>
     </span>
   );
 }

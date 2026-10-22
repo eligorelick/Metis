@@ -31,7 +31,8 @@ import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
@@ -355,9 +356,13 @@ function sectionScores(scores: Scoring): string {
   const c = scores.composite;
   const card = scorecardTable(scores);
   const assessment = assessmentLine(scores);
-  const compositeChip = c.band ? `<span class="chip ${gradeClass(c.band)}">${esc(c.band)}</span>` : DASH;
+  // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+  const shown = compositeDisplay(scores);
+  const compositeChip = c.band === null ? DASH
+    : `<span class="chip ${gradeClass(shown.grade ?? "unavailable")}">${esc(shown.label)}</span>`;
   return `<section class="block"><h3>Scorecard (deterministic)</h3>
-    <p>Composite: <strong class="mono">${c.score === null ? DASH : Math.round(c.score)} / 100</strong> ${compositeChip}</p>
+    <p>Composite: <strong class="mono">${c.score === null ? DASH : formatScore(c.score)} / 100</strong> ${compositeChip}</p>
+    <p class="faint">${esc(compositeNote(scores))}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
     ${bodyTables([scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}

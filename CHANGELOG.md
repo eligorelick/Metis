@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.35.0** and
-payload **1.40.0** (deferred AMZN audit fixes, 2026-10-20). The checked-in
+Current source declares application **0.1.0**, report spec **1.36.0** and
+payload **1.41.0** (audit batch 1, headline numbers, 2026-10-22). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -16,6 +16,16 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed audit batch 1: headline numbers (2026-10-22)
+
+- Read hyphenated outlook ranges ("$73-76 billion", "15-17%") with their scale and sign, label named-year outlooks as fiscal years (a quarter named only as a comparison base does not make one quarterly), and leave a revenue guide outside 0.2–5× the latest quarter out of the DCF anchor and the outlook table (B-25).
+- Withhold a 20-F filer's depositary-share market cap the filings cannot scale, instead of multiplying the ADS price by the ordinary-share count (TSM $11.2T), and label a market cap Métis computes as derived (B-19).
+- Read `LongTermNotesAndLoans` and `LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities` into long-term debt without counting current debt twice, and withhold total debt that a same-period tagged total shows to be partial, on vendor statement rows too (B-14, B-15, B-17: ORCL, CVX).
+- Test debt plausibility on the average of the year's balances and withhold an unexplained collapse, reading repayments alone when no net issuance is disclosed (B-16).
+- Keep an inclusive `LongTermDebt` total when only its current/noncurrent split is refused (B-40: PLD), and refuse a maturity bucket the balance sheet does not carry as current debt (A-10: META).
+- Withhold the composite letter below evidence for 50% of the route-applicable signal weight, and mark a band letter for a score that rounds to 45–55 "neutral"; never print a score rounded across its band's threshold (54.6, not 55, beside D) (F-19).
+- Report 1.36.0, payload 1.41.0 and Stage B ACCOUNTING_EVIDENCE_18 (D-100). See the [disposition record](docs/audit/2026-10-22-audit-batch1-headline-numbers.md).
 
 ## Unreleased - dependency security patches (2026-10-22)
 

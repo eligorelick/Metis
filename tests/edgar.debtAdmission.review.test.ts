@@ -23,7 +23,8 @@ describe("review: rejected debt operands never establish another carrying compon
     const { built, row } = withDebt("LongTermDebt");
     expect(row.shortTermDebt).toBeNull();
     expect(row.longTermDebt).toBeNull(); // Previously20B - rejected6.184B =13.816B.
-    expect(row.totalDebt).toBeNull();
+    // The inclusive total never depended on the split (audit 2026-10-22 B-40).
+    expect(row.totalDebt).toBe(20_000 * M + (row.capitalLeaseObligations ?? 0));
     expect(row.fieldConflicts?.longTermDebt).toMatchObject({ usable: false, reason: expect.stringMatching(/current.*carrying|carrying.*current/i) });
     expect(built.balanceQuarterly.withheld).toContainEqual(expect.objectContaining({ field: "longTermDebt", periods: [end] }));
   });

@@ -517,6 +517,7 @@ describe("buildStatementsFromCompanyFacts — edge cases", () => {
     expect(built.incomeAnnual.rows[0]!.reportedCurrency).toBe("EUR");
     expect(built.reportedCurrency).toBe("EUR");
     expect(built.filesTwentyF).toBe(true);
+    expect(built.filesForm20F).toBe(true);
     expect(built.incomeQuarterly.rows).toEqual([]);
     expect(built.incomeQuarterly.gaps[0]?.reason).toMatch(/no quarterly/i);
   });
@@ -652,6 +653,13 @@ describe("buildStatementsFromCompanyFacts — chain and derivation coverage", ()
       ["2025-12-31", 100], // 400 − 300
       ["2025-03-31", 90],
     ]);
+  });
+
+  it("keeps one-sided repayment evidence when no issuance is tagged (PR #47 review)", () => {
+    const f = calendarQuarters();
+    delete f.facts["us-gaap"]!.ProceedsFromIssuanceOfLongTermDebt;
+    const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "CAL" });
+    expect(built.cashflowAnnual.rows[0]).toMatchObject({ netDebtIssuance: null, debtRepayment: -40 });
   });
 
   it("prefers the fiscal-year end when a 10-Q instant lands within the date tolerance of it", () => {
@@ -1699,6 +1707,8 @@ describe("buildStatementsFromCompanyFacts — audit 2026-09-06", () => {
     const built = buildStatementsFromCompanyFacts(f, { ...OPTS, symbol: "CNQ" });
     expect(built.incomeAnnual.rows[0]).toMatchObject({ date: "2025-12-31", fiscalYear: "2025", period: "FY", revenue: 500, reportedCurrency: "CAD" });
     expect(built.filesTwentyF).toBe(true);
+    // A 40-F filer quotes its common shares; only a 20-F may quote a depositary share.
+    expect(built.filesForm20F).toBe(false);
   });
 
   it("resolves common dividends from their own element, else total less preferred, else the total", () => {

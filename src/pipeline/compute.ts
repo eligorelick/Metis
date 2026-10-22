@@ -137,7 +137,7 @@ import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
-import { implausibleDebtReason } from "@/edgar/debtCompleteness";
+import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
@@ -1748,15 +1748,28 @@ function trailingYearInterest(quarters: readonly FmpIncomeStatementRow[], date: 
   return values.reduce((sum, value) => sum! + value!, 0);
 }
 
+/** A cash-flow field over (from, to]: the discrete quarters that cover it, else the fiscal year ending at `to`. */
+function cashFlowBetween(field: "netDebtIssuance" | "debtRepayment", quarters: readonly FmpCashFlowRow[], years: readonly FmpCashFlowRow[], from: string, to: string): number | null {
+  const near = (row: FmpCashFlowRow, day: string): boolean => Math.abs(Date.parse(isoDay(row.date) ?? "") - Date.parse(day)) <= 5 * 86_400_000;
+  const span = (Date.parse(to) - Date.parse(from)) / 86_400_000;
+  const inside = quarters.filter((row) => { const day = isoDay(row.date); return day !== null && Date.parse(day) > Date.parse(from) + 5 * 86_400_000 && Date.parse(day) <= Date.parse(to) + 5 * 86_400_000; });
+  const values = inside.map((row) => num(row[field]));
+  if (inside.length > 0 && inside.length === Math.round(span / 91) && values.every((value) => value !== null)) return values.reduce((sum, value) => sum! + value!, 0);
+  const year = span >= 300 ? years.find((row) => near(row, to)) : undefined;
+  return year === undefined ? null : num(year[field]);
+}
+
 /**
  * Withhold total, net and long-term debt on every balance row whose year's interest
  * expense shows its debt to be incomplete. The interest is judged against the
- * most debt resolved at any balance date of that year, so a borrowing repaid
- * mid-year still explains the interest it carried. `interim` adds balance
- * dates inside the year (quarterly rows for an annual check). A row with no
- * debt figure at all is left to the balance-anchor rules.
+ * average debt resolved at the balance dates of that year, so a borrowing
+ * repaid mid-year still explains part of the interest it carried, and against
+ * a collapse from the previous balance that no repayment explains. `interim`
+ * adds balance dates inside the year (quarterly rows for an annual check). A
+ * row with no debt figure at all is left to the balance-anchor rules.
  */
-function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = []): FmpBalanceSheetRow[] {
+function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = [],
+  cashFlow: (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => number | null = () => null): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
     // Long-term debt tagged with its finance leases already holds them.
     const financeLeases = longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
@@ -1769,12 +1782,21 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
     const closing = financingDebt(row);
     if (date === null || closing === null) return row;
     const yearStart = Date.parse(date) - 380 * 86_400_000;
-    const opening = [...rows, ...interim].filter((other) => {
+    // One balance per date, latest first: quarterly and annual rows can share a year-end.
+    const earlier = new Map<string, number>();
+    for (const other of [...rows, ...interim]) {
       const day = isoDay(other.date);
-      return day !== null && day < date && Date.parse(day) >= yearStart;
-    }).map(financingDebt).filter((debt): debt is number => debt !== null);
-    const reason = implausibleDebtReason({ annualInterestExpense: interestFor(date), financingDebt: closing,
-      priorFinancingDebt: opening.length === 0 ? null : Math.max(...opening), totalAssets: num(row.totalAssets) });
+      const debt = day !== null && day < date && Date.parse(day) >= yearStart ? financingDebt(other) : null;
+      if (debt !== null && !earlier.has(day!)) earlier.set(day!, debt);
+    }
+    const opening = [...earlier.entries()].sort(([a], [b]) => b.localeCompare(a));
+    const interest = interestFor(date);
+    const previous = opening[0];
+    const reason = implausibleDebtReason({ annualInterestExpense: interest, financingDebt: closing,
+      priorFinancingDebts: opening.map(([, debt]) => debt), totalAssets: num(row.totalAssets) }) ??
+      (previous === undefined ? null : collapsedDebtReason({ annualInterestExpense: interest, financingDebt: closing, previousFinancingDebt: previous[1],
+        previousDate: previous[0], netDebtIssuance: cashFlow("netDebtIssuance", previous[0], date), debtRepayment: cashFlow("debtRepayment", previous[0], date),
+        totalAssets: num(row.totalAssets) }));
     if (reason === null) return row;
     let out = row;
     // Long-term debt is the component the missing borrowings most often belong
@@ -1937,10 +1959,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // incomplete is withheld before any consumer reads it. Financial routes are
   // excluded: their interest expense funds deposits and float, not debt.
   if (!(route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage")) {
+    const issuance = (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => cashFlowBetween(field, cashflowQuarterly, cashflowAnnual, from, to);
     balanceAnnual = withholdImplausibleDebt(balanceAnnual, (date) => {
       const index = incomeIndexNear(incomeAnnual, date);
       return index < 0 ? null : disclosedInterest(incomeAnnual[index]);
-    }, ttmGaps, balanceQuarterly);
+    }, ttmGaps, balanceQuarterly, issuance);
     // A quarter is judged on the smaller of its trailing year and the latest
     // fiscal year, so a one-off quarter (an extinguishment cost tagged as
     // interest) cannot withhold debt on its own.
@@ -1951,7 +1974,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly = withholdImplausibleDebt(balanceQuarterly, (date) => {
       const bases = [trailingYearInterest(incomeQuarterly, date), latestAnnualInterest(date)].filter((value): value is number => value !== null);
       return bases.length === 0 ? null : Math.min(...bases);
-    }, ttmGaps);
+    }, ttmGaps, [], issuance);
   }
 
   const policy = metricPolicy(route);

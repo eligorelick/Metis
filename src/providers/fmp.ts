@@ -283,6 +283,8 @@ export interface FmpCashFlowRow extends FmpStatementRow {
   investmentsInPropertyPlantAndEquipment?: number;
   acquisitionsNet?: number;
   netDebtIssuance?: number;
+  /** NEGATIVE = outflow. Repayments alone, for a row whose issuance is not disclosed. */
+  debtRepayment?: number | null;
   netStockIssuance?: number;
   /** NEGATIVE = outflow */
   commonStockRepurchased?: number | null;

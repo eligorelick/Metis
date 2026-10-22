@@ -2452,7 +2452,7 @@ The row discloses the substitution. These class figures can include current debt
 
 A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
 
-**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations`). The year's interest expense is divided by the most debt resolved at any balance date of that year; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains its interest. Above 25%, the components cannot be the debt that carried the interest, so total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
+**Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations` or `LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities`). The year's interest expense is divided by the average debt resolved at the balance dates of that year, opening to closing; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains part of its interest. Above 25%, the components cannot be the debt that carried the interest. A collapse is tested as well: debt that fell by more than 60% from the previous balance date, to a closing balance on which the interest implies more than 25%, needs net debt repayment in the period's cash flow of at least half the fall. In either case total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
 - interest below 0.25% of total assets;
 - resolved debt of zero, whose interest can come from tax positions, deposits or deferred compensation;
 - the bank, insurer and mortgage-REIT routes, where interest expense funds deposits and float.
@@ -2506,7 +2506,9 @@ It also shows none when the score rests on one signal carrying only part of
 that weight, such as an insurer's own-history P/B rank without the ROE
 reverse-solve signal. The label is "Not assessed — limited evidence (score N/100
 on one signal, X% of signals)". The score and the composite are unchanged,
-since the composite already weights each aspect by its evidence. A route that
+since the composite already weights each aspect by its evidence. The
+composite's own letter has the same floor, measured over the whole route
+(F-19, under audit batch 1 below). A route that
 designs a single signal and observes it in full, such as the REIT P/FFO rank, is
 not affected. A P/TBV rank that falls back to P/B is labelled a P/B rank
 (audit PGR-4).
@@ -2795,3 +2797,176 @@ rating. When the consensus price target, the model's value and the price share a
 currency, the analyst-estimates section states each value's implied move and
 their gap in points of the price. Beyond 20 points (a project convention) the
 summary must reconcile them. For Amazon the gap was about 92 points.
+
+### Audit batch 1: headline numbers (October 22, 2026)
+
+The independent audit of 2026-10-22 found reports publishing wrong headline
+figures with no warning. This batch fixes them. Decision: D-100.
+
+**Outlook ranges and full-year periods (B-25).** Meta prints its outlook as
+"$73-76 billion" and "between 15-17%". The release reader took the scale word
+only when it directly followed a number, so it read $73, and it read the range
+hyphen as a minus sign, so it read −17%. Each was stored as a point. A money
+range now gives the scale printed after its high end to both ends, and a bare
+high end takes the low end's currency symbol ("$73-76 billion", "$58–$61
+billion", "between $58 and $61 billion"). In a percent range the high end's %
+covers the low end, and a hyphen that follows a number or % is never a sign. A
+stated range with only one readable end is left unread rather than published as
+a point, but a span of years ("from 2027 to 2028") is not a range of values,
+nor is a range of the other kind ("up 2-3%" beside a money guide). An amount
+the guide is compared with ("an increase from our prior outlook of 13-16%",
+"versus $3.00 in 2025", "vs. $4.5 billion") is not read as the guide, and a
+year after "over", "above", "below" or "than" is a comparison, not the
+outlook's period. An
+outlook that names its year without "full year" ("2026 capital expenditures",
+"Adjusted EPS of $2.25 to $2.35 in 2026") guides that fiscal year, and
+"full-year revenue guidance" with no year guides the outlook block's fiscal
+year. Before, both took the block's quarter, so annual guides from Meta, Lilly,
+NextEra, AT&T and Verizon were labelled as quarters. A sentence about a quarter
+or part of a year ("remaining quarters of 2026") keeps the block's quarter,
+but a quarter named only as the base of a comparison ("compared with fourth
+quarter 2025 revenue of $1 billion") neither makes the sentence quarterly nor
+names its year. A maturity's year ("notes due 2030") names no outlook, and when the block's
+period is known only its fiscal year or the next can be the outlook's ("the
+2024 divestiture" in a 2026 release is not).
+
+As a backstop, a revenue outlook must lie within 0.2 to 5 times the revenue of
+the latest quarter its release could see (four such quarters for a full-year
+outlook). Outside that band the guide is left out of the DCF's year-one anchor,
+the outlook table and the checks against actuals, and a note names the guide
+and the quarter it was compared with. The anchor then takes the next
+plausible guide for the same quarter, never one for a later quarter. A guide
+printed in another currency is reported as such before the band is applied. The band is a house convention: no
+issuer guides a quarter at a fifth or five times its last one, and a lost
+"billion" misses by a factor of a billion.
+
+**Depositary-share market cap (B-19).** Without an FMP key, the market cap is
+the quoted price times the share count on the filing cover. For TSM that is the
+price of one American depositary share times 25.93 billion ordinary shares,
+while one ADS is five shares, so the report printed $11.2 trillion. The issuer
+was not even flagged as an ADR: the flag came from the statements builder,
+which builds nothing from a filer that reports under IFRS. The flag now falls
+back to the filed forms (20-F or 40-F) whenever no statement row could be
+built, not only when there are no company facts at all. For an issuer that
+files Form 20-F, the keyless market cap, quote market cap and market-cap
+history (including days derived beside a plan-limited vendor history) are
+withheld with a gap that says why: no filed fact read here states how many
+ordinary shares one quoted share represents. A Form 40-F filer is a Canadian
+issuer whose listed security is its common share, so its market cap stands. A
+20-F filer that lists its ordinary shares directly loses the keyless figure
+too, because the filed facts read here do not say which security is quoted.
+Métis does not compute the figure from the static ADR table or guess a ratio. A market cap Métis computed from a
+quote and a filed count is now labelled "derived" in Key data and the market
+data table, with the note "quote price × filed share count, computed by
+Métis", instead of "raw provider observation".
+
+**Noncurrent notes and loans (B-14).** Oracle tags its noncurrent debt as
+`LongTermNotesAndLoans` and its current notes as `NotesPayableCurrent`. No
+long-term-debt chain read the first tag, so the instrument-class fallback
+composed long-term debt from the current notes alone: $7.6B where Oracle
+carried $125.3B. Long-term debt now reads `LongTermNotesAndLoans` with its
+current portion (`NotesAndLoansPayableCurrent` or `NotesPayableCurrent`) after
+the long-term-debt aggregates and before the combined debt total. Beside the
+balance sheet's current-debt line, which already carries the current notes,
+the current portion is dropped from long-term debt, so Oracle's May 2026 debt
+is $7.2B current plus $122.3B noncurrent, the $129.5B Oracle tags as its
+combined debt. As a backstop, a same-period debt total the filer tagged
+(`LongTermDebtNoncurrent`, `LongTermNotesAndLoans`, `LongTermDebt`,
+`LongTermDebtAndCapitalLeaseObligations`, the inclusive total below, or
+`DebtLongtermAndShorttermCombinedAmount`) can never exceed the composed
+current debt, noncurrent debt and finance leases by more than 1%. When one
+does, a component no chain read is missing, so total and net debt are
+withheld with a note naming the total rather than published as a partial sum.
+The guard runs in the statements builder and again in Stage B's debt admission,
+the only debt gate a vendor statement row passes, so a vendor row whose
+components fall short of the filer's same-period total is withheld the same
+way.
+
+**Long-term debt including current maturities (B-15, B-17).** Chevron tags
+its long-term debt and finance leases, current maturities included, as
+`LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities`. No chain
+read it, so Chevron's quarterly debt was its short-term borrowings alone
+($0.4B where Chevron carried $37.1B). The tag is now the last long-term-debt
+aggregate. Because it holds finance leases, only the operating-lease liability
+is added beside it, as for `LongTermDebtAndCapitalLeaseObligations`. Because
+it holds current maturities, it is netted against a current-maturities line
+the same way as `LongTermDebt`; when that line cannot be separated from it,
+long-term debt is withheld. In its annual report Chevron files current debt
+of $10.9B before reclassifying $10B of it to long-term, beside long-term debt
+that already includes the reclassified amount, so the year-end debt counted
+the $10B twice ($50.7B of financing debt against $40.8B). When the inclusive
+total is filed for a period whose debt was composed from other tags, it is the
+filer's own reconciliation: a composition more than 1% away from the
+inclusive total plus short-term borrowings is recomposed as the short-term
+borrowings plus the inclusive total, with a note. With no short-term
+borrowings tagged, a composition above the inclusive total is withheld.
+
+**Debt plausibility against the published balance (B-16).** The interest
+check divided the year's interest by the largest debt resolved at any balance
+date of the year. One complete balance therefore cleared every later row:
+Chevron's June 2026 quarter published $0.4B of debt beside $56.7B at the
+previous year-end, and the check saw 2.4% where the published balance implied
+over 100%. The basis is now the average of the year's balances, opening to
+closing. A collapse check sits beside it: debt that fell by more than 60%
+from the previous balance date, to a closing balance on which the year's
+interest implies more than 25%, is withheld with a gap unless the period's
+cash flow shows net debt repayment of at least half the fall. When the net
+issuance is not disclosed because the filer tags its repayments
+(`RepaymentsOfLongTermDebt`) but no issuance, the repayments alone are the
+evidence: they show at least that much debt leaving, and an undisclosed
+issuance could only add some back. Both thresholds are house conventions. A
+borrowing repaid during the year with the cash flow to show it still passes,
+and so does a closing balance that carries the interest on its own.
+
+**An inclusive total whose split is refused (B-40).** Prologis files an
+unclassified balance sheet: `LongTermDebt` is all of its carrying debt,
+current maturities included. When the debt-maturity schedule's
+next-twelve-months bucket sits beside a remainder-of-fiscal-year bucket, the
+bucket is not established as current carrying debt, so short-term debt and
+the noncurrent remainder are withheld. Total debt was withheld with them,
+although it never depended on the split: 13 Prologis quarters lost total and
+net debt. When `LongTermDebt` is the only long-term tag and the refused
+bucket was the only current component, total debt is now `LongTermDebt` plus
+leases, with a note that only the split is withheld. The statements builder
+and Stage B's debt admission apply the same rule. Short-term borrowings beside
+the refused bucket still withhold the total, because the bucket's share of
+them is unknown, and so does a debt component refused for any reason other
+than the split itself.
+
+**A zero remainder-of-year bucket (A-10).** Meta's June 2026 10-Q tags the
+remainder of its fiscal year at zero and $2.75B "in next twelve months",
+which is the next fiscal year's bucket. Only a remainder above zero refused
+the bucket, so it stood in as current debt that Meta's balance sheet does not
+carry, and total debt counted $2.75B twice. Any tagged remainder-of-year
+bucket, zero included, now shows the schedule runs by fiscal year, and the
+next-twelve-months figure beside it is refused as current debt. Before that
+test, when the balance sheet's own `LongTermDebt` equals its
+`LongTermDebtNoncurrent`, the balance sheet carries no current maturities,
+so the bucket is declined. With no other current component, short-term debt
+is that zero, sourced to both tags.
+
+**The composite's evidence floor and the neutral band (F-19).** Each aspect
+already withheld its letter below evidence for half its signal weight, but
+the composite did not. TSM's composite printed "D (51/100)" on evidence for
+5% of the route-applicable signal weight, its one scored aspect a technicals
+B. The composite now carries the same floor. Below evidence for 50% of the
+route-applicable signal weight it prints "Not graded: evidence N%" with the
+numeric score and no letter: in Key data, the scorecard, the history diff,
+both exports and the judge's payload, whose composite grade reads "Not
+graded: evidence N%". The audit export keeps the stored band as its raw
+field. Key data also prints the evidence share and the band thresholds beside
+the composite. The score itself and its calculation are
+unchanged. A second problem was the band table. It puts the neutral prior
+(50) in D, so a technicals score of 50.4 printed as D and the judge read it
+as weak momentum. A deterministic band letter for a score that rounds to 45
+through 55 (the whole number every surface prints) now carries a "neutral"
+qualifier ("D (neutral)", "C (neutral)") wherever it is shown, including the
+history diff, the audit tables and the data-only reasoning, and the payload's
+score units and band note say the same. An analyst letter that differs from the band is not qualified. The
+letters and thresholds themselves (A ≥85, B ≥70, C ≥55, D ≥40) are unchanged
+house conventions. The band is set on the unrounded score, so a printed score
+never rounds up across a threshold: where rounding would carry it across
+(54.6 printed "55" beside D and the legend "C ≥55"), it is cut, not rounded,
+to one more decimal ("54.6", and "54.99" where two decimals are shown). Every
+surface that prints a score beside its band uses this rule; the judge's
+payload already printed the unrounded score. No score or band changes.

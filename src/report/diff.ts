@@ -7,7 +7,7 @@
  */
 
 import type { Grade } from "@/types/core";
-import { gradeForDisplay } from "@/report/assessment";
+import { compositeDisplay, gradeForDisplay } from "@/report/assessment";
 import { normalizeSymbol, sameEntitySymbol } from "@/symbol";
 import {
   GRADE_SURFACES,
@@ -775,10 +775,13 @@ export function diffReports(
     const toScore =
       aspect === "composite" ? toScoring?.composite : toScoring?.aspects[aspect];
     if (!fromScore && !toScore) continue;
+    // F-19: a composite under the evidence floor shows no letter here either.
+    const shownBand = (scoring: RuntimeScoring, score: NonNullable<typeof fromScore>): Grade | null =>
+      aspect === "composite" ? compositeDisplay(scoring).grade : score.band;
     const fromEndpoint = fromScore
-      ? { value: fromScore.score, band: fromScore.band }
+      ? { value: fromScore.score, band: shownBand(fromScoring!, fromScore) }
       : null;
-    const toEndpoint = toScore ? { value: toScore.score, band: toScore.band } : null;
+    const toEndpoint = toScore ? { value: toScore.score, band: shownBand(toScoring!, toScore) } : null;
     if (
       fromEndpoint &&
       toEndpoint &&

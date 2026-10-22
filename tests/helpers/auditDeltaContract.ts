@@ -72,7 +72,8 @@ export interface IntendedDeltaFile {
   groups: IntendedDeltaGroup[];
 }
 
-const DECISION_PATTERN = /^(D-\d{2}|WS[1-9]|pre-remediation)$/;
+// Decision ids reached three digits with D-100.
+const DECISION_PATTERN = /^(D-\d{2,3}|WS[1-9]|pre-remediation)$/;
 const MINIMUM_REASON_LENGTH = 60;
 
 export function isRecord(value: AuditJsonValue): value is { [key: string]: AuditJsonValue } {

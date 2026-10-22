@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 import { Badge, Panel } from "@/components/ui";
+import { withNeutral } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import type {
   CompositeWeightChange,
   CostChange,
@@ -262,13 +264,13 @@ function scoreRow(change: ScoreChange) {
   const from =
     change.from === null
       ? missingEndpoint("from", change.transition)
-      : formatNumber(change.fromValue, 2) +
-        (change.fromBand === null ? "" : " " + change.fromBand);
+      : formatScore(change.fromValue, 2) +
+        (change.fromBand === null ? "" : " " + withNeutral(change.fromBand, change.fromValue));
   const to =
     change.to === null
       ? missingEndpoint("to", change.transition)
-      : formatNumber(change.toValue, 2) +
-        (change.toBand === null ? "" : " " + change.toBand);
+      : formatScore(change.toValue, 2) +
+        (change.toBand === null ? "" : " " + withNeutral(change.toBand, change.toValue));
   return (
     <TransitionRow
       key={change.aspect}

@@ -78,18 +78,65 @@ export interface MoneyMention {
   index: number;
 }
 
-const MONEY_RE = /(US\$|\$|€|£|¥)\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(thousand|million|billion|trillion)\b)?/gi;
+const MONEY_SYMBOL = String.raw`US\$|\$|€|£|¥`;
+const MONEY_NUMBER = String.raw`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?`;
+const MONEY_RE = new RegExp(String.raw`(${MONEY_SYMBOL})\s?(${MONEY_NUMBER})(?:\s*(thousand|million|billion|trillion)\b)?`, "gi");
+/**
+ * Audit 2026-10-22 B-25: "$73-76 billion", "$58–$61 billion" and "between $58
+ * and $61 billion" print the scale once, after the high end. Both ends take
+ * that scale, and a bare high end takes the low end's symbol; otherwise the low
+ * end read as $73 and "76 billion", having no symbol, was not money at all.
+ */
+const MONEY_RANGE_RE = new RegExp(String.raw`(${MONEY_SYMBOL})\s?(${MONEY_NUMBER})(\s*(?:-|–|—|\bto\b|\band\b)\s*)(?:${MONEY_SYMBOL})?\s?(${MONEY_NUMBER})\s*(thousand|million|billion|trillion)\b`, "gid");
+/** "and" joins the ends of a range only after "between". */
+const BETWEEN_TAIL = /\bbetween\s*$/i;
+
+const amount = (printed: string): number => Number(printed.replace(/,/g, ""));
 
 /** Money amounts with an explicit symbol; a bare number is never money. */
 export function moneyMentions(text: string, defaultScale = 1): MoneyMention[] {
-  return [...text.matchAll(MONEY_RE)].map((m) => {
+  const out: MoneyMention[] = [];
+  const spans: [number, number][] = [];
+  for (const m of text.matchAll(MONEY_RANGE_RE)) {
+    const scale = SCALE[m[5]!.toLowerCase()]!;
+    const [low, high] = [amount(m[2]!) * scale, amount(m[4]!) * scale];
+    if (/and/i.test(m[3]!) && !BETWEEN_TAIL.test(text.slice(0, m.index))) continue;
+    if (low > high) continue;
+    const symbol = m[1]!.toUpperCase();
+    const highStart = m.indices![4]![0];
+    out.push({ value: round(low, 2), symbol, raw: text.slice(m.index, m.indices![3]![0]), index: m.index },
+      { value: round(high, 2), symbol, raw: text.slice(highStart, m.index + m[0].length), index: highStart });
+    spans.push([m.index, m.index + m[0].length]);
+  }
+  for (const m of text.matchAll(MONEY_RE)) {
+    if (spans.some(([from, to]) => m.index >= from && m.index < to)) continue;
     const scale = m[3] ? SCALE[m[3].toLowerCase()]! : defaultScale;
-    return { value: round(Number(m[2]!.replace(/,/g, "")) * scale, 2), symbol: m[1]!.toUpperCase(), raw: m[0], index: m.index };
-  });
+    out.push({ value: round(amount(m[2]!) * scale, 2), symbol: m[1]!.toUpperCase(), raw: m[0], index: m.index });
+  }
+  return out.sort((a, b) => a.index - b.index);
 }
 
+/**
+ * B-25: in "15-17%", "15 to 17%" and "between 15%-17%" the high end's % covers
+ * the low end, and a hyphen that follows a number or % is never a minus sign
+ * (it read "15-17%" as −17%).
+ */
+const PERCENT_RANGE_RE = /(?<![\d.])(-?\d+(?:\.\d+)?)\s?%?(\s*(?:-|–|—|\bto\b|\band\b)\s*)(\d+(?:\.\d+)?)\s?%/gd;
+
 function percentMentions(text: string): { value: number; index: number }[] {
-  return [...text.matchAll(/(-?\d+(?:\.\d+)?)\s?%/g)].map((m) => ({ value: Number(m[1]), index: m.index }));
+  const out: { value: number; index: number }[] = [];
+  const spans: [number, number][] = [];
+  for (const m of text.matchAll(PERCENT_RANGE_RE)) {
+    if (/and/i.test(m[2]!) && !BETWEEN_TAIL.test(text.slice(0, m.index))) continue;
+    if (Number(m[1]) > Number(m[3])) continue;
+    out.push({ value: Number(m[1]), index: m.index }, { value: Number(m[3]), index: m.indices![3]![0] });
+    spans.push([m.index, m.index + m[0].length]);
+  }
+  for (const m of text.matchAll(/((?<![\d%]\s*)-)?(\d+(?:\.\d+)?)\s?%/g)) {
+    if (spans.some(([from, to]) => m.index >= from && m.index < to)) continue;
+    out.push({ value: Number(`${m[1] ?? ""}${m[2]}`), index: m.index });
+  }
+  return out.sort((a, b) => a.index - b.index);
 }
 
 function round(value: number, dp = 6): number {
@@ -125,7 +172,7 @@ function fiscalPeriod(fiscalYear: number, fiscalQuarter: 1 | 2 | 3 | 4 | null): 
  * revenue for the fourth quarter of 2026") governs something else.
  */
 const COMPARISON_FILLER = String.raw`(?:(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly)[\s,]+|[$€£¥]?\s?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|billion|million|thousand|trillion)?[\s,]+)*`;
-const COMPARISON_TAIL = new RegExp(String.raw`\b(?:compared (?:with|to)|versus|vs\.?|relative to|against|from)\s+${COMPARISON_FILLER}$`, "i");
+const COMPARISON_TAIL = new RegExp(String.raw`\b(?:compared (?:with|to)|versus|vs\.?|relative to|against|from|over|above|below|than)\s+${COMPARISON_FILLER}$`, "i");
 
 /** Whether the phrase at `index` directly follows a comparison cue in its own clause. */
 function comparisonBase(text: string, index: number): boolean {
@@ -158,6 +205,50 @@ export function quarterPhrase(text: string): FiscalPeriod | null {
 function fullYearPhrase(text: string): FiscalPeriod | null {
   const m = firstNonComparison(/\bfull[ -](?:fiscal )?year(?: of)?(?: fiscal)?(?: year)? (\d{4})\b|\bfiscal (?:year )?(\d{4}) full[ -]year\b/gi, text);
   return m ? fiscalPeriod(Number(m[1] ?? m[2]), null) : null;
+}
+
+/** A sentence about a quarter or another part of a year. */
+const PART_OF_YEAR = /\bquarters?\b|\bQ[1-4]\b|\bhalf\b|\bhalves\b|\bremainder\b|\bremaining\b|\brest of\b|\bmonths?\b|\bweeks?\b/i;
+const MONTH = String.raw`(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?`;
+/** A part of a year with its ordinal and year ("fourth quarter 2025", "the first half of fiscal 2025", "Q4 FY25"). */
+const PART_OF_YEAR_PHRASE = /\b(?:(?:first|second|third|fourth|last|next|past|prior|three|six|nine|twelve|\d+)[ -])?(?:quarters?|Q[1-4]|half|halves|months?|weeks?)\b(?:\s+(?:of\s+)?(?:fiscal\s+(?:year\s+)?|FY\s?)?'?(?:20\d{2}|\d{2})\b)?/gi;
+
+/** `text` with each part-of-year phrase named only as a comparison base blanked out, positions kept. */
+function withoutComparisonParts(text: string): string {
+  return text.replace(PART_OF_YEAR_PHRASE, (m: string, index: number) => comparisonBase(text, index) ? "#".repeat(m.length) : m);
+}
+
+/**
+ * Audit 2026-10-22 B-25: an outlook that names its year without "full year"
+ * ("2026 capital expenditures", "Adjusted EPS of $2.25 to $2.35 in 2026",
+ * "investment goals for 2025") guides that fiscal year. It took the outlook
+ * block's quarter. A sentence about a quarter or part of a year keeps the
+ * block's quarter, unless the quarter is only a comparison base ("compared
+ * with fourth quarter 2025 revenue"), which names neither the sentence's period
+ * nor its year. A date's year ("December 31, 2025") or a maturity's ("notes
+ * due 2030") names no outlook. With the block's period known, only its fiscal
+ * year or the next is an outlook's ("the 2024 divestiture" in a 2026 release
+ * is not).
+ */
+function namedYearPhrase(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
+  const own = withoutComparisonParts(text);
+  if (PART_OF_YEAR.test(own)) return null;
+  const unmatured = own.replace(MATURITY_YEAR, (m) => m.replace(/\d/g, "#"));
+  for (const m of unmatured.matchAll(new RegExp(String.raw`(?<!\d,\s?)(?<!${MONTH}\s)\b(?:fiscal (?:year )?|FY\s?)?(20\d{2})\b`, "gi"))) {
+    const year = Number(m[1]);
+    if (comparisonBase(unmatured, m.index)) continue;
+    if (block !== null && (year < block.fiscalYear || year > block.fiscalYear + 1)) continue;
+    return fiscalPeriod(year, null);
+  }
+  return null;
+}
+
+/** "notes due 2030", "a facility maturing in 2029": a maturity's year. */
+const MATURITY_YEAR = /\b(?:due|matur(?:es|ing|ity)|expir(?:es|ing|y))\s+(?:in\s+)?(?:fiscal\s+)?20\d{2}\b/gi;
+
+/** B-25: "full-year revenue guidance" with no year is the outlook block's fiscal year. */
+function unyearedFullYear(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
+  return block !== null && /\bfull[ -](?:fiscal[ -])?year\b/i.test(text) ? fiscalPeriod(block.fiscalYear, null) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,12 +347,15 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   if (!EXPECTATION.test(sentence)) return [];
   const rule = METRIC_RULES.find((r) => r.pattern.test(sentence));
   if (!rule) return [];
-  const period = fullYearPhrase(sentence) ?? quarterPhrase(sentence) ?? defaultPeriod;
+  const period = fullYearPhrase(sentence) ?? quarterPhrase(sentence) ?? namedYearPhrase(sentence, defaultPeriod) ?? unyearedFullYear(sentence, defaultPeriod) ?? defaultPeriod;
   if (period === null) return [];
   const verb = /\b(?:(?:is|are) expected to (?:be|range|total)|expects?\b[^.]{0,120}?\bto (?:be|range|total)|to be|of)\b/i.exec(sentence);
   if (!verb) return [];
   let clause = sentence.slice(verb.index + verb[0].length);
   clause = clause.split(/\b(?:inclusive of|including|excluding|exclusive of|which includes|reflecting)\b/i)[0]!;
+  // B-25: the amount a guide is compared with ("an increase from our prior
+  // outlook of 13-16%", "versus $3.00 in 2025") is not the guide.
+  clause = clause.split(/\b(?:compared (?:with|to)|versus|relative to|an? (?:increase|decrease|rise|decline|change) from|up from|down from|from (?:our|the|its) (?:prior|previous))\b|\bvs\.(?=\s|$)/i)[0]!;
 
   // A tolerance applies to every value it follows: "± 2%" scales a money
   // point; "± 50 basis points" widens a percentage by 0.5pp.
@@ -291,7 +385,18 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
 
   const bases = basesOf(sentence);
   const respectively = /\brespectively\b/i.test(clause);
-  const isRange = /\bbetween\b|\brange of\b|\bin the range\b|\d\s*(?:%|billion|million)?\s*(?:to|-|–)\s*\$?\d/i.test(valueClause);
+  // A span of years ("from 2027 to 2028", "between now and 2028") is not a
+  // range of values: the test reads the clause with its years blanked out.
+  // A range of the other kind ("up 2-3%" beside a money guide, "$1.0-1.2
+  // billion" beside a rate) is not this guide's range either.
+  const otherKind = rule.unit === "%"
+    ? /[$€£]\s?\d[\d,.]*\s*(?:billion|million|thousand)?\s*(?:to|-|–|—)\s*[$€£]?\s?\d[\d,.]*/g
+    : /\bbetween\s+\d[\d,.]*\s*%?\s*and\s+\d[\d,.]*\s*%|\d[\d,.]*\s*%?\s*(?:to|-|–|—)\s*\d[\d,.]*\s*%/gi;
+  const yearless = valueClause.replace(otherKind, " ")
+    .replace(/(?<![\d,.$])(?:19|20)\d{2}(?![\d,.]\d|\s*(?:%|billion|million|thousand))/g, "Y");
+  const isRange =/\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
+  // B-25: one end of a stated range is never published as a point.
+  if (isRange && values.length < 2) return [];
 
   let bounds: Bound[] = [];
   if (respectively && bases.length === 2) {

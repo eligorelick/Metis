@@ -136,7 +136,8 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { applyReportAssessmentStatus, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { formatScore } from "@/report/scoreText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
@@ -387,7 +388,10 @@ function renderScores(scores: Scoring): string {
     // A sub-heading of the verdict, as on the print surface.
     "### Scorecard (deterministic)",
     "",
-    `**Composite: ${c.score === null ? DASH : Math.round(c.score)} / 100 (${c.band ?? DASH})**`,
+    // F-19: no letter under the evidence floor; the qualifier inside 45–55.
+    `**Composite: ${c.score === null ? DASH : formatScore(c.score)} / 100 (${c.band === null ? DASH : compositeDisplay(scores).label})**`,
+    "",
+    `_${markdownProse(compositeNote(scores))}_`,
     ...(assessment ? ["", markdownProse(assessment)] : []),
     "",
     table(card.headers, card.rows),
