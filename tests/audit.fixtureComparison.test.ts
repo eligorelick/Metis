@@ -248,6 +248,8 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       generator: {
         helperSha256: "48af864a1d2a5bb165eb2832871bc2651f34a5951959450d2074512e4a7a26d7",
         basePackageLockBlob: "66f7242846b6d20cfe99e21400d2dada27bbfbfd",
+          // 2026-10-22: root engines.node >=22.18.0 -> >=24 (security audit F-10); no
+          // package entry changed, so the Stage B replay runs on the same tree.
           // 2026-10-22: vitest and @vitest/coverage-v8 4.1.11 -> 4.1.12 for GHSA-qxg6-89mg-rqv8 and
           // GHSA-xp26-3454-mjgp; test-runner tooling only, outside the Stage B replay.
           // 2026-10-22: next, @next/env and eslint-config-next 16.3.8 -> 16.4.2 for
@@ -259,7 +261,7 @@ describe("Task 32 provider-free historical fixture comparison", () => {
           // 2026-10-15: happy-dom is dev-only for credential UI interaction tests.
         // Reproduced the comparison with no additional financial deltas;
         // historical source/fixture hashes and projection remain pinned.
-        comparisonPackageLockBlob: "01d1ea6c206f8ac783cdf430fcb522e43206c175",
+        comparisonPackageLockBlob: "66839222735b70a365e66a13c73c77e6b8a2d88f",
         generationNode: "v24.11.1",
         generationNpm: "11.6.2",
         command:
