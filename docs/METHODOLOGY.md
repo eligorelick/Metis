@@ -2923,7 +2923,8 @@ bucket was the only current component, total debt is now `LongTermDebt` plus
 leases, with a note that only the split is withheld. The statements builder
 and Stage B's debt admission apply the same rule. Short-term borrowings beside
 the refused bucket still withhold the total, because the bucket's share of
-them is unknown.
+them is unknown, and so does a debt component refused for any reason other
+than the split itself.
 
 **A zero remainder-of-year bucket (A-10).** Meta's June 2026 10-Q tags the
 remainder of its fiscal year at zero and $2.75B "in next twelve months",

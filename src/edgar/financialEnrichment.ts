@@ -262,13 +262,21 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   // statements built from LongTermDebt itself (audit 2026-10-22 B-40).
   const only = (field: "shortTermDebt" | "longTermDebt", tag: string): boolean =>
     out.fieldProvenance?.[field]?.tags.length === 1 && out.fieldProvenance[field]!.tags[0] === `us-gaap/${tag}`;
+  // Only the split's own refusals are exempt: the bucket's scope, and the
+  // allocation that depended on it. A component refused for any other reason
+  // still withholds the total.
+  const splitRefusal = (field: string): boolean => {
+    const conflict = row.fieldConflicts?.[field];
+    return conflict?.usable === false && (field === "shortTermDebt" ? conflict.reason.startsWith("debt maturity scope unresolved:")
+      : field === "longTermDebt" && conflict.reason.startsWith("noncurrent carrying debt allocation unavailable:"));
+  };
   const splitOnly = only("longTermDebt", "LongTermDebt") && only("shortTermDebt", maturityTag) &&
     typeof row.totalDebt === "number" && Number.isFinite(row.totalDebt) && row.fieldConflicts?.totalDebt?.usable !== false &&
-    (scopeReason !== null || (row.fieldConflicts?.shortTermDebt?.usable === false && row.fieldConflicts?.longTermDebt?.usable === false));
+    (scopeReason !== null || (splitRefusal("shortTermDebt") && splitRefusal("longTermDebt")));
   // Preserve raw observations for audit, but an explicitly rejected financing
   // or lease component cannot establish any aggregate's carrying-value basis.
   const refusedComponent = ["shortTermDebt", "longTermDebt", "financeLeaseLiability", "capitalLeaseObligations", "operatingLeaseLiability"]
-    .find((field) => row.fieldConflicts?.[field]?.usable === false && !(splitOnly && (field === "shortTermDebt" || field === "longTermDebt")));
+    .find((field) => row.fieldConflicts?.[field]?.usable === false && !(splitOnly && splitRefusal(field)));
   const componentReason = refusedComponent === undefined ? null
     : `incomplete debt carrying value: ${refusedComponent} is unavailable (${row.fieldConflicts![refusedComponent]!.reason})`;
   let presentationReason: string | null = null;

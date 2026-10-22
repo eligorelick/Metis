@@ -119,6 +119,17 @@ describe("an inclusive LongTermDebt whose current/noncurrent split is refused (a
     expect(admitted.fieldConflicts?.totalDebt).toBeUndefined();
   });
 
+  it("exempts only the split's own refusals: a component refused for another reason still withholds the total", () => {
+    const facts = fixture.issuers.PLD.facts as unknown as CompanyFacts;
+    const built = quarter(build("PLD"), "2026-03-31");
+    for (const refused of [["longTermDebt"], ["shortTermDebt", "longTermDebt"]]) {
+      const row = structuredClone(built);
+      for (const field of refused) row.fieldConflicts = { ...row.fieldConflicts, [field]: { usable: false, reason: "vendor and SEC values disagree" } };
+      const admitted = admitDebtFields(row as never, facts, "USD", `${fixture.asOf}T00:00:00.000Z`).row as unknown as Row;
+      expect(admitted.totalDebt, refused.join("+")).toBeNull();
+    }
+  });
+
   it("still withholds total debt when short-term borrowings sit beside the refused bucket", () => {
     const row = quarter(build("PLD", (gaap) => {
       const at = gaap.LongTermDebt!.units.USD!.find((p) => p.end === "2026-03-31")!;
