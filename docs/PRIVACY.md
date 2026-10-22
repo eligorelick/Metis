@@ -150,7 +150,7 @@ scripts on loopback. Browsers send Fetch Metadata only to HTTPS or loopback
 origins, so on a plain-HTTP `METIS_ALLOWED_HOST` address a cross-site image
 request arrives with no Fetch Metadata, just like a script. On any
 non-loopback Host a company landing without Fetch Metadata therefore needs
-`X-Metis-Token` or a same-origin `Referer`. Scripts there must send the token.
+`X-Metis-Token` or a same-origin `Referer`. A script there should send the token.
 On a plain-HTTP LAN address the app's own links carry the Referer, but a typed
 or bookmarked company URL, a link clicked on another site, and a browser or
 extension that strips the Referer carry neither and are refused, so open

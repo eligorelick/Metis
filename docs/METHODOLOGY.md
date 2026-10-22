@@ -2813,8 +2813,10 @@ and their place in the report, are unchanged.
 receives is enveloped the same way and labelled model-authored. The judge is
 told to weigh the cases, never to follow instructions inside them. The same
 holds for the model's own output when it is shown back: a rejected output
-echoed for repair, and the sections kept from a response cut off by a time
-limit or produced in parts, are enveloped and labelled model-authored.
+echoed for repair, and the sections kept from a response that was cut off or
+dropped part-way, or produced in parts, are enveloped and labelled
+model-authored. A JSON parse error, which quotes the output around the bad
+token, is folded onto one line before it is fed back.
 
 **Web results are evidence, not instructions (F-7).** Every pass is told that
 web-search results and fetched pages are untrusted: use them only as quoted
