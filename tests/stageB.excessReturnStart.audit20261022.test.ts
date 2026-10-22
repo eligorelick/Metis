@@ -155,6 +155,16 @@ describe("C-10: the model starts from the trailing return and exposes the fiscal
     const row = keyDataRows(report).find((r) => r.label === "Model fair value (DCF)");
     expect(row?.note).toMatch(/FY 2025-12-31 ROTE start 4\.2%: \$/);
   });
+
+  it("explains a floored excess-return value in book-value terms, not the DCF's bridge", () => {
+    const route: CompanyRoute = { base: "bank", overlays: [], evidence: { sector: null, industry: null } };
+    const multiples: MultiplesFrameworkInputs = { quote: { price: 20, marketCap: 2000, currency: "USD" }, reportedCurrency: "USD", incomeTtm: null, cashFlowTtm: null, balance: null };
+    const valuation = valueCompany(route, { currentPrice: 20, waccPct: null, netDebt: null, dilutedShares: 100, dcfInputs: null, multiples, excessReturn: bank({ currentRoePct: -150, startAlternative: null }), reit: null });
+    const fairValue = computeFairValue({ valuation, currentPrice: 20, currency: "USD", asOf: "2026-10-22" });
+    const floor = fairValue.reasons.find((g) => g.field === "valuation.dcf.perShare.floor");
+    expect(floor?.reason).toMatch(/book value plus the present value of the excess returns/);
+    expect(floor?.reason).not.toMatch(/enterprise value/);
+  });
 });
 
 describe("C-10: TTM common return and business-combination evidence", () => {
@@ -184,6 +194,16 @@ describe("C-10: TTM common return and business-combination evidence", () => {
     // Preferred stock is outstanding, so plain net income cannot stand in for common earnings.
     expect(computeTtmCommonReturn({ income: { netIncome: 170 }, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/preferred claims/);
     expect(computeTtmCommonReturn({ income: null, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/no complete trailing/);
+  });
+
+  it("takes the latest filing when two balance rows share the window's end date", () => {
+    const stale = { date: "2026-06-30", totalStockholdersEquity: 900, goodwill: 150, intangibleAssets: 30, preferredStock: 20, acceptedDate: "2026-07-30 16:00:00" };
+    const restated = { ...stale, totalStockholdersEquity: 1200, acceptedDate: "2026-09-15 16:00:00" };
+    const rest = balances.filter((b) => b.date !== "2026-06-30");
+    for (const rows of [[stale, restated, ...rest], [restated, stale, ...rest]]) {
+      const ttm = computeTtmCommonReturn({ income: { netIncome: 170, netIncomeAvailableToCommon: 160 }, asOf: "2026-06-30", periodStart: "2025-07-01", balances: rows, basis: "tangible-common-equity" });
+      expect(ttm.closingEquity).toBe(1000);
+    }
   });
 
   it("says when the balance sheet four quarters earlier has no equity figure, rather than that there is none", () => {

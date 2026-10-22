@@ -5100,15 +5100,16 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     }
     const evidencedPp = evidenced?.excessPp ?? 0;
     const costOfEquityPcts = [coe - EXCESS_RETURN_GRID_COE_STEP_PP, coe, coe + EXCESS_RETURN_GRID_COE_STEP_PP];
+    // Floored at 0 like the published headline (limited liability).
+    const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
     const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
       if (c === coe) {
-        return excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payout, continuing).equityValue / shares;
+        return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payout, continuing).equityValue / shares);
       }
       const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
       const target = overrideTerminal ? endRoe : c + carry;
       const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
-      const value = excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payout, cont).equityValue / shares;
-      return Number.isFinite(value) ? value : null;
+      return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payout, cont).equityValue / shares);
     }));
     startCoeGrid = {
       rows,
@@ -5122,7 +5123,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
             ? `each cell fades its start linearly over ${years} years to the column's cost of equity plus the ${fmtNum(evidencedPp)}pp evidenced excess, carried past year ${years} at ${fmtNum(continuingG)}% where the cost of equity clears that growth by ${TV_GUARD_PP}pp`
             : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
         `payout ${fmtNum(payout)}% throughout; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
-        "the centre cell is the headline value",
+        "the centre cell is the headline value; a cell below zero is shown as 0, as the headline is",
       ],
     };
   }

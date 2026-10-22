@@ -83,6 +83,14 @@ describe("C-11: the start-return × cost-of-equity grid", () => {
     expect(grid.rows.every((r) => r.bookValue === 1000)).toBe(true);
   });
 
+  it("floors every cell at zero, as the published headline is floored", () => {
+    const er = excessReturnModel(bank({ currentRoePct: -150, startAlternative: null }));
+    expect(er.perShare!).toBeLessThan(0);
+    const cells = er.startCoeGrid!.perShare.flat();
+    expect(cells.every((v) => v !== null && Number.isFinite(v) && v >= 0)).toBe(true);
+    expect(er.startCoeGrid!.perShare[1][1]).toBe(0);
+  });
+
   it("is not built without a per-share denominator", () => {
     expect(excessReturnModel(bank({ dilutedShares: null })).startCoeGrid).toBeUndefined();
   });
@@ -169,6 +177,18 @@ describe("C-11: base-case language about returns recovering toward the cost of e
       terminalTargetPct: 12.8,
     });
     expect(findings).toHaveLength(1);
+  });
+
+  it("does not flag a rise to a return above the cost of equity", () => {
+    const findings = returnPathLanguageFindings({
+      texts: [
+        { path: "a", text: "ROTE is expected to rise to about 17%, well above the cost of equity." },
+        { path: "b", text: "Returns improve to 18%, exceeding the 10.4% cost of equity." },
+      ],
+      trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM ROTE" },
+      terminalTargetPct: 12.8,
+    });
+    expect(findings).toEqual([]);
   });
 
   it("ignores sentences that do not describe a recovery toward the cost of equity", () => {

@@ -1427,7 +1427,8 @@ fiscal-year book value. Each column moves the discount rate and the fade target
 together: the carried evidenced excess is held, and dropped where the same
 2pp `CoE − g` guard fails. Horizon and payout stay the headline's, so the
 centre cell is the headline value and the fiscal-year row at the base cost of
-equity is the value printed beside it. Each cell is a citeable payload figure,
+equity is the value printed beside it. A cell below zero shows 0, as the
+headline does (limited liability). Each cell is a citeable payload figure,
 and the scenario section's sensitivity conclusion reads this grid on the
 excess-return route, on the same rules as the DCF grids. A Stage C check
 (`src/pipeline/stageC/returnPathLanguage.ts`) reads the verdict and the base
@@ -1435,7 +1436,8 @@ scenario: when the trailing return already exceeds the model's terminal
 target, a sentence describing returns rising, recovering or improving toward
 the cost of equity (or along a "recovery path") misdescribes current data,
 and each one is named in a `verify.check.returnPath` warning in the
-missing-data manifest. The sentence itself is not rewritten.
+missing-data manifest. A sentence that has returns rise to a level above or
+exceeding the cost of equity is not flagged. The sentence itself is not rewritten.
 
 #### P/TBV against ROTE
 

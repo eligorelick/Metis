@@ -59,6 +59,13 @@ export function commonEquityOn(row: ReturnsBalanceRow, basis: CommonEquityBasis)
   return tangibleCommonEquity(basis === "tangible-common-equity" ? row : { ...row, goodwill: 0, intangibleAssets: 0 });
 }
 
+/** Filing time; a row without one loses a same-date tie. */
+function filedAt(row: ReturnsBalanceRow): number {
+  const t = Date.parse(row.acceptedDate ?? row.filingDate ?? "");
+  return Number.isFinite(t) ? t : Number.NEGATIVE_INFINITY;
+}
+
+/** The balance row nearest the date; between rows of the same date (a 10-Q and the 10-K, or a restatement), the latest filing. */
 function balanceNear(balances: ReadonlyArray<ReturnsBalanceRow>, iso: string): ReturnsBalanceRow | null {
   const target = Date.parse(iso);
   if (!Number.isFinite(target)) return null;
@@ -68,7 +75,7 @@ function balanceNear(balances: ReadonlyArray<ReturnsBalanceRow>, iso: string): R
     const t = Date.parse(row.date);
     if (!Number.isFinite(t)) continue;
     const delta = Math.abs(t - target) / DAY_MS;
-    if (delta < bestDelta) {
+    if (delta < bestDelta || (delta === bestDelta && best !== null && filedAt(row) > filedAt(best))) {
       bestDelta = delta;
       best = row;
     }

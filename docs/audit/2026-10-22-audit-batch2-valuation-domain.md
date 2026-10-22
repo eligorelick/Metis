@@ -81,6 +81,21 @@ A second independent review of those fixes found three more, fixed test-first in
 | A trailing window with both figures but no usable key (consolidated loss, or NCI income above consolidated profit) did not fall back to the fiscal year. | The fiscal year is used whenever the trailing window cannot size the key. |
 | The withhold reason named only the trailing window's gap. | It says neither period could size the key. |
 
+A second `/code-review` pass then found four more, also fixed test-first:
+
+| Finding | Fix |
+|---|---|
+| The return-path check flagged "ROTE is expected to rise to about 17%, well above the cost of equity", because "to … cost of equity" fell within its reach. | "above", "over", "beyond", "exceeding", "surpassing" and "topping" end the reach. |
+| The start × cost-of-equity grid was not floored at 0 like the headline, and its centre cell skipped the finite-value guard. | Every cell is floored at 0 and guarded. |
+| The trailing return's balance lookup took the first of two rows with the same date (a 10-Q and the 10-K, or a restatement). | The latest filing wins a same-date tie. |
+| A floored excess-return value was explained as "enterprise value at or below net debt", the DCF's wording. | It reads "book value plus the present value of the excess returns is at or below zero". The B-29 domain test now withholds every DCF whose equity value is at or below zero first, so the floor is reached only on the excess-return route. |
+
+Not changed from that pass:
+
+- **Withholding the DCF for any unsized NCI, however small.** This follows the owner's E-5 decision: withhold when the key cannot be established. Small book NCI does not bound the profit share. The replay withholds no issuer, and every NCI issuer in the panel has a key. NCI income tagged only under `MinorityInterestInNetIncomeLossOfConsolidatedEntities` or `NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` is not read today. Adding those synonyms changes extraction for every consumer, so it is left for later.
+- **One withhold field on `DcfResult` in place of `domain` and `noncontrollingKeyWithheld`.** A design refactor with no behaviour change. Projections publish no value from either withheld DCF, and forecast EPS is already withheld whenever NCI is present.
+- **Efficiency and duplication notes:** the per-year tag parse, the copied grid-label pattern, and the excess-return grid summary beside the DCF one. None affects a figure.
+
 Not changed: the review noted that `businessCombinationYears` reads each tag once per year. That is at most 5 years × 4 tags on the financial route, too small to matter.
 
 ## Owner decisions

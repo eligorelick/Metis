@@ -39,7 +39,9 @@ export interface ReturnPathLanguageInput {
 const RECOVERY_WORD = /\b(?:recover(?:s|y|ies|ing|ed)?|rebound(?:s|ing|ed)?|ris(?:e|es|ing)|improv(?:e|es|ing|ement)|climb(?:s|ing)?|rebuild(?:s|ing)?)\b/i;
 // ... toward the cost of equity, or along the model's "recovery path".
 // Sentences are already split, so a decimal ("10.4%") may sit between the two.
-const TOWARD_HURDLE = /\b(?:toward|towards|to)\b[^;]{0,60}?\b(?:cost of equity|CoE)\b|\brecovery path\b/i;
+// A return that rises to a level "above" or "exceeding" the cost of equity is
+// not a recovery toward it, so those words end the reach.
+const TOWARD_HURDLE = /\b(?:toward|towards|to)\b(?:(?!\b(?:above|over|beyond|exceed\w*|surpass\w*|top\w*)\b)[^;]){0,60}?\b(?:cost of equity|CoE)\b|\brecovery path\b/i;
 
 function sentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 0);
