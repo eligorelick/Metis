@@ -9,7 +9,7 @@ findings and design proposals; they are not substitutes for current guides.
 
 ## Installation and startup
 
-The Node engine is `>=22.18.0`; the CI workflow uses Node 24 on Linux and
+The Node engine is `>=24`; the CI workflow uses Node 24 on Linux and
 Windows. Install the lockfile with `npm ci`, copy `.env.example` to `.env`,
 then run `npm run dev`. Production needs `npm run build` before `npm start`.
 Both npm server commands bind to `127.0.0.1`; the usual URL is

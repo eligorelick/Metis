@@ -22,7 +22,7 @@ Saved reports expose number provenance and missing evidence, model-derived revie
 
 ## Quick start
 
-Node.js 22.18.0 or newer and npm (`package.json`); CI tests Node 24. The test suite is only known to pass on Node 24: on Node 22.22.0, 6 tests fail.
+Node.js 24 or newer and npm (`package.json`); CI tests Node 24, the version the test suite is known to pass on.
 
 ```powershell
 git clone https://github.com/eligorelick/Metis.git
