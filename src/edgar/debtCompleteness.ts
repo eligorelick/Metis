@@ -23,6 +23,31 @@ export function incompleteDebtReason(row: {
     `The aggregate may be gross principal and is not substituted for carrying debt; total debt and net debt are withheld until reconciled.`;
 }
 
+/**
+ * Same-period debt totals the filer tagged. Each covers no more than current
+ * plus noncurrent financing debt and finance leases, so one that exceeds the
+ * composed components shows a component is missing (audit 2026-10-22 B-14).
+ */
+export const DEBT_AGGREGATE_TAGS: readonly string[] = [
+  "LongTermDebtNoncurrent", "LongTermNotesAndLoans", "LongTermDebt", "LongTermDebtAndCapitalLeaseObligations",
+  "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities", "DebtLongtermAndShorttermCombinedAmount",
+];
+
+/** A tagged debt total above the composed components: the composition is partial, so debt is withheld. */
+export function uncomposedDebtReason(row: {
+  shortTermDebt?: unknown; longTermDebt?: unknown; financeLeaseLiability?: unknown;
+}, aggregates: readonly { tag: string; value: number | null }[]): string | null {
+  const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
+  const current = finite(row.shortTermDebt);
+  const noncurrent = finite(row.longTermDebt);
+  if (current === null && noncurrent === null) return null;
+  const composed = (current ?? 0) + (noncurrent ?? 0) + (finite(row.financeLeaseLiability) ?? 0);
+  const over = aggregates.find(({ value }) => value !== null && value > composed + Math.max(1, Math.abs(composed) * 0.01));
+  return over === undefined ? null
+    : `incomplete debt carrying value: same-period ${over.tag} ${over.value} exceeds the composed current and noncurrent financing debt ` +
+      `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`;
+}
+
 export function fiscalMaturityScopeReason(maturities: number | null, remainder: number | null): string | null {
   return maturities !== null && remainder !== null && remainder > 0
     ? `debt maturity scope unresolved: LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths ${maturities} is accompanied by remainder-of-fiscal-year ` +

@@ -46,7 +46,7 @@
 
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
-import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason } from "@/edgar/debtCompleteness";
+import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
@@ -442,21 +442,26 @@ const LONG_TERM_DEBT_COMPONENT_DISCLOSURE =
   "no LongTermDebt aggregate is tagged for the period; financing debt is composed from the filer's instrument-class tags (notes, loans, secured, convertible, revolver or the combined debt amount), which include any current portion";
 /** Inclusive instrument-class totals: each includes its own current portion. */
 const INCLUSIVE_DEBT_COMPONENT_TAGS: ReadonlySet<string> = new Set(["DebtLongtermAndShorttermCombinedAmount", "NotesPayable", "SeniorNotes", "LoansPayable", "SecuredDebt", "ConvertibleNotesPayable"]);
+/** Long-term debt and finance leases with their current maturities: one inclusive total (audit 2026-10-22 B-15). */
+const INCLUSIVE_LONG_TERM_TAG = "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities";
+/** The current-portion tags that pair with `LongTermNotesAndLoans` (audit 2026-10-22 B-14). */
+const NOTES_AND_LOANS_CURRENT_TAGS: readonly string[] = tagsFor("longTermNotesAndLoansCurrent");
 /**
  * Whether a long-term-debt figure was composed from tags that hold current debt
  * (an inclusive class total or a class's current variant). Its total is right,
  * but it is not noncurrent debt, so consumers that read long-term debt on its
  * own (the forensic leverage tests) must not use it.
  */
-/** True when long-term debt came from the tag that already includes finance-lease obligations (overlap case 1). */
+/** True when long-term debt came from a tag that already includes finance-lease obligations (overlap case 1). */
 export function longTermDebtHoldsFinanceLeases(tags: readonly string[] | undefined): boolean {
-  return (tags ?? []).includes("us-gaap/LongTermDebtAndCapitalLeaseObligations");
+  return (tags ?? []).some((tag) => tag === "us-gaap/LongTermDebtAndCapitalLeaseObligations" || tag === `us-gaap/${INCLUSIVE_LONG_TERM_TAG}`);
 }
 
 export function longTermDebtHoldsCurrent(tags: readonly string[] | undefined): boolean {
   return (tags ?? []).some((tag) => {
     const name = tag.replace(/^us-gaap\//, "");
-    return INCLUSIVE_DEBT_COMPONENT_TAGS.has(name) || CURRENT_DEBT_COMPONENT_TAGS.has(name);
+    return INCLUSIVE_DEBT_COMPONENT_TAGS.has(name) || CURRENT_DEBT_COMPONENT_TAGS.has(name) ||
+      name === INCLUSIVE_LONG_TERM_TAG || NOTES_AND_LOANS_CURRENT_TAGS.includes(name);
   });
 }
 /** Each instrument class with the tag family of its current portion, which its noncurrent variants exclude. */
@@ -891,6 +896,16 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
     unit: "money",
     steps: [
       lineItemChain("longTermDebt", "money"),
+      // Noncurrent notes and loans with their separately tagged current
+      // portion (audit 2026-10-22 B-14); never the current portion alone.
+      {
+        kind: "chain",
+        unit: "money",
+        steps: [
+          ...NOTES_AND_LOANS_CURRENT_TAGS.map((current): ChainSpec => ({ kind: "sum", tags: [...tagsFor("longTermNotesAndLoans"), current], unit: "money" })),
+          { kind: "first", tags: tagsFor("longTermNotesAndLoans"), unit: "money" },
+        ],
+      },
       { kind: "first", tags: tagsFor("debtCombinedTotal"), unit: "money", disclose: LONG_TERM_DEBT_COMPONENT_DISCLOSURE },
       {
         kind: "sumAnyOf",
@@ -1937,6 +1952,10 @@ interface ComputeContext {
   nciInferredZero?: boolean;
   /** The value of one money tag at this period, or null. */
   money(tag: string): number | null;
+  /** One money tag's resolved fact at this period, for a field recomposed from it. */
+  fact?(tag: string): Resolved | null;
+  /** Re-points a field's provenance at the facts it was recomposed from. */
+  replace?(field: string, resolved: Resolved): void;
 }
 
 function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: ComputeContext): void {
@@ -2073,7 +2092,9 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   const incomplete = partialLease !== undefined
     ? `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`
     : refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
-    : omittedConvertibleCarryingReason(v, cc.money("ConvertibleLongTermNotesPayable")) ?? incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount"));
+    : omittedConvertibleCarryingReason(v, cc.money("ConvertibleLongTermNotesPayable")) ?? incompleteDebtReason(v, cc.money("DebtInstrumentCarryingAmount")) ??
+      uncomposedDebtReason({ ...v, financeLeaseLiability: cc.resolved.get("capitalLeaseObligations")?.parts?.["financeLeaseLiability"] ?? null },
+        DEBT_AGGREGATE_TAGS.map((tag) => ({ tag, value: cc.money(tag) })));
   if (partialLease !== undefined) {
     v.capitalLeaseObligations = null;
     notes.withhold("capitalLeaseObligations", ctx, incomplete!);
@@ -2214,13 +2235,48 @@ function resolveDebtOverlaps(
     }
   }
 
+  // The balance sheet's current-maturities line, against which an inclusive
+  // long-term figure is netted (audit 2026-10-22 B-14, B-15).
+  const currentMaturityLine = shortTermTags.find((tag) => CURRENT_MATURITY_TAGS.includes(tag) || (tag === MATURITIES_NEXT_YEAR_TAG && scopeReason === null));
+  // Case 7: noncurrent notes and loans with their current portion. Beside a
+  // current-maturities line the current portion is already in short-term debt.
+  const notesCurrent = NOTES_AND_LOANS_CURRENT_TAGS.find((tag) => longTermTags.includes(tag));
+  const notesNoncurrent = cc.fact?.(tagsFor("longTermNotesAndLoans")[0]!) ?? null;
+  if (notesCurrent !== undefined && currentMaturityLine !== undefined && notesNoncurrent !== null && v.longTermDebt != null) {
+    v.longTermDebt = tidy(notesNoncurrent.value, MONEY_DECIMALS);
+    cc.replace?.("longTermDebt", notesNoncurrent);
+    notes.add(`longTermDebt ${ctx}: ${notesCurrent} excluded — the current notes and loans are carried by ${currentMaturityLine}, which resolved for this period`);
+  }
+
+  // Case 2 for the inclusive long-term total, which holds current maturities
+  // and current finance leases.
+  if (longTermTags.includes(INCLUSIVE_LONG_TERM_TAG) && v.longTermDebt != null) {
+    const combined = shortTermTags.includes(COMBINED_CURRENT_TAG) ? cc.money(COMBINED_CURRENT_TAG) : null;
+    const maturitiesCurrent = cc.money("LongTermDebtCurrent");
+    const [netTag, net] = currentMaturityLine === undefined ? [null, null]
+      : combined !== null ? [COMBINED_CURRENT_TAG, combined]
+      : maturitiesCurrent !== null && currentMaturityLine !== MATURITIES_NEXT_YEAR_TAG ? ["LongTermDebtCurrent", maturitiesCurrent]
+      : [null, null];
+    if (currentMaturityLine === undefined) {
+      notes.add(`longTermDebt ${ctx}: ${INCLUSIVE_LONG_TERM_TAG} includes current maturities and finance leases; no current-maturities line resolved, so they are counted once, here`);
+    } else if (net !== null) {
+      v.longTermDebt = tidy(v.longTermDebt - net, MONEY_DECIMALS);
+      notes.add(`longTermDebt ${ctx}: ${INCLUSIVE_LONG_TERM_TAG} less the current maturities ${currentMaturityLine} carries (${netTag} ${net})`);
+    } else {
+      const reason = `noncurrent carrying debt allocation unavailable: ${INCLUSIVE_LONG_TERM_TAG} includes current maturities, which ${currentMaturityLine} also carries, and no current-maturities fact separates them`;
+      v.longTermDebt = null;
+      notes.withhold("longTermDebt", ctx, reason);
+      notes.add(`longTermDebt ${ctx}: ${reason}`);
+    }
+  }
+
   // Case 6: debt composed from instrument-class tags (no aggregate tagged).
   // An inclusive class total already holds its current portion, so beside a
   // current-debt line it may count that portion twice; a generic notes total
   // may already hold the convertible notes. Neither overlap can be resolved
   // from the tags, so the figure is withheld rather than doubled.
   const composedFrom = (item: Parameters<typeof tagsFor>[0]): boolean => tagsFor(item).some((tag) => longTermTags.includes(tag));
-  const composed = v.longTermDebt != null && !tagsFor("longTermDebt").some((tag) => longTermTags.includes(tag));
+  const composed = v.longTermDebt != null && ![...tagsFor("longTermDebt"), ...tagsFor("longTermNotesAndLoans")].some((tag) => longTermTags.includes(tag));
   if (composed) {
     const currentLine = tagsOf("shortTermDebt").find((tag) => CURRENT_MATURITY_TAGS.includes(tag) || tag === MATURITIES_NEXT_YEAR_TAG);
     const inclusive = longTermTags.filter((tag) => INCLUSIVE_DEBT_COMPONENT_TAGS.has(tag));
@@ -2243,15 +2299,48 @@ function resolveDebtOverlaps(
     }
   }
 
+  // Case 8: the inclusive long-term total, filed beside a composition from
+  // other tags, is the filer's own reconciliation of long-term debt. A
+  // current-debt line can carry debt the filer reclassified to long-term, so a
+  // composition that misses it by more than 1% is recomposed from the
+  // inclusive total and the short-term borrowings (audit 2026-10-22 B-17).
+  const inclusiveTotal = longTermTags.includes(INCLUSIVE_LONG_TERM_TAG) ? null : cc.fact?.(INCLUSIVE_LONG_TERM_TAG) ?? null;
+  if (inclusiveTotal !== null && (v.shortTermDebt != null || v.longTermDebt != null)) {
+    const borrowingsTag = ["ShortTermBorrowings", "CommercialPaper"].find((tag) => cc.money(tag) !== null);
+    const borrowings = borrowingsTag === undefined ? null : cc.fact?.(borrowingsTag) ?? null;
+    const finance = longTermDebtHoldsFinanceLeases(longTermTags.map((tag) => `us-gaap/${tag}`)) ? 0
+      : cc.resolved.get("capitalLeaseObligations")?.parts?.["financeLeaseLiability"] ?? 0;
+    const composedDebt = (v.shortTermDebt ?? 0) + (v.longTermDebt ?? 0) + finance;
+    const expected = inclusiveTotal.value + (borrowings?.value ?? 0);
+    if (Math.abs(composedDebt - expected) > Math.max(1, expected * 0.01)) {
+      if (borrowings !== null) {
+        v.longTermDebt = tidy(inclusiveTotal.value, MONEY_DECIMALS);
+        v.shortTermDebt = tidy(borrowings.value, MONEY_DECIMALS);
+        cc.replace?.("longTermDebt", inclusiveTotal);
+        cc.replace?.("shortTermDebt", borrowings);
+        notes.add(
+          `totalDebt ${ctx}: financing debt recomposed as ${borrowingsTag} ${borrowings.value} + ${INCLUSIVE_LONG_TERM_TAG} ${inclusiveTotal.value}; ` +
+            `the composition from ${[...shortTermTags, ...longTermTags].join(" + ")} (${composedDebt}) differs from the filer's inclusive long-term total, so current debt reclassified to long-term would be counted twice`,
+        );
+      } else if (composedDebt > expected) {
+        const reason = `financing debt unresolved: the composed current and long-term debt (${composedDebt}) exceeds the filer's ${INCLUSIVE_LONG_TERM_TAG} ${inclusiveTotal.value} and no short-term borrowings are tagged to reconcile them, so current debt reclassified to long-term may be counted twice`;
+        v.longTermDebt = null;
+        notes.withhold("longTermDebt", ctx, reason);
+        notes.add(`longTermDebt ${ctx}: ${reason}`);
+      }
+    }
+  }
+
   // Case 1. `capitalLeaseObligations` itself keeps the full lease figure — that
   // is what FMP publishes — and the exclusion is applied only to the sum.
   const leases = cc.resolved.get("capitalLeaseObligations");
   const full = v.capitalLeaseObligations ?? null;
-  if (longTermTags.includes("LongTermDebtAndCapitalLeaseObligations") && leases?.parts !== undefined) {
+  const leaseHolder = tagsOf("longTermDebt").find((tag) => tag === "LongTermDebtAndCapitalLeaseObligations" || tag === INCLUSIVE_LONG_TERM_TAG);
+  if (leaseHolder !== undefined && leases?.parts !== undefined) {
     const finance = leases.parts["financeLeaseLiability"];
     if (finance !== undefined) {
       notes.add(
-        `totalDebt ${ctx}: longTermDebt resolved from LongTermDebtAndCapitalLeaseObligations, which already includes finance lease obligations, so only the operating-lease liability is added here; capitalLeaseObligations still reports the full ${full ?? "null"}`,
+        `totalDebt ${ctx}: longTermDebt resolved from ${leaseHolder}, which already includes finance lease obligations, so only the operating-lease liability is added here; capitalLeaseObligations still reports the full ${full ?? "null"}`,
       );
       return {
         label: "capitalLeaseObligations (operating leases only)",
@@ -2558,6 +2647,8 @@ function buildStatementRows<TRow>(
         const r = sameRowEvidence(tag, "money");
         return r === null ? null : tidy(r.value, MONEY_DECIMALS);
       },
+      fact: (tag) => sameRowEvidence(tag, "money"),
+      replace: (field, resolved) => { resolutions.set(field, resolved); },
     });
     // A withheld aggregate-dividend proxy has no common-dividend provenance.
     if (def.statement === "cashflow" && values.commonDividendsPaid === null) resolutions.delete("commonDividendsPaid");

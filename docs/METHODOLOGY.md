@@ -2842,3 +2842,42 @@ from the static ADR table or guess a ratio. A market cap Métis computed from a
 quote and a filed count is now labelled "derived" in Key data and the market
 data table, with the note "quote price × filed share count, computed by
 Métis", instead of "raw provider observation".
+
+**Noncurrent notes and loans (B-14).** Oracle tags its noncurrent debt as
+`LongTermNotesAndLoans` and its current notes as `NotesPayableCurrent`. No
+long-term-debt chain read the first tag, so the instrument-class fallback
+composed long-term debt from the current notes alone: $7.6B where Oracle
+carried $125.3B. Long-term debt now reads `LongTermNotesAndLoans` with its
+current portion (`NotesAndLoansPayableCurrent` or `NotesPayableCurrent`) after
+the long-term-debt aggregates and before the combined debt total. Beside the
+balance sheet's current-debt line, which already carries the current notes,
+the current portion is dropped from long-term debt, so Oracle's May 2026 debt
+is $7.2B current plus $122.3B noncurrent, the $129.5B Oracle tags as its
+combined debt. As a backstop, a same-period debt total the filer tagged
+(`LongTermDebtNoncurrent`, `LongTermNotesAndLoans`, `LongTermDebt`,
+`LongTermDebtAndCapitalLeaseObligations`, the inclusive total below, or
+`DebtLongtermAndShorttermCombinedAmount`) can never exceed the composed
+current debt, noncurrent debt and finance leases by more than 1%. When one
+does, a component no chain read is missing, so total and net debt are
+withheld with a note naming the total rather than published as a partial sum.
+This guard runs in the statements builder; the vendor statement path is not
+changed.
+
+**Long-term debt including current maturities (B-15, B-17).** Chevron tags
+its long-term debt and finance leases, current maturities included, as
+`LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities`. No chain
+read it, so Chevron's quarterly debt was its short-term borrowings alone
+($0.4B where Chevron carried $37.1B). The tag is now the last long-term-debt
+aggregate. Because it holds finance leases, only the operating-lease liability
+is added beside it, as for `LongTermDebtAndCapitalLeaseObligations`. Because
+it holds current maturities, it is netted against a current-maturities line
+the same way as `LongTermDebt`; when that line cannot be separated from it,
+long-term debt is withheld. In its annual report Chevron files current debt
+of $10.9B before reclassifying $10B of it to long-term, beside long-term debt
+that already includes the reclassified amount, so the year-end debt counted
+the $10B twice ($50.7B of financing debt against $40.8B). When the inclusive
+total is filed for a period whose debt was composed from other tags, it is the
+filer's own reconciliation: a composition more than 1% away from the
+inclusive total plus short-term borrowings is recomposed as the short-term
+borrowings plus the inclusive total, with a note. With no short-term
+borrowings tagged, a composition above the inclusive total is withheld.
