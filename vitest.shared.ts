@@ -8,9 +8,15 @@ export const INTEGRATION_TEST_INCLUDE = [DB_CLI_TEST];
 /**
  * Installed for every test file in every config: replaces `globalThis.fetch`
  * with a guard that rejects any non-loopback request, so a test can never reach
- * a live provider. See `tests/setup/noLiveNetwork.ts`.
+ * a live provider (`tests/setup/noLiveNetwork.ts`); clears METIS_/THESIS_
+ * settings inherited from the launching shell (`tests/setup/hermeticEnv.ts`);
+ * and hides saved provider keys (`tests/setup/privateCredentials.ts`).
  */
-export const SHARED_SETUP_FILES = ["./tests/setup/noLiveNetwork.ts", "./tests/setup/privateCredentials.ts"];
+export const SHARED_SETUP_FILES = [
+  "./tests/setup/noLiveNetwork.ts",
+  "./tests/setup/hermeticEnv.ts",
+  "./tests/setup/privateCredentials.ts",
+];
 export const SHARED_TEST_RUNNER = "./tests/helpers/nativeSqliteRunner.ts";
 
 export const SHARED_RESOLVE_ALIAS = {
