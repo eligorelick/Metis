@@ -83,6 +83,16 @@ describe("a full-year outlook that names its year without \"full year\" (audit 2
   it("never takes a maturity year or a past year for the outlook's year", () => {
     expect(read("We expect capital expenditures to be approximately $2.0 billion, funded in part by notes due 2030.", q(2026, 2))?.[0]?.[0]).toBe("Q2 FY2026");
     expect(read("Excluding the impact of the 2024 divestiture, we expect revenue to be approximately $5.0 billion.", q(2026, 3))?.[0]?.[0]).toBe("Q3 FY2026");
+    // A year after "over", "above" or "than" is the comparison base.
+    expect(read("We expect capital expenditures to be approximately $2.0 billion, higher than 2026.", q(2026, 4))?.[0]?.[0]).toBe("Q4 FY2026");
+    expect(read("We expect revenue to be approximately $5.0 billion, representing growth of 10% over 2026.", q(2026, 4))?.[0]?.[0]).toBe("Q4 FY2026");
+  });
+
+  it("reads a money guide beside a percent range, and a percent guide beside a money range", () => {
+    expect(read("We expect fourth quarter 2026 revenue to be approximately $5.0 billion, up 2-3% year over year."))
+      .toEqual([["Q4 FY2026", "revenue", "approximate", 5e9, 5e9, 5e9]]);
+    expect(read("We expect our fourth quarter 2026 tax rate to be approximately 16%, on pre-tax income of $1.0-1.2 billion."))
+      .toEqual([["Q4 FY2026", "tax-rate", "approximate", 16, 16, 16]]);
   });
 
   it("labels an unyeared full-year outlook with the outlook block's fiscal year", () => {
@@ -124,6 +134,20 @@ describe("a revenue outlook far from the statements (audit 2026-10-22 B-25)", ()
     const disclosures = buildFilingDisclosures(bundle)!;
     expect(disclosures.guidance?.rows ?? []).toEqual([]);
     expect(disclosures.notes.join(" ")).toMatch(/Q2 FY2026 revenue guide of 1\.2 is outside 0\.2-5x the last reported quarter's revenue \(1\.1e\+?9|Q2 FY2026 revenue guide .* outside 0\.2-5x/);
+  });
+
+  it("names the currency, not a misread scale, for a guide printed in another currency", () => {
+    const bundle = bundleWith([{ text: release("First", "second", "approximately ¥180 billion"), accession: "0000000001-26-000010", filed: "2026-04-28" }]);
+    const notes = buildFilingDisclosures(bundle)!.notes.join(" ");
+    expect(notes).toMatch(/currency is not the statements'/);
+    expect(notes).not.toMatch(/scale was misread/);
+  });
+
+  it("anchors on a plausible guide for the same quarter when the first one read is out of band", () => {
+    const text = release("First", "second", "approximately $1.2 bn").replace(" About Acme Corp.",
+      " For the second quarter of 2026, Acme expects GAAP revenue to be approximately $1.18 billion. About Acme Corp.");
+    const anchor = nextPeriodRevenueGuidance(bundleWith([{ text, accession: "0000000001-26-000010", filed: "2026-04-28" }]));
+    expect(anchor).toMatchObject({ periodLabel: "Q2 FY2026", mid: 1.18e9 });
   });
 
   it("keeps a plausible revenue guide as the anchor and scores it against the quarter that reported it", () => {

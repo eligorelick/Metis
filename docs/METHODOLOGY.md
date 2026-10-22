@@ -2812,9 +2812,12 @@ high end takes the low end's currency symbol ("$73-76 billion", "$58–$61
 billion", "between $58 and $61 billion"). In a percent range the high end's %
 covers the low end, and a hyphen that follows a number or % is never a sign. A
 stated range with only one readable end is left unread rather than published as
-a point, but a span of years ("from 2027 to 2028") is not a range of values. An
-amount the guide is compared with ("an increase from our prior outlook of
-13-16%", "versus $3.00 in 2025", "vs. $4.5 billion") is not read as the guide. An
+a point, but a span of years ("from 2027 to 2028") is not a range of values,
+nor is a range of the other kind ("up 2-3%" beside a money guide). An amount
+the guide is compared with ("an increase from our prior outlook of 13-16%",
+"versus $3.00 in 2025", "vs. $4.5 billion") is not read as the guide, and a
+year after "over", "above", "below" or "than" is a comparison, not the
+outlook's period. An
 outlook that names its year without "full year" ("2026 capital expenditures",
 "Adjusted EPS of $2.25 to $2.35 in 2026") guides that fiscal year, and
 "full-year revenue guidance" with no year guides the outlook block's fiscal
@@ -2829,7 +2832,9 @@ As a backstop, a revenue outlook must lie within 0.2 to 5 times the revenue of
 the latest quarter its release could see (four such quarters for a full-year
 outlook). Outside that band the guide is left out of the DCF's year-one anchor,
 the outlook table and the checks against actuals, and a note names the guide
-and the quarter it was compared with. The band is a house convention: no
+and the quarter it was compared with. The anchor then takes the next
+plausible guide for the same quarter, never one for a later quarter. A guide
+printed in another currency is reported as such before the band is applied. The band is a house convention: no
 issuer guides a quarter at a fifth or five times its last one, and a lost
 "billion" misses by a factor of a billion.
 

@@ -190,9 +190,11 @@ export function nextPeriodRevenueGuidance(bundle: DataBundle): RevenueGuidanceAn
   const releases = orderedEarningsReleases(reports?.releases ?? []);
   const release = releases.find((r) => r.guidance?.items.some((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && forwardGuidance(i, releases)));
   if (!release || !release.guidance) return null;
-  const item = release.guidance.items.find((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && i.basis !== "non-gaap" && forwardGuidance(i, releases));
+  const quarterly = release.guidance.items.filter((i) => i.metric === "revenue" && i.period.fiscalQuarter !== null && i.basis !== "non-gaap" && forwardGuidance(i, releases));
+  // The first guided quarter's first plausible guide: an out-of-band reading
+  // never anchors, and never hands the anchor to a later quarter either.
+  const item = quarterly.find((i) => i.period.label === quarterly[0]?.period.label && implausibleRevenueGuide(bundle, release, i) === null);
   if (!item || item.period.fiscalQuarter === null) return null;
-  if (implausibleRevenueGuide(bundle, release, item) !== null) return null;
   const sourceCurrency = releaseReportingCurrency(bundle, release);
   const currency = symbolCurrency(item.symbol, sourceCurrency);
   if (currency === null || currency !== statementReportingCurrency(bundle)) return null;
@@ -270,17 +272,18 @@ function implausibleRevenueGuide(bundle: DataBundle, release: EarningsReleaseRec
 function guidanceRows(items: readonly GuidanceItem[], currency: string | null, sourceCurrency: string | null, notes: string[], implausible: (item: GuidanceItem) => string | null): GuidanceRows {
   const rows: GuidanceRows = [];
   for (const item of items) {
-    const misread = implausible(item);
-    if (misread !== null) {
-      notes.push(misread);
-      continue;
-    }
+    // The currency first: a guide in another currency is not a misread scale.
     if (item.unit !== "%" && item.unit !== "percentage-points") {
       const itemCurrency = symbolCurrency(item.symbol, sourceCurrency);
       if (itemCurrency === null || itemCurrency !== currency) {
         notes.push(`Guidance for ${item.period.label} ${item.metric} printed in "${item.symbol ?? "no symbol"}" was left out: that currency is not the statements' (${currency ?? "unestablished"}).`);
         continue;
       }
+    }
+    const misread = implausible(item);
+    if (misread !== null) {
+      notes.push(misread);
+      continue;
     }
     rows.push({ period: item.period.label, metric: item.metric, basis: item.basis, unit: item.unit, low: item.low, mid: item.mid, high: item.high, form: item.form,
       ...(item.previous ? { previous: item.previous } : {}), ...(item.growth ? { growth: item.growth } : {}), ...(item.previousGrowth ? { previousGrowth: item.previousGrowth } : {}), ...(item.span ? { span: item.span } : {}), ...(item.headerSpan ? { headerSpan: item.headerSpan } : {}) });

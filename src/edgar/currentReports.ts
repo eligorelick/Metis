@@ -172,7 +172,7 @@ function fiscalPeriod(fiscalYear: number, fiscalQuarter: 1 | 2 | 3 | 4 | null): 
  * revenue for the fourth quarter of 2026") governs something else.
  */
 const COMPARISON_FILLER = String.raw`(?:(?:the|a|an|or|per|diluted|basic|share|same|prior|prior-year|year-ago|year|ago|period|in|of|for|during|levels?|approximately|about|roughly|nearly)[\s,]+|[$€£¥]?\s?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|billion|million|thousand|trillion)?[\s,]+)*`;
-const COMPARISON_TAIL = new RegExp(String.raw`\b(?:compared (?:with|to)|versus|vs\.?|relative to|against|from)\s+${COMPARISON_FILLER}$`, "i");
+const COMPARISON_TAIL = new RegExp(String.raw`\b(?:compared (?:with|to)|versus|vs\.?|relative to|against|from|over|above|below|than)\s+${COMPARISON_FILLER}$`, "i");
 
 /** Whether the phrase at `index` directly follows a comparison cue in its own clause. */
 function comparisonBase(text: string, index: number): boolean {
@@ -377,8 +377,14 @@ export function parseGuidanceSentence(sentence: string, defaultPeriod: FiscalPer
   const respectively = /\brespectively\b/i.test(clause);
   // A span of years ("from 2027 to 2028", "between now and 2028") is not a
   // range of values: the test reads the clause with its years blanked out.
-  const yearless = valueClause.replace(/(?<![\d,.$])(?:19|20)\d{2}(?![\d,.]\d|\s*(?:%|billion|million|thousand))/g, "Y");
-  const isRange = /\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
+  // A range of the other kind ("up 2-3%" beside a money guide, "$1.0-1.2
+  // billion" beside a rate) is not this guide's range either.
+  const otherKind = rule.unit === "%"
+    ? /[$€£]\s?\d[\d,.]*\s*(?:billion|million|thousand)?\s*(?:to|-|–|—)\s*[$€£]?\s?\d[\d,.]*/g
+    : /\bbetween\s+\d[\d,.]*\s*%?\s*and\s+\d[\d,.]*\s*%|\d[\d,.]*\s*%?\s*(?:to|-|–|—)\s*\d[\d,.]*\s*%/gi;
+  const yearless = valueClause.replace(otherKind, " ")
+    .replace(/(?<![\d,.$])(?:19|20)\d{2}(?![\d,.]\d|\s*(?:%|billion|million|thousand))/g, "Y");
+  const isRange =/\b(?:between|range of|in the range)\b[^.;]{0,24}?[$€£\d]|\d\s*(?:%|billion|million)?\s*(?:to|-|–|—)\s*\$?\d/i.test(yearless);
   // B-25: one end of a stated range is never published as a point.
   if (isRange && values.length < 2) return [];
 
