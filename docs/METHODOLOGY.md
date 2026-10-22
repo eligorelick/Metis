@@ -2895,3 +2895,17 @@ cash flow shows net debt repayment of at least half the fall. Both thresholds
 are house conventions. A borrowing repaid during the year with the cash flow
 to show it still passes, and so does a closing balance that carries the
 interest on its own.
+
+**An inclusive total whose split is refused (B-40).** Prologis files an
+unclassified balance sheet: `LongTermDebt` is all of its carrying debt,
+current maturities included. When the debt-maturity schedule's
+next-twelve-months bucket sits beside a remainder-of-fiscal-year bucket, the
+bucket is not established as current carrying debt, so short-term debt and
+the noncurrent remainder are withheld. Total debt was withheld with them,
+although it never depended on the split: 13 Prologis quarters lost total and
+net debt. When `LongTermDebt` is the only long-term tag and the refused
+bucket was the only current component, total debt is now `LongTermDebt` plus
+leases, with a note that only the split is withheld. The statements builder
+and Stage B's debt admission apply the same rule. Short-term borrowings beside
+the refused bucket still withhold the total, because the bucket's share of
+them is unknown.

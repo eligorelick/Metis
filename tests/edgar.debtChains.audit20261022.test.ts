@@ -12,6 +12,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { admitDebtFields } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, type BuiltStatements } from "@/edgar/statements";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import fixture from "./fixtures/batch1-debt-facts.json";
@@ -92,5 +93,36 @@ describe("long-term debt including current maturities (audit 2026-10-22 B-15, B-
     const row = annual(build("CVX", (gaap) => { delete gaap.ShortTermBorrowings; delete gaap.CommercialPaper; delete gaap.ShortTermBankLoansAndNotesPayable; }), "2025-12-31");
     expect(row.totalDebt).toBeNull();
     expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities/);
+  });
+});
+
+describe("an inclusive LongTermDebt whose current/noncurrent split is refused (audit 2026-10-22 B-40)", () => {
+  // Prologis files an unclassified balance sheet: LongTermDebt is all of its
+  // carrying debt. At 2026-03-31 the next-twelve-months maturity bucket sits
+  // beside a remainder-of-year bucket, so it cannot stand in as current debt.
+  it("PLD: keeps total debt from the inclusive total while the split stays withheld", () => {
+    const row = quarter(build("PLD"), "2026-03-31");
+    expect(row.shortTermDebt).toBeNull();
+    expect(row.longTermDebt).toBeNull();
+    near(row.totalDebt, 34_669.592e6 + (row.capitalLeaseObligations as number));
+    expect(row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(row.fieldConflicts?.shortTermDebt?.usable).toBe(false);
+  });
+
+  it("PLD: Stage B's debt admission keeps the total too", () => {
+    const facts = fixture.issuers.PLD.facts as unknown as CompanyFacts;
+    const row = quarter(build("PLD"), "2026-03-31");
+    const admitted = admitDebtFields(row as never, facts, "USD", `${fixture.asOf}T00:00:00.000Z`).row as unknown as Row;
+    near(admitted.totalDebt, 34_669.592e6 + (row.capitalLeaseObligations as number));
+    expect(admitted.netDebt).not.toBeNull();
+    expect(admitted.fieldConflicts?.totalDebt).toBeUndefined();
+  });
+
+  it("still withholds total debt when short-term borrowings sit beside the refused bucket", () => {
+    const row = quarter(build("PLD", (gaap) => {
+      const at = gaap.LongTermDebt!.units.USD!.find((p) => p.end === "2026-03-31")!;
+      gaap.ShortTermBorrowings = { units: { USD: [{ ...at, val: 500e6 }] } };
+    }), "2026-03-31");
+    expect(row.totalDebt).toBeNull();
   });
 });
