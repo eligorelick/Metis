@@ -2982,7 +2982,14 @@ reach the model the way filings and transcripts do: inside the
 `BEGIN/END_UNTRUSTED_SOURCE_DATA` envelope, JSON-encoded with `<`, `>` and `&`
 escaped, one entry per line. A reason that tries to close the envelope or open
 a new instruction turn stays inside it as data. The flags and gaps themselves,
-and their place in the report, are unchanged.
+and their place in the report, are unchanged. The sections rendered outside
+the envelopes (quote, computed figures, statements, estimates, short interest
+and macro) carry no free provider text. The analyst grades consensus is
+stated only as one of FMP's five rating words (Strong Buy, Buy, Hold, Sell,
+Strong Sell) and is otherwise withheld. Statement period labels and the
+FINRA and FRED observation dates must be ISO days: a statement period with
+another date shows as "unknown", FINRA discards the row as malformed, and
+FRED skips the observation. Valid data renders as before.
 
 **The judge reads the cases as arguments (F-6).** Each analyst case the judge
 receives is enveloped the same way and labelled model-authored. The judge is
