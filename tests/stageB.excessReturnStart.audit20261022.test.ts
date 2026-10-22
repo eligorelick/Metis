@@ -90,6 +90,15 @@ describe("C-10: the terminal carry needs 4 of the last 5 years, and a combinatio
     expect(rule.note).toMatch(/2023-12-31: ROTE 5%/);
   });
 
+  it("counts the set-aside year in the stated basis when it completes the four", () => {
+    const threeAbove = history("goodwill rose 1,345 (24% of opening common equity)");
+    threeAbove[3] = { ...threeAbove[3], roicPct: 8 };
+    const rule = terminalRoic(COE, threeAbove, { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
+    expect(rule.excessPp).toBeGreaterThan(0);
+    expect(rule.basis).toMatch(/exceeded cost of equity in 3 of the last 5 fiscal years, and the set-aside business-combination year counts toward the at least 4 of the last 5 required/);
+    expect(rule.basis).not.toMatch(/3 of the last 5 fiscal years, at least 4/);
+  });
+
   it("leaves the general DCF's every-year rule unchanged", () => {
     const dcfRule = terminalRoic(COE, history(null));
     expect(dcfRule.excessPp).toBe(0);

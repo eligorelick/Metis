@@ -158,7 +158,7 @@ describe("E-5 review fixes", () => {
     const valuation = valueCompany(route, bundle({ minorityInterest: 0.05 * consolidated, noncontrollingEarnings: { noncontrollingIncome: 60, consolidatedProfit: 10, asOf: "2026-06-30" } }));
     expect(valuation.gaps.some((g) => g.field === "valuation.dcf.domain")).toBe(false);
     const gap = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
-    expect(gap?.reason).toMatch(/exceeds trailing consolidated profit/);
+    expect(gap?.reason).toMatch(/trailing profit attributable to noncontrolling interests 60 exceeds consolidated profit 10, so the parent's own share is negative/);
     const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.perShare).toBeNull();
     expect(fairValue.reasons[0]).toMatchObject({ field: "valuation.dcf.noncontrollingEarningsKey" });
@@ -208,6 +208,21 @@ describe("E-5: the earnings key's inputs", () => {
   it("falls back to the latest fiscal year, as the DCF's income does, when the trailing window cannot size the key", () => {
     expect(noncontrollingEarningsInput(null, annual)).toEqual({ noncontrollingIncome: 25, consolidatedProfit: 115, asOf: "2025-12-31", basis: "annual" });
     expect(noncontrollingEarningsInput({ ...ttm, netIncomeAttributableToNoncontrollingInterest: null }, annual)).toMatchObject({ basis: "annual" });
+  });
+
+  it("falls back to the fiscal year when the trailing window is complete but cannot size the key", () => {
+    // A trailing consolidated loss, and NCI income above consolidated profit.
+    expect(noncontrollingEarningsInput({ ...ttm, netIncome: -5, netIncomeAttributableToNoncontrollingInterest: 2 }, annual)).toMatchObject({ basis: "annual", noncontrollingIncome: 25 });
+    expect(noncontrollingEarningsInput({ ...ttm, netIncome: -10, netIncomeAttributableToNoncontrollingInterest: 30 }, annual)).toMatchObject({ basis: "annual" });
+    // With no usable fiscal year, the trailing window stays, so the reason names what it lacked.
+    expect(noncontrollingEarningsInput({ ...ttm, netIncome: -5, netIncomeAttributableToNoncontrollingInterest: 2 }, null)).toMatchObject({ basis: "ttm", consolidatedProfit: -3 });
+  });
+
+  it("says the withhold tried both periods", () => {
+    const valuation = valueCompany(route, bundle({ minorityInterest: 0.2 * consolidated, noncontrollingEarnings: { noncontrollingIncome: null, consolidatedProfit: 4590, asOf: "2026-06-30", basis: "ttm" } }));
+    const reason = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")?.reason ?? "";
+    expect(reason).toMatch(/from neither the trailing four quarters nor the latest fiscal year/);
+    expect(reason).toMatch(/\(trailing profit attributable to noncontrolling interests unavailable\)/);
   });
 
   it("does not add NCI income to a net income whose ownership is unknown", () => {

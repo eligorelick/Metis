@@ -1031,7 +1031,10 @@ export function terminalRoic(
     basis:
       `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ` +
       (fourOfFive
-        ? `${RET} exceeded ${RATE} in ${above} of the last ${n} fiscal years, at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 being required ` +
+        ? `${RET} exceeded ${RATE} in ${above} of the last ${n} fiscal years` +
+          (above < TERMINAL_EXCESS_RETURN_MIN_YEARS && setAside.length > 0
+            ? `, and the set-aside business-combination year counts toward the at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 required `
+            : `, at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 being required `) +
           `(${oldest} to ${newest}${misses.length > 0 ? `; miss: ${missText(misses)}` : ""}${setAsideText}${annotatedText}; median spread ${fmtNum(median)}pp over the years counted); `
         : `${RET} exceeded ${RATE} in each of the last ${n} fiscal years (${oldest} to ${newest}, median spread ${fmtNum(median)}pp); `) +
       `half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
@@ -2671,8 +2674,10 @@ export function noncontrollingEarningsInput(ttm: NoncontrollingEarningsRow | nul
   };
   const trailing = read(ttm, "ttm");
   const fiscal = read(annual, "annual");
-  const complete = (key: ReturnType<typeof read>) => key !== null && key.noncontrollingIncome !== null && key.consolidatedProfit !== null;
-  return complete(trailing) ? trailing : complete(fiscal) ? fiscal : trailing ?? fiscal;
+  // Usable: both figures, positive consolidated profit, and NCI income within it (the rule valueCompany applies).
+  const usable = (key: ReturnType<typeof read>) => key !== null && key.noncontrollingIncome !== null && key.consolidatedProfit !== null &&
+    key.consolidatedProfit > 0 && key.noncontrollingIncome <= key.consolidatedProfit;
+  return usable(trailing) ? trailing : usable(fiscal) ? fiscal : trailing ?? fiscal;
 }
 
 /** E-5: the DCF note naming which NCI basis the bridge used, and the other one. */
@@ -5588,12 +5593,12 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       earnings.noncontrollingIncome <= earnings.consolidatedProfit) {
       noncontrollingEarningsShare = earnings.noncontrollingIncome / earnings.consolidatedProfit;
     } else {
-      noncontrollingKeyMissing = `Noncontrolling interest of ${fmtNum(inputs.minorityInterest)} sits in the consolidated DCF, but its share of consolidated profit could not be established ` +
+      noncontrollingKeyMissing = `Noncontrolling interest of ${fmtNum(inputs.minorityInterest)} sits in the consolidated DCF, but its share of consolidated profit could be established from neither the trailing four quarters nor the latest fiscal year ` +
         (earnings === null ? "(no trailing or fiscal-year noncontrolling and consolidated profit)"
           : !isNum(earnings.noncontrollingIncome) ? `(${period} profit attributable to noncontrolling interests unavailable)`
           : !isNum(earnings.consolidatedProfit) ? `(${period} consolidated profit unavailable)`
           : earnings.consolidatedProfit <= 0 ? `(${period} consolidated profit ${fmtNum(earnings.consolidatedProfit)} is not positive)`
-          : `(${period} profit attributable to noncontrolling interests ${fmtNum(earnings.noncontrollingIncome)} exceeds ${period} consolidated profit ${fmtNum(earnings.consolidatedProfit)}, so the parent's own share is negative)`) +
+          : `(${period} profit attributable to noncontrolling interests ${fmtNum(earnings.noncontrollingIncome)} exceeds consolidated profit ${fmtNum(earnings.consolidatedProfit)}, so the parent's own share is negative)`) +
         ". The per-share value is withheld: book NCI alone can understate the outside holders' claim on a consolidated valuation (audit 2026-10-22 E-5).";
     }
   }

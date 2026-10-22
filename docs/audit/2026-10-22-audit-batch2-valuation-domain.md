@@ -73,6 +73,14 @@ Two reviews of the branch (`/code-review` at high effort and an independent revi
 | The return-path check's pattern could not cross a decimal ("toward the 10.4% cost of equity"). | It now reads to the end of the sentence. |
 | The fair-value basis line hard-coded "5pp", and `excessReturnStart.ts` re-exported the gap constant for one test. | The line reads `EXCESS_RETURN_START_GAP_PP`, and the test imports the constant from `valuation.ts`. |
 
+A second independent review of those fixes found three more, fixed test-first in the next commit:
+
+| Finding | Fix |
+|---|---|
+| When a set-aside year completed the four, the carried basis read "exceeded in 3 of the last 5 fiscal years, at least 4 of the last 5 being required". | It says the set-aside business-combination year counts toward the four. |
+| A trailing window with both figures but no usable key (consolidated loss, or NCI income above consolidated profit) did not fall back to the fiscal year. | The fiscal year is used whenever the trailing window cannot size the key. |
+| The withhold reason named only the trailing window's gap. | It says neither period could size the key. |
+
 Not changed: the review noted that `businessCombinationYears` reads each tag once per year. That is at most 5 years × 4 tags on the financial route, too small to matter.
 
 ## Owner decisions
