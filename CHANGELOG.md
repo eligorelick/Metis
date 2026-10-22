@@ -20,8 +20,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - security audit fixes (2026-10-22)
 
 - Forbid framing on every response (`frame-ancestors 'none'`, `X-Frame-Options: DENY`) so another site cannot clickjack Metis pages (F-4).
-- Envelope the Stage A data-quality flags and gap reasons, and each analyst case the judge reads, as untrusted JSON; tell every pass that web-search results are untrusted evidence (F-5, F-6, F-7). The payload fingerprint moves, so a partial report from before this change cannot resume and needs a fresh job; no figure, payload or report version changes.
-- On a plain-HTTP `METIS_ALLOWED_HOST`, a company page request with no Fetch Metadata needs `X-Metis-Token` or a same-origin `Referer`; open company pages from the app's own links there, or serve Metis over HTTPS (F-8).
+- Envelope the Stage A data-quality flags and gap reasons, each analyst case the judge reads, and the model's own output shown back on a repair, continuation or part request, as untrusted JSON; tell every pass that web-search results are untrusted evidence (F-5, F-6, F-7). The payload fingerprint moves, so a partial report from before this change cannot resume and needs a fresh job; no figure, payload or report version changes.
+- On a non-loopback `METIS_ALLOWED_HOST`, a company page request with no Fetch Metadata needs `X-Metis-Token` or a same-origin `Referer`, so scripts there must send the token. Browsers send no Fetch Metadata over plain HTTP to a LAN address, so there a typed or bookmarked company URL, a link from another site, or a browser that strips the Referer is refused; open company pages from the app's own links, or serve Metis over HTTPS (F-8).
 - **Migration:** Node 24 or newer is now required (`engines.node >=24`), the version CI tests (F-10).
 - Tests clear `METIS_`/`THESIS_` settings inherited from the shell (GATE-1); remove a stray `.gitignore` line (F-11); the docs now say ChatGPT inference has run live and Gemini's has not (DOC-1).
 - See the [disposition record](docs/audit/2026-10-22-security-audit-fixes.md) and D-100.

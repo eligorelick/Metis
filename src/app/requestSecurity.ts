@@ -205,8 +205,9 @@ function refererMatchesHost(request: Request): boolean {
  * (HTTPS or loopback), so a cross-site `<img>` aimed at a plain-HTTP LAN address
  * arrives header-free too. There the request needs the startup token or a
  * same-origin Referer, which a cross-site page cannot forge and which the app's
- * own links and RSC fetches carry. A typed or bookmarked company URL carries
- * neither and is refused; the reason says what to do instead.
+ * own links and RSC fetches carry. A typed or bookmarked company URL, a link
+ * from another site, or a browser that strips the Referer carries neither and
+ * is refused; the reason says what to do instead.
  */
 function assertHeaderFreeHeavyGet(
   request: Request,
@@ -225,7 +226,9 @@ function assertHeaderFreeHeavyGet(
 /**
  * Protect a heavy GET/HEAD after routing has identified it as a company landing.
  * Same-site and cross-site embeds can consume the full provider pipeline, while
- * a top-level navigation remains a supported way to open a shared local link.
+ * a top-level navigation remains a supported way to open a shared local link
+ * where the browser sends Fetch Metadata (HTTPS or loopback). Without it, a
+ * non-loopback Host falls to assertHeaderFreeHeavyGet.
  * `carriesToken` checks the startup X-Metis-Token (it lives with the mutation
  * guard, which owns the token).
  */
