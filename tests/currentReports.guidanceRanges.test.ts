@@ -88,6 +88,15 @@ describe("a full-year outlook that names its year without \"full year\" (audit 2
     expect(read("We expect revenue to be approximately $5.0 billion, representing growth of 10% over 2026.", q(2026, 4))?.[0]?.[0]).toBe("Q4 FY2026");
   });
 
+  it("recognizes a named-year guide beside a quarter named only as a comparison base (PR #47 review)", () => {
+    expect(read("We expect 2026 revenue to be $5 billion, compared with fourth quarter 2025 revenue of $1 billion.", q(2025, 3)))
+      .toEqual([["FY2026", "revenue", "point", 5e9, 5e9, 5e9]]);
+    expect(read("Compared with the fourth quarter of 2025, we expect 2026 revenue to be approximately $5.0 billion.", q(2025, 3))?.[0]?.[0]).toBe("FY2026");
+    expect(read("We expect 2026 revenue of approximately $5.0 billion, up from the first half of 2025.", q(2025, 3))?.[0]?.[0]).toBe("FY2026");
+    // A quarter the sentence itself guides still keeps the block's quarter.
+    expect(read("We expect revenue to be approximately $5.0 billion in the fourth quarter, reflecting our 2026 pricing.", q(2025, 3))?.[0]?.[0]).toBe("Q3 FY2025");
+  });
+
   it("reads a money guide beside a percent range, and a percent guide beside a money range", () => {
     expect(read("We expect fourth quarter 2026 revenue to be approximately $5.0 billion, up 2-3% year over year."))
       .toEqual([["Q4 FY2026", "revenue", "approximate", 5e9, 5e9, 5e9]]);

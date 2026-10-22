@@ -210,20 +210,30 @@ function fullYearPhrase(text: string): FiscalPeriod | null {
 /** A sentence about a quarter or another part of a year. */
 const PART_OF_YEAR = /\bquarters?\b|\bQ[1-4]\b|\bhalf\b|\bhalves\b|\bremainder\b|\bremaining\b|\brest of\b|\bmonths?\b|\bweeks?\b/i;
 const MONTH = String.raw`(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?`;
+/** A part of a year with its ordinal and year ("fourth quarter 2025", "the first half of fiscal 2025", "Q4 FY25"). */
+const PART_OF_YEAR_PHRASE = /\b(?:(?:first|second|third|fourth|last|next|past|prior|three|six|nine|twelve|\d+)[ -])?(?:quarters?|Q[1-4]|half|halves|months?|weeks?)\b(?:\s+(?:of\s+)?(?:fiscal\s+(?:year\s+)?|FY\s?)?'?(?:20\d{2}|\d{2})\b)?/gi;
+
+/** `text` with each part-of-year phrase named only as a comparison base blanked out, positions kept. */
+function withoutComparisonParts(text: string): string {
+  return text.replace(PART_OF_YEAR_PHRASE, (m: string, index: number) => comparisonBase(text, index) ? "#".repeat(m.length) : m);
+}
 
 /**
  * Audit 2026-10-22 B-25: an outlook that names its year without "full year"
  * ("2026 capital expenditures", "Adjusted EPS of $2.25 to $2.35 in 2026",
  * "investment goals for 2025") guides that fiscal year. It took the outlook
  * block's quarter. A sentence about a quarter or part of a year keeps the
- * block's quarter, and a date's year ("December 31, 2025") or a maturity's
- * ("notes due 2030") names no outlook. With the block's period known, only
- * its fiscal year or the next is an outlook's ("the 2024 divestiture" in a
- * 2026 release is not).
+ * block's quarter, unless the quarter is only a comparison base ("compared
+ * with fourth quarter 2025 revenue"), which names neither the sentence's period
+ * nor its year. A date's year ("December 31, 2025") or a maturity's ("notes
+ * due 2030") names no outlook. With the block's period known, only its fiscal
+ * year or the next is an outlook's ("the 2024 divestiture" in a 2026 release
+ * is not).
  */
 function namedYearPhrase(text: string, block: FiscalPeriod | null): FiscalPeriod | null {
-  if (PART_OF_YEAR.test(text)) return null;
-  const unmatured = text.replace(MATURITY_YEAR, (m) => m.replace(/\d/g, "#"));
+  const own = withoutComparisonParts(text);
+  if (PART_OF_YEAR.test(own)) return null;
+  const unmatured = own.replace(MATURITY_YEAR, (m) => m.replace(/\d/g, "#"));
   for (const m of unmatured.matchAll(new RegExp(String.raw`(?<!\d,\s?)(?<!${MONTH}\s)\b(?:fiscal (?:year )?|FY\s?)?(20\d{2})\b`, "gi"))) {
     const year = Number(m[1]);
     if (comparisonBase(unmatured, m.index)) continue;
