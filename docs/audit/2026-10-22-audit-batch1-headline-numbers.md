@@ -43,6 +43,8 @@ GOOGL and JPM gain a forensics gap. In some periods their long-term debt is now 
 
 Cache: both runs read the same run cache, with keyless traffic only (SEC EDGAR, Yahoo charts, FRED and Finnhub). During the head run the cache stored fresh companyfacts for 14 issuers: AAPL, AMT, AMZN, BA, BAC, BRK.B, META, NEE, NNN, O, ORCL, PG, PLD and SNOW. Five of these (AMT, AMZN, BA, BAC and BRK.B) were also refreshed during the base run. Background refreshes that timed out (34 EDGAR, 49 Finnhub) left the cached copy in use. Every difference between the two runs is one of the changes listed above. The ORCL, CVX, PLD and META debt moves reproduce offline from the trimmed fixture.
 
+Re-run after the review fixes (`493725d`), against the first run on this branch: only quotes moved (prices dated October 22 instead of 21, and the market caps, multiples, valuation bands and composite scores that follow), and Meta's September 10-Q arrived, so its debt is now $83.7B at 2026-09-30. No headline debt or market cap was newly withheld. Five composites now print "Not graded": TSM (evidence 5%), NNN (41%), MCD (45%), BRK.B (46%) and LLY (47%). 33 of the 45 reports mark at least one band "neutral".
+
 ## Independent review
 
 Two reviews ran on the branch before it was opened: `/code-review` and a separate reviewer with no access to the fix notes. Each finding fixed here got its own failing test first.
