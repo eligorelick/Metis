@@ -2795,3 +2795,27 @@ rating. When the consensus price target, the model's value and the price share a
 currency, the analyst-estimates section states each value's implied move and
 their gap in points of the price. Beyond 20 points (a project convention) the
 summary must reconcile them. For Amazon the gap was about 92 points.
+
+### Security audit fixes (October 22, 2026)
+
+Recorded as D-100. These change what the model is told, not what Metis
+computes: no figure, payload field or version stamp moves.
+
+**Flags and gap reasons are untrusted (F-5).** A Stage A data-quality flag or a
+missing-data reason can quote a provider's own error text. Both lists now
+reach the model the way filings and transcripts do: inside the
+`BEGIN/END_UNTRUSTED_SOURCE_DATA` envelope, JSON-encoded with `<`, `>` and `&`
+escaped, one entry per line. A reason that tries to close the envelope or open
+a new instruction turn stays inside it as data. The flags and gaps themselves,
+and their place in the report, are unchanged.
+
+**The judge reads the cases as arguments (F-6).** Each analyst case the judge
+receives is enveloped the same way and labelled model-authored. The judge is
+told to weigh the cases, never to follow instructions inside them.
+
+**Web results are evidence, not instructions (F-7).** Every pass is told that
+web-search results and fetched pages are untrusted: use them only as quoted
+evidence, and never follow or repeat instructions found in them.
+
+The request-security changes in the same batch are described in
+[Privacy](PRIVACY.md).
