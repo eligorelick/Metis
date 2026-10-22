@@ -38,7 +38,8 @@ export interface ReturnPathLanguageInput {
 // A rise in returns ...
 const RECOVERY_WORD = /\b(?:recover(?:s|y|ies|ing|ed)?|rebound(?:s|ing|ed)?|ris(?:e|es|ing)|improv(?:e|es|ing|ement)|climb(?:s|ing)?|rebuild(?:s|ing)?)\b/i;
 // ... toward the cost of equity, or along the model's "recovery path".
-const TOWARD_HURDLE = /\b(?:toward|towards|to)\b[^.;]{0,60}?\b(?:cost of equity|CoE)\b|\brecovery path\b/i;
+// Sentences are already split, so a decimal ("10.4%") may sit between the two.
+const TOWARD_HURDLE = /\b(?:toward|towards|to)\b[^;]{0,60}?\b(?:cost of equity|CoE)\b|\brecovery path\b/i;
 
 function sentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 0);

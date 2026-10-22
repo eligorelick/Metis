@@ -23,10 +23,9 @@ import {
   BUSINESS_COMBINATION_MATERIALITY_PCT,
   businessCombinationYears,
   computeTtmCommonReturn,
-  EXCESS_RETURN_START_GAP_PP,
 } from "@/pipeline/stageB/excessReturnStart";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
-import { excessReturnModel, terminalRoic, valueCompany, type DcfRoicYear, type ExcessReturnInputs, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
+import { EXCESS_RETURN_START_GAP_PP, excessReturnModel, terminalRoic, valueCompany, type DcfRoicYear, type ExcessReturnInputs, type MultiplesFrameworkInputs } from "@/pipeline/stageB/valuation";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { CompanyRoute } from "@/types/core";
 import { keyDataRows } from "@/report/presentation";
@@ -79,6 +78,16 @@ describe("C-10: the terminal carry needs 4 of the last 5 years, and a combinatio
     const noEvidence = terminalRoic(COE, twoMisses.map((y) => ({ ...y, combinationEvidence: null })), { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
     expect(noEvidence.excessPp).toBe(0);
     expect(noEvidence.note).toMatch(/3 of the last 5/);
+  });
+
+  it("sets aside one combination year at most, so set-aside years cannot stand in for the evidence", () => {
+    // 2022-2025: above in 2022 and 2024 only; 2023 and 2025 are both below-hurdle combination years.
+    const four = history("goodwill rose 1,345 (24% of opening common equity)").slice(1);
+    four[1] = { ...four[1], roicPct: 5, combinationEvidence: "goodwill rose 900 (30% of opening common equity)" };
+    const rule = terminalRoic(COE, four, { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
+    expect(rule.excessPp).toBe(0);
+    expect(rule.note).toMatch(/only one business-combination year is set aside/);
+    expect(rule.note).toMatch(/2023-12-31: ROTE 5%/);
   });
 
   it("leaves the general DCF's every-year rule unchanged", () => {
@@ -166,6 +175,14 @@ describe("C-10: TTM common return and business-combination evidence", () => {
     // Preferred stock is outstanding, so plain net income cannot stand in for common earnings.
     expect(computeTtmCommonReturn({ income: { netIncome: 170 }, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/preferred claims/);
     expect(computeTtmCommonReturn({ income: null, asOf: "2026-06-30", balances, basis: "tangible-common-equity" }).withheldReason).toMatch(/no complete trailing/);
+  });
+
+  it("says when the balance sheet four quarters earlier has no equity figure, rather than that there is none", () => {
+    const gapped = balances.map((b) => (b.date === "2025-06-30" ? { ...b, totalStockholdersEquity: null } : b));
+    const ttm = computeTtmCommonReturn({ income: { netIncome: 170, netIncomeAvailableToCommon: 160 }, asOf: "2026-06-30", periodStart: "2025-07-01", balances: gapped, basis: "tangible-common-equity" });
+    expect(ttm.averageEquity).toBe(1000);
+    expect(ttm.basisText).toMatch(/the 2025-06-30 balance sheet four quarters earlier has no tangible common equity/);
+    expect(ttm.basisText).not.toMatch(/no balance sheet four quarters earlier/);
   });
 
   it("flags a year whose goodwill step-up or acquisition tags reach the materiality threshold", () => {

@@ -15,8 +15,9 @@
 import { describe, expect, it } from "vitest";
 
 import { computeDcfDisplay, computeFairValue } from "@/pipeline/stageB/fairValue";
-import { NCI_EARNINGS_KEY_MATERIALITY_PCT, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type ValuationBundleInputs } from "@/pipeline/stageB/valuation";
+import { NCI_EARNINGS_KEY_MATERIALITY_PCT, noncontrollingEarningsInput, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type ValuationBundleInputs } from "@/pipeline/stageB/valuation";
 import { valuationAuditTables } from "@/report/auditTables";
+import { fixedBridgeMinorityText } from "@/report/scenarioPresentation";
 import type { CompanyRoute } from "@/types/core";
 
 const route: CompanyRoute = { base: "general", overlays: [], evidence: { sector: null, industry: null } };
@@ -148,5 +149,69 @@ describe("E-5: NCI on the earnings key", () => {
     const v = dcfOf({ minorityInterest: 0, noncontrollingEarnings: null });
     expect(v.dcf!.equityValue!).toBeCloseTo(consolidated, 6);
     expect(v.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(false);
+  });
+});
+
+describe("E-5 review fixes", () => {
+  it("does not read a profit share above 100% as a claim larger than the whole equity value", () => {
+    // The parent lost money while the subsidiaries' outside holders earned 60 of a consolidated 10.
+    const valuation = valueCompany(route, bundle({ minorityInterest: 0.05 * consolidated, noncontrollingEarnings: { noncontrollingIncome: 60, consolidatedProfit: 10, asOf: "2026-06-30" } }));
+    expect(valuation.gaps.some((g) => g.field === "valuation.dcf.domain")).toBe(false);
+    const gap = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
+    expect(gap?.reason).toMatch(/exceeds trailing consolidated profit/);
+    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    expect(fairValue.perShare).toBeNull();
+    expect(fairValue.reasons[0]).toMatchObject({ field: "valuation.dcf.noncontrollingEarningsKey" });
+  });
+
+  it("keeps an earlier gate's reason when the per-share value was already unavailable", () => {
+    const valuation = valueCompany(route, bundle({ dilutedShares: null, minorityInterest: 0.2 * consolidated, noncontrollingEarnings: null }));
+    if (valuation.kind !== "dcf") throw new Error("expected the DCF route");
+    expect(valuation.dcf).not.toBeNull();
+    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    expect(fairValue.perShare).toBeNull();
+    expect(fairValue.reasons[0]?.field).not.toBe("valuation.dcf.noncontrollingEarningsKey");
+  });
+
+  it(`says a share of ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% or less is under the threshold, not that it would deduct no more`, () => {
+    const v = dcfOf({ minorityInterest: 0.001 * consolidated, noncontrollingEarnings: { noncontrollingIncome: 8, consolidatedProfit: 100, asOf: "2026-06-30" } });
+    const basis = computeDcfDisplay(v, "USD").bridge?.noncontrollingBasis ?? "";
+    expect(basis).toMatch(/8\.0% share of trailing consolidated profit to 2026-06-30 is not above the 10% house threshold/);
+    expect(basis).not.toMatch(/would not deduct more/);
+  });
+
+  it("states a fiscal-year key as fiscal-year profit", () => {
+    const v = dcfOf({ minorityInterest: 0.273 * consolidated, noncontrollingEarnings: { noncontrollingIncome: 1645, consolidatedProfit: 4590, asOf: "2025-12-31", basis: "annual" } });
+    expect(v.dcf!.notes.join(" ")).toMatch(/35\.8% share of fiscal-year consolidated profit to 2025-12-31/);
+    expect(computeDcfDisplay(v, "USD").bridge?.noncontrollingBasis).toMatch(/35\.8% share of fiscal-year consolidated profit to 2025-12-31/);
+  });
+
+  it("describes the scenario bridge as the larger of the two whenever the share is above the threshold", () => {
+    // The base path deducts book, but a richer path's consolidated equity can tip it onto the earnings key.
+    const book = 0.3 * consolidated;
+    const v = dcfOf({ minorityInterest: book, noncontrollingEarnings: { noncontrollingIncome: 20, consolidatedProfit: 100, asOf: "2026-06-30" } });
+    expect(v.dcf!.bridge.noncontrollingDeductionBasis).toBe("book");
+    expect(fixedBridgeMinorityText(v.dcf!.bridge, (x) => String(x))).toMatch(/the larger of its book value .* and its 20\.0% share of trailing consolidated profit/);
+    const small = dcfOf({ minorityInterest: book, noncontrollingEarnings: { noncontrollingIncome: 8, consolidatedProfit: 100, asOf: "2026-06-30" } });
+    expect(fixedBridgeMinorityText(small.dcf!.bridge, (x) => String(x))).toBe(String(book));
+  });
+});
+
+describe("E-5: the earnings key's inputs", () => {
+  const ttm = { date: "2026-06-30", netIncome: 100, netIncomeOwnershipBasis: "parent" as const, netIncomeAttributableToNoncontrollingInterest: 30 };
+  const annual = { date: "2025-12-31", netIncome: 90, netIncomeConsolidated: 115, netIncomeAttributableToNoncontrollingInterest: 25 };
+
+  it("uses the trailing four quarters when they carry both figures", () => {
+    expect(noncontrollingEarningsInput(ttm, annual)).toEqual({ noncontrollingIncome: 30, consolidatedProfit: 130, asOf: "2026-06-30", basis: "ttm" });
+  });
+
+  it("falls back to the latest fiscal year, as the DCF's income does, when the trailing window cannot size the key", () => {
+    expect(noncontrollingEarningsInput(null, annual)).toEqual({ noncontrollingIncome: 25, consolidatedProfit: 115, asOf: "2025-12-31", basis: "annual" });
+    expect(noncontrollingEarningsInput({ ...ttm, netIncomeAttributableToNoncontrollingInterest: null }, annual)).toMatchObject({ basis: "annual" });
+  });
+
+  it("does not add NCI income to a net income whose ownership is unknown", () => {
+    const key = noncontrollingEarningsInput({ ...ttm, netIncomeOwnershipBasis: undefined }, null);
+    expect(key).toMatchObject({ noncontrollingIncome: 30, consolidatedProfit: null, basis: "ttm" });
   });
 });

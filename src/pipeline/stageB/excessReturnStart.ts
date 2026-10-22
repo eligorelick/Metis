@@ -18,8 +18,6 @@ import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { BALANCE_MATCH_TOLERANCE_DAYS, tangibleCommonEquity, type ReturnsBalanceRow } from "@/pipeline/stageB/returns";
 import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
 
-// Defined beside the model that applies it; valuation.ts cannot import this module (returns.ts imports valuation.ts).
-export { EXCESS_RETURN_START_GAP_PP } from "@/pipeline/stageB/valuation";
 
 /**
  * HOUSE CONVENTION (owner decision, audit 2026-10-22 C-10): a fiscal year
@@ -130,7 +128,11 @@ export function computeTtmCommonReturn(input: {
     asOf: input.asOf,
     incomeAvailableToCommon: income,
     basisText: opening === null
-      ? `TTM ${label} to ${input.asOf}: four quarters of income available to common ${income} / closing ${equityName} ${closing} (no balance sheet four quarters earlier, so the closing balance stands alone, as the fiscal-year figure does)`
+      ? `TTM ${label} to ${input.asOf}: four quarters of income available to common ${income} / closing ${equityName} ${closing} (` +
+        (openingRow === null || openingRow === closingRow
+          ? "no balance sheet four quarters earlier"
+          : `the ${openingRow.date} balance sheet four quarters earlier has no ${equityName}`) +
+        ", so the closing balance stands alone, as the fiscal-year figure does)"
       : `TTM ${label} to ${input.asOf}: four quarters of income available to common ${income} / average ${equityName} ${average} (${openingRow!.date} and ${closingRow!.date})`,
     withheldReason: null,
   };

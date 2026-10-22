@@ -22,7 +22,10 @@
  * value is SUPPRESSED, never fabricated.
  */
 
-import { consensusYearsText, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult } from "@/pipeline/stageB/valuation";
+import {
+  consensusYearsText, EXCESS_RETURN_START_GAP_PP, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, noncontrollingBookReason, noncontrollingProfitShareText,
+  type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult,
+} from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 
@@ -105,11 +108,11 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
   }
 
   // Audit 2026-10-22 E-5: withheld because NCI's earnings key is unestablished.
-  const nciKey = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
-  if ((method === null || !isNum(perShareValue)) && nciKey !== undefined) {
+  const nciKeyReason = valuation.kind === "dcf" ? valuation.dcf?.noncontrollingKeyWithheld : undefined;
+  if (nciKeyReason !== undefined) {
     return suppressed(
-      [{ field: nciKey.field, reason: nciKey.reason, severity: "warn" }],
-      [`Intrinsic value per share unavailable: ${nciKey.reason}`],
+      [{ field: "valuation.dcf.noncontrollingEarningsKey", reason: nciKeyReason, severity: "warn" }],
+      [`Intrinsic value per share unavailable: ${nciKeyReason}`],
     );
   }
 
@@ -179,7 +182,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
         upsidePct: isNum(inputs.currentPrice) && inputs.currentPrice > 0 ? (altPerShare / inputs.currentPrice - 1) * 100 : null,
       };
       startLines.push(
-        `The ${alt.label} gives ${altPerShare} per share from its own fiscal-year book value; the two starts are ${round2(Math.abs(alt.differencePp))}pp apart, so it is shown beside the headline (house convention: more than 5pp).`,
+        `The ${alt.label} gives ${altPerShare} per share from its own fiscal-year book value; the two starts are ${round2(Math.abs(alt.differencePp))}pp apart, so it is shown beside the headline (house convention: more than ${EXCESS_RETURN_START_GAP_PP}pp).`,
       );
     }
   }
@@ -327,13 +330,10 @@ export function dcfBaseRateText(): string {
 /** E-5: the reader-facing basis of the NCI deduction in the bridge. */
 function noncontrollingBasisText(bridge: DcfBridge): string {
   const share = bridge.noncontrollingEarningsShare;
-  const window = bridge.noncontrollingEarningsAsOf ? ` to ${bridge.noncontrollingEarningsAsOf}` : "";
   if (bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(share)) {
-    return `its ${(share * 100).toFixed(1)}% share of trailing consolidated profit${window} × consolidated equity value, above its book value`;
+    return `its ${noncontrollingProfitShareText(bridge)} × consolidated equity value, above its book value`;
   }
-  return isNum(share)
-    ? `book value; its ${(share * 100).toFixed(1)}% share of trailing consolidated profit${window} would not deduct more`
-    : "book value";
+  return isNum(share) ? `book value; its ${noncontrollingProfitShareText(bridge)} ${noncontrollingBookReason(share)}` : "book value";
 }
 
 export interface DcfDisplay {

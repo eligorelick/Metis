@@ -121,6 +121,7 @@ import {
   type EnterpriseValuesRow,
   type ExcessReturnInputs,
   type ReitInputs,
+  noncontrollingEarningsInput,
 } from "@/pipeline/stageB/valuation";
 import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
@@ -3701,14 +3702,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
     // Consolidated profit is the filed ProfitLoss, else net income on a
     // consolidated basis, else parent plus NCI income (as forensics does).
-    noncontrollingEarnings: ttmInc === null ? null : {
-      noncontrollingIncome: ttmInc.netIncomeAttributableToNoncontrollingInterest ?? null,
-      consolidatedProfit: ttmInc.netIncomeConsolidated ??
-        (ttmInc.netIncomeOwnershipBasis === "consolidated" ? ttmInc.netIncome
-          : ttmInc.netIncome !== null && num(ttmInc.netIncomeAttributableToNoncontrollingInterest) !== null ? ttmInc.netIncome + (ttmInc.netIncomeAttributableToNoncontrollingInterest as number)
-          : null),
-      asOf: ttmInc.date || null,
-    },
+    noncontrollingEarnings: noncontrollingEarningsInput(
+      ttmInc === null ? null : {
+        date: ttmInc.date, netIncome: ttmInc.netIncome, netIncomeConsolidated: ttmInc.netIncomeConsolidated ?? null,
+        netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis, netIncomeAttributableToNoncontrollingInterest: ttmInc.netIncomeAttributableToNoncontrollingInterest ?? null,
+      },
+      inc0 === undefined ? null : {
+        date: isoDay(inc0.date), netIncome: num(inc0.netIncome), netIncomeConsolidated: num(inc0.netIncomeConsolidated),
+        netIncomeOwnershipBasis: commonIncomeEvidence(inc0, "annual").netIncomeOwnershipBasis,
+        netIncomeAttributableToNoncontrollingInterest: num(inc0.netIncomeAttributableToNoncontrollingInterest),
+      },
+    ),
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
     leaseLiability: balPoint ? num(balPoint.capitalLeaseObligations) : null,
     operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,
@@ -3780,8 +3784,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   }
   if (excessReturn !== null) {
     result.notes.push(
-      `Common-share valuation uses ${route.base === "bank" ? "tangible common equity and ROTE" : "common equity and common-equity ROE"} from FY ${commonReturns.asOf ?? "unavailable"}; ` +
-        "earnings and payout exclude preferred claims. Annual return and opening equity share one dated basis; vendor total-equity ROE is not substituted.",
+      `Common-share valuation uses ${route.base === "bank" ? "tangible common equity and ROTE" : "common equity and common-equity ROE"} ` +
+        (excessReturn.currentRoeBasis === "ttm-rote" || excessReturn.currentRoeBasis === "ttm-common-roe"
+          ? `from the trailing four quarters to ${excessReturn.currentRoeAsOf ?? "unavailable"}, with the book value at that window's end (fiscal-year history to FY ${commonReturns.asOf ?? "unavailable"}); ` +
+            "earnings and payout exclude preferred claims. The trailing return and its equity share one dated window; vendor total-equity ROE is not substituted."
+          : `from FY ${commonReturns.asOf ?? "unavailable"}; ` +
+            "earnings and payout exclude preferred claims. Annual return and opening equity share one dated basis; vendor total-equity ROE is not substituted."),
     );
     if (excessReturn.payoutRatioPct === null && ctx.cashflowAnnual.some(row => row.fieldConflicts?.commonDividendsPaid?.usable === false ||
       (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0))) {

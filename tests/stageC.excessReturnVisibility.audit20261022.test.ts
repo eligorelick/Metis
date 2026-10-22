@@ -131,6 +131,17 @@ describe("C-11: trailing return rows", () => {
   });
 });
 
+describe("C-10: the Stage B note names the start the model used", () => {
+  it("names the trailing window, not a fiscal year, when the model starts from it", () => {
+    const computed = runStageB(buildSyntheticRouteBundle("bank"));
+    if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
+    expect(computed.valuation.excessReturn.roePathPct.basis).toMatch(/TTM/);
+    const note = computed.valuation.notes.find((n) => n.startsWith("Common-share valuation uses")) ?? "";
+    expect(note).toMatch(/from the trailing four quarters to [0-9]{4}-[0-9]{2}-[0-9]{2}/);
+    expect(note).not.toMatch(/Annual return and opening equity share one dated basis/);
+  });
+});
+
 describe("C-11: base-case language about returns recovering toward the cost of equity", () => {
   const sentence = "Returns recover from the acquisition-affected annual starting point toward the cost of equity along the model's explicit recovery path.";
 
@@ -149,6 +160,15 @@ describe("C-11: base-case language about returns recovering toward the cost of e
     expect(returnPathLanguageFindings({ texts, trailing: { returnPct: 9, asOf: "2026-06-30", label: "TTM ROTE" }, terminalTargetPct: 9.6 })).toEqual([]);
     expect(returnPathLanguageFindings({ texts, trailing: null, terminalTargetPct: 9.6 })).toEqual([]);
     expect(returnPathLanguageFindings({ texts, trailing: { returnPct: 16, asOf: null, label: "TTM ROTE" }, terminalTargetPct: null })).toEqual([]);
+  });
+
+  it("reads a recovery sentence whose cost of equity carries a decimal", () => {
+    const findings = returnPathLanguageFindings({
+      texts: [{ path: "p", text: "Returns recover toward the 10.4% cost of equity by year five." }],
+      trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM ROTE" },
+      terminalTargetPct: 12.8,
+    });
+    expect(findings).toHaveLength(1);
   });
 
   it("ignores sentences that do not describe a recovery toward the cost of equity", () => {

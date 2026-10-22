@@ -4,6 +4,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import type { Scenario, ScenarioPresentation, SensitivityCell, Valuation } from "@/report/schema";
 import { computeDcfDisplay, type DcfDisplay } from "@/pipeline/stageB/fairValue";
+import { NCI_EARNINGS_KEY_MATERIALITY_PCT, noncontrollingProfitShareText, type DcfBridge } from "@/pipeline/stageB/valuation";
 import { projectionAvailability } from "@/report/surfaceManifest";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -135,6 +136,18 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
   };
 }
 
+/**
+ * E-5: the minority-interest claim each scenario path deducts. Above the
+ * threshold a path's own consolidated equity decides between book and the
+ * earnings key, so the base path's choice does not describe the others.
+ */
+export function fixedBridgeMinorityText(bridge: DcfBridge, claim: (v: number | null) => string): string {
+  const share = bridge.noncontrollingEarningsShare;
+  return share !== undefined && share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT
+    ? `the larger of its book value ${claim(bridge.minorityInterest)} and its ${noncontrollingProfitShareText(bridge)} × each path's consolidated equity value`
+    : claim(bridge.minorityInterest);
+}
+
 function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["name"]): string[] {
   const targets = computed.scenarioTargets;
   const target = targets?.status === "available" ? targets.targets.find((entry) => entry.name === name) : undefined;
@@ -161,9 +174,7 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
     `Revenue growth path (% per year, in horizon order): ${path(a.growthPath.value)}.`,
     `Operating-margin path (% per year, in horizon order): ${path(a.ebitMarginPath.value)}.`,
     `Fixed base inputs: starting revenue ${display(a.startRevenue.value)} reporting-currency units; WACC ${display(a.wacc.value)}%; terminal growth actually used ${display(valuation.dcf.gTermUsedPct)}%; terminal ROIC ${display(a.terminal.roicTermPct.value)}%; sales-to-capital ${display(a.salesToCapital.value)}x; tax path (%): ${path(a.taxRatePath.value)}; mid-year discounting ${a.midYear.value ? "on" : "off"}.`,
-    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${bridge.noncontrollingDeductionBasis === "earnings-share" && bridge.noncontrollingEarningsShare !== undefined
-      ? `the larger of its book value ${claim(bridge.minorityInterest)} and its ${(bridge.noncontrollingEarningsShare * 100).toFixed(1)}% share of trailing consolidated profit × each path's consolidated equity value`
-      : claim(bridge.minorityInterest)}, preferred equity ${claim(bridge.preferred)}` +
+    `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${fixedBridgeMinorityText(bridge, claim)}, preferred equity ${claim(bridge.preferred)}` +
       `${bridge.nonOperatingAssets === undefined ? ""
         : bridge.nonOperatingComponents && bridge.nonOperatingComponents.length > 0
           ? `, plus non-operating ${bridge.nonOperatingComponents.filter((c) => c.value >= 0).map((c) => `${c.label.replace(/ \(.*\)$/, "")} ${display(c.value)}`).join(" and ")}` +

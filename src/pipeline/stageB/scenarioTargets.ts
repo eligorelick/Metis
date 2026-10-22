@@ -131,10 +131,9 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
   // Audit 2026-10-22 E-5: withheld because the NCI claim could not be sized.
-  const nciKey = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
-  if (nciKey !== undefined) {
+  if (baseDcf?.noncontrollingKeyWithheld !== undefined) {
     return suppressed(
-      [{ field: "valuation.scenarioTargets", reason: `Scenario price targets withheld: ${nciKey.reason}`, severity: "warn" }],
+      [{ field: "valuation.scenarioTargets", reason: `Scenario price targets withheld: ${baseDcf.noncontrollingKeyWithheld}`, severity: "warn" }],
       ["Scenario price targets unavailable: the noncontrolling interest's share of profit is unestablished."],
     );
   }
