@@ -15,8 +15,11 @@ export const NEUTRAL_SCORE_BAND = { low: 45, high: 55 } as const;
 /** The band thresholds printed beside the composite (grading.ts scoreToBand). */
 export const BAND_THRESHOLDS_TEXT = "A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral";
 
+/** Judged on the whole-number score every surface prints, so 55.4 (shown 55) is neutral. */
 export function isNeutralScore(score: number | null | undefined): boolean {
-  return typeof score === "number" && Number.isFinite(score) && score >= NEUTRAL_SCORE_BAND.low && score <= NEUTRAL_SCORE_BAND.high;
+  if (typeof score !== "number" || !Number.isFinite(score)) return false;
+  const shown = Math.round(score);
+  return shown >= NEUTRAL_SCORE_BAND.low && shown <= NEUTRAL_SCORE_BAND.high;
 }
 
 /** "D (neutral)" for a band letter whose score sits in the neutral range, else the letter. */
@@ -34,7 +37,13 @@ export function evidencePct(share: number): number {
  * route-applicable signal weight no letter is shown, only the score and the
  * evidence share; an older report without the share keeps its letter.
  */
-export function compositeDisplay(scores: Pick<Scoring, "composite" | "assessments">): {
+/** What `compositeDisplay` reads: the stored score and band, and the evidence share. */
+type CompositeEvidence = {
+  composite: Pick<Scoring["composite"], "score" | "band">;
+  assessments?: { evidenceCompleteness?: number } | null;
+};
+
+export function compositeDisplay(scores: CompositeEvidence): {
   grade: Scoring["composite"]["band"]; label: string; evidence: number | null;
 } {
   const { score, band } = scores.composite;
@@ -134,8 +143,8 @@ export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): b
  * D-67: the one rule for an aspect under the evidence floor. No surface shows
  * a letter for it (the strip, the section header, the scorecard band and the
  * live chips all withhold it), and every surface shows the same deterministic
- * score with the marker and the evidence share. The composite is unchanged:
- * it already weights each aspect by its evidence share.
+ * score with the marker and the evidence share. The composite applies the
+ * same floor to its own route-applicable evidence (F-19, `compositeDisplay`).
  */
 export function limitedEvidenceText(aspect: AspectEvidence): string {
   return `score ${Math.round(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${Math.round(aspect.dataCompleteness * 100)}% of signals`;

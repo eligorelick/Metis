@@ -1120,12 +1120,15 @@ function computedSections(
     // evidence floor, and a band letter for a 45-55 score is marked neutral.
     const neutral = `neutral ${NEUTRAL_SCORE_BAND.low}–${NEUTRAL_SCORE_BAND.high}`;
     const composite = compositeDisplay(sc);
-    const compositeGradeUnit = composite.grade === null && sc.composite.band !== null && composite.evidence !== null
-      ? `not graded: evidence ${evidencePct(composite.evidence)}% of the route-applicable signal weight, below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter`
+    // A null value drops its unit, so an ungraded composite states its reason
+    // in the value itself.
+    const notGraded = composite.grade === null && sc.composite.band !== null && composite.evidence !== null;
+    const compositeGradeUnit = notGraded
+      ? `(score shown above; evidence for ${evidencePct(composite.evidence!)}% of the route-applicable signal weight, below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter)`
       : isNeutralScore(sc.composite.score) ? neutral : "";
     const scoreFigures: PayloadFigureInput[] = [
       { label: "COMPOSITE score", value: sc.composite.score, unit: "0-100", source: "computed.scores.composite", asOf: null },
-      { label: "COMPOSITE grade", value: composite.grade, unit: compositeGradeUnit, source: "computed.scores.composite", asOf: null },
+      { label: "COMPOSITE grade", value: notGraded ? composite.label : composite.grade, unit: compositeGradeUnit, source: "computed.scores.composite", asOf: null },
     ];
     for (const key of SCORE_ASPECT_ORDER) {
       const a = sc.aspects[key];

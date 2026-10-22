@@ -7,14 +7,16 @@
 import { describe, expect, it } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
+import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import { compositeDisplay, gradeDisplayLabel } from "@/report/assessment";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { scoreAuditTables } from "@/report/auditTables";
 import { keyDataRows, scorecardTable } from "@/report/presentation";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
-import { task28SentinelReport } from "./helpers/task28Report";
+import { loadTask28Fixture, task28SentinelReport } from "./helpers/task28Report";
 
 function reportWith(evidence: number, technicals: number) {
   const report = task28SentinelReport();
@@ -65,10 +67,41 @@ describe("a score within 45–55 is labelled neutral (audit 2026-10-22 F-19)", (
     const card = scorecardTable(report.scores!);
     expect(card.rows.find((r) => r[0] === "Technicals")?.[2]).toBe("D (neutral)");
     // Outside the band the letter stands alone.
-    expect(gradeDisplayLabel(report.verdict.gradeStrip.technicals, { ...report.scores!.aspects.technicals, score: 44.9 })).toBe("D");
+    expect(gradeDisplayLabel(report.verdict.gradeStrip.technicals, { ...report.scores!.aspects.technicals, score: 44.4 })).toBe("D");
     expect(compositeDisplay(reportWith(1, 55).scores!).label).toBe("C (neutral)");
-    expect(compositeDisplay(reportWith(1, 55.4).scores!).label).toBe("C");
+    expect(compositeDisplay(reportWith(1, 55.5).scores!).label).toBe("C");
     expect(compositeDisplay(reportWith(0.9, 62).scores!).label).toBe("C");
+  });
+
+  it("judges neutrality on the score as printed, rounded to a whole number", () => {
+    // 55.4 prints as 55 and 44.6 as 45: both inside the printed 45–55 band.
+    expect(compositeDisplay(reportWith(1, 55.4).scores!).label).toBe("C (neutral)");
+    const report = reportWith(0.9, 50);
+    report.verdict.gradeStrip.technicals.grade = "D";
+    report.verdict.gradeStrip.technicals.assessmentStatus = "deterministic";
+    expect(gradeDisplayLabel(report.verdict.gradeStrip.technicals, { ...report.scores!.aspects.technicals, score: 44.6 })).toBe("D (neutral)");
+  });
+
+  it("tells the judge why the composite has no letter", () => {
+    const bundle = completeCurrencyBundle({});
+    const computed = runStageB(bundle);
+    computed.scores.composite = { ...computed.scores.composite, score: 51.3, band: "D" };
+    computed.scores.assessments = { ...computed.scores.assessments!, evidenceCompleteness: 0.05 };
+    const prompt = serializePayloadForPrompt(assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] }));
+    expect(prompt).toMatch(/COMPOSITE grade: Not graded: evidence 5%[^\n]*below the 50% floor for a letter/);
+    expect(prompt).not.toMatch(/COMPOSITE grade: n\/a/);
+  });
+
+  it("labels a neutral score neutral in the audit tables and the data-only reasoning", () => {
+    const scores = reportWith(0.9, 50).scores!;
+    scores.assessments!.businessQuality = { score: 50, band: "D", basis: "" };
+    const dims = scoreAuditTables(scores).find((t) => t.heading === "Assessment dimensions")!;
+    expect(dims.rows[0]![1]).toBe("50.00 / D (neutral)");
+    const bundle = completeCurrencyBundle({});
+    const computed = runStageB(bundle);
+    computed.scores.aspects.technicals = { ...computed.scores.aspects.technicals, score: 50, band: "D", dataCompleteness: 1 };
+    const report = enrichDataOnlyReport(loadTask28Fixture(), { bundle, computed, reason: "synthetic unit test" });
+    expect(JSON.stringify(report.technicals)).toContain("score 50/100 maps to band D (neutral)");
   });
 
   it("labels a neutral score neutral in the judge payload", () => {

@@ -1,4 +1,5 @@
 import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
+import { withNeutral } from "./assessment";
 import { formatFinancialValue, formatLargeNumber } from "./format";
 import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
 
@@ -64,8 +65,8 @@ export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
   if (scores.assessments) {
     const a = scores.assessments;
     tables.push({ heading: "Assessment dimensions", headers: ["Dimension", "Score / band", "Meaning"], rows: [
-      ["Business quality", `${n(a.businessQuality.score)} / ${a.businessQuality.band ?? "unavailable"}`, a.businessQuality.basis],
-      ["Price attractiveness", `${n(a.valuation.score)} / ${a.valuation.band ?? "unavailable"}`, a.valuation.basis],
+      ["Business quality", `${n(a.businessQuality.score)} / ${a.businessQuality.band === null ? "unavailable" : withNeutral(a.businessQuality.band, a.businessQuality.score)}`, a.businessQuality.basis],
+      ["Price attractiveness", `${n(a.valuation.score)} / ${a.valuation.band === null ? "unavailable" : withNeutral(a.valuation.band, a.valuation.score)}`, a.valuation.basis],
       ["Evidence availability", `${n(a.evidenceCompleteness*100,1)}%`, "Availability is separate from source correctness, freshness and predictive confidence. Grade bands remain unbacktested house rules."],
     ] });
   }

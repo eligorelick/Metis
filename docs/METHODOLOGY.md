@@ -2938,14 +2938,17 @@ the composite did not. TSM's composite printed "D (51/100)" on evidence for
 5% of the route-applicable signal weight, its one scored aspect a technicals
 B. The composite now carries the same floor. Below evidence for 50% of the
 route-applicable signal weight it prints "Not graded: evidence N%" with the
-numeric score and no letter, on every surface, in both exports and in the
-judge's payload. Key data also prints the evidence share and the band
-thresholds beside the composite. The score itself and its calculation are
+numeric score and no letter: in Key data, the scorecard, the history diff,
+both exports and the judge's payload, whose composite grade reads "Not
+graded: evidence N%". The audit export keeps the stored band as its raw
+field. Key data also prints the evidence share and the band thresholds beside
+the composite. The score itself and its calculation are
 unchanged. A second problem was the band table. It puts the neutral prior
 (50) in D, so a technicals score of 50.4 printed as D and the judge read it
-as weak momentum. A deterministic band letter for a score from 45 to 55
-inclusive now carries a "neutral" qualifier ("D (neutral)", "C (neutral)")
-wherever it is shown, and the payload's score units and band note say the
-same. An analyst letter that differs from the band is not qualified. The
+as weak momentum. A deterministic band letter for a score that rounds to 45
+through 55 (the whole number every surface prints) now carries a "neutral"
+qualifier ("D (neutral)", "C (neutral)") wherever it is shown, including the
+history diff, the audit tables and the data-only reasoning, and the payload's
+score units and band note say the same. An analyst letter that differs from the band is not qualified. The
 letters and thresholds themselves (A ≥85, B ≥70, C ≥55, D ≥40) are unchanged
 house conventions.

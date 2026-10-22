@@ -271,7 +271,7 @@ function gradeBlock(
     oneLineWhy: `${limited ? "Not assessed — limited evidence. " : ""}Deterministic score ${fmtNum(aspect.score, 1)}/100 (raw band ${withNeutral(aspect.band, aspect.score)}) on ${completenessPct}% of intended signals; no completed analyst assessment is available.`,
     reasoning: [
       fact(
-        `Deterministic ${ASPECT_LABEL[key]} score ${fmtNum(aspect.score, 2)}/100 maps to band ${aspect.band} under the versioned house band table; ${completenessPct}% of the aspect's intended signal weight had data. ${aspect.note}`,
+        `Deterministic ${ASPECT_LABEL[key]} score ${fmtNum(aspect.score, 2)}/100 maps to band ${withNeutral(aspect.band, aspect.score)} under the versioned house band table; ${completenessPct}% of the aspect's intended signal weight had data. ${aspect.note}`,
         source,
         asOf,
       ),
