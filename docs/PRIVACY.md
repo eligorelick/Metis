@@ -140,7 +140,10 @@ provider.
 
 The npm dev/start scripts bind to **127.0.0.1**. The request-wide proxy rejects
 direct Hosts outside loopback or the exact `METIS_ALLOWED_HOST` allowlist,
-including read routes. Company landing GET/HEAD requests additionally reject
+including read routes. Every response it passes or rejects also forbids
+framing (`Content-Security-Policy: frame-ancestors 'none'` and
+`X-Frame-Options: DENY`), so another site cannot overlay a Metis page such as
+Settings and steer clicks into it. Company landing GET/HEAD requests additionally reject
 cross-origin subresource/speculation requests using Fetch Metadata, while
 allowing normal top-level navigation and header-free local scripts. Mutating
 routes use the guard above. Metis has no user login or caller authentication;

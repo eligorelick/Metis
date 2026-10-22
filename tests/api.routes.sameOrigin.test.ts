@@ -837,6 +837,52 @@ describe("request-wide proxy", () => {
     expect(missingDirectHost.status).toBe(403);
   });
 
+  it.each([
+    "/",
+    "/settings",
+    "/company/AAPL",
+    "/company/AAPL/report/1",
+    "/company/AAPL/report/1/print",
+    "/api/report",
+    "/_next/static/chunks/app.js",
+  ])("forbids framing %s by any site, including a framing of itself (F-4)", async (path) => {
+    const loadedModule = await loadProxyModule();
+    const runProxy = proxyFunction(loadedModule);
+    if (runProxy === undefined) return;
+
+    const response = await runProxy(
+      proxyRequest(path, {
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-dest": "document",
+      }),
+    );
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("forbids framing on the proxy's own rejections too (F-4)", async () => {
+    const loadedModule = await loadProxyModule();
+    const runProxy = proxyFunction(loadedModule);
+    if (runProxy === undefined) return;
+
+    for (const response of [
+      await runProxy(proxyRequest("/settings", { host: "evil.example:3000" })),
+      await runProxy(
+        proxyRequest("/company/AAPL", {
+          "sec-fetch-site": "cross-site",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-dest": "iframe",
+        }),
+      ),
+    ]) {
+      expect(response.status).toBe(403);
+      expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
+    }
+  });
+
   it("guards GET and HEAD heavy landings but leaves mutation metadata to route guards", async () => {
     const loadedModule = await loadProxyModule();
     const runProxy = proxyFunction(loadedModule);
