@@ -1044,6 +1044,12 @@ export const DcfSchema = z
       growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
       perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
     }).strict().optional(),
+    /** Audit 2026-10-22 C-11: excess-return start-return × cost-of-equity per-share grid (null cells withheld). */
+    excessReturnGrid: z.object({
+      rows: z.array(z.object({ label: z.string(), startReturnPct: z.number(), bookValue: z.number() }).strict()),
+      costOfEquityPcts: z.array(z.number()),
+      perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
+    }).strict().optional(),
     forecastRows: z.array(z.object({
       year: z.number().int().positive(), period: z.string(), revenue: z.number(), growthPct: z.number(),
       ebitMarginPct: z.number(), taxRatePct: z.number(), nopat: z.number(), reinvestment: z.number(),
@@ -2450,7 +2456,7 @@ const JudgeOutputObjectSchema = z
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
     // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true, sensitivityNotes: true }) }),
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, excessReturnGrid: true, consensusPath: true, sensitivityNotes: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,

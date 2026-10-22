@@ -4479,6 +4479,23 @@ export interface ExcessReturnStartAlternative {
   label: string;
 }
 
+/**
+ * Audit 2026-10-22 C-11: per-share value for three starting returns against
+ * the cost of equity ±1pp. Each row carries the book value it starts from; the
+ * centre cell is the headline.
+ */
+export interface ExcessReturnGrid {
+  rows: { label: string; startReturnPct: number; bookValue: number }[];
+  costOfEquityPcts: number[];
+  perShare: (number | null)[][];
+  notes: string[];
+}
+
+/** Rows of the C-11 grid without a fiscal-year alternative: the start, and this many pp either side. */
+export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
+/** Columns of the C-11 grid: the cost of equity, and this many pp either side. */
+export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
+
 export interface ExcessReturnResult {
   equityValue: number | null;
   perShare: number | null;
@@ -4508,6 +4525,8 @@ export interface ExcessReturnResult {
   reverseSolve: { impliedCurrentRoePct: number | null; notes: string[] };
   /** Audit 2026-10-22 C-10: present when the model started from the trailing four quarters and a fiscal-year start exists. */
   startAlternative?: ExcessReturnStartAlternative;
+  /** Audit 2026-10-22 C-11: start-return × cost-of-equity sensitivity; absent without a per-share denominator. */
+  startCoeGrid?: ExcessReturnGrid;
   asOf: string | null;
   notes: string[];
   gaps: ManifestEntry[];
@@ -4926,6 +4945,54 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
         (startAlternative.besideHeadline ? ` — more than ${EXCESS_RETURN_START_GAP_PP}pp apart, so it is shown beside the headline (house convention)` : ""),
     );
   }
+  // C-11: the start return against the cost of equity. Each column moves the
+  // discount rate and the fade target together (the carried excess, if any, is
+  // held and passes the same CoE − g guard); each row keeps the headline's
+  // horizon and payout. The fiscal-year start, when there is one, replaces the
+  // shifted row on its side and starts from its own book value.
+  let startCoeGrid: ExcessReturnGrid | undefined;
+  if (shares !== null) {
+    const step = EXCESS_RETURN_GRID_START_STEP_PP;
+    const rows: ExcessReturnGrid["rows"] = [
+      { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart - step)}% (headline −${step}pp)`, startReturnPct: roeStart - step, bookValue: bv0 },
+      { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart)}% (headline)`, startReturnPct: roeStart, bookValue: bv0 },
+      { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart + step)}% (headline +${step}pp)`, startReturnPct: roeStart + step, bookValue: bv0 },
+    ];
+    if (startAlternative !== undefined) {
+      rows[startAlternative.startRoePct < roeStart ? 0 : 2] = {
+        label: `${startAlternative.label} (fiscal-year book value)`,
+        startReturnPct: startAlternative.startRoePct,
+        bookValue: startAlternative.bookValue,
+      };
+    }
+    const evidencedPp = evidenced?.excessPp ?? 0;
+    const costOfEquityPcts = [coe - EXCESS_RETURN_GRID_COE_STEP_PP, coe, coe + EXCESS_RETURN_GRID_COE_STEP_PP];
+    const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
+      if (c === coe) {
+        return excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payout, continuing).equityValue / shares;
+      }
+      const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
+      const target = overrideTerminal ? endRoe : c + carry;
+      const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
+      const value = excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payout, cont).equityValue / shares;
+      return Number.isFinite(value) ? value : null;
+    }));
+    startCoeGrid = {
+      rows,
+      costOfEquityPcts,
+      perShare: perShareGrid,
+      notes: [
+        `rows = starting ${retLabel}; columns = cost of equity ${fmtNum(coe)}% ±${EXCESS_RETURN_GRID_COE_STEP_PP}pp`,
+        overrideTerminal
+          ? `each cell fades its start linearly over ${years} years to the caller-supplied terminal ROE ${fmtNum(endRoe)}%, discounted at the column's cost of equity`
+          : evidencedPp > 0
+            ? `each cell fades its start linearly over ${years} years to the column's cost of equity plus the ${fmtNum(evidencedPp)}pp evidenced excess, carried past year ${years} at ${fmtNum(continuingG)}% where the cost of equity clears that growth by ${TV_GUARD_PP}pp`
+            : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
+        `payout ${fmtNum(payout)}% throughout; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
+        "the centre cell is the headline value",
+      ],
+    };
+  }
   const impliedPToBv = safeDiv(equityValue, bv0);
   if (impliedPToBv !== null && (impliedPToBv > 3 || impliedPToBv < 0.3)) {
     notes.push(`implied P/B ${fmtNum(impliedPToBv)} outside [0.3, 3] sanity band — review assumptions (house-rule flag)`);
@@ -5045,6 +5112,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     financialAssumptions,
     reverseSolve: { impliedCurrentRoePct, notes: reverseNotes },
     ...(startAlternative !== undefined ? { startAlternative } : {}),
+    ...(startCoeGrid !== undefined ? { startCoeGrid } : {}),
     asOf: inputs.asOf ?? null,
     notes,
     gaps,
@@ -5494,6 +5562,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         ...er,
         perShare: null,
         startAlternative: undefined,
+        startCoeGrid: undefined,
         reverseSolve: {
           impliedCurrentRoePct: null,
           notes: [

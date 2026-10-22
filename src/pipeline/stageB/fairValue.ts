@@ -319,11 +319,20 @@ export interface DcfDisplay {
   consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
     fiscalYears: string; status: string }[];
   growthMarginGrid?: { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][]; notes: string[] };
+  /** Audit 2026-10-22 C-11: the excess-return route's start-return × cost-of-equity grid. */
+  excessReturnGrid?: { rows: { label: string; startReturnPct: number; bookValue: number }[]; costOfEquityPcts: number[]; perShare: (number | null)[][]; notes: string[] };
   forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
     revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
 }
 
 export function computeDcfDisplay(valuation: ValuationResult, currency: string | null = null): DcfDisplay {
+  // C-11: the excess-return route carries its own start-return × CoE grid.
+  const erGrid = valuation.kind === "excess-return" ? valuation.excessReturn.startCoeGrid : undefined;
+  if (erGrid !== undefined) {
+    return { assumptions: [], sensitivityGrid: [], excessReturnGrid: {
+      rows: erGrid.rows.map((r) => ({ ...r })), costOfEquityPcts: [...erGrid.costOfEquityPcts],
+      perShare: erGrid.perShare.map((row) => [...row]), notes: [...erGrid.notes] } };
+  }
   // Only the general FCFF-DCF route carries DCF assumptions + a WACC×g grid.
   if (valuation.kind !== "dcf" || valuation.assumptions === null) {
     return { assumptions: [], sensitivityGrid: [] };

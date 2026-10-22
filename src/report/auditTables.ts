@@ -108,6 +108,12 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
     headers:["Growth shift / margin shift",...gm.marginShiftsPp.map(shift)],
     rows:gm.perShare.map((row,i)=>[shift(gm.growthShiftsPp[i] ?? 0),...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",b?.currency ?? null))]),
     note:gm.notes.join("; ")});
+  // C-11: the excess-return route's start-return × cost-of-equity grid.
+  const er = dcf.excessReturnGrid;
+  if (er && er.perShare.length) result.push({heading:"Sensitivity (per share — rows = starting return, cols = cost of equity)",
+    headers:["Starting return / cost of equity",...er.costOfEquityPcts.map(c=>`CoE ${c.toFixed(1)}%`)],
+    rows:er.perShare.map((row,i)=>[er.rows[i]?.label ?? "—",...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",dcf.perShare?.currency ?? null))]),
+    note:er.notes.join("; ")});
   if (dcf.forecastRows?.length) result.push({heading:"DCF annual cash-flow path",headers:["Period","Revenue","Growth %","EBIT margin %","Tax %","NOPAT","Reinvestment","FCFF","Present value"],rows:dcf.forecastRows.map(r=>[r.period,...[r.revenue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null)),n(r.growthPct),n(r.ebitMarginPct),n(r.taxRatePct),...[r.nopat,r.reinvestment,r.fcff,r.presentValue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null))])});
   // D-65: the DCF path beside calendarized consensus, every covered window.
   if (dcf.consensusPath?.length) {

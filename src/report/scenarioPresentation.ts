@@ -3,7 +3,7 @@ import type { ComputedMetrics } from "@/pipeline/compute";
 import type { DataBundle } from "@/pipeline/types";
 import { perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import type { Scenario, ScenarioPresentation, SensitivityCell, Valuation } from "@/report/schema";
-import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
+import { computeDcfDisplay, type DcfDisplay } from "@/pipeline/stageB/fairValue";
 import { projectionAvailability } from "@/report/surfaceManifest";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -81,6 +81,31 @@ export function summarizeSensitivity(cells: SensitivityCell[], currentPrice: num
   return { ...common, status, conclusion: `${conclusion} ${scope}; this is not a statistical confidence interval or a future-price range.` };
 }
 
+/**
+ * Audit 2026-10-22 C-11: the excess-return route's start-return × cost-of-equity
+ * grid read against the price, on the same rules as the DCF grids: a robustness
+ * claim needs every cell valid, and missing cells are excluded.
+ */
+export function summarizeExcessReturnGrid(grid: NonNullable<DcfDisplay["excessReturnGrid"]>, currentPrice: number | null): ScenarioPresentation["sensitivity"] {
+  const all = grid.perShare.flat();
+  const values = all.filter((v): v is number => finite(v));
+  const common = { validCells: values.length, totalCells: all.length,
+    minPerShare: values.length ? Math.min(...values) : null, maxPerShare: values.length ? Math.max(...values) : null };
+  if (!finite(currentPrice) || currentPrice <= 0 || values.length < 2) {
+    return { ...common, status: "unavailable", conclusion: "Sensitivity conclusion unavailable: a comparable current price and at least two valid cells of the starting-return × cost-of-equity grid are required. Missing or invalid cells are excluded." };
+  }
+  const tolerance = Math.max(1, Math.abs(currentPrice)) * 1e-10;
+  const atOrBelow = values.filter((v) => v <= currentPrice + tolerance).length;
+  const status = atOrBelow === 0 ? "robust-above" : values.every((v) => v < currentPrice - tolerance) ? "robust-below" : "sensitive";
+  if (status !== "sensitive" && values.length !== all.length) {
+    return { ...common, status: "unavailable", conclusion: "All available cells of the starting-return × cost-of-equity grid lie on the same side of the current price, but the incomplete grid prevents a robustness conclusion. Missing or invalid cells are excluded." };
+  }
+  const conclusion = status === "sensitive"
+    ? `The valuation-versus-price conclusion is sensitive within the starting-return × cost-of-equity grid: ${atOrBelow} of ${values.length} cells sit at or below the current price.`
+    : `The valuation-versus-price conclusion is robust within the starting-return × cost-of-equity grid: all ${values.length} cells remain ${status === "robust-above" ? "above" : "below"} the current price.`;
+  return { ...common, status, conclusion: `${conclusion} The rows are the starting returns shown beside it, the columns the cost of equity ±1pp; this is not a statistical confidence interval or a future-price range.` };
+}
+
 /** Use the actual quote only when Stage B established its currency/share basis. */
 export function comparableScenarioPrice(computed: ComputedMetrics, bundle: Pick<DataBundle, "quote">): number | null {
   const fv = computed.fairValue;
@@ -104,7 +129,9 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
       : entityAvailable
         ? `${projections.forward ? "Entity DCF and numerical operating scenario paths are available" : "Entity DCF is available; numerical operating scenario paths are unavailable"}; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.`
         : "Computational DCF scenarios are unavailable for this route or its inputs. Any model commentary is qualitative; no numerical scenario or future-price probability is implied.",
-    sensitivity: summarizeSensitivity(cells, currentPrice, display?.growthMarginGrid ?? null),
+    sensitivity: cells.length === 0 && display?.excessReturnGrid
+      ? summarizeExcessReturnGrid(display.excessReturnGrid, currentPrice)
+      : summarizeSensitivity(cells, currentPrice, display?.growthMarginGrid ?? null),
   };
 }
 

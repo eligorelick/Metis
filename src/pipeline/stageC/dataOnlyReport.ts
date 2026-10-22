@@ -378,6 +378,10 @@ function fundamentalsSections(
     seriesRow("ROIC", r.roic.series.map((y) => ({ date: y.date, value: y.roicPct })), "%", "computed.returns.roic", null),
     seriesRow("Return on tangible common equity", r.rote.series.map((y) => ({ date: y.date, value: y.rotePct })), "%", "computed.returns.rote", null),
     seriesRow("ROE (DuPont)", r.dupont.series.map((y) => ({ date: y.date, value: y.roePct })), "%", "computed.returns.dupont", null),
+    // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
+    r.commonReturnTtm == null ? null : singleRow(
+      r.commonReturnTtm.basis === "tangible-common-equity" ? "Return on tangible common equity (trailing four quarters)" : "Return on common equity (trailing four quarters)",
+      r.commonReturnTtm.asOf === null ? "TTM" : `TTM to ${r.commonReturnTtm.asOf}`, r.commonReturnTtm.returnPct, "%", "computed.returns.commonReturnTtm", r.commonReturnTtm.asOf),
     singleRow("WACC", "latest", r.wacc.waccPct, "%", "computed.returns.wacc", r.wacc.asOf?.statements ?? null),
     singleRow("Cost of equity", "latest", r.wacc.costOfEquityPct, "%", "computed.returns.wacc.costOfEquity", r.wacc.asOf?.riskFreeRate ?? null),
     singleRow("Pre-tax cost of debt", "latest", r.wacc.costOfDebtPct, "%", `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, r.wacc.asOf?.statements ?? null),

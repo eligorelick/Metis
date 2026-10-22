@@ -1370,6 +1370,29 @@ biased every financial toward "the market is too pessimistic". A clean property
 follows from the identity: an issuer priced at book solves to exactly the cost
 of equity.
 
+**What the reader sees of the start (audit 2026-10-22 C-11).** The trailing
+four-quarter return is a row of its own in the returns block and in the LLM
+payload: "ROTE (trailing four quarters)" for banks, "common-equity ROE
+(trailing four quarters)" otherwise, sourced to
+`computed.returns.commonReturnTtm`. The valuation section carries a 3×3
+**start-return × cost-of-equity grid** of per-share values. The columns are the
+cost of equity and ±1pp. The rows are the headline start and ±5pp; when the
+model starts from the trailing window and a fiscal-year start exists, that
+start replaces the shifted row on its side and starts from its own
+fiscal-year book value. Each column moves the discount rate and the fade target
+together: the carried evidenced excess is held, and dropped where the same
+2pp `CoE − g` guard fails. Horizon and payout stay the headline's, so the
+centre cell is the headline value and the fiscal-year row at the base cost of
+equity is the value printed beside it. Each cell is a citeable payload figure,
+and the scenario section's sensitivity conclusion reads this grid on the
+excess-return route, on the same rules as the DCF grids. A Stage C check
+(`src/pipeline/stageC/returnPathLanguage.ts`) reads the verdict and the base
+scenario: when the trailing return already exceeds the model's terminal
+target, a sentence describing returns rising, recovering or improving toward
+the cost of equity (or along a "recovery path") misdescribes current data,
+and each one is named in a `verify.check.returnPath` warning in the
+missing-data manifest. The sentence itself is not rewritten.
+
 #### P/TBV against ROTE
 
 The multiple a financial is actually read on is price to **tangible** book, and

@@ -169,6 +169,9 @@ export const RISK_SOURCE_MANIFEST = [
   // Added 2026-10-13 (review of D-50): the section-confidence ceiling, which
   // rewrites a model label at assembly; it was left out when D-50 added it.
   "src/pipeline/stageC/confidenceCeiling.ts",
+  // Added 2026-10-22 (audit C-11): flags base-case "recovery toward the cost of
+  // equity" language when the trailing return already exceeds the terminal target.
+  "src/pipeline/stageC/returnPathLanguage.ts",
   "src/edgar/financialEnrichment.ts",
   "src/edgar/incomeClassification.ts",
   // D-87: new accounting admission helpers retain the enrichment risk floor.
