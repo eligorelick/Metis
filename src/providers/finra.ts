@@ -161,7 +161,8 @@ export function pickLatestPartitions(payload: unknown, n: number): string[] | nu
 const finraRowSchema = z.object({
   symbolCode: z.string(),
   issueName: z.string().nullish(),
-  settlementDate: z.string(),
+  // An ISO day: it becomes the as-of tag of an unenveloped prompt section.
+  settlementDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   currentShortPositionQuantity: z.number(),
   previousShortPositionQuantity: z.number().nullish(),
   changePreviousNumber: z.number().nullish(),

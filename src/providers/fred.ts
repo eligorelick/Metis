@@ -560,6 +560,8 @@ export async function series(
         const rows: FredObservation[] = [];
         for (const o of parsed.data.observations) {
           if (o.value === ".") continue; // missing observation
+          // Same rule as the CSV path: the date becomes a prompt as-of tag.
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date)) continue;
           const value = Number(o.value);
           if (!Number.isFinite(value)) continue;
           rows.push({ date: o.date, value });

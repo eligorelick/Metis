@@ -1399,7 +1399,12 @@ function extractStatement<TRow extends FmpRawRow>(
 ): StatementExtractBlock | null {
   const kept = rows.slice(0, periods);
   if (kept.length === 0) return null;
-  const periodLabels = kept.map((r) => isoDay(r.date) ?? "unknown");
+  // Statement blocks render outside the untrusted envelopes: a period label
+  // is a checked ISO day or "unknown", never provider text.
+  const periodLabels = kept.map((r) => {
+    const day = isoDay(r.date);
+    return isFullIsoDate(day) ? day : "unknown";
+  });
   const fiscalLabels = kept.map((r) => issuerFiscalLabel(r));
   const lines: StatementLineExtract[] = lineItems.map((li) => ({
     lineItem: periodKind === "instant" && li.key === "totalDebt" && kept.some(r => incompleteLeaseCoverage(r as FmpBalanceSheetRow) !== null)
@@ -1544,13 +1549,29 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
   const grades = firstRow(bundle.gradesConsensus);
   if (grades) {
     notes.push(
-      `analyst grades consensus string (NOT a rating we adopt): ${strOrNull(grades.consensus) ?? "n/a"} ` +
+      `analyst grades consensus string (NOT a rating we adopt): ${gradesConsensusWord(grades.consensus)} ` +
         `(strongBuy ${numOrNull(grades.strongBuy) ?? "n/a"}, buy ${numOrNull(grades.buy) ?? "n/a"}, hold ${numOrNull(grades.hold) ?? "n/a"}, sell ${numOrNull(grades.sell) ?? "n/a"}, strongSell ${numOrNull(grades.strongSell) ?? "n/a"})`,
     );
   }
   const nextEarnings = nextEarningsNote(bundle);
   if (nextEarnings !== null) notes.push(nextEarnings);
   return payloadSection({ title: "Analyst estimates & targets", figures, notes });
+}
+
+/** FMP's grades-consensus vocabulary, keyed by its lower-case spelling. */
+const GRADES_CONSENSUS_WORDS: ReadonlyMap<string, string> = new Map(
+  ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"].map((word) => [word.toLowerCase(), word]),
+);
+
+/**
+ * The estimates section renders outside the untrusted envelopes, so the
+ * consensus is stated only as one of FMP's rating words; any other provider
+ * string is withheld rather than quoted (Codex review of PR #48).
+ */
+function gradesConsensusWord(value: unknown): string {
+  const raw = strOrNull(value);
+  if (raw === null) return "n/a";
+  return GRADES_CONSENSUS_WORDS.get(raw.trim().replace(/\s+/g, " ").toLowerCase()) ?? "unrecognized provider value (withheld)";
 }
 
 /**
