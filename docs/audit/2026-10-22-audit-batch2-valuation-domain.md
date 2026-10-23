@@ -34,9 +34,9 @@ Replay, every fair value or status that moved:
 | NEE | DCF | $0.00 | outside-domain (equity value ≤ 0) | B-29 |
 | TSLA | DCF | $10.19 | outside-domain (terminal value > EV) | B-29 |
 | FCX | DCF | $22.27 | $19.67 (NCI 35.8% of trailing profit; $15.86B deducted against $12.11B book) | E-5 |
-| BAC | excess-return | $42.82 | $47.36 | C-10 trailing start |
-| PGR | excess-return | $189.83 | $390.23 | C-10 trailing start (insurer common ROE) |
-| UNH | excess-return | $194.47 | $211.58 | C-10 trailing start |
+| BAC | excess-return | $42.82 | $47.36 | C-10: the opening book moves to the trailing window's end, 2026-06-30. The trailing ROTE start is 0.25pp lower. The carry is unchanged. |
+| PGR | excess-return | $189.83 | $390.23 | C-10's 4-of-5 terminal carry. The trailing start lowers the value; see "PGR" below. |
+| UNH | excess-return | $194.47 | $211.58 | C-10: trailing start 14.62% against the fiscal-year 12.91%, from the newer opening book. The carry is unchanged. |
 
 Composite scores move only where those values or the trailing-return signals do: NEE 44.33 → 49.23 and TSLA 51.75 → 54.55 (DCF signals now missing), BAC 58.21 → 58.94, PGR 68.04 → 75.06, UNH 52.50 → 53.05, and BRK.B 50.79 → 52.02 (its excess-return value stays suppressed; the trailing return is new evidence).
 
@@ -45,6 +45,53 @@ Every other issuer that carries NCI keeps the book deduction, with values unchan
 The first panel run caught an ordering defect, fixed in `d32fb34` with its own failing tests. The NCI-key withhold ran before every other gate, so INTC (structurally negative FCF) and ORCL (no WACC) were reported under the NCI reason. NEE, which is outside the domain, was reported as an NCI gap. NEE's trailing NCI income is not established. That no longer decides its status, because a domain failure on book NCI holds under any key.
 
 DUK and NEE stay on the general route; the utility route change (B-13/A-3) is deferred.
+
+### PGR: why the value doubles
+
+The trailing start does not explain PGR's move. On its own it lowers the value. The terminal carry, which the 4-of-5 rule now admits, adds it. Both trees are below, from the replay's own Stage B output.
+
+| | Base | Branch |
+|---|---|---|
+| Price | $221.35 | $221.35 |
+| Opening common book (per share) | $30.32B at 2025-12-31 ($51.91) | $34.33B at 2026-06-30 ($58.77) |
+| Fiscal-year common ROE (FY2025) | 40.45%, the start | 40.45%, valued beside the headline at $417.60 |
+| Trailing common ROE (to 2026-06-30) | not computed | 34.94%, the start: income to common $11.70B / average common equity $33.47B |
+| Cost of equity | 7.64% | 7.64% |
+| Fade (linear, years 1–10) | 40.45% → 7.64% | 34.94% → 12.64% |
+| Terminal carry | none: the every-year rule; 2022 (4.07%) vetoed it | 5pp. Above the cost of equity in 4 of 2021–2025; the miss is 2022 at 4.07%. Half the 13.73pp median spread over all five years is 6.87pp, capped at 5pp. |
+| Terminal growth of residual income | none | 2.5% |
+| Payout (3-year average, held for 10 years) | 13.14% | 13.14% |
+| Book at year 10 | $196.4B | $221.7B |
+| Value: opening book | $51.91 | $58.77 |
+| Value: explicit-period excess returns | $137.92 | $154.54 |
+| Value: terminal (continuing value) | $0 | $176.92 (45.3% of the value) |
+| **Per-share value** | **$189.83** | **$390.23** |
+| Implied P/B on opening book | 3.66× | 6.64× |
+
+**Waterfall.**
+- Base: $189.83.
+- The trailing start on the newer book, with no carry: $176.50 (−$13.33).
+- Adding the 5pp carry: $390.23 (+$213.73).
+- With the fiscal-year start and the carry: $417.60.
+
+**Hand check.** An independent recalculation reproduces every figure above, and both sides of BAC and UNH, to within 1e-12 per share. It uses only the disclosed inputs:
+- year-1 to year-10 ROE on the linear fade;
+- the excess on the prior year's book, discounted at the cost of equity;
+- book compounding at ROE × (1 − payout);
+- continuing value of 5% × book at year 10 / (7.64% − 2.5%), discounted 10 years.
+
+**Suspected defects ruled out.**
+- **No 30% return in perpetuity.** The terminal ROE is 12.64% (the cost of equity + 5pp).
+- **No basis mismatch.** The start return, the opening book and the year-10 book are all common equity, against a CAPM cost of equity. PGR's tangible and common equity are equal at FY2025.
+- **Growth applied once.** Residual income beyond year 10 grows at 2.5% from the year-10 book. At the horizon the continuing value is 1.97× book, which is (12.64 − 2.5) / (7.64 − 2.5), the steady-state formula.
+
+**The convention that drives the size.** A steady-state 3–4× book assumes book grows at about g. PGR's three-year payout of 13% leaves 87% of earnings retained at the faded ROE for ten years, so book compounds 6.5×. The 5pp carry then applies to that larger book. On the same branch inputs, a 50% payout gives $252.21 and an 80% payout $186.20 (3.17× book).
+
+The figure is the specified model computed correctly. It is credible only as far as two house conventions are:
+- the 4-of-5 carry (the owner's C-10 decision) puts 45% of the value in a 5pp perpetual excess;
+- a 13% payout held flat for ten years compounds book 6.5× before that excess applies.
+
+The report keeps its implied-P/B flag (6.64 outside the [0.3, 3] sanity band).
 
 ### Live run
 
@@ -116,4 +163,5 @@ Not changed: the review noted that `businessCombinationYears` reads each tag onc
 - NEE's trailing NCI income is not established in the keyless data. That is harmless while its DCF is outside the domain, but it will withhold the DCF once the utility route (B-13/A-3) gives it a domain-valid value.
 - The E-5 key is the trailing four quarters. A one-off gain or impairment inside a subsidiary moves the NCI share for a year.
 - NCI income tagged only as `MinorityInterestInNetIncomeLossOfConsolidatedEntities` or `NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` is not read, so such an issuer's DCF would be withheld. No panel issuer is affected. Adding the synonyms changes extraction for every consumer of the NCI-income field.
+- The excess-return payout is the three-year average, held for the whole horizon. For a high-return, low-payout issuer (PGR, 13%) the book compounds 6.5× in ten years, and the value rests on that. Whether retention should fade, or be bounded by an insurer's capital needs, is a calibration question for the follow-up batch (with B-3 and B-33).
 - The base rate is a fixed 2026-10-22 panel. A new census is needed to update it, and its calibration (B-3) and the valuation band (B-33) are deferred.
