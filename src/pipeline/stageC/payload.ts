@@ -408,7 +408,8 @@ export interface ContextPayload {
 // D-98: investment tax, rate-limit degradation, guided YoY pace, margin fade and gain-inflated P/E alter admitted context.
 // D-99: backlog and government-case evidence, the consensus-target reconciliation note and the deferred AMZN audit fixes alter admitted context.
 // D-100: the composite's evidence floor, the neutral-band qualifier and the band thresholds alter admitted context.
-export const PAYLOAD_VERSION = "1.41.0" as const;
+// D-102: the trailing common return, the start-return x cost-of-equity grid, the trailing start and the NCI earnings key alter admitted context.
+export const PAYLOAD_VERSION = "1.42.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -706,6 +707,11 @@ function computedSections(
     { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf },
     { label: "ROE (latest, DuPont)", value: r.dupont.latest?.roePct ?? null, unit: "%", source: "computed.returns.dupont", asOf: r.dupont.asOf },
     { label: "ROIC − WACC spread", value: r.roicVsWacc.spreadPctPts, unit: "pp", source: "computed.returns.roicVsWacc", asOf: r.roic.asOf },
+    // Audit 2026-10-22 C-11: the trailing return the excess-return model starts from.
+    ...(r.commonReturnTtm == null ? [] : [{
+      label: r.commonReturnTtm.basis === "tangible-common-equity" ? "ROTE (trailing four quarters)" : "common-equity ROE (trailing four quarters)",
+      value: r.commonReturnTtm.returnPct, unit: "%", source: "computed.returns.commonReturnTtm", asOf: r.commonReturnTtm.asOf,
+    }]),
   ];
   // clampsApplied is folded into the section notes so a bound WACC/beta/tax is
   // visible to the model (audit 2026-07-11 #5); material clamps ALSO surface as
@@ -1045,6 +1051,17 @@ function computedSections(
       valFigures.push({ label, value: a?.[key] ?? null, unit, currency: unit === "currency" ? currencies.model : null,
         source: `computed.valuation.excessReturn.financialAssumptions.${key}`, asOf: val.excessReturn.asOf });
     }
+    // C-11: each cell of the start-return × cost-of-equity grid, citeable on its own.
+    const grid = val.excessReturn.startCoeGrid;
+    grid?.rows.forEach((row, i) => grid.costOfEquityPcts.forEach((c, j) => {
+      valFigures.push({ label: `excess-return per share, start ${row.label} × cost of equity ${c.toFixed(1)}%`, value: grid.perShare[i]?.[j] ?? null,
+        unit: "currency/share", currency: currencies.model, source: `computed.valuation.excessReturn.startCoeGrid.r${i + 1}c${j + 1}`, asOf: val.excessReturn.asOf });
+    }));
+    const alt = val.excessReturn.startAlternative;
+    if (alt !== undefined) {
+      valFigures.push({ label: `excess-return per share from the ${alt.label}`, value: alt.perShare, unit: "currency/share", currency: currencies.model,
+        source: "computed.valuation.excessReturn.startAlternative", asOf: alt.asOf });
+    }
   } else if (val.kind === "reit") {
     valFigures.push(
       { label: "REIT P/FFO", value: val.reit.pToFfo ?? null, unit: "x", source: "computed.valuation.reit", asOf: val.reit.asOf },
@@ -1090,6 +1107,10 @@ function computedSections(
       ? ["Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures."]
       : []),
     ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
+    ...(val.kind === "excess-return" && val.excessReturn.startCoeGrid !== undefined
+      ? [`Excess-return sensitivity (C-11): start × cost of equity grid — ${val.excessReturn.startCoeGrid.notes.join("; ")}. ` +
+        "Describe the base path from where returns start and where they fade to; do not call it a recovery toward the cost of equity when the trailing return is already above the terminal target."]
+      : []),
   ] }));
 
   const peerCoverage = val.kind === "pre-revenue" ? undefined : val.multiples.peerCoverage;

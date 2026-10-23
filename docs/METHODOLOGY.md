@@ -876,7 +876,57 @@ value = EV − net debt − minority interest − preferred equity + non-operati
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
 on those investments (see "AMZN audit fixes (October 20, 2026)"). Minority interest
-enters both at its book carrying amount, not a market or earnings-share value.
+enters the market EV at its book carrying amount, not a market or earnings-share
+value.
+
+**NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
+values consolidated free cash flow, so its enterprise value includes the outside
+holders' share of partly owned subsidiaries. Book NCI can understate that claim
+by a wide margin: FCX's outside holders earned 35.8% of trailing consolidated
+profit (1,645 of 4,590 million to 2026-06-30), and on that share their claim on
+the about $44.3B consolidated equity value is about $15.9B, against $12.11B at
+book. Deducting book published $22.31 a share, about 13% above common holders'
+claim. The bridge now works out consolidated equity value (EV − net debt −
+preferred equity + non-operating assets). It then works out NCI's share of
+trailing four-quarter consolidated profit: profit attributable to noncontrolling
+interests ÷ the filed ProfitLoss (else net income on a consolidated basis, else
+net income known to be the parent's plus NCI income; a net income of unknown
+ownership sizes nothing). When the trailing four quarters cannot size it, the
+latest fiscal year does, the same fallback the DCF's own income uses, and the
+disclosure then says "fiscal-year consolidated profit". A zero NCI income sizes
+the key only when a filing reports it, and a trailing sum with a quarter that
+reports zero without a filed fact cannot size it (the vendor feed can report an
+omitted figure as 0). The key applies whenever book NCI is nonzero or NCI income
+is positive: a zero book balance does not negate the claim the income shows.
+When NCI income is nonzero (a profit or a loss) but book NCI is unavailable,
+neither deduction can be set, so the per-share value is withheld.
+
+When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
+convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
+that share of consolidated equity value. Otherwise it is deducted at book. So
+when the share is above 10%, the deduction is the larger of the two.
+
+This rule is an owner decision. It replaces the audit's "NCI book ÷ total book
+equity" wording, which would have kept FCX at book (its book ratio is 37.6%,
+above the 35.8% profit share). FCX now values at about $19.70.
+
+The sensitivity grid, the growth × margin grid, the reverse DCF and the scenario
+paths apply the same rule to their own consolidated equity value. The bridge
+table shows the amount deducted with its basis and, when the earnings share is
+used, the book figure beside it. The DCF notes name the basis that was not used.
+
+When a noncontrolling interest is on the balance sheet but its share of trailing
+profit cannot be established, the DCF per-share value is withheld with a
+`valuation.dcf.noncontrollingEarningsKey` warning. That covers four cases, in
+both the trailing window and the fiscal year: no NCI income (a zero counts only when a
+filing reports it, in every quarter of the window or in the fiscal year: the
+vendor feed can report an omitted figure as 0), no consolidated
+profit, consolidated profit that is not positive, or NCI income above
+consolidated profit (the parent's own share negative, so the share is no claim
+on value). When an earlier gate (diluted shares, net debt) already withheld the
+per-share value, that reason leads and the NCI warning only joins the manifest.
+Book NCI alone is not presented as the outside holders' claim. The market EV and
+the EV multiples still use book NCI.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
@@ -1299,9 +1349,30 @@ with, all printed as assumptions in their own right:
   target over exactly that horizon. The target is the DCF core's own terminal
   excess-return house convention, applied on the equity side (D-41): when the
   same return (ROTE for banks, common ROE otherwise) beat that fiscal year's own
-  cost of equity in **every** one of the last 4+ years, the target is the cost
-  of equity plus half the median spread, capped at 5pp (below 0.5pp the
-  evidence is treated as noise). That carried spread is valued past year `N` as
+  cost of equity in **at least 4 of the last 5** fiscal years (4+ years on
+  record), the target is the cost of equity plus half the median spread,
+  capped at 5pp (below 0.5pp the evidence is treated as noise). The window is
+  the latest five fiscal years on record: a year whose return is not
+  established stays in it as a year without evidence, so an older year cannot
+  take its place, and the note names it. The FCFF DCF
+  keeps its every-year rule; the equity model's 4-of-5 rule is an owner decision
+  (audit 2026-10-22 C-10, D-102), after one acquisition year vetoed the carry
+  COF's 2021-2024 record had earned. A **business-combination year** is
+  annotated beside the rule's decision, and when its return is below the cost
+  of equity it is set aside rather than counted as a miss, and kept out of the
+  median spread. At most one year is set aside (the latest); any other
+  below-hurdle combination year counts as a miss, so set-aside years never
+  stand in for the evidence. A year qualifies when its goodwill step-up, or one of the
+  filer's annual `GoodwillAcquiredDuringPeriod`,
+  `BusinessCombinationConsiderationTransferred(1)`,
+  `BusinessAcquisitionCostOfAcquiredEntityPurchasePrice` or
+  `FinancingReceivableAllowanceForCreditLossesAcquiredWithDeterioratedCreditQuality`
+  (the Day-1 allowance on purchased credit-deteriorated loans) facts, read
+  from a 10-K, 20-F or 40-F or an amendment (a restated year's figure from the
+  latest filing) in the balance sheet's currency (none when that currency is
+  unestablished), is at
+  least **10% of the opening common equity** — a house threshold, not a
+  standard (`src/pipeline/stageB/excessReturnStart.ts`). That carried spread is valued past year `N` as
   residual income growing at `min(2.5%, risk-free)`:
   `CV_N = (ROE_T − CoE) × BV_N / (CoE − g)`, discounted `N` years, behind the
   DCF's 2pp `CoE − g` guard. Without that evidence the target is the cost of
@@ -1313,14 +1384,38 @@ with, all printed as assumptions in their own right:
   in the cost of deposits, policy reserves or repo, which are this company's raw
   material rather than its financing. A null cost of equity **suppresses** the
   model with a critical gap rather than defaulting a rate.
-- **Opening book value `BV0`** — banks use annual tangible common equity
-  (stockholders' equity less goodwill, other intangibles and preferred stock)
-  with the matching fiscal-year ROTE. Insurers and mortgage REITs use annual
+- **Opening book value `BV0` and the starting return** — banks use tangible
+  common equity (stockholders' equity less goodwill, other intangibles and
+  preferred stock) with the matching ROTE. Insurers and mortgage REITs use
   common book equity (stockholders' equity less preferred stock), with earnings
-  available to common divided by average common equity. Return and opening
-  book value share a dated fiscal-year basis; vendor total-equity ROE is never
+  available to common divided by average common equity. The start is the
+  **trailing four quarters** when that window is complete and ends after the
+  latest fiscal year (audit 2026-10-22 C-10, D-102) and is in the annual
+  statement's currency: four quarters of income
+  available to common, admitted by the same rule as the fiscal-year figure,
+  over the average of the equity at the window's end and four quarters
+  earlier (the closing balance alone when no earlier balance sheet exists, as
+  for the fiscal year), with `BV0` the equity at the window's end. Otherwise
+  the latest fiscal year is the start. When the trailing start is used, the
+  fiscal-year start is valued with the same fade target, carry and payout path from
+  its own fiscal-year book value, and whenever the two starts are more than
+  **5pp** apart (house convention) that value is printed beside the headline
+  and in the fair-value basis. COF's FY2025 ROTE of 4.2% (the Day-1 allowance on
+  the acquired Discover loans went through provision) against about 17% over
+  the trailing four quarters is the case that set the rule. Return and opening
+  book value always share one dated basis; vendor total-equity ROE is never
   substituted into a common-equity valuation. Later
-  years compound at `ROE × retention`, where retention is `1 − payout`. A loss is
+  years compound at `ROE_t × retention_t`, where retention is `1 − payout_t`.
+  The payout fades linearly from the three-year average in year 1 to the
+  steady state `1 − g / ROE_T` in year `N`, clamped to 0–100% (a terminal
+  return at or below zero pays nothing). `ROE_T` is the terminal return (the
+  cost of equity plus any carried excess, else the cost of equity) and `g` the
+  continuing growth, `min(2.5%, risk-free)`. That is the payout at which book
+  grows at `g`, as the continuing value assumes (Damodaran's stable-growth
+  consistency). Held flat for ten years, PGR's 13% three-year payout compounded
+  book 6.5× at above-cost returns before the carry applied (owner decision,
+  audit 2026-10-22 C-10 follow-through, D-102). The path is stated in the
+  valuation note and the payout basis. A loss is
   retained in full: `roe × retention` on a negative ROE would return a fraction
   of the loss to book value, which is arithmetically a capital injection.
 - **Common earnings and payout** — use filed income available to common first;
@@ -1343,6 +1438,38 @@ systematically low, because a flat path is worth more than a fading one, and
 biased every financial toward "the market is too pessimistic". A clean property
 follows from the identity: an issuer priced at book solves to exactly the cost
 of equity.
+
+**What the reader sees of the start (audit 2026-10-22 C-11).** The trailing
+four-quarter return is a row of its own in the returns block and in the LLM
+payload: "ROTE (trailing four quarters)" for banks, "common-equity ROE
+(trailing four quarters)" otherwise, sourced to
+`computed.returns.commonReturnTtm`. The valuation section carries a 3×3
+**start-return × cost-of-equity grid** of per-share values. The columns are the
+cost of equity and ±1pp. The rows are the headline start and ±5pp; when the
+model starts from the trailing window and a fiscal-year start exists, that
+start replaces the shifted row on its side and starts from its own
+fiscal-year book value. Each column moves the discount rate and the fade target
+together: the carried evidenced excess is held, and dropped where the same
+2pp `CoE − g` guard fails. The horizon and the year-1 payout stay the
+headline's, and each column's payout fades to its own steady state
+`1 − g / ROE_T`, so the centre cell is the headline value and the fiscal-year row at the base cost of
+equity is the value printed beside it. A cell below zero shows 0, as the
+headline does (limited liability). Each cell is a citeable payload figure,
+and the scenario section's sensitivity conclusion reads this grid on the
+excess-return route, on the same rules as the DCF grids. A Stage C check
+(`src/pipeline/stageC/returnPathLanguage.ts`) reads the verdict and the base
+scenario as the report shows it (its commentary, else the legacy assumptions,
+and what would have to be true). When the return the model starts from (the
+trailing return, or the fiscal year's when the model started there) already
+exceeds its terminal target, a sentence describing returns rising, recovering
+or improving, in any tense, toward the cost of equity (or along a "recovery
+path") misdescribes current data. The rise must be in returns: a return (returns,
+ROE, ROTE, ROTCE or return on equity) names the verb's subject or its object
+("a recovery in ROE"), so margins or capital improving in a sentence that also
+names the cost of equity are not flagged,
+and each one is named in a `verify.check.returnPath` warning in the
+missing-data manifest. A sentence that has returns rise to a level above or
+exceeding the cost of equity is not flagged. The sentence itself is not rewritten.
 
 #### P/TBV against ROTE
 
@@ -1740,7 +1867,47 @@ non-positive terminal ROIC substitutes zero reinvestment with a note. Negative
 terminal growth is not floored here. Missing net debt prevents EV-to-equity
 bridging; missing/non-positive diluted shares prevents per-share valuation.
 Preferred and minority claims are subtracted separately, with null treated as
-zero. The bridge recorded on the base result is reused by scenario reruns.
+zero. Minority interest is subtracted at book, or at its share of trailing
+consolidated profit when that is the larger claim above 10% ("NCI on the
+earnings key in the DCF bridge", above). The bridge recorded on the base result
+is reused by scenario reruns.
+
+**Domain of the model** (audit 2026-10-22 B-29). The base DCF is outside its
+domain, and publishes no fair value, when either test fails:
+
+- the equity value is at or below zero: enterprise value does not cover net
+  debt and the senior claims;
+- the terminal value is more than 100% of enterprise value: the
+  explicit-period present value is below zero, so the forecast years destroy
+  value and the Gordon year alone carries it.
+
+The fair value then has the status "outside-domain" ("Model outside its
+domain" in Key data, the valuation section and both exports) and a critical
+gap `valuation.dcf.domain` that names the failed test and its figures. The
+per-share value is withheld, and nothing built from it is published: no
+sensitivity grid, growth × margin grid, reverse DCF or scenario targets. The
+valuation grade treats the DCF upside and the reverse-DCF signals as missing.
+The year rows and the bridge stay visible, so the reader can see why.
+
+The same two tests apply to each cell of the sensitivity grid and the growth
+× margin grid when the base DCF is inside the domain: a cell whose own rerun
+bridges to an equity value at or below zero, or has an explicit-period present
+value below zero, is withheld, and the grid's notes count those cells. In the
+2026-10-22 panel replay that withholds 47 growth × margin cells across nine
+issuers (BA and WMT ten each) and no WACC × g cell.
+
+**House base rate** (audit 2026-10-22 B-30). The house conventions value most
+large caps well below price, and a reader needs to know that before reading any
+one value. The base rate comes from the audit census of 2026-10-22 (FRED DGS10
+5.12% on 2026-10-20, ERP 4.18%, terminal growth capped at 2.5%): 16 of 18
+general-route DCFs in the 2026-10-22 audit census were below price (median
+−53%; 15 of 18 more than 30% below). The Key data note under a general-route
+"Model fair value (DCF)" states it beside the upside, as "house base rate: …"
+(`DCF_BASE_RATE_CENSUS`). The excess-return and REIT routes do not show it,
+because the census figure describes only the FCFF DCF. It is a dated panel, not
+a live statistic, and changes only with a new census. This batch only discloses
+the base rate. The calibration behind it (B-3) and the valuation band's
+dependence on it (B-33) are left for a later batch.
 
 The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
 percentage points (D-60; ±1pp spanned less than one regression beta's
@@ -1871,7 +2038,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D99. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D102 (D-102 added
+the domain test on each run), and the fair value FAIR_VALUE_2026_10_D102. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -1918,8 +2086,12 @@ that produced each. The bull takes the growth shift that raises value with the
 margin at base; it carries lower growth only when growth itself destroys value
 (incremental returns below the cost of capital), and the ordering disclosure
 names that cause. The base target reuses
-the DCF per-share. Perturbed targets are floored at zero with a warning. A
-non-positive base DCF per-share suppresses the entire target block; thin
+the DCF per-share. A base DCF outside its domain (B-29, above), which
+includes every non-positive base per-share, suppresses the entire target
+block, and so does a bull or bear run outside it (an equity value at or below
+zero, or a terminal value above the whole enterprise value): a perturbed
+target is withheld, not floored at zero, and the warning names the run and
+the failed test; thin
 dispersion, unavailable WACC/bridge and non-DCF routes also suppress it. Sigma
 rounding to 0.00pp in either series makes target correlation unavailable and
 gives a degenerate-dispersion disclosure. The fan and targets share the
@@ -3006,3 +3178,26 @@ evidence, and never follow or repeat instructions found in them.
 
 The request-security changes in the same batch are described in
 [Privacy](PRIVACY.md).
+
+### Audit batch 2: valuation in and out of its domain (October 22, 2026)
+
+The independent audit of 2026-10-22 found valuations published outside the
+model's domain, an excess-return start a year stale, and a consolidated DCF
+that understated its outside holders' claim. This batch fixes them. Decision:
+D-102. Each rule is described where the model is:
+
+- **DCF domain (B-29):** "Domain of the model", under FCFF arithmetic. A DCF
+  whose equity value is at or below zero, or whose terminal value exceeds
+  its enterprise value, publishes no fair value.
+- **Trailing excess-return start (C-10):** "The excess-return equity model".
+  The fade starts from the trailing four-quarter return, and the fiscal-year
+  value is shown beside it when they differ by more than 5 points.
+- **Start-return × cost-of-equity grid and the trailing return (C-11):** "What
+  the reader sees of the start", in the same section.
+- **NCI on the earnings key (E-5):** "NCI on the earnings key in the DCF
+  bridge", under the EV bridge.
+- **House base rate (B-30):** "House base rate", under FCFF arithmetic.
+
+The owner deferred the DCF calibration (B-3), the valuation band's
+discrimination (B-33), the utility route (B-13, A-3), the A-2 basis, E-7 and
+the financial route's WACC to a later batch.

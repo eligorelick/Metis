@@ -24,6 +24,7 @@ import {
 } from "@/pipeline/stageB/projections";
 import {
   buildDcfAssumptions,
+  dcfDomainFailure,
   runDcf,
   valueCompany,
   type DcfAssumptionInputs,
@@ -295,13 +296,16 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
   });
 
   it("re-labels bull/bear by value when growth destroys value, and discloses it", () => {
-    // Sales-to-capital 0.2: the reinvestment extra growth needs costs more than
+    // Sales-to-capital 0.3: the reinvestment extra growth needs costs more than
     // the operating profit it adds, so the lower-growth shock is worth more.
+    // (At 0.2 the explicit-period present value is negative, so the base DCF
+    // itself is outside its domain and would never reach the fan.)
     const { assumptions } = buildDcf();
     const a = structuredClone(assumptions);
-    a.salesToCapital.value = 0.2;
+    a.salesToCapital.value = 0.3;
     const dcf = runDcf(a, { waccPct: 9, netDebt: -100, dilutedShares: 100 });
     expect(dcf.perShare!).toBeGreaterThan(0);
+    expect(dcfDomainFailure(dcf)).toBeNull();
     const r = computeScenarioTargets(makeInputs({ valuation: dcfValuation({ assumptions: a, dcf }) }));
     const disp = scenarioDispersion(INCOME_HISTORY);
     expect(targetFor(r, "bull").perShare!.value).toBeGreaterThan(targetFor(r, "bear").perShare!.value);
@@ -314,30 +318,26 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
     expect(ordering?.reason).toMatch(/^with the margin at base the lower-growth shock is worth more than the higher-growth one/);
   });
 
-  it("floors a negative bear per-share at 0 and caps upside at −100%, disclosed", () => {
+  it("withholds the fan when the bear run's equity value is at or below zero (B-29 domain)", () => {
     // netDebt 3950 sits between the −σ (bear) enterprise value (3,882 under the
-    // D-60 decaying shocks) and the base EV (3,995), so the raw bear equity
-    // bridge is negative. Re-pinned for D-60: decaying shocks narrow the band.
+    // D-60 decaying shocks) and the base EV (3,995), so the bear equity bridge
+    // is negative. Audit 2026-10-22 B-29 declares that model state outside the
+    // DCF's domain, so no bear target is published from it, floored or not, and
+    // the fan is withheld (Codex review, PR #49). Until then it was floored at 0.
     const { assumptions, dcf } = buildDcfWithNetDebt(3950);
+    expect(dcf.perShare!).toBeGreaterThan(0); // precondition: the base is inside the domain
     const valuation: ValuationResult = {
       kind: "dcf", route: "general", assumptions, dcf, sensitivity: null, reverseDcf: null,
       multiples: { multiples: [], enterpriseValue: { value: null, excludingLeases: null, includingLeases: null, leaseLiability: null, includeLeases: false, basis: "test" }, sectorAppropriate: [], asOf: { quote: null, statements: null }, notes: [], gaps: [] },
       notes: [], gaps: [],
     };
     const r = computeScenarioTargets(makeInputs({ valuation }));
-    expect(r.status).toBe("available");
-
-    const bear = targetFor(r, "bear");
-    // Hand-derived: raw bear equity/share < 0 → floored to exactly 0; upside =
-    // (0 / 120 − 1)·100 = −100 exactly (never below).
-    expect(bear.perShare!.value).toBe(0);
-    expect(bear.upsidePct).toBe(-100);
-
-    const bull = targetFor(r, "bull").perShare!.value;
-    const base = targetFor(r, "base").perShare!.value;
-    expect(bull).toBeGreaterThanOrEqual(base);
-    expect(base).toBeGreaterThanOrEqual(0); // base still the positive DCF fair value (≈ 1.4)
-    expect(r.missingReasons.some((g) => g.field === "valuation.scenarioTargets.floor")).toBe(true);
+    expect(r.status).toBe("suppressed");
+    expect(r.targets).toEqual([]);
+    const reason = r.missingReasons.find((g) => g.field === "valuation.scenarioTargets")?.reason ?? "";
+    expect(reason).toMatch(/the bear run is outside the DCF's domain/);
+    expect(reason).toMatch(/equity value .* is at or below zero/);
+    expect(r.missingReasons.some((g) => g.field === "valuation.scenarioTargets.floor")).toBe(false);
   });
 
   it("suppresses the whole fan when the base DCF per-share is non-positive (no base-below-bear inversion)", () => {

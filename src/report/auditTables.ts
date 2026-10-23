@@ -1,6 +1,6 @@
 import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
 import { withNeutral } from "./assessment";
-import { formatFinancialValue, formatLargeNumber } from "./format";
+import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
 import { formatScore } from "./scoreText";
 import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
 
@@ -91,7 +91,9 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
     result.push({heading:"Enterprise value to equity bridge",headers:["Component","Value"],rows:[
       ["Explicit cash-flow present value",money(b.presentValueExplicit)],["Terminal present value",money(b.presentValueTerminal)],
       ["Intrinsic enterprise value (DCF, operating assets)",money(b.enterpriseValue)],["Less net debt (negative means net cash)",money(b.netDebt)],
-      ["Less minority interest",claim(b.minorityInterest)],["Less preferred equity",claim(b.preferredEquity)],
+      [b.noncontrollingBasis === undefined ? "Less minority interest" : `Less minority interest (${b.noncontrollingBasis})`,claim(b.minorityInterest)],
+      ...(b.noncontrollingBook === undefined ? [] : [["Minority interest at book value (not deducted)", money(b.noncontrollingBook)]]),
+      ["Less preferred equity",claim(b.preferredEquity)],
       ...components.map((c) => c.value < 0 ? [`Less ${c.label}`, money(-c.value)] : [`Plus non-operating ${c.label}`, money(c.value)]),
       ["Common equity value",money(b.equityValue)],["Diluted share denominator",b.dilutedShares === null ? "unavailable" : formatLargeNumber(b.dilutedShares)],
       ...(b.sharesOutstandingAtQuote === undefined ? [] : [["Shares outstanding at the quote (market cap ÷ price; not the divisor)", formatLargeNumber(b.sharesOutstandingAtQuote)]]),
@@ -108,6 +110,14 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
     headers:["Growth shift / margin shift",...gm.marginShiftsPp.map(shift)],
     rows:gm.perShare.map((row,i)=>[shift(gm.growthShiftsPp[i] ?? 0),...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",b?.currency ?? null))]),
     note:gm.notes.join("; ")});
+  // C-11: the excess-return route's start-return × cost-of-equity grid.
+  const er = dcf.excessReturnGrid;
+  // The headline's established currency: its ISO field, else the code its traced unit names ("USD/share").
+  const erCurrency = dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null;
+  if (er && er.perShare.length) result.push({heading:"Sensitivity (per share — rows = starting return, cols = cost of equity)",
+    headers:["Starting return / cost of equity",...er.costOfEquityPcts.map(c=>`CoE ${c.toFixed(1)}%`)],
+    rows:er.perShare.map((row,i)=>[er.rows[i]?.label ?? "—",...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",erCurrency))]),
+    note:er.notes.join("; ")});
   if (dcf.forecastRows?.length) result.push({heading:"DCF annual cash-flow path",headers:["Period","Revenue","Growth %","EBIT margin %","Tax %","NOPAT","Reinvestment","FCFF","Present value"],rows:dcf.forecastRows.map(r=>[r.period,...[r.revenue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null)),n(r.growthPct),n(r.ebitMarginPct),n(r.taxRatePct),...[r.nopat,r.reinvestment,r.fcff,r.presentValue].map(v=>formatFinancialValue(v,"currency",b?.currency ?? null))])});
   // D-65: the DCF path beside calendarized consensus, every covered window.
   if (dcf.consensusPath?.length) {

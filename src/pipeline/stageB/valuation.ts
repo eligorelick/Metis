@@ -73,9 +73,20 @@ export const TERMINAL_G_CAP_PCT = 2.5;
  * spread is carried in perpetuity, capped at TERMINAL_EXCESS_RETURN_CAP_PP.
  * Anything short of that evidence keeps the default, and the reason is
  * written into the assumption notes.
+ *
+ * The excess-return equity model (banks, insurers) applies the rule as "at
+ * least 4 of the last 5 fiscal years", and a below-hurdle year with material
+ * business-combination evidence does not count against it (audit 2026-10-22
+ * C-10, owner decision); the FCFF DCF keeps the every-year rule.
  */
 export const TERMINAL_EXCESS_RETURN_CAP_PP = 5;
 export const TERMINAL_EXCESS_RETURN_MIN_YEARS = 4;
+/**
+ * HOUSE CONVENTION (owner decision, audit 2026-10-22 C-10): the excess-return
+ * model's fiscal-year start is shown beside the headline when it differs from
+ * the trailing start by more than this many percentage points.
+ */
+export const EXCESS_RETURN_START_GAP_PP = 5;
 export const TERMINAL_EXCESS_RETURN_CARRY = 0.5;
 /** Below this carried spread the evidence is noise; the default applies. */
 export const TERMINAL_EXCESS_RETURN_MIN_PP = 0.5;
@@ -851,6 +862,13 @@ export interface DcfRoicYear {
   waccPct?: number | null;
   /** Date of the risk-free observation behind `waccPct`. */
   waccAsOf?: string | null;
+  /**
+   * Audit 2026-10-22 C-10: material business-combination evidence for this
+   * fiscal year (excessReturnStart.ts `businessCombinationYears`), printed
+   * beside the year. Under the four-of-five rule a below-hurdle year carrying
+   * it does not count against the terminal carry.
+   */
+  combinationEvidence?: string | null;
 }
 
 export interface TerminalRoic {
@@ -892,8 +910,16 @@ export function terminalRoic(
    * the cost of equity, so its disclosures must not say ROIC and WACC.
    */
   labels: { ret: string; rate: string } = { ret: "ROIC", rate: "WACC" },
+  /**
+   * "every-year" (the FCFF DCF): the return beat the hurdle in every one of the
+   * last 4+ years. "four-of-five" (the excess-return model, audit 2026-10-22
+   * C-10): in at least 4 of the last 5, where a below-hurdle year with
+   * business-combination evidence is set aside rather than counted as a miss.
+   */
+  options: { rule?: "every-year" | "four-of-five" } = {},
 ): TerminalRoic {
   const { ret: RET, rate: RATE } = labels;
+  const fourOfFive = options.rule === "four-of-five";
   const hold = (
     note: string | null,
     waccBasis: TerminalRoic["waccBasis"],
@@ -910,11 +936,19 @@ export function terminalRoic(
     waccBasisNote,
   });
   if (history === null) return hold(null, "none", null);
-  const years = history
+  // The four-of-five rule reads the latest five fiscal years as filed: a year
+  // whose return is unestablished stays in that window as non-evidence, so an
+  // older year cannot fill it (C-10).
+  const byDate = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  const window = fourOfFive ? byDate.slice(0, 5) : byDate;
+  const years = window
     .filter((y): y is DcfRoicYear & { roicPct: number } => isNum(y.roicPct))
-    .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 5);
   const n = years.length;
+  const lastN = fourOfFive ? window.length : n;
+  const unestablishedText = fourOfFive && window.length > n
+    ? `; ${window.filter((y) => !isNum(y.roicPct)).map((y) => y.date).join(", ")} not established, so not evidence`
+    : "";
   // Each year against its own cost of capital when one was recomputed for it.
   const waccForYear = (y: DcfRoicYear): number => (isNum(y.waccPct) ? y.waccPct : waccPct);
   const perYear = years.filter((y) => isNum(y.waccPct));
@@ -947,7 +981,34 @@ export function terminalRoic(
     );
   }
   const below = years.filter((y) => y.roicPct <= waccForYear(y));
-  if (below.length > 0) {
+  // At most one combination year is set aside (the latest), so set-aside years
+  // never stand in for the evidence; any other counts as a miss.
+  const combinationBelow = fourOfFive
+    ? below.filter((y) => typeof y.combinationEvidence === "string" && y.combinationEvidence !== "").sort((a, b) => b.date.localeCompare(a.date))
+    : [];
+  const setAside = combinationBelow.slice(0, 1);
+  const misses = below.filter((y) => !setAside.includes(y));
+  const above = n - below.length;
+  const missText = (list: typeof years): string =>
+    list.map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`).join("; ");
+  const setAsideText = setAside.length === 0
+    ? ""
+    : `; set aside as business-combination year${setAside.length === 1 ? "" : "s"}, not counted as a miss: ${setAside.map((y) => `${y.date} (${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%, ${y.combinationEvidence})`).join("; ")}` +
+      (combinationBelow.length > 1 ? `; only one business-combination year is set aside, so ${combinationBelow.slice(1).map((y) => y.date).join(", ")} count${combinationBelow.length === 2 ? "s" : ""} as ${combinationBelow.length === 2 ? "a miss" : "misses"}` : "");
+  const combinationAbove = fourOfFive
+    ? years.filter((y) => !below.includes(y) && typeof y.combinationEvidence === "string" && y.combinationEvidence !== "")
+    : [];
+  const annotatedText = combinationAbove.length === 0
+    ? ""
+    : `; business-combination year${combinationAbove.length === 1 ? "" : "s"} (above the hurdle, annotated): ${combinationAbove.map((y) => `${y.date} (${y.combinationEvidence})`).join("; ")}`;
+  if (fourOfFive && above + setAside.length < TERMINAL_EXCESS_RETURN_MIN_YEARS) {
+    return hold(
+      `terminal ${RET} held at ${RATE}: ${RET} beat that year's ${RATE} in only ${above} of the last ${lastN} fiscal years (${missText(misses)}${setAsideText}${unestablishedText}) — at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 are needed to evidence durable excess returns (house convention)`,
+      waccBasis,
+      waccBasisNote,
+    );
+  }
+  if (!fourOfFive && below.length > 0) {
     return hold(
       `terminal ${RET} held at ${RATE}: ${RET} was at or below that year's ${RATE} in ${below.length} of the last ${n} fiscal years (${below
         .map((y) => `${y.date}: ${RET} ${fmtNum(y.roicPct)}% vs ${RATE} ${fmtNum(waccForYear(y))}%`)
@@ -956,12 +1017,16 @@ export function terminalRoic(
       waccBasisNote,
     );
   }
-  const spreads = years.map((y) => y.roicPct - waccForYear(y));
+  // A set-aside combination year is not evidence either way, so it stays out of the median too.
+  const counted = years.filter((y) => !setAside.includes(y));
+  const spreads = counted.map((y) => y.roicPct - waccForYear(y));
   const median = medianOf(spreads) as number;
   const excess = Math.min(TERMINAL_EXCESS_RETURN_CAP_PP, TERMINAL_EXCESS_RETURN_CARRY * median);
   if (excess < TERMINAL_EXCESS_RETURN_MIN_PP) {
     return hold(
-      `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
+      fourOfFive
+        ? `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in ${above} of the last ${lastN} fiscal years${setAsideText}${unestablishedText}${annotatedText} but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`
+        : `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
       waccBasis,
       waccBasisNote,
     );
@@ -972,8 +1037,15 @@ export function terminalRoic(
     roicTermPct: waccPct + excess,
     excessPp: excess,
     basis:
-      `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ${RET} exceeded ${RATE} in each of the last ${n} fiscal years ` +
-      `(${oldest} to ${newest}, median spread ${fmtNum(median)}pp); half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
+      `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ` +
+      (fourOfFive
+        ? `${RET} exceeded ${RATE} in ${above} of the last ${lastN} fiscal years` +
+          (above < TERMINAL_EXCESS_RETURN_MIN_YEARS && setAside.length > 0
+            ? `, and the set-aside business-combination year counts toward the at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 required `
+            : `, at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 being required `) +
+          `(${oldest} to ${newest}${misses.length > 0 ? `; miss: ${missText(misses)}` : ""}${setAsideText}${unestablishedText}${annotatedText}; median spread ${fmtNum(median)}pp over the years counted); `
+        : `${RET} exceeded ${RATE} in each of the last ${n} fiscal years (${oldest} to ${newest}, median spread ${fmtNum(median)}pp); `) +
+      `half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
       "(HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md)",
     note: null,
     waccBasis,
@@ -2167,6 +2239,17 @@ export interface DcfRunOptions {
   /** Preferred equity — same treatment as minority interest above. */
   preferred?: number | null;
   /**
+   * Audit 2026-10-22 E-5: NCI's share of trailing consolidated profit (a
+   * fraction). Above NCI_EARNINGS_KEY_MATERIALITY_PCT, the bridge deducts NCI
+   * at this share of consolidated equity value whenever that exceeds the book
+   * `minorityInterest`. Omit/null ⇒ the book deduction.
+   */
+  noncontrollingEarningsShare?: number | null;
+  /** E-5: the end of the period the share was measured over, for the disclosure. */
+  noncontrollingEarningsAsOf?: string | null;
+  /** E-5: that period: the trailing four quarters, or the latest fiscal year when they cannot size the key. */
+  noncontrollingEarningsBasis?: "ttm" | "annual";
+  /**
    * D-60: non-operating assets ADDED to equity value, at a sourced fair value
    * (marketable equity securities excluded from cash). Their returns are below
    * EBIT, so the FCFF path does not value them. Omit/null ⇒ none.
@@ -2249,6 +2332,13 @@ export interface DcfBridge {
    * beside the diluted denominator; disclosure only, never the divisor.
    */
   sharesOutstandingAtQuote?: number;
+  /** E-5: NCI's share of consolidated profit, when the earnings key was established. */
+  noncontrollingEarningsShare?: number;
+  noncontrollingEarningsAsOf?: string | null;
+  noncontrollingEarningsBasis?: "ttm" | "annual";
+  /** E-5: the NCI amount the base bridge deducted (book, or the earnings share of consolidated equity value). */
+  noncontrollingDeducted?: number;
+  noncontrollingDeductionBasis?: "book" | "earnings-share";
 }
 
 export interface DcfResult {
@@ -2273,6 +2363,61 @@ export interface DcfResult {
   yearRows: DcfYearRow[];
   notes: string[];
   gaps: ManifestEntry[];
+  /**
+   * Audit 2026-10-22 B-29: set only when the base DCF failed a domain test.
+   * `perShare` is then null; the model's own figure is kept here for the record.
+   */
+  domain?: DcfDomainFailure;
+  /**
+   * Audit 2026-10-22 E-5: set only when the per-share value was withheld
+   * because NCI's earnings key is unestablished (no other gate had withheld it).
+   */
+  noncontrollingKeyWithheld?: string;
+}
+
+/** A domain test the base DCF failed (audit 2026-10-22 B-29). */
+export interface DcfDomainTest {
+  test: "equity-value-non-positive" | "terminal-share-above-100pct";
+  detail: string;
+}
+
+export interface DcfDomainFailure {
+  status: "outside";
+  failures: DcfDomainTest[];
+  /** The per-share the model computed before it was withheld (null when no share count). */
+  rawPerShare: number | null;
+  reason: string;
+}
+
+/**
+ * Audit 2026-10-22 B-29: an FCFF DCF is outside its domain when its equity
+ * value is at or below zero (enterprise value at or below net debt and the
+ * senior claims), or when its terminal value is more than all of enterprise
+ * value (explicit-period present value below zero, so the explicit forecast
+ * destroys value and the terminal year alone carries it). Either way the
+ * per-share figure describes the balance sheet or the Gordon year, not the
+ * operating business. Returns null when the DCF is inside the domain.
+ */
+export function dcfDomainFailure(dcf: DcfResult): DcfDomainFailure | null {
+  const failures: DcfDomainTest[] = [];
+  if (isNum(dcf.equityValue) && dcf.equityValue <= 0) {
+    failures.push({
+      test: "equity-value-non-positive",
+      detail: `equity value ${fmtMoney(dcf.equityValue)} is at or below zero: enterprise value ${fmtMoney(dcf.enterpriseValue)} does not cover net debt and the senior claims`,
+    });
+  }
+  if (dcf.pvExplicit < 0) {
+    const share = dcf.enterpriseValue > 0 ? ` (${fmtNum((dcf.pvTerminal / dcf.enterpriseValue) * 100)}% of enterprise value ${fmtMoney(dcf.enterpriseValue)})` : "";
+    failures.push({
+      test: "terminal-share-above-100pct",
+      detail: `the terminal value's present value ${fmtMoney(dcf.pvTerminal)} exceeds the whole enterprise value${share}: the explicit-period present value is ${fmtMoney(dcf.pvExplicit)}, below zero`,
+    });
+  }
+  if (failures.length === 0) return null;
+  const reason =
+    `FCFF DCF outside its domain: ${failures.map((f) => f.detail).join("; ")}. ` +
+    "The per-share value, sensitivity grids, reverse DCF and scenario targets are withheld, and the valuation grade does not use the DCF";
+  return { status: "outside", failures, rawPerShare: dcf.perShare, reason };
 }
 
 interface DcfCoreOverrides {
@@ -2452,24 +2597,118 @@ function bridgeToPerShare(
   minorityInterest: number | null = null,
   preferred: number | null = null,
   nonOperatingAssets: number | null = null,
-): { equityValue: number | null; perShare: number | null } {
+  noncontrollingEarningsShare: number | null = null,
+): { equityValue: number | null; perShare: number | null; noncontrollingDeducted: number; noncontrollingBasis: "book" | "earnings-share" } {
+  const book = isNum(minorityInterest) ? minorityInterest : 0;
   if (!isNum(netDebt)) {
     gaps.push(
       gapEntry("valuation.dcf.netDebt", "net debt unavailable — enterprise value cannot be bridged to equity", "warn"),
     );
-    return { equityValue: null, perShare: null };
+    return { equityValue: null, perShare: null, noncontrollingDeducted: book, noncontrollingBasis: "book" };
   }
-  const equityValue =
-    enterpriseValue - netDebt - (isNum(minorityInterest) ? minorityInterest : 0) - (isNum(preferred) ? preferred : 0) +
-    (isNum(nonOperatingAssets) ? nonOperatingAssets : 0);
+  // E-5: consolidated equity value, the claim common and NCI holders share.
+  const consolidatedEquity =
+    enterpriseValue - netDebt - (isNum(preferred) ? preferred : 0) + (isNum(nonOperatingAssets) ? nonOperatingAssets : 0);
+  const { deducted, basis } = noncontrollingDeduction(consolidatedEquity, book, noncontrollingEarningsShare);
+  const equityValue = consolidatedEquity - deducted;
   const shares = posOrNull(dilutedShares);
   if (shares === null) {
     gaps.push(
       gapEntry("valuation.dcf.dilutedShares", "diluted share count missing or non-positive — per-share value unavailable", "warn"),
     );
-    return { equityValue, perShare: null };
+    return { equityValue, perShare: null, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
   }
-  return { equityValue, perShare: equityValue / shares };
+  return { equityValue, perShare: equityValue / shares, noncontrollingDeducted: deducted, noncontrollingBasis: basis };
+}
+
+/**
+ * HOUSE CONVENTION (owner decision, audit 2026-10-22 E-5): NCI's share of
+ * trailing consolidated profit must exceed this before it can replace the book
+ * deduction.
+ */
+export const NCI_EARNINGS_KEY_MATERIALITY_PCT = 10;
+
+/**
+ * E-5: a consolidated FCFF DCF values the outside holders' share of the
+ * subsidiaries too. When NCI earns more than NCI_EARNINGS_KEY_MATERIALITY_PCT
+ * of trailing consolidated profit and that share of consolidated equity value
+ * exceeds the book NCI (profit share > book ÷ consolidated equity value), NCI is
+ * deducted at the profit share; otherwise at book.
+ */
+function noncontrollingDeduction(consolidatedEquity: number, book: number, share: number | null): { deducted: number; basis: "book" | "earnings-share" } {
+  if (isNum(share) && share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT && consolidatedEquity > 0 && share * consolidatedEquity > book) {
+    return { deducted: share * consolidatedEquity, basis: "earnings-share" };
+  }
+  return { deducted: book, basis: "book" };
+}
+
+/** E-5: "35.8% share of trailing consolidated profit to 2026-06-30", the key as every surface states it. */
+export function noncontrollingProfitShareText(bridge: Pick<DcfBridge, "noncontrollingEarningsShare" | "noncontrollingEarningsAsOf" | "noncontrollingEarningsBasis">): string {
+  const share = bridge.noncontrollingEarningsShare ?? 0;
+  const period = bridge.noncontrollingEarningsBasis === "annual" ? "fiscal-year" : "trailing";
+  return `${(share * 100).toFixed(1)}% share of ${period} consolidated profit${bridge.noncontrollingEarningsAsOf ? ` to ${bridge.noncontrollingEarningsAsOf}` : ""}`;
+}
+
+/** E-5: why a share that is on record still leaves the deduction at book. */
+export function noncontrollingBookReason(share: number): string {
+  return share * 100 > NCI_EARNINGS_KEY_MATERIALITY_PCT ? "would deduct no more than book" : `is not above the ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% house threshold`;
+}
+
+/** The income-statement fields the E-5 key reads, from a TTM window or an annual row. */
+export interface NoncontrollingEarningsRow {
+  date?: string | null;
+  netIncome?: number | null;
+  netIncomeConsolidated?: number | null;
+  netIncomeOwnershipBasis?: "parent" | "consolidated";
+  netIncomeAttributableToNoncontrollingInterest?: number | null;
+  /** The NCI income came from a filed fact (every quarter of a window); a vendor row can emit an omitted field as 0. */
+  noncontrollingIncomeEvidenced?: boolean;
+  /** A quarter of the window reports zero NCI income without a filed fact, so a nonzero sum may still omit it. */
+  noncontrollingIncomeUnevidencedZero?: boolean;
+}
+
+/**
+ * E-5: NCI's profit and consolidated profit for the earnings key. The trailing
+ * four quarters when they carry both, else the latest fiscal year (the DCF's
+ * own income falls back the same way). Parent net income plus NCI income is
+ * consolidated profit only when the net income is known to be the parent's.
+ */
+export function noncontrollingEarningsInput(ttm: NoncontrollingEarningsRow | null, annual: NoncontrollingEarningsRow | null): NonNullable<ValuationBundleInputs["noncontrollingEarnings"]> | null {
+  const read = (row: NoncontrollingEarningsRow | null, basis: "ttm" | "annual") => {
+    if (row === null) return null;
+    const reported = isNum(row.netIncomeAttributableToNoncontrollingInterest) ? row.netIncomeAttributableToNoncontrollingInterest : null;
+    // A zero establishes a 0% share only when a filing reports it, and a sum
+    // with an unevidenced zero quarter may omit that quarter's NCI income.
+    const nci = (reported === 0 && row.noncontrollingIncomeEvidenced !== true) || row.noncontrollingIncomeUnevidencedZero === true ? null : reported;
+    const net = isNum(row.netIncome) ? row.netIncome : null;
+    const consolidatedProfit = isNum(row.netIncomeConsolidated) ? row.netIncomeConsolidated
+      : row.netIncomeOwnershipBasis === "consolidated" ? net
+      : row.netIncomeOwnershipBasis === "parent" && net !== null && nci !== null ? net + nci
+      : null;
+    return { noncontrollingIncome: nci, consolidatedProfit, asOf: row.date ? row.date.slice(0, 10) : null, basis };
+  };
+  const trailing = read(ttm, "ttm");
+  const fiscal = read(annual, "annual");
+  // Usable: both figures, positive consolidated profit, and NCI income within it (the rule valueCompany applies).
+  const usable = (key: ReturnType<typeof read>) => key !== null && key.noncontrollingIncome !== null && key.consolidatedProfit !== null &&
+    key.consolidatedProfit > 0 && key.noncontrollingIncome <= key.consolidatedProfit;
+  return usable(trailing) ? trailing : usable(fiscal) ? fiscal : trailing ?? fiscal;
+}
+
+/** E-5: the DCF note naming which NCI basis the bridge used, and the other one. */
+function noncontrollingBridgeNote(bridge: DcfBridge, consolidatedEquity: number | null): string {
+  const book = bridge.minorityInterest ?? 0;
+  const share = bridge.noncontrollingEarningsShare;
+  if (bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(share)) {
+    return `equity bridge deducts noncontrolling interest at its ${noncontrollingProfitShareText(bridge)}: ` +
+      `${fmtNum(bridge.noncontrollingDeducted ?? 0)} of consolidated equity value ${consolidatedEquity === null ? "unavailable" : fmtNum(consolidatedEquity)}, ` +
+      `above its book value ${fmtNum(book)} (house rule: the earnings key applies above ${NCI_EARNINGS_KEY_MATERIALITY_PCT}% of profit when it exceeds the book deduction; audit 2026-10-22 E-5)`;
+  }
+  return `equity bridge deducts noncontrolling interest at its book value ${fmtNum(book)}` +
+    (isNum(share)
+      ? ` — its ${noncontrollingProfitShareText(bridge)} ${noncontrollingBookReason(share)}`
+      : "") +
+    " (a filed book-value proxy, not a market value)";
 }
 
 /**
@@ -2483,6 +2722,11 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     dilutedShares: opts.dilutedShares,
     minorityInterest: opts.minorityInterest ?? null,
     preferred: opts.preferred ?? null,
+    ...(isNum(opts.noncontrollingEarningsShare) ? {
+      noncontrollingEarningsShare: opts.noncontrollingEarningsShare,
+      noncontrollingEarningsAsOf: opts.noncontrollingEarningsAsOf ?? null,
+      ...(opts.noncontrollingEarningsBasis !== undefined ? { noncontrollingEarningsBasis: opts.noncontrollingEarningsBasis } : {}),
+    } : {}),
     ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 ? { nonOperatingAssets: opts.nonOperatingAssets } : {}),
     ...(isNum(opts.nonOperatingAssets) && opts.nonOperatingAssets !== 0 && opts.nonOperatingComponents && opts.nonOperatingComponents.length > 0
       ? { nonOperatingComponents: opts.nonOperatingComponents.map((c) => ({ ...c })) } : {}),
@@ -2505,7 +2749,7 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
       gaps: [gapEntry("valuation.dcf", "degenerate WACC input", "critical")],
     };
   }
-  const { equityValue, perShare } = bridgeToPerShare(
+  const { equityValue, perShare, noncontrollingDeducted, noncontrollingBasis } = bridgeToPerShare(
     core.enterpriseValue,
     opts.netDebt,
     opts.dilutedShares,
@@ -2513,10 +2757,19 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     opts.minorityInterest ?? null,
     opts.preferred ?? null,
     opts.nonOperatingAssets ?? null,
+    opts.noncontrollingEarningsShare ?? null,
   );
   const notes = [...core.notes];
-  if ((isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || (isNum(opts.preferred) && opts.preferred !== 0)) {
+  // E-5: book NCI, or a profit share valueCompany sized from positive NCI income (book may be zero).
+  const noncontrollingClaim = (isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || isNum(opts.noncontrollingEarningsShare);
+  if (noncontrollingClaim || (isNum(opts.preferred) && opts.preferred !== 0)) {
     notes.push("equity bridge nets minority interest and preferred equity out of EV (in addition to net debt)");
+  }
+  // E-5: which NCI basis the bridge used, beside the other.
+  if (noncontrollingClaim && equityValue !== null) {
+    bridge.noncontrollingDeducted = noncontrollingDeducted;
+    bridge.noncontrollingDeductionBasis = noncontrollingBasis;
+    notes.push(noncontrollingBridgeNote(bridge, equityValue + noncontrollingDeducted));
   }
   return {
     enterpriseValue: core.enterpriseValue,
@@ -2537,6 +2790,21 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
 // ---------------------------------------------------------------------------
 // Sensitivity grid
 // ---------------------------------------------------------------------------
+
+/**
+ * B-29 for one grid cell: the cell's own rerun is outside the DCF's domain on
+ * the base DCF's tests (equity value at or below zero, or an explicit-period
+ * present value below zero), so its per-share is withheld, not published.
+ */
+function gridCellOutsideDomain(core: DcfCoreOutput, equityValue: number | null): boolean {
+  return core.pvExplicit < 0 || (isNum(equityValue) && equityValue <= 0);
+}
+
+function gridDomainNote(withheld: number): string[] {
+  return withheld === 0 ? [] : [
+    `${withheld} cell${withheld === 1 ? "" : "s"} whose own rerun is outside the DCF's domain (equity value at or below zero, or a terminal value above the whole enterprise value) withheld, as the base DCF would be (audit 2026-10-22 B-29)`,
+  ];
+}
 
 export interface SensitivityGrid {
   /** Row axis: WACC values (pct), base +/- 2 in 1pp steps (D-60). */
@@ -2589,6 +2857,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
   notes.push(
     `terminal ROIC held at WACC ${terminalExcessPp >= 0 ? "+" : "−"} ${fmtNum(Math.abs(terminalExcessPp))}pp in every cell (the house convention defines it relative to the discount rate)`,
   );
+  let withheld = 0;
   const perShare = waccPcts.map((w) => {
     const cellAssumptions: DcfAssumptions = {
       ...assumptions,
@@ -2608,10 +2877,16 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
         base.minorityInterest ?? null,
         base.preferred ?? null,
         base.nonOperatingAssets ?? null,
+        base.noncontrollingEarningsShare ?? null,
       );
+      if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
+        withheld += 1;
+        return null;
+      }
       return bridged.perShare;
     });
   });
+  notes.push(...gridDomainNote(withheld));
   return { waccPcts, gTermPcts, perShare, notes, gaps };
 }
 
@@ -2649,6 +2924,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       ? "no gross profit on record, so no cell is withheld for exceeding gross margin"
       : `cells whose margin would exceed ${fmtNum(ceiling)}% (gross margin less the leanest operating-expense ratio) above the base path are withheld`,
   ];
+  let withheld = 0;
   const perShare = growthShiftsPp.map((dg) =>
     marginShiftsPp.map((dm) => {
       const margins = assumptions.ebitMarginPath.value.map((m) => m + dm);
@@ -2656,10 +2932,16 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       const growth = assumptions.growthPath.value.map((g, i) => g + dg * (weights[i] ?? 0));
       const core = dcfCore(assumptions, base.waccPct, { growthPathPct: growth, ebitMarginPathPct: margins, guardMode: "clamp" });
       if (core === null) return null;
-      return bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
-        base.preferred ?? null, base.nonOperatingAssets ?? null).perShare;
+      const bridged = bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
+        base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null);
+      if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
+        withheld += 1;
+        return null;
+      }
+      return bridged.perShare;
     }),
   );
+  notes.push(...gridDomainNote(withheld));
   return { growthShiftsPp, marginShiftsPp, perShare, notes };
 }
 
@@ -2825,6 +3107,7 @@ export function reverseDcf(
       opts.minorityInterest ?? null,
       opts.preferred ?? null,
       opts.nonOperatingAssets ?? null,
+      opts.noncontrollingEarningsShare ?? null,
     ).perShare;
   };
 
@@ -4268,9 +4551,22 @@ export interface ExcessReturnInputs {
    * (net income / average fiscal-year equity), so the printed assumption must
    * not keep calling that "TTM ROE". Defaults to `"ttm"`.
    */
-  currentRoeBasis?: "ttm" | "fiscal-year-dupont" | "fiscal-year-rote" | "fiscal-year-common-roe";
-  /** Fiscal-year end for any annual return basis. */
+  currentRoeBasis?: "ttm" | "fiscal-year-dupont" | "fiscal-year-rote" | "fiscal-year-common-roe" | "ttm-rote" | "ttm-common-roe";
+  /** Fiscal-year end for any annual return basis; the window's end for a trailing one. */
   currentRoeAsOf?: string | null;
+  /**
+   * Audit 2026-10-22 C-10: the fiscal-year start the model did not use, when it
+   * starts from the trailing four quarters. It is valued with the same fade,
+   * terminal target and payout from its own fiscal-year book value, and shown
+   * beside the headline when the two starts differ by more than
+   * EXCESS_RETURN_START_GAP_PP.
+   */
+  startAlternative?: {
+    roePct: number;
+    basis: "fiscal-year-rote" | "fiscal-year-common-roe";
+    asOf: string | null;
+    bookValue: number;
+  } | null;
   /**
    * Optional caller override of the TERMINAL ROE (percent). Without an override,
    * the terminal target follows roeHistory's evidenced-excess convention, or
@@ -4345,6 +4641,39 @@ export interface PriceToTangibleBookVsRote {
   withheldReason: string | null;
 }
 
+/** Audit 2026-10-22 C-10: the excess-return value from the start the model did not use. */
+export interface ExcessReturnStartAlternative {
+  basis: "fiscal-year-rote" | "fiscal-year-common-roe";
+  asOf: string | null;
+  startRoePct: number;
+  bookValue: number;
+  equityValue: number;
+  perShare: number | null;
+  /** Alternative start minus the start used, percentage points. */
+  differencePp: number;
+  /** True when |differencePp| > EXCESS_RETURN_START_GAP_PP: the value is printed beside the headline. */
+  besideHeadline: boolean;
+  /** e.g. "FY 2025-12-31 ROTE start 4.2%". */
+  label: string;
+}
+
+/**
+ * Audit 2026-10-22 C-11: per-share value for three starting returns against
+ * the cost of equity ±1pp. Each row carries the book value it starts from; the
+ * centre cell is the headline.
+ */
+export interface ExcessReturnGrid {
+  rows: { label: string; startReturnPct: number; bookValue: number }[];
+  costOfEquityPcts: number[];
+  perShare: (number | null)[][];
+  notes: string[];
+}
+
+/** Rows of the C-11 grid without a fiscal-year alternative: the start, and this many pp either side. */
+export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
+/** Columns of the C-11 grid: the cost of equity, and this many pp either side. */
+export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
+
 export interface ExcessReturnResult {
   equityValue: number | null;
   perShare: number | null;
@@ -4372,31 +4701,48 @@ export interface ExcessReturnResult {
   /** Additive: legacy objects may not retain these forward parameters. */
   financialAssumptions?: FinancialValuationAssumptions;
   reverseSolve: { impliedCurrentRoePct: number | null; notes: string[] };
+  /** Audit 2026-10-22 C-10: present when the model started from the trailing four quarters and a fiscal-year start exists. */
+  startAlternative?: ExcessReturnStartAlternative;
+  /** Audit 2026-10-22 C-11: start-return × cost-of-equity sensitivity; absent without a per-share denominator. */
+  startCoeGrid?: ExcessReturnGrid;
   asOf: string | null;
   notes: string[];
   gaps: ManifestEntry[];
 }
 
 /**
- * Core: BV_t = BV_{t-1}(1 + ROE_t * retention); value = BV0 + sum PV(excess),
+ * Audit 2026-10-22 C-10 follow-through (owner decision, D-102): the payout the
+ * continuing value assumes. Residual income growing at g needs book growing at
+ * g, a retention of g / ROE_T, so the steady-state payout is 1 − g / ROE_T
+ * (Damodaran's stable-growth consistency), clamped to 0-100%. A terminal
+ * return at or below zero funds no payout.
+ */
+export function steadyStatePayoutPct(terminalRoePct: number, gPct: number): number {
+  if (terminalRoePct <= 0) return 0;
+  return Math.min(100, Math.max(0, (1 - gPct / terminalRoePct) * 100));
+}
+
+/**
+ * Core: BV_t = BV_{t-1}(1 + ROE_t * retention_t); value = BV0 + sum PV(excess),
  * plus — only when evidenced excess returns are carried past the horizon — the
  * continuing value of the year-N+1 residual income growing at g:
- * CV_N = (ROE_T − CoE) · BV_N / (CoE − g), discounted N years.
+ * CV_N = (ROE_T − CoE) · BV_N / (CoE − g), discounted N years. The payout is
+ * given per year (it fades to the steady state).
  */
 function excessReturnValue(
   bv0: number,
   roePathPct: number[],
   coePct: number,
-  payoutPct: number,
+  payoutPathPct: number[],
   continuing: { excessPp: number; gPct: number } | null = null,
 ): { equityValue: number; bookValuePath: number[]; continuingValuePv: number } {
   const coe = coePct / 100;
-  const retention = 1 - payoutPct / 100;
   const bookValuePath: number[] = [bv0];
   let bv = bv0;
   let pvExcess = 0;
   for (let t = 1; t <= roePathPct.length; t++) {
     const roe = roePathPct[t - 1] / 100;
+    const retention = 1 - payoutPathPct[t - 1] / 100;
     const excess = (roe - coe) * bv;
     pvExcess += excess / Math.pow(1 + coe, t);
     // A LOSS is retained in full. `roe * retention` on a negative ROE returns a
@@ -4715,11 +5061,12 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
   const roeStart = inputs.currentRoePct;
   const overrideTerminal = isNum(inputs.analystImpliedRoePct);
-  const retLabel = inputs.currentRoeBasis === "fiscal-year-rote" ? "ROTE" : "ROE";
-  // The DCF's terminal excess-return house convention, on the equity side.
+  const retLabel = inputs.currentRoeBasis === "fiscal-year-rote" || inputs.currentRoeBasis === "ttm-rote" ? "ROTE" : "ROE";
+  // The DCF's terminal excess-return house convention, on the equity side, as
+  // "4 of the last 5 years" with business-combination years set aside (C-10).
   const evidenced =
     !overrideTerminal && inputs.roeHistory != null
-      ? terminalRoic(coe, inputs.roeHistory, { ret: retLabel, rate: "cost of equity" })
+      ? terminalRoic(coe, inputs.roeHistory, { ret: retLabel, rate: "cost of equity" }, { rule: "four-of-five" })
       : null;
   if (evidenced?.note) notes.push(evidenced.note);
   if (evidenced?.waccBasisNote) notes.push(evidenced.waccBasisNote);
@@ -4747,17 +5094,106 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       ? `FY ${inputs.currentRoeAsOf ?? "unknown"} ROTE (common earnings / average tangible common equity)`
       : inputs.currentRoeBasis === "fiscal-year-common-roe"
         ? `FY ${inputs.currentRoeAsOf ?? "unknown"} common-equity ROE (common earnings / average common equity)`
-        : inputs.currentRoeBasis === "fiscal-year-dupont"
+        : inputs.currentRoeBasis === "ttm-rote"
+          ? `TTM ROTE to ${inputs.currentRoeAsOf ?? "unknown"} (four quarters of common earnings / average tangible common equity)`
+          : inputs.currentRoeBasis === "ttm-common-roe"
+            ? `TTM common-equity ROE to ${inputs.currentRoeAsOf ?? "unknown"} (four quarters of common earnings / average common equity)`
+            : inputs.currentRoeBasis === "fiscal-year-dupont"
       ? `${inputs.currentRoeAsOf != null ? `FY ${inputs.currentRoeAsOf} ` : ""}DuPont ROE`
       : "TTM ROE";
   const roeBasis = `linear fade from ${startBasis} ${fmtNum(roeStart)}% to ${endBasis} by year ${years}`;
   const roePath = fadePath(roeStart, endRoe, years);
+  // C-10 follow-through (D-102): the payout fades from the three-year average
+  // in year 1 to the steady state of the terminal return in year N, so book
+  // grows at g when the continuing value starts. Holding the average flat
+  // compounded book at above-cost returns (PGR 6.5x) before the carry applied.
+  const payoutPathFor = (terminalRoePct: number): number[] => fadePath(payout, steadyStatePayoutPct(terminalRoePct, continuingG), years);
+  const steadyPayout = steadyStatePayoutPct(endRoe, continuingG);
+  const payoutPath = payoutPathFor(endRoe);
+  const payoutPathBasis =
+    `fades linearly from ${fmtNum(payout)}% in year 1 to ${fmtNum(steadyPayout)}% in year ${years}, the steady state ` +
+    `1 − g / terminal ROE = 1 − ${fmtNum(continuingG)}% / ${fmtNum(endRoe)}% at which book grows at g (clamped to 0-100%)`;
 
-  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payout, continuing);
+  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   const shares = posOrNull(inputs.dilutedShares);
   const perShare = shares !== null ? equityValue / shares : null;
   if (shares === null) {
     gaps.push(gapEntry("valuation.excessReturn.dilutedShares", "diluted shares missing — per-share value unavailable", "info"));
+  }
+  // C-10: the fiscal-year start, valued with the same fade target, carry and
+  // payout from its own book value, so the reader sees what the start choice is worth.
+  let startAlternative: ExcessReturnStartAlternative | undefined;
+  const alt = inputs.startAlternative;
+  if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
+    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue;
+    const differencePp = alt.roePct - roeStart;
+    const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
+    startAlternative = {
+      basis: alt.basis,
+      asOf: alt.asOf,
+      startRoePct: alt.roePct,
+      bookValue: alt.bookValue,
+      equityValue: altValue,
+      perShare: shares !== null ? altValue / shares : null,
+      differencePp,
+      besideHeadline: Math.abs(differencePp) > EXCESS_RETURN_START_GAP_PP,
+      label: altLabel,
+    };
+    notes.push(
+      `start ${retLabel}: ${startBasis} ${fmtNum(roeStart)}% (newer than the latest fiscal year); the ${altLabel} from book value ${alt.bookValue} ` +
+        `would value the equity at ${fmtNum(altValue)}${shares !== null ? ` (${fmtNum(altValue / shares)} per share)` : ""}, ` +
+        `${fmtNum(Math.abs(differencePp))}pp ${differencePp < 0 ? "below" : "above"} the start used` +
+        (startAlternative.besideHeadline ? ` — more than ${EXCESS_RETURN_START_GAP_PP}pp apart, so it is shown beside the headline (house convention)` : ""),
+    );
+  }
+  // C-11: the start return against the cost of equity. Each column moves the
+  // discount rate and the fade target together (the carried excess, if any, is
+  // held and passes the same CoE − g guard); each row keeps the headline's
+  // horizon and payout. The fiscal-year start, when there is one, replaces the
+  // shifted row on its side and starts from its own book value.
+  let startCoeGrid: ExcessReturnGrid | undefined;
+  if (shares !== null) {
+    const step = EXCESS_RETURN_GRID_START_STEP_PP;
+    const rows: ExcessReturnGrid["rows"] = [
+      { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart - step)}% (headline −${step}pp)`, startReturnPct: roeStart - step, bookValue: bv0 },
+      { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart)}% (headline)`, startReturnPct: roeStart, bookValue: bv0 },
+      { label: `${startBasis.replace(/ \(.*\)$/, "")} ${fmtNum(roeStart + step)}% (headline +${step}pp)`, startReturnPct: roeStart + step, bookValue: bv0 },
+    ];
+    if (startAlternative !== undefined) {
+      rows[startAlternative.startRoePct < roeStart ? 0 : 2] = {
+        label: `${startAlternative.label} (fiscal-year book value)`,
+        startReturnPct: startAlternative.startRoePct,
+        bookValue: startAlternative.bookValue,
+      };
+    }
+    const evidencedPp = evidenced?.excessPp ?? 0;
+    const costOfEquityPcts = [coe - EXCESS_RETURN_GRID_COE_STEP_PP, coe, coe + EXCESS_RETURN_GRID_COE_STEP_PP];
+    // Floored at 0 like the published headline (limited liability).
+    const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
+    const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
+      if (c === coe) {
+        return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue / shares);
+      }
+      const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
+      const target = overrideTerminal ? endRoe : c + carry;
+      const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
+      return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue / shares);
+    }));
+    startCoeGrid = {
+      rows,
+      costOfEquityPcts,
+      perShare: perShareGrid,
+      notes: [
+        `rows = starting ${retLabel}; columns = cost of equity ${fmtNum(coe)}% ±${EXCESS_RETURN_GRID_COE_STEP_PP}pp`,
+        overrideTerminal
+          ? `each cell fades its start linearly over ${years} years to the caller-supplied terminal ROE ${fmtNum(endRoe)}%, discounted at the column's cost of equity`
+          : evidencedPp > 0
+            ? `each cell fades its start linearly over ${years} years to the column's cost of equity plus the ${fmtNum(evidencedPp)}pp evidenced excess, carried past year ${years} at ${fmtNum(continuingG)}% where the cost of equity clears that growth by ${TV_GUARD_PP}pp`
+            : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
+        `payout fades from ${fmtNum(payout)}% to each cell's steady state (1 − g / its terminal ROE) by year ${years}; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
+        "the centre cell is the headline value; a cell below zero is shown as 0, as the headline is",
+      ],
+    };
   }
   const impliedPToBv = safeDiv(equityValue, bv0);
   if (impliedPToBv !== null && (impliedPToBv > 3 || impliedPToBv < 0.3)) {
@@ -4797,7 +5233,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payout, continuing).equityValue - mcap;
+      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue - mcap;
     const fLo = f(lo);
     const fHi = f(hi);
     if (fLo > 0) {
@@ -4808,7 +5244,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       const root = bisect(f, { lo, hi, fLo, fHi }, mcap);
       impliedCurrentRoePct = root;
       if (root !== null) {
-        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout ${fmtNum(payout)}%) matching market cap — comparable to the current ROE, same dynamics as the forward path`);
+        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout fading ${fmtNum(payout)}% → ${fmtNum(steadyPayout)}%) matching market cap — comparable to the current ROE, same dynamics as the forward path`);
       }
     }
   }
@@ -4836,6 +5272,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     continuingValueBasis: continuing === null
       ? overrideTerminal ? "caller terminal override affects the finite ROE path only; no continuing value was added" : "competitive fade to cost of equity; zero excess returns beyond the horizon"
       : `${evidenced!.basis}; residual income beyond year ${years} = terminal excess return x BV_N / (CoE - growth), discounted ${years} years; growth capped at ${TERMINAL_G_CAP_PCT}%${rfForG === null ? "; risk-free rate unavailable" : ` and risk-free ${fmtNum(rfForG)}%`}`,
+    payoutPathPct: payoutPath, steadyStatePayoutPct: steadyPayout, payoutPathBasis,
   };
   const pTbvVsRote = priceToTangibleBookVsRote(inputs, coe, payout);
   pTbvVsRote.basis += ` ${describeFinancialValuation(financialAssumptions)}`;
@@ -4849,7 +5286,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     perShare,
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },
-    payoutRatioPct: { value: payout, basis: payoutBasis },
+    payoutRatioPct: { value: payout, basis: `${payoutBasis}; the year-1 payout, which fades linearly to the steady-state ${fmtNum(steadyPayout)}% by year ${years} (1 − g / terminal ROE)` },
     horizonYears: {
       value: years,
       basis:
@@ -4877,6 +5314,8 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     terminalExcess,
     financialAssumptions,
     reverseSolve: { impliedCurrentRoePct, notes: reverseNotes },
+    ...(startAlternative !== undefined ? { startAlternative } : {}),
+    ...(startCoeGrid !== undefined ? { startCoeGrid } : {}),
     asOf: inputs.asOf ?? null,
     notes,
     gaps,
@@ -5073,6 +5512,14 @@ export interface ValuationBundleInputs {
   minorityInterest?: number | null;
   preferred?: number | null;
   /**
+   * Audit 2026-10-22 E-5: profit attributable to noncontrolling interests and
+   * consolidated profit (ProfitLoss), the key the DCF bridge uses for NCI, over
+   * the trailing four quarters or else the latest fiscal year
+   * (`noncontrollingEarningsInput`). Null/absent ⇒ the key is unestablished,
+   * and a DCF with a noncontrolling interest withholds its per-share value.
+   */
+  noncontrollingEarnings?: { noncontrollingIncome: number | null; consolidatedProfit: number | null; asOf: string | null; basis?: "ttm" | "annual" } | null;
+  /**
    * WS6 (D-19): TOTAL lease liabilities (FMP `capitalLeaseObligations`), already
    * inside `totalDebt` and therefore inside `netDebt`. Null when undisclosed.
    * Disclosure context only — the bridge adjusts by `operatingLeaseLiability`.
@@ -5200,6 +5647,43 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
   }
 
+  // Audit 2026-10-22 E-5: a consolidated DCF bridged to common equity needs the
+  // outside holders' share of profit to size their claim. Without it the DCF
+  // runs on book NCI only to test its domain (book is the smallest deduction
+  // the rule allows), and the per-share value is then withheld.
+  let noncontrollingEarningsShare: number | null = null;
+  let noncontrollingKeyMissing: string | null = null;
+  const noncontrollingEarningsAsOf = inputs.noncontrollingEarnings?.asOf ?? null;
+  const noncontrollingEarningsBasis = inputs.noncontrollingEarnings?.basis;
+  // A zero book balance does not negate the outside claim positive NCI income shows.
+  const noncontrollingIncomeClaim = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome > 0;
+  // A signed NCI income, profit or loss, shows outside holders exist.
+  const noncontrollingIncomeSigned = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome !== 0;
+  if (!isNum(inputs.minorityInterest) && noncontrollingIncomeSigned) {
+    // Neither book nor the larger of book and the profit share can be set
+    // without the book balance; a null book is not a zero claim.
+    const earnings = inputs.noncontrollingEarnings!;
+    noncontrollingKeyMissing = `Noncontrolling interests are allocated ${fmtNum(earnings.noncontrollingIncome!)} of ${earnings.basis === "annual" ? "fiscal-year" : "trailing"} net income, ` +
+      "but their book value is unavailable, so the deduction can be set neither at book nor at the larger of book and their profit share. " +
+      "The per-share value is withheld: the consolidated DCF would otherwise credit the outside holders' claim to common holders (audit 2026-10-22 E-5).";
+  } else if (isNum(inputs.minorityInterest) && (inputs.minorityInterest !== 0 || noncontrollingIncomeClaim)) {
+    const earnings = inputs.noncontrollingEarnings ?? null;
+    const period = earnings?.basis === "annual" ? `fiscal-year (${earnings.asOf ?? "date unavailable"})` : "trailing";
+    // A share above 1 (the parent's own share negative) is not a claim on value.
+    if (earnings !== null && isNum(earnings.noncontrollingIncome) && isNum(earnings.consolidatedProfit) && earnings.consolidatedProfit > 0 &&
+      earnings.noncontrollingIncome <= earnings.consolidatedProfit) {
+      noncontrollingEarningsShare = earnings.noncontrollingIncome / earnings.consolidatedProfit;
+    } else {
+      noncontrollingKeyMissing = `Noncontrolling interest of ${fmtNum(inputs.minorityInterest)} sits in the consolidated DCF, but its share of consolidated profit could be established from neither the trailing four quarters nor the latest fiscal year ` +
+        (earnings === null ? "(no trailing or fiscal-year noncontrolling and consolidated profit)"
+          : !isNum(earnings.noncontrollingIncome) ? `(${period} profit attributable to noncontrolling interests unavailable)`
+          : !isNum(earnings.consolidatedProfit) ? `(${period} consolidated profit unavailable)`
+          : earnings.consolidatedProfit <= 0 ? `(${period} consolidated profit ${fmtNum(earnings.consolidatedProfit)} is not positive)`
+          : `(${period} profit attributable to noncontrolling interests ${fmtNum(earnings.noncontrollingIncome)} exceeds consolidated profit ${fmtNum(earnings.consolidatedProfit)}, so the parent's own share is negative)`) +
+        ". The per-share value is withheld: book NCI alone can understate the outside holders' claim on a consolidated valuation (audit 2026-10-22 E-5).";
+    }
+  }
+
   if (route.overlays.includes("pre-revenue")) {
     notes.push(
       "pre-revenue: DCF, reverse DCF and multiples suppressed (denominators zero/negative); runway + scenario framing handled elsewhere",
@@ -5325,6 +5809,8 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       const guarded: ExcessReturnResult = {
         ...er,
         perShare: null,
+        startAlternative: undefined,
+        startCoeGrid: undefined,
         reverseSolve: {
           impliedCurrentRoePct: null,
           notes: [
@@ -5573,9 +6059,33 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
         dilutedShares: inputs.dilutedShares,
         minorityInterest: inputs.minorityInterest ?? null,
         preferred: inputs.preferred ?? null,
+        ...(noncontrollingEarningsShare !== null ? { noncontrollingEarningsShare, noncontrollingEarningsAsOf, ...(noncontrollingEarningsBasis !== undefined ? { noncontrollingEarningsBasis } : {}) } : {}),
         ...(components.length > 0 ? { nonOperatingAssets: nonOperatingTotal, nonOperatingComponents: components } : {}),
       };
       dcf = runDcf(assumptions, runOpts);
+      // Audit 2026-10-22 B-29: a DCF outside its domain publishes nothing
+      // built from its per-share. The bridge and year rows stay, so a reader
+      // sees why; the critical gap names the failed test.
+      const domain = dcfDomainFailure(dcf);
+      if (domain !== null) {
+        dcf.domain = domain;
+        dcf.perShare = null;
+        notes.push(`${domain.reason}.`);
+        gaps.push(gapEntry("valuation.dcf.domain", domain.reason, "critical"), ...dcf.gaps);
+        return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
+      }
+      // E-5: inside its domain, but the NCI claim cannot be sized. The bridge
+      // stays visible at book; nothing built from the per-share is published.
+      // The NCI reason leads only when no earlier gate (shares, net debt)
+      // had already withheld the per-share value.
+      if (noncontrollingKeyMissing !== null) {
+        if (dcf.perShare !== null) dcf.noncontrollingKeyWithheld = noncontrollingKeyMissing;
+        dcf.perShare = null;
+        dcf.equityValue = null;
+        notes.push(noncontrollingKeyMissing);
+        gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey", noncontrollingKeyMissing, "warn"), ...dcf.gaps);
+        return { kind: "dcf", route: route.base, assumptions, dcf, sensitivity: null, growthMarginGrid: null, reverseDcf: null, multiples, notes, gaps };
+      }
       // AMZN audit 2026-10-20: the improving fade is a judgment, so the reader
       // sees what it is worth: the value with the margin held at today's level.
       const fade = assumptions.improvingMarginFade;

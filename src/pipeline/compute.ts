@@ -121,6 +121,7 @@ import {
   type EnterpriseValuesRow,
   type ExcessReturnInputs,
   type ReitInputs,
+  noncontrollingEarningsInput,
 } from "@/pipeline/stageB/valuation";
 import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
@@ -139,6 +140,7 @@ import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnri
 import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   normalizeQuarterRows,
@@ -215,6 +217,12 @@ export interface ReturnsBlock {
   waccHistory: WaccHistoryResult;
   roic: RoicResult;
   rote: RoteResult;
+  /**
+   * Audit 2026-10-22 C-10/C-11: the trailing-four-quarter return on common
+   * equity on the financial routes (tangible for banks, book common equity for
+   * insurers and mortgage REITs); null on every other route.
+   */
+  commonReturnTtm: TtmCommonReturn | null;
   dupont: DupontResult;
   roicVsWacc: RoicVsWaccSpread;
   notes: string[];
@@ -738,6 +746,10 @@ export interface TtmIncome {
   netIncome: number | null;
   netIncomeConsolidated?: number | null;
   netIncomeAttributableToNoncontrollingInterest?: number | null;
+  /** Every quarter's NCI income came from a filed fact (field provenance), not a vendor default. */
+  noncontrollingIncomeEvidenced?: boolean;
+  /** A quarter reports zero NCI income without a filed fact: the sum may omit that quarter. */
+  noncontrollingIncomeUnevidencedZero?: boolean;
   /** Complete four-quarter common-holder flow; never the latest quarter alone. */
   netIncomeAvailableToCommon?: number | null;
   commonIncomeWithheldReason?: string | null;
@@ -1243,6 +1255,9 @@ function ttmIncomeFromNormalized(
     netIncome: commonWindow.netIncome,
     netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
     netIncomeAttributableToNoncontrollingInterest: commonWindow.noncontrollingIncome,
+    noncontrollingIncomeEvidenced: q.every((row) => row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest != null),
+    noncontrollingIncomeUnevidencedZero: q.some((row) =>
+      num(row.netIncomeAttributableToNoncontrollingInterest) === 0 && row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest == null),
     netIncomeAvailableToCommon: commonWindow.netIncomeAvailableToCommon,
     commonIncomeWithheldReason: commonWindow.commonIncomeWithheldReason,
     netIncomeWithheldReason: commonWindow.netIncomeWithheldReason,
@@ -2035,6 +2050,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route,
     evIncludeLeases,
     currencies.model,
+    currencies.ttmIncomeUsable,
   );
   const modelEligibilityReason = route.modelEligibility?.reason;
   if (modelEligibilityReason) {
@@ -2234,6 +2250,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     dupont: returns.dupont,
     // WS5: P/TBV against ROTE on the financial routes.
     rote: returns.rote,
+    commonReturnTtm: returns.commonReturnTtm,
     profile,
     quote,
   });
@@ -2676,6 +2693,8 @@ function computeReturns(
   includeOperatingLeases: boolean,
   /** The statements' established currency (StatementCurrencies.model) for the ADR guard. */
   modelCurrency: string | null,
+  /** StatementCurrencies.ttmIncomeUsable: the window's currency matches the annual statement's. */
+  ttmIncomeUsable: boolean,
 ): ReturnsBlock {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -2906,6 +2925,34 @@ function computeReturns(
   // Return on tangible common equity — the capital-return measure for
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
+  // C-10/C-11: the trailing four quarters on the fiscal-year return's basis,
+  // from the quarterly rows already fetched. A window in another currency than
+  // the annual statement is withheld here as it is from the valuation: its
+  // earnings cannot be set against balances in the model currency.
+  const commonIncomeTtm = ttmIncomeUsable ? ttmInc : null;
+  const commonReturnTtm = isFinancial
+    ? computeTtmCommonReturn({
+        // The same earnings evidence the TTM P/E admits common income from.
+        income: commonIncomeTtm === null ? null : {
+          netIncome: commonIncomeTtm.netIncome,
+          netIncomeAvailableToCommon: commonIncomeTtm.netIncomeAvailableToCommon ?? null,
+          commonIncomeWithheldReason: commonIncomeTtm.commonIncomeWithheldReason,
+          netIncomeWithheldReason: commonIncomeTtm.netIncomeWithheldReason,
+          netIncomeOwnershipBasis: commonIncomeTtm.netIncomeOwnershipBasis,
+          noncontrollingIncome: commonIncomeTtm.netIncomeAttributableToNoncontrollingInterest,
+          incomeScope: commonIncomeTtm.incomeScope, commonIncomeScope: commonIncomeTtm.commonIncomeScope, noncontrollingIncomeScope: commonIncomeTtm.noncontrollingIncomeScope,
+          targetScope: commonIncomeTtm.targetScope, admissionAsOf: commonIncomeTtm.admissionAsOf,
+          preferredClaimsInPeriod: preferredClaimsInFlow(commonIncomeTtm.incomeScope ?? { periodEnd: commonIncomeTtm.date, basis: "ttm" },
+            [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
+            [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
+        },
+        asOf: commonIncomeTtm?.date ?? null,
+        periodStart: commonIncomeTtm?.commonIncomeScope?.periodStart ?? commonIncomeTtm?.incomeScope?.periodStart ?? null,
+        balances: [...balanceQuarterly, ...balanceAnnual].map(toReturnsBalance),
+        basis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
+      })
+    : null;
+  if (commonReturnTtm !== null) notes.push(commonReturnTtm.basisText);
   const dupont = computeDupont(returnsIncome, returnsBalance);
   const roicVsWacc = computeRoicVsWaccSpread(roic.latestRoicPct, wacc.waccPct);
 
@@ -2944,7 +2991,7 @@ function computeReturns(
   // block discloses it, but that block only raises its own gap when NO year
   // carried its own WACC — a partial shortfall was disclosed nowhere.
   gaps.push(...wacc.gaps, ...roic.gaps, ...rote.gaps, ...dupont.gaps, ...waccHistory.gaps);
-  return { wacc, waccInputs, waccHistory, roic, rote, dupont, roicVsWacc, notes, gaps };
+  return { wacc, waccInputs, waccHistory, roic, rote, commonReturnTtm, dupont, roicVsWacc, notes, gaps };
 }
 
 // ---------------------------------------------------------------------------
@@ -2978,6 +3025,8 @@ interface ValuationCtx {
   dupont: DupontResult;
   /** WS5: return on tangible common equity — the return P/TBV is read against. */
   rote: RoteResult;
+  /** C-10: the trailing-four-quarter common return (financial routes). */
+  commonReturnTtm: TtmCommonReturn | null;
   /** THESIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
   evIncludeLeases: boolean;
   profile: FmpRawRow | null;
@@ -3558,14 +3607,29 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       ? incomeAvailableToCommon(income, num(balance?.preferredStock), num(balance?.minorityInterest)) ?? undefined : undefined };
   });
 
+  // Audit 2026-10-22 C-10: start from the trailing four quarters when that
+  // return is complete and newer than the latest fiscal year, from the book
+  // value at the window's end; the fiscal-year start is valued beside it.
+  const ttmReturn = ctx.commonReturnTtm;
+  const fyBasis = route.base === "bank" ? "fiscal-year-rote" as const : "fiscal-year-common-roe" as const;
+  const ttmStart = ttmReturn !== null && ttmReturn.returnPct !== null && ttmReturn.closingEquity !== null && ttmReturn.closingEquity > 0 &&
+    ttmReturn.asOf !== null && (commonReturns.asOf === null || ttmReturn.asOf > commonReturns.asOf)
+    ? { roePct: ttmReturn.returnPct, bookValue: ttmReturn.closingEquity, asOf: ttmReturn.asOf }
+    : null;
+  const combinationYears = financialRoute
+    ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance), ctx.modelCurrency)
+    : new Map<string, string>();
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
-          bookValue: commonReturns.latestTangibleCommonEquity,
+          bookValue: ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
-          currentRoePct: commonReturns.latestRotePct,
-          currentRoeBasis: route.base === "bank" ? "fiscal-year-rote" : "fiscal-year-common-roe",
-          currentRoeAsOf: commonReturns.asOf,
+          currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,
+          currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
+          currentRoeAsOf: ttmStart?.asOf ?? commonReturns.asOf,
+          startAlternative: ttmStart !== null && commonReturns.latestRotePct !== null && commonReturns.latestTangibleCommonEquity !== null && commonReturns.latestTangibleCommonEquity > 0
+            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity }
+            : null,
           // Audit M5: null CoE SUPPRESSES the model inside excessReturnModel
           // (critical gap) — never a silent 10% default.
           costOfEquityPct: wacc.costOfEquityPct,
@@ -3574,11 +3638,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares,
           marketCap,
-          asOf: commonReturns.asOf,
+          asOf: ttmStart?.asOf ?? commonReturns.asOf,
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
-          tangibleCommonEquity: ctx.rote?.latestTangibleCommonEquity ?? null,
-          rotePct: ctx.rote?.latestRotePct ?? null,
+          // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
+          tangibleCommonEquity: route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
+          rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
           // The justified-P/TBV cross-check caps its growth rate at the same
           // ceiling the DCF terminal value uses: nothing grows faster than the
           // risk-free rate forever. Null leaves the house terminal-growth cap
@@ -3593,6 +3658,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               roicPct: y.rotePct,
               waccPct: point?.costOfEquityPct ?? null,
               waccAsOf: point?.riskFreeAsOf ?? null,
+              combinationEvidence: combinationYears.get(y.date) ?? null,
             };
           }),
         }
@@ -3646,6 +3712,23 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             1e-9 * Math.max(1, Math.abs(num(balPoint.totalEquity) as number), Math.abs(num(balPoint.totalStockholdersEquity) as number)))),
     minorityInterest: balPoint ? num(balPoint.minorityInterest) : null,
     preferred: balPoint ? num(balPoint.preferredStock) : null,
+    // Audit 2026-10-22 E-5: the trailing profit key for the DCF's NCI deduction.
+    // Consolidated profit is the filed ProfitLoss, else net income on a
+    // consolidated basis, else parent plus NCI income (as forensics does).
+    noncontrollingEarnings: noncontrollingEarningsInput(
+      ttmInc === null ? null : {
+        date: ttmInc.date, netIncome: ttmInc.netIncome, netIncomeConsolidated: ttmInc.netIncomeConsolidated ?? null,
+        netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis, netIncomeAttributableToNoncontrollingInterest: ttmInc.netIncomeAttributableToNoncontrollingInterest ?? null,
+        noncontrollingIncomeEvidenced: ttmInc.noncontrollingIncomeEvidenced,
+        noncontrollingIncomeUnevidencedZero: ttmInc.noncontrollingIncomeUnevidencedZero,
+      },
+      inc0 === undefined ? null : {
+        date: isoDay(inc0.date), netIncome: num(inc0.netIncome), netIncomeConsolidated: num(inc0.netIncomeConsolidated),
+        netIncomeOwnershipBasis: commonIncomeEvidence(inc0, "annual").netIncomeOwnershipBasis,
+        netIncomeAttributableToNoncontrollingInterest: num(inc0.netIncomeAttributableToNoncontrollingInterest),
+        noncontrollingIncomeEvidenced: inc0.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest != null,
+      },
+    ),
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.
     leaseLiability: balPoint ? num(balPoint.capitalLeaseObligations) : null,
     operatingLeaseLiability: balPoint ? num(balPoint.operatingLeaseLiability) : null,
@@ -3717,8 +3800,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   }
   if (excessReturn !== null) {
     result.notes.push(
-      `Common-share valuation uses ${route.base === "bank" ? "tangible common equity and ROTE" : "common equity and common-equity ROE"} from FY ${commonReturns.asOf ?? "unavailable"}; ` +
-        "earnings and payout exclude preferred claims. Annual return and opening equity share one dated basis; vendor total-equity ROE is not substituted.",
+      `Common-share valuation uses ${route.base === "bank" ? "tangible common equity and ROTE" : "common equity and common-equity ROE"} ` +
+        (excessReturn.currentRoeBasis === "ttm-rote" || excessReturn.currentRoeBasis === "ttm-common-roe"
+          ? `from the trailing four quarters to ${excessReturn.currentRoeAsOf ?? "unavailable"}, with the book value at that window's end (fiscal-year history to FY ${commonReturns.asOf ?? "unavailable"}); ` +
+            "earnings and payout exclude preferred claims. The trailing return and its equity share one dated window; vendor total-equity ROE is not substituted."
+          : `from FY ${commonReturns.asOf ?? "unavailable"}; ` +
+            "earnings and payout exclude preferred claims. Annual return and opening equity share one dated basis; vendor total-equity ROE is not substituted."),
     );
     if (excessReturn.payoutRatioPct === null && ctx.cashflowAnnual.some(row => row.fieldConflicts?.commonDividendsPaid?.usable === false ||
       (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0))) {

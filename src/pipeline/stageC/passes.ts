@@ -36,6 +36,7 @@
 
 import { metisEnv } from "@/config/namespace";
 import type { ManifestEntry } from "@/types/core";
+import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathLanguage";
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
@@ -3631,6 +3632,8 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(args.judgeProtocol?.disclosures ?? []),
     ...(judgeProtocol === undefined ? [] : judgeProtocolManifestEntries(judgeProtocol)),
     ...(args.verify.checks === undefined ? [] : consistencyManifestEntries(args.verify.checks)),
+    // Audit 2026-10-22 C-11: "recovering toward the cost of equity" when the trailing return is already above the terminal target.
+    ...returnPathLanguageManifestEntries(args.judgeOutput, args.computed),
   ]), { execution, model: args.model });
 
   const meta: ReportMeta = {

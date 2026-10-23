@@ -22,12 +22,16 @@
  * value is SUPPRESSED, never fabricated.
  */
 
-import { consensusYearsText, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, type DcfAssumptions, type DcfYearRow, type ValuationResult } from "@/pipeline/stageB/valuation";
+import {
+  consensusYearsText, EXCESS_RETURN_START_GAP_PP, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, noncontrollingBookReason, noncontrollingProfitShareText,
+  type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult,
+} from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 
 /** Versioned method prior — bump when the resolution changes. */
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_07" as const;
+// D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D102" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */
@@ -87,6 +91,32 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     perShareValue = valuation.excessReturn.perShare;
   }
 
+  // Audit 2026-10-22 B-29: a DCF outside its domain is not a fair value.
+  if (valuation.kind === "dcf" && valuation.dcf?.domain !== undefined) {
+    const domain = valuation.dcf.domain;
+    return {
+      status: "outside-domain",
+      method: "fcff-dcf",
+      methodVersion: FAIR_VALUE_METHOD_VERSION,
+      perShare: null,
+      upsidePct: null,
+      basis: [
+        `Model outside its domain: ${domain.failures.map((f) => f.detail).join("; ")}.`,
+        "No per-share value, scenario targets, sensitivity grid or reverse DCF is published from it, and the valuation grade does not use it.",
+      ],
+      reasons: [{ field: "valuation.dcf.domain", reason: domain.reason, severity: "critical" }],
+    };
+  }
+
+  // Audit 2026-10-22 E-5: withheld because NCI's earnings key is unestablished.
+  const nciKeyReason = valuation.kind === "dcf" ? valuation.dcf?.noncontrollingKeyWithheld : undefined;
+  if (nciKeyReason !== undefined) {
+    return suppressed(
+      [{ field: "valuation.dcf.noncontrollingEarningsKey", reason: nciKeyReason, severity: "warn" }],
+      [`Intrinsic value per share unavailable: ${nciKeyReason}`],
+    );
+  }
+
   if (method === null || !isNum(perShareValue)) {
     const reason =
       valuation.kind === "ineligible" ? valuation.gaps[0]?.reason ?? "Model applicability unresolved; intrinsic value withheld."
@@ -113,11 +143,15 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
   // apply to their extremes, so the two blocks can no longer contradict each
   // other (one refused a negative number the other published as available).
   const floored = perShareValue < 0;
+  // Each method's own reason the value is below zero; the excess-return route has no enterprise-value bridge.
+  const flooredCause = method === "excess-return"
+    ? "book value plus the present value of the excess returns is at or below zero"
+    : "enterprise value sits at or below net debt and the senior claims";
   const reasons: ManifestEntry[] = floored
     ? [
         {
           field: "valuation.dcf.perShare.floor",
-          reason: `the ${method} per-share is ${round2(perShareValue)} — enterprise value at or below net debt and the senior claims; published as 0 (common equity cannot be worth less than nothing) with the upside capped at −100%`,
+          reason: `the ${method} per-share is ${round2(perShareValue)} — ${flooredCause}; published as 0 (common equity cannot be worth less than nothing) with the upside capped at −100%`,
           severity: "warn",
         },
       ]
@@ -137,6 +171,27 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
       ? (perShare.value / inputs.currentPrice - 1) * 100
       : null;
 
+  // Audit 2026-10-22 C-10: the excess-return start, and the fiscal-year start
+  // beside it when the two differ by more than the house threshold.
+  const startLines: string[] = [];
+  let alternative: FairValue["alternative"];
+  if (valuation.kind === "excess-return") {
+    const er = valuation.excessReturn;
+    startLines.push(`Excess-return path: ${er.roePathPct.basis}.`);
+    const alt = er.startAlternative;
+    if (alt?.besideHeadline === true && isNum(alt.perShare)) {
+      const altPerShare = round2(Math.max(0, alt.perShare));
+      alternative = {
+        label: alt.label,
+        perShare: altPerShare,
+        upsidePct: isNum(inputs.currentPrice) && inputs.currentPrice > 0 ? (altPerShare / inputs.currentPrice - 1) * 100 : null,
+      };
+      startLines.push(
+        `The ${alt.label} gives ${altPerShare} per share from its own fiscal-year book value; the two starts are ${round2(Math.abs(alt.differencePp))}pp apart, so it is shown beside the headline (house convention: more than ${EXCESS_RETURN_START_GAP_PP}pp).`,
+      );
+    }
+  }
+
   return {
     status: "available",
     method,
@@ -148,11 +203,13 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
       "Computed-derived (source computed.valuation.*), not a source-verified analyst target — the LLM interprets it but does not author the number.",
       ...(floored
         ? [
-            `The model's per-share is ${round2(perShareValue)}: enterprise value sits at or below net debt and the senior claims, so the intrinsic value is published as 0 under limited liability and the upside is capped at −100%.`,
+            `The model's per-share is ${round2(perShareValue)}: ${flooredCause}, so the intrinsic value is published as 0 under limited liability and the upside is capped at −100%.`,
           ]
         : []),
+      ...startLines,
     ],
     reasons,
+    ...(alternative !== undefined ? { alternative } : {}),
   };
 }
 
@@ -260,6 +317,30 @@ function assumptionRows(a: DcfAssumptions): DcfAssumption[] {
   ];
 }
 
+/**
+ * HOUSE CONVENTION base rate (audit 2026-10-22 B-30): how the general-route
+ * FCFF DCF compared with price across the audit's census of large caps. Stated
+ * beside every general-route DCF headline so one value far below price is read
+ * against how often the house model sits there. A dated panel, not a live
+ * statistic: update it only from a new census.
+ */
+export const DCF_BASE_RATE_CENSUS = { asOf: "2026-10-22", companies: 18, belowPrice: 16, medianUpsidePct: -53, moreThan30PctBelow: 15 } as const;
+
+export function dcfBaseRateText(): string {
+  const c = DCF_BASE_RATE_CENSUS;
+  return `house base rate: ${c.belowPrice} of ${c.companies} general-route DCFs in the ${c.asOf} audit census were below price ` +
+    `(median ${c.medianUpsidePct < 0 ? "−" : "+"}${Math.abs(c.medianUpsidePct)}%; ${c.moreThan30PctBelow} of ${c.companies} more than 30% below)`;
+}
+
+/** E-5: the reader-facing basis of the NCI deduction in the bridge. */
+function noncontrollingBasisText(bridge: DcfBridge): string {
+  const share = bridge.noncontrollingEarningsShare;
+  if (bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(share)) {
+    return `its ${noncontrollingProfitShareText(bridge)} × consolidated equity value, above its book value`;
+  }
+  return isNum(share) ? `book value; its ${noncontrollingProfitShareText(bridge)} ${noncontrollingBookReason(share)}` : "book value";
+}
+
 export interface DcfDisplay {
   assumptions: DcfAssumption[];
   sensitivityGrid: SensitivityCell[];
@@ -274,16 +355,29 @@ export interface DcfDisplay {
     valuationDate?: string; rollForwardFactor?: number;
     /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
     sharesOutstandingAtQuote?: number;
+    /** E-5: how the NCI deducted in `minorityInterest` was sized (book, or its share of trailing profit). */
+    noncontrollingBasis?: string;
+    /** E-5: the filed book NCI, shown beside an earnings-share deduction. */
+    noncontrollingBook?: number;
   };
   /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
   consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
     fiscalYears: string; status: string }[];
   growthMarginGrid?: { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][]; notes: string[] };
+  /** Audit 2026-10-22 C-11: the excess-return route's start-return × cost-of-equity grid. */
+  excessReturnGrid?: { rows: { label: string; startReturnPct: number; bookValue: number }[]; costOfEquityPcts: number[]; perShare: (number | null)[][]; notes: string[] };
   forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
     revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
 }
 
 export function computeDcfDisplay(valuation: ValuationResult, currency: string | null = null): DcfDisplay {
+  // C-11: the excess-return route carries its own start-return × CoE grid.
+  const erGrid = valuation.kind === "excess-return" ? valuation.excessReturn.startCoeGrid : undefined;
+  if (erGrid !== undefined) {
+    return { assumptions: [], sensitivityGrid: [], excessReturnGrid: {
+      rows: erGrid.rows.map((r) => ({ ...r })), costOfEquityPcts: [...erGrid.costOfEquityPcts],
+      perShare: erGrid.perShare.map((row) => [...row]), notes: [...erGrid.notes] } };
+  }
   // Only the general FCFF-DCF route carries DCF assumptions + a WACC×g grid.
   if (valuation.kind !== "dcf" || valuation.assumptions === null) {
     return { assumptions: [], sensitivityGrid: [] };
@@ -333,7 +427,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
       })
     : [];
   return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid, bridge: {
-    enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.minorityInterest,
+    enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.noncontrollingDeducted ?? dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
     presentValueExplicit: dcf.pvExplicit, presentValueTerminal: dcf.pvTerminal, currency,
     asOf: valuation.assumptions.asOf.statements,
@@ -341,5 +435,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ...(dcf.bridge.nonOperatingComponents ? { nonOperatingComponents: dcf.bridge.nonOperatingComponents.map((c) => ({ label: c.label, value: c.value })) } : {}),
     ...(vd !== undefined ? { valuationDate: vd.value, rollForwardFactor: Math.pow(1 + a.wacc.value / 100, vd.elapsedYears) } : {}),
     ...(dcf.bridge.sharesOutstandingAtQuote !== undefined ? { sharesOutstandingAtQuote: dcf.bridge.sharesOutstandingAtQuote } : {}),
+    ...(dcf.bridge.noncontrollingDeductionBasis !== undefined ? { noncontrollingBasis: noncontrollingBasisText(dcf.bridge) } : {}),
+    ...(dcf.bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(dcf.bridge.minorityInterest) ? { noncontrollingBook: dcf.bridge.minorityInterest } : {}),
   }, forecastRows: dcf.yearRows.map(mapRow), ...(consensusPath.length > 0 ? { consensusPath } : {}) };
 }
