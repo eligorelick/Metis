@@ -2552,7 +2552,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const newer = newerResultsRelease(bundle);
   const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
     source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
-    reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.release.reported.periodEnd, statementsEnd: newer.statementsEnd,
+    reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
 
   // --- Merge all gaps + notes ------------------------------------------------

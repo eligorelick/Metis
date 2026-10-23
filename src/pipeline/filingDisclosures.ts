@@ -137,10 +137,12 @@ const LATER_PERIOD_DAYS = 45;
  * than the newest statement period. Statements come from XBRL filings, so a
  * quarter whose results 8-K is out before its 10-Q is in no statement, TTM or
  * multiple. The period is the release's stated quarter end, else its fiscal
- * label against the newest statement row's. A release that states no results
+ * label against the newest statement row's; a stated end four quarters
+ * before the label's quarter is the year-ago comparison and is set aside, so
+ * the label decides and the notice names no end. A release that states no results
  * (a deliveries or operational update) never counts.
  */
-export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string } | null {
+export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string; reportedPeriodEnd: string | null } | null {
   const reports = currentReportsOf(bundle);
   if (reports === null) return null;
   const newest = [...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly), ...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)]
@@ -152,10 +154,16 @@ export function newerResultsRelease(bundle: DataBundle): { release: EarningsRele
   const statementOrder = Number.isInteger(fiscalYear) && fiscalYear > 1900 && quarter !== null ? fiscalYear * 4 + Number(quarter) : null;
   for (const release of orderedEarningsReleases(reports.releases)) {
     if (release.reportsResults !== true || day(release.filingDate) === null || release.filingDate <= statementsEnd) continue;
-    const { periodEnd, fiscal } = release.reported;
+    const { fiscal } = release.reported;
+    const fiscalAhead = fiscal !== null && statementOrder !== null ? fiscal.fiscalYear * 4 + (fiscal.fiscalQuarter ?? 4) - statementOrder : null;
+    // A stated end exactly four quarters before the quarter the fiscal label
+    // implies is the year-ago comparison, not the release's own quarter end.
+    const yearAgo = release.reported.periodEnd !== null && fiscalAhead !== null &&
+      Math.round((Date.parse(`${release.reported.periodEnd}T00:00:00Z`) - Date.parse(`${statementsEnd}T00:00:00Z`)) / 86_400_000 / 91.3) === fiscalAhead - 4;
+    const periodEnd = yearAgo ? null : release.reported.periodEnd;
     const later = periodEnd !== null ? periodEnd > statementsEnd && daysApart(periodEnd, statementsEnd) > LATER_PERIOD_DAYS
-      : fiscal !== null && statementOrder !== null && fiscal.fiscalYear * 4 + (fiscal.fiscalQuarter ?? 4) > statementOrder;
-    if (later) return { release, statementsEnd };
+      : fiscalAhead !== null && fiscalAhead > 0;
+    if (later) return { release, statementsEnd, reportedPeriodEnd: periodEnd };
   }
   return null;
 }
@@ -174,9 +182,9 @@ function newerResultsNotice(bundle: DataBundle, currency: string | null): Filing
   const headline = release.headline;
   const shown = headline?.revenue && headline.epsDiluted && usd(headline.revenue.symbol) && usd(headline.epsDiluted.symbol) ? headline : null;
   return {
-    source: releaseRef(release, release.releaseUrl === null && release.commentaryUrl !== null ? "EX-99.2" : "EX-99.1"),
+    source: releaseRef(release, release.resultsExhibit ?? (release.releaseUrl === null && release.commentaryUrl !== null ? "EX-99.2" : "EX-99.1")),
     reportedPeriod: release.reported.fiscal?.label ?? null,
-    reportedPeriodEnd: release.reported.periodEnd,
+    reportedPeriodEnd: found.reportedPeriodEnd,
     statementsEnd,
     revenue: shown?.revenue?.value ?? null,
     epsDiluted: shown?.epsDiluted?.value ?? null,

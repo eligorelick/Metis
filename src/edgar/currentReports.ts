@@ -473,7 +473,10 @@ const OUTLOOK_HEADING_BEFORE = /\b(?:(?:Business|Financial)\s+)?(?:Guidance|Outl
 
 export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const text = normalizeFilingText(rawText).slice(0, 6_000);
-  const ended = /\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/i.exec(text);
+  // A year-ago comparison can come first ("the third quarter ended September
+  // 30, 2025 and ... ended September 30, 2026"): the latest end is the release's own.
+  const ended = [...text.matchAll(/\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/gi)]
+    .filter((m) => isoFromMonthDate(m[2]!) !== null).sort((a, b) => isoFromMonthDate(b[2]!)!.localeCompare(isoFromMonthDate(a[2]!)!))[0] ?? null;
   // "second-quarter 2026" is the same title as "Second Quarter 2026" (Lilly, Southern Co.).
   const titles = [...text.matchAll(/\b(First|Second|Third|Fourth)[ -]Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
     .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index),
@@ -588,12 +591,13 @@ export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
  * statistics (a deliveries or operational update can be filed under Item 2.02):
  * it states an amount for earnings, diluted earnings per share or operating
  * income. "Our net income ... will be announced" states none, nor does a
- * dividend per share or an amount in a sentence giving an outlook.
+ * dividend per share or an amount in a sentence giving an outlook, wherever
+ * in the sentence the outlook word stands.
  */
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
   return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
-    .some((m) => !/\b(?:expects?|expected|outlook|guidance|forecasts?|anticipates?|projects?|targets?|dividends?)\b/i.test(sentencePrefix(text, m.index) + m[0]));
+    .some((m) => !/\b(?:expects?|expected|outlook|guidance|forecasts?|anticipates?|projects?|targets?|dividends?)\b/i.test(sentencePrefix(text, m.index) + text.slice(m.index, sentenceEnd(text, m.index))));
 }
 
 export interface FreeCashFlowFact {

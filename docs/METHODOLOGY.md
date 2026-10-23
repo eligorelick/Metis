@@ -3130,14 +3130,20 @@ release now raises a notice when it was filed after the newest statement
 period ended and reports a later period: its stated quarter end is more than
 45 days after the newest statement date, or, when it states no end date, its
 fiscal quarter label is later than the newest statement row's (a full year
-counts as the fourth quarter). The notice reads, for example: "Results for Q3
+counts as the fourth quarter). The stated end is the latest "quarter ended"
+date in the opening text, since a year-ago comparison can come first; an end
+exactly four quarters before the quarter the fiscal label implies is that
+comparison, so the label decides and the notice names no end. The notice
+cites the exhibit that states the results (the release, else the commentary).
+The notice reads, for example: "Results for Q3
 FY2026 (quarter ended 2026-09-30) were published in 8-K <accession> on
 2026-10-13; statements, TTM and multiples here end 2026-06-30 and do not
 reflect them." It appears as a banner in the web view and both exports and as
 a warn entry in the data gaps. Only a release that states results counts: an
 amount for net income, earnings, EPS, diluted earnings per share or operating
 income in its opening text, outside a sentence giving an outlook or a
-dividend. A deliveries or operational update filed under the same 8-K item
+dividend, wherever in the sentence the outlook word stands ("Diluted EPS of
+$3.10 is expected" states none). A deliveries or operational update filed under the same 8-K item
 does not. The release's headline revenue and diluted EPS are shown in the Key
 data table, labelled "unaudited, from the results release", only when every
 statement of each in its opening text gives the same amount (two different
