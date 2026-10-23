@@ -1,11 +1,26 @@
 /** A noncurrent convertible carrying subtype is a lower bound on noncurrent
- * financing debt, never an automatic addition to an inclusive generic total. */
-export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }, convertible: number | null): string | null {
+ * financing debt, never an automatic addition to an inclusive generic total.
+ * `agrees` compares a vendor noncurrent figure with the filed subtype (A-11
+ * display rounding); two filed figures are compared near-exactly. */
+export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }, convertible: number | null,
+  agrees: (noncurrent: number, convertible: number) => boolean = (a, b) => a >= b - Math.max(1, b * 1e-10)): string | null {
   if (convertible === null || convertible <= 0) return null;
   const noncurrent = typeof row.longTermDebt === "number" && Number.isFinite(row.longTermDebt) ? row.longTermDebt : null;
-  return noncurrent !== null && noncurrent >= convertible - Math.max(1, convertible * 1e-10) ? null
+  return noncurrent !== null && (noncurrent >= convertible || agrees(noncurrent, convertible)) ? null
     : `incomplete debt carrying value: noncurrent convertible carrying debt ${convertible} is not covered by resolved noncurrent financing debt ${noncurrent ?? "unavailable"}; total debt and net debt withheld rather than publishing leases alone or adding an overlapping subtype`;
 }
+
+/**
+ * How far a principal-type aggregate may exceed the carrying components and
+ * still be read as unamortized discount and issuance cost (audit 2026-10-22
+ * B-5, owner decision): 2% of the components or 50 million in the reporting
+ * currency, whichever is larger. A tagged CARRYING total is held to 1% instead
+ * (uncomposedDebtReason): it is on the components' own basis, so only rounding
+ * can separate them. A discount is part of the notes it discounts, so the band
+ * is measured on the financing components (leases excluded) and the floor
+ * reaches at most 10% of them; with no financing debt only rounding is allowed.
+ */
+export const PRINCIPAL_DISCOUNT_BAND = { share: 0.02, floor: 50_000_000, floorCapShare: 0.1 } as const;
 
 /** A gross/principal debt fact is a completeness check, never a carrying-value substitute. */
 export function incompleteDebtReason(row: {
@@ -17,7 +32,11 @@ export function incompleteDebtReason(row: {
   const complete = current !== null && current >= 0 && noncurrent !== null && noncurrent >= 0 && (current > 0 || noncurrent > 0);
   if (aggregate === null || aggregate <= 0 || complete) return null;
   const known = (current ?? 0) + (noncurrent ?? 0) + (finite(row.financeLeaseLiability) ?? 0);
-  if (aggregate <= known + Math.max(1, Math.abs(known) * 1e-6)) return null;
+  const financing = (current ?? 0) + (noncurrent ?? 0);
+  const discount = financing > 0
+    ? Math.max(financing * PRINCIPAL_DISCOUNT_BAND.share, Math.min(PRINCIPAL_DISCOUNT_BAND.floor, financing * PRINCIPAL_DISCOUNT_BAND.floorCapShare))
+    : 0;
+  if (aggregate <= known + Math.max(1, Math.abs(known) * 1e-6, discount)) return null;
   return `incomplete debt carrying value: current/noncurrent financing components do not establish the total; ` +
     `same-period DebtInstrumentCarryingAmount ${aggregate} exceeds the resolved financing components ${known}. ` +
     `The aggregate may be gross principal and is not substituted for carrying debt; total debt and net debt are withheld until reconciled.`;

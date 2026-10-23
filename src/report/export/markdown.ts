@@ -23,7 +23,7 @@ import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { valuationAuditTables, projectionAuditTables } from "@/report/auditTables";
@@ -937,6 +937,7 @@ export function reportToMarkdown(report: Report): string {
   const blocks: string[] = [
     renderHeader(report, completeness),
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
+    newerResultsBanner(report.filingDisclosures) ? blockquote(`**Newer results not reflected.** ${newerResultsBanner(report.filingDisclosures)}`) : "",
     renderKeyData(report),
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",

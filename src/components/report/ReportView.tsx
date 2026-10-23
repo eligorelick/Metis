@@ -37,7 +37,7 @@ import { ReportEvidenceRail } from "./ReportEvidenceRail";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
-import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import {
   REPORT_SECTION_MANIFEST,
@@ -105,6 +105,22 @@ function AnchorNav() {
         </a>
       ))}
     </nav>
+  );
+}
+
+/** Audit 2026-10-22 B-24: a results release the statements do not reach yet. */
+function NewerResultsBanner({ text }: { text: string }) {
+  return (
+    <div className="border border-warn/50 bg-warn/10 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="mono border border-warn/50 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-warn">
+          newer results not reflected
+        </span>
+      </div>
+      <p className="mt-1 text-[11px] leading-snug text-muted">
+        {text}
+      </p>
+    </div>
   );
 }
 
@@ -198,6 +214,8 @@ export function ReportView({
       {report.meta && <ReportMetaStrip report={report} completeness={completeness} />}
 
       {completeness.bannerText && <DataOnlyBanner text={completeness.bannerText} />}
+
+      {newerResultsBanner(report.filingDisclosures) && <NewerResultsBanner text={newerResultsBanner(report.filingDisclosures)!} />}
 
       <KeyDataBox report={report} />
 

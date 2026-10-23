@@ -19,7 +19,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-99: SBC beyond negative FCF, loss-year ROIC at the marginal-rate floor, recent buyback timing, bounded reverse DCF, scenario margin direction, seasonal consensus calendarization and lease-consistent leverage.
 // D-100: noncurrent notes and inclusive long-term debt read once, a refused maturity bucket that no longer withholds an inclusive total or stands in beside a balance sheet with no current portion, debt plausibility on the average and collapse tests, bounded revenue guides and the depositary-share market cap withheld.
 // D-102: the DCF domain tests, the trailing excess-return start, the start-return grid and NCI on the earnings key.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_19" as const;
+// D-103: annual or zero-shield WACC tax rates, principal-versus-carrying debt band, vendor-filed agreement at display precision, D&A composed from depreciation and amortization, and class-tagged issuer-economic market cap.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_20" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

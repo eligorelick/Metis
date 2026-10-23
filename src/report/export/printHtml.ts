@@ -29,7 +29,7 @@ import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
  */
 
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
-import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
@@ -747,6 +747,7 @@ export function reportToPrintBody(report: Report): string {
   return [
     headerBlock(report, completeness),
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
+    newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
     keyDataBlock(report),
     ...REPORT_SECTION_MANIFEST.map((section) => sections[section.key]),
   ]

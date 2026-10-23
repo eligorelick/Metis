@@ -16,7 +16,8 @@ import { validateBundle, type ValidationReport, type ValidatableBundle } from "@
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
-import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { buildFilingDisclosures, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -1290,6 +1291,43 @@ export function effectiveTaxRateFromTtm(ttm: TtmIncome | null): number | null {
   return ttm.incomeTaxExpense / ttm.incomeBeforeTax;
 }
 
+export interface WaccStatementTaxRate {
+  rate: number | null;
+  basis: string | null;
+  /** Set when the rate is a fallback (not the TTM observed rate): the disclosure for the manifest. */
+  fallback: string | null;
+}
+
+/**
+ * The WACC's statement tax rate when no vendor ratio exists (audit 2026-10-22
+ * B-32, owner decision): the TTM observed rate; on a TTM pre-tax loss a 0%
+ * shield; with no complete TTM pair the latest annual observed rate, or a 0%
+ * shield on an annual pre-tax loss. Every fallback is named. Nothing here
+ * invents a rate: with neither pair the result stays null and computeWacc
+ * withholds a levered WACC. The 0–35% clamp in computeWacc still applies and
+ * discloses itself.
+ */
+export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: FmpIncomeStatementRow | undefined): WaccStatementTaxRate {
+  const ttmRate = effectiveTaxRateFromTtm(ttm);
+  if (ttmRate !== null) {
+    return { rate: ttmRate, basis: "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)", fallback: null };
+  }
+  const zeroShield = (why: string) => {
+    const basis = `0% tax shield: ${why}, so no effective rate exists and the debt is given no tax shield (house rule, audit 2026-10-22 B-32)`;
+    return { rate: 0, basis, fallback: basis };
+  };
+  if (ttm !== null && ttm.incomeBeforeTax !== null && ttm.incomeTaxExpense !== null) {
+    return zeroShield(`TTM pre-tax income is not positive (${ttm.incomeBeforeTax} through ${ttm.date})`);
+  }
+  const date = isoDay(latestAnnual?.date);
+  const pretax = num(latestAnnual?.incomeBeforeTax);
+  const tax = num(latestAnnual?.incomeTaxExpense);
+  if (date === null || pretax === null || tax === null) return { rate: null, basis: null, fallback: null };
+  if (!(pretax > 0)) return zeroShield(`no complete TTM tax pair, and the latest annual pre-tax income is not positive (${pretax}, FY ending ${date})`);
+  const basis = `latest annual incomeTaxExpense / incomeBeforeTax, FY ending ${date} (observed effective rate; no complete TTM tax pair exists)`;
+  return { rate: tax / pretax, basis, fallback: basis };
+}
+
 interface TtmCashFlow {
   date: string;
   /** The window's one currency, or null when nothing establishes it. */
@@ -2527,8 +2565,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
+  // Audit 2026-10-22 B-24: a results release later than every statement.
+  const newer = newerResultsRelease(bundle);
+  const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
+    source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
+    reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
+  }) }];
+
   // --- Merge all gaps + notes ------------------------------------------------
   const gaps = mergeManifest(
+    newerResultsGaps,
     bundle.gaps,
     ttmGaps,
     route.gaps,
@@ -2832,6 +2878,12 @@ function computeReturns(
     ...(classAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: classAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
 
+  const vendorTaxRate = num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
+  const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
+  if (vendorTaxRate === null && statementTax.fallback !== null) {
+    gaps.push({ field: "returns.wacc.effectiveTaxRate.basis", reason: `WACC tax rate: ${statementTax.fallback}`, severity: "info" });
+  }
+
   const wacc = computeWacc({
     beta: num(profile?.beta),
     riskFreePct: rf.pct,
@@ -2865,18 +2917,14 @@ function computeReturns(
     // (effectiveTaxRate -> effectiveTaxRateTTM); the annual ratios fallback row
     // keeps the bare name. Try both so a live vendor rename doesn't silently
     // suppress a levered WACC unnecessarily.
-    effectiveTaxRate:
-      num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate) ??
-      effectiveTaxRateFromTtm(ttmInc),
-    // WS6 (D-19): name which of the three tax-rate sources actually supplied it.
+    effectiveTaxRate: num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate) ?? statementTax.rate,
+    // WS6 (D-19): name which tax-rate source actually supplied it.
     effectiveTaxRateBasis:
       num(ratiosTtm?.effectiveTaxRateTTM) !== null
         ? "FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)"
         : num(ratiosTtm?.effectiveTaxRate) !== null
           ? "FMP ratios effectiveTaxRate (observed effective rate)"
-          : effectiveTaxRateFromTtm(ttmInc) !== null
-            ? "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)"
-            : null,
+          : statementTax.basis,
     riskFreeSeriesId: rf.seriesId,
     erpAsOf: sourcedOf(bundle.marketRiskPremium)?.asOf ?? null,
     betaSource: keylessBeta

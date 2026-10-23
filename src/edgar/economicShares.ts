@@ -72,6 +72,109 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     result.observations.push({ classId: context.member, shares: count, asOf: context.date, contextId,
       sourceId: `${identity.documentUrl}#${attr(fact[1], "id") || contextId}` });
   }
+  // Audit 2026-10-22 B-8 (owner decision): a cover outside the two layouts
+  // above can still establish issuer-economic scope when the filing tags each
+  // class's count at one date, binds the quote symbol to one of those classes
+  // and states every class's economic relation in a supported sentence. Each
+  // other class is then valued at its economic weight x the quoted price.
+  const classTagged = (): FilingEconomicShares | null => {
+    const observed = result.observations ?? [];
+    const asOf = observed.map(o => o.asOf).sort().at(-1);
+    if (asOf === undefined) return null;
+    const dated = observed.filter(o => o.asOf === asOf);
+    const factsAtDate = [...html.matchAll(/<ix:nonFraction\b([^>]*)>/gi)].filter(fact =>
+      attr(fact[1], "name") === "dei:EntityCommonStockSharesOutstanding" && issuerInstantDates.get(attr(fact[1], "contextRef")) === asOf);
+    const classKey = (member: string): string | null => /^[A-Za-z][\w-]*:CommonClass([A-Z][A-Z0-9]{0,3})Member$/.exec(member)?.[1] ?? null;
+    const keys = dated.map(o => classKey(o.classId));
+    if (dated.length < 2 || factsAtDate.length !== dated.length || keys.some(key => key === null) || new Set(keys).size !== keys.length) return null;
+    const refuse = (reason: string): FilingEconomicShares => ({ ...result, reason });
+    // Every class must be counted at the one date: a class counted earlier is never dropped from the sum.
+    if (dated.length !== observed.length) return refuse("Class-tagged cover counts retained; the classes are counted at different dates, so no single-date inventory covers every class");
+    // The quoted class: the class member on the trading symbol's own context,
+    // else the single class its registered title names.
+    const memberOf = new Map<string, string | null>();
+    for (const match of html.matchAll(/<xbrli:context\b([^>]*)>([\s\S]*?)<\/xbrli:context>/gi)) {
+      const members = [...match[2].matchAll(/<xbrldi:explicitMember\b([^>]*)>([^<]+)<\/xbrldi:explicitMember>/gi)];
+      if (members.length > 1 || /<xbrldi:typedMember/i.test(match[2]) || members.some(member => attr(member[1], "dimension") !== "us-gaap:StatementClassOfStockAxis")) continue;
+      memberOf.set(attr(match[1], "id"), members[0]?.[2].trim() ?? null);
+    }
+    const spelled = (symbol: string): string => symbol.trim().toUpperCase().replace(/[-/]/g, ".");
+    const nonNumeric = [...html.matchAll(/<ix:nonNumeric\b([^>]*)>([\s\S]*?)<\/ix:nonNumeric>/gi)];
+    const quotedKeys = new Set(nonNumeric.filter(fact => attr(fact[1], "name") === "dei:TradingSymbol" &&
+      issuerContexts.has(attr(fact[1], "contextRef")) && spelled(htmlToText(fact[2])) === spelled(identity.securityId)).map(fact => {
+      const contextRef = attr(fact[1], "contextRef");
+      if (!memberOf.has(contextRef)) return null;
+      const member = memberOf.get(contextRef);
+      if (member) return classKey(member);
+      const titles = nonNumeric.filter(title => attr(title[1], "name") === "dei:Security12bTitle" && attr(title[1], "contextRef") === contextRef);
+      const label = titles.length === 1 ? classLabel(htmlToText(titles[0]![2])) : null;
+      return label ? /^class ([a-z0-9]{1,4}) /.exec(label)?.[1]?.toUpperCase() ?? null : null;
+    }));
+    const quotedKey = quotedKeys.size === 1 ? [...quotedKeys][0] : null;
+    if (!quotedKey || !keys.includes(quotedKey)) return refuse("Class-tagged cover counts retained; the trading symbol is not bound to exactly one tagged class");
+    // Economic relations, from whole sentences of the filing's own text.
+    // A block end also ends a sentence, so a heading never prefixes the statement under it.
+    const sentences = (parsed?.pre ?? html).replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, "")
+      .split(/<\/(?:p|div|h[1-6]|td|th|tr|li)>|<br\s*\/?>/i).map(block => htmlToText(block))
+      .flatMap(block => block.split(/(?<=\.)\s+(?=[A-Z])/)).map(sentence => sentence.trim()).filter(Boolean);
+    const list = "Class [A-Z][A-Z0-9]{0,3}(?:(?:,? and |, )Class [A-Z][A-Z0-9]{0,3})*";
+    const stock = "(?:common )?(?:stock|shares)";
+    const rights = "(?:liquidation and dividend|dividend and liquidation) rights";
+    const equalForms = [
+      new RegExp(`^(?:The )?holders of (?:our |its )?(${list}) ${stock}(?: \\([^)]{0,120}\\))? have identical ${rights}(?:,? but different voting rights)?\\.$`, "i"),
+      new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting)?\\.$`, "i"),
+    ];
+    const ratioForm = /^(?:Each share of )?Class ([A-Z][A-Z0-9]{0,3}) common (?:stock|shares?) possess(?:es)? dividend and distribution rights equal to [a-z-]+ \(1\/(\d{1,3}(?:,\d{3})+|\d+)\) of (?:such|the) rights of (?:a share of )?Class ([A-Z][A-Z0-9]{0,3}) common (?:stock|shares?)\.$/i;
+    const listed = (value: string): string[] => [...value.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(match => match[1]!.toUpperCase());
+    const relations: { sentence: string; equal?: string[]; ratio?: { cls: string; per: number; of: string } }[] = [];
+    for (const sentence of sentences) {
+      const equal = equalForms.map(form => form.exec(sentence)?.[1]).find(Boolean);
+      if (equal) { relations.push({ sentence, equal: listed(equal) }); continue; }
+      const ratio = ratioForm.exec(sentence);
+      if (ratio) relations.push({ sentence, ratio: { cls: ratio[1]!.toUpperCase(), per: Number(ratio[2]!.replaceAll(",", "")), of: ratio[3]!.toUpperCase() } });
+    }
+    // A statement that the classes differ economically, or an unparsed relative
+    // entitlement (a percent, multiple, fraction or priority), refuses the scope.
+    // A sentence reporting the dividends each class was paid states no relation.
+    const supported = new Set(relations.map(relation => relation.sentence));
+    const conflicting = sentences.find(sentence => !supported.has(sentence) && /\b(?:dividends?|distributions?|liquidation)\b/i.test(sentence) &&
+      listed(sentence).some(key => keys.includes(key)) &&
+      (/\b(?:different|differ|unequal|not (?:identical|equal|the same)|preferential|preference|not entitled|no right|non-?participating|times|multiple|twice|double|triple|quadruple|half|(?:one|two|three)-(?:thirds?|quarters?|fourths?|fifths?|tenths?)|percent|priority|prior to|senior|subordinat\w*|premium|greater|more than|less than|in excess of|equal to)\b/i.test(sentence) ||
+        /\d\s?%|\b\d+\/\d+\b/.test(sentence)));
+    if (conflicting) return refuse(`Class-tagged cover counts retained; an economic statement is not one Métis reads as a class relation: "${conflicting.slice(0, 300)}"`);
+    const weight = new Map<string, number>([[quotedKey, 1]]);
+    let conflict = false;
+    const assign = (key: string, value: number) => {
+      const prior = weight.get(key);
+      if (prior === undefined) weight.set(key, value);
+      else if (Math.abs(prior - value) > 1e-12 * Math.max(prior, value)) conflict = true;
+    };
+    for (let pass = 0; pass < relations.length + 1; pass++) for (const relation of relations) {
+      if (relation.equal) {
+        const known = relation.equal.find(key => weight.has(key));
+        if (known !== undefined) for (const key of relation.equal) assign(key, weight.get(known)!);
+      } else if (relation.ratio) {
+        const { cls, per, of } = relation.ratio;
+        if (weight.has(of)) assign(cls, weight.get(of)! / per);
+        if (weight.has(cls)) assign(of, weight.get(cls)! * per);
+      }
+    }
+    const named = relations.flatMap(relation => relation.equal ?? [relation.ratio!.cls, relation.ratio!.of]);
+    if (conflict || named.some(key => !keys.includes(key))) return refuse("Class-tagged cover counts retained; the stated class relations conflict or name a class with no tagged count");
+    if (keys.some(key => !weight.has(key!))) return refuse("Class-tagged cover counts retained; the filing states no supported economic relation for every outstanding class");
+    const classes = dated.map((o, index) => ({ classId: o.classId, label: `class ${keys[index]!.toLowerCase()} common stock`, shares: o.shares, asOf, sourceId: o.sourceId }));
+    const used = relations.filter(relation => (relation.equal ?? [relation.ratio!.cls, relation.ratio!.of]).some(key => keys.includes(key)));
+    return { ...result, classes,
+      passages: { inventory: classes.map(cls => `${cls.label}: ${cls.shares} at ${asOf}`).join("; "), rights: used.map(relation => relation.sentence).join(" ") },
+      evidence: { issuerId: identity.issuerId, securityId: identity.securityId, asOf, filed: identity.filingDate,
+        effectiveFrom: identity.filingDate, effectiveTo: null, complete: true, sourceHash: source.hash,
+        sourceIds: [...dated.map(o => o.sourceId), identity.documentUrl],
+        classes: dated.map((o, index) => ({ classId: keys[index] === quotedKey ? identity.securityId : o.classId, shares: o.shares, countBasis: "outstanding" as const,
+          economicUnitsPerQuotedShare: weight.get(keys[index]!)!, priceBasis: keys[index] === quotedKey ? "quoted-market-price" as const : "economic-equivalence-proxy" as const })) },
+      reason: `Class-tagged cover counts at ${asOf} with the filing's stated class economics (${dated.map((o, index) => `Class ${keys[index]} ${weight.get(keys[index]!)} per quoted share`).join(", ")}); ` +
+        "each other class is valued at its economic weight x the quoted class price, not at its own quote" };
+  };
+
   // Binding to the registered quote class uses the filing's own title/symbol row.
   const tables = [...html.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)];
   const quotedLabels = new Set<string>();
@@ -86,7 +189,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
       if (htmlToText(symbol![2]).trim().toUpperCase() === identity.securityId.toUpperCase()) quotedLabels.add(label);
     }
   }
-  if (quotedLabels.size !== 1) { result.reason = "Quoted common class cannot be uniquely bound to the filing trading symbol"; return result; }
+  if (quotedLabels.size !== 1) { result.reason = "Quoted common class cannot be uniquely bound to the filing trading symbol"; return classTagged() ?? result; }
   const quotedLabel = [...quotedLabels][0];
   for (const table of tables) {
     if (!/name\s*=\s*["']dei:EntityCommonStockSharesOutstanding["']/i.test(table[0])) continue;
@@ -271,7 +374,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     result.reason = classes.some(cls => cls.label !== quotedLabel && registeredLabels.has(cls.label)) ? "Complete dated inventory includes another registered trading class; an independent same-session class price is still required" : classes.length > 1 ? "Complete dated cover inventory and explicit equal dividend/liquidation distributions; classes without a registered trading symbol use a same-price approximation" : "Dated single-class cover inventory bound to registered trading symbol";
     return result;
   }
-  return result;
+  return classTagged() ?? result;
 }
 
 /** A newer observed inventory ends older evidence even when its rights are unresolved. */

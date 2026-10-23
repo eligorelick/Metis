@@ -178,6 +178,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/debtNoteCarrying.ts",
   "src/edgar/temporaryEquityEnrichment.ts",
   "src/edgar/debtCompleteness.ts",
+  "src/edgar/vendorAgreement.ts",
   "src/edgar/debtPresentation.ts",
   "src/edgar/issuerFacts.ts",
   "src/providers/companyEvents.ts",

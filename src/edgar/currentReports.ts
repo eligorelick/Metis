@@ -473,8 +473,12 @@ const OUTLOOK_HEADING_BEFORE = /\b(?:(?:Business|Financial)\s+)?(?:Guidance|Outl
 
 export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const text = normalizeFilingText(rawText).slice(0, 6_000);
-  const ended = /\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/i.exec(text);
-  const titles = [...text.matchAll(/\b(First|Second|Third|Fourth) Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
+  // A year-ago comparison can come first ("the third quarter ended September
+  // 30, 2025 and ... ended September 30, 2026"): the latest end is the release's own.
+  const ended = [...text.matchAll(/\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/gi)]
+    .filter((m) => isoFromMonthDate(m[2]!) !== null).sort((a, b) => isoFromMonthDate(b[2]!)!.localeCompare(isoFromMonthDate(a[2]!)!))[0] ?? null;
+  // "second-quarter 2026" is the same title as "Second Quarter 2026" (Lilly, Southern Co.).
+  const titles = [...text.matchAll(/\b(First|Second|Third|Fourth)[ -]Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
     .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index),
       guided: OUTLOOK_HEADING_AFTER.test(text.slice(m.index + m[0].length, m.index + m[0].length + 40))
         || OUTLOOK_HEADING_BEFORE.test(text.slice(Math.max(0, m.index - 40), m.index)) }));
@@ -490,8 +494,119 @@ export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const yearAgo = reportedQuarter === null ? undefined : titles.find((t) => t.base && t.quarter === reportedQuarter);
   const fiscal = own !== undefined ? fiscalPeriod(own.year, own.quarter)
     : yearAgo !== undefined ? fiscalPeriod(yearAgo.year + 1, yearAgo.quarter)
+    : ended === null ? compactTitlePeriod(text.slice(0, COMPACT_TITLE_CHARS))
     : null;
   return { fiscal, periodEnd: ended ? isoFromMonthDate(ended[2]!) : null };
+}
+
+/** How far into a release its title can sit, past the exhibit's own header words. */
+const COMPACT_TITLE_CHARS = 300;
+
+/**
+ * Audit 2026-10-22 B-24: a release titled only in compact form ("3Q26
+ * Financial Highlights", "Q3 2026 Update") names its quarter there, and with
+ * no reported ordinal title and no "quarter ended" sentence that is the only
+ * period it states; an ordinal phrase heading guidance ("Third Quarter 2026
+ * Guidance") or naming a year-ago base does not stand in for it. A compact label heading an outlook names the guided quarter and
+ * is skipped, as is one after a comparison word.
+ */
+function compactTitlePeriod(head: string): FiscalPeriod | null {
+  for (const m of head.matchAll(/\b(?:([1-4])Q(\d{4}|\d{2})|Q([1-4])\s?(?:FY\s?)?(\d{4}|\d{2}))\b/g)) {
+    const before = head.slice(Math.max(0, m.index - 40), m.index);
+    if (OUTLOOK_HEADING_AFTER.test(head.slice(m.index + m[0].length, m.index + m[0].length + 40)) || OUTLOOK_HEADING_BEFORE.test(before) ||
+      /\b(?:from|vs\.?|versus|compared (?:to|with)|since)\s*$/i.test(before)) continue;
+    const year = Number(m[2] ?? m[4]);
+    return fiscalPeriod(year < 100 ? 2000 + year : year, Number(m[1] ?? m[3]) as 1 | 2 | 3 | 4);
+  }
+  return null;
+}
+
+/** The release's own headline figures, read only when each is stated once. */
+export interface ReleaseHeadline {
+  revenue: { value: number; symbol: string } | null;
+  epsDiluted: { value: number; symbol: string } | null;
+}
+
+const HEADLINE_CHARS = 6_000;
+const NON_GAAP_BEFORE = /\b(?:adjusted|non-GAAP|core|operating|underlying|managed|excluding[^.]{0,80})\s*$/i;
+/** Another basis named anywhere earlier in the sentence ("Adjusted net income was ..., or $1.95 per diluted share"). */
+const NON_GAAP_SENTENCE = /\b(?:adjusted|non-GAAP|core|underlying|managed|excluding|pro forma)\b/i;
+/** A sentence boundary: terminal punctuation after a lower-case letter, digit or closing mark, or a bullet. */
+const SENTENCE_START = /(?:^|(?<=[a-z0-9%)"”])[.!?]\s+|•\s*)/g;
+
+/** What may open a sentence before the total-revenue label: the issuer and the quarter, never a segment. */
+const REVENUE_SENTENCE_OPENING = /^(?:(?:the company's|our|in|for|the|Q[1-4]|FY\s?\d{2,4}|(?:first|second|third|fourth)[- ]quarter|quarter|fiscal|\d{4}),?\s+)*$/i;
+/**
+ * A sentence stating a loss (a loss per share printed without its sign) or a
+ * period other than the quarter (a full-year or year-to-date amount under a
+ * quarter's label) yields no headline figure.
+ */
+const LOSS_OR_OTHER_PERIOD = /\b(?:loss(?:es)?|full[- ]year|fiscal year|year[- ]to[- ]date|(?:six|nine|twelve) months|annual)\b/i;
+
+/** The end of the sentence holding `index`: the next sentence boundary, or the end of the text. */
+function sentenceEnd(text: string, index: number): number {
+  const next = /(?<=[a-z0-9%)"”])[.!?](?:\s+|$)|•/g;
+  next.lastIndex = index;
+  const m = next.exec(text);
+  return m === null ? text.length : m.index;
+}
+
+/** The text from the start of the sentence holding `index` up to it. */
+function sentencePrefix(text: string, index: number): string {
+  let start = 0;
+  for (const m of text.slice(0, index).matchAll(SENTENCE_START)) start = m.index + m[0].length;
+  return text.slice(start, index);
+}
+
+/**
+ * Audit 2026-10-22 B-24: a results release's headline revenue and diluted
+ * EPS, from its opening text. A figure is kept only when every matching
+ * statement there gives the same amount, so a release that states another
+ * basis's figure beside the reported one yields none. Revenue is read only
+ * where it opens its sentence, optionally as total, net or consolidated
+ * revenue, so a segment's revenue ("Cloud revenues of $15.2 billion") is never
+ * taken for the total; it needs a stated scale (billion or million). A figure
+ * whose sentence names an adjusted or other non-GAAP basis is not read.
+ */
+export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
+  const text = normalizeFilingText(rawText).slice(0, HEADLINE_CHARS);
+  const single = (found: { value: number; symbol: string }[]): { value: number; symbol: string } | null =>
+    found.length > 0 && found.every((f) => f.value === found[0]!.value && f.symbol === found[0]!.symbol) ? found[0]! : null;
+  // The whole sentence is read: a basis, a loss or another period named after the figure counts too.
+  const gaap = (m: RegExpMatchArray): boolean => {
+    const sentence = sentencePrefix(text, m.index!) + text.slice(m.index!, sentenceEnd(text, m.index!));
+    return !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index! - 100), m.index)) && !NON_GAAP_SENTENCE.test(sentence) &&
+      !LOSS_OR_OTHER_PERIOD.test(sentence) && !OUTLOOK_OR_DIVIDEND.test(sentence);
+  };
+  const revenue = [...text.matchAll(/\b(?:(?:total|net|consolidated|quarterly|(?:first|second|third|fourth)[- ]quarter) )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached)| (?:increased|decreased|grew|rose|fell|declined)(?:[^.$]|\.\d){0,60}? to)? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
+    .filter((m) => gaap(m) && REVENUE_SENTENCE_OPENING.test(sentencePrefix(text, m.index!)))
+    .map((m) => ({ value: Math.round(Number(m[2]) * (m[3]!.toLowerCase() === "billion" ? 1e9 : 1e6)), symbol: m[1]! }));
+  const eps = [...text.matchAll(/\b(?:diluted (?:EPS|earnings per (?:common )?share)(?: \((?:EPS|diluted)\))?|earnings per diluted share|EPS \(diluted\))(?: (?:was|were|of|totaled))? ((?:US)?\$)\s?(\d+\.\d{2})\b|((?:US)?\$)\s?(\d+\.\d{2}) per diluted share\b/gi)]
+    .filter(gaap)
+    .map((m) => ({ value: Number(m[2] ?? m[4]), symbol: (m[1] ?? m[3])! }));
+  return { revenue: single(revenue), epsDiluted: single(eps) };
+}
+
+/** How far past a results amount an outlook word ("is expected") still belongs to it. */
+const OUTLOOK_AFTER_CHARS = 60;
+/** Outlook wording ("is expected", "raising our EPS range", "reaffirm") and a dividend: an amount there is no result. */
+const OUTLOOK_OR_DIVIDEND = /\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es|ed)|forecast(?:s|ed)?|anticipat(?:es?|ed)|project(?:s|ed|ions?)?|target(?:s|ed)?|rais(?:es?|ed|ing)|ranges?|reaffirm(?:s|ed|ing)?|reiterat(?:es?|ed|ing)|dividends?)\b/i;
+
+/**
+ * Audit 2026-10-22 B-24: the release states results, not only operating
+ * statistics (a deliveries or operational update can be filed under Item 2.02):
+ * it states an amount for earnings, diluted earnings per share or operating
+ * income. "Our net income ... will be announced" states none, nor does a
+ * dividend per share or an amount in a sentence giving an outlook, before the
+ * amount or in the words right after it ("EPS of $3.10 is expected"). The
+ * words after it are bounded: a headline list printed without full stops
+ * (Tesla: "$0.8B GAAP net income ... projects spanning ...") is no sentence.
+ */
+export function reportsResults(rawText: string): boolean {
+  const text = normalizeFilingText(rawText).slice(0, 20_000);
+  return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
+    .some((m) => !OUTLOOK_OR_DIVIDEND.test(sentencePrefix(text, m.index) +
+      text.slice(m.index, Math.min(sentenceEnd(text, m.index), m.index + m[0].length + OUTLOOK_AFTER_CHARS))));
 }
 
 export interface FreeCashFlowFact {

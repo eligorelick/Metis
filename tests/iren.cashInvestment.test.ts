@@ -88,6 +88,12 @@ describe("cash investment reconciles both operating cash flow aliases", () => {
     expect(result.fieldConflicts?.netCashProvidedByOperatingActivities?.secValue).toBe(1000);
     expect(original.freeCashFlow).toBe(777);
   });
+  it("admits vendor CFO within the filer's display rounding of filed CFO (audit 2026-10-22 A-11)", () => {
+    const filed: FilingCashInvestment = { ...evidence, periods: [{ ...evidence.periods[0]!, capex: -500_000, operatingCashFlow: 2_100_418_000 }] };
+    const result = admitCashInvestment({ date: "2026-06-30", reportedCurrency: "USD", operatingCashFlow: 2_100_419_000, netCashProvidedByOperatingActivities: 2_100_419_000 }, [filed], 1878848, "annual", observedAt).row;
+    expect(result).toMatchObject({ operatingCashFlow: 2_100_419_000, netCashProvidedByOperatingActivities: 2_100_419_000, freeCashFlow: 2_099_919_000 });
+  });
+
   it("refuses contradictory row aliases even when a filed CFO operand is missing", () => {
     const withoutCfo = { ...doc, periods: doc.periods.map(p => ({ ...p, operatingCashFlow: null })) };
     const result = admitCashInvestment({ date: "2026-06-30", reportedCurrency: "USD", operatingCashFlow: 1000, netCashProvidedByOperatingActivities: 2000 }, [withoutCfo], 1878848, "annual", observedAt).row;

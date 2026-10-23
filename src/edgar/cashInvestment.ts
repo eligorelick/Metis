@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { decodeEntities, htmlToText } from "@/edgar/extract";
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 
@@ -171,7 +172,8 @@ export function admitCashInvestment<T extends FmpStatementRow>(row: T, documents
   // A cumulative CFO is never compared with an unadmitted quarter. Within an
   // admitted exact period, every populated alias must agree with filed CFO.
   const filedCfo = admitted && finite(p.operatingCashFlow) ? p.operatingCashFlow : null;
-  const cfoConflict = aliasConflict || (filedCfo !== null && cfoValues.some(value => differs(filedCfo, value)));
+  // Vendor CFO within the filer's display rounding is the filed observation (A-11).
+  const cfoConflict = aliasConflict || (filedCfo !== null && cfoValues.some(value => !vendorAgreesWithFiled(value, filedCfo)));
   const fcfReason = cfoConflict ? `${reason}; ${aliasConflict ? "operating cash flow aliases disagree" : "filed operating cash flow differs from the existing row"}; CFO aliases and dependent FCF withheld` : reason;
   if (cfoConflict) for (const field of ["operatingCashFlow", "netCashProvidedByOperatingActivities"]) {
     (out as Record<string, unknown>)[field] = null;

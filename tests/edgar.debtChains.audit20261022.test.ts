@@ -188,3 +188,26 @@ describe("a zero remainder-of-year maturity bucket (audit 2026-10-22 A-10)", () 
     expect(fiscalMaturityScopeReason(2.75e9, null)).toBeNull();
   });
 });
+
+describe("principal aggregate within the discount band (audit 2026-10-22 B-5)", () => {
+  // Meta's 2024 balance sheets carried no current debt and tagged the notes'
+  // principal (DebtInstrumentCarryingAmount 29.000B) beside 28.826B of carrying
+  // debt: the 174M gap is the unamortized discount, and total debt was withheld.
+  const withAggregate = (principal: number) => quarter(build("META", (gaap) => {
+    const at = gaap.LongTermDebtNoncurrent!.units.USD!.find((p) => p.end === "2025-09-30")!;
+    gaap.DebtInstrumentCarryingAmount!.units.USD!.push({ ...at, val: principal });
+  }), "2025-09-30");
+
+  it("META: admits the carrying components when principal exceeds them by 0.6%", () => {
+    const row = withAggregate(29 * B);
+    near(row.longTermDebt, 28.834 * B);
+    expect(row.totalDebt).not.toBeNull();
+    expect(row.fieldConflicts?.totalDebt).toBeUndefined();
+  });
+
+  it("META: still withholds when the aggregate is beyond the band, naming both figures", () => {
+    const row = withAggregate(30 * B);
+    expect(row.totalDebt).toBeNull();
+    expect(row.fieldConflicts?.totalDebt?.reason).toMatch(/DebtInstrumentCarryingAmount 30000000000 exceeds the resolved financing components 28834000000/);
+  });
+});

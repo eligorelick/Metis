@@ -1,12 +1,13 @@
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { tagsFor } from "@/edgar/tagSynonyms";
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { CORE_FACT_FORMS, type CompanyFacts } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 
 const FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"] as const;
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-const same = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1e-8, Math.abs(b) * 1e-10);
+const same = vendorAgreesWithFiled;
 const utcDay = (timestamp: string): number => Math.floor(Date.parse(timestamp) / 86_400_000);
 
 /** Reuse the normalizer's cutoff, exact-period/unit and ambiguity guards once

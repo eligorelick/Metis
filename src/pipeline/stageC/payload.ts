@@ -69,7 +69,7 @@ import {
   type NumericProvenanceRecord,
 } from "@/pipeline/stageC/provenance";
 import { proseNumbers } from "@/pipeline/stageC/consistency";
-import { selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage } from "@/pipeline/stageC/evidenceSelection";
+import { operatingMeasuresStated, selectMaterialEvidence, type EvidenceProfile, type EvidenceSpan, type EvidenceCoverage, type OperatingMeasure } from "@/pipeline/stageC/evidenceSelection";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -409,7 +409,8 @@ export interface ContextPayload {
 // D-99: backlog and government-case evidence, the consensus-target reconciliation note and the deferred AMZN audit fixes alter admitted context.
 // D-100: the composite's evidence floor, the neutral-band qualifier and the band thresholds alter admitted context.
 // D-102: the trailing common return, the start-return x cost-of-equity grid, the trailing start and the NCI earnings key alter admitted context.
-export const PAYLOAD_VERSION = "1.42.0" as const;
+// D-103: regained WACC, debt, EBITDA and class-tagged market cap, the newer-results notice and 10-Q passages updating a 10-K operating figure alter admitted context.
+export const PAYLOAD_VERSION = "1.43.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1926,11 +1927,14 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     budget: number | ((sourceChars: number) => number),
     source: (form: string) => string,
     profile: EvidenceProfile = "financial",
+    superseding: readonly OperatingMeasure[] = [],
   ): void => {
     if (!res?.ok || !res.value) return;
     const sec = res.value.data;
-    const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile);
-    const markerNote = sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "";
+    const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile, superseding);
+    const kept = cut.superseded ?? [];
+    const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
+      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const reportingPeriod = isoDay(sec.reportDate);
     const filingDate = isoDay(sec.filingDate);
     // D-66: the issuer's own fiscal label for that period, from its earnings
@@ -1974,7 +1978,13 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     (form) => (form === "20-F" ? "edgar:20-F item5" : "edgar:10-K item7"),
   );
   // D-66: the 10-Q MD&A keeps its concentration-of-revenue statements first.
-  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2", "interim");
+  // Audit 2026-10-22 C-16: and, when it is newer than the 10-K, its passages
+  // restating an operating figure the 10-K excerpts above state.
+  const annual = out.filter((excerpt) => excerpt.source === "edgar:10-K item1" || excerpt.source === "edgar:10-K item7");
+  const tenQEnd = bundle.edgar.tenQMdna?.ok ? isoDay(bundle.edgar.tenQMdna.value.data.reportDate) : null;
+  const newer = tenQEnd !== null && annual.length > 0 && annual.every((excerpt) => excerpt.asOf !== null && excerpt.asOf < tenQEnd);
+  add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2", "interim",
+    newer ? operatingMeasuresStated(annual.map((excerpt) => excerpt.text).join("\n")) : []);
   add(bundle.edgar.tenQNotes, () => "10-Q Part I Item 1 — Notes to the financial statements", PAYLOAD_BUDGETS.tenQNotesChars, () => "edgar:10-Q notes", "notes");
   // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
   add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");

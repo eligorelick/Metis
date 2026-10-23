@@ -72,6 +72,10 @@ export interface EconomicEquityScope {
   classPriceDates?: { classId: string; asOf: string }[];
   /** Admitted main quote valuation day, independent of report build/fetch day. */
   priceAsOf?: string | null;
+  /** Audit 2026-10-22 B-8: a class in force on the price day carries other than one economic unit per quoted share. */
+  weightedClasses?: true;
+  /** Audit 2026-10-22 B-8: unresolved because the issuer has more than one common class, not for an ADR or vendor basis. */
+  classAmbiguity?: true;
 }
 
 /** A class sum is admissible only with complete inventory, outstanding counts and known economic rights. */
@@ -84,7 +88,12 @@ export function resolveEconomicEquityScope(
   evidence: readonly EconomicShareEvidence[],
   asOf: string,
 ): EconomicEquityScope {
+  // Only evidence in force on the price day (else the valuation day) shows the issuer has more than one class now.
+  const inForceDay = typeof quote.priceAsOf === "string" && day(quote.priceAsOf) ? quote.priceAsOf : asOf;
+  const classAmbiguity = quote.marketCapScopeEvidence !== undefined || evidence.some(row => row.classes.length > 1 &&
+    day(row.effectiveFrom) && row.effectiveFrom <= inForceDay && (row.effectiveTo === null || (day(row.effectiveTo) && row.effectiveTo > inForceDay)));
   const unresolved = (): EconomicEquityScope => ({ status: "unresolved", marketCap: null, economicShares: null,
+    ...(classAmbiguity ? { classAmbiguity: true as const } : {}),
     approximate: false, sourceIds: quote.marketCapScopeEvidence?.sourceIds ?? [], sourceHashes: [], shareCountAsOf: null,
     basis: "Issuer-common economic share scope unresolved: complete class coverage, outstanding counts and economic rights on the quoted security basis are required; aggregate equity and EV multiples withheld." +
       (quote.marketCapScopeEvidence ? ` ${quote.marketCapScopeEvidence.reason}` : "") });
@@ -128,14 +137,18 @@ export function resolveEconomicEquityScope(
     const signature = (item: EconomicShareEvidence): string => JSON.stringify([...item.classes].sort((a, b) => a.classId.localeCompare(b.classId)));
     if (!finite(totals[0]) || totals[0] <= 0 || active.some(item => item.asOf !== row.asOf || signature(item) !== signature(row))) return unresolved();
     const approximate = active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy"));
-    return { status: "resolved", marketCap: classValues[0], economicShares: totals[0], approximate,
+    const weighted = active.some(item => item.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1));
+    return { status: "resolved", marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
       currency: quote.currency ?? null,
       priceAsOf: priceDay,
       classPriceDates: row.classes.flatMap(cls => cls.observedPrice ? [{ classId: cls.classId, asOf: cls.observedPrice.asOf }] : []),
       sourceIds: [...new Set(active.flatMap(item => [...item.sourceIds, ...item.classes.flatMap(cls => cls.observedPrice?.sourceIds ?? [])]))],
       sourceHashes: [...new Set(active.flatMap(item => [item.sourceHash, ...item.classes.flatMap(cls => cls.observedPrice ? [cls.observedPrice.sourceHash] : [])]))], shareCountAsOf: row.asOf,
       basis: `Issuer-common equity = sum of each class's outstanding count x its admitted class price (${totals[0]} economic share units at ${row.asOf}); ` +
-        (approximate ? "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. " : "quoted common-class price basis. ") +
+        (!approximate ? "quoted common-class price basis. "
+          : active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy" && cls.economicUnitsPerQuotedShare !== 1))
+            ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
+            : "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. ") +
         `Price policy: every separately observed class price must share the main quote valuation day ${priceDay}; report/fetch dates do not substitute for that session. ` +
         `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` };
   }

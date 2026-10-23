@@ -256,7 +256,7 @@ rate)` row) and in the report's computed-returns notes.
 | Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. D-60: a vendor beta publishes no window or fit, so the basis also prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. The WACC keeps the beta it used; no bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
-| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%]. Where it came from is named. No universal statutory rate is assumed. |
+| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, a WACC-only shortfall is disclosed as a warning rather than blocking the report. |
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
@@ -3201,3 +3201,194 @@ D-102. Each rule is described where the model is:
 The owner deferred the DCF calibration (B-3), the valuation band's
 discrimination (B-33), the utility route (B-13, A-3), the A-2 basis, E-7 and
 the financial route's WACC to a later batch.
+
+### Audit batch 3a: the remaining high-severity findings (October 22, 2026)
+
+The independent audit of 2026-10-22 found figures withheld although the filed
+evidence was complete, and reports that did not say a newer quarter had been
+published. Decision: D-103.
+
+**WACC tax rate without a TTM rate (B-32).** Without a vendor ratio, the
+WACC's tax rate came only from the trailing four quarters' tax expense over
+pre-tax income. Procter & Gamble and Costco tag pre-tax income only annually,
+Intel and Snowflake had trailing pre-tax losses, and the levered WACC was
+withheld for all of them, with Costco's and Oracle's fair value behind it. The
+rate now falls back in a fixed order, each step named in the basis and in an
+info entry: on a trailing pre-tax loss, a 0% shield (a loss-maker gets no tax
+benefit from its interest); with no complete trailing pair, the latest annual
+tax expense over pre-tax income; on an annual pre-tax loss, a 0% shield. The
+existing 0–35% clamp still applies and is disclosed when it moves the rate.
+With neither a trailing nor an annual pair, the levered WACC is still
+withheld. Oracle tags no pre-tax total, only its domestic and foreign
+components, so on the SEC path pre-tax income is now their sum when no total
+is tagged, with the composition disclosed.
+
+**Principal beside carrying debt (B-5).** When the current and noncurrent
+debt lines do not both resolve, the debt check compares the filed debt aggregate
+(`DebtInstrumentCarryingAmount`, which many filers tag at principal) with the
+carrying components. It allowed one part per million, so Meta's 2024 notes
+($29.000B principal against $28.826B carrying, the gap being the tagged
+unamortized discount) and McDonald's June 2026 balance (0.09%) lost total
+debt, net debt and everything built on them. An aggregate above the
+components by up to 2% of the financing debt (current plus noncurrent, leases
+excluded), or 50 million in the reporting currency, whichever is larger, is
+now read as unamortized discount and issuance cost and the components are
+admitted. A discount is part of the notes it discounts, so the 50 million
+floor reaches at most 10% of the financing debt, and with no financing debt
+(leases alone) only the old rounding allowance applies. Beyond that band total
+and net debt are still withheld, with a gap naming both figures. A tagged carrying total
+(`LongTermDebt` and the other aggregates of the B-14 check) stays at 1%: it is
+on the components' own basis, so only rounding can separate them. The band is
+a house convention.
+
+**Vendor figure against the filed figure (A-11).** On the provider path, a
+vendor statement figure is checked against the filed SEC figure for the same
+period: revenue, cost of revenue, gross profit and operating expenses; cash,
+cash-flow totals, operating cash flow and short-term investment flows; lease
+liabilities; debt lines against the same filing; and temporary-equity
+operands, including the recheck of operating cash flow against a filed
+cash-investment period. The check allowed one part in ten billion, so Meta's December 2025
+quarter (vendor revenue $59,894M, filed $59,893M) was refused as a conflict,
+the quarter's revenue was nulled and the trailing basis fell back to the
+annual statement. The two figures now agree when they differ by no more than
+one reporting unit (the largest power of ten up to a million dividing both;
+companyfacts carries no decimals attribute) or 0.01% of the larger figure,
+whichever is wider. The reporting-unit allowance applies only when the larger
+figure is at least 100 units, so it is never more than 1% of it: 2 million
+against 1 million is a conflict, not rounding. A difference beyond that is
+still a conflict, refused as before. A zero against a nonzero figure gets no
+reporting-unit allowance. The same tolerance decides whether the vendor's
+noncurrent debt covers a filed noncurrent convertible carrying amount (vendor
+$3,687.7M against a filed $3,687.832M is covered; before, total and net debt
+were withheld); two filed figures are still compared near-exactly. The
+tolerance is a house convention. It is far narrower than the debt band above
+because it judges two statements of one figure, not a principal amount beside
+a carrying amount.
+
+**D&A from separate lines (B-7).** On the SEC path, depreciation and
+amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
+`DepreciationAndAmortization`, `DepreciationAmortizationAndAccretionNet`).
+Microsoft, Alphabet, Oracle, Intel and Tesla tag none of them in recent
+periods, so they had no D&A and no EBITDA, and EV/EBITDA, net debt/EBITDA and
+the capex split were withheld. When no combined tag is filed for a period, D&A
+is now the filer's `Depreciation` + `AmortizationOfIntangibleAssets`; when no
+amortization is tagged for the period either, it is `Depreciation` alone.
+Either is a stand-in for the period and is disclosed as a lower bound,
+because a combined cash-flow line can hold other amortization: Microsoft's
+"depreciation, amortization, and other" is larger than the two tagged lines.
+EBITDA built on it is understated by that amount, so EV/EBITDA leans high.
+Amortization alone is never taken as D&A. Within one trailing year, quarters
+can mix the two compositions (Alphabet tags amortization in some quarters
+only); each quarter's composition is disclosed.
+
+**Market cap across share classes (B-8).** An issuer with more than one
+common class needs every class's outstanding count and its economic relation
+to the quoted class before Métis states a market cap. Covers that tag each
+class's count with a class member (Meta, Berkshire Hathaway, Mastercard,
+Comcast, Visa) were outside the two cover layouts Métis read, so their market
+cap, P/E, EV/EBITDA, P/B and the WACC weights were withheld. Such a cover now
+establishes the scope when all of the following hold: each class's count is
+tagged at one date; the trading symbol is bound to one of those classes (by
+the class on its context, or the single class its registered title names); and
+the filing's own text states every class's economic relation in a sentence
+Métis reads. Two forms are read: identical liquidation and dividend rights
+(Meta: "The holders of our Class A and Class B common stock ... have identical
+liquidation and dividend rights but different voting rights."), and a stated
+fraction (Berkshire: Class B has dividend and distribution rights equal to
+1/1,500 of Class A's). Market cap is then the sum over classes of the count x
+the class's economic units per quoted share x the quoted class's price; a
+Berkshire Class A share counts as 1,500 Class B shares. This is an
+approximation, named in the basis, because a class with its own quote is not
+valued at that quote. The scope is still withheld when a class has no stated
+relation (Mastercard, Comcast, Visa state none Métis reads), when a sentence
+says the classes differ in dividends, distributions or liquidation, when such
+a sentence states a relative entitlement Métis does not read (a percent, a
+multiple such as "twice", a fraction such as "one-half" or a priority, such as "Class B is entitled to 110% of
+the dividends paid on Class A"), when a relation names a class with no tagged
+count, or when the relations conflict. A sentence reporting the dividends each
+class was paid states no relation and is not a reason to withhold.
+When the classes carry different weights, a filed diluted EPS is per share of
+a class the facts do not identify (Berkshire reports per Class A equivalent),
+so P/E is market cap over common income rather than price over EPS, with an
+info entry. Per-share intrinsic value still needs a diluted share count on the
+same basis and stays withheld (B-37, left for a later batch). When the scope
+stays unresolved because the issuer has more than one common class, the Key
+data table shows issuer-common capitalization as withheld instead of the
+quote's market cap, which can cover one class only, and the market data table
+labels that figure as possibly covering one share class only. Only class
+evidence in force on the price day counts: an inventory that ended before it
+says nothing about the classes now. A scope unresolved for another reason (an ADR without its ratio evidence, a vendor
+cap on the quoted security) names no share class and keeps the provider
+market cap, labelled scope unverified.
+
+**Newer results than the statements (B-24).** Statements come from XBRL
+filings, so in the weeks between a quarter's results 8-K and its 10-Q the
+report's statements, TTM and multiples end a quarter earlier than what the
+company has already published. Reports said nothing about it. A results
+release now raises a notice when it was filed after the newest statement
+period ended and reports a later period: its stated quarter end is more than
+45 days after the newest statement date, or, when it states no end date, its
+fiscal quarter label is later than the newest statement row's (a full year
+counts as the fourth quarter). The stated end is the latest "quarter ended"
+date in the opening text, since a year-ago comparison can come first; an end
+exactly four quarters before the quarter the fiscal label implies is that
+comparison, so the label decides and the notice names no end. The notice
+cites the exhibit that states the results (the release, else the commentary).
+The notice reads, for example: "Results for Q3
+FY2026 (quarter ended 2026-09-30) were published in 8-K <accession> on
+2026-10-13; statements, TTM and multiples here end 2026-06-30 and do not
+reflect them." It appears as a banner in the web view and both exports and as
+a warn entry in the data gaps. Only a release that states results counts: an
+amount for net income, earnings, EPS, diluted earnings per share or operating
+income in its opening text, outside a sentence giving an outlook or a
+dividend, whether the outlook word comes before the amount or right after it
+("Diluted EPS of $3.10 is expected", or projected, forecasted, anticipated,
+targeted or guided, states none; nor does a sentence raising, reaffirming or
+reiterating a range). A headline list printed
+without full stops is not one sentence, so only the 60 characters after an
+amount are read for it. A deliveries or operational update filed under the same 8-K item
+does not. The release's headline revenue and diluted EPS are shown in the Key
+data table, labelled "unaudited, from the results release", only when every
+statement of each in its opening text gives the same amount (two different
+amounts for one figure yield none). Revenue is read only where it opens its
+sentence, as revenue or total, net or consolidated revenue after at most the
+issuer and the quarter, so a segment's revenue is never taken for the total. A
+figure in a sentence that names "adjusted", "non-GAAP", "core",
+"underlying", "managed", "excluding" or "pro forma" anywhere, or right after
+"operating", is not read; nor is one in a sentence giving an outlook ("Third
+quarter revenue of $1.4 billion is expected") or one that states a loss (a loss
+per share is printed without its sign) or a full-year, year-to-date or annual
+amount, which would sit under the quarter's label. Their currency must also be established: "US$", or "$" while the statements report in US dollars. They
+never enter a statement, the TTM or a valuation. To date such releases, a
+title that names its quarter only in compact form ("3Q26", "Q3 2026 Update")
+is now read when the release has no ordinal title for the quarter it reports
+(an ordinal phrase heading guidance, "Third Quarter 2026 Guidance", is not
+one) and no "quarter ended" sentence; a compact label heading an outlook, or after a comparison word, is
+skipped. A hyphenated ordinal title ("Lilly reports second-quarter 2026
+financial results") is read as the title too; before, it was missed and a
+later quarter named in the text ("submit ... in the first quarter of 2027")
+dated the release, which would have raised a false notice. This is only the part of B-26 (release dating and ordering) that the
+notice needs; ordering releases that state no period is left for a later
+batch.
+
+**A newer 10-Q's update of a 10-K operating figure (C-16).** The 10-Q MD&A
+reaches the analysis passes as a 12,000-character selection read for
+financial families. Southern Co.'s 10-K excerpt stated large-load contracts of
+"approximately nine GWs"; its newer 10-Q stated about 16 gigawatts 70% of the
+way into a 172,377-character MD&A, the selection dropped it, and the passes
+argued from the superseded figure. When the 10-Q's period ends after the 10-K
+excerpts' (Item 1 and Item 7 as selected for the payload), the operating
+measures those excerpts state with a count are now read: gigawatts and
+megawatts of capacity (not megawatt-hours), backlog (with a dollar amount),
+customers, subscribers or paid members, and physical units (not goodwill
+reporting units, operating, geographic, reportable or organizational units,
+units of account or stock, performance and partnership units). A count ends in a digit or is a number word; a bare year ("in 2025
+customers") is not one. The 10-Q passages stating a count of the same measure
+are kept first, one per measure in turn and in source order, within 15% of
+the same 12,000-character budget, displacing lower-ranked text; the budget
+does not grow. The excerpt's title then names the measures whose passages
+that step kept (none when the whole 10-Q text fits the budget), for
+example "[kept first: passages updating the 10-K's figures for gigawatts,
+megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
+whether the newer figure supersedes the older one, and the passes see both
+with their filings and dates.

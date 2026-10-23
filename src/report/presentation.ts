@@ -750,9 +750,13 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const dilutedShares = bridge?.dilutedShares ?? null;
   const scope = report.valuation.marketValueScope;
   const admittedPriceAsOf = scope?.priceAsOf ?? null;
-  const marketCap = scope?.status === "resolved" ? scope.marketCap : quotedCap;
+  // Audit 2026-10-22 B-8: a scope unresolved across share classes means the
+  // quote's cap may cover one class only, so page one shows no figure as the issuer's.
+  const classAmbiguous = scope?.status === "unresolved" && scope.classAmbiguity === true;
+  const marketCap = scope?.status === "resolved" ? scope.marketCap : classAmbiguous ? null : quotedCap;
+  if (classAmbiguous) rows.push({ label: "Issuer-common capitalization", value: "withheld", note: "class scope unresolved: the filings do not establish every class's outstanding count and economic relation to the quoted class; the quote's market cap may cover one class only" });
   if (marketCap !== null) rows.push(scope?.status === "resolved"
-    ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}; main quote as of ${admittedPriceAsOf ?? "unavailable date"}${scope.approximate ? "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
+    ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}; main quote as of ${admittedPriceAsOf ?? "unavailable date"}${scope.approximate ? scope.basis.includes("economic-weight approximation") ? "; economic-weight approximation" : "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
     : md?.quote?.marketCapOrigin === "computed" && md.quote.marketCap === marketCap
       ? { label: scope ? "Derived market cap (scope unverified)" : "Market cap (derived)", value: money(marketCap, priceCurrency), note: `quote price × filed share count, computed by Métis${scope ? "; complete issuer-common coverage unverified" : ""}${priceAsOf ? `; as of ${priceAsOf}` : ""}` }
       : { label: scope ? "Provider market cap (scope unverified)" : "Market cap", value: money(marketCap, priceCurrency), note: scope ? `raw provider observation; complete issuer-common coverage unverified${priceAsOf ? `; as of ${priceAsOf}` : ""}` : "quote" });
@@ -772,6 +776,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: scope ? "Provider shares (scope unverified)" : "Shares outstanding", value: formatLargeNumber(outstanding), note: scope ? `raw provider count; class coverage unverified${md?.shares?.asOf ? `; at ${md.shares.asOf}` : ""}` : comparableFloatDate(md?.shares) && freeFloat != null && freeFloat >= 0 && freeFloat <= 100 ? `${formatPct(freeFloat, 1)} free float` : undefined });
   } else if (!scope && dilutedShares !== null && dilutedShares > 0) {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
+  }
+  // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
+  const newer = report.filingDisclosures?.newerResults;
+  if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
+    rows.push({
+      label: `${newer.reportedPeriod ?? `Quarter ended ${newer.reportedPeriodEnd ?? "after the statements"}`} (unaudited, from the results release)`,
+      value: `revenue ${money(newer.revenue, newer.currency)}; diluted EPS ${money(newer.epsDiluted, newer.currency, true)}`,
+      note: `${newer.source.form} ${newer.source.accession} filed ${newer.source.filingDate}; not in the statements, TTM or valuation, which end ${newer.statementsEnd}`,
+    });
   }
   const capitalReturn = report.filingDisclosures?.capitalReturn ?? null;
   if (capitalReturn?.dividendPerShare != null && price !== null && price > 0) {
@@ -944,7 +957,8 @@ export function consensusTables(report: Report): BodyTable[] {
       si.changePct !== null ? `${formatPct(si.changePct, 1, true)} vs prior settlement` : null,
     ].filter(Boolean).join("; ")]);
   }
-  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? "Market cap (derived: quote × filed shares)" : "Market cap (quote)", `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
+  const oneClassOnly = report.valuation?.marketValueScope?.status === "unresolved" && report.valuation.marketValueScope.classAmbiguity === true ? "; may cover one share class only" : "";
+  if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
   if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"
     : md.enterpriseValueOrigin === "computed" ? "Derived enterprise value (historical cash-only bridge)" : "Historical enterprise value (source definition unestablished)";

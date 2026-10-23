@@ -7,6 +7,7 @@ import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -177,7 +178,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     const vendor = row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
-    if (Math.abs(vendor - value) <= Math.max(1e-8, Math.abs(value) * 1e-10)) continue;
+    if (vendorAgreesWithFiled(vendor, value)) continue;
     const reason = `vendor/SEC ${field} conflict: exact ${sec.evidence.periodStart ?? "instant"} through ${sec.evidence.periodEnd} ${unit}; raw vendor ${vendor}, filed ${value}; field unavailable until reconciled`;
     const fieldConflicts = { ...out.fieldConflicts };
     const unavailable: Record<string, null> = {};
@@ -203,7 +204,7 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const fields = ["operatingCashFlow", "netCashProvidedByOperatingActivities"];
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-  const conflict = fields.some(field => finite(row[field]) && Math.abs(row[field] - sec.value) > Math.max(1e-8, Math.abs(sec.value) * 1e-10));
+  const conflict = fields.some(field => finite(row[field]) && !vendorAgreesWithFiled(row[field], sec.value));
   if (!conflict) return { row, gaps: [] };
   const reason = `vendor/SEC operating cash-flow conflict at ${row.date}: filed ${sec.value} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd}; vendor observations retained, CFO aliases and dependent standardized FCF unavailable until reconciled`;
   const fieldConflicts = { ...row.fieldConflicts };
@@ -234,7 +235,7 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
     (typeof row.periodStart === "string" && row.periodStart !== evidence.periodStart) ||
     (validDay(row.filingDate) && !evidence.filings.some(f => f.filed === row.filingDate))) return { row, gaps: [] };
   const expected: Record<string, number> = { purchasesOfInvestments: -purchase!.value, salesMaturitiesOfInvestments: sale!.value + maturity!.value };
-  if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && Math.abs(row[field] - value) > Math.max(1e-8, Math.abs(value) * 1e-10))) return { row, gaps: [] };
+  if (!Object.entries(expected).some(([field,value]) => typeof row[field] === "number" && Number.isFinite(row[field]) && !vendorAgreesWithFiled(row[field], value))) return { row, gaps: [] };
   const reason = `financial-investment classification unreconciled at ${row.date}: same-period filed short-term purchases ${-purchase!.value} and sales/maturities ${sale!.value + maturity!.value} ${currency} differ from generic vendor buckets. Mixed long-term investment/intangible/other payments remain unclassified; financial-asset-adjusted accruals unavailable, with operating accruals disclosed separately.`;
   const fieldConflicts = { ...row.fieldConflicts };
   const secEvidence = { ...evidence, tags: tags.map(tag => `us-gaap/${tag}`) };
@@ -296,7 +297,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     if (presentation.status === "conflict") presentationReason = `debt presentation conflict: ${presentation.reason}`;
     if (presentation.status === "established" && out.fieldConflicts?.longTermDebt?.usable !== false) {
       const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
-      const same = (a: number, b: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-10);
+      const same = vendorAgreesWithFiled;
       const oldLong = finite(out.longTermDebt), oldCurrent = finite(out.shortTermDebt), oldTotal = finite(out.totalDebt);
       const noncurrent = presentation.noncurrentDebt!;
       if (oldLong === null || (!same(oldLong, tagged.value) && (currentMaturities === null || !same(oldLong, tagged.value - currentMaturities))) ||
@@ -336,7 +337,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   }
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
   const inclusiveTotal = splitOnly ? instant(facts, "LongTermDebt", currency, row.date, observedAt)?.value ?? null : null;
-  const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: splitOnly ? inclusiveTotal : out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null);
+  const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: splitOnly ? inclusiveTotal : out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null, vendorAgreesWithFiled);
   const reason = componentReason ?? presentationReason ?? convertibleReason ??
     (scopeReason !== null && !splitOnly ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason(splitOnly ? { shortTermDebt: 0,
       longTermDebt: inclusiveTotal, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }
@@ -442,7 +443,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         }
         const vendor = row[field];
         if (typeof vendor === "number" && Number.isFinite(vendor)) {
-          if (Math.abs(vendor - sec.value) <= Math.max(1e-8, Math.abs(sec.value) * 1e-10)) continue;
+          if (vendorAgreesWithFiled(vendor, sec.value)) continue;
           const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${vendor} versus ${sec.value} ${currency}; vendor observation preserved and field unavailable for reconciliation`;
           out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });

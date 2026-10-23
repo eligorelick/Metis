@@ -10135,11 +10135,6 @@
           "after": "FAIR_VALUE_2026_10_D102"
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.37.0"
-        },
-        {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D102"
@@ -10158,6 +10153,20 @@
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
           "after": "SCENARIO_TARGETS_2026_10_D102"
+        }
+      ]
+    },
+    {
+      "name": "audit-batch3a-priority-highs-20261022",
+      "decisions": [
+        "D-103"
+      ],
+      "reason": "Audit batch 3a of 2026-10-22 (the remaining high-severity findings, D-103), as it reaches this provider-free DEMO control: only the report stamp moves, to spec 1.38.0 (the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, the economic-weight basis). The path moves out of audit-batch2-valuation-domain-20261022, whose record stands for 1.37.0. The tax-rate, debt-band, vendor-tolerance, D&A, share-class, newer-results and 10-Q selection changes do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch3a-priority-highs.md.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.38.0"
         }
       ]
     }

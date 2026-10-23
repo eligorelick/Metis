@@ -4181,6 +4181,16 @@ export function multiplesFramework(
       epsBasis = `price per ADS / (ordinary epsDiluted x ${security.ordinarySharesPerQuotedUnit} ordinary shares per ADS) (verified basis ${security.sourceIds.join(", ")}, effective ${security.effectiveFrom})`;
     } else epsBasis = "price per ADS / epsDiluted already per quoted ADS (no second ratio adjustment)";
   }
+  // Audit 2026-10-22 B-8: when the classes carry different economic weights,
+  // a filed diluted EPS is per share of one class whose identity the filing
+  // facts do not establish (BRK reports per Class A equivalent), so P/E uses
+  // the issuer-economic capitalization over common income instead.
+  if (eps !== null && equityScope.status === "resolved" && equityScope.weightedClasses === true) {
+    eps = null;
+    const reason = "share classes carry different economic weights and the diluted EPS class basis is not established; P/E is issuer-economic market cap / common income, not price / EPS";
+    notes.push(reason);
+    gaps.push(gapEntry("valuation.multiples.peTtm.economicClassBasis", reason, "info"));
+  }
   if (capital.equityWithheldReason) gaps.push(gapEntry("valuation.multiples.priceToBook.commonEquity", capital.equityWithheldReason, "warn"));
   if (eps === null && capital.incomeWithheldReason) gaps.push(gapEntry("valuation.multiples.peTtm.commonIncome", capital.incomeWithheldReason, "warn"));
   const current: Partial<Record<MultipleKey, number | null>> = {
