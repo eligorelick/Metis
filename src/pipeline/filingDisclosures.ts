@@ -125,6 +125,65 @@ function releaseRef(release: EarningsReleaseRecord, exhibit: "EX-99.1" | "EX-99.
   };
 }
 
+/**
+ * Days past the newest statement period end before a release's own period
+ * end is a later quarter: a 52/53-week calendar moves an end by days, a
+ * quarter by about 91.
+ */
+const LATER_PERIOD_DAYS = 45;
+
+/**
+ * Audit 2026-10-22 B-24: the newest results release reporting a period later
+ * than the newest statement period. Statements come from XBRL filings, so a
+ * quarter whose results 8-K is out before its 10-Q is in no statement, TTM or
+ * multiple. The period is the release's stated quarter end, else its fiscal
+ * label against the newest statement row's. A release that states no results
+ * (a deliveries or operational update) never counts.
+ */
+export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string } | null {
+  const reports = currentReportsOf(bundle);
+  if (reports === null) return null;
+  const newest = [...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly), ...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)]
+    .filter((row) => day(row.date) !== null).sort((a, b) => day(b.date)!.localeCompare(day(a.date)!))[0];
+  if (newest === undefined) return null;
+  const statementsEnd = day(newest.date)!;
+  const fiscalYear = Number(newest.fiscalYear);
+  const quarter = /^Q([1-4])$/.exec(String(newest.period ?? ""))?.[1] ?? (newest.period === "FY" ? "4" : null);
+  const statementOrder = Number.isInteger(fiscalYear) && fiscalYear > 1900 && quarter !== null ? fiscalYear * 4 + Number(quarter) : null;
+  for (const release of orderedEarningsReleases(reports.releases)) {
+    if (release.reportsResults !== true || day(release.filingDate) === null || release.filingDate <= statementsEnd) continue;
+    const { periodEnd, fiscal } = release.reported;
+    const later = periodEnd !== null ? periodEnd > statementsEnd && daysApart(periodEnd, statementsEnd) > LATER_PERIOD_DAYS
+      : fiscal !== null && statementOrder !== null && fiscal.fiscalYear * 4 + (fiscal.fiscalQuarter ?? 4) > statementOrder;
+    if (later) return { release, statementsEnd };
+  }
+  return null;
+}
+
+/**
+ * The notice's content. The release's headline revenue and diluted EPS are
+ * shown only when both were read and their currency is established: an
+ * explicit "US$", or "$" while the statements report in US dollars. They are
+ * the issuer's unaudited figures and never enter a statement, TTM or multiple.
+ */
+function newerResultsNotice(bundle: DataBundle, currency: string | null): FilingDisclosures["newerResults"] | null {
+  const found = newerResultsRelease(bundle);
+  if (found === null) return null;
+  const { release, statementsEnd } = found;
+  const usd = (symbol: string): boolean => symbol === "US$" || (symbol === "$" && currency === "USD");
+  const headline = release.headline;
+  const shown = headline?.revenue && headline.epsDiluted && usd(headline.revenue.symbol) && usd(headline.epsDiluted.symbol) ? headline : null;
+  return {
+    source: releaseRef(release, release.releaseUrl === null && release.commentaryUrl !== null ? "EX-99.2" : "EX-99.1"),
+    reportedPeriod: release.reported.fiscal?.label ?? null,
+    reportedPeriodEnd: release.reported.periodEnd,
+    statementsEnd,
+    revenue: shown?.revenue?.value ?? null,
+    epsDiluted: shown?.epsDiluted?.value ?? null,
+    currency: shown === null ? null : "USD",
+  };
+}
+
 /** Legacy merged facts establish the filing, not which of its exhibits supplied a row. */
 function earningsFactRef(release: EarningsReleaseRecord, source: EarningsFactSource | undefined): FilingRef {
   return source === undefined ? { ...releaseRef(release, null), url: null } : { ...source };
@@ -762,6 +821,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
       })
     : [];
   const basisNote = releases.find((r) => typeof r.nonGaapBasisNote === "string")?.nonGaapBasisNote ?? null;
+  const newerResults = newerResultsNotice(bundle, currency);
   // D-66: the notes', statements' and commentary's facts; officers and votes.
 
   return {
@@ -789,6 +849,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     ...(officerChanges.length === 0 ? {} : { officerChanges }),
     ...(sayOnPay === null ? {} : { sayOnPay }),
     ...(tradingArrangements.length === 0 ? {} : { tradingArrangements }),
+    ...(newerResults === null ? {} : { newerResults }),
     notes: notes.map((n) => safeText(n, "A disclosure note is withheld from display by the rating-language filter.")),
   };
 }

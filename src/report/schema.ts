@@ -2294,6 +2294,22 @@ export const FilingDisclosuresSchema = z
     /** D-63: the issuer's statement of a non-GAAP basis change ("no longer exclude stock-based compensation"). */
     nonGaapBasisNote: z.string().nullable().optional(),
     /**
+     * Audit 2026-10-22 B-24: a results release for a period later than the
+     * newest statement period. The statements, TTM and multiples end at
+     * `statementsEnd` and do not reflect it. Revenue and diluted EPS are the
+     * release's unaudited headline figures, null unless both were read with an
+     * established currency. Optional on older reports.
+     */
+    newerResults: z.object({
+      source: FilingRefSchema,
+      reportedPeriod: z.string().nullable(),
+      reportedPeriodEnd: IsoDaySchema.nullable(),
+      statementsEnd: IsoDaySchema,
+      revenue: z.number().nullable(),
+      epsDiluted: z.number().nullable(),
+      currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+    }).strict().optional(),
+    /**
      * D-66: figures the notes, the condensed statements and the CFO
      * commentary print that no typed statement row carries (investment scale,
      * lock-ups, commitments, a deal's consideration and goodwill, DSO), in the

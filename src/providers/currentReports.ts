@@ -25,8 +25,10 @@ import {
   parseIssuerFreeCashFlow,
   parseNonGaapBasisNote,
   parseReconciliation,
+  parseReleaseHeadline,
   parseReportedPeriod,
   releaseNarrative,
+  reportsResults,
   splitEightKItems,
   splitSentences,
   summarizeItem,
@@ -36,6 +38,7 @@ import {
   type FreeCashFlowFact,
   type IssuerGuidance,
   type ReconciliationFact,
+  type ReleaseHeadline,
   type ReportedPeriod,
 } from "@/edgar/currentReports";
 import { parseCompletedOfferingFacts, parseWorkingCapital, type FilingFact, type WorkingCapitalFacts } from "@/edgar/filingFacts";
@@ -80,6 +83,14 @@ export interface EarningsReleaseRecord {
   releaseExhibit?: string | null;
   commentaryExhibit?: string | null;
   reported: ReportedPeriod;
+  /**
+   * Audit 2026-10-22 B-24: the release or commentary states results (an
+   * earnings or operating-income amount), not only operating statistics.
+   * Absent on records stored before it.
+   */
+  reportsResults?: boolean;
+  /** Audit 2026-10-22 B-24: the release's own headline revenue and diluted EPS. Absent on older records. */
+  headline?: ReleaseHeadline;
   guidance: IssuerGuidance | null;
   /** Supplying document role; releaseExhibit/commentaryExhibit retain its actual type (null for a primary document). */
   guidanceExhibit: "EX-99.1" | "EX-99.2" | null;
@@ -217,6 +228,8 @@ export function buildEarningsReleaseRecord(args: {
     releaseExhibit,
     commentaryExhibit,
     reported: reported.fiscal === null && commentaryText !== null ? { ...parseReportedPeriod(commentaryText), periodEnd: reported.periodEnd ?? parseReportedPeriod(commentaryText).periodEnd } : reported,
+    reportsResults: reportsResults(releaseText) || (commentaryText !== null && reportsResults(commentaryText)),
+    headline: parseReleaseHeadline(releaseText),
     guidance,
     guidanceExhibit: guidance === null || guidance.items.length === 0 ? null : guidance === fromRelease ? "EX-99.1" : "EX-99.2",
     freeCashFlow: mergeEarningsObservations(fcfRelease, commentaryText === null ? [] : parseIssuerFreeCashFlow(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),

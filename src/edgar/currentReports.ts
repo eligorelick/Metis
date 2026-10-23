@@ -490,8 +490,70 @@ export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const yearAgo = reportedQuarter === null ? undefined : titles.find((t) => t.base && t.quarter === reportedQuarter);
   const fiscal = own !== undefined ? fiscalPeriod(own.year, own.quarter)
     : yearAgo !== undefined ? fiscalPeriod(yearAgo.year + 1, yearAgo.quarter)
+    : ended === null && titles.length === 0 ? compactTitlePeriod(text.slice(0, COMPACT_TITLE_CHARS))
     : null;
   return { fiscal, periodEnd: ended ? isoFromMonthDate(ended[2]!) : null };
+}
+
+/** How far into a release its title can sit, past the exhibit's own header words. */
+const COMPACT_TITLE_CHARS = 300;
+
+/**
+ * Audit 2026-10-22 B-24: a release titled only in compact form ("3Q26
+ * Financial Highlights", "Q3 2026 Update") names its quarter there, and with
+ * no ordinal title and no "quarter ended" sentence that is the only period
+ * it states. A compact label heading an outlook names the guided quarter and
+ * is skipped, as is one after a comparison word.
+ */
+function compactTitlePeriod(head: string): FiscalPeriod | null {
+  for (const m of head.matchAll(/\b(?:([1-4])Q(\d{4}|\d{2})|Q([1-4])\s?(?:FY\s?)?(\d{4}|\d{2}))\b/g)) {
+    const before = head.slice(Math.max(0, m.index - 40), m.index);
+    if (OUTLOOK_HEADING_AFTER.test(head.slice(m.index + m[0].length, m.index + m[0].length + 40)) || OUTLOOK_HEADING_BEFORE.test(before) ||
+      /\b(?:from|vs\.?|versus|compared (?:to|with)|since)\s*$/i.test(before)) continue;
+    const year = Number(m[2] ?? m[4]);
+    return fiscalPeriod(year < 100 ? 2000 + year : year, Number(m[1] ?? m[3]) as 1 | 2 | 3 | 4);
+  }
+  return null;
+}
+
+/** The release's own headline figures, read only when each is stated once. */
+export interface ReleaseHeadline {
+  revenue: { value: number; symbol: string } | null;
+  epsDiluted: { value: number; symbol: string } | null;
+}
+
+const HEADLINE_CHARS = 6_000;
+const NON_GAAP_BEFORE = /\b(?:adjusted|non-GAAP|core|operating|underlying|managed|excluding[^.]{0,80})\s*$/i;
+
+/**
+ * Audit 2026-10-22 B-24: a results release's headline revenue and diluted
+ * EPS, from its opening text. A figure is kept only when every matching
+ * statement there gives the same amount, so a release that states a
+ * segment's or another basis's figure beside the reported one yields none.
+ * Revenue needs a stated scale (billion or million).
+ */
+export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
+  const text = normalizeFilingText(rawText).slice(0, HEADLINE_CHARS);
+  const single = (found: { value: number; symbol: string }[]): { value: number; symbol: string } | null =>
+    found.length > 0 && found.every((f) => f.value === found[0]!.value && f.symbol === found[0]!.symbol) ? found[0]! : null;
+  const revenue = [...text.matchAll(/\b(?:total |net )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached))? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
+    .filter((m) => !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index - 100), m.index)))
+    .map((m) => ({ value: Number(m[2]) * (m[3]!.toLowerCase() === "billion" ? 1e9 : 1e6), symbol: m[1]! }));
+  const eps = [...text.matchAll(/\b(?:diluted (?:EPS|earnings per (?:common )?share)(?: \((?:EPS|diluted)\))?|earnings per diluted share|EPS \(diluted\))(?: (?:was|were|of|totaled))? ((?:US)?\$)\s?(\d+\.\d{2})\b|((?:US)?\$)\s?(\d+\.\d{2}) per diluted share\b/gi)]
+    .filter((m) => !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index - 100), m.index)))
+    .map((m) => ({ value: Number(m[2] ?? m[4]), symbol: (m[1] ?? m[3])! }));
+  return { revenue: single(revenue), epsDiluted: single(eps) };
+}
+
+/**
+ * Audit 2026-10-22 B-24: the release states results, not only operating
+ * statistics (a deliveries or operational update can be filed under Item 2.02):
+ * it states an amount for earnings, earnings per share or operating income.
+ * "Our net income ... will be announced" states none.
+ */
+export function reportsResults(rawText: string): boolean {
+  return /\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per (?:diluted |common )?share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per (?:diluted )?share\b/i
+    .test(normalizeFilingText(rawText).slice(0, 20_000));
 }
 
 export interface FreeCashFlowFact {

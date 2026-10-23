@@ -321,6 +321,24 @@ function companyStatementTables(d: FilingDisclosures): ReportAuditTable[] {
   }));
 }
 
+/**
+ * Audit 2026-10-22 B-24: the notice that a results release reports a period
+ * the statements do not reach. One wording for the report banner and the
+ * data gap.
+ */
+export function newerResultsSentence(n: Pick<NonNullable<FilingDisclosures["newerResults"]>, "source" | "reportedPeriod" | "reportedPeriodEnd" | "statementsEnd">): string {
+  const period = n.reportedPeriod !== null
+    ? `${n.reportedPeriod}${n.reportedPeriodEnd !== null ? ` (quarter ended ${n.reportedPeriodEnd})` : ""}`
+    : `the quarter ended ${n.reportedPeriodEnd ?? "after the statements"}`;
+  return `Results for ${period} were published in ${n.source.form} ${n.source.accession} on ${n.source.filingDate}; ` +
+    `statements, TTM and multiples here end ${n.statementsEnd} and do not reflect them.`;
+}
+
+/** The report banner, when the report has a newer-results notice. */
+export function newerResultsBanner(d: FilingDisclosures | undefined): string | null {
+  return d?.newerResults ? newerResultsSentence(d.newerResults) : null;
+}
+
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return [];
   switch (section) {

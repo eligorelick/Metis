@@ -775,6 +775,15 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   } else if (!scope && dilutedShares !== null && dilutedShares > 0) {
     rows.push({ label: "Diluted shares", value: formatLargeNumber(dilutedShares), note: bridge?.asOf ? `at ${bridge.asOf}` : undefined });
   }
+  // Audit 2026-10-22 B-24: the newer quarter's headline, apart from every statement figure.
+  const newer = report.filingDisclosures?.newerResults;
+  if (newer && newer.revenue !== null && newer.epsDiluted !== null && newer.currency !== null) {
+    rows.push({
+      label: `${newer.reportedPeriod ?? `Quarter ended ${newer.reportedPeriodEnd ?? "after the statements"}`} (unaudited, from the results release)`,
+      value: `revenue ${money(newer.revenue, newer.currency)}; diluted EPS ${money(newer.epsDiluted, newer.currency, true)}`,
+      note: `${newer.source.form} ${newer.source.accession} filed ${newer.source.filingDate}; not in the statements, TTM or valuation, which end ${newer.statementsEnd}`,
+    });
+  }
   const capitalReturn = report.filingDisclosures?.capitalReturn ?? null;
   if (capitalReturn?.dividendPerShare != null && price !== null && price > 0) {
     rows.push({

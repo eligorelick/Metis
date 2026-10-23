@@ -16,7 +16,8 @@ import { validateBundle, type ValidationReport, type ValidatableBundle } from "@
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
-import { buildFilingDisclosures, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { buildFilingDisclosures, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -2547,8 +2548,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (isSuppressed("evEbitda")) suppress("multiples.evToEbitda", `EV/EBITDA excluded for ${route.base} — enterprise value ill-defined`);
   if (isSuppressed("currentRatio")) suppress("returns.currentRatio", `current ratio not meaningful for ${route.base}`);
 
+  // Audit 2026-10-22 B-24: a results release later than every statement.
+  const newer = newerResultsRelease(bundle);
+  const newerResultsGaps: ManifestEntry[] = newer === null ? [] : [{ field: "fundamentals.newerResults", severity: "warn", reason: newerResultsSentence({
+    source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
+    reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.release.reported.periodEnd, statementsEnd: newer.statementsEnd,
+  }) }];
+
   // --- Merge all gaps + notes ------------------------------------------------
   const gaps = mergeManifest(
+    newerResultsGaps,
     bundle.gaps,
     ttmGaps,
     route.gaps,

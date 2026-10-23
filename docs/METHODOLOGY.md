@@ -3107,3 +3107,32 @@ stays unresolved, the Key data table shows issuer-common capitalization as
 withheld instead of the quote's market cap, which can cover one class only,
 and the market data table labels that figure as possibly covering one share
 class only.
+
+**Newer results than the statements (B-24).** Statements come from XBRL
+filings, so in the weeks between a quarter's results 8-K and its 10-Q the
+report's statements, TTM and multiples end a quarter earlier than what the
+company has already published. Reports said nothing about it. A results
+release now raises a notice when it was filed after the newest statement
+period ended and reports a later period: its stated quarter end is more than
+45 days after the newest statement date, or, when it states no end date, its
+fiscal quarter label is later than the newest statement row's (a full year
+counts as the fourth quarter). The notice reads, for example: "Results for Q3
+FY2026 (quarter ended 2026-09-30) were published in 8-K <accession> on
+2026-10-13; statements, TTM and multiples here end 2026-06-30 and do not
+reflect them." It appears as a banner in the web view and both exports and as
+a warn entry in the data gaps. Only a release that states results counts: an
+amount for net income, earnings, EPS, earnings per share or operating income
+in its opening text. A deliveries or operational update filed under the same
+8-K item does not. The release's headline revenue and diluted EPS are shown in
+the Key data table, labelled "unaudited, from the results release", only when
+both are read once each in its opening text (a figure after "adjusted",
+"non-GAAP", "core", "operating", "underlying", "managed" or "excluding" is not
+read, and two different amounts for one figure yield none) and their currency
+is established: "US$", or "$" while the statements report in US dollars. They
+never enter a statement, the TTM or a valuation. To date such releases, a
+title that names its quarter only in compact form ("3Q26", "Q3 2026 Update")
+is now read when the release has no ordinal title and no "quarter ended"
+sentence; a compact label heading an outlook, or after a comparison word, is
+skipped. This is only the part of B-26 (release dating and ordering) that the
+notice needs; ordering releases that state no period is left for a later
+batch.
