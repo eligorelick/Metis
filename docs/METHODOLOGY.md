@@ -3102,8 +3102,12 @@ Berkshire Class A share counts as 1,500 Class B shares. This is an
 approximation, named in the basis, because a class with its own quote is not
 valued at that quote. The scope is still withheld when a class has no stated
 relation (Mastercard, Comcast, Visa state none Métis reads), when a sentence
-says the classes differ in dividends, distributions or liquidation, when a
-relation names a class with no tagged count, or when the relations conflict.
+says the classes differ in dividends, distributions or liquidation, when such
+a sentence states a relative entitlement Métis does not read (a percent, a
+multiple, a fraction or a priority, such as "Class B is entitled to 110% of
+the dividends paid on Class A"), when a relation names a class with no tagged
+count, or when the relations conflict. A sentence reporting the dividends each
+class was paid states no relation and is not a reason to withhold.
 When the classes carry different weights, a filed diluted EPS is per share of
 a class the facts do not identify (Berkshire reports per Class A equivalent),
 so P/E is market cap over common income rather than price over EPS, with an
@@ -3112,8 +3116,9 @@ same basis and stays withheld (B-37, left for a later batch). When the scope
 stays unresolved because the issuer has more than one common class, the Key
 data table shows issuer-common capitalization as withheld instead of the
 quote's market cap, which can cover one class only, and the market data table
-labels that figure as possibly covering one share class only. A scope
-unresolved for another reason (an ADR without its ratio evidence, a vendor
+labels that figure as possibly covering one share class only. Only class
+evidence in force on the price day counts: an inventory that ended before it
+says nothing about the classes now. A scope unresolved for another reason (an ADR without its ratio evidence, a vendor
 cap on the quoted security) names no share class and keeps the provider
 market cap, labelled scope unverified.
 

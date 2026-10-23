@@ -60,6 +60,7 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     ["a conflicting economic statement", metaLike(`<p>${metaRights}</p><p>Class B common stock is not entitled to dividends declared on Class A common stock.</p>`)],
     ["a relation naming a class with no count", metaLike("<p>The holders of our Class A, Class B and Class C common stock have identical liquidation and dividend rights.</p>")],
     ["a relation covering only some classes", brkLike("<p>The holders of our Class A common stock have identical liquidation and dividend rights.</p>")],
+    ["an unparsed relative entitlement", metaLike(`<p>${metaRights}</p><p>Class B common stock is entitled to receive 110% of dividends paid on Class A common stock.</p>`)],
   ])("keeps withholding on %s", (_name, html) => {
     const parsed = parse(html, html.includes("BRK.B") ? "BRK-B" : "META");
     expect(parsed.evidence).toBeNull();
@@ -72,6 +73,20 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     const parsed = parse(html, "META");
     expect(parsed.evidence).toBeNull();
     expect(resolveEconomicEquityScope(quote("META", 700), economicEvidenceFromInventories([parsed]), "2026-10-15").status).not.toBe("resolved");
+  });
+
+  it("still reads a sentence reporting dividends paid on each class", () => {
+    const paid = "We paid quarterly dividends and dividend equivalents of $ 0.525 per share of common stock, totaling $ 1.17 billion for Class A common stock and $ 180 million for Class B common stock.";
+    expect(parse(metaLike(`<p>${metaRights}</p><p>${paid}</p>`), "META").evidence?.complete).toBe(true);
+  });
+
+  it("flags class ambiguity only from evidence in force on the price day", () => {
+    const multiClass = economicEvidenceFromInventories([parse(metaLike(), "META")]);
+    const ended = multiClass.map(row => ({ ...row, effectiveFrom: "2025-01-01", effectiveTo: "2026-01-01" }));
+    expect(resolveEconomicEquityScope(quote("META", 700), ended, "2026-10-15")).toMatchObject({ status: "unresolved" });
+    expect(resolveEconomicEquityScope(quote("META", 700), ended, "2026-10-15").classAmbiguity).toBeUndefined();
+    const incomplete = multiClass.map(row => ({ ...row, complete: false }));
+    expect(resolveEconomicEquityScope(quote("META", 700), incomplete, "2026-10-15")).toMatchObject({ status: "unresolved", classAmbiguity: true });
   });
 
   it("keeps withholding when the trading symbol is not the quoted security", () => {

@@ -88,7 +88,10 @@ export function resolveEconomicEquityScope(
   evidence: readonly EconomicShareEvidence[],
   asOf: string,
 ): EconomicEquityScope {
-  const classAmbiguity = quote.marketCapScopeEvidence !== undefined || evidence.some(row => row.classes.length > 1);
+  // Only evidence in force on the price day (else the valuation day) shows the issuer has more than one class now.
+  const inForceDay = typeof quote.priceAsOf === "string" && day(quote.priceAsOf) ? quote.priceAsOf : asOf;
+  const classAmbiguity = quote.marketCapScopeEvidence !== undefined || evidence.some(row => row.classes.length > 1 &&
+    day(row.effectiveFrom) && row.effectiveFrom <= inForceDay && (row.effectiveTo === null || (day(row.effectiveTo) && row.effectiveTo > inForceDay)));
   const unresolved = (): EconomicEquityScope => ({ status: "unresolved", marketCap: null, economicShares: null,
     ...(classAmbiguity ? { classAmbiguity: true as const } : {}),
     approximate: false, sourceIds: quote.marketCapScopeEvidence?.sourceIds ?? [], sourceHashes: [], shareCountAsOf: null,
