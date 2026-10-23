@@ -47,6 +47,11 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
     expect(parseReportedPeriod(text).fiscal).toMatchObject({ fiscalYear, fiscalQuarter });
   });
 
+  it("reads a hyphenated ordinal title before a later quarter named in the text", () => {
+    const text = "EX-99.1 August 5, 2026 Example Co. reports second-quarter 2026 financial results. Revenue in Q2 2026 increased 48% to $23.0 billion. We plan to submit an application to the FDA in the first quarter of 2027.";
+    expect(parseReportedPeriod(text).fiscal).toMatchObject({ fiscalYear: 2026, fiscalQuarter: 2 });
+  });
+
   it("tells a results release from an operational update", () => {
     expect(reportsResults(RESULTS)).toBe(true);
     expect(reportsResults(DELIVERIES)).toBe(false);

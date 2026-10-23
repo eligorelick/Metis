@@ -474,7 +474,8 @@ const OUTLOOK_HEADING_BEFORE = /\b(?:(?:Business|Financial)\s+)?(?:Guidance|Outl
 export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const text = normalizeFilingText(rawText).slice(0, 6_000);
   const ended = /\b(?:(first|second|third|fourth) )?quarter (?:of fiscal (?:year )?\d{4} )?ended ((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2},? \d{4})/i.exec(text);
-  const titles = [...text.matchAll(/\b(First|Second|Third|Fourth) Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
+  // "second-quarter 2026" is the same title as "Second Quarter 2026" (Lilly, Southern Co.).
+  const titles = [...text.matchAll(/\b(First|Second|Third|Fourth)[ -]Quarter(?:\s+and)?(?:\s+Full[ -]Year)?(?:\s+of)?(?:\s+Fiscal)?(?:\s+Year)?\s+(\d{4})\b/gi)]
     .map((m) => ({ quarter: ORDINAL_QUARTER[m[1]!.toLowerCase()]!, year: Number(m[2]), base: comparisonBase(text, m.index),
       guided: OUTLOOK_HEADING_AFTER.test(text.slice(m.index + m[0].length, m.index + m[0].length + 40))
         || OUTLOOK_HEADING_BEFORE.test(text.slice(Math.max(0, m.index - 40), m.index)) }));

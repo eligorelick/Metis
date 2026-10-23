@@ -3146,7 +3146,10 @@ never enter a statement, the TTM or a valuation. To date such releases, a
 title that names its quarter only in compact form ("3Q26", "Q3 2026 Update")
 is now read when the release has no ordinal title and no "quarter ended"
 sentence; a compact label heading an outlook, or after a comparison word, is
-skipped. This is only the part of B-26 (release dating and ordering) that the
+skipped. A hyphenated ordinal title ("Lilly reports second-quarter 2026
+financial results") is read as the title too; before, it was missed and a
+later quarter named in the text ("submit ... in the first quarter of 2027")
+dated the release, which would have raised a false notice. This is only the part of B-26 (release dating and ordering) that the
 notice needs; ordering releases that state no period is left for a later
 batch.
 
