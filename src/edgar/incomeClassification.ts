@@ -1,10 +1,11 @@
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FmpIncomeStatementRow, FmpPayload, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-const same = (a: number, b: number) => Math.abs(a - b) <= Math.max(1e-8, Math.abs(b) * 1e-10);
+const same = vendorAgreesWithFiled;
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { income: typeof income; gaps: ManifestEntry[] } {

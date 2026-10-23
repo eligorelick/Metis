@@ -3042,3 +3042,20 @@ still withheld, with a gap naming both figures. A tagged carrying total
 (`LongTermDebt` and the other aggregates of the B-14 check) stays at 1%: it is
 on the components' own basis, so only rounding can separate them. The band is
 a house convention.
+
+**Vendor figure against the filed figure (A-11).** On the provider path, a
+vendor statement figure is checked against the filed SEC figure for the same
+period: revenue, cost of revenue, gross profit and operating expenses; cash,
+cash-flow totals, operating cash flow and short-term investment flows; lease
+liabilities; debt lines against the same filing; and temporary-equity
+operands. The check allowed one part in ten billion, so Meta's December 2025
+quarter (vendor revenue $59,894M, filed $59,893M) was refused as a conflict,
+the quarter's revenue was nulled and the trailing basis fell back to the
+annual statement. The two figures now agree when they differ by no more than
+one reporting unit (the largest power of ten up to a million dividing both;
+companyfacts carries no decimals attribute) or 0.01% of the larger figure,
+whichever is wider. A difference beyond that is still a conflict, refused as
+before. A zero against a nonzero figure gets no reporting-unit allowance. The
+tolerance is a house convention. It is far narrower than the debt band above
+because it judges two statements of one figure, not a principal amount beside
+a carrying amount.
