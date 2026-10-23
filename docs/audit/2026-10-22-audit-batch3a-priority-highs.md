@@ -108,3 +108,5 @@ Watch list:
 - **No figure was lost and no published value changed.**
 
 After the Codex fixes the head side was run again the same way (45 of 45, no errors). The first rerun dropped Tesla's notice, which `469c214` fixed. The final rerun, on the last code commit, matches the table above in every figure and shows the same eleven notices.
+
+After the merge with batch 2 (`b88b449`), both sides were run again the same way: main at `efc6c24` and the merged branch (45 of 45 each, no errors). Against main, the merged branch loses no figure and changes no produced value. It gains WACC for COST, INTC, MCD, META, ORCL, PG and SNOW; fair value for COST and MCD; total and net debt for MCD; market cap, P/E and P/B for BRK.B and META; and EV/EBITDA for GOOGL, INTC, MCD, META, MSFT, ORCL and TSLA. That is the table above, less ORCL's fair value, which batch 2's DCF domain test withholds on both sides. The eleven notices are unchanged in text, and main shows none.
