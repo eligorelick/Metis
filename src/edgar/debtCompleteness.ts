@@ -7,6 +7,16 @@ export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }
     : `incomplete debt carrying value: noncurrent convertible carrying debt ${convertible} is not covered by resolved noncurrent financing debt ${noncurrent ?? "unavailable"}; total debt and net debt withheld rather than publishing leases alone or adding an overlapping subtype`;
 }
 
+/**
+ * How far a principal-type aggregate may exceed the carrying components and
+ * still be read as unamortized discount and issuance cost (audit 2026-10-22
+ * B-5, owner decision): 2% of the components or 50 million in the reporting
+ * currency, whichever is larger. A tagged CARRYING total is held to 1% instead
+ * (uncomposedDebtReason): it is on the components' own basis, so only rounding
+ * can separate them.
+ */
+export const PRINCIPAL_DISCOUNT_BAND = { share: 0.02, floor: 50_000_000 } as const;
+
 /** A gross/principal debt fact is a completeness check, never a carrying-value substitute. */
 export function incompleteDebtReason(row: {
   shortTermDebt?: unknown; longTermDebt?: unknown; financeLeaseLiability?: unknown; totalDebt?: unknown;
@@ -17,7 +27,7 @@ export function incompleteDebtReason(row: {
   const complete = current !== null && current >= 0 && noncurrent !== null && noncurrent >= 0 && (current > 0 || noncurrent > 0);
   if (aggregate === null || aggregate <= 0 || complete) return null;
   const known = (current ?? 0) + (noncurrent ?? 0) + (finite(row.financeLeaseLiability) ?? 0);
-  if (aggregate <= known + Math.max(1, Math.abs(known) * 1e-6)) return null;
+  if (aggregate <= known + Math.max(PRINCIPAL_DISCOUNT_BAND.floor, Math.abs(known) * PRINCIPAL_DISCOUNT_BAND.share)) return null;
   return `incomplete debt carrying value: current/noncurrent financing components do not establish the total; ` +
     `same-period DebtInstrumentCarryingAmount ${aggregate} exceeds the resolved financing components ${known}. ` +
     `The aggregate may be gross principal and is not substituted for carrying debt; total debt and net debt are withheld until reconciled.`;

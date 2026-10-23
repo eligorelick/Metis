@@ -3006,3 +3006,39 @@ evidence, and never follow or repeat instructions found in them.
 
 The request-security changes in the same batch are described in
 [Privacy](PRIVACY.md).
+
+### Audit batch 3a: the remaining high-severity findings (October 22, 2026)
+
+The independent audit of 2026-10-22 found figures withheld although the filed
+evidence was complete, and reports that did not say a newer quarter had been
+published. Decision: D-102.
+
+**WACC tax rate without a TTM rate (B-32).** Without a vendor ratio, the
+WACC's tax rate came only from the trailing four quarters' tax expense over
+pre-tax income. Procter & Gamble and Costco tag pre-tax income only annually,
+Intel and Snowflake had trailing pre-tax losses, and the levered WACC was
+withheld for all of them, with Costco's and Oracle's fair value behind it. The
+rate now falls back in a fixed order, each step named in the basis and in an
+info entry: on a trailing pre-tax loss, a 0% shield (a loss-maker gets no tax
+benefit from its interest); with no complete trailing pair, the latest annual
+tax expense over pre-tax income; on an annual pre-tax loss, a 0% shield. The
+existing 0–35% clamp still applies and is disclosed when it moves the rate.
+With neither a trailing nor an annual pair, the levered WACC is still
+withheld. Oracle tags no pre-tax total, only its domestic and foreign
+components, so on the SEC path pre-tax income is now their sum when no total
+is tagged, with the composition disclosed.
+
+**Principal beside carrying debt (B-5).** When an issuer reports no current
+debt, the debt check compares the filed debt aggregate
+(`DebtInstrumentCarryingAmount`, which many filers tag at principal) with the
+carrying components. It allowed one part per million, so Meta's 2024 notes
+($29.000B principal against $28.826B carrying, the gap being the tagged
+unamortized discount) and McDonald's June 2026 balance (0.09%) lost total
+debt, net debt and everything built on them. An aggregate above the
+components by up to 2% of them, or 50 million in the reporting currency,
+whichever is larger, is now read as unamortized discount and issuance cost
+and the components are admitted. Beyond that band total and net debt are
+still withheld, with a gap naming both figures. A tagged carrying total
+(`LongTermDebt` and the other aggregates of the B-14 check) stays at 1%: it is
+on the components' own basis, so only rounding can separate them. The band is
+a house convention.

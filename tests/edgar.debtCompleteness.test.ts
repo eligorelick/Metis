@@ -159,3 +159,27 @@ describe("CRWV saved debt facts must not publish a partial carrying total", () =
     }
   });
 });
+
+// Audit 2026-10-22 B-5, owner decision: a principal-type aggregate above the
+// carrying components by up to 2% of them, or 50 million in the reporting
+// currency, whichever is larger, is unamortized discount and issuance cost.
+describe("principal-versus-carrying tolerance (audit 2026-10-22 B-5)", () => {
+  it("admits the components within the band: META 2024 (0.6%) and MCD 2026-06-30 (0.09%)", () => {
+    expect(incompleteDebtReason({ longTermDebt: 28_826 * M }, 29_000 * M)).toBeNull();
+    expect(incompleteDebtReason({ longTermDebt: 39_863 * M }, 39_900 * M)).toBeNull();
+  });
+
+  it("is two-sided at 2% of the components: just inside admits, just outside withholds with both figures", () => {
+    expect(incompleteDebtReason({ longTermDebt: 10_000 * M }, 10_200 * M)).toBeNull();
+    expect(incompleteDebtReason({ longTermDebt: 10_000 * M }, 10_201 * M)).toMatch(/DebtInstrumentCarryingAmount 10201000000 exceeds the resolved financing components 10000000000/);
+  });
+
+  it("is two-sided at the 50 million floor for a small issuer", () => {
+    expect(incompleteDebtReason({ longTermDebt: 1_000 * M }, 1_050 * M)).toBeNull();
+    expect(incompleteDebtReason({ longTermDebt: 1_000 * M }, 1_051 * M)).toMatch(/exceeds the resolved financing components 1000000000/);
+  });
+
+  it("still withholds a genuinely incomplete composition", () => {
+    expect(incompleteDebtReason({ longTermDebt: 215.3 * M }, 17_784.94 * M)).toMatch(/incomplete debt carrying value/);
+  });
+});
