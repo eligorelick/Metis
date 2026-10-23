@@ -4670,25 +4670,38 @@ export interface ExcessReturnResult {
 }
 
 /**
- * Core: BV_t = BV_{t-1}(1 + ROE_t * retention); value = BV0 + sum PV(excess),
+ * Audit 2026-10-22 C-10 follow-through (owner decision, D-102): the payout the
+ * continuing value assumes. Residual income growing at g needs book growing at
+ * g, a retention of g / ROE_T, so the steady-state payout is 1 − g / ROE_T
+ * (Damodaran's stable-growth consistency), clamped to 0-100%. A terminal
+ * return at or below zero funds no payout.
+ */
+export function steadyStatePayoutPct(terminalRoePct: number, gPct: number): number {
+  if (terminalRoePct <= 0) return 0;
+  return Math.min(100, Math.max(0, (1 - gPct / terminalRoePct) * 100));
+}
+
+/**
+ * Core: BV_t = BV_{t-1}(1 + ROE_t * retention_t); value = BV0 + sum PV(excess),
  * plus — only when evidenced excess returns are carried past the horizon — the
  * continuing value of the year-N+1 residual income growing at g:
- * CV_N = (ROE_T − CoE) · BV_N / (CoE − g), discounted N years.
+ * CV_N = (ROE_T − CoE) · BV_N / (CoE − g), discounted N years. The payout is
+ * given per year (it fades to the steady state).
  */
 function excessReturnValue(
   bv0: number,
   roePathPct: number[],
   coePct: number,
-  payoutPct: number,
+  payoutPathPct: number[],
   continuing: { excessPp: number; gPct: number } | null = null,
 ): { equityValue: number; bookValuePath: number[]; continuingValuePv: number } {
   const coe = coePct / 100;
-  const retention = 1 - payoutPct / 100;
   const bookValuePath: number[] = [bv0];
   let bv = bv0;
   let pvExcess = 0;
   for (let t = 1; t <= roePathPct.length; t++) {
     const roe = roePathPct[t - 1] / 100;
+    const retention = 1 - payoutPathPct[t - 1] / 100;
     const excess = (roe - coe) * bv;
     pvExcess += excess / Math.pow(1 + coe, t);
     // A LOSS is retained in full. `roe * retention` on a negative ROE returns a
@@ -5049,8 +5062,18 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       : "TTM ROE";
   const roeBasis = `linear fade from ${startBasis} ${fmtNum(roeStart)}% to ${endBasis} by year ${years}`;
   const roePath = fadePath(roeStart, endRoe, years);
+  // C-10 follow-through (D-102): the payout fades from the three-year average
+  // in year 1 to the steady state of the terminal return in year N, so book
+  // grows at g when the continuing value starts. Holding the average flat
+  // compounded book at above-cost returns (PGR 6.5x) before the carry applied.
+  const payoutPathFor = (terminalRoePct: number): number[] => fadePath(payout, steadyStatePayoutPct(terminalRoePct, continuingG), years);
+  const steadyPayout = steadyStatePayoutPct(endRoe, continuingG);
+  const payoutPath = payoutPathFor(endRoe);
+  const payoutPathBasis =
+    `fades linearly from ${fmtNum(payout)}% in year 1 to ${fmtNum(steadyPayout)}% in year ${years}, the steady state ` +
+    `1 − g / terminal ROE = 1 − ${fmtNum(continuingG)}% / ${fmtNum(endRoe)}% at which book grows at g (clamped to 0-100%)`;
 
-  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payout, continuing);
+  const { equityValue, bookValuePath, continuingValuePv } = excessReturnValue(bv0, roePath, coe, payoutPath, continuing);
   const shares = posOrNull(inputs.dilutedShares);
   const perShare = shares !== null ? equityValue / shares : null;
   if (shares === null) {
@@ -5061,7 +5084,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   let startAlternative: ExcessReturnStartAlternative | undefined;
   const alt = inputs.startAlternative;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
-    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payout, continuing).equityValue;
+    const altValue = excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue;
     const differencePp = alt.roePct - roeStart;
     const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
     startAlternative = {
@@ -5108,12 +5131,12 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
     const perShareGrid = rows.map((row) => costOfEquityPcts.map((c) => {
       if (c === coe) {
-        return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payout, continuing).equityValue / shares);
+        return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, endRoe, years), coe, payoutPath, continuing).equityValue / shares);
       }
       const carry = evidencedPp > 0 && c - continuingG >= TV_GUARD_PP ? evidencedPp : 0;
       const target = overrideTerminal ? endRoe : c + carry;
       const cont = carry > 0 ? { excessPp: carry, gPct: continuingG } : null;
-      return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payout, cont).equityValue / shares);
+      return cell(excessReturnValue(row.bookValue, fadePath(row.startReturnPct, target, years), c, payoutPathFor(target), cont).equityValue / shares);
     }));
     startCoeGrid = {
       rows,
@@ -5126,7 +5149,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
           : evidencedPp > 0
             ? `each cell fades its start linearly over ${years} years to the column's cost of equity plus the ${fmtNum(evidencedPp)}pp evidenced excess, carried past year ${years} at ${fmtNum(continuingG)}% where the cost of equity clears that growth by ${TV_GUARD_PP}pp`
             : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
-        `payout ${fmtNum(payout)}% throughout; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
+        `payout fades from ${fmtNum(payout)}% to each cell's steady state (1 − g / its terminal ROE) by year ${years}; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
         "the centre cell is the headline value; a cell below zero is shown as 0, as the headline is",
       ],
     };
@@ -5169,7 +5192,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       // Fade to the SAME terminal target the forward path uses. Hard-wiring CoE
       // here re-opened the apples-to-apples defect this solve exists to close
       // whenever a caller overrode the terminal ROE.
-      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payout, continuing).equityValue - mcap;
+      excessReturnValue(bv0, fadePath(roe, endRoe, years), coe, payoutPath, continuing).equityValue - mcap;
     const fLo = f(lo);
     const fHi = f(hi);
     if (fLo > 0) {
@@ -5180,7 +5203,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
       const root = bisect(f, { lo, hi, fLo, fHi }, mcap);
       impliedCurrentRoePct = root;
       if (root !== null) {
-        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout ${fmtNum(payout)}%) matching market cap — comparable to the current ROE, same dynamics as the forward path`);
+        reverseNotes.push(`starting ROE fading to ${endBasis} over ${years} years (payout fading ${fmtNum(payout)}% → ${fmtNum(steadyPayout)}%) matching market cap — comparable to the current ROE, same dynamics as the forward path`);
       }
     }
   }
@@ -5208,6 +5231,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     continuingValueBasis: continuing === null
       ? overrideTerminal ? "caller terminal override affects the finite ROE path only; no continuing value was added" : "competitive fade to cost of equity; zero excess returns beyond the horizon"
       : `${evidenced!.basis}; residual income beyond year ${years} = terminal excess return x BV_N / (CoE - growth), discounted ${years} years; growth capped at ${TERMINAL_G_CAP_PCT}%${rfForG === null ? "; risk-free rate unavailable" : ` and risk-free ${fmtNum(rfForG)}%`}`,
+    payoutPathPct: payoutPath, steadyStatePayoutPct: steadyPayout, payoutPathBasis,
   };
   const pTbvVsRote = priceToTangibleBookVsRote(inputs, coe, payout);
   pTbvVsRote.basis += ` ${describeFinancialValuation(financialAssumptions)}`;
@@ -5221,7 +5245,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     perShare,
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },
-    payoutRatioPct: { value: payout, basis: payoutBasis },
+    payoutRatioPct: { value: payout, basis: `${payoutBasis}; the year-1 payout, which fades linearly to the steady-state ${fmtNum(steadyPayout)}% by year ${years} (1 − g / terminal ROE)` },
     horizonYears: {
       value: years,
       basis:

@@ -2989,14 +2989,16 @@ describe("financial forward assumption propagation", () => {
     const figures = payload.computed.find((section) => section.title === "Valuation (computed)")!.figures;
     expect(figures.find((figure) => figure.label === "terminal ROE")?.value).toBe(12.5);
     expect(figures.find((figure) => figure.label === "continuing residual-income growth")?.value).toBe(2.5);
-    expect(figures.find((figure) => figure.label === "continuing value (present value)")?.value).toBeCloseTo(321.969696969697, 8);
-    expect(serializePayloadForPrompt(payload)).toMatch(/continuing value 321\.97/i);
+    // Audit 2026-10-22 C-10 follow-through (D-102): a one-year horizon pays the
+    // steady state 1 − 2.5/12.5 = 80%, so BV1 = 1025 and CV = 0.025 x 1025 / 0.075 / 1.1.
+    expect(figures.find((figure) => figure.label === "continuing value (present value)")?.value).toBeCloseTo(310.6060606060606, 8);
+    expect(serializePayloadForPrompt(payload)).toMatch(/continuing value 310\.61/i);
   });
 
   it("states continuation in the data-only synthesis and existing route metrics", () => {
     const { bundle, computed } = financialInputs();
     const report = enrichDataOnlyReport(assemble(computed, judgeOutput()), { bundle, computed, reason: "offline fixture" });
-    expect(report.verdict.synthesis).toMatch(/continuing value 321\.97/i);
+    expect(report.verdict.synthesis).toMatch(/continuing value 310\.61/i);
     expect(report.routeMetrics?.notes.join(" ")).toMatch(/terminal ROE 12\.5%/i);
     expect(report.routeMetrics?.metrics.find((row) => row.key === "justifiedPTbv")?.basis).not.toMatch(/adds no continuing value/);
   });

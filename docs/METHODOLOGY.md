@@ -1386,7 +1386,7 @@ with, all printed as assumptions in their own right:
   earlier (the closing balance alone when no earlier balance sheet exists, as
   for the fiscal year), with `BV0` the equity at the window's end. Otherwise
   the latest fiscal year is the start. When the trailing start is used, the
-  fiscal-year start is valued with the same fade target, carry and payout from
+  fiscal-year start is valued with the same fade target, carry and payout path from
   its own fiscal-year book value, and whenever the two starts are more than
   **5pp** apart (house convention) that value is printed beside the headline
   and in the fair-value basis. COF's FY2025 ROTE of 4.2% (the Day-1 allowance on
@@ -1394,7 +1394,17 @@ with, all printed as assumptions in their own right:
   the trailing four quarters is the case that set the rule. Return and opening
   book value always share one dated basis; vendor total-equity ROE is never
   substituted into a common-equity valuation. Later
-  years compound at `ROE × retention`, where retention is `1 − payout`. A loss is
+  years compound at `ROE_t × retention_t`, where retention is `1 − payout_t`.
+  The payout fades linearly from the three-year average in year 1 to the
+  steady state `1 − g / ROE_T` in year `N`, clamped to 0–100% (a terminal
+  return at or below zero pays nothing). `ROE_T` is the terminal return (the
+  cost of equity plus any carried excess, else the cost of equity) and `g` the
+  continuing growth, `min(2.5%, risk-free)`. That is the payout at which book
+  grows at `g`, as the continuing value assumes (Damodaran's stable-growth
+  consistency). Held flat for ten years, PGR's 13% three-year payout compounded
+  book 6.5× at above-cost returns before the carry applied (owner decision,
+  audit 2026-10-22 C-10 follow-through, D-102). The path is stated in the
+  valuation note and the payout basis. A loss is
   retained in full: `roe × retention` on a negative ROE would return a fraction
   of the loss to book value, which is arithmetically a capital injection.
 - **Common earnings and payout** — use filed income available to common first;
@@ -1429,8 +1439,9 @@ model starts from the trailing window and a fiscal-year start exists, that
 start replaces the shifted row on its side and starts from its own
 fiscal-year book value. Each column moves the discount rate and the fade target
 together: the carried evidenced excess is held, and dropped where the same
-2pp `CoE − g` guard fails. Horizon and payout stay the headline's, so the
-centre cell is the headline value and the fiscal-year row at the base cost of
+2pp `CoE − g` guard fails. The horizon and the year-1 payout stay the
+headline's, and each column's payout fades to its own steady state
+`1 − g / ROE_T`, so the centre cell is the headline value and the fiscal-year row at the base cost of
 equity is the value printed beside it. A cell below zero shows 0, as the
 headline does (limited liability). Each cell is a citeable payload figure,
 and the scenario section's sensitivity conclusion reads this grid on the

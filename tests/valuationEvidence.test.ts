@@ -178,14 +178,17 @@ describe("financial forward assumptions", () => {
   const durable = [2021, 2022, 2023, 2024, 2025].map((year) => ({ date: `${year}-12-31`, roicPct: 15, waccPct: 10 }));
 
   it("reports actual continuation in the stable-growth comparison without changing value", () => {
+    // Audit 2026-10-22 C-10 follow-through (D-102): a one-year horizon pays the
+    // steady state 1 − 2.5/12.5 = 80%, so BV1 = 1025 and CV = 0.025 x 1025 / 0.075 / 1.1
+    // = 310.606...; value 1000 + 25/1.1 + 310.606... = 1333.33...
     const result = excessReturnModel({ ...base, years: 1, roeHistory: durable, riskFreePct: 4 });
-    expect(result.equityValue).toBeCloseTo(1_344.6969696969697, 8);
+    expect(result.equityValue).toBeCloseTo(1_333.3333333333333, 8);
     expect(result.priceToTangibleBookVsRote.basis).not.toMatch(/adds no continuing value/);
-    expect(result.priceToTangibleBookVsRote.basis).toMatch(/continuing value.*321\.97/i);
+    expect(result.priceToTangibleBookVsRote.basis).toMatch(/continuing value.*310\.61/i);
     const assumptions = (result as unknown as { financialAssumptions?: Record<string, number> }).financialAssumptions;
     expect(assumptions?.terminalRoePct).toBe(12.5);
     expect(assumptions?.terminalGrowthPct).toBe(2.5);
-    expect(assumptions?.continuingValuePv).toBeCloseTo(321.969696969697, 8);
+    expect(assumptions?.continuingValuePv).toBeCloseTo(310.6060606060606, 8);
   });
 
   it("accurately states zero continuation for a finite competitive fade", () => {
