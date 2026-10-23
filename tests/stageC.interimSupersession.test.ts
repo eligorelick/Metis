@@ -45,6 +45,7 @@ describe("a newer 10-Q's update of a 10-K operating figure (audit 2026-10-22 C-1
     expect(operatingMeasuresStated("In fiscal 2026, customers grew. In 2025 customers renewed.")).toEqual([]);
     expect(operatingMeasuresStated("The plants generated 4,500 megawatt-hours and 12 gigawatt hours.")).toEqual([]);
     expect(operatingMeasuresStated("The contract has two units of account.")).toEqual([]);
+    expect(operatingMeasuresStated("We operate through three operating units, four geographic units and two reportable units.")).toEqual([]);
     expect(operatingMeasuresStated("We added 2,000 customers and 1,200 MW.").map((m) => m.name)).toEqual(["megawatts", "customers"]);
   });
 

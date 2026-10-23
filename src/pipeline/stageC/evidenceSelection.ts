@@ -231,8 +231,8 @@ const OPERATING_MEASURES: readonly OperatingMeasure[] = [
   { name: "backlog", pattern: /\bbacklog\b[^.]{0,80}?\$\s?\d|\$\s?[\d.,]+\s*(?:billion|million)\s+(?:of\s+)?backlog\b/i },
   { name: "customers", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:\w+\s+)?customers\b`, "i") },
   { name: "subscribers", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:\w+\s+)?(?:subscribers|paid memberships|paid members|paying members)\b`, "i") },
-  // Physical units, not goodwill reporting units, units of account or stock, performance and partnership units.
-  { name: "units", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:(?!(?:reporting|business|stock|share|performance|restricted|partnership|LP|OP|common)\b)\w+\s+)?units\b(?!\s+of\s+account)`, "i") },
+  // Physical units, not goodwill reporting units, organizational units, units of account or stock, performance and partnership units.
+  { name: "units", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:(?!(?:reporting|reportable|operating|geographic|organizational|business|stock|share|performance|restricted|partnership|LP|OP|common)\b)\w+\s+)?units\b(?!\s+of\s+account)`, "i") },
 ];
 /** The operating measures a (10-K) text states with a count, in table order. */
 export function operatingMeasuresStated(text: string): OperatingMeasure[] {

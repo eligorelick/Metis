@@ -3184,8 +3184,8 @@ excerpts' (Item 1 and Item 7 as selected for the payload), the operating
 measures those excerpts state with a count are now read: gigawatts and
 megawatts of capacity (not megawatt-hours), backlog (with a dollar amount),
 customers, subscribers or paid members, and physical units (not goodwill
-reporting units, units of account or stock, performance and partnership
-units). A count ends in a digit or is a number word; a bare year ("in 2025
+reporting units, operating, geographic, reportable or organizational units,
+units of account or stock, performance and partnership units). A count ends in a digit or is a number word; a bare year ("in 2025
 customers") is not one. The 10-Q passages stating a count of the same measure
 are kept first, one per measure in turn and in source order, within 15% of
 the same 12,000-character budget, displacing lower-ranked text; the budget
