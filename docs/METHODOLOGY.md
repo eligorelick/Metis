@@ -3051,7 +3051,8 @@ vendor statement figure is checked against the filed SEC figure for the same
 period: revenue, cost of revenue, gross profit and operating expenses; cash,
 cash-flow totals, operating cash flow and short-term investment flows; lease
 liabilities; debt lines against the same filing; and temporary-equity
-operands. The check allowed one part in ten billion, so Meta's December 2025
+operands, including the recheck of operating cash flow against a filed
+cash-investment period. The check allowed one part in ten billion, so Meta's December 2025
 quarter (vendor revenue $59,894M, filed $59,893M) was refused as a conflict,
 the quarter's revenue was nulled and the trailing basis fell back to the
 annual statement. The two figures now agree when they differ by no more than
