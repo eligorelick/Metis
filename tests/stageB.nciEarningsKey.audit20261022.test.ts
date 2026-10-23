@@ -210,6 +210,17 @@ describe("E-5: the earnings key's inputs", () => {
     expect(noncontrollingEarningsInput({ ...ttm, netIncomeAttributableToNoncontrollingInterest: null }, annual)).toMatchObject({ basis: "annual" });
   });
 
+  it("does not read a zero NCI income without field evidence as an established 0% share", () => {
+    // A vendor row can emit an omitted field as 0; only a filed zero sizes the key.
+    const zeroTtm = { ...ttm, netIncomeAttributableToNoncontrollingInterest: 0 };
+    const zeroAnnual = { ...annual, netIncomeAttributableToNoncontrollingInterest: 0 };
+    expect(noncontrollingEarningsInput(zeroTtm, zeroAnnual)?.noncontrollingIncome).toBeNull();
+    expect(noncontrollingEarningsInput({ ...zeroTtm, noncontrollingIncomeEvidenced: true }, zeroAnnual)).toMatchObject({ basis: "ttm", noncontrollingIncome: 0 });
+    expect(noncontrollingEarningsInput(zeroTtm, { ...zeroAnnual, noncontrollingIncomeEvidenced: true })).toMatchObject({ basis: "annual", noncontrollingIncome: 0 });
+    // A nonzero figure stands on its own.
+    expect(noncontrollingEarningsInput(ttm, annual)).toMatchObject({ basis: "ttm", noncontrollingIncome: 30 });
+  });
+
   it("falls back to the fiscal year when the trailing window is complete but cannot size the key", () => {
     // A trailing consolidated loss, and NCI income above consolidated profit.
     expect(noncontrollingEarningsInput({ ...ttm, netIncome: -5, netIncomeAttributableToNoncontrollingInterest: 2 }, annual)).toMatchObject({ basis: "annual", noncontrollingIncome: 25 });

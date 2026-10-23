@@ -36,7 +36,7 @@ export interface ReturnPathLanguageInput {
 }
 
 // A rise in returns ...
-const RECOVERY_WORD = /\b(?:recover(?:s|y|ies|ing|ed)?|rebound(?:s|ing|ed)?|ris(?:e|es|ing)|improv(?:e|es|ing|ement)|climb(?:s|ing)?|rebuild(?:s|ing)?)\b/i;
+const RECOVERY_WORD = /\b(?:recover(?:s|y|ies|ing|ed)?|rebound(?:s|ing|ed)?|ris(?:e|es|ing|en)|rose|improv(?:e|es|ed|ing|ement)|climb(?:s|ed|ing)?|rebuil(?:d|ds|ding|t))\b/i;
 // ... toward the cost of equity, or along the model's "recovery path".
 // Sentences are already split, so a decimal ("10.4%") may sit between the two.
 // A return that rises to a level "above" or "exceeding" the cost of equity is
@@ -56,15 +56,19 @@ export function returnPathLanguageFindings(input: ReturnPathLanguageInput): Retu
       .map((sentence) => ({ path, sentence })));
 }
 
-/** The verdict and the base scenario: the text a reader takes the conclusion from. */
+/**
+ * The verdict and the base scenario: the text a reader takes the conclusion
+ * from. Scenario presentation keeps the commentary, else the legacy
+ * assumptions under the commentary's name, and replaces the assumptions with
+ * the model's own; only the text the report keeps is read, under that name.
+ */
 function baseCaseTexts(judge: Pick<JudgeOutput, "verdict" | "valuation">): ReturnPathText[] {
   const texts: ReturnPathText[] = [{ path: "verdict.synthesis", text: judge.verdict.synthesis }];
   (judge.verdict.executiveSummary ?? []).forEach((claim, i) => texts.push({ path: `verdict.executiveSummary[${i}]`, text: claim.text }));
   judge.valuation.scenarios.forEach((scenario, i) => {
     if (scenario.name !== "base") return;
-    for (const key of ["assumptions", "qualitativeCommentary", "whatWouldHaveToBeTrue"] as const) {
-      (scenario[key] ?? []).forEach((text, j) => texts.push({ path: `valuation.scenarios[${i}].${key}[${j}]`, text }));
-    }
+    (scenario.qualitativeCommentary ?? scenario.assumptions).forEach((text, j) => texts.push({ path: `valuation.scenarios[${i}].qualitativeCommentary[${j}]`, text }));
+    scenario.whatWouldHaveToBeTrue.forEach((text, j) => texts.push({ path: `valuation.scenarios[${i}].whatWouldHaveToBeTrue[${j}]`, text }));
   });
   return texts;
 }
@@ -77,16 +81,24 @@ export function returnPathLanguageManifestEntries(
   computed: Pick<ComputedMetrics, "returns" | "valuation">,
 ): ManifestEntry[] {
   const valuation = computed.valuation;
+  if (valuation?.kind !== "excess-return") return [];
+  const er = valuation.excessReturn;
+  // The start the model actually used: its path's first year. That is the
+  // trailing return only when the model started from the trailing window.
+  const start = er.roePathPct.value[0];
+  if (start === undefined || !Number.isFinite(start)) return [];
   const ttm = computed.returns?.commonReturnTtm;
-  if (valuation?.kind !== "excess-return" || ttm == null || ttm.returnPct === null) return [];
-  const target = valuation.excessReturn.financialAssumptions?.terminalRoePct ?? null;
-  const label = ttm.basis === "tangible-common-equity" ? "trailing four-quarter ROTE" : "trailing four-quarter common-equity ROE";
-  const findings = returnPathLanguageFindings({ texts: baseCaseTexts(judge), trailing: { returnPct: ttm.returnPct, asOf: ttm.asOf, label }, terminalTargetPct: target });
+  const fromTrailing = ttm != null && ttm.returnPct !== null && ttm.asOf !== null && ttm.asOf === er.asOf && Math.abs(ttm.returnPct - start) < 1e-9;
+  const target = er.financialAssumptions?.terminalRoePct ?? null;
+  const label = fromTrailing
+    ? `${ttm.basis === "tangible-common-equity" ? "trailing four-quarter ROTE" : "trailing four-quarter common-equity ROE"} to ${ttm.asOf}`
+    : `model's fiscal-year start${er.asOf === null ? "" : ` (${er.asOf})`}`;
+  const findings = returnPathLanguageFindings({ texts: baseCaseTexts(judge), trailing: { returnPct: start, asOf: er.asOf, label }, terminalTargetPct: target });
   if (findings.length === 0 || target === null) return [];
   return [{
     field: "verify.check.returnPath",
-    reason: `${findings.length} sentence(s) describe returns recovering toward the cost of equity, but the ${label}${ttm.asOf === null ? "" : ` to ${ttm.asOf}`} ` +
-      `of ${fmt(ttm.returnPct)}% already exceeds the excess-return model's terminal target of ${fmt(target)}%, so the base path starts above where it ends: ` +
+    reason: `${findings.length} sentence(s) describe returns recovering toward the cost of equity, but the ${label} ` +
+      `of ${fmt(start)}% already exceeds the excess-return model's terminal target of ${fmt(target)}%, so the base path starts above where it ends: ` +
       findings.map((f) => `"${f.sentence}" (${f.path})`).join("; "),
     severity: "warn",
     attemptedSources: ["deterministic-verify"],

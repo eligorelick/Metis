@@ -912,7 +912,9 @@ used, the book figure beside it. The DCF notes name the basis that was not used.
 When a noncontrolling interest is on the balance sheet but its share of trailing
 profit cannot be established, the DCF per-share value is withheld with a
 `valuation.dcf.noncontrollingEarningsKey` warning. That covers four cases, in
-both the trailing window and the fiscal year: no NCI income, no consolidated
+both the trailing window and the fiscal year: no NCI income (a zero counts only when a
+filing reports it, in every quarter of the window or in the fiscal year: the
+vendor feed can report an omitted figure as 0), no consolidated
 profit, consolidated profit that is not positive, or NCI income above
 consolidated profit (the parent's own share negative, so the share is no claim
 on value). When an earlier gate (diluted shares, net debt) already withheld the
@@ -1356,7 +1358,9 @@ with, all printed as assumptions in their own right:
   `BusinessCombinationConsiderationTransferred(1)`,
   `BusinessAcquisitionCostOfAcquiredEntityPurchasePrice` or
   `FinancingReceivableAllowanceForCreditLossesAcquiredWithDeterioratedCreditQuality`
-  (the Day-1 allowance on purchased credit-deteriorated loans) facts, is at
+  (the Day-1 allowance on purchased credit-deteriorated loans) facts, read
+  from a 10-K, 20-F or 40-F or an amendment (a restated year's figure from the
+  latest filing), is at
   least **10% of the opening common equity** — a house threshold, not a
   standard (`src/pipeline/stageB/excessReturnStart.ts`). That carried spread is valued past year `N` as
   residual income growing at `min(2.5%, risk-free)`:
@@ -1432,9 +1436,12 @@ headline does (limited liability). Each cell is a citeable payload figure,
 and the scenario section's sensitivity conclusion reads this grid on the
 excess-return route, on the same rules as the DCF grids. A Stage C check
 (`src/pipeline/stageC/returnPathLanguage.ts`) reads the verdict and the base
-scenario: when the trailing return already exceeds the model's terminal
-target, a sentence describing returns rising, recovering or improving toward
-the cost of equity (or along a "recovery path") misdescribes current data,
+scenario as the report shows it (its commentary, else the legacy assumptions,
+and what would have to be true). When the return the model starts from (the
+trailing return, or the fiscal year's when the model started there) already
+exceeds its terminal target, a sentence describing returns rising, recovering
+or improving, in any tense, toward the cost of equity (or along a "recovery
+path") misdescribes current data,
 and each one is named in a `verify.check.returnPath` warning in the
 missing-data manifest. A sentence that has returns rise to a level above or
 exceeding the cost of equity is not flagged. The sentence itself is not rewritten.

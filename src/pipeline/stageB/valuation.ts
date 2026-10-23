@@ -2653,6 +2653,8 @@ export interface NoncontrollingEarningsRow {
   netIncomeConsolidated?: number | null;
   netIncomeOwnershipBasis?: "parent" | "consolidated";
   netIncomeAttributableToNoncontrollingInterest?: number | null;
+  /** The NCI income came from a filed fact (every quarter of a window); a vendor row can emit an omitted field as 0. */
+  noncontrollingIncomeEvidenced?: boolean;
 }
 
 /**
@@ -2664,7 +2666,9 @@ export interface NoncontrollingEarningsRow {
 export function noncontrollingEarningsInput(ttm: NoncontrollingEarningsRow | null, annual: NoncontrollingEarningsRow | null): NonNullable<ValuationBundleInputs["noncontrollingEarnings"]> | null {
   const read = (row: NoncontrollingEarningsRow | null, basis: "ttm" | "annual") => {
     if (row === null) return null;
-    const nci = isNum(row.netIncomeAttributableToNoncontrollingInterest) ? row.netIncomeAttributableToNoncontrollingInterest : null;
+    const reported = isNum(row.netIncomeAttributableToNoncontrollingInterest) ? row.netIncomeAttributableToNoncontrollingInterest : null;
+    // A zero establishes a 0% share only when a filing reports it.
+    const nci = reported === 0 && row.noncontrollingIncomeEvidenced !== true ? null : reported;
     const net = isNum(row.netIncome) ? row.netIncome : null;
     const consolidatedProfit = isNum(row.netIncomeConsolidated) ? row.netIncomeConsolidated
       : row.netIncomeOwnershipBasis === "consolidated" ? net

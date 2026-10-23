@@ -13,7 +13,7 @@
  * Pure, deterministic TypeScript: no network, no DB, no LLM.
  */
 
-import { tagPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, dedupByPeriod, tagPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { BALANCE_MATCH_TOLERANCE_DAYS, tangibleCommonEquity, type ReturnsBalanceRow } from "@/pipeline/stageB/returns";
 import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
@@ -145,20 +145,23 @@ export function computeTtmCommonReturn(input: {
   };
 }
 
+/** The annual forms the extractor trusts: 10-K, 20-F and 40-F, with their amendments. */
+const ANNUAL_FACT_FORMS = new Set([...CORE_FACT_FORMS].filter((form) => !form.startsWith("10-Q")));
+
 function annualDurationTotal(facts: CompanyFacts, tag: string, fiscalYearEnd: string): number | null {
   const tp = tagPoints(facts, tag, "USD");
   if (tp === null) return null;
   const end = Date.parse(fiscalYearEnd);
-  let best: number | null = null;
-  for (const p of tp.points) {
-    if (!p.form.startsWith("10-K") || p.start === undefined) continue;
+  let best: FactPoint | null = null;
+  // Restated comparatives carry the same period; the latest filing is the year's figure (the extractor's dedup rule).
+  for (const p of dedupByPeriod(tp.points.filter((point) => ANNUAL_FACT_FORMS.has(point.form.trim())))) {
+    if (p.start === undefined) continue;
     const pEnd = Date.parse(p.end);
     const days = (pEnd - Date.parse(p.start)) / DAY_MS;
     if (Math.abs(pEnd - end) / DAY_MS > 10 || days < 330 || days > 400) continue;
-    // Restated comparatives carry the same period; the largest is the year's figure.
-    if (best === null || p.val > best) best = p.val;
+    if (best === null || p.filed > best.filed || (p.filed === best.filed && p.accn > best.accn)) best = p;
   }
-  return best;
+  return best?.val ?? null;
 }
 
 /**

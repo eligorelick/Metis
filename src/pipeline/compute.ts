@@ -746,6 +746,8 @@ export interface TtmIncome {
   netIncome: number | null;
   netIncomeConsolidated?: number | null;
   netIncomeAttributableToNoncontrollingInterest?: number | null;
+  /** Every quarter's NCI income came from a filed fact (field provenance), not a vendor default. */
+  noncontrollingIncomeEvidenced?: boolean;
   /** Complete four-quarter common-holder flow; never the latest quarter alone. */
   netIncomeAvailableToCommon?: number | null;
   commonIncomeWithheldReason?: string | null;
@@ -1251,6 +1253,7 @@ function ttmIncomeFromNormalized(
     netIncome: commonWindow.netIncome,
     netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
     netIncomeAttributableToNoncontrollingInterest: commonWindow.noncontrollingIncome,
+    noncontrollingIncomeEvidenced: q.every((row) => row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest != null),
     netIncomeAvailableToCommon: commonWindow.netIncomeAvailableToCommon,
     commonIncomeWithheldReason: commonWindow.commonIncomeWithheldReason,
     netIncomeWithheldReason: commonWindow.netIncomeWithheldReason,
@@ -3706,11 +3709,13 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       ttmInc === null ? null : {
         date: ttmInc.date, netIncome: ttmInc.netIncome, netIncomeConsolidated: ttmInc.netIncomeConsolidated ?? null,
         netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis, netIncomeAttributableToNoncontrollingInterest: ttmInc.netIncomeAttributableToNoncontrollingInterest ?? null,
+        noncontrollingIncomeEvidenced: ttmInc.noncontrollingIncomeEvidenced,
       },
       inc0 === undefined ? null : {
         date: isoDay(inc0.date), netIncome: num(inc0.netIncome), netIncomeConsolidated: num(inc0.netIncomeConsolidated),
         netIncomeOwnershipBasis: commonIncomeEvidence(inc0, "annual").netIncomeOwnershipBasis,
         netIncomeAttributableToNoncontrollingInterest: num(inc0.netIncomeAttributableToNoncontrollingInterest),
+        noncontrollingIncomeEvidenced: inc0.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest != null,
       },
     ),
     // WS6 (D-19): the DCF equity bridge follows the same lease convention.

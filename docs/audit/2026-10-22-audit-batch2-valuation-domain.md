@@ -145,6 +145,19 @@ Not changed from that pass:
 
 Not changed: the review noted that `businessCombinationYears` reads each tag once per year. That is at most 5 years × 4 tags on the financial route, too small to matter.
 
+The Codex review of the pushed branch found six more, all valid, fixed test-first in the next commit:
+
+| Finding | Fix |
+|---|---|
+| (P1) A zero NCI income was read as an established 0% share. The vendor feed can report an omitted figure as 0, so book NCI could be deducted with no evidence of the profit share. | A zero counts only when a filing reports it: EDGAR field provenance on every quarter of the trailing window, or on the fiscal year. Otherwise that period cannot size the key, and the fiscal-year fallback and the withhold apply as before. A nonzero figure is unchanged. |
+| Acquisition facts were read only from 10-K forms, so a 20-F or 40-F filer's business-combination year was never found. | They are read from the annual forms the extractor trusts: 10-K, 20-F and 40-F, with amendments. |
+| A restated acquisition figure was read as the largest value for the period, so an original 400 restated to 40 still flagged the year. | The period's latest filing wins (the extractor's dedup rule, then the accession number on a same-day tie). |
+| The return-path check read the legacy assumptions even when the report keeps the commentary, which replaces them. | It reads the commentary, else the assumptions, under the commentary's name (as presentation does), and what would have to be true. |
+| The check compared the language with the trailing return even when the model started from the fiscal year (the trailing window not newer), and did not run without a trailing return. | It compares with the model's first-year return and names it: the trailing window when the model started there, else "the model's fiscal-year start". |
+| Past-tense verbs (improved, rose, climbed, rebuilt, risen) were not recognized. | They are. |
+
+The replay was rerun on the fix: no figure, status or NCI basis moved, and no DCF is newly withheld.
+
 ## Owner decisions
 
 - Scope: C-10, B-29, C-11, E-5 and B-30, in the order B-29, C-10, C-11, E-5, B-30. B-30 is the base-rate disclosure only.

@@ -18,7 +18,7 @@ import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
 import { excessReturnModel, type ExcessReturnInputs } from "@/pipeline/stageB/valuation";
 import { assembleReport } from "@/pipeline/stageC/passes";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
-import { returnPathLanguageFindings } from "@/pipeline/stageC/returnPathLanguage";
+import { returnPathLanguageFindings, returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathLanguage";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import { valuationAuditTables } from "@/report/auditTables";
 import { buildScenarioPresentation } from "@/report/scenarioPresentation";
@@ -191,6 +191,21 @@ describe("C-11: base-case language about returns recovering toward the cost of e
     expect(findings).toEqual([]);
   });
 
+  it("recognizes past-tense recovery verbs", () => {
+    const findings = returnPathLanguageFindings({
+      texts: [
+        { path: "a", text: "Returns improved toward the cost of equity." },
+        { path: "b", text: "ROTE rose toward the 10.4% cost of equity." },
+        { path: "c", text: "Returns climbed toward the CoE." },
+        { path: "d", text: "Capital was rebuilt toward the cost of equity." },
+        { path: "e", text: "Returns have risen toward the cost of equity." },
+      ],
+      trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM ROTE" },
+      terminalTargetPct: 12.8,
+    });
+    expect(findings.map((f) => f.path)).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
   it("ignores sentences that do not describe a recovery toward the cost of equity", () => {
     const findings = returnPathLanguageFindings({
       texts: [
@@ -222,5 +237,42 @@ describe("C-11: base-case language about returns recovering toward the cost of e
     base.assumptions = ["Credit costs normalise."];
     const clean = assembleReport({ symbol: bundle.symbol, bundle, computed, judgeOutput: judge, model: "synthetic-test", costEntries: [], verify: { verificationRate: null, log: [] } }, bundle.builtAt);
     expect(clean.appendix.missingData.some((gap) => gap.field === "verify.check.returnPath")).toBe(false);
+  });
+
+  it("reads only the scenario text the report keeps: commentary, else the legacy assumptions", () => {
+    const computed = runStageB(buildSyntheticRouteBundle("bank"));
+    const judge = loadTask28Fixture() as JudgeOutput;
+    const base = judge.valuation.scenarios.find((s) => s.name === "base")!;
+    // Presentation keeps the commentary and replaces the assumptions, so a sentence only there is never shown.
+    base.qualitativeCommentary = ["Credit costs normalise."];
+    base.assumptions = [sentence];
+    expect(returnPathLanguageManifestEntries(judge, computed)).toEqual([]);
+    // Without commentary the assumptions become the commentary, and are read under that name.
+    base.qualitativeCommentary = undefined;
+    const entry = returnPathLanguageManifestEntries(judge, computed)[0];
+    expect(entry?.reason).toContain(sentence);
+    expect(entry?.reason).toMatch(/qualitativeCommentary\[0\]/);
+  });
+
+  it("compares the language with the start the model used, not an unused trailing return", () => {
+    const computed = runStageB(buildSyntheticRouteBundle("bank"));
+    if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
+    const er = computed.valuation.excessReturn;
+    const target = er.financialAssumptions!.terminalRoePct;
+    const judge = loadTask28Fixture() as JudgeOutput;
+    const base = judge.valuation.scenarios.find((s) => s.name === "base")!;
+    base.qualitativeCommentary = [sentence];
+    // The model started from a fiscal year below its target (the trailing window was not newer).
+    const fiscalStart = structuredClone(computed);
+    if (fiscalStart.valuation.kind !== "excess-return") throw new Error("expected the bank route");
+    fiscalStart.valuation.excessReturn.roePathPct.value = er.roePathPct.value.map((_, i, a) => target - 2 + (2 * i) / (a.length - 1));
+    fiscalStart.valuation.excessReturn.asOf = "2025-12-31";
+    expect(fiscalStart.returns.commonReturnTtm!.returnPct!).toBeGreaterThan(target);
+    expect(returnPathLanguageManifestEntries(judge, fiscalStart)).toEqual([]);
+    // A fiscal-year start above the target is flagged, and named as the fiscal-year start.
+    fiscalStart.valuation.excessReturn.roePathPct.value = er.roePathPct.value.map((_, i, a) => target + 6 - (6 * i) / (a.length - 1));
+    const entry = returnPathLanguageManifestEntries(judge, fiscalStart)[0];
+    expect(entry?.reason).toMatch(/the model's fiscal-year start/);
+    expect(entry?.reason).not.toMatch(/trailing/);
   });
 });

@@ -244,4 +244,29 @@ describe("C-10: TTM common return and business-combination evidence", () => {
     expect(BUSINESS_COMBINATION_MATERIALITY_PCT).toBe(10);
     expect(businessCombinationYears(null, annual).get("2025-12-31")).toMatch(/goodwill rose 135/);
   });
+
+  const flatGoodwill = [
+    { date: "2025-12-31", totalStockholdersEquity: 1100, goodwill: 15, intangibleAssets: 5, preferredStock: 20 },
+    { date: "2024-12-31", totalStockholdersEquity: 700, goodwill: 15, intangibleAssets: 5, preferredStock: 20 },
+  ];
+  const considerationFacts = (points: object[]): CompanyFacts => ({
+    cik: 1, entityName: "Fixture Bancorp", facts: { "us-gaap": { BusinessCombinationConsiderationTransferred1: { units: { USD: points } } } },
+  });
+  const fy2025 = { start: "2025-01-01", end: "2025-12-31", fy: 2025, fp: "FY" };
+
+  it("reads acquisition facts from every supported annual form, 20-F and 40-F included", () => {
+    for (const form of ["20-F", "20-F/A", "40-F"]) {
+      const years = businessCombinationYears(considerationFacts([{ ...fy2025, val: 400, accn: "f", form, filed: "2026-03-01" }]), flatGoodwill);
+      expect(years.get("2025-12-31")).toMatch(/BusinessCombinationConsiderationTransferred1 400/);
+    }
+    // Quarterly and other forms still do not count.
+    expect(businessCombinationYears(considerationFacts([{ ...fy2025, val: 400, accn: "q", form: "8-K", filed: "2026-03-01" }]), flatGoodwill).has("2025-12-31")).toBe(false);
+  });
+
+  it("takes the latest filing of a restated acquisition figure, not the largest", () => {
+    const original = { ...fy2025, val: 400, accn: "a1", form: "10-K", filed: "2026-02-01" };
+    const restated = { ...fy2025, val: 40, accn: "a2", form: "10-K", filed: "2027-02-01" };
+    expect(businessCombinationYears(considerationFacts([original, restated]), flatGoodwill).has("2025-12-31")).toBe(false);
+    expect(businessCombinationYears(considerationFacts([restated, original]), flatGoodwill).has("2025-12-31")).toBe(false);
+  });
 });
