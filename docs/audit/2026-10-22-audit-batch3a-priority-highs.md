@@ -48,6 +48,10 @@ A fresh reviewer read the batch's diff without the author's reasoning; after the
 | Codex re-pass, B-8: a worded multiple ("twice the dividends") left the classes at equal weight | Fixed: worded multiples and fractions refuse the scope | `31e9398` |
 | Codex re-pass, A-11: the IREN cash-investment pass rechecked vendor CFO near-exactly and nulled CFO and FCF the new tolerance admits | Fixed: the recheck uses the shared comparator | `ab031f8` |
 | Codex re-pass, B-24: an ordinal guidance heading kept a compact title ("Q2 2026 Update") from dating the release | Fixed | `75306aa` |
+| Codex third pass, B-24: the headline reader took next-quarter guidance ("Third quarter revenue of $1.4 billion is expected") as the quarter's revenue | Fixed: the headline skips a sentence with an outlook word, sharing one vocabulary with the results check | `4101e9a` |
+| Codex third pass, B-24: "raising our full-year diluted EPS range to $3.10 to $3.20" counted as stated results | Fixed: raise, range, reaffirm and reiterate are outlook words | `4101e9a` |
+| Codex third pass, C-16: "three operating units" was read as a physical-unit count | Fixed: operating, geographic, reportable and organizational units are excluded | `1f7b533` |
+| Codex third pass, A-11: the convertible-subtype coverage check compared the vendor's noncurrent debt with the filed subtype near-exactly | Fixed: the vendor path uses the shared comparator; the SEC path stays near-exact | `6986a62` |
 | Stage C payload states the quote's market cap without a class caveat when the scope is unresolved | Left for later: a payload-only wording change, outside this batch's findings | none |
 
 ## Left for later
