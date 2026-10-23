@@ -175,6 +175,16 @@ The Codex review of the pushed branch found six more, all valid, fixed test-firs
 
 The replay was rerun on the fix: no figure, status or NCI basis moved, and no DCF is newly withheld.
 
+The Codex review of the payout fade found three more, in code from earlier in the batch, all valid and fixed test-first:
+
+| Finding | Fix |
+|---|---|
+| (P1) A trailing NCI income sum was accepted when one quarter was a vendor zero and the others were nonzero, so the sum could omit a quarter and understate the share. | A window with any quarter reporting zero NCI income without a filed fact cannot size the key; the fiscal year sizes it, else the per-share value is withheld. A window of nonzero quarters is unchanged. |
+| (P2) A zero book NCI skipped the earnings key, so positive NCI income left all consolidated equity value to common holders. | Positive NCI income establishes the claim on its own: the key applies at book zero (the profit share above 10% is deducted), and NCI income with no consolidated profit to size it withholds the per-share value. |
+| (P1) The trailing ROTE or common ROE read the quarterly income even when its currency differed from the annual statement, dividing it by balances in the model currency. | The trailing return reads the same currency-gated window as the valuation; a window in another currency leaves the model on the fiscal-year start. |
+
+The replay was rerun on the fix: every Stage B output is byte-identical to the payout-fade run, and COF's snapshot stays at $155.43.
+
 ## Owner decisions
 
 - Scope: C-10, B-29, C-11, E-5 and B-30, in the order B-29, C-10, C-11, E-5, B-30. B-30 is the base-rate disclosure only.

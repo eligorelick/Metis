@@ -14,11 +14,14 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { ttmIncome } from "@/pipeline/compute";
 import { computeDcfDisplay, computeFairValue } from "@/pipeline/stageB/fairValue";
 import { NCI_EARNINGS_KEY_MATERIALITY_PCT, noncontrollingEarningsInput, valueCompany, type DcfAssumptionInputs, type MultiplesFrameworkInputs, type ValuationBundleInputs } from "@/pipeline/stageB/valuation";
 import { valuationAuditTables } from "@/report/auditTables";
 import { fixedBridgeMinorityText } from "@/report/scenarioPresentation";
 import type { CompanyRoute } from "@/types/core";
+
+import { currencyBundle } from "./helpers/currencyBundle";
 
 const route: CompanyRoute = { base: "general", overlays: [], evidence: { sector: null, industry: null } };
 
@@ -150,6 +153,22 @@ describe("E-5: NCI on the earnings key", () => {
     expect(v.dcf!.equityValue!).toBeCloseTo(consolidated, 6);
     expect(v.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(false);
   });
+
+  it("applies the earnings key when book NCI is zero but NCI earns a share of profit", () => {
+    // A zero book balance does not negate the outside claim the income shows (Codex review, PR #49).
+    const v = dcfOf({ minorityInterest: 0, noncontrollingEarnings: { noncontrollingIncome: 30, consolidatedProfit: 100, asOf: "2026-06-30" } });
+    expect(v.dcf!.bridge.noncontrollingEarningsShare).toBeCloseTo(0.3, 12);
+    expect(v.dcf!.bridge.noncontrollingDeducted).toBeCloseTo(0.3 * consolidated, 6);
+    expect(v.dcf!.equityValue!).toBeCloseTo(0.7 * consolidated, 6);
+    // At or under the threshold the deduction stays at book, here zero, and the share is stated.
+    const small = dcfOf({ minorityInterest: 0, noncontrollingEarnings: { noncontrollingIncome: 8, consolidatedProfit: 100, asOf: "2026-06-30" } });
+    expect(small.dcf!.equityValue!).toBeCloseTo(consolidated, 6);
+    expect(small.dcf!.notes.join(" ")).toMatch(/8\.0% share of trailing consolidated profit/);
+    // NCI income with no consolidated profit to size it withholds the per-share value.
+    const unsized = dcfOf({ minorityInterest: 0, noncontrollingEarnings: { noncontrollingIncome: 30, consolidatedProfit: null, asOf: "2026-06-30" } });
+    expect(unsized.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(true);
+    expect(unsized.dcf!.perShare).toBeNull();
+  });
 });
 
 describe("E-5 review fixes", () => {
@@ -219,6 +238,28 @@ describe("E-5: the earnings key's inputs", () => {
     expect(noncontrollingEarningsInput(zeroTtm, { ...zeroAnnual, noncontrollingIncomeEvidenced: true })).toMatchObject({ basis: "annual", noncontrollingIncome: 0 });
     // A nonzero figure stands on its own.
     expect(noncontrollingEarningsInput(ttm, annual)).toMatchObject({ basis: "ttm", noncontrollingIncome: 30 });
+  });
+
+  it("does not size the key from a trailing sum one of whose quarters is an unevidenced zero", () => {
+    // Three quarters report 10 and one is a vendor zero: the 30 sum may omit a
+    // quarter, so the fiscal year sizes the key instead (Codex review, PR #49).
+    const partial = { ...ttm, noncontrollingIncomeUnevidencedZero: true };
+    expect(noncontrollingEarningsInput(partial, annual)).toMatchObject({ basis: "annual", noncontrollingIncome: 25 });
+    expect(noncontrollingEarningsInput(partial, null)?.noncontrollingIncome).toBeNull();
+  });
+
+  it("marks a trailing window whose quarter reports zero NCI income without a filed fact", () => {
+    const bundle = currencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture income unavailable");
+    const quarters = bundle.statements.incomeQuarterly.value.data.rows.slice(0, 4)
+      .map((row, i) => ({ ...row, netIncomeConsolidated: 875, netIncomeAttributableToNoncontrollingInterest: i === 2 ? 0 : 10 }));
+    const window = ttmIncome(quarters)!;
+    expect(window.netIncomeAttributableToNoncontrollingInterest).toBe(30);
+    expect(window.noncontrollingIncomeUnevidencedZero).toBe(true);
+    // Every quarter nonzero, or the zero quarter filed: the sum stands.
+    expect(ttmIncome(quarters.map((row) => ({ ...row, netIncomeAttributableToNoncontrollingInterest: 10 })))!.noncontrollingIncomeUnevidencedZero).toBe(false);
+    const filed = quarters.map((row, i) => i === 2 ? { ...row, fieldProvenance: { netIncomeAttributableToNoncontrollingInterest: { tags: ["us-gaap/NetIncomeLossAttributableToNoncontrollingInterest"], unit: "USD", periodEnd: String(row.date), filings: [] } } } : row);
+    expect(ttmIncome(filed as unknown as typeof quarters)!.noncontrollingIncomeUnevidencedZero).toBe(false);
   });
 
   it("falls back to the fiscal year when the trailing window is complete but cannot size the key", () => {

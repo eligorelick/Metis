@@ -276,3 +276,22 @@ describe("C-11: base-case language about returns recovering toward the cost of e
     expect(entry?.reason).not.toMatch(/trailing/);
   });
 });
+
+describe("C-10: the trailing start uses only a currency-compatible window", () => {
+  it("starts from the fiscal year when the four quarters are in another currency than the annual statement", () => {
+    const bundle = buildSyntheticRouteBundle("bank");
+    for (const result of [bundle.statements.incomeAnnual, bundle.statements.balanceAnnual, bundle.statements.cashflowAnnual]) {
+      if (!result.ok) throw new Error("synthetic fixture requires annual statements");
+      for (const row of result.value.data.rows) row.reportedCurrency = "USD";
+    }
+    const income = bundle.statements.incomeQuarterly;
+    if (!income.ok) throw new Error("synthetic fixture requires quarterly income");
+    for (const row of income.value.data.rows) row.reportedCurrency = "TWD";
+    const computed = runStageB(bundle);
+    expect(computed.gaps.find((g) => g.field === "compute.ttmIncome.currency")?.reason).toMatch(/TWD/);
+    // TWD earnings over USD equity is no return: the window is withheld, not divided.
+    expect(computed.returns.commonReturnTtm?.returnPct ?? null).toBeNull();
+    if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
+    expect(computed.valuation.excessReturn.roePathPct.basis).not.toMatch(/TTM/);
+  });
+});

@@ -2655,6 +2655,8 @@ export interface NoncontrollingEarningsRow {
   netIncomeAttributableToNoncontrollingInterest?: number | null;
   /** The NCI income came from a filed fact (every quarter of a window); a vendor row can emit an omitted field as 0. */
   noncontrollingIncomeEvidenced?: boolean;
+  /** A quarter of the window reports zero NCI income without a filed fact, so a nonzero sum may still omit it. */
+  noncontrollingIncomeUnevidencedZero?: boolean;
 }
 
 /**
@@ -2667,8 +2669,9 @@ export function noncontrollingEarningsInput(ttm: NoncontrollingEarningsRow | nul
   const read = (row: NoncontrollingEarningsRow | null, basis: "ttm" | "annual") => {
     if (row === null) return null;
     const reported = isNum(row.netIncomeAttributableToNoncontrollingInterest) ? row.netIncomeAttributableToNoncontrollingInterest : null;
-    // A zero establishes a 0% share only when a filing reports it.
-    const nci = reported === 0 && row.noncontrollingIncomeEvidenced !== true ? null : reported;
+    // A zero establishes a 0% share only when a filing reports it, and a sum
+    // with an unevidenced zero quarter may omit that quarter's NCI income.
+    const nci = (reported === 0 && row.noncontrollingIncomeEvidenced !== true) || row.noncontrollingIncomeUnevidencedZero === true ? null : reported;
     const net = isNum(row.netIncome) ? row.netIncome : null;
     const consolidatedProfit = isNum(row.netIncomeConsolidated) ? row.netIncomeConsolidated
       : row.netIncomeOwnershipBasis === "consolidated" ? net
@@ -2749,11 +2752,13 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
     opts.noncontrollingEarningsShare ?? null,
   );
   const notes = [...core.notes];
-  if ((isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || (isNum(opts.preferred) && opts.preferred !== 0)) {
+  // E-5: book NCI, or a profit share valueCompany sized from positive NCI income (book may be zero).
+  const noncontrollingClaim = (isNum(opts.minorityInterest) && opts.minorityInterest !== 0) || isNum(opts.noncontrollingEarningsShare);
+  if (noncontrollingClaim || (isNum(opts.preferred) && opts.preferred !== 0)) {
     notes.push("equity bridge nets minority interest and preferred equity out of EV (in addition to net debt)");
   }
   // E-5: which NCI basis the bridge used, beside the other.
-  if (isNum(opts.minorityInterest) && opts.minorityInterest !== 0 && equityValue !== null) {
+  if (noncontrollingClaim && equityValue !== null) {
     bridge.noncontrollingDeducted = noncontrollingDeducted;
     bridge.noncontrollingDeductionBasis = noncontrollingBasis;
     notes.push(noncontrollingBridgeNote(bridge, equityValue + noncontrollingDeducted));
@@ -5614,7 +5619,9 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   let noncontrollingKeyMissing: string | null = null;
   const noncontrollingEarningsAsOf = inputs.noncontrollingEarnings?.asOf ?? null;
   const noncontrollingEarningsBasis = inputs.noncontrollingEarnings?.basis;
-  if (isNum(inputs.minorityInterest) && inputs.minorityInterest !== 0) {
+  // A zero book balance does not negate the outside claim positive NCI income shows.
+  const noncontrollingIncomeClaim = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome > 0;
+  if (isNum(inputs.minorityInterest) && (inputs.minorityInterest !== 0 || noncontrollingIncomeClaim)) {
     const earnings = inputs.noncontrollingEarnings ?? null;
     const period = earnings?.basis === "annual" ? `fiscal-year (${earnings.asOf ?? "date unavailable"})` : "trailing";
     // A share above 1 (the parent's own share negative) is not a claim on value.

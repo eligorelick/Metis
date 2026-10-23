@@ -893,7 +893,11 @@ interests ÷ the filed ProfitLoss (else net income on a consolidated basis, else
 net income known to be the parent's plus NCI income; a net income of unknown
 ownership sizes nothing). When the trailing four quarters cannot size it, the
 latest fiscal year does, the same fallback the DCF's own income uses, and the
-disclosure then says "fiscal-year consolidated profit".
+disclosure then says "fiscal-year consolidated profit". A zero NCI income sizes
+the key only when a filing reports it, and a trailing sum with a quarter that
+reports zero without a filed fact cannot size it (the vendor feed can report an
+omitted figure as 0). The key applies whenever book NCI is nonzero or NCI income
+is positive: a zero book balance does not negate the claim the income shows.
 
 When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
 convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
@@ -1380,7 +1384,8 @@ with, all printed as assumptions in their own right:
   common book equity (stockholders' equity less preferred stock), with earnings
   available to common divided by average common equity. The start is the
   **trailing four quarters** when that window is complete and ends after the
-  latest fiscal year (audit 2026-10-22 C-10, D-102): four quarters of income
+  latest fiscal year (audit 2026-10-22 C-10, D-102) and is in the annual
+  statement's currency: four quarters of income
   available to common, admitted by the same rule as the fiscal-year figure,
   over the average of the equity at the window's end and four quarters
   earlier (the closing balance alone when no earlier balance sheet exists, as

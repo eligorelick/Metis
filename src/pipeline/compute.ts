@@ -748,6 +748,8 @@ export interface TtmIncome {
   netIncomeAttributableToNoncontrollingInterest?: number | null;
   /** Every quarter's NCI income came from a filed fact (field provenance), not a vendor default. */
   noncontrollingIncomeEvidenced?: boolean;
+  /** A quarter reports zero NCI income without a filed fact: the sum may omit that quarter. */
+  noncontrollingIncomeUnevidencedZero?: boolean;
   /** Complete four-quarter common-holder flow; never the latest quarter alone. */
   netIncomeAvailableToCommon?: number | null;
   commonIncomeWithheldReason?: string | null;
@@ -1254,6 +1256,8 @@ function ttmIncomeFromNormalized(
     netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
     netIncomeAttributableToNoncontrollingInterest: commonWindow.noncontrollingIncome,
     noncontrollingIncomeEvidenced: q.every((row) => row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest != null),
+    noncontrollingIncomeUnevidencedZero: q.some((row) =>
+      num(row.netIncomeAttributableToNoncontrollingInterest) === 0 && row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest == null),
     netIncomeAvailableToCommon: commonWindow.netIncomeAvailableToCommon,
     commonIncomeWithheldReason: commonWindow.commonIncomeWithheldReason,
     netIncomeWithheldReason: commonWindow.netIncomeWithheldReason,
@@ -2046,6 +2050,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route,
     evIncludeLeases,
     currencies.model,
+    currencies.ttmIncomeUsable,
   );
   const modelEligibilityReason = route.modelEligibility?.reason;
   if (modelEligibilityReason) {
@@ -2688,6 +2693,8 @@ function computeReturns(
   includeOperatingLeases: boolean,
   /** The statements' established currency (StatementCurrencies.model) for the ADR guard. */
   modelCurrency: string | null,
+  /** StatementCurrencies.ttmIncomeUsable: the window's currency matches the annual statement's. */
+  ttmIncomeUsable: boolean,
 ): ReturnsBlock {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -2919,25 +2926,28 @@ function computeReturns(
   // deposit-funded balance sheets, where invested capital is undefined.
   const rote = computeRote(returnsIncome, returnsBalance);
   // C-10/C-11: the trailing four quarters on the fiscal-year return's basis,
-  // from the quarterly rows already fetched.
+  // from the quarterly rows already fetched. A window in another currency than
+  // the annual statement is withheld here as it is from the valuation: its
+  // earnings cannot be set against balances in the model currency.
+  const commonIncomeTtm = ttmIncomeUsable ? ttmInc : null;
   const commonReturnTtm = isFinancial
     ? computeTtmCommonReturn({
         // The same earnings evidence the TTM P/E admits common income from.
-        income: ttmInc === null ? null : {
-          netIncome: ttmInc.netIncome,
-          netIncomeAvailableToCommon: ttmInc.netIncomeAvailableToCommon ?? null,
-          commonIncomeWithheldReason: ttmInc.commonIncomeWithheldReason,
-          netIncomeWithheldReason: ttmInc.netIncomeWithheldReason,
-          netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis,
-          noncontrollingIncome: ttmInc.netIncomeAttributableToNoncontrollingInterest,
-          incomeScope: ttmInc.incomeScope, commonIncomeScope: ttmInc.commonIncomeScope, noncontrollingIncomeScope: ttmInc.noncontrollingIncomeScope,
-          targetScope: ttmInc.targetScope, admissionAsOf: ttmInc.admissionAsOf,
-          preferredClaimsInPeriod: preferredClaimsInFlow(ttmInc.incomeScope ?? { periodEnd: ttmInc.date, basis: "ttm" },
+        income: commonIncomeTtm === null ? null : {
+          netIncome: commonIncomeTtm.netIncome,
+          netIncomeAvailableToCommon: commonIncomeTtm.netIncomeAvailableToCommon ?? null,
+          commonIncomeWithheldReason: commonIncomeTtm.commonIncomeWithheldReason,
+          netIncomeWithheldReason: commonIncomeTtm.netIncomeWithheldReason,
+          netIncomeOwnershipBasis: commonIncomeTtm.netIncomeOwnershipBasis,
+          noncontrollingIncome: commonIncomeTtm.netIncomeAttributableToNoncontrollingInterest,
+          incomeScope: commonIncomeTtm.incomeScope, commonIncomeScope: commonIncomeTtm.commonIncomeScope, noncontrollingIncomeScope: commonIncomeTtm.noncontrollingIncomeScope,
+          targetScope: commonIncomeTtm.targetScope, admissionAsOf: commonIncomeTtm.admissionAsOf,
+          preferredClaimsInPeriod: preferredClaimsInFlow(commonIncomeTtm.incomeScope ?? { periodEnd: commonIncomeTtm.date, basis: "ttm" },
             [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
             [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
         },
-        asOf: ttmInc?.date ?? null,
-        periodStart: ttmInc?.commonIncomeScope?.periodStart ?? ttmInc?.incomeScope?.periodStart ?? null,
+        asOf: commonIncomeTtm?.date ?? null,
+        periodStart: commonIncomeTtm?.commonIncomeScope?.periodStart ?? commonIncomeTtm?.incomeScope?.periodStart ?? null,
         balances: [...balanceQuarterly, ...balanceAnnual].map(toReturnsBalance),
         basis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
       })
@@ -3710,6 +3720,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         date: ttmInc.date, netIncome: ttmInc.netIncome, netIncomeConsolidated: ttmInc.netIncomeConsolidated ?? null,
         netIncomeOwnershipBasis: ttmInc.netIncomeOwnershipBasis, netIncomeAttributableToNoncontrollingInterest: ttmInc.netIncomeAttributableToNoncontrollingInterest ?? null,
         noncontrollingIncomeEvidenced: ttmInc.noncontrollingIncomeEvidenced,
+        noncontrollingIncomeUnevidencedZero: ttmInc.noncontrollingIncomeUnevidencedZero,
       },
       inc0 === undefined ? null : {
         date: isoDay(inc0.date), netIncome: num(inc0.netIncome), netIncomeConsolidated: num(inc0.netIncomeConsolidated),
