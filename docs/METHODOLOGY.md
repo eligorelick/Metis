@@ -3144,7 +3144,8 @@ a warn entry in the data gaps. Only a release that states results counts: an
 amount for net income, earnings, EPS, diluted earnings per share or operating
 income in its opening text, outside a sentence giving an outlook or a
 dividend, whether the outlook word comes before the amount or right after it
-("Diluted EPS of $3.10 is expected" states none). A headline list printed
+("Diluted EPS of $3.10 is expected", or projected, forecasted, anticipated,
+targeted or guided, states none). A headline list printed
 without full stops is not one sentence, so only the 60 characters after an
 amount are read for it. A deliveries or operational update filed under the same 8-K item
 does not. The release's headline revenue and diluted EPS are shown in the Key
@@ -3160,8 +3161,9 @@ per share is printed without its sign) or a full-year, year-to-date or annual
 amount, which would sit under the quarter's label. Their currency must also be established: "US$", or "$" while the statements report in US dollars. They
 never enter a statement, the TTM or a valuation. To date such releases, a
 title that names its quarter only in compact form ("3Q26", "Q3 2026 Update")
-is now read when the release has no ordinal title and no "quarter ended"
-sentence; a compact label heading an outlook, or after a comparison word, is
+is now read when the release has no ordinal title for the quarter it reports
+(an ordinal phrase heading guidance, "Third Quarter 2026 Guidance", is not
+one) and no "quarter ended" sentence; a compact label heading an outlook, or after a comparison word, is
 skipped. A hyphenated ordinal title ("Lilly reports second-quarter 2026
 financial results") is read as the title too; before, it was missed and a
 later quarter named in the text ("submit ... in the first quarter of 2027")

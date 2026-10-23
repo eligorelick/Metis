@@ -494,7 +494,7 @@ export function parseReportedPeriod(rawText: string): ReportedPeriod {
   const yearAgo = reportedQuarter === null ? undefined : titles.find((t) => t.base && t.quarter === reportedQuarter);
   const fiscal = own !== undefined ? fiscalPeriod(own.year, own.quarter)
     : yearAgo !== undefined ? fiscalPeriod(yearAgo.year + 1, yearAgo.quarter)
-    : ended === null && titles.length === 0 ? compactTitlePeriod(text.slice(0, COMPACT_TITLE_CHARS))
+    : ended === null ? compactTitlePeriod(text.slice(0, COMPACT_TITLE_CHARS))
     : null;
   return { fiscal, periodEnd: ended ? isoFromMonthDate(ended[2]!) : null };
 }
@@ -505,8 +505,9 @@ const COMPACT_TITLE_CHARS = 300;
 /**
  * Audit 2026-10-22 B-24: a release titled only in compact form ("3Q26
  * Financial Highlights", "Q3 2026 Update") names its quarter there, and with
- * no ordinal title and no "quarter ended" sentence that is the only period
- * it states. A compact label heading an outlook names the guided quarter and
+ * no reported ordinal title and no "quarter ended" sentence that is the only
+ * period it states; an ordinal phrase heading guidance ("Third Quarter 2026
+ * Guidance") or naming a year-ago base does not stand in for it. A compact label heading an outlook names the guided quarter and
  * is skipped, as is one after a comparison word.
  */
 function compactTitlePeriod(head: string): FiscalPeriod | null {
@@ -602,7 +603,7 @@ const OUTLOOK_AFTER_CHARS = 60;
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
   return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
-    .some((m) => !/\b(?:expects?|expected|outlook|guidance|forecasts?|anticipates?|projects?|targets?|dividends?)\b/i.test(sentencePrefix(text, m.index) +
+    .some((m) => !/\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es|ed)|forecast(?:s|ed)?|anticipat(?:es?|ed)|project(?:s|ed|ions?)?|target(?:s|ed)?|dividends?)\b/i.test(sentencePrefix(text, m.index) +
       text.slice(m.index, Math.min(sentenceEnd(text, m.index), m.index + m[0].length + OUTLOOK_AFTER_CHARS))));
 }
 

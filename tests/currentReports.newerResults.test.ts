@@ -47,6 +47,11 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
     expect(parseReportedPeriod(text).fiscal).toMatchObject({ fiscalYear, fiscalQuarter });
   });
 
+  it("reads a compact title beside an ordinal guidance heading", () => {
+    const text = "Example Corp Q2 2026 Update. Revenue was $1.2 billion. Third Quarter 2026 Guidance: revenue of $1.3 billion to $1.4 billion.";
+    expect(parseReportedPeriod(text).fiscal).toMatchObject({ fiscalYear: 2026, fiscalQuarter: 2 });
+  });
+
   it("reads a hyphenated ordinal title before a later quarter named in the text", () => {
     const text = "EX-99.1 August 5, 2026 Example Co. reports second-quarter 2026 financial results. Revenue in Q2 2026 increased 48% to $23.0 billion. We plan to submit an application to the FDA in the first quarter of 2027.";
     expect(parseReportedPeriod(text).fiscal).toMatchObject({ fiscalYear: 2026, fiscalQuarter: 2 });
@@ -93,6 +98,9 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
     expect(reportsResults("Example Corp Declares Quarterly Dividend. The board declared a quarterly dividend of $0.52 per share, payable November 14, 2026.")).toBe(false);
     expect(reportsResults("Example Corp Updates Outlook. The company now expects full-year diluted EPS of $3.10 to $3.20.")).toBe(false);
     expect(reportsResults("Q3 2026 Update. Diluted EPS of $3.10 is expected.")).toBe(false);
+    for (const word of ["projected", "forecasted", "anticipated", "targeted", "guided"]) {
+      expect(reportsResults(`Q3 2026 Update. Diluted EPS of $3.10 is ${word}.`)).toBe(false);
+    }
   });
 });
 
