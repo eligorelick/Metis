@@ -3028,8 +3028,8 @@ withheld. Oracle tags no pre-tax total, only its domestic and foreign
 components, so on the SEC path pre-tax income is now their sum when no total
 is tagged, with the composition disclosed.
 
-**Principal beside carrying debt (B-5).** When an issuer reports no current
-debt, the debt check compares the filed debt aggregate
+**Principal beside carrying debt (B-5).** When the current and noncurrent
+debt lines do not both resolve, the debt check compares the filed debt aggregate
 (`DebtInstrumentCarryingAmount`, which many filers tag at principal) with the
 carrying components. It allowed one part per million, so Meta's 2024 notes
 ($29.000B principal against $28.826B carrying, the gap being the tagged
