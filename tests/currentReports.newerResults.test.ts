@@ -74,6 +74,14 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
       .toEqual({ value: 2.1, symbol: "$" });
   });
 
+  it("never reads a loss per share, a basis named after the figure, or a full-year amount as the quarter's", () => {
+    const head = "Acme Reports Third Quarter 2026 Results. Revenue was $1.2 billion.";
+    expect(parseReleaseHeadline(`${head} Net loss was $50.0 million, or $0.12 per diluted share.`).epsDiluted).toBeNull();
+    expect(parseReleaseHeadline(`${head} Diluted EPS was $2.10, excluding the impact of restructuring charges.`).epsDiluted).toBeNull();
+    const q4 = "Acme Reports Fourth Quarter and Full Year 2026 Results. Full-year revenue was $4.8 billion. Diluted EPS for the full year was $5.10.";
+    expect(parseReleaseHeadline(q4)).toEqual({ revenue: null, epsDiluted: null });
+  });
+
   it("does not count a dividend or an EPS outlook as results", () => {
     expect(reportsResults("Example Corp Declares Quarterly Dividend. The board declared a quarterly dividend of $0.52 per share, payable November 14, 2026.")).toBe(false);
     expect(reportsResults("Example Corp Updates Outlook. The company now expects full-year diluted EPS of $3.10 to $3.20.")).toBe(false);

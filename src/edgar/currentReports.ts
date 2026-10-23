@@ -530,8 +530,22 @@ const NON_GAAP_SENTENCE = /\b(?:adjusted|non-GAAP|core|underlying|managed|exclud
 /** A sentence boundary: terminal punctuation after a lower-case letter, digit or closing mark, or a bullet. */
 const SENTENCE_START = /(?:^|(?<=[a-z0-9%)"”])[.!?]\s+|•\s*)/g;
 
-/** What may open a sentence before the total-revenue label: the issuer and the period, never a segment. */
-const REVENUE_SENTENCE_OPENING = /^(?:(?:the company's|our|in|for|the|Q[1-4]|FY\s?\d{2,4}|(?:first|second|third|fourth)[- ]quarter|quarter|fiscal|full[- ]year|year|\d{4}),?\s+)*$/i;
+/** What may open a sentence before the total-revenue label: the issuer and the quarter, never a segment. */
+const REVENUE_SENTENCE_OPENING = /^(?:(?:the company's|our|in|for|the|Q[1-4]|FY\s?\d{2,4}|(?:first|second|third|fourth)[- ]quarter|quarter|fiscal|\d{4}),?\s+)*$/i;
+/**
+ * A sentence stating a loss (a loss per share printed without its sign) or a
+ * period other than the quarter (a full-year or year-to-date amount under a
+ * quarter's label) yields no headline figure.
+ */
+const LOSS_OR_OTHER_PERIOD = /\b(?:loss(?:es)?|full[- ]year|fiscal year|year[- ]to[- ]date|(?:six|nine|twelve) months|annual)\b/i;
+
+/** The end of the sentence holding `index`: the next sentence boundary, or the end of the text. */
+function sentenceEnd(text: string, index: number): number {
+  const next = /(?<=[a-z0-9%)"”])[.!?](?:\s+|$)|•/g;
+  next.lastIndex = index;
+  const m = next.exec(text);
+  return m === null ? text.length : m.index;
+}
 
 /** The text from the start of the sentence holding `index` up to it. */
 function sentencePrefix(text: string, index: number): string {
@@ -554,9 +568,13 @@ export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
   const text = normalizeFilingText(rawText).slice(0, HEADLINE_CHARS);
   const single = (found: { value: number; symbol: string }[]): { value: number; symbol: string } | null =>
     found.length > 0 && found.every((f) => f.value === found[0]!.value && f.symbol === found[0]!.symbol) ? found[0]! : null;
-  const gaap = (m: RegExpMatchArray): boolean => !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index! - 100), m.index)) &&
-    !NON_GAAP_SENTENCE.test(sentencePrefix(text, m.index!));
-  const revenue = [...text.matchAll(/\b(?:(?:total|net|consolidated|quarterly|(?:first|second|third|fourth)[- ]quarter|full[- ]year) )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached)| (?:increased|decreased|grew|rose|fell|declined)(?:[^.$]|\.\d){0,60}? to)? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
+  // The whole sentence is read: a basis, a loss or another period named after the figure counts too.
+  const gaap = (m: RegExpMatchArray): boolean => {
+    const sentence = sentencePrefix(text, m.index!) + text.slice(m.index!, sentenceEnd(text, m.index!));
+    return !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index! - 100), m.index)) && !NON_GAAP_SENTENCE.test(sentence) &&
+      !LOSS_OR_OTHER_PERIOD.test(sentence);
+  };
+  const revenue = [...text.matchAll(/\b(?:(?:total|net|consolidated|quarterly|(?:first|second|third|fourth)[- ]quarter) )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached)| (?:increased|decreased|grew|rose|fell|declined)(?:[^.$]|\.\d){0,60}? to)? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
     .filter((m) => gaap(m) && REVENUE_SENTENCE_OPENING.test(sentencePrefix(text, m.index!)))
     .map((m) => ({ value: Math.round(Number(m[2]) * (m[3]!.toLowerCase() === "billion" ? 1e9 : 1e6)), symbol: m[1]! }));
   const eps = [...text.matchAll(/\b(?:diluted (?:EPS|earnings per (?:common )?share)(?: \((?:EPS|diluted)\))?|earnings per diluted share|EPS \(diluted\))(?: (?:was|were|of|totaled))? ((?:US)?\$)\s?(\d+\.\d{2})\b|((?:US)?\$)\s?(\d+\.\d{2}) per diluted share\b/gi)]

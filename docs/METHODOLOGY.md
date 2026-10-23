@@ -3138,10 +3138,12 @@ data table, labelled "unaudited, from the results release", only when every
 statement of each in its opening text gives the same amount (two different
 amounts for one figure yield none). Revenue is read only where it opens its
 sentence, as revenue or total, net or consolidated revenue after at most the
-issuer and the period, so a segment's revenue is never taken for the total. A
+issuer and the quarter, so a segment's revenue is never taken for the total. A
 figure in a sentence that names "adjusted", "non-GAAP", "core",
-"underlying", "managed", "excluding" or "pro forma", or right after
-"operating", is not read. Their currency must also be established: "US$", or "$" while the statements report in US dollars. They
+"underlying", "managed", "excluding" or "pro forma" anywhere, or right after
+"operating", is not read; nor is one in a sentence that states a loss (a loss
+per share is printed without its sign) or a full-year, year-to-date or annual
+amount, which would sit under the quarter's label. Their currency must also be established: "US$", or "$" while the statements report in US dollars. They
 never enter a statement, the TTM or a valuation. To date such releases, a
 title that names its quarter only in compact form ("3Q26", "Q3 2026 Update")
 is now read when the release has no ordinal title and no "quarter ended"
