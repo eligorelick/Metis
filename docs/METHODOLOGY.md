@@ -898,8 +898,8 @@ the key only when a filing reports it, and a trailing sum with a quarter that
 reports zero without a filed fact cannot size it (the vendor feed can report an
 omitted figure as 0). The key applies whenever book NCI is nonzero or NCI income
 is positive: a zero book balance does not negate the claim the income shows.
-When NCI income is positive but book NCI is unavailable, neither deduction can
-be set, so the per-share value is withheld.
+When NCI income is nonzero (a profit or a loss) but book NCI is unavailable,
+neither deduction can be set, so the per-share value is withheld.
 
 When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
 convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
@@ -1351,7 +1351,10 @@ with, all printed as assumptions in their own right:
   same return (ROTE for banks, common ROE otherwise) beat that fiscal year's own
   cost of equity in **at least 4 of the last 5** fiscal years (4+ years on
   record), the target is the cost of equity plus half the median spread,
-  capped at 5pp (below 0.5pp the evidence is treated as noise). The FCFF DCF
+  capped at 5pp (below 0.5pp the evidence is treated as noise). The window is
+  the latest five fiscal years on record: a year whose return is not
+  established stays in it as a year without evidence, so an older year cannot
+  take its place, and the note names it. The FCFF DCF
   keeps its every-year rule; the equity model's 4-of-5 rule is an owner decision
   (audit 2026-10-22 C-10, D-102), after one acquisition year vetoed the carry
   COF's 2021-2024 record had earned. A **business-combination year** is
@@ -1460,7 +1463,10 @@ and what would have to be true). When the return the model starts from (the
 trailing return, or the fiscal year's when the model started there) already
 exceeds its terminal target, a sentence describing returns rising, recovering
 or improving, in any tense, toward the cost of equity (or along a "recovery
-path") misdescribes current data,
+path") misdescribes current data. The rise must be in returns: a return (returns,
+ROE, ROTE, ROTCE or return on equity) names the verb's subject or its object
+("a recovery in ROE"), so margins or capital improving in a sentence that also
+names the cost of equity are not flagged,
 and each one is named in a `verify.check.returnPath` warning in the
 missing-data manifest. A sentence that has returns rise to a level above or
 exceeding the cost of equity is not flagged. The sentence itself is not rewritten.
@@ -2072,9 +2078,12 @@ that produced each. The bull takes the growth shift that raises value with the
 margin at base; it carries lower growth only when growth itself destroys value
 (incremental returns below the cost of capital), and the ordering disclosure
 names that cause. The base target reuses
-the DCF per-share. Perturbed targets are floored at zero with a warning. A
-base DCF outside its domain (B-29, above), which includes every non-positive
-base per-share, suppresses the entire target block; thin
+the DCF per-share. A base DCF outside its domain (B-29, above), which
+includes every non-positive base per-share, suppresses the entire target
+block, and so does a bull or bear run outside it (an equity value at or below
+zero, or a terminal value above the whole enterprise value): a perturbed
+target is withheld, not floored at zero, and the warning names the run and
+the failed test; thin
 dispersion, unavailable WACC/bridge and non-DCF routes also suppress it. Sigma
 rounding to 0.00pp in either series makes target correlation unavailable and
 gives a degenerate-dispersion disclosure. The fan and targets share the

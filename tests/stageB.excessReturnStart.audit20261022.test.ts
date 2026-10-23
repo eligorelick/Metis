@@ -99,6 +99,26 @@ describe("C-10: the terminal carry needs 4 of the last 5 years, and a combinatio
     expect(rule.basis).not.toMatch(/3 of the last 5 fiscal years, at least 4/);
   });
 
+  it("keeps a missing return inside the last five years, so an older year cannot fill the window", () => {
+    // 2025 unestablished, 2022-2024 above, 2021 a miss, 2020 above: three of the
+    // last five beat the hurdle, so nothing is carried (Codex review, PR #49).
+    const gapped: DcfRoicYear[] = [
+      { date: "2020-12-31", roicPct: 20, waccPct: COE },
+      { date: "2021-12-31", roicPct: 8, waccPct: COE },
+      { date: "2022-12-31", roicPct: 19, waccPct: COE },
+      { date: "2023-12-31", roicPct: 13, waccPct: COE },
+      { date: "2024-12-31", roicPct: 11.3, waccPct: COE },
+      { date: "2025-12-31", roicPct: null, waccPct: COE },
+    ];
+    const rule = terminalRoic(COE, gapped, { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" });
+    expect(rule.excessPp).toBe(0);
+    expect(rule.note).toMatch(/only 3 of the last 5 fiscal years/);
+    expect(rule.note).toMatch(/2025-12-31 not established/);
+    // With the 2025 return on record and above the hurdle, four of five carry.
+    const filled = gapped.map((y) => (y.date === "2025-12-31" ? { ...y, roicPct: 12 } : y));
+    expect(terminalRoic(COE, filled, { ret: "ROTE", rate: "cost of equity" }, { rule: "four-of-five" }).excessPp).toBeGreaterThan(0);
+  });
+
   it("leaves the general DCF's every-year rule unchanged", () => {
     const dcfRule = terminalRoic(COE, history(null));
     expect(dcfRule.excessPp).toBe(0);
@@ -164,6 +184,9 @@ describe("C-10: the model starts from the trailing return and exposes the fiscal
     const floor = fairValue.reasons.find((g) => g.field === "valuation.dcf.perShare.floor");
     expect(floor?.reason).toMatch(/book value plus the present value of the excess returns/);
     expect(floor?.reason).not.toMatch(/enterprise value/);
+    // The reader-facing basis says the same (Codex review, PR #49).
+    expect(fairValue.basis.join(" ")).toMatch(/book value plus the present value of the excess returns is at or below zero/);
+    expect(fairValue.basis.join(" ")).not.toMatch(/enterprise value|net debt/);
   });
 });
 

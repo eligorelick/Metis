@@ -37,6 +37,7 @@ Replay, every fair value or status that moved:
 | BAC | excess-return | $42.82 | $45.79 | C-10: the opening book moves to the trailing window's end, 2026-06-30, and the trailing ROTE start is 0.25pp lower ($47.36). The payout fade, 48.0% → 79.3% by year 10, then lowers it. The carry is unchanged. |
 | PGR | excess-return | $189.83 | $293.09 | C-10's 4-of-5 terminal carry ($390.23), then the payout fade, 13.1% → 80.2% by year 10. The trailing start lowers the value; see "PGR" below. |
 | UNH | excess-return | $194.47 | $215.29 | C-10: trailing start 14.62% against the fiscal-year 12.91%, from the newer opening book ($211.58). The payout fade, 88.9% → 80.5% by year 10, retains more. The carry is unchanged. |
+| BA | DCF | scenario targets: bull $54.78, base $34.93, bear $0 (floored) | scenario targets withheld (the bear run's equity value, −$2.24B, is ≤ 0); fair value $34.93 unchanged | B-29, from the Codex review |
 
 Composite scores move only where those values or the trailing-return signals do: NEE 44.33 → 49.23 and TSLA 51.75 → 54.55 (DCF signals now missing), BAC 58.21 → 58.65, PGR 68.04 → 73.12, UNH 52.50 → 53.05, and BRK.B 50.79 → 52.02 (its excess-return value stays suppressed; the trailing return is new evidence).
 
@@ -193,6 +194,18 @@ Its pass on `3b3d8e5` found two more, both valid and fixed test-first in the nex
 | (P2) Acquisition facts were read in USD and compared with opening common equity in the statement currency, so a non-USD filer's combination year could be added or missed. | The facts are read in the balance rows' currency only (`tagPoints` no longer falls back to USD here), and not at all when that currency is unestablished. |
 
 The replay was rerun again: every Stage B output is still byte-identical, and COF stays at $155.43.
+
+Its pass on `4e73bc0` found five more, all valid and fixed test-first in the next commit:
+
+| Finding | Fix |
+|---|---|
+| (P1) A bull or bear run outside the DCF's domain was floored at 0 and published, though the base DCF itself would be withheld in that state. | The fan is withheld when either run fails the domain test (equity value at or below zero, or a terminal value above the enterprise value); the warning names the run and the failed test. |
+| (P2) The return-path check flagged any recovery verb in a sentence that named the cost of equity, so "margins improve ... while the cost of equity stays at 10%" was flagged. | A return (returns, ROE, ROTE, ROTCE or return on equity) must be the verb's subject or object. |
+| (P2) The floored excess-return basis said enterprise value sat below net debt, a DCF bridge the route does not have. | The basis states the method's own cause: book value plus the present value of the excess returns is at or below zero. |
+| (P2) The 4-of-5 rule dropped a year whose return was not established and reached back to an older year to fill the window. | The window is the latest five fiscal years; an unestablished year stays in it as no evidence and the note names it. |
+| (P2) A negative NCI income with no book balance did not withhold the per-share value, so the outside holders' claim was treated as zero. | Any nonzero NCI income, profit or loss, with no book balance withholds it. The numeric-book branch is unchanged. |
+
+The replay was rerun on the fix. BA's scenario targets are now withheld: its bear run had an equity value of −$2.24B and had published $0 (bull $54.78, base $34.93); BA's DCF value of $34.93 is unchanged. Fifteen other issuers change only in the scenario basis sentence, and every other Stage B output, every fair value and COF's $155.43 are unchanged.
 
 ## Owner decisions
 

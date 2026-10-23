@@ -620,6 +620,9 @@ describe("payload determinism + provenance", () => {
       // Codex review of PR #42: the scenario construction's method stamps.
       ["SCENARIO_TARGETS_2026_10_D99", "SCENARIO_TARGETS_2026_10_D60", 1],
       ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
+      // Codex review of PR #49 (audit 2026-10-22 B-29): a fan with a run
+      // outside the DCF's domain is withheld, no longer floored at 0.
+      ["so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.", "so the higher scenario is always bull and per-share is floored at 0.", 1],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -1023,7 +1026,11 @@ describe("payload determinism + provenance", () => {
       // D-99: only the reworded leaves restored above (scenario margin
       // direction, even-spread calendarization reason, the undisclosed lease
       // gap without the environment variable) move financeHash.
-      financeHash: "a647b8bb",
+      // Codex review of PR #49 (audit 2026-10-22 B-29): only the scenario
+      // basis sentence restored above moves financeHash; the fan is withheld
+      // when a run is outside the DCF's domain instead of floored at 0, and
+      // this fixture's runs are inside it, so no target or byte moves.
+      financeHash: "3517f602",
     });
   });
 

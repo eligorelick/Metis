@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDcfAssumptions, convergentFadeWeights, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
+import { buildDcfAssumptions, convergentFadeWeights, dcfDomainFailure, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
 import { computeProjections, perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { alignProjectionScenarios } from "@/pipeline/stageB/scenarioAlignment";
@@ -65,11 +65,14 @@ describe("report audit valuation regressions", () => {
     // AMZN audit 2026-10-20 finding 11: a margin-dominated, anti-correlated history
     // (growth σ ≈ 1.2pp, margin σ 12pp, corr ≈ −1) no longer inverts the labels by
     // itself, because a margin shift that opposes the scenario stays at base.
-    // Growth that destroys value still does: at sales-to-capital 0.2 the
-    // lower-growth shock is worth more.
-    a.salesToCapital.value = 0.2;
+    // Growth that destroys value still does: at sales-to-capital 0.35 the
+    // lower-growth shock is worth more. (At 0.2 the base DCF's explicit-period
+    // present value is negative, and at 0.3 the bear run's is, so either is
+    // outside the DCF's domain and no fan is built.)
+    a.salesToCapital.value = 0.35;
     const valuation = { ...built, assumptions: a, dcf: runDcf(a, opts) };
     expect(valuation.dcf.perShare!).toBeGreaterThan(0);
+    expect(dcfDomainFailure(valuation.dcf)).toBeNull();
     const countercyclical = ([[1000, 30], [1100, 15], [1188, 45], [1300.86, 20], [1398.42, 50]] as const).map(([revenue, m], i) => ({
       date: `${2021 + i}-12-31`, revenue, ebit: revenue * m / 100, netIncome: revenue * m / 100 * 0.75, epsDiluted: 1 }));
     const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: countercyclical, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });

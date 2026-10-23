@@ -36,7 +36,12 @@ export interface ReturnPathLanguageInput {
 }
 
 // A rise in returns ...
-const RECOVERY_WORD = /\b(?:recover(?:s|y|ies|ing|ed)?|rebound(?:s|ing|ed)?|ris(?:e|es|ing|en)|rose|improv(?:e|es|ed|ing|ement)|climb(?:s|ed|ing)?|rebuil(?:d|ds|ding|t))\b/i;
+const RECOVERY = String.raw`\b(?:recover(?:s|y|ies|ing|ed)?|rebound(?:s|ing|ed)?|ris(?:e|es|ing|en)|rose|improv(?:e|es|ed|ing|ement)|climb(?:s|ed|ing)?|rebuil(?:d|ds|ding|t))\b`;
+// The rise must be in returns: a return names the verb's subject ("returns
+// recover", "ROTE improves") or its object ("a recovery in ROE"), so margins or
+// capital improving in a sentence that also names the hurdle are not flagged.
+const RETURN = String.raw`\b(?:returns?|ROE|ROTE|ROTCE|return on (?:tangible )?(?:common )?equity)\b`;
+const RETURN_RECOVERY = new RegExp(`${RETURN}[^;,]{0,40}?${RECOVERY}|${RECOVERY}[^;,]{0,20}?\\b(?:in|of)\\b[^;,]{0,20}?${RETURN}`, "i");
 // ... toward the cost of equity, or along the model's "recovery path".
 // Sentences are already split, so a decimal ("10.4%") may sit between the two.
 // A return that rises to a level "above" or "exceeding" the cost of equity is
@@ -52,7 +57,7 @@ export function returnPathLanguageFindings(input: ReturnPathLanguageInput): Retu
   if (ttm == null || !Number.isFinite(ttm) || input.terminalTargetPct === null || !(ttm > input.terminalTargetPct)) return [];
   return input.texts.flatMap(({ path, text }) =>
     sentences(text)
-      .filter((sentence) => RECOVERY_WORD.test(sentence) && TOWARD_HURDLE.test(sentence))
+      .filter((sentence) => RETURN_RECOVERY.test(sentence) && TOWARD_HURDLE.test(sentence))
       .map((sentence) => ({ path, sentence })));
 }
 

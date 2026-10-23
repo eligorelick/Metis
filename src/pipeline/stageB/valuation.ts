@@ -936,11 +936,19 @@ export function terminalRoic(
     waccBasisNote,
   });
   if (history === null) return hold(null, "none", null);
-  const years = history
+  // The four-of-five rule reads the latest five fiscal years as filed: a year
+  // whose return is unestablished stays in that window as non-evidence, so an
+  // older year cannot fill it (C-10).
+  const byDate = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  const window = fourOfFive ? byDate.slice(0, 5) : byDate;
+  const years = window
     .filter((y): y is DcfRoicYear & { roicPct: number } => isNum(y.roicPct))
-    .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 5);
   const n = years.length;
+  const lastN = fourOfFive ? window.length : n;
+  const unestablishedText = fourOfFive && window.length > n
+    ? `; ${window.filter((y) => !isNum(y.roicPct)).map((y) => y.date).join(", ")} not established, so not evidence`
+    : "";
   // Each year against its own cost of capital when one was recomputed for it.
   const waccForYear = (y: DcfRoicYear): number => (isNum(y.waccPct) ? y.waccPct : waccPct);
   const perYear = years.filter((y) => isNum(y.waccPct));
@@ -995,7 +1003,7 @@ export function terminalRoic(
     : `; business-combination year${combinationAbove.length === 1 ? "" : "s"} (above the hurdle, annotated): ${combinationAbove.map((y) => `${y.date} (${y.combinationEvidence})`).join("; ")}`;
   if (fourOfFive && above + setAside.length < TERMINAL_EXCESS_RETURN_MIN_YEARS) {
     return hold(
-      `terminal ${RET} held at ${RATE}: ${RET} beat that year's ${RATE} in only ${above} of the last ${n} fiscal years (${missText(misses)}${setAsideText}) — at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 are needed to evidence durable excess returns (house convention)`,
+      `terminal ${RET} held at ${RATE}: ${RET} beat that year's ${RATE} in only ${above} of the last ${lastN} fiscal years (${missText(misses)}${setAsideText}${unestablishedText}) — at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 are needed to evidence durable excess returns (house convention)`,
       waccBasis,
       waccBasisNote,
     );
@@ -1017,7 +1025,7 @@ export function terminalRoic(
   if (excess < TERMINAL_EXCESS_RETURN_MIN_PP) {
     return hold(
       fourOfFive
-        ? `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in ${above} of the last ${n} fiscal years${setAsideText}${annotatedText} but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`
+        ? `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in ${above} of the last ${lastN} fiscal years${setAsideText}${unestablishedText}${annotatedText} but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`
         : `terminal ${RET} held at ${RATE}: ${RET} exceeded ${RATE} in all ${n} fiscal years but the median spread ${fmtNum(median)}pp is too thin to carry (house convention floor ${TERMINAL_EXCESS_RETURN_MIN_PP}pp)`,
       waccBasis,
       waccBasisNote,
@@ -1031,11 +1039,11 @@ export function terminalRoic(
     basis:
       `terminal ${RET} = ${RATE} ${fmtNum(waccPct)}% + ${fmtNum(excess)}pp evidenced excess return: ` +
       (fourOfFive
-        ? `${RET} exceeded ${RATE} in ${above} of the last ${n} fiscal years` +
+        ? `${RET} exceeded ${RATE} in ${above} of the last ${lastN} fiscal years` +
           (above < TERMINAL_EXCESS_RETURN_MIN_YEARS && setAside.length > 0
             ? `, and the set-aside business-combination year counts toward the at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 required `
             : `, at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 being required `) +
-          `(${oldest} to ${newest}${misses.length > 0 ? `; miss: ${missText(misses)}` : ""}${setAsideText}${annotatedText}; median spread ${fmtNum(median)}pp over the years counted); `
+          `(${oldest} to ${newest}${misses.length > 0 ? `; miss: ${missText(misses)}` : ""}${setAsideText}${unestablishedText}${annotatedText}; median spread ${fmtNum(median)}pp over the years counted); `
         : `${RET} exceeded ${RATE} in each of the last ${n} fiscal years (${oldest} to ${newest}, median spread ${fmtNum(median)}pp); `) +
       `half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
       "(HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md)",
@@ -5621,11 +5629,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   const noncontrollingEarningsBasis = inputs.noncontrollingEarnings?.basis;
   // A zero book balance does not negate the outside claim positive NCI income shows.
   const noncontrollingIncomeClaim = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome > 0;
-  if (!isNum(inputs.minorityInterest) && noncontrollingIncomeClaim) {
+  // A signed NCI income, profit or loss, shows outside holders exist.
+  const noncontrollingIncomeSigned = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome !== 0;
+  if (!isNum(inputs.minorityInterest) && noncontrollingIncomeSigned) {
     // Neither book nor the larger of book and the profit share can be set
     // without the book balance; a null book is not a zero claim.
     const earnings = inputs.noncontrollingEarnings!;
-    noncontrollingKeyMissing = `Noncontrolling interests earn ${fmtNum(earnings.noncontrollingIncome!)} of ${earnings.basis === "annual" ? "fiscal-year" : "trailing"} profit, ` +
+    noncontrollingKeyMissing = `Noncontrolling interests are allocated ${fmtNum(earnings.noncontrollingIncome!)} of ${earnings.basis === "annual" ? "fiscal-year" : "trailing"} net income, ` +
       "but their book value is unavailable, so the deduction can be set neither at book nor at the larger of book and their profit share. " +
       "The per-share value is withheld: the consolidated DCF would otherwise credit the outside holders' claim to common holders (audit 2026-10-22 E-5).";
   } else if (isNum(inputs.minorityInterest) && (inputs.minorityInterest !== 0 || noncontrollingIncomeClaim)) {

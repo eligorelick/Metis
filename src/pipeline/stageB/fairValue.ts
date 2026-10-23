@@ -142,11 +142,15 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
   // apply to their extremes, so the two blocks can no longer contradict each
   // other (one refused a negative number the other published as available).
   const floored = perShareValue < 0;
+  // Each method's own reason the value is below zero; the excess-return route has no enterprise-value bridge.
+  const flooredCause = method === "excess-return"
+    ? "book value plus the present value of the excess returns is at or below zero"
+    : "enterprise value sits at or below net debt and the senior claims";
   const reasons: ManifestEntry[] = floored
     ? [
         {
           field: "valuation.dcf.perShare.floor",
-          reason: `the ${method} per-share is ${round2(perShareValue)} — ${method === "excess-return" ? "book value plus the present value of the excess returns is at or below zero" : "enterprise value at or below net debt and the senior claims"}; published as 0 (common equity cannot be worth less than nothing) with the upside capped at −100%`,
+          reason: `the ${method} per-share is ${round2(perShareValue)} — ${flooredCause}; published as 0 (common equity cannot be worth less than nothing) with the upside capped at −100%`,
           severity: "warn",
         },
       ]
@@ -198,7 +202,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
       "Computed-derived (source computed.valuation.*), not a source-verified analyst target — the LLM interprets it but does not author the number.",
       ...(floored
         ? [
-            `The model's per-share is ${round2(perShareValue)}: enterprise value sits at or below net debt and the senior claims, so the intrinsic value is published as 0 under limited liability and the upside is capped at −100%.`,
+            `The model's per-share is ${round2(perShareValue)}: ${flooredCause}, so the intrinsic value is published as 0 under limited liability and the upside is capped at −100%.`,
           ]
         : []),
       ...startLines,

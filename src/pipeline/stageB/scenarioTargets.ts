@@ -27,6 +27,7 @@
  */
 
 import {
+  dcfDomainFailure,
   type DcfRunOptions,
   type ValuationResult,
 } from "@/pipeline/stageB/valuation";
@@ -273,31 +274,32 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     });
   }
 
-  // Limited-liability common equity cannot be worth less than 0: a heavily levered
-  // −σ re-run can bridge enterprise value below net debt and yield a negative
-  // per-share (and an upside below −100%), which is economically impossible. Floor
-  // the published perturbed extremes at 0 (upside then bottoms at exactly −100%);
-  // base is left as the DCF fair value so the card can never disagree with the DCF
-  // page.
-  const floorAtZero = (v: number | null): { value: number | null; floored: boolean } =>
-    isNum(v) && v < 0 ? { value: 0, floored: true } : { value: v, floored: false };
-  const bull = floorAtZero(optimistic.value);
-  const bear = floorAtZero(pessimistic.value);
-  const flooredNames = [bull.floored ? "bull" : null, bear.floored ? "bear" : null].filter(
-    (n): n is string => n !== null,
-  );
-  if (flooredNames.length > 0) {
-    missingReasons.push({
-      field: "valuation.scenarioTargets.floor",
-      reason: `${flooredNames.join(" and ")} scenario enterprise value falls at or below net debt — the DCF equity bridge is non-positive; per-share target floored at 0 and upside capped at −100% (common equity cannot be worth less than nothing)`,
-      severity: "warn",
-    });
+  // A ±σ run whose equity value is at or below zero, or whose terminal value
+  // exceeds the whole enterprise value, is outside the DCF's domain, the test the
+  // base DCF itself must pass (B-29). Flooring such a run at 0 published a
+  // bear target the base DCF would have withheld, so the fan is withheld instead.
+  const outside = (["bull", "bear"] as const)
+    .map((name) => ({ name, failure: dcfDomainFailure(shared[name].result) }))
+    .filter((r): r is { name: "bull" | "bear"; failure: NonNullable<ReturnType<typeof dcfDomainFailure>> } => r.failure !== null);
+  if (outside.length > 0) {
+    const names = outside.map((r) => r.name).join(" and ");
+    return suppressed(
+      [
+        {
+          field: "valuation.scenarioTargets",
+          reason: `Scenario price targets withheld: the ${names} run${outside.length === 1 ? " is" : "s are"} outside the DCF's domain — ` +
+            outside.map((r) => `${r.name}: ${r.failure.failures.map((f) => f.detail).join("; ")}`).join("; "),
+          severity: "warn",
+        },
+      ],
+      [`Scenario price targets unavailable: the ${names} scenario${outside.length === 1 ? "" : "s"} fall${outside.length === 1 ? "s" : ""} outside the DCF's domain, which the base DCF's own value must also pass.`],
+    );
   }
 
   const targets: ScenarioTarget[] = [
-    mk("bull", bull.value, optimistic.growthDeltaPp, optimistic.marginDeltaPp),
+    mk("bull", optimistic.value, optimistic.growthDeltaPp, optimistic.marginDeltaPp),
     mk("base", baseDcf.perShare, 0, 0),
-    mk("bear", bear.value, pessimistic.growthDeltaPp, pessimistic.marginDeltaPp),
+    mk("bear", pessimistic.value, pessimistic.growthDeltaPp, pessimistic.marginDeltaPp),
   ];
 
   // D-65: the margin shift a path actually carries, when the cap cut it.
@@ -308,7 +310,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     `${shared.scenarioAssumptions.scenarios.filter((s) => s.name !== "base" && s.effectiveMarginDeltaPp === undefined).map((s) => `, ${signed(s.marginDeltaPp)} for ${s.name}`).join("")}, so the shocks are not symmetric around the base margin.`;
   const basis = [
     "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
-    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.${marginWithheldText(shared)}${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull and per-share is floored at 0.`,
+    `bull/bear re-run the SAME DCF with year-one growth shifted ±${round2(dg)}pp and the year-one margin shifted ±${round2(Math.abs(shared.bull.marginDeltaPp))}pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (${effectiveCorr === null ? "unavailable" : round2(effectiveCorr)}), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.${marginWithheldText(shared)}${cappedText} Targets are labelled by per-share value, so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.`,
     "Targets are computed-derived DCF sensitivities, not source-verified facts; no weight or probability is attached to them.",
     // D-65: the decay-and-cap paragraph is stated once, as the note of the
     // projections' scenario-construction table (it was printed three times).

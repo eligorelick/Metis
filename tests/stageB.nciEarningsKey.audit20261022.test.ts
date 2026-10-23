@@ -172,7 +172,8 @@ describe("E-5: NCI on the earnings key", () => {
 
   it("withholds the per-share value when NCI earns a profit but its book value is unavailable", () => {
     // Neither book nor the larger of book and the profit share can be set (Codex review, PR #49).
-    for (const income of [30, 8]) {
+    // A signed NCI loss also proves an outside claim (Codex review, PR #49).
+    for (const income of [30, 8, -5]) {
       const v = dcfOf({ minorityInterest: null, noncontrollingEarnings: { noncontrollingIncome: income, consolidatedProfit: 100, asOf: "2026-06-30" } });
       const reason = v.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")?.reason ?? "";
       expect(reason).toMatch(/book value is unavailable/);

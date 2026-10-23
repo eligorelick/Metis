@@ -197,7 +197,7 @@ describe("C-11: base-case language about returns recovering toward the cost of e
         { path: "a", text: "Returns improved toward the cost of equity." },
         { path: "b", text: "ROTE rose toward the 10.4% cost of equity." },
         { path: "c", text: "Returns climbed toward the CoE." },
-        { path: "d", text: "Capital was rebuilt toward the cost of equity." },
+        { path: "d", text: "Returns were rebuilt toward the cost of equity." },
         { path: "e", text: "Returns have risen toward the cost of equity." },
       ],
       trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM ROTE" },
@@ -211,6 +211,10 @@ describe("C-11: base-case language about returns recovering toward the cost of e
       texts: [
         { path: "a", text: "The cost of equity is 9.6% on a beta of 1.1." },
         { path: "b", text: "Returns fade from the trailing 16.5% toward the cost of equity plus the carried excess." },
+        // No return subject: an improvement elsewhere in a sentence that names the hurdle (Codex review, PR #49).
+        { path: "c", text: "Margins improve to 20%, while the cost of equity stays at 10%." },
+        { path: "d", text: "Capital was rebuilt toward the cost of equity." },
+        { path: "e", text: "Credit costs improve along the model's recovery path." },
       ],
       trailing: { returnPct: 16.5, asOf: "2026-06-30", label: "TTM ROTE" },
       terminalTargetPct: 12.8,
