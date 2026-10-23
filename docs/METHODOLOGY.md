@@ -3059,3 +3059,19 @@ before. A zero against a nonzero figure gets no reporting-unit allowance. The
 tolerance is a house convention. It is far narrower than the debt band above
 because it judges two statements of one figure, not a principal amount beside
 a carrying amount.
+
+**D&A from separate lines (B-7).** On the SEC path, depreciation and
+amortization came only from a combined tag (`DepreciationDepletionAndAmortization`,
+`DepreciationAndAmortization`, `DepreciationAmortizationAndAccretionNet`).
+Microsoft, Alphabet, Oracle, Intel and Tesla tag none of them in recent
+periods, so they had no D&A and no EBITDA, and EV/EBITDA, net debt/EBITDA and
+the capex split were withheld. When no combined tag is filed for a period, D&A
+is now the filer's `Depreciation` + `AmortizationOfIntangibleAssets`; when no
+amortization is tagged for the period either, it is `Depreciation` alone.
+Either is a stand-in for the period and is disclosed as a lower bound,
+because a combined cash-flow line can hold other amortization: Microsoft's
+"depreciation, amortization, and other" is larger than the two tagged lines.
+EBITDA built on it is understated by that amount, so EV/EBITDA leans high.
+Amortization alone is never taken as D&A. Within one trailing year, quarters
+can mix the two compositions (Alphabet tags amortization in some quarters
+only); each quarter's composition is disclosed.

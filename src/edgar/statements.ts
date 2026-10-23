@@ -56,7 +56,7 @@ import {
   EBIT_INTEREST_INSIDE_AGGREGATE,
   EBIT_NON_OPERATING_ADJUSTMENTS,
   INCOME_BEFORE_TAX_TAGS,
-  INCOME_BEFORE_TAX_COMPONENT_TAGS,
+  DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
   GROSS_PROFIT_REVENUE_TAGS,
@@ -582,7 +582,34 @@ const BANK_REVENUE_SPEC: ChainSpec = {
  */
 const BANK_OPERATING_INCOME_SPEC: ChainSpec = { kind: "first", tags: tagsFor("operatingIncome"), unit: "money" };
 
-const DEPRECIATION_SPEC: ChainSpec = { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money" };
+/**
+ * A filer with no combined D&A tag for the period has its D&A composed from
+ * the two lines it does tag (audit 2026-10-22 B-7); without D&A there is no
+ * EBITDA. Either composition can omit amortization a combined cash-flow line
+ * would include, so both are disclosed as lower bounds. Amortization alone is
+ * never D&A.
+ */
+const DEPRECIATION_SPEC: ChainSpec = {
+  kind: "chain",
+  unit: "money",
+  steps: [
+    { kind: "first", tags: tagsFor("depreciationAndAmortization"), unit: "money" },
+    {
+      kind: "sum",
+      tags: [...DEPRECIATION_COMPONENT_TAGS],
+      unit: "money",
+      disclose:
+        "no combined depreciation-and-amortization tag is filed for the period; D&A is composed as the filer's Depreciation + AmortizationOfIntangibleAssets, a lower bound that omits any other amortization a combined line would include",
+    },
+    {
+      kind: "first",
+      tags: [DEPRECIATION_COMPONENT_TAGS[0]!],
+      unit: "money",
+      disclose:
+        "no combined depreciation-and-amortization tag and no AmortizationOfIntangibleAssets are filed for the period; D&A is the filer's Depreciation alone, a lower bound that omits any amortization",
+    },
+  ],
+};
 
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,

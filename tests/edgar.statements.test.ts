@@ -1893,6 +1893,45 @@ describe("buildStatementsFromCompanyFacts — income-statement fallbacks", () =>
     );
     expect(one.incomeAnnual.rows[0]?.incomeBeforeTax).toBeNull();
   });
+
+  it("composes D&A from depreciation and intangibles amortization when no combined tag is filed (audit 2026-10-22 B-7)", () => {
+    // Intel FY2025 tags Depreciation 10,757M and AmortizationOfIntangibleAssets
+    // 949M and no combined line; D&A, EBITDA and EV/EBITDA were all lost.
+    const built = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(-2_000), Depreciation: annual(10_757), AmortizationOfIntangibleAssets: annual(949), NetCashProvidedByUsedInOperatingActivities: annual(9_700) }),
+      { ...OPTS, symbol: "INTC" },
+    );
+    expect(built.incomeAnnual.rows[0]).toMatchObject({ depreciationAndAmortization: 11_706, ebitda: 9_706 });
+    expect(built.cashflowAnnual.rows[0]?.depreciationAndAmortization).toBe(11_706);
+    expect(built.incomeAnnual.substitutions).toEqual([
+      { field: "depreciationAndAmortization", periods: ["2025-12-31"], text: expect.stringMatching(/Depreciation \+ AmortizationOfIntangibleAssets/) },
+    ]);
+  });
+
+  it("takes depreciation alone as a disclosed lower bound when no amortization is tagged for the period (audit 2026-10-22 B-7)", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(4_355), Depreciation: annual(5_030) }),
+      { ...OPTS, symbol: "TSLA" },
+    );
+    expect(built.incomeAnnual.rows[0]).toMatchObject({ depreciationAndAmortization: 5_030, ebitda: 9_385 });
+    expect(built.incomeAnnual.substitutions).toEqual([
+      { field: "depreciationAndAmortization", periods: ["2025-12-31"], text: expect.stringMatching(/Depreciation alone.*lower bound/) },
+    ]);
+  });
+
+  it("keeps a combined D&A tag over the components, and composes nothing from amortization alone", () => {
+    const combined = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(1_000), DepreciationDepletionAndAmortization: annual(12_000), Depreciation: annual(10_757), AmortizationOfIntangibleAssets: annual(949) }),
+      { ...OPTS, symbol: "INTC" },
+    );
+    expect(combined.incomeAnnual.rows[0]?.depreciationAndAmortization).toBe(12_000);
+    expect(combined.incomeAnnual.substitutions).toEqual([]);
+    const amortizationOnly = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(1_000), AmortizationOfIntangibleAssets: annual(949) }),
+      { ...OPTS, symbol: "CSCO" },
+    );
+    expect(amortizationOnly.incomeAnnual.rows[0]).toMatchObject({ depreciationAndAmortization: null, ebitda: null });
+  });
 });
 
 
