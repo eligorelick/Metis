@@ -58,6 +58,14 @@ describe("issuer economic-share scope", () => {
       args.balance = { ...args.balance!, totalStockholdersEquity: 100, totalEquity: 130, minorityInterest: null };
       report.valuation = applyMultiples(report.valuation, { kind: "dcf-suppressed", route: "general", multiples: multiplesFramework("general", args), notes: [], gaps: [] });
       expect(keyDataRows(report).some(row => row.label === "Enterprise value (market)")).toBe(false);
+    } else if (status === "unresolved") {
+      // Audit 2026-10-22 B-8: an unresolved class scope shows no single-class figure as the issuer's capitalization.
+      expect(rows.find(row => row.label === "Issuer-common capitalization")).toMatchObject({ value: "withheld" });
+      expect(rows.find(row => row.label === "Issuer-common capitalization")?.note).toContain("class scope unresolved");
+      expect(rows.some(row => /market cap/i.test(row.label))).toBe(false);
+      expect(reportToMarkdown(ReportSchema.parse(report))).toContain("Market cap (quote; may cover one share class only)");
+      expect(rows.find(row => row.label === "Provider shares (scope unverified)")?.note).toContain("2026-06-30");
+      expect(rows.some(row => row.label === "Enterprise value (market)")).toBe(false);
     } else {
       expect(rows.find(row => row.label === "Provider market cap (scope unverified)")?.note).toContain("2026-10-15");
       expect(rows.find(row => row.label === "Provider shares (scope unverified)")?.note).toContain("2026-06-30");
@@ -133,6 +141,23 @@ describe("issuer economic-share scope", () => {
     expect(result.enterpriseValue.basis).toMatch(/book-value proxy.*market value/);
     expect(result.enterpriseValue.nonOperatingHoldingsScope).toBe("not-comprehensively-resolved");
     expect(result.multiples.find(row => row.key === "peTtm")?.current).toBeCloseTo(28.895);
+  });
+
+  // Audit 2026-10-22 B-8: a class on a stated economic weight (BRK: A = 1,500 B).
+  it("values a weighted class at its economic units x the main quote and prices P/E on capitalization", () => {
+    const input = base();
+    input.quote = { ...input.quote, issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
+    const weighted = evidence();
+    weighted.classes = [weighted.classes[0]!, { classId: "class-a", shares: 1_000, countBasis: "outstanding", economicUnitsPerQuotedShare: 1500, priceBasis: "economic-equivalence-proxy" }];
+    input.economicShareEvidence = [weighted];
+    input.balance = { ...input.balance!, minorityInterest: 0 };
+    const result = multiplesFramework("general", input);
+    const marketCap = (114_473_000 + 1_000 * 1500) * 288.95;
+    expect(result.enterpriseValue.equityScope).toMatchObject({ status: "resolved", economicShares: 115_973_000, approximate: true });
+    expect(result.enterpriseValue.equityScope!.marketCap).toBeCloseTo(marketCap, 2);
+    expect(result.enterpriseValue.basis).toMatch(/economic-weight approximation/);
+    expect(result.multiples.find(row => row.key === "peTtm")?.current).toBeCloseTo(marketCap / 1e9, 6);
+    expect(result.gaps.find(gap => gap.field === "valuation.multiples.peTtm.economicClassBasis")?.reason).toMatch(/economic weight/);
   });
 
   it.each(["issued", "unknown-rights", "incomplete", "future", "wrong-security", "conflicting"])("withholds aggregate valuation for %s class evidence without changing price/EPS", condition => {

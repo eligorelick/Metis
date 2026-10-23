@@ -135,7 +135,10 @@ export function resolveEconomicEquityScope(
       sourceIds: [...new Set(active.flatMap(item => [...item.sourceIds, ...item.classes.flatMap(cls => cls.observedPrice?.sourceIds ?? [])]))],
       sourceHashes: [...new Set(active.flatMap(item => [item.sourceHash, ...item.classes.flatMap(cls => cls.observedPrice ? [cls.observedPrice.sourceHash] : [])]))], shareCountAsOf: row.asOf,
       basis: `Issuer-common equity = sum of each class's outstanding count x its admitted class price (${totals[0]} economic share units at ${row.asOf}); ` +
-        (approximate ? "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. " : "quoted common-class price basis. ") +
+        (!approximate ? "quoted common-class price basis. "
+          : active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy" && cls.economicUnitsPerQuotedShare !== 1))
+            ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
+            : "same-price approximation for equivalent unquoted classes, not a traded quote for those classes. ") +
         `Price policy: every separately observed class price must share the main quote valuation day ${priceDay}; report/fetch dates do not substitute for that session. ` +
         `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` };
   }

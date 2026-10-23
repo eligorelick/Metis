@@ -3075,3 +3075,35 @@ EBITDA built on it is understated by that amount, so EV/EBITDA leans high.
 Amortization alone is never taken as D&A. Within one trailing year, quarters
 can mix the two compositions (Alphabet tags amortization in some quarters
 only); each quarter's composition is disclosed.
+
+**Market cap across share classes (B-8).** An issuer with more than one
+common class needs every class's outstanding count and its economic relation
+to the quoted class before Métis states a market cap. Covers that tag each
+class's count with a class member (Meta, Berkshire Hathaway, Mastercard,
+Comcast, Visa) were outside the two cover layouts Métis read, so their market
+cap, P/E, EV/EBITDA, P/B and the WACC weights were withheld. Such a cover now
+establishes the scope when all of the following hold: each class's count is
+tagged at one date; the trading symbol is bound to one of those classes (by
+the class on its context, or the single class its registered title names); and
+the filing's own text states every class's economic relation in a sentence
+Métis reads. Two forms are read: identical liquidation and dividend rights
+(Meta: "The holders of our Class A and Class B common stock ... have identical
+liquidation and dividend rights but different voting rights."), and a stated
+fraction (Berkshire: Class B has dividend and distribution rights equal to
+1/1,500 of Class A's). Market cap is then the sum over classes of the count x
+the class's economic units per quoted share x the quoted class's price; a
+Berkshire Class A share counts as 1,500 Class B shares. This is an
+approximation, named in the basis, because a class with its own quote is not
+valued at that quote. The scope is still withheld when a class has no stated
+relation (Mastercard, Comcast, Visa state none Métis reads), when a sentence
+says the classes differ in dividends, distributions or liquidation, when a
+relation names a class with no tagged count, or when the relations conflict.
+When the classes carry different weights, a filed diluted EPS is per share of
+a class the facts do not identify (Berkshire reports per Class A equivalent),
+so P/E is market cap over common income rather than price over EPS, with an
+info entry. Per-share intrinsic value still needs a diluted share count on the
+same basis and stays withheld (B-37, left for a later batch). When the scope
+stays unresolved, the Key data table shows issuer-common capitalization as
+withheld instead of the quote's market cap, which can cover one class only,
+and the market data table labels that figure as possibly covering one share
+class only.
