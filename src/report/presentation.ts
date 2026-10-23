@@ -749,10 +749,11 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const dilutedShares = bridge?.dilutedShares ?? null;
   const scope = report.valuation.marketValueScope;
   const admittedPriceAsOf = scope?.priceAsOf ?? null;
-  // Audit 2026-10-22 B-8: an unresolved class scope means the quote's cap may
-  // cover one class only, so page one shows no figure as the issuer's.
-  const marketCap = scope?.status === "resolved" ? scope.marketCap : scope?.status === "unresolved" ? null : quotedCap;
-  if (scope?.status === "unresolved") rows.push({ label: "Issuer-common capitalization", value: "withheld", note: "class scope unresolved: the filings do not establish every class's outstanding count and economic relation to the quoted class; the quote's market cap may cover one class only" });
+  // Audit 2026-10-22 B-8: a scope unresolved across share classes means the
+  // quote's cap may cover one class only, so page one shows no figure as the issuer's.
+  const classAmbiguous = scope?.status === "unresolved" && scope.classAmbiguity === true;
+  const marketCap = scope?.status === "resolved" ? scope.marketCap : classAmbiguous ? null : quotedCap;
+  if (classAmbiguous) rows.push({ label: "Issuer-common capitalization", value: "withheld", note: "class scope unresolved: the filings do not establish every class's outstanding count and economic relation to the quoted class; the quote's market cap may cover one class only" });
   if (marketCap !== null) rows.push(scope?.status === "resolved"
     ? { label: "Issuer-common capitalization", value: money(marketCap, scope.currency), note: `counts at ${scope.shareCountAsOf ?? "unavailable date"}; main quote as of ${admittedPriceAsOf ?? "unavailable date"}${scope.approximate ? scope.basis.includes("economic-weight approximation") ? "; economic-weight approximation" : "; same-price approximation" : ""}${scope.classPriceDates?.length ? `; separate class prices: ${scope.classPriceDates.map(row => `${row.classId} at ${row.asOf}`).join(", ")}` : ""}` }
     : md?.quote?.marketCapOrigin === "computed" && md.quote.marketCap === marketCap
@@ -942,7 +943,7 @@ export function consensusTables(report: Report): BodyTable[] {
       si.changePct !== null ? `${formatPct(si.changePct, 1, true)} vs prior settlement` : null,
     ].filter(Boolean).join("; ")]);
   }
-  const oneClassOnly = report.valuation.marketValueScope?.status === "unresolved" ? "; may cover one share class only" : "";
+  const oneClassOnly = report.valuation?.marketValueScope?.status === "unresolved" && report.valuation.marketValueScope.classAmbiguity === true ? "; may cover one share class only" : "";
   if (md.quote?.marketCap != null) rows.push([md.quote.marketCapOrigin === "computed" ? `Market cap (derived: quote × filed shares${oneClassOnly})` : `Market cap (quote${oneClassOnly})`, `${money(md.quote.marketCap, md.currency)}${md.quote.asOf ? ` as of ${md.quote.asOf}` : ""}`]);
   if (md.shares?.outstanding != null) rows.push(["Shares outstanding", `${formatLargeNumber(md.shares.outstanding)}${md.shares.float !== null ? `; float estimate ${formatLargeNumber(md.shares.float)}${md.shares.floatAsOf === undefined ? "" : md.shares.floatAsOf === null ? " (measurement date unestablished)" : ` measured ${md.shares.floatAsOf}`}` : ""}`]);
   const evLabel = md.enterpriseValueOrigin === "provider" ? "Provider enterprise value (vendor definition, period end)"

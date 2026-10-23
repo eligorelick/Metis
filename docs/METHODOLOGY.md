@@ -3106,10 +3106,13 @@ a class the facts do not identify (Berkshire reports per Class A equivalent),
 so P/E is market cap over common income rather than price over EPS, with an
 info entry. Per-share intrinsic value still needs a diluted share count on the
 same basis and stays withheld (B-37, left for a later batch). When the scope
-stays unresolved, the Key data table shows issuer-common capitalization as
-withheld instead of the quote's market cap, which can cover one class only,
-and the market data table labels that figure as possibly covering one share
-class only.
+stays unresolved because the issuer has more than one common class, the Key
+data table shows issuer-common capitalization as withheld instead of the
+quote's market cap, which can cover one class only, and the market data table
+labels that figure as possibly covering one share class only. A scope
+unresolved for another reason (an ADR without its ratio evidence, a vendor
+cap on the quoted security) names no share class and keeps the provider
+market cap, labelled scope unverified.
 
 **Newer results than the statements (B-24).** Statements come from XBRL
 filings, so in the weeks between a quarter's results 8-K and its 10-Q the

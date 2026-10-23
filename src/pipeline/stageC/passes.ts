@@ -3398,6 +3398,7 @@ export function applyMultiples(
     priceAsOf: scope.priceAsOf ?? null,
     approximate: scope.approximate, basis: scope.basis,
     ...(scope.classPriceDates ? { classPriceDates: scope.classPriceDates } : {}),
+    ...(scope.classAmbiguity ? { classAmbiguity: true as const } : {}),
     enterpriseValue: mr.enterpriseValue.value, enterpriseValueBasis: readerBridge ?? mr.enterpriseValue.basis,
   } : undefined;
   return { ...rest, multiples: rows, ...(multiplesBasis ? { multiplesBasis } : {}), ...(marketValueScope ? { marketValueScope } : {}), ...(mr?.peerCoverage ? { peerCoverage: mr.peerCoverage } : {}) };

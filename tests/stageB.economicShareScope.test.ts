@@ -36,10 +36,11 @@ const evidence = (): EconomicShareEvidence => ({
 });
 
 describe("issuer economic-share scope", () => {
-  it.each(["resolved", "unresolved", "unverified"])("keeps page-one values on the admitted %s economic scope", (status) => {
+  it.each(["resolved", "unresolved", "class-ambiguous", "unverified"])("keeps page-one values on the admitted %s economic scope", (status) => {
     const args = base();
     if (status !== "unverified") args.quote = { ...args.quote, issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
     if (status === "resolved") args.economicShareEvidence = [evidence()];
+    if (status === "class-ambiguous") args.quote = { ...args.quote, marketCapSecurityBasis: "unresolved", marketCapScopeEvidence: { reason: "Filing enumerates multiple outstanding common classes.", sourceIds: ["filing:cover"] } };
     const report = loadTask28Fixture();
     report.valuation = applyMultiples(report.valuation, { kind: "dcf-suppressed", route: "general", multiples: multiplesFramework("general", args), notes: [], gaps: [] });
     report.marketData = { version: "1", currency: "USD", estimateCurrency: null, estimateCurrencyBasis: null,
@@ -58,7 +59,7 @@ describe("issuer economic-share scope", () => {
       args.balance = { ...args.balance!, totalStockholdersEquity: 100, totalEquity: 130, minorityInterest: null };
       report.valuation = applyMultiples(report.valuation, { kind: "dcf-suppressed", route: "general", multiples: multiplesFramework("general", args), notes: [], gaps: [] });
       expect(keyDataRows(report).some(row => row.label === "Enterprise value (market)")).toBe(false);
-    } else if (status === "unresolved") {
+    } else if (status === "class-ambiguous") {
       // Audit 2026-10-22 B-8: an unresolved class scope shows no single-class figure as the issuer's capitalization.
       expect(rows.find(row => row.label === "Issuer-common capitalization")).toMatchObject({ value: "withheld" });
       expect(rows.find(row => row.label === "Issuer-common capitalization")?.note).toContain("class scope unresolved");
@@ -67,6 +68,9 @@ describe("issuer economic-share scope", () => {
       expect(rows.find(row => row.label === "Provider shares (scope unverified)")?.note).toContain("2026-06-30");
       expect(rows.some(row => row.label === "Enterprise value (market)")).toBe(false);
     } else {
+      // A scope unresolved for another reason (an ADR, a quoted-security vendor basis) names no share class.
+      expect(reportToMarkdown(ReportSchema.parse(report))).not.toContain("share class only");
+      expect(rows.some(row => row.value === "withheld")).toBe(false);
       expect(rows.find(row => row.label === "Provider market cap (scope unverified)")?.note).toContain("2026-10-15");
       expect(rows.find(row => row.label === "Provider shares (scope unverified)")?.note).toContain("2026-06-30");
       expect(rows.some(row => row.label === "Enterprise value (market)")).toBe(false);

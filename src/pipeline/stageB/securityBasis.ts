@@ -74,6 +74,8 @@ export interface EconomicEquityScope {
   priceAsOf?: string | null;
   /** Audit 2026-10-22 B-8: a class in force on the price day carries other than one economic unit per quoted share. */
   weightedClasses?: true;
+  /** Audit 2026-10-22 B-8: unresolved because the issuer has more than one common class, not for an ADR or vendor basis. */
+  classAmbiguity?: true;
 }
 
 /** A class sum is admissible only with complete inventory, outstanding counts and known economic rights. */
@@ -86,7 +88,9 @@ export function resolveEconomicEquityScope(
   evidence: readonly EconomicShareEvidence[],
   asOf: string,
 ): EconomicEquityScope {
+  const classAmbiguity = quote.marketCapScopeEvidence !== undefined || evidence.some(row => row.classes.length > 1);
   const unresolved = (): EconomicEquityScope => ({ status: "unresolved", marketCap: null, economicShares: null,
+    ...(classAmbiguity ? { classAmbiguity: true as const } : {}),
     approximate: false, sourceIds: quote.marketCapScopeEvidence?.sourceIds ?? [], sourceHashes: [], shareCountAsOf: null,
     basis: "Issuer-common economic share scope unresolved: complete class coverage, outstanding counts and economic rights on the quoted security basis are required; aggregate equity and EV multiples withheld." +
       (quote.marketCapScopeEvidence ? ` ${quote.marketCapScopeEvidence.reason}` : "") });
