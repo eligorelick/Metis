@@ -138,6 +138,7 @@ import {
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
@@ -517,9 +518,7 @@ function renderValuation(
       ? [
           fairValue.status === "available"
             ? `_${prose(fairValue.basis.join(" "))}_`
-            : `_Intrinsic value per share suppressed — ${prose(
-                fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" "),
-              )}_`,
+            : `_${prose(fairValueWithheldText(fairValue))}_`,
         ]
       : []),
     "",

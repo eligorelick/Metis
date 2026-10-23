@@ -1,6 +1,6 @@
 # Audit batch 3a: the remaining high-severity findings (2026-10-22)
 
-Base: `dd9c61b` (main). Scope: batch 3a of the independent audit of 2026-10-22, findings B-32, B-5, A-11, B-7, B-8 (with B-37 as far as B-8 needs it), B-24 (with B-26 as far as B-24 needs it) and C-16: figures withheld although the filed evidence was complete, reports that did not say a newer quarter had been published, and a superseded 10-K operating figure. Decision: D-102 in [DECISIONS](DECISIONS.md). The audit evidence folders stay out of the repository.
+Base: `dd9c61b` (main), merged with `efc6c24` (batch 2, PR #49). Scope: batch 3a of the independent audit of 2026-10-22, findings B-32, B-5, A-11, B-7, B-8 (with B-37 as far as B-8 needs it), B-24 (with B-26 as far as B-24 needs it) and C-16: figures withheld although the filed evidence was complete, reports that did not say a newer quarter had been published, and a superseded 10-K operating figure. Decision: D-103 in [DECISIONS](DECISIONS.md) (batch 2 took D-102); report 1.38.0, payload 1.43.0 and Stage B ACCOUNTING_EVIDENCE_20, the stamps after batch 2's. The audit evidence folders stay out of the repository.
 
 This change made no model calls and no paid provider calls. The only provider traffic was the keyless, data-only control panel below, served from the run cache behind a dead proxy. No fixture file was added; the new tests build their inputs inline from the wording of public SEC filings.
 
@@ -33,7 +33,7 @@ A fresh reviewer read the batch's diff without the author's reasoning; after the
 | B-24: a dividend per share or an EPS outlook counted as a release stating results | Fixed | `b67e3e2` |
 | A-11: one reporting unit let 2 million agree with 1 million | Fixed: the unit allowance needs a figure of at least 100 units; the module joins the risk coverage manifest | `14e9940` |
 | C-16: years, megawatt-hours and units of account read as operating counts; the title named measures the pass had not kept | Fixed | `d325114` |
-| B-7: `Depreciation` alone published as D&A | Kept as a disclosed lower bound (owner decision in D-102); carrying the caveat onto the EV/EBITDA row is left for later | none |
+| B-7: `Depreciation` alone published as D&A | Kept as a disclosed lower bound (owner decision in D-103); carrying the caveat onto the EV/EBITDA row is left for later | none |
 | Round two, B-8: a class counted at an earlier cover date dropped out of the sum and the market cap was published as complete | Fixed: every class must be counted at one date | `8464920` |
 | Round two, B-24: a loss per share read as positive diluted EPS; a non-GAAP basis named after the figure; full-year revenue under the quarter's label | Fixed: the whole sentence is read | `d1757e3` |
 | Round two, B-5: METHODOLOGY said the band applies when no current debt is reported | Fixed wording: when current and noncurrent debt do not both resolve | `5890ada` |

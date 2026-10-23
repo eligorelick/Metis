@@ -63,11 +63,13 @@ describe("NCI materiality for parent-common P/FCF (audit SNOW-2)", () => {
 describe("METHODOLOGY states the NCI rules the code applies (audit DOC-1)", () => {
   const doc = readFileSync(path.join(process.cwd(), "docs", "METHODOLOGY.md"), "utf8").replace(/\s+/g, " ");
 
-  it("says unknown NCI withholds rather than counting as zero, and that the bridge uses book NCI", () => {
+  it("says unknown NCI withholds rather than counting as zero, and that market EV uses book NCI", () => {
     expect(doc).not.toMatch(/undisclosed means zero/);
     expect(doc).toContain("Minority interest is not zero-filled.");
     expect(doc).toContain("EV, the EV multiples and the DCF's per-share equity bridge are then withheld.");
-    expect(doc).toContain("Minority interest enters both at its book carrying amount");
+    // Audit 2026-10-22 E-5: the DCF bridge may deduct NCI on its earnings key instead.
+    expect(doc).toContain("Minority interest enters the market EV at its book carrying amount");
+    expect(doc).toContain("NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5)");
   });
 
   it("states the 1% materiality floor the code uses", () => {

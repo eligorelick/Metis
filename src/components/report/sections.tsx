@@ -16,6 +16,7 @@
 import type { ReactNode } from "react";
 import { compositeDisplay, compositeNote, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { fairValueWithheldText } from "@/report/fairValueText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
@@ -968,9 +969,7 @@ export function ValuationSection({
             <p className="text-[10px] leading-snug text-faint">
               {fairValue.status === "available"
                 ? displayProse(fairValue.basis.join(" "))
-                : `Intrinsic value per share suppressed — ${
-                    fairValue.reasons.map((r) => r.reason).join("; ") || fairValue.basis.join(" ")
-                  }`}
+                : fairValueWithheldText(fairValue)}
             </p>
           ) : null}
           <div className="mt-1 border-t border-edge pt-2">

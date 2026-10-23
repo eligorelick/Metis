@@ -17,6 +17,7 @@ import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -764,7 +765,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   } else if (!scope && marketCap !== null && bridge && bridge.netDebt !== null) {
     // Legacy reports retain their stored bridge convention; new reports use
     // the admitted Stage B EV, including its NCI, cash and lease scope guards.
-    const ev = marketCap + bridge.netDebt + (bridge.minorityInterest ?? 0) + (bridge.preferredEquity ?? 0);
+    const ev = marketCap + bridge.netDebt + (bridge.noncontrollingBook ?? bridge.minorityInterest ?? 0) + (bridge.preferredEquity ?? 0);
     rows.push({ label: "Enterprise value (market)", value: money(ev, priceCurrency), note: `market cap + net debt${bridge.asOf ? ` at ${bridge.asOf}` : ""} (equity securities are not cash); the EV multiples use the same figure` });
   }
   const outstanding = md?.shares?.outstanding ?? null;
@@ -870,7 +871,20 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({
       label: "Model fair value (DCF)",
       value: formatFinancialAmount(dcf.value, dcf.unit, dcf.currency),
-      note: report.valuation.dcf.upsidePct === null ? undefined : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
+      note: [
+        report.valuation.dcf.upsidePct === null ? null : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
+        // Audit 2026-10-22 B-30: the general-route DCF's base rate across the census.
+        report.fairValue?.method === "fcff-dcf" ? dcfBaseRateText() : null,
+        // Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
+        report.fairValue?.alternative ? `${report.fairValue.alternative.label}: ${formatFinancialAmount(report.fairValue.alternative.perShare, dcf.unit, dcf.currency)}` : null,
+      ].filter((part): part is string => part !== null).join("; ") || undefined,
+    });
+  } else if (report.fairValue?.status === "outside-domain") {
+    // Audit 2026-10-22 B-29: the headline says why no DCF value is shown.
+    rows.push({
+      label: "Model fair value (DCF)",
+      value: "Model outside its domain",
+      note: report.fairValue.basis[0]?.replace(/^Model outside its domain: /, "").replace(/\.$/, ""),
     });
   }
   const bear = report.valuation.scenarios.find((s) => s.name === "bear")?.priceTarget ?? null;

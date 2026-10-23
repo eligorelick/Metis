@@ -1595,7 +1595,9 @@ describe("excessReturnModel (banks / insurers)", () => {
     //   Y1 excess (0.15-0.10)*1000 = 50; pv 50/1.1 = 45.454545...
     //      BV1 = 1000*(1+0.15*0.5) = 1075
     //   Y2 excess (0.09-0.10)*1075 = -10.75; pv -10.75/1.21 = -8.884297...
-    //      BV2 = 1075*(1+0.09*0.5) = 1123.375
+    //      payout fades to the steady state 1 - 2.5/9 = 72.22% (audit
+    //      2026-10-22 C-10 follow-through, D-102), so
+    //      BV2 = 1075*(1+0.09*(2.5/9)) = 1101.875
     //   pvExcess = 36.570247933...; equityValue = 1036.570248
     const r = excessReturnModel({
       bookValue: 1000,
@@ -1607,7 +1609,9 @@ describe("excessReturnModel (banks / insurers)", () => {
       dilutedShares: 100,
     });
     expect(r.roePathPct.value).toEqual([15, 9]);
-    expect(r.bookValuePath).toEqual([1000, 1075, 1123.375]);
+    expect(r.bookValuePath[0]).toBe(1000);
+    expect(r.bookValuePath[1]).toBe(1075);
+    expect(r.bookValuePath[2]).toBeCloseTo(1101.875, 9);
     expect(r.equityValue).toBeCloseTo(1036.5702479338843, 6);
     expect(r.perShare).toBeCloseTo(10.365702479338843, 6);
     expect(r.impliedPToBv).toBeCloseTo(1.0365702479338843, 9);
@@ -1649,7 +1653,9 @@ describe("excessReturnModel (banks / insurers)", () => {
     // No analystImpliedRoePct (production never supplies it) → endpoint = CoE.
     // fadePath(15, 10, 2) = [15, 10], CoE 10, retention 0.5:
     //   Y1 excess (0.15-0.10)*1000 = 50; pv 50/1.1 = 45.4545...; BV1 = 1075
-    //   Y2 excess (0.10-0.10)*1075 = 0;  pv 0;                    BV2 = 1128.75
+    //   Y2 excess (0.10-0.10)*1075 = 0;  pv 0
+    //   BV2 = 1075*(1+0.10*0.25) = 1101.875: the payout fades to the steady
+    //   state 1 - 2.5/10 = 75% (audit 2026-10-22 C-10 follow-through, D-102)
     //   equityValue = 1000 + 45.4545... = 1045.4545...
     const r = excessReturnModel({
       bookValue: 1000,
@@ -1660,7 +1666,7 @@ describe("excessReturnModel (banks / insurers)", () => {
       dilutedShares: 100,
     });
     expect(r.roePathPct.value).toEqual([15, 10]);
-    expect(r.bookValuePath).toEqual([1000, 1075, 1128.75]);
+    expect(r.bookValuePath).toEqual([1000, 1075, 1101.875]);
     expect(r.equityValue).toBeCloseTo(1045.4545454545455, 6);
     expect(r.terminalExcess).toBe(0);
     expect(r.roePathPct.basis).toMatch(/cost of equity/i);

@@ -124,8 +124,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // D-98: P/E earnings caveat, report-level evidence-scope line and contradicted figures in the header count.
 // D-99: segment nesting, failed-signal and scaler wording, buyback-timing sign, peer coverage counts, the EV bridge stated once and the verdict stance.
 // D-100: the composite withheld below the evidence floor, neutral-band qualifiers, the band thresholds beside the composite and a derived market-cap origin.
-// D-102: the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, and the economic-weight basis.
-export const REPORT_SPEC_VERSION = "1.37.0" as const;
+// D-102: a DCF outside its domain, the excess-return start-return grid, the NCI deduction basis and the house DCF base rate.
+// D-103: the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, and the economic-weight basis.
+export const REPORT_SPEC_VERSION = "1.38.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1034,6 +1035,9 @@ export const DcfSchema = z
       rollForwardFactor: z.number().optional(),
       /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
       sharesOutstandingAtQuote: z.number().optional(),
+      /** E-5: how the NCI deducted in minorityInterest was sized. */
+      noncontrollingBasis: z.string().optional(),
+      noncontrollingBook: z.number().optional(),
     }).strict().optional(),
     /** D-65: each explicit window's DCF revenue beside calendarized consensus. */
     consensusPath: z.array(z.object({
@@ -1043,6 +1047,12 @@ export const DcfSchema = z
     /** D-60: year-one growth × sustained margin per-share grid (null cells withheld). */
     growthMarginGrid: z.object({
       growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
+      perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
+    }).strict().optional(),
+    /** Audit 2026-10-22 C-11: excess-return start-return × cost-of-equity per-share grid (null cells withheld). */
+    excessReturnGrid: z.object({
+      rows: z.array(z.object({ label: z.string(), startReturnPct: z.number(), bookValue: z.number() }).strict()),
+      costOfEquityPcts: z.array(z.number()),
       perShare: z.array(z.array(z.number().nullable())), notes: z.array(z.string()),
     }).strict().optional(),
     forecastRows: z.array(z.object({
@@ -1963,7 +1973,8 @@ export type ScenarioTargets = z.infer<typeof ScenarioTargetsSchema>;
 
 export const FairValueSchema = z
   .object({
-    status: z.enum(["available", "suppressed"]),
+    // "outside-domain": audit 2026-10-22 B-29, the DCF failed a domain test; no per-share is published.
+    status: z.enum(["available", "suppressed", "outside-domain"]),
     /** "fcff-dcf" (general route) | "excess-return" (banks/insurers) | null when suppressed. */
     method: z.enum(["fcff-dcf", "excess-return"]).nullable(),
     /** Versioned method prior (e.g. "FAIR_VALUE_2026_07"). */
@@ -1976,6 +1987,12 @@ export const FairValueSchema = z
     basis: z.array(z.string()),
     /** Why suppressed (ManifestEntry gaps). */
     reasons: z.array(ManifestEntrySchema),
+    /**
+     * Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start
+     * when the model started from the trailing four quarters and the two starts
+     * differ by more than 5pp; printed beside the headline.
+     */
+    alternative: z.object({ label: z.string(), perShare: z.number(), upsidePct: z.number().nullable() }).strict().optional(),
   })
   .strict();
 export type FairValue = z.infer<typeof FairValueSchema>;
@@ -2462,7 +2479,7 @@ const JudgeOutputObjectSchema = z
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
     // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, consensusPath: true, sensitivityNotes: true }) }),
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, excessReturnGrid: true, consensusPath: true, sensitivityNotes: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema,

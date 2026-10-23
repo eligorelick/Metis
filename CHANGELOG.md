@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.37.0** and
-payload **1.42.0** (audit batch 3a, the remaining high-severity findings,
+Current source declares application **0.1.0**, report spec **1.38.0** and
+payload **1.43.0** (audit batch 3a, the remaining high-severity findings,
 2026-10-22). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -27,7 +27,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Value a class-tagged multi-class cover, every class counted at one date and no unparsed relative entitlement stated, on its stated class economics: market cap is the sum over classes of count x economic weight x the quoted price, and P/E, EV/EBITDA, P/B and the WACC weights follow; when the scope stays unresolved across share classes in force on the price day, issuer-common capitalization is shown as withheld, not as the quote's one-class market cap (B-8: META, BRK.B).
 - Show a banner and a warn gap when a results 8-K reports a later quarter than the statements, with its headline revenue (the quarter's total, never a segment's or a full year's) and GAAP diluted EPS (never a loss or a non-GAAP figure) as an unaudited Key data row only when both parse with an established currency; never merged into statements, TTM or valuation. Compact release titles ("3Q26", "Q3 2026 Update") and hyphenated ones ("second-quarter 2026") now date a release; a year-ago quarter end stated first no longer dates it, and the notice cites the exhibit that states the results (B-24, part of B-26).
 - Keep the newer 10-Q MD&A passages that restate an operating figure the 10-K excerpts state (gigawatts, megawatts, backlog, customers, subscribers, units) within 15% of the unchanged budget (C-16: SO).
-- Report 1.37.0, payload 1.42.0 and Stage B ACCOUNTING_EVIDENCE_19 (D-102). See the [disposition record](docs/audit/2026-10-22-audit-batch3a-priority-highs.md).
+- Report 1.38.0, payload 1.43.0 and Stage B ACCOUNTING_EVIDENCE_20 (D-103). See the [disposition record](docs/audit/2026-10-22-audit-batch3a-priority-highs.md).
 
 ## Unreleased - security audit fixes (2026-10-22)
 
@@ -37,6 +37,17 @@ original versions and bytes; source merge does not deploy or publish a release.
 - **Migration:** Node 24 or newer is now required (`engines.node >=24`), the version CI tests (F-10).
 - Tests clear `METIS_`/`THESIS_` settings inherited from the shell (GATE-1); remove a stray `.gitignore` line (F-11); the docs now say ChatGPT inference has run live and Gemini's has not (DOC-1).
 - See the [disposition record](docs/audit/2026-10-22-security-audit-fixes.md) and D-101.
+
+## Proposed audit batch 2: valuation in and out of its domain (2026-10-22)
+
+- Publish no fair value from a DCF outside its domain: equity value at or below zero, or a terminal value above 100% of enterprise value. Withhold its grids, reverse DCF and scenario targets, and keep its signals out of the valuation grade (B-29: NEE $0.00, TSLA $10.19 → "Model outside its domain").
+- Start the excess-return fade from the trailing four-quarter ROTE or common ROE, print the fiscal-year value beside it when the starts differ by more than 5pp, evidence the terminal carry on 4 of the last 5 years, and set aside one business-combination year below the cost of equity (C-10: COF $81.38 → $155.43 on the audit snapshot).
+- Fade the excess-return payout from the three-year average to the steady state 1 − g / terminal ROE by year 10, so book grows at the continuing value's g (C-10 follow-through: PGR $390.23 → $293.09 before merge).
+- Show the trailing return as a row and payload figure, add a start-return × cost-of-equity grid, and warn when base-case text has returns recovering toward the cost of equity from above the terminal target (C-11).
+- Deduct noncontrolling interest at its share of trailing consolidated profit (the latest fiscal year when the trailing window cannot size it) when that exceeds 10% and the book deduction, and withhold the per-share value when the share cannot be established (E-5: FCX $22.27 → $19.67). The key also applies when book NCI is zero but NCI earns a profit, a trailing sum with an unfiled zero quarter falls back to the fiscal year, and NCI income with no book balance withholds the per-share value.
+- Withhold the bull/bear scenario targets when either run is outside the DCF's domain, as the base DCF is, instead of flooring that run at 0 (BA's bear run, −$2.24B of equity, had published $0); the excess-return floor's basis names book value plus the excess returns, not an enterprise-value bridge; the 4-of-5 window keeps a year whose return is not established, so an older year cannot fill it; the return-path check flags a rise only in returns; and NCI income with no book balance withholds the per-share value whether it is a profit or a loss. A sensitivity or growth × margin cell whose own rerun is outside the domain is withheld too (47 growth × margin cells across nine panel issuers), the excess-return grid's cells print the headline's currency instead of "(currency unknown)", and the fair-value and scenario-target method stamps move to FAIR_VALUE_2026_10_D102 and SCENARIO_TARGETS_2026_10_D102.
+- State the house DCF base rate from the 2026-10-22 census (16 of 18 below price, median −53%) beside the general-route DCF headline (B-30).
+- Report 1.37.0, payload 1.42.0 and Stage B ACCOUNTING_EVIDENCE_19 (D-102). See the [disposition record](docs/audit/2026-10-22-audit-batch2-valuation-domain.md).
 
 ## Proposed audit batch 1: headline numbers (2026-10-22)
 

@@ -618,8 +618,14 @@ describe("payload determinism + provenance", () => {
       // lease gap no longer names the environment variable.
       ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
       // Codex review of PR #42: the scenario construction's method stamps.
-      ["SCENARIO_TARGETS_2026_10_D99", "SCENARIO_TARGETS_2026_10_D60", 1],
+      // Codex review of PR #49 (D-102): the fair-value and scenario-target
+      // stamps move again; restored to the preceding pin's wording.
+      ["SCENARIO_TARGETS_2026_10_D102", "SCENARIO_TARGETS_2026_10_D60", 1],
+      ["FAIR_VALUE_2026_10_D102", "FAIR_VALUE_2026_07", 1],
       ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
+      // Codex review of PR #49 (audit 2026-10-22 B-29): a fan with a run
+      // outside the DCF's domain is withheld, no longer floored at 0.
+      ["so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.", "so the higher scenario is always bull and per-share is floored at 0.", 1],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -987,13 +993,18 @@ describe("payload determinism + provenance", () => {
       // Audit 2026-10-22 F-5 (D-101, +260 prompt bytes): the flags and the
       // manifest travel in untrusted-data envelopes; unwrapping them reproduces
       // the preceding prompt above, and no registry, citation or finance record
-      // moves.
-      // Audit batch 3a (D-102): only the versioned header moves with payload
-      // 1.42.0; no byte of this fixture's prompt or any record changes.
-      fingerprint: "1.42.0:39b6eded",
+      // moves. Audit batch 2 (D-102): only the versioned header moves with
+      // payload 1.42.0; prompt bytes and every registry pin stay exact.
+      // Audit batch 3a (D-103, re-pinned 2026-10-22 after merging batch 2):
+      // only the versioned header moves with payload 1.43.0; no byte of this
+      // fixture's prompt or any record changes.
+      fingerprint: "1.43.0:b071d996",
       promptBytes: 140_883,
       provenanceCount: 531,
-      provenanceHash: "6ad4263f",
+      // Codex review of PR #49 (D-102): the fair-value and scenario-target
+      // method stamps the registry records as computation basis move
+      // (restored above for the preceding pin); no value or byte moves.
+      provenanceHash: "1d8c652c",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -1024,7 +1035,12 @@ describe("payload determinism + provenance", () => {
       // D-99: only the reworded leaves restored above (scenario margin
       // direction, even-spread calendarization reason, the undisclosed lease
       // gap without the environment variable) move financeHash.
-      financeHash: "a647b8bb",
+      // Codex review of PR #49 (audit 2026-10-22 B-29): only the scenario
+      // basis sentence restored above moves financeHash; the fan is withheld
+      // when a run is outside the DCF's domain instead of floored at 0, and
+      // this fixture's runs are inside it, so no target or byte moves. The
+      // same review moves the two method stamps (D-102), restored above.
+      financeHash: "9b006f53",
     });
   });
 
@@ -1148,7 +1164,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.42.0");
+    expect(first.payloadVersion).toBe("1.43.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2677,7 +2693,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.37.0");
+    expect(report.meta.specVersion).toBe("1.38.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -2990,14 +3006,16 @@ describe("financial forward assumption propagation", () => {
     const figures = payload.computed.find((section) => section.title === "Valuation (computed)")!.figures;
     expect(figures.find((figure) => figure.label === "terminal ROE")?.value).toBe(12.5);
     expect(figures.find((figure) => figure.label === "continuing residual-income growth")?.value).toBe(2.5);
-    expect(figures.find((figure) => figure.label === "continuing value (present value)")?.value).toBeCloseTo(321.969696969697, 8);
-    expect(serializePayloadForPrompt(payload)).toMatch(/continuing value 321\.97/i);
+    // Audit 2026-10-22 C-10 follow-through (D-102): a one-year horizon pays the
+    // steady state 1 − 2.5/12.5 = 80%, so BV1 = 1025 and CV = 0.025 x 1025 / 0.075 / 1.1.
+    expect(figures.find((figure) => figure.label === "continuing value (present value)")?.value).toBeCloseTo(310.6060606060606, 8);
+    expect(serializePayloadForPrompt(payload)).toMatch(/continuing value 310\.61/i);
   });
 
   it("states continuation in the data-only synthesis and existing route metrics", () => {
     const { bundle, computed } = financialInputs();
     const report = enrichDataOnlyReport(assemble(computed, judgeOutput()), { bundle, computed, reason: "offline fixture" });
-    expect(report.verdict.synthesis).toMatch(/continuing value 321\.97/i);
+    expect(report.verdict.synthesis).toMatch(/continuing value 310\.61/i);
     expect(report.routeMetrics?.notes.join(" ")).toMatch(/terminal ROE 12\.5%/i);
     expect(report.routeMetrics?.metrics.find((row) => row.key === "justifiedPTbv")?.basis).not.toMatch(/adds no continuing value/);
   });

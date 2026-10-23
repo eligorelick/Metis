@@ -88,6 +88,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-22-audit-batch1-headline-numbers.md",
   "docs/audit/2026-10-22-audit-batch3a-priority-highs.md",
   "docs/audit/2026-10-22-security-audit-fixes.md",
+  "docs/audit/2026-10-22-audit-batch2-valuation-domain.md",
   "docs/PRIVACY.md",
   "docs/BRAND.md",
   "docs/CLAUDE-USAGE.md",
