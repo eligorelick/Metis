@@ -72,6 +72,8 @@ export interface EconomicEquityScope {
   classPriceDates?: { classId: string; asOf: string }[];
   /** Admitted main quote valuation day, independent of report build/fetch day. */
   priceAsOf?: string | null;
+  /** Audit 2026-10-22 B-8: a class in force on the price day carries other than one economic unit per quoted share. */
+  weightedClasses?: true;
 }
 
 /** A class sum is admissible only with complete inventory, outstanding counts and known economic rights. */
@@ -128,7 +130,8 @@ export function resolveEconomicEquityScope(
     const signature = (item: EconomicShareEvidence): string => JSON.stringify([...item.classes].sort((a, b) => a.classId.localeCompare(b.classId)));
     if (!finite(totals[0]) || totals[0] <= 0 || active.some(item => item.asOf !== row.asOf || signature(item) !== signature(row))) return unresolved();
     const approximate = active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy"));
-    return { status: "resolved", marketCap: classValues[0], economicShares: totals[0], approximate,
+    const weighted = active.some(item => item.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1));
+    return { status: "resolved", marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
       currency: quote.currency ?? null,
       priceAsOf: priceDay,
       classPriceDates: row.classes.flatMap(cls => cls.observedPrice ? [{ classId: cls.classId, asOf: cls.observedPrice.asOf }] : []),

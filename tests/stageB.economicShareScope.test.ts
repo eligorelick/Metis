@@ -160,6 +160,20 @@ describe("issuer economic-share scope", () => {
     expect(result.gaps.find(gap => gap.field === "valuation.multiples.peTtm.economicClassBasis")?.reason).toMatch(/economic weight/);
   });
 
+  // Review of B-8: only the evidence in force on the price day decides the P/E basis.
+  it("keeps price / EPS when only an ended evidence row carried unequal weights", () => {
+    const input = base();
+    input.quote = { ...input.quote, issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
+    const ended = evidence();
+    Object.assign(ended, { asOf: "2025-06-30", filed: "2025-08-06", effectiveFrom: "2025-06-30", effectiveTo: "2026-06-30" });
+    ended.classes = [ended.classes[0]!, { classId: "class-a", shares: 1_000, countBasis: "outstanding", economicUnitsPerQuotedShare: 1500, priceBasis: "economic-equivalence-proxy" }];
+    input.economicShareEvidence = [ended, evidence()];
+    const result = multiplesFramework("general", input);
+    expect(result.enterpriseValue.equityScope).toMatchObject({ status: "resolved", economicShares: 119_996_000 });
+    expect(result.multiples.find(row => row.key === "peTtm")?.current).toBeCloseTo(28.895);
+    expect(result.gaps.some(gap => gap.field === "valuation.multiples.peTtm.economicClassBasis")).toBe(false);
+  });
+
   it.each(["issued", "unknown-rights", "incomplete", "future", "wrong-security", "conflicting"])("withholds aggregate valuation for %s class evidence without changing price/EPS", condition => {
     const input = base();
     input.quote = { ...input.quote, issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };

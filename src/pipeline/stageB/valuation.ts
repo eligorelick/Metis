@@ -3902,8 +3902,7 @@ export function multiplesFramework(
   // a filed diluted EPS is per share of one class whose identity the filing
   // facts do not establish (BRK reports per Class A equivalent), so P/E uses
   // the issuer-economic capitalization over common income instead.
-  if (eps !== null && equityScope.status === "resolved" &&
-    inputs.economicShareEvidence?.some(row => row.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1)) === true) {
+  if (eps !== null && equityScope.status === "resolved" && equityScope.weightedClasses === true) {
     eps = null;
     const reason = "share classes carry different economic weights and the diluted EPS class basis is not established; P/E is issuer-economic market cap / common income, not price / EPS";
     notes.push(reason);
