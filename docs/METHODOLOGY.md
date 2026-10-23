@@ -3142,8 +3142,10 @@ reflect them." It appears as a banner in the web view and both exports and as
 a warn entry in the data gaps. Only a release that states results counts: an
 amount for net income, earnings, EPS, diluted earnings per share or operating
 income in its opening text, outside a sentence giving an outlook or a
-dividend, wherever in the sentence the outlook word stands ("Diluted EPS of
-$3.10 is expected" states none). A deliveries or operational update filed under the same 8-K item
+dividend, whether the outlook word comes before the amount or right after it
+("Diluted EPS of $3.10 is expected" states none). A headline list printed
+without full stops is not one sentence, so only the 60 characters after an
+amount are read for it. A deliveries or operational update filed under the same 8-K item
 does not. The release's headline revenue and diluted EPS are shown in the Key
 data table, labelled "unaudited, from the results release", only when every
 statement of each in its opening text gives the same amount (two different

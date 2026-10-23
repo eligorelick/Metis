@@ -586,18 +586,24 @@ export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
   return { revenue: single(revenue), epsDiluted: single(eps) };
 }
 
+/** How far past a results amount an outlook word ("is expected") still belongs to it. */
+const OUTLOOK_AFTER_CHARS = 60;
+
 /**
  * Audit 2026-10-22 B-24: the release states results, not only operating
  * statistics (a deliveries or operational update can be filed under Item 2.02):
  * it states an amount for earnings, diluted earnings per share or operating
  * income. "Our net income ... will be announced" states none, nor does a
- * dividend per share or an amount in a sentence giving an outlook, wherever
- * in the sentence the outlook word stands.
+ * dividend per share or an amount in a sentence giving an outlook, before the
+ * amount or in the words right after it ("EPS of $3.10 is expected"). The
+ * words after it are bounded: a headline list printed without full stops
+ * (Tesla: "$0.8B GAAP net income ... projects spanning ...") is no sentence.
  */
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
   return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
-    .some((m) => !/\b(?:expects?|expected|outlook|guidance|forecasts?|anticipates?|projects?|targets?|dividends?)\b/i.test(sentencePrefix(text, m.index) + text.slice(m.index, sentenceEnd(text, m.index))));
+    .some((m) => !/\b(?:expects?|expected|outlook|guidance|forecasts?|anticipates?|projects?|targets?|dividends?)\b/i.test(sentencePrefix(text, m.index) +
+      text.slice(m.index, Math.min(sentenceEnd(text, m.index), m.index + m[0].length + OUTLOOK_AFTER_CHARS))));
 }
 
 export interface FreeCashFlowFact {

@@ -60,6 +60,8 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
   it("tells a results release from an operational update", () => {
     expect(reportsResults(RESULTS)).toBe(true);
     expect(reportsResults(DELIVERIES)).toBe(false);
+    // Tesla's Q3 2026 update prints its headline figures without full stops; a later "projects" is no outlook.
+    expect(reportsResults("Q3 2026 Update. Profitability $0.7B GAAP operating income $0.8B GAAP net income $1.7B non-GAAP net income1 In Q3, we maintained strong momentum on many projects spanning Super Intelligence (SI), robotics and renewable energy.")).toBe(true);
   });
 
   it("reads headline revenue and GAAP diluted EPS, ignoring the adjusted figure", () => {
