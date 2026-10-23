@@ -1910,9 +1910,9 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     if (!res?.ok || !res.value) return;
     const sec = res.value.data;
     const cut = selectMaterialEvidence(sec.text, typeof budget === "number" ? budget : budget(sec.text.length), profile, superseding);
-    const kept = superseding.filter((measure) => cut.spans.some((span) => measure.pattern.test(span.text)));
+    const kept = cut.superseded ?? [];
     const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
-      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.map((measure) => measure.name).join(", ")}]`);
+      (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const reportingPeriod = isoDay(sec.reportDate);
     const filingDate = isoDay(sec.filingDate);
     // D-66: the issuer's own fiscal label for that period, from its earnings

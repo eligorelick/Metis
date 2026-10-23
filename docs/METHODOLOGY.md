@@ -3157,13 +3157,16 @@ financial families. Southern Co.'s 10-K excerpt stated large-load contracts of
 way into a 172,377-character MD&A, the selection dropped it, and the passes
 argued from the superseded figure. When the 10-Q's period ends after the 10-K
 excerpts' (Item 1 and Item 7 as selected for the payload), the operating
-measures those excerpts state with a count are now read: gigawatts,
-megawatts, backlog (with a dollar amount), customers, subscribers or paid
-members, and physical units (not goodwill reporting units or stock,
-performance and partnership units). The 10-Q passages stating a count of the
-same measure are kept first, one per measure in turn and in source order,
-within 15% of the same 12,000-character budget, displacing lower-ranked text;
-the budget does not grow. The excerpt's title then names the measures, for
+measures those excerpts state with a count are now read: gigawatts and
+megawatts of capacity (not megawatt-hours), backlog (with a dollar amount),
+customers, subscribers or paid members, and physical units (not goodwill
+reporting units, units of account or stock, performance and partnership
+units). A count ends in a digit or is a number word; a bare year ("in 2025
+customers") is not one. The 10-Q passages stating a count of the same measure
+are kept first, one per measure in turn and in source order, within 15% of
+the same 12,000-character budget, displacing lower-ranked text; the budget
+does not grow. The excerpt's title then names the measures whose passages
+that step kept (none when the whole 10-Q text fits the budget), for
 example "[kept first: passages updating the 10-K's figures for gigawatts,
 megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
 whether the newer figure supersedes the older one, and the passes see both

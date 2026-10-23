@@ -26,9 +26,9 @@ function section(text: string, form: string, reportDate: string, sectionName: st
     source: "edgar" as const, asOf: reportDate, endpoint: "https://www.sec.gov/so.htm", fetchedAt: "2026-10-14T00:00:00Z" } };
 }
 
-function payloadFor(annual: string, tenQReportDate = "2026-06-30") {
+function payloadFor(annual: string, tenQReportDate = "2026-06-30", mdna = interimMdna()) {
   const bundle = completeCurrencyBundle({}) as DataBundle;
-  Object.assign(bundle.edgar, { business: section(annual, "10-K", "2025-12-31", "business"), tenQMdna: section(interimMdna(), "10-Q", tenQReportDate, "tenQItem2") });
+  Object.assign(bundle.edgar, { business: section(annual, "10-K", "2025-12-31", "business"), tenQMdna: section(mdna, "10-Q", tenQReportDate, "tenQItem2") });
   const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] } as never);
   return payload.filings.find((f) => f.source === "edgar:10-Q item2")!;
 }
@@ -39,6 +39,20 @@ describe("a newer 10-Q's update of a 10-K operating figure (audit 2026-10-22 C-1
     expect(operatingMeasuresStated("Our customers value reliability.")).toEqual([]);
     expect(operatingMeasuresStated("Goodwill is tested in our three reporting units; we granted 1.2 million restricted stock units.")).toEqual([]);
     expect(operatingMeasuresStated("We delivered 410,000 vehicle units and ended with 301.6 million paid memberships.").map((m) => m.name)).toEqual(["subscribers", "units"]);
+  });
+
+  it("does not read a year, an energy amount or an accounting unit as an operating count", () => {
+    expect(operatingMeasuresStated("In fiscal 2026, customers grew. In 2025 customers renewed.")).toEqual([]);
+    expect(operatingMeasuresStated("The plants generated 4,500 megawatt-hours and 12 gigawatt hours.")).toEqual([]);
+    expect(operatingMeasuresStated("The contract has two units of account.")).toEqual([]);
+    expect(operatingMeasuresStated("We added 2,000 customers and 1,200 MW.").map((m) => m.name)).toEqual(["megawatts", "customers"]);
+  });
+
+  it("names only the measures whose passages the update pass itself kept", () => {
+    const measures = operatingMeasuresStated(ANNUAL);
+    expect(selectMaterialEvidence(interimMdna(), PAYLOAD_BUDGETS.tenQMdnaChars, "interim", measures).superseded).toEqual(["gigawatts"]);
+    expect(selectMaterialEvidence(UPDATE, PAYLOAD_BUDGETS.tenQMdnaChars, "interim", measures).superseded).toEqual([]);
+    expect(payloadFor(ANNUAL, "2026-06-30", UPDATE).title).not.toMatch(/kept first/);
   });
 
   it("keeps the 10-Q passage restating the figure, within the same budget", () => {

@@ -45,6 +45,8 @@ export interface SelectedEvidence {
   originalChars: number;
   spans: EvidenceSpan[];
   coverage: EvidenceCoverage;
+  /** C-16: the measures whose passages the superseding pass itself kept, when one ran. */
+  superseded?: string[];
 }
 const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   results: /\b(?:results of operations|revenue|operating (?:income|margin)|net income|earnings per share)\b/i,
@@ -218,16 +220,19 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
  * sat 70% into a 172k-character MD&A and the interim selection dropped it,
  * so the passes argued from the superseded figure.
  */
-const COUNT = String.raw`(?:\d[\d,.]*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)(?:\s+(?:thousand|million|billion))?`;
+// A count ends in a digit or is a number word; a bare year ("in 2025 customers") is not one.
+const COUNT = String.raw`(?:(?!(?:19|20)\d\d\b(?![,.]\d))\d(?:[\d,.]*\d)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)(?:\s+(?:thousand|million|billion))?`;
+/** Capacity, not energy: "megawatt-hours" and "gigawatt hours" are not capacity counts. */
+const NOT_HOURS = String.raw`(?![- ]hours?\b)`;
 export interface OperatingMeasure { name: string; pattern: RegExp }
 const OPERATING_MEASURES: readonly OperatingMeasure[] = [
-  { name: "gigawatts", pattern: new RegExp(String.raw`\b${COUNT}\s*(?:GWs?|gigawatts?)\b`, "i") },
-  { name: "megawatts", pattern: new RegExp(String.raw`\b${COUNT}\s*(?:MWs?|megawatts?)\b`, "i") },
+  { name: "gigawatts", pattern: new RegExp(String.raw`\b${COUNT}\s*(?:GWs?|gigawatts?)\b${NOT_HOURS}`, "i") },
+  { name: "megawatts", pattern: new RegExp(String.raw`\b${COUNT}\s*(?:MWs?|megawatts?)\b${NOT_HOURS}`, "i") },
   { name: "backlog", pattern: /\bbacklog\b[^.]{0,80}?\$\s?\d|\$\s?[\d.,]+\s*(?:billion|million)\s+(?:of\s+)?backlog\b/i },
   { name: "customers", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:\w+\s+)?customers\b`, "i") },
   { name: "subscribers", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:\w+\s+)?(?:subscribers|paid memberships|paid members|paying members)\b`, "i") },
-  // Physical units, not goodwill reporting units or stock, performance and partnership units.
-  { name: "units", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:(?!(?:reporting|business|stock|share|performance|restricted|partnership|LP|OP|common)\b)\w+\s+)?units\b`, "i") },
+  // Physical units, not goodwill reporting units, units of account or stock, performance and partnership units.
+  { name: "units", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:(?!(?:reporting|business|stock|share|performance|restricted|partnership|LP|OP|common)\b)\w+\s+)?units\b(?!\s+of\s+account)`, "i") },
 ];
 /** The operating measures a (10-K) text states with a count, in table order. */
 export function operatingMeasuresStated(text: string): OperatingMeasure[] {
@@ -305,6 +310,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   const spec = PROFILES[profile];
   const all = passages(text, profile);
   const selected: Passage[] = [];
+  const superseded = new Set<string>();
   const separator = "\n[…source passage omitted…]\n";
   /** Printed length of a selection: adjacent passages join without a separator (D-63 profiles). */
   const joinedLength = (list: readonly Passage[]): number => {
@@ -362,11 +368,15 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
       const queues = superseding.map((measure) => all.filter((candidate) => !candidate.table && measure.pattern.test(candidate.text)));
       let used = 0;
       for (let round = 0; queues.some((queue) => queue.length > round); round++) {
-        for (const passage of queues.map((queue) => queue[round]).filter((candidate): candidate is Passage => candidate !== undefined)) {
-          if (selected.includes(passage) || used + passage.text.length > cap) continue;
+        queues.forEach((queue, index) => {
+          const passage = queue[round];
+          if (passage === undefined || selected.includes(passage) || used + passage.text.length > cap) return;
           const before = remaining;
-          if (add(passage)) used += before - remaining;
-        }
+          if (add(passage)) {
+            used += before - remaining;
+            superseded.add(superseding[index]!.name);
+          }
+        });
       }
     }
     // Priority passages (a named party in an 8-K's operative paragraph) first.
@@ -415,5 +425,6 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   // Tiny caller budgets are valid too; do not return a marker longer than them.
   return { text: (joined + marker).slice(0, budget),
     truncated: omittedChars > 0, originalChars: text.length, spans,
-    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? NOTES_RISK_SELECTION_VERSION : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories } };
+    coverage: { version: profile === "financial" ? EVIDENCE_SELECTION_VERSION : `${profile === "risk" || profile === "notes" ? NOTES_RISK_SELECTION_VERSION : EVIDENCE_SELECTION_VERSION}/${profile}`, retainedChars, omittedChars, categories },
+    ...(superseding.length > 0 ? { superseded: superseding.filter((measure) => superseded.has(measure.name)).map((measure) => measure.name) } : {}) };
 }
