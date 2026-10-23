@@ -3105,7 +3105,7 @@ valued at that quote. The scope is still withheld when a class has no stated
 relation (Mastercard, Comcast, Visa state none Métis reads), when a sentence
 says the classes differ in dividends, distributions or liquidation, when such
 a sentence states a relative entitlement Métis does not read (a percent, a
-multiple, a fraction or a priority, such as "Class B is entitled to 110% of
+multiple such as "twice", a fraction such as "one-half" or a priority, such as "Class B is entitled to 110% of
 the dividends paid on Class A"), when a relation names a class with no tagged
 count, or when the relations conflict. A sentence reporting the dividends each
 class was paid states no relation and is not a reason to withhold.

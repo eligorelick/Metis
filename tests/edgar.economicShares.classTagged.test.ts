@@ -61,6 +61,8 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     ["a relation naming a class with no count", metaLike("<p>The holders of our Class A, Class B and Class C common stock have identical liquidation and dividend rights.</p>")],
     ["a relation covering only some classes", brkLike("<p>The holders of our Class A common stock have identical liquidation and dividend rights.</p>")],
     ["an unparsed relative entitlement", metaLike(`<p>${metaRights}</p><p>Class B common stock is entitled to receive 110% of dividends paid on Class A common stock.</p>`)],
+    ["a worded multiple", metaLike(`<p>${metaRights}</p><p>Class B common stock is entitled to twice the dividends paid on Class A common stock.</p>`)],
+    ["a worded fraction", metaLike(`<p>${metaRights}</p><p>Class B common stock is entitled to one-half of the dividends paid on Class A common stock.</p>`)],
   ])("keeps withholding on %s", (_name, html) => {
     const parsed = parse(html, html.includes("BRK.B") ? "BRK-B" : "META");
     expect(parsed.evidence).toBeNull();

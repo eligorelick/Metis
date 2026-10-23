@@ -139,7 +139,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     const supported = new Set(relations.map(relation => relation.sentence));
     const conflicting = sentences.find(sentence => !supported.has(sentence) && /\b(?:dividends?|distributions?|liquidation)\b/i.test(sentence) &&
       listed(sentence).some(key => keys.includes(key)) &&
-      (/\b(?:different|differ|unequal|not (?:identical|equal|the same)|preferential|preference|not entitled|no right|non-?participating|times|multiple|percent|priority|prior to|senior|subordinat\w*|premium|greater|more than|less than|in excess of|equal to)\b/i.test(sentence) ||
+      (/\b(?:different|differ|unequal|not (?:identical|equal|the same)|preferential|preference|not entitled|no right|non-?participating|times|multiple|twice|double|triple|quadruple|half|(?:one|two|three)-(?:thirds?|quarters?|fourths?|fifths?|tenths?)|percent|priority|prior to|senior|subordinat\w*|premium|greater|more than|less than|in excess of|equal to)\b/i.test(sentence) ||
         /\d\s?%|\b\d+\/\d+\b/.test(sentence)));
     if (conflicting) return refuse(`Class-tagged cover counts retained; an economic statement is not one Métis reads as a class relation: "${conflicting.slice(0, 300)}"`);
     const weight = new Map<string, number>([[quotedKey, 1]]);
