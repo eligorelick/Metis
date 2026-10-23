@@ -3057,8 +3057,11 @@ the quarter's revenue was nulled and the trailing basis fell back to the
 annual statement. The two figures now agree when they differ by no more than
 one reporting unit (the largest power of ten up to a million dividing both;
 companyfacts carries no decimals attribute) or 0.01% of the larger figure,
-whichever is wider. A difference beyond that is still a conflict, refused as
-before. A zero against a nonzero figure gets no reporting-unit allowance. The
+whichever is wider. The reporting-unit allowance applies only when the larger
+figure is at least 100 units, so it is never more than 1% of it: 2 million
+against 1 million is a conflict, not rounding. A difference beyond that is
+still a conflict, refused as before. A zero against a nonzero figure gets no
+reporting-unit allowance. The
 tolerance is a house convention. It is far narrower than the debt band above
 because it judges two statements of one figure, not a principal amount beside
 a carrying amount.

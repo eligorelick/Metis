@@ -31,6 +31,13 @@ describe("vendor-versus-filed tolerance (audit 2026-10-22 A-11)", () => {
     expect(vendorAgreesWithFiled(100_010_000_000, 100_000_000_000)).toBe(true);
     expect(vendorAgreesWithFiled(100_011_000_000, 100_000_000_000)).toBe(false);
   });
+  it("allows a whole reporting unit only on figures of at least 100 units", () => {
+    expect(vendorAgreesWithFiled(2_000_000, 1_000_000)).toBe(false);
+    expect(vendorAgreesWithFiled(99_000_000, 98_000_000)).toBe(false);
+    expect(vendorAgreesWithFiled(100_000_000, 99_000_000)).toBe(true);
+    expect(vendorAgreesWithFiled(5, 4)).toBe(false);
+    expect(vendorAgreesWithFiled(101, 100)).toBe(true);
+  });
   it("gives a zero against a nonzero figure no unit allowance", () => {
     expect(vendorAgreesWithFiled(0, 1e6)).toBe(false);
     expect(vendorAgreesWithFiled(0, 0)).toBe(true);

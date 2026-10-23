@@ -5,9 +5,11 @@
  * whichever is wider. Filers display rounded figures and a vendor can derive a
  * quarter as the year less nine months, so an exact match refused display
  * rounding as a conflict; a classification difference is percent-scale and
- * still refuses.
+ * still refuses. The unit allowance applies only when the larger figure is at
+ * least 100 units, so it never exceeds 1% of it (Batch 1's rounding bound): 2
+ * million against 1 million is a conflict, not display rounding.
  */
-export const VENDOR_SEC_TOLERANCE = { unitCap: 1_000_000, share: 0.0001 } as const;
+export const VENDOR_SEC_TOLERANCE = { unitCap: 1_000_000, share: 0.0001, minUnits: 100 } as const;
 
 /**
  * The reporting unit both figures are stated in: the largest power of ten, up
@@ -22,6 +24,8 @@ export function sharedReportingUnit(a: number, b: number): number {
 }
 
 export function vendorAgreesWithFiled(vendor: number, filed: number): boolean {
-  const allowance = Math.max(1e-8, sharedReportingUnit(vendor, filed), Math.max(Math.abs(vendor), Math.abs(filed)) * VENDOR_SEC_TOLERANCE.share);
+  const larger = Math.max(Math.abs(vendor), Math.abs(filed));
+  const unit = sharedReportingUnit(vendor, filed);
+  const allowance = Math.max(1e-8, larger >= unit * VENDOR_SEC_TOLERANCE.minUnits ? unit : 0, larger * VENDOR_SEC_TOLERANCE.share);
   return Math.abs(vendor - filed) <= allowance;
 }
