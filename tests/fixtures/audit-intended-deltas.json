@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-22",
+  "generatedAt": "2026-10-23",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10047,7 +10047,7 @@
         "D-76",
         "D-100"
       ],
-      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap Métis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md.",
+      "reason": "Audit batch 1 of 2026-10-22 (headline numbers, D-100), as it reaches this provider-free DEMO control: finding B-19 labels where a quote market cap came from, so the quote carries marketCapOrigin \"provider\" (a market cap Métis computes from a quote and a filed share count is \"derived\"); report spec 1.36.0. Both paths move out of d76-dividend-units-and-output-evidence, whose record stands: the whole-object marketData insertion and float.asOf attribution are D-73, and enterpriseValueOrigin (provider) is D-76; D-100 adds only the quote origin and the report stamp. The debt, guidance and composite changes of the batch do not reach this fixture, and no other value moves. The report stamp has since moved again, to audit-batch3a-priority-highs-20261022. See docs/audit/2026-10-22-audit-batch1-headline-numbers.md.",
       "deltas": [
         {
           "path": "report.marketData",
@@ -10129,11 +10129,20 @@
             },
             "shortInterest": null
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "audit-batch3a-priority-highs-20261022",
+      "decisions": [
+        "D-102"
+      ],
+      "reason": "Audit batch 3a of 2026-10-22 (the remaining high-severity findings, D-102), as it reaches this provider-free DEMO control: only the report stamp moves, to spec 1.37.0 (the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, the economic-weight basis). The path moves out of audit-batch1-headline-numbers-20261022, whose record stands for 1.36.0. The tax-rate, debt-band, vendor-tolerance, D&A, share-class, newer-results and 10-Q selection changes do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch3a-priority-highs.md.",
+      "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.36.0"
+          "after": "1.37.0"
         }
       ]
     }

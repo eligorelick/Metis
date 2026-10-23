@@ -6141,7 +6141,7 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.36.0");
+    expect(repRow?.specVersion).toBe("1.37.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);

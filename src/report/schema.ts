@@ -124,7 +124,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // D-98: P/E earnings caveat, report-level evidence-scope line and contradicted figures in the header count.
 // D-99: segment nesting, failed-signal and scaler wording, buyback-timing sign, peer coverage counts, the EV bridge stated once and the verdict stance.
 // D-100: the composite withheld below the evidence floor, neutral-band qualifiers, the band thresholds beside the composite and a derived market-cap origin.
-export const REPORT_SPEC_VERSION = "1.36.0" as const;
+// D-102: the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, and the economic-weight basis.
+export const REPORT_SPEC_VERSION = "1.37.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
