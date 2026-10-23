@@ -10,11 +10,11 @@ import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 const metaRights = "The holders of our Class A and Class B common stock (together, \"common stock\") have identical liquidation and dividend rights but different voting rights.";
 const brkRights = "Class B common stock possesses dividend and distribution rights equal to one-fifteen-hundredth (1/1,500) of such rights of Class A common stock.";
 
-function coverHtml(options: { symbol: string; title: string; counts: Record<string, string>; body: string; symbolMember?: string }): string {
+function coverHtml(options: { symbol: string; title: string; counts: Record<string, string>; body: string; symbolMember?: string; dates?: Record<string, string> }): string {
   const context = (id: string, period: string, member?: string) => `<xbrli:context id="${id}"><xbrli:entity><xbrli:identifier scheme="http://www.sec.gov/CIK">0000000042</xbrli:identifier>${member ? `<xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">us-gaap:CommonClass${member}Member</xbrldi:explicitMember></xbrli:segment>` : ""}</xbrli:entity><xbrli:period>${period}</xbrli:period></xbrli:context>`;
   const duration = "<xbrli:startDate>2026-01-01</xbrli:startDate><xbrli:endDate>2026-06-30</xbrli:endDate>";
   return `<html xmlns:dei="http://xbrl.sec.gov/dei/2025" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:ix="http://www.xbrl.org/2013/inlineXBRL"><body>
-    <ix:header>${context("c-1", duration, options.symbolMember)}${Object.keys(options.counts).map(cls => context(`count-${cls}`, "<xbrli:instant>2026-07-24</xbrli:instant>", cls)).join("")}
+    <ix:header>${context("c-1", duration, options.symbolMember)}${Object.keys(options.counts).map(cls => context(`count-${cls}`, `<xbrli:instant>${options.dates?.[cls] ?? "2026-07-24"}</xbrli:instant>`, cls)).join("")}
     <xbrli:unit id="shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit></ix:header>
     <table><tr><td><ix:nonNumeric contextRef="c-1" name="dei:Security12bTitle">${options.title}</ix:nonNumeric></td><td><ix:nonNumeric contextRef="c-1" name="dei:TradingSymbol">${options.symbol}</ix:nonNumeric></td></tr></table>
     <p>${Object.entries(options.counts).map(([cls, count]) => `Class ${cls}: <ix:nonFraction unitRef="shares" contextRef="count-${cls}" name="dei:EntityCommonStockSharesOutstanding" format="ixt:num-dot-decimal" scale="0">${count}</ix:nonFraction>`).join("; ")}</p>
@@ -64,6 +64,14 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     const parsed = parse(html, html.includes("BRK.B") ? "BRK-B" : "META");
     expect(parsed.evidence).toBeNull();
     expect(parsed.reason).toMatch(/^Class-tagged cover counts retained/);
+  });
+
+  it("keeps withholding when a class is counted at another date", () => {
+    const html = coverHtml({ symbol: "META", title: "Class A Common Stock, $0.000006 par value", body: `<p>${metaRights}</p>`,
+      counts: { A: "2,205,128,509", B: "342,377,716", C: "900,000,000" }, dates: { C: "2026-06-30" } });
+    const parsed = parse(html, "META");
+    expect(parsed.evidence).toBeNull();
+    expect(resolveEconomicEquityScope(quote("META", 700), economicEvidenceFromInventories([parsed]), "2026-10-15").status).not.toBe("resolved");
   });
 
   it("keeps withholding when the trading symbol is not the quoted security", () => {

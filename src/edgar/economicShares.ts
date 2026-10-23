@@ -88,6 +88,8 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     const keys = dated.map(o => classKey(o.classId));
     if (dated.length < 2 || factsAtDate.length !== dated.length || keys.some(key => key === null) || new Set(keys).size !== keys.length) return null;
     const refuse = (reason: string): FilingEconomicShares => ({ ...result, reason });
+    // Every class must be counted at the one date: a class counted earlier is never dropped from the sum.
+    if (dated.length !== observed.length) return refuse("Class-tagged cover counts retained; the classes are counted at different dates, so no single-date inventory covers every class");
     // The quoted class: the class member on the trading symbol's own context,
     // else the single class its registered title names.
     const memberOf = new Map<string, string | null>();
