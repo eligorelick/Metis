@@ -211,6 +211,31 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
     abbreviations: true,
   },
 };
+/**
+ * Audit 2026-10-22 C-16: operating figures a 10-K states as a count of an
+ * operating measure. Southern Co.'s 10-K excerpt stated "approximately nine
+ * GWs" of large-load contracts; its newer 10-Q's "approximately 16 gigawatts"
+ * sat 70% into a 172k-character MD&A and the interim selection dropped it,
+ * so the passes argued from the superseded figure.
+ */
+const COUNT = String.raw`(?:\d[\d,.]*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)(?:\s+(?:thousand|million|billion))?`;
+export interface OperatingMeasure { name: string; pattern: RegExp }
+const OPERATING_MEASURES: readonly OperatingMeasure[] = [
+  { name: "gigawatts", pattern: new RegExp(String.raw`\b${COUNT}\s*(?:GWs?|gigawatts?)\b`, "i") },
+  { name: "megawatts", pattern: new RegExp(String.raw`\b${COUNT}\s*(?:MWs?|megawatts?)\b`, "i") },
+  { name: "backlog", pattern: /\bbacklog\b[^.]{0,80}?\$\s?\d|\$\s?[\d.,]+\s*(?:billion|million)\s+(?:of\s+)?backlog\b/i },
+  { name: "customers", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:\w+\s+)?customers\b`, "i") },
+  { name: "subscribers", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:\w+\s+)?(?:subscribers|paid memberships|paid members|paying members)\b`, "i") },
+  // Physical units, not goodwill reporting units or stock, performance and partnership units.
+  { name: "units", pattern: new RegExp(String.raw`\b${COUNT}\s+(?:(?!(?:reporting|business|stock|share|performance|restricted|partnership|LP|OP|common)\b)\w+\s+)?units\b`, "i") },
+];
+/** The operating measures a (10-K) text states with a count, in table order. */
+export function operatingMeasuresStated(text: string): OperatingMeasure[] {
+  return OPERATING_MEASURES.filter((measure) => measure.pattern.test(text));
+}
+/** The share of a budget that passages restating a 10-K operating figure may take. */
+const SUPERSEDING_SHARE = 0.15;
+
 interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: number; table: boolean }
 
 /** Legal-entity suffixes: a passage naming suppliers, customers or competitors. */
@@ -269,7 +294,13 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
   return out;
 }
 
-export function selectMaterialEvidence(text: string, maxChars: number, profile: EvidenceProfile = "financial"): SelectedEvidence {
+/**
+ * `superseding` (C-16): measures an older annual excerpt states a figure for.
+ * The passages of this newer text stating a count of one of them are kept
+ * first, one per measure in turn and in source order, within a fixed share of
+ * the budget, displacing lower-ranked text.
+ */
+export function selectMaterialEvidence(text: string, maxChars: number, profile: EvidenceProfile = "financial", superseding: readonly OperatingMeasure[] = []): SelectedEvidence {
   const budget = Math.max(0, Math.floor(maxChars));
   const spec = PROFILES[profile];
   const all = passages(text, profile);
@@ -324,6 +355,18 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         if (used + passage.text.length > cap) continue;
         const before = remaining;
         if (add(passage)) used += before - remaining;
+      }
+    }
+    if (superseding.length > 0) {
+      const cap = Math.floor(budget * SUPERSEDING_SHARE);
+      const queues = superseding.map((measure) => all.filter((candidate) => !candidate.table && measure.pattern.test(candidate.text)));
+      let used = 0;
+      for (let round = 0; queues.some((queue) => queue.length > round); round++) {
+        for (const passage of queues.map((queue) => queue[round]).filter((candidate): candidate is Passage => candidate !== undefined)) {
+          if (selected.includes(passage) || used + passage.text.length > cap) continue;
+          const before = remaining;
+          if (add(passage)) used += before - remaining;
+        }
       }
     }
     // Priority passages (a named party in an 8-K's operative paragraph) first.
