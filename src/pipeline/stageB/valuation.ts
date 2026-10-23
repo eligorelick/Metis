@@ -2791,6 +2791,21 @@ export function runDcf(assumptions: DcfAssumptions, opts: DcfRunOptions): DcfRes
 // Sensitivity grid
 // ---------------------------------------------------------------------------
 
+/**
+ * B-29 for one grid cell: the cell's own rerun is outside the DCF's domain on
+ * the base DCF's tests (equity value at or below zero, or an explicit-period
+ * present value below zero), so its per-share is withheld, not published.
+ */
+function gridCellOutsideDomain(core: DcfCoreOutput, equityValue: number | null): boolean {
+  return core.pvExplicit < 0 || (isNum(equityValue) && equityValue <= 0);
+}
+
+function gridDomainNote(withheld: number): string[] {
+  return withheld === 0 ? [] : [
+    `${withheld} cell${withheld === 1 ? "" : "s"} whose own rerun is outside the DCF's domain (equity value at or below zero, or a terminal value above the whole enterprise value) withheld, as the base DCF would be (audit 2026-10-22 B-29)`,
+  ];
+}
+
 export interface SensitivityGrid {
   /** Row axis: WACC values (pct), base +/- 2 in 1pp steps (D-60). */
   waccPcts: number[];
@@ -2842,6 +2857,7 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
   notes.push(
     `terminal ROIC held at WACC ${terminalExcessPp >= 0 ? "+" : "−"} ${fmtNum(Math.abs(terminalExcessPp))}pp in every cell (the house convention defines it relative to the discount rate)`,
   );
+  let withheld = 0;
   const perShare = waccPcts.map((w) => {
     const cellAssumptions: DcfAssumptions = {
       ...assumptions,
@@ -2863,9 +2879,14 @@ export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions
         base.nonOperatingAssets ?? null,
         base.noncontrollingEarningsShare ?? null,
       );
+      if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
+        withheld += 1;
+        return null;
+      }
       return bridged.perShare;
     });
   });
+  notes.push(...gridDomainNote(withheld));
   return { waccPcts, gTermPcts, perShare, notes, gaps };
 }
 
@@ -2903,6 +2924,7 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       ? "no gross profit on record, so no cell is withheld for exceeding gross margin"
       : `cells whose margin would exceed ${fmtNum(ceiling)}% (gross margin less the leanest operating-expense ratio) above the base path are withheld`,
   ];
+  let withheld = 0;
   const perShare = growthShiftsPp.map((dg) =>
     marginShiftsPp.map((dm) => {
       const margins = assumptions.ebitMarginPath.value.map((m) => m + dm);
@@ -2910,10 +2932,16 @@ export function growthMarginGrid(assumptions: DcfAssumptions, base: DcfRunOption
       const growth = assumptions.growthPath.value.map((g, i) => g + dg * (weights[i] ?? 0));
       const core = dcfCore(assumptions, base.waccPct, { growthPathPct: growth, ebitMarginPathPct: margins, guardMode: "clamp" });
       if (core === null) return null;
-      return bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
-        base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null).perShare;
+      const bridged = bridgeToPerShare(core.enterpriseValue, base.netDebt, base.dilutedShares, [], base.minorityInterest ?? null,
+        base.preferred ?? null, base.nonOperatingAssets ?? null, base.noncontrollingEarningsShare ?? null);
+      if (bridged.perShare !== null && gridCellOutsideDomain(core, bridged.equityValue)) {
+        withheld += 1;
+        return null;
+      }
+      return bridged.perShare;
     }),
   );
+  notes.push(...gridDomainNote(withheld));
   return { growthShiftsPp, marginShiftsPp, perShare, notes };
 }
 

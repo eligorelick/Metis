@@ -30,7 +30,8 @@ import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 
 /** Versioned method prior — bump when the resolution changes. */
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_07" as const;
+// D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_10_D102" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */

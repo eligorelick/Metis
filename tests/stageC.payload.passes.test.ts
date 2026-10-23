@@ -618,7 +618,10 @@ describe("payload determinism + provenance", () => {
       // lease gap no longer names the environment variable.
       ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
       // Codex review of PR #42: the scenario construction's method stamps.
-      ["SCENARIO_TARGETS_2026_10_D99", "SCENARIO_TARGETS_2026_10_D60", 1],
+      // Codex review of PR #49 (D-102): the fair-value and scenario-target
+      // stamps move again; restored to the preceding pin's wording.
+      ["SCENARIO_TARGETS_2026_10_D102", "SCENARIO_TARGETS_2026_10_D60", 1],
+      ["FAIR_VALUE_2026_10_D102", "FAIR_VALUE_2026_07", 1],
       ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
       // Codex review of PR #49 (audit 2026-10-22 B-29): a fan with a run
       // outside the DCF's domain is withheld, no longer floored at 0.
@@ -995,7 +998,10 @@ describe("payload determinism + provenance", () => {
       fingerprint: "1.42.0:39b6eded",
       promptBytes: 140_883,
       provenanceCount: 531,
-      provenanceHash: "6ad4263f",
+      // Codex review of PR #49 (D-102): the fair-value and scenario-target
+      // method stamps the registry records as computation basis move
+      // (restored above for the preceding pin); no value or byte moves.
+      provenanceHash: "1d8c652c",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -1029,8 +1035,9 @@ describe("payload determinism + provenance", () => {
       // Codex review of PR #49 (audit 2026-10-22 B-29): only the scenario
       // basis sentence restored above moves financeHash; the fan is withheld
       // when a run is outside the DCF's domain instead of floored at 0, and
-      // this fixture's runs are inside it, so no target or byte moves.
-      financeHash: "3517f602",
+      // this fixture's runs are inside it, so no target or byte moves. The
+      // same review moves the two method stamps (D-102), restored above.
+      financeHash: "9b006f53",
     });
   });
 

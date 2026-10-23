@@ -207,6 +207,16 @@ Its pass on `4e73bc0` found five more, all valid and fixed test-first in the nex
 
 The replay was rerun on the fix. BA's scenario targets are now withheld: its bear run had an equity value of −$2.24B and had published $0 (bull $54.78, base $34.93); BA's DCF value of $34.93 is unchanged. Fifteen other issuers change only in the scenario basis sentence, and every other Stage B output, every fair value and COF's $155.43 are unchanged.
 
+Its pass on `d2542f3` found three more, all valid and fixed test-first in the next commit:
+
+| Finding | Fix |
+|---|---|
+| (P2) The sensitivity and growth × margin grids published cells whose own rerun was outside the DCF's domain, though the base DCF and the scenario runs are now withheld in that state. | Each cell takes the base DCF's two tests: equity value at or below zero, or an explicit-period present value below zero, withholds it, and the grid's notes count the withheld cells. |
+| (P2) The start-return × cost-of-equity grid's cells printed "(currency unknown)": the formatter read the headline's optional `currency` field, not the ISO code its unit carries. | The cells take the headline's established currency (its field, else the code in `USD/share`). |
+| (P2) The fair-value and scenario-target method stamps were unchanged though both resolutions changed. | FAIR_VALUE_2026_10_D102 and SCENARIO_TARGETS_2026_10_D102; the payload pins and the DEMO control's delta list move with them, and nothing else. |
+
+The replay was rerun on the fix. 47 growth × margin cells are withheld across nine issuers: BA 10, WMT 10, DUK 6, HD 5, VZ 5, AMZN 4, PEP 3, CAT 2 and FCX 2. Most were negative; AMZN, CAT, DUK, FCX and VZ also lose positive cells whose explicit-period PV is negative under the higher-growth rows. No WACC × g cell, fair value, score or scenario target moves, and COF stays at $155.43.
+
 ## Owner decisions
 
 - Scope: C-10, B-29, C-11, E-5 and B-30, in the order B-29, C-10, C-11, E-5, B-30. B-30 is the base-rate disclosure only.

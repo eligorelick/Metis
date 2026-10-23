@@ -1889,6 +1889,13 @@ sensitivity grid, growth × margin grid, reverse DCF or scenario targets. The
 valuation grade treats the DCF upside and the reverse-DCF signals as missing.
 The year rows and the bridge stay visible, so the reader can see why.
 
+The same two tests apply to each cell of the sensitivity grid and the growth
+× margin grid when the base DCF is inside the domain: a cell whose own rerun
+bridges to an equity value at or below zero, or has an explicit-period present
+value below zero, is withheld, and the grid's notes count those cells. In the
+2026-10-22 panel replay that withholds 47 growth × margin cells across nine
+issuers (BA and WMT ten each) and no WACC × g cell.
+
 **House base rate** (audit 2026-10-22 B-30). The house conventions value most
 large caps well below price, and a reader needs to know that before reading any
 one value. The base rate comes from the audit census of 2026-10-22 (FRED DGS10
@@ -2031,7 +2038,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D99. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_10_D102 (D-102 added
+the domain test on each run), and the fair value FAIR_VALUE_2026_10_D102. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 

@@ -104,6 +104,9 @@ describe("C-11: the start-return × cost-of-equity grid", () => {
     const table = valuationAuditTables(report.valuation.dcf).find((t) => /starting return/i.test(t.heading));
     expect(table?.headers.slice(1)).toEqual(display.excessReturnGrid!.costOfEquityPcts.map((c) => `CoE ${c.toFixed(1)}%`));
     expect(table?.rows.map((r) => r[0])).toEqual(display.excessReturnGrid!.rows.map((r) => r.label));
+    // The cells carry the headline's established currency (Codex review, PR #49).
+    expect(report.valuation.dcf.perShare?.unit).toBe("USD/share");
+    expect(table!.rows.flatMap((r) => r.slice(1)).join(" ")).not.toMatch(/currency unknown/);
     for (const surface of Object.values(surfaces)) {
       expect(surface).toMatch(/Sensitivity \(per share — rows = starting return/);
       expect(surface).toContain(display.excessReturnGrid!.rows[1]!.label);

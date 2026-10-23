@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-22",
+  "generatedAt": "2026-10-23",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -9601,11 +9601,6 @@
           "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
         },
         {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D99"
-        },
-        {
           "path": "report.scores.aspects.valuation.applicableCompleteness",
           "beforeMissing": true,
           "after": 0.7
@@ -9819,11 +9814,6 @@
           "path": "stageB.gaps.12.reason",
           "before": "no API key + no fixture",
           "after": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%"
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_10_D99"
         },
         {
           "path": "stageB.scores.aspects.valuation.applicableCompleteness",
@@ -10137,17 +10127,37 @@
       "decisions": [
         "D-102"
       ],
-      "reason": "Audit batch 2 of 2026-10-22 (valuation in and out of its domain, D-102), as it reaches this provider-free DEMO control: finding C-10 adds the trailing four-quarter common return to Stage B's returns block, which is null here because the control is a general-route issuer with no bank or insurer return (stageB.returns.commonReturnTtm, absent before); report spec 1.37.0, moved out of audit-batch1-headline-numbers-20261022, whose record stands for 1.36.0. The DCF domain tests (B-29), the excess-return start and grid (C-10, C-11), the NCI earnings key (E-5) and the house base rate (B-30) do not reach this fixture: its DCF is inside its domain, it carries no noncontrolling interest, and no other value moves. See docs/audit/2026-10-22-audit-batch2-valuation-domain.md.",
+      "reason": "Audit batch 2 of 2026-10-22 (valuation in and out of its domain, D-102), as it reaches this provider-free DEMO control: finding C-10 adds the trailing four-quarter common return to Stage B's returns block, which is null here because the control is a general-route issuer with no bank or insurer return (stageB.returns.commonReturnTtm, absent before); report spec 1.37.0, moved out of audit-batch1-headline-numbers-20261022, whose record stands for 1.36.0. The DCF domain tests (B-29), the excess-return start and grid (C-10, C-11), the NCI earnings key (E-5) and the house base rate (B-30) do not reach this fixture: its DCF is inside its domain, it carries no noncontrolling interest, and no other value moves. The fair-value and scenario-target method stamps move to FAIR_VALUE_2026_10_D102 and SCENARIO_TARGETS_2026_10_D102 (the Codex review of PR #49) because both resolutions changed; the scenario stamp is moved out of the D-99 group, whose record stands for SCENARIO_TARGETS_2026_10_D99. See docs/audit/2026-10-22-audit-batch2-valuation-domain.md.",
       "deltas": [
+        {
+          "path": "report.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_10_D102"
+        },
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
           "after": "1.37.0"
         },
         {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D102"
+        },
+        {
+          "path": "stageB.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_10_D102"
+        },
+        {
           "path": "stageB.returns.commonReturnTtm",
           "beforeMissing": true,
           "after": null
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_10_D102"
         }
       ]
     }

@@ -113,6 +113,9 @@ describe("B-29: DCF domain gate", () => {
     const targets = computeScenarioTargets({ route: { base: "general", overlays: [], evidence: { sector: null, industry: null } } as never, valuation, waccPct: 9, incomeHistory: [], currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(targets.status).toBe("suppressed");
     expect(targets.missingReasons[0]?.reason).toMatch(/outside its domain/i);
+    // D-102 changes both resolutions, so their method stamps move (Codex review, PR #49).
+    expect(fairValue.methodVersion).toBe("FAIR_VALUE_2026_10_D102");
+    expect(targets.methodVersion).toBe("SCENARIO_TARGETS_2026_10_D102");
   });
 
   it("explicit-period PV below zero (terminal value over 100% of EV) withholds a positive per-share too", () => {
@@ -130,6 +133,26 @@ describe("B-29: DCF domain gate", () => {
     const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.status).toBe("outside-domain");
     expect(fairValue.perShare).toBeNull();
+  });
+
+  it("withholds a grid cell whose own rerun is outside the domain, though the base DCF is inside it (Codex review, PR #49)", () => {
+    // Net debt at 95% of the base enterprise value: the base equity is
+    // positive, but a +2pp WACC row or a −10pp margin column bridges below zero.
+    const ev = outside(steady, 200).dcf.enterpriseValue;
+    const { valuation, dcf } = outside(steady, ev * 0.95);
+    expect(dcf.domain).toBeUndefined();
+    expect(dcf.perShare!).toBeGreaterThan(0);
+    if (valuation.kind !== "dcf") throw new Error("unreachable");
+    const wacc = valuation.sensitivity!;
+    const gm = valuation.growthMarginGrid!;
+    for (const v of [...wacc.perShare.flat(), ...gm.perShare.flat()]) if (v !== null) expect(v).toBeGreaterThan(0);
+    // The +2pp WACC row is far from the terminal-growth guard, so its nulls are the domain's.
+    expect(wacc.perShare[wacc.perShare.length - 1]!.some((v) => v === null)).toBe(true);
+    expect(gm.perShare.flat().some((v) => v === null)).toBe(true);
+    expect(wacc.notes.join(" ")).toMatch(/outside the DCF's domain .*withheld/);
+    expect(gm.notes.join(" ")).toMatch(/outside the DCF's domain .*withheld/);
+    // The base cell is the headline.
+    expect(wacc.perShare[2]![2]).toBeCloseTo(dcf.perShare!, 6);
   });
 
   it("a DCF inside the domain is unchanged", () => {
