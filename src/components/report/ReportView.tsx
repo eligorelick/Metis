@@ -108,16 +108,6 @@ function AnchorNav() {
   );
 }
 
-/* ------------------------------------------------------------------------ *
- * Data-only banner
- * ------------------------------------------------------------------------ */
-
-/**
- * `reason` is the report's own `analysis.llm` manifest entry — the pipeline's
- * honest account (no key vs. model resolution vs. passes that RAN and failed,
- * billing real cost). Hardcoding "no API key" here misdescribed the 2026-07-10
- * incident, where two ~8-minute analyst passes billed and then died overloaded.
- */
 /** Audit 2026-10-22 B-24: a results release the statements do not reach yet. */
 function NewerResultsBanner({ text }: { text: string }) {
   return (
@@ -134,6 +124,16 @@ function NewerResultsBanner({ text }: { text: string }) {
   );
 }
 
+/* ------------------------------------------------------------------------ *
+ * Data-only banner
+ * ------------------------------------------------------------------------ */
+
+/**
+ * `reason` is the report's own `analysis.llm` manifest entry — the pipeline's
+ * honest account (no key vs. model resolution vs. passes that RAN and failed,
+ * billing real cost). Hardcoding "no API key" here misdescribed the 2026-07-10
+ * incident, where two ~8-minute analyst passes billed and then died overloaded.
+ */
 function DataOnlyBanner({ text }: { text: string }) {
   return (
     <div className="border border-warn/50 bg-warn/10 px-3 py-2.5">
