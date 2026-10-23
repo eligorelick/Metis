@@ -5621,7 +5621,14 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   const noncontrollingEarningsBasis = inputs.noncontrollingEarnings?.basis;
   // A zero book balance does not negate the outside claim positive NCI income shows.
   const noncontrollingIncomeClaim = isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) && inputs.noncontrollingEarnings.noncontrollingIncome > 0;
-  if (isNum(inputs.minorityInterest) && (inputs.minorityInterest !== 0 || noncontrollingIncomeClaim)) {
+  if (!isNum(inputs.minorityInterest) && noncontrollingIncomeClaim) {
+    // Neither book nor the larger of book and the profit share can be set
+    // without the book balance; a null book is not a zero claim.
+    const earnings = inputs.noncontrollingEarnings!;
+    noncontrollingKeyMissing = `Noncontrolling interests earn ${fmtNum(earnings.noncontrollingIncome!)} of ${earnings.basis === "annual" ? "fiscal-year" : "trailing"} profit, ` +
+      "but their book value is unavailable, so the deduction can be set neither at book nor at the larger of book and their profit share. " +
+      "The per-share value is withheld: the consolidated DCF would otherwise credit the outside holders' claim to common holders (audit 2026-10-22 E-5).";
+  } else if (isNum(inputs.minorityInterest) && (inputs.minorityInterest !== 0 || noncontrollingIncomeClaim)) {
     const earnings = inputs.noncontrollingEarnings ?? null;
     const period = earnings?.basis === "annual" ? `fiscal-year (${earnings.asOf ?? "date unavailable"})` : "trailing";
     // A share above 1 (the parent's own share negative) is not a claim on value.

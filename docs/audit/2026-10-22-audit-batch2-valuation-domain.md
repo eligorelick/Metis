@@ -185,6 +185,15 @@ The Codex review of the payout fade found three more, in code from earlier in th
 
 The replay was rerun on the fix: every Stage B output is byte-identical to the payout-fade run, and COF's snapshot stays at $155.43.
 
+Its pass on `3b3d8e5` found two more, both valid and fixed test-first in the next commit:
+
+| Finding | Fix |
+|---|---|
+| (P1) With book NCI unavailable (null) and parent equity established, positive NCI income still skipped the earnings key, so the DCF treated book NCI as zero. | NCI income with no book balance withholds the per-share value: neither book nor the larger of book and the profit share can be set. With no NCI income, nothing changes. |
+| (P2) Acquisition facts were read in USD and compared with opening common equity in the statement currency, so a non-USD filer's combination year could be added or missed. | The facts are read in the balance rows' currency only (`tagPoints` no longer falls back to USD here), and not at all when that currency is unestablished. |
+
+The replay was rerun again: every Stage B output is still byte-identical, and COF stays at $155.43.
+
 ## Owner decisions
 
 - Scope: C-10, B-29, C-11, E-5 and B-30, in the order B-29, C-10, C-11, E-5, B-30. B-30 is the base-rate disclosure only.

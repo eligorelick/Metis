@@ -898,6 +898,8 @@ the key only when a filing reports it, and a trailing sum with a quarter that
 reports zero without a filed fact cannot size it (the vendor feed can report an
 omitted figure as 0). The key applies whenever book NCI is nonzero or NCI income
 is positive: a zero book balance does not negate the claim the income shows.
+When NCI income is positive but book NCI is unavailable, neither deduction can
+be set, so the per-share value is withheld.
 
 When that share is above 10% (`NCI_EARNINGS_KEY_MATERIALITY_PCT`, a house
 convention) and above book NCI ÷ consolidated equity value, NCI is deducted at
@@ -1364,7 +1366,8 @@ with, all printed as assumptions in their own right:
   `FinancingReceivableAllowanceForCreditLossesAcquiredWithDeterioratedCreditQuality`
   (the Day-1 allowance on purchased credit-deteriorated loans) facts, read
   from a 10-K, 20-F or 40-F or an amendment (a restated year's figure from the
-  latest filing), is at
+  latest filing) in the balance sheet's currency (none when that currency is
+  unestablished), is at
   least **10% of the opening common equity** — a house threshold, not a
   standard (`src/pipeline/stageB/excessReturnStart.ts`). That carried spread is valued past year `N` as
   residual income growing at `min(2.5%, risk-free)`:

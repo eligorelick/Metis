@@ -3617,7 +3617,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ? { roePct: ttmReturn.returnPct, bookValue: ttmReturn.closingEquity, asOf: ttmReturn.asOf }
     : null;
   const combinationYears = financialRoute
-    ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance))
+    ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance), ctx.modelCurrency)
     : new Map<string, string>();
   const excessReturn: ExcessReturnInputs | null =
     financialRoute

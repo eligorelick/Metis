@@ -148,9 +148,10 @@ export function computeTtmCommonReturn(input: {
 /** The annual forms the extractor trusts: 10-K, 20-F and 40-F, with their amendments. */
 const ANNUAL_FACT_FORMS = new Set([...CORE_FACT_FORMS].filter((form) => !form.startsWith("10-Q")));
 
-function annualDurationTotal(facts: CompanyFacts, tag: string, fiscalYearEnd: string): number | null {
-  const tp = tagPoints(facts, tag, "USD");
-  if (tp === null) return null;
+function annualDurationTotal(facts: CompanyFacts, tag: string, fiscalYearEnd: string, unit: string): number | null {
+  const tp = tagPoints(facts, tag, unit);
+  // tagPoints falls back to another unit when the requested one is absent.
+  if (tp === null || tp.unit !== unit) return null;
   const end = Date.parse(fiscalYearEnd);
   let best: FactPoint | null = null;
   // Restated comparatives carry the same period; the latest filing is the year's figure (the extractor's dedup rule).
@@ -169,11 +170,13 @@ function annualDurationTotal(facts: CompanyFacts, tag: string, fiscalYearEnd: st
  * material: the goodwill step-up from the prior year end, or one of
  * BUSINESS_COMBINATION_TAGS for that year, is at least
  * BUSINESS_COMBINATION_MATERIALITY_PCT of the opening common equity. The value
- * is the human annotation printed beside the year.
+ * is the human annotation printed beside the year. Acquisition facts are read
+ * in the balance rows' currency only, and not at all when it is unestablished.
  */
 export function businessCombinationYears(
   facts: CompanyFacts | null,
   annualBalancesNewestFirst: ReadonlyArray<ReturnsBalanceRow>,
+  currency: string | null,
 ): Map<string, string> {
   const out = new Map<string, string>();
   const rows = [...annualBalancesNewestFirst].sort((a, b) => b.date.localeCompare(a.date));
@@ -191,9 +194,9 @@ export function businessCombinationYears(
       const step = cur.goodwill - prior.goodwill;
       evidence.push(`goodwill rose ${step} (${share(step)})`);
     }
-    if (facts !== null) {
+    if (facts !== null && currency !== null) {
       for (const tag of BUSINESS_COMBINATION_TAGS) {
-        const v = annualDurationTotal(facts, tag, cur.date);
+        const v = annualDurationTotal(facts, tag, cur.date, currency);
         if (v !== null && v >= threshold) evidence.push(`${tag} ${v} (${share(v)})`);
       }
     }

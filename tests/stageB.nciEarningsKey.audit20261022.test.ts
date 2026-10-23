@@ -169,6 +169,20 @@ describe("E-5: NCI on the earnings key", () => {
     expect(unsized.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(true);
     expect(unsized.dcf!.perShare).toBeNull();
   });
+
+  it("withholds the per-share value when NCI earns a profit but its book value is unavailable", () => {
+    // Neither book nor the larger of book and the profit share can be set (Codex review, PR #49).
+    for (const income of [30, 8]) {
+      const v = dcfOf({ minorityInterest: null, noncontrollingEarnings: { noncontrollingIncome: income, consolidatedProfit: 100, asOf: "2026-06-30" } });
+      const reason = v.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")?.reason ?? "";
+      expect(reason).toMatch(/book value is unavailable/);
+      expect(v.dcf!.perShare).toBeNull();
+    }
+    // No book balance and no NCI income: no claim, no withhold.
+    const none = dcfOf({ minorityInterest: null, noncontrollingEarnings: null });
+    expect(none.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(false);
+    expect(none.dcf!.perShare).not.toBeNull();
+  });
 });
 
 describe("E-5 review fixes", () => {

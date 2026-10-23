@@ -235,14 +235,14 @@ describe("C-10: TTM common return and business-combination evidence", () => {
       { date: "2023-12-31", totalStockholdersEquity: 650, goodwill: 15, intangibleAssets: 5, preferredStock: 20 },
       { date: "2022-12-31", totalStockholdersEquity: 600, goodwill: 10, intangibleAssets: 5, preferredStock: 20 },
     ];
-    const years = businessCombinationYears(facts, annual);
+    const years = businessCombinationYears(facts, annual, "USD");
     // 2025: goodwill +135 and consideration 400 against opening common equity 680.
     expect(years.get("2025-12-31")).toMatch(/goodwill rose 135/);
     expect(years.get("2025-12-31")).toMatch(/BusinessCombinationConsiderationTransferred1 400/);
     // 2023: GoodwillAcquiredDuringPeriod 5 and a 5 step-up are under 10% of 580.
     expect(years.has("2023-12-31")).toBe(false);
     expect(BUSINESS_COMBINATION_MATERIALITY_PCT).toBe(10);
-    expect(businessCombinationYears(null, annual).get("2025-12-31")).toMatch(/goodwill rose 135/);
+    expect(businessCombinationYears(null, annual, "USD").get("2025-12-31")).toMatch(/goodwill rose 135/);
   });
 
   const flatGoodwill = [
@@ -256,17 +256,32 @@ describe("C-10: TTM common return and business-combination evidence", () => {
 
   it("reads acquisition facts from every supported annual form, 20-F and 40-F included", () => {
     for (const form of ["20-F", "20-F/A", "40-F"]) {
-      const years = businessCombinationYears(considerationFacts([{ ...fy2025, val: 400, accn: "f", form, filed: "2026-03-01" }]), flatGoodwill);
+      const years = businessCombinationYears(considerationFacts([{ ...fy2025, val: 400, accn: "f", form, filed: "2026-03-01" }]), flatGoodwill, "USD");
       expect(years.get("2025-12-31")).toMatch(/BusinessCombinationConsiderationTransferred1 400/);
     }
     // Quarterly and other forms still do not count.
-    expect(businessCombinationYears(considerationFacts([{ ...fy2025, val: 400, accn: "q", form: "8-K", filed: "2026-03-01" }]), flatGoodwill).has("2025-12-31")).toBe(false);
+    expect(businessCombinationYears(considerationFacts([{ ...fy2025, val: 400, accn: "q", form: "8-K", filed: "2026-03-01" }]), flatGoodwill, "USD").has("2025-12-31")).toBe(false);
+  });
+
+  it("compares acquisition facts in the balance sheet's currency, not USD", () => {
+    // Opening common equity 680 in EUR, so the threshold is 68 (Codex review, PR #49).
+    const filing = { ...fy2025, form: "20-F", filed: "2026-03-01" };
+    const dual = (usd: number, eur: number): CompanyFacts => ({
+      cik: 1, entityName: "Fixture Bancorp", facts: { "us-gaap": { BusinessCombinationConsiderationTransferred1: {
+        units: { USD: [{ ...filing, val: usd, accn: "u" }], EUR: [{ ...filing, val: eur, accn: "e" }] } } } },
+    });
+    expect(businessCombinationYears(dual(400, 40), flatGoodwill, "EUR").has("2025-12-31")).toBe(false);
+    expect(businessCombinationYears(dual(40, 400), flatGoodwill, "EUR").get("2025-12-31")).toMatch(/BusinessCombinationConsiderationTransferred1 400/);
+    // No fact in the statement currency, or no established currency: the tag is not read.
+    const usdOnly = considerationFacts([{ ...filing, val: 400, accn: "u" }]);
+    expect(businessCombinationYears(usdOnly, flatGoodwill, "EUR").has("2025-12-31")).toBe(false);
+    expect(businessCombinationYears(usdOnly, flatGoodwill, null).has("2025-12-31")).toBe(false);
   });
 
   it("takes the latest filing of a restated acquisition figure, not the largest", () => {
     const original = { ...fy2025, val: 400, accn: "a1", form: "10-K", filed: "2026-02-01" };
     const restated = { ...fy2025, val: 40, accn: "a2", form: "10-K", filed: "2027-02-01" };
-    expect(businessCombinationYears(considerationFacts([original, restated]), flatGoodwill).has("2025-12-31")).toBe(false);
-    expect(businessCombinationYears(considerationFacts([restated, original]), flatGoodwill).has("2025-12-31")).toBe(false);
+    expect(businessCombinationYears(considerationFacts([original, restated]), flatGoodwill, "USD").has("2025-12-31")).toBe(false);
+    expect(businessCombinationYears(considerationFacts([restated, original]), flatGoodwill, "USD").has("2025-12-31")).toBe(false);
   });
 });
