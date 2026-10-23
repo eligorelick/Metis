@@ -32,6 +32,12 @@ describe("convertible carrying debt completeness", () => {
     const row = { date: "2026-03-31", longTermDebt: 3_687_832_000, totalDebt: 3_964_913_000, netDebt: 1_751_639_000 };
     expect(admitDebtFields(row, facts(), "USD", "2026-10-19T00:00:00Z").row).toMatchObject(row);
   });
+  it("covers the convertible subtype within the vendor's display rounding (audit 2026-10-22 A-11)", () => {
+    const row = { date: "2026-03-31", longTermDebt: 3_687_700_000, totalDebt: 3_964_781_000, netDebt: 1_751_507_000 };
+    const out = admitDebtFields(row, facts(), "USD", "2026-10-19T00:00:00Z");
+    expect(out.row).toMatchObject(row);
+    expect(out.gaps.some(gap => /convertible/.test(gap.reason))).toBe(false);
+  });
   it("does not apply a March comparison to the valid June debt", () => {
     const row = { date: "2026-06-30", totalDebt: 7_839_526_000 };
     expect(admitDebtFields(row, facts(), "USD", "2026-10-19T00:00:00Z").row).toEqual(row);

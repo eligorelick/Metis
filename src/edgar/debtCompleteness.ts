@@ -1,9 +1,12 @@
 /** A noncurrent convertible carrying subtype is a lower bound on noncurrent
- * financing debt, never an automatic addition to an inclusive generic total. */
-export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }, convertible: number | null): string | null {
+ * financing debt, never an automatic addition to an inclusive generic total.
+ * `agrees` compares a vendor noncurrent figure with the filed subtype (A-11
+ * display rounding); two filed figures are compared near-exactly. */
+export function omittedConvertibleCarryingReason(row: { longTermDebt?: unknown }, convertible: number | null,
+  agrees: (noncurrent: number, convertible: number) => boolean = (a, b) => a >= b - Math.max(1, b * 1e-10)): string | null {
   if (convertible === null || convertible <= 0) return null;
   const noncurrent = typeof row.longTermDebt === "number" && Number.isFinite(row.longTermDebt) ? row.longTermDebt : null;
-  return noncurrent !== null && noncurrent >= convertible - Math.max(1, convertible * 1e-10) ? null
+  return noncurrent !== null && (noncurrent >= convertible || agrees(noncurrent, convertible)) ? null
     : `incomplete debt carrying value: noncurrent convertible carrying debt ${convertible} is not covered by resolved noncurrent financing debt ${noncurrent ?? "unavailable"}; total debt and net debt withheld rather than publishing leases alone or adding an overlapping subtype`;
 }
 

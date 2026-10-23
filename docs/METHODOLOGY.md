@@ -3062,7 +3062,10 @@ whichever is wider. The reporting-unit allowance applies only when the larger
 figure is at least 100 units, so it is never more than 1% of it: 2 million
 against 1 million is a conflict, not rounding. A difference beyond that is
 still a conflict, refused as before. A zero against a nonzero figure gets no
-reporting-unit allowance. The
+reporting-unit allowance. The same tolerance decides whether the vendor's
+noncurrent debt covers a filed noncurrent convertible carrying amount (vendor
+$3,687.7M against a filed $3,687.832M is covered; before, total and net debt
+were withheld); two filed figures are still compared near-exactly. The
 tolerance is a house convention. It is far narrower than the debt band above
 because it judges two statements of one figure, not a principal amount beside
 a carrying amount.
