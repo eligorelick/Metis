@@ -56,6 +56,7 @@ import {
   EBIT_INTEREST_INSIDE_AGGREGATE,
   EBIT_NON_OPERATING_ADJUSTMENTS,
   INCOME_BEFORE_TAX_TAGS,
+  INCOME_BEFORE_TAX_COMPONENT_TAGS,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
   GROSS_PROFIT_REVENUE_TAGS,
@@ -639,7 +640,22 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   interestExpense: INTEREST_EXPENSE_SPEC,
   interestIncome: lineItemChain("interestIncome", "money"),
   netInterestIncome: lineItemChain("netInterestIncome", "money"),
-  incomeBeforeTax: { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
+  // Audit 2026-10-22 B-32: a filer that tags only the two components (Oracle
+  // FY2026) had no pretax income, so no annual effective tax rate either.
+  incomeBeforeTax: {
+    kind: "chain",
+    unit: "money",
+    steps: [
+      { kind: "first", tags: [...INCOME_BEFORE_TAX_TAGS], unit: "money" },
+      {
+        kind: "sum",
+        tags: [...INCOME_BEFORE_TAX_COMPONENT_TAGS],
+        unit: "money",
+        disclose:
+          "no pretax-income total is tagged for the period; pretax income is composed as the filer's domestic + foreign pretax income (the total's two children in the taxonomy calculation)",
+      },
+    ],
+  },
   incomeTaxExpense: lineItemChain("incomeTaxExpense", "money"),
   equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),

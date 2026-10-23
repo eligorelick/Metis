@@ -1637,3 +1637,68 @@ describe("runStageB wiring — consensus calendarized by the reported quarterly 
     expect(anchor.basis).toMatch(/spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues/);
   });
 });
+
+/* ------------------------------------------------------------------------ *
+ * Audit 2026-10-22 B-32: the WACC tax rate's fallbacks when no TTM rate exists
+ * ------------------------------------------------------------------------ */
+
+describe("runStageB wiring — WACC tax rate without a TTM effective rate (audit 2026-10-22 B-32)", () => {
+  /** The keyless shape: no vendor ratios row, so the statements are the only tax source. */
+  function keylessTax(edit: (income: { quarterly: Record<string, unknown>[]; annual: Record<string, unknown>[] }) => void): DataBundle {
+    const bundle = wiringBundle();
+    (bundle as unknown as { ratiosTtm: unknown }).ratiosTtm = gapF;
+    if (!bundle.statements.incomeQuarterly.ok || !bundle.statements.incomeAnnual.ok) throw new Error("expected income fixtures");
+    edit({
+      quarterly: bundle.statements.incomeQuarterly.value.data.rows as Record<string, unknown>[],
+      annual: bundle.statements.incomeAnnual.value.data.rows as Record<string, unknown>[],
+    });
+    return bundle;
+  }
+
+  it("uses the latest annual effective rate, with the fiscal year named, when quarterly pre-tax income is untagged", () => {
+    const computed = runStageB(keylessTax(({ quarterly }) => {
+      for (const row of quarterly) row.incomeBeforeTax = null;
+    }));
+    expect(computed.returns.wacc.taxRateUsed).toBeCloseTo(40 / 190, 9);
+    expect(computed.returns.wacc.taxRateBasis).toMatch(/latest annual.*2025-12-31/i);
+    expect(computed.returns.wacc.waccPct).not.toBeNull();
+    expect(computed.gaps.some((g) => g.field === "returns.wacc.effectiveTaxRate" && g.severity === "critical")).toBe(false);
+    expect(computed.gaps.some((g) => g.field === "returns.wacc.effectiveTaxRate.basis" && /latest annual/i.test(g.reason))).toBe(true);
+  });
+
+  it("uses a disclosed 0% shield on a TTM pre-tax loss", () => {
+    const computed = runStageB(keylessTax(({ quarterly }) => {
+      for (const row of quarterly.slice(0, 4)) row.incomeBeforeTax = -10 * M;
+    }));
+    expect(computed.returns.wacc.taxRateUsed).toBe(0);
+    expect(computed.returns.wacc.taxRateBasis).toMatch(/0% .*TTM pre-tax (income is not positive|loss)/i);
+    expect(computed.returns.wacc.waccPct).not.toBeNull();
+    expect(computed.gaps.some((g) => g.field === "returns.wacc.effectiveTaxRate.basis" && /0%/.test(g.reason))).toBe(true);
+  });
+
+  it("uses a disclosed 0% shield on a latest-annual pre-tax loss when no TTM pair exists", () => {
+    const computed = runStageB(keylessTax(({ quarterly, annual }) => {
+      for (const row of quarterly) row.incomeBeforeTax = null;
+      annual[0]!.incomeBeforeTax = -5 * M;
+    }));
+    expect(computed.returns.wacc.taxRateUsed).toBe(0);
+    expect(computed.returns.wacc.taxRateBasis).toMatch(/0% .*2025-12-31/i);
+  });
+
+  it("keeps the TTM rate when the complete TTM pair is positive", () => {
+    const computed = runStageB(keylessTax(() => {}));
+    expect(computed.returns.wacc.taxRateUsed).toBeCloseTo(40 / 190, 9);
+    expect(computed.returns.wacc.taxRateBasis).toMatch(/^TTM incomeTaxExpense/);
+    expect(computed.gaps.some((g) => g.field === "returns.wacc.effectiveTaxRate.basis")).toBe(false);
+  });
+
+  it("still withholds WACC when neither a TTM nor an annual pair exists", () => {
+    const computed = runStageB(keylessTax(({ quarterly, annual }) => {
+      for (const row of quarterly) row.incomeBeforeTax = null;
+      annual[0]!.incomeTaxExpense = null;
+    }));
+    expect(computed.returns.wacc.taxRateUsed).toBeNull();
+    expect(computed.returns.wacc.waccPct).toBeNull();
+    expect(computed.gaps.some((g) => g.field === "returns.wacc.effectiveTaxRate" && g.severity === "critical")).toBe(true);
+  });
+});

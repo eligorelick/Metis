@@ -77,6 +77,16 @@ export const INCOME_BEFORE_TAX_TAGS: readonly string[] = [
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
 ];
 
+/**
+ * The two children of the pretax total in the taxonomy's calculation
+ * (domestic + foreign). Some filers tag only these in the tax note; Oracle's
+ * FY2026 10-K is one (audit 2026-10-22 B-32).
+ */
+export const INCOME_BEFORE_TAX_COMPONENT_TAGS: readonly string[] = [
+  "IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic",
+  "IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign",
+];
+
 /** Consolidated earnings concepts, before the parent-only NetIncomeLoss fallback. */
 export const CONSOLIDATED_NET_INCOME_TAGS: readonly string[] = [
   "ProfitLoss",

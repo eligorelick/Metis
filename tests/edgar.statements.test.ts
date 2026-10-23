@@ -1859,6 +1859,40 @@ describe("buildStatementsFromCompanyFacts — income-statement fallbacks", () =>
       { field: "interestExpense", periods: ["2025-12-31", "2024-12-31"], text: expect.any(String) },
     ]);
   });
+
+  it("composes pretax income from its domestic and foreign components when no total is tagged (audit 2026-10-22 B-32)", () => {
+    // Oracle FY2026 tags only the two components (8,693M + 10,861M); with no
+    // pretax total the annual effective tax rate, and with it the WACC, was lost.
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic: annual(8_693),
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign: annual(10_861),
+        IncomeTaxExpenseBenefit: annual(2_467),
+      }),
+      { ...OPTS, symbol: "ORCL" },
+    );
+    expect(built.incomeAnnual.rows[0]).toMatchObject({ incomeBeforeTax: 19_554, incomeTaxExpense: 2_467 });
+    expect(built.incomeAnnual.substitutions).toEqual([
+      { field: "incomeBeforeTax", periods: ["2025-12-31"], text: expect.stringMatching(/domestic.*foreign/i) },
+    ]);
+  });
+
+  it("keeps the pretax total over its components, and composes nothing from one component alone", () => {
+    const total = buildStatementsFromCompanyFacts(
+      base({
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: annual(19_000),
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic: annual(8_693),
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign: annual(10_861),
+      }),
+      { ...OPTS, symbol: "ORCL" },
+    );
+    expect(total.incomeAnnual.rows[0]?.incomeBeforeTax).toBe(19_000);
+    const one = buildStatementsFromCompanyFacts(
+      base({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic: annual(8_693) }),
+      { ...OPTS, symbol: "ORCL" },
+    );
+    expect(one.incomeAnnual.rows[0]?.incomeBeforeTax).toBeNull();
+  });
 });
 
 
