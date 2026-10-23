@@ -3035,10 +3035,13 @@ carrying components. It allowed one part per million, so Meta's 2024 notes
 ($29.000B principal against $28.826B carrying, the gap being the tagged
 unamortized discount) and McDonald's June 2026 balance (0.09%) lost total
 debt, net debt and everything built on them. An aggregate above the
-components by up to 2% of them, or 50 million in the reporting currency,
-whichever is larger, is now read as unamortized discount and issuance cost
-and the components are admitted. Beyond that band total and net debt are
-still withheld, with a gap naming both figures. A tagged carrying total
+components by up to 2% of the financing debt (current plus noncurrent, leases
+excluded), or 50 million in the reporting currency, whichever is larger, is
+now read as unamortized discount and issuance cost and the components are
+admitted. A discount is part of the notes it discounts, so the 50 million
+floor reaches at most 10% of the financing debt, and with no financing debt
+(leases alone) only the old rounding allowance applies. Beyond that band total
+and net debt are still withheld, with a gap naming both figures. A tagged carrying total
 (`LongTermDebt` and the other aggregates of the B-14 check) stays at 1%: it is
 on the components' own basis, so only rounding can separate them. The band is
 a house convention.

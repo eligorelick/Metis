@@ -179,6 +179,16 @@ describe("principal-versus-carrying tolerance (audit 2026-10-22 B-5)", () => {
     expect(incompleteDebtReason({ longTermDebt: 1_000 * M }, 1_051 * M)).toMatch(/exceeds the resolved financing components 1000000000/);
   });
 
+  // Review of B-5: a discount cannot be most of the debt. The 50 million floor
+  // reaches at most 10% of the financing components, and leases alone or zero
+  // financing debt get only the old rounding allowance.
+  it("caps the floor at 10% of the financing components and never admits leases alone", () => {
+    expect(incompleteDebtReason({ longTermDebt: 400 * M }, 440 * M)).toBeNull();
+    expect(incompleteDebtReason({ longTermDebt: 400 * M }, 441 * M)).toMatch(/exceeds the resolved financing components 400000000/);
+    expect(incompleteDebtReason({ longTermDebt: 10 * M }, 59 * M)).toMatch(/exceeds the resolved financing components 10000000/);
+    expect(incompleteDebtReason({ shortTermDebt: null, longTermDebt: null, financeLeaseLiability: 30 * M }, 75 * M)).toMatch(/exceeds the resolved financing components 30000000/);
+  });
+
   it("still withholds a genuinely incomplete composition", () => {
     expect(incompleteDebtReason({ longTermDebt: 215.3 * M }, 17_784.94 * M)).toMatch(/incomplete debt carrying value/);
   });
