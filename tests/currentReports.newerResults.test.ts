@@ -94,10 +94,17 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
     expect(parseReleaseHeadline(q4)).toEqual({ revenue: null, epsDiluted: null });
   });
 
+  it("never reads next-quarter guidance as the headline", () => {
+    const text = "Acme Reports Second Quarter 2026 Results. Net income was $100 million. Third quarter revenue of $1.4 billion is expected. Third quarter diluted EPS of $0.52 is expected.";
+    expect(parseReleaseHeadline(text)).toEqual({ revenue: null, epsDiluted: null });
+  });
+
   it("does not count a dividend or an EPS outlook as results", () => {
     expect(reportsResults("Example Corp Declares Quarterly Dividend. The board declared a quarterly dividend of $0.52 per share, payable November 14, 2026.")).toBe(false);
     expect(reportsResults("Example Corp Updates Outlook. The company now expects full-year diluted EPS of $3.10 to $3.20.")).toBe(false);
     expect(reportsResults("Q3 2026 Update. Diluted EPS of $3.10 is expected.")).toBe(false);
+    expect(reportsResults("Example Corp Third Quarter 2026 Update. We are raising our full-year diluted EPS range to $3.10 to $3.20.")).toBe(false);
+    expect(reportsResults("Example Corp Third Quarter 2026 Update. We reaffirm diluted EPS of $3.10 to $3.20.")).toBe(false);
     for (const word of ["projected", "forecasted", "anticipated", "targeted", "guided"]) {
       expect(reportsResults(`Q3 2026 Update. Diluted EPS of $3.10 is ${word}.`)).toBe(false);
     }

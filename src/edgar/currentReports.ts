@@ -576,7 +576,7 @@ export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
   const gaap = (m: RegExpMatchArray): boolean => {
     const sentence = sentencePrefix(text, m.index!) + text.slice(m.index!, sentenceEnd(text, m.index!));
     return !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index! - 100), m.index)) && !NON_GAAP_SENTENCE.test(sentence) &&
-      !LOSS_OR_OTHER_PERIOD.test(sentence);
+      !LOSS_OR_OTHER_PERIOD.test(sentence) && !OUTLOOK_OR_DIVIDEND.test(sentence);
   };
   const revenue = [...text.matchAll(/\b(?:(?:total|net|consolidated|quarterly|(?:first|second|third|fourth)[- ]quarter) )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached)| (?:increased|decreased|grew|rose|fell|declined)(?:[^.$]|\.\d){0,60}? to)? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
     .filter((m) => gaap(m) && REVENUE_SENTENCE_OPENING.test(sentencePrefix(text, m.index!)))
@@ -589,6 +589,8 @@ export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
 
 /** How far past a results amount an outlook word ("is expected") still belongs to it. */
 const OUTLOOK_AFTER_CHARS = 60;
+/** Outlook wording ("is expected", "raising our EPS range", "reaffirm") and a dividend: an amount there is no result. */
+const OUTLOOK_OR_DIVIDEND = /\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es|ed)|forecast(?:s|ed)?|anticipat(?:es?|ed)|project(?:s|ed|ions?)?|target(?:s|ed)?|rais(?:es?|ed|ing)|ranges?|reaffirm(?:s|ed|ing)?|reiterat(?:es?|ed|ing)|dividends?)\b/i;
 
 /**
  * Audit 2026-10-22 B-24: the release states results, not only operating
@@ -603,7 +605,7 @@ const OUTLOOK_AFTER_CHARS = 60;
 export function reportsResults(rawText: string): boolean {
   const text = normalizeFilingText(rawText).slice(0, 20_000);
   return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
-    .some((m) => !/\b(?:expect(?:s|ed|ations?)?|outlook|guid(?:ance|es|ed)|forecast(?:s|ed)?|anticipat(?:es?|ed)|project(?:s|ed|ions?)?|target(?:s|ed)?|dividends?)\b/i.test(sentencePrefix(text, m.index) +
+    .some((m) => !OUTLOOK_OR_DIVIDEND.test(sentencePrefix(text, m.index) +
       text.slice(m.index, Math.min(sentenceEnd(text, m.index), m.index + m[0].length + OUTLOOK_AFTER_CHARS))));
 }
 
