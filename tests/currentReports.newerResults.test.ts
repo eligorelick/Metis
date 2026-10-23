@@ -56,6 +56,23 @@ describe("release parsing for newer results (audit 2026-10-22 B-24)", () => {
     expect(parseReleaseHeadline(RESULTS)).toEqual({ revenue: { value: 1.4e9, symbol: "$" }, epsDiluted: { value: 0.52, symbol: "$" } });
     expect(parseReleaseHeadline(`${RESULTS} Revenue was $1.50 billion on a constant-currency basis.`).revenue).toBeNull();
   });
+
+  it("reads the total, never a segment's revenue, and an exact amount", () => {
+    const head = "Example Inc. Announces Third Quarter 2026 Results.";
+    expect(parseReleaseHeadline(`${head} Consolidated revenues increased 16.4% year over year to $64.6 billion. Cloud revenues of $15.2 billion grew 34%. Diluted EPS was $2.87.`))
+      .toEqual({ revenue: { value: 64.6e9, symbol: "$" }, epsDiluted: { value: 2.87, symbol: "$" } });
+    expect(parseReleaseHeadline(`${head} Cloud revenues of $15.2 billion grew 34%. Diluted EPS was $2.87.`).revenue).toBeNull();
+  });
+
+  it("ignores an adjusted per-share figure stated later in its sentence", () => {
+    expect(parseReleaseHeadline("Net income was $1.0 billion, or $2.10 per diluted share. Adjusted net income was $900 million, or $1.95 per diluted share.").epsDiluted)
+      .toEqual({ value: 2.1, symbol: "$" });
+  });
+
+  it("does not count a dividend or an EPS outlook as results", () => {
+    expect(reportsResults("Example Corp Declares Quarterly Dividend. The board declared a quarterly dividend of $0.52 per share, payable November 14, 2026.")).toBe(false);
+    expect(reportsResults("Example Corp Updates Outlook. The company now expects full-year diluted EPS of $3.10 to $3.20.")).toBe(false);
+  });
 });
 
 describe("newer results than the statements (audit 2026-10-22 B-24)", () => {

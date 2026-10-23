@@ -524,23 +524,42 @@ export interface ReleaseHeadline {
 
 const HEADLINE_CHARS = 6_000;
 const NON_GAAP_BEFORE = /\b(?:adjusted|non-GAAP|core|operating|underlying|managed|excluding[^.]{0,80})\s*$/i;
+/** Another basis named anywhere earlier in the sentence ("Adjusted net income was ..., or $1.95 per diluted share"). */
+const NON_GAAP_SENTENCE = /\b(?:adjusted|non-GAAP|core|underlying|managed|excluding|pro forma)\b/i;
+/** A sentence boundary: terminal punctuation after a lower-case letter, digit or closing mark, or a bullet. */
+const SENTENCE_START = /(?:^|(?<=[a-z0-9%)"”])[.!?]\s+|•\s*)/g;
+
+/** What may open a sentence before the total-revenue label: the issuer and the period, never a segment. */
+const REVENUE_SENTENCE_OPENING = /^(?:(?:the company's|our|in|for|the|Q[1-4]|FY\s?\d{2,4}|(?:first|second|third|fourth)[- ]quarter|quarter|fiscal|full[- ]year|year|\d{4}),?\s+)*$/i;
+
+/** The text from the start of the sentence holding `index` up to it. */
+function sentencePrefix(text: string, index: number): string {
+  let start = 0;
+  for (const m of text.slice(0, index).matchAll(SENTENCE_START)) start = m.index + m[0].length;
+  return text.slice(start, index);
+}
 
 /**
  * Audit 2026-10-22 B-24: a results release's headline revenue and diluted
  * EPS, from its opening text. A figure is kept only when every matching
- * statement there gives the same amount, so a release that states a
- * segment's or another basis's figure beside the reported one yields none.
- * Revenue needs a stated scale (billion or million).
+ * statement there gives the same amount, so a release that states another
+ * basis's figure beside the reported one yields none. Revenue is read only
+ * where it opens its sentence, optionally as total, net or consolidated
+ * revenue, so a segment's revenue ("Cloud revenues of $15.2 billion") is never
+ * taken for the total; it needs a stated scale (billion or million). A figure
+ * whose sentence names an adjusted or other non-GAAP basis is not read.
  */
 export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
   const text = normalizeFilingText(rawText).slice(0, HEADLINE_CHARS);
   const single = (found: { value: number; symbol: string }[]): { value: number; symbol: string } | null =>
     found.length > 0 && found.every((f) => f.value === found[0]!.value && f.symbol === found[0]!.symbol) ? found[0]! : null;
-  const revenue = [...text.matchAll(/\b(?:total |net )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached))? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
-    .filter((m) => !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index - 100), m.index)))
-    .map((m) => ({ value: Number(m[2]) * (m[3]!.toLowerCase() === "billion" ? 1e9 : 1e6), symbol: m[1]! }));
+  const gaap = (m: RegExpMatchArray): boolean => !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index! - 100), m.index)) &&
+    !NON_GAAP_SENTENCE.test(sentencePrefix(text, m.index!));
+  const revenue = [...text.matchAll(/\b(?:(?:total|net|consolidated|quarterly|(?:first|second|third|fourth)[- ]quarter|full[- ]year) )?revenues?(?:, net of interest expense,)?(?: (?:was|were|of|totaled|reached)| (?:increased|decreased|grew|rose|fell|declined)(?:[^.$]|\.\d){0,60}? to)? ((?:US)?\$)\s?(\d+(?:\.\d+)?) (billion|million)\b/gi)]
+    .filter((m) => gaap(m) && REVENUE_SENTENCE_OPENING.test(sentencePrefix(text, m.index!)))
+    .map((m) => ({ value: Math.round(Number(m[2]) * (m[3]!.toLowerCase() === "billion" ? 1e9 : 1e6)), symbol: m[1]! }));
   const eps = [...text.matchAll(/\b(?:diluted (?:EPS|earnings per (?:common )?share)(?: \((?:EPS|diluted)\))?|earnings per diluted share|EPS \(diluted\))(?: (?:was|were|of|totaled))? ((?:US)?\$)\s?(\d+\.\d{2})\b|((?:US)?\$)\s?(\d+\.\d{2}) per diluted share\b/gi)]
-    .filter((m) => !NON_GAAP_BEFORE.test(text.slice(Math.max(0, m.index - 100), m.index)))
+    .filter(gaap)
     .map((m) => ({ value: Number(m[2] ?? m[4]), symbol: (m[1] ?? m[3])! }));
   return { revenue: single(revenue), epsDiluted: single(eps) };
 }
@@ -548,12 +567,14 @@ export function parseReleaseHeadline(rawText: string): ReleaseHeadline {
 /**
  * Audit 2026-10-22 B-24: the release states results, not only operating
  * statistics (a deliveries or operational update can be filed under Item 2.02):
- * it states an amount for earnings, earnings per share or operating income.
- * "Our net income ... will be announced" states none.
+ * it states an amount for earnings, diluted earnings per share or operating
+ * income. "Our net income ... will be announced" states none, nor does a
+ * dividend per share or an amount in a sentence giving an outlook.
  */
 export function reportsResults(rawText: string): boolean {
-  return /\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per (?:diluted |common )?share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per (?:diluted )?share\b/i
-    .test(normalizeFilingText(rawText).slice(0, 20_000));
+  const text = normalizeFilingText(rawText).slice(0, 20_000);
+  return [...text.matchAll(/\b(?:net (?:income|loss|earnings)|(?:reported |GAAP )?earnings|EPS|per diluted share|income from operations|operating (?:income|profit))\b[^.$]{0,60}(?:US)?\$\s?\(?\d|(?:US)?\$\s?\(?\d+\.\d{2}\)? per diluted share\b/gi)]
+    .some((m) => !/\b(?:expects?|expected|outlook|guidance|forecasts?|anticipates?|projects?|targets?|dividends?)\b/i.test(sentencePrefix(text, m.index) + m[0]));
 }
 
 export interface FreeCashFlowFact {

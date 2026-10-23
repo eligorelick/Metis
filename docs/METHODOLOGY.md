@@ -3127,14 +3127,18 @@ FY2026 (quarter ended 2026-09-30) were published in 8-K <accession> on
 2026-10-13; statements, TTM and multiples here end 2026-06-30 and do not
 reflect them." It appears as a banner in the web view and both exports and as
 a warn entry in the data gaps. Only a release that states results counts: an
-amount for net income, earnings, EPS, earnings per share or operating income
-in its opening text. A deliveries or operational update filed under the same
-8-K item does not. The release's headline revenue and diluted EPS are shown in
-the Key data table, labelled "unaudited, from the results release", only when
-both are read once each in its opening text (a figure after "adjusted",
-"non-GAAP", "core", "operating", "underlying", "managed" or "excluding" is not
-read, and two different amounts for one figure yield none) and their currency
-is established: "US$", or "$" while the statements report in US dollars. They
+amount for net income, earnings, EPS, diluted earnings per share or operating
+income in its opening text, outside a sentence giving an outlook or a
+dividend. A deliveries or operational update filed under the same 8-K item
+does not. The release's headline revenue and diluted EPS are shown in the Key
+data table, labelled "unaudited, from the results release", only when every
+statement of each in its opening text gives the same amount (two different
+amounts for one figure yield none). Revenue is read only where it opens its
+sentence, as revenue or total, net or consolidated revenue after at most the
+issuer and the period, so a segment's revenue is never taken for the total. A
+figure in a sentence that names "adjusted", "non-GAAP", "core",
+"underlying", "managed", "excluding" or "pro forma", or right after
+"operating", is not read. Their currency must also be established: "US$", or "$" while the statements report in US dollars. They
 never enter a statement, the TTM or a valuation. To date such releases, a
 title that names its quarter only in compact form ("3Q26", "Q3 2026 Update")
 is now read when the release has no ordinal title and no "quarter ended"
