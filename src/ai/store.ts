@@ -59,6 +59,14 @@ const aiStoreSchema = z.object({
   providerCredentials: z.partialRecord(z.enum(PROVIDER_CREDENTIAL_KEYS), z.string().min(1).max(2048)).optional(),
 }).passthrough();
 
+export const AI_RUNTIME_CONFLICT_MESSAGE = "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
+/** Where the operator is sent: the OPERATIONS.md troubleshooting row for this refusal (audit 2026-10-22 F-12). */
+export const AI_RUNTIME_CONFLICT_HELP = 'See "AI store is held by another server" in the troubleshooting table of docs/OPERATIONS.md.';
+
+export function isAiRuntimeConflict(error: unknown): boolean {
+  return error instanceof Error && error.message === AI_RUNTIME_CONFLICT_MESSAGE;
+}
+
 /** Call under withAiStore: one local server owns connection lifecycles at a time. */
 export function claimAiRuntime(store: AiStore): void {
   const owner = store.runtimeOwnerPid;
@@ -66,9 +74,21 @@ export function claimAiRuntime(store: AiStore): void {
     let alive = true;
     try { process.kill(owner, 0); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === "ESRCH") alive = false; }
-    if (alive) throw new Error("AI connections are active in another Metis server. Use that server or stop it before connecting here.");
+    if (alive) throw new Error(AI_RUNTIME_CONFLICT_MESSAGE);
   }
   store.runtimeOwnerPid = process.pid;
+}
+
+/**
+ * Audit 2026-10-22 F-12: claim the runtime before a plan-connection job
+ * fetches any data, so a connection owned by another Metis server stops the
+ * job at once instead of after the data stage. Without a saved store there is
+ * no connection to own, and the pass reports that itself. Throws the same
+ * errors `claimAiRuntime` and `withAiStore` throw.
+ */
+export async function claimAiRuntimeForRun(): Promise<void> {
+  if (!fs.existsSync(filePath())) return;
+  await withAiStore((store) => claimAiRuntime(store));
 }
 
 /** Credentials deliberately ignore database/repository paths and live under the OS user profile. */

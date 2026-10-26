@@ -657,9 +657,16 @@ describe("FRED transforms and transport", () => {
 
     const nonCsv = await series("DGS10", {}, {
       ...FAST_FRED,
-      fetchImpl: async () => new Response("<html>missing</html>", { status: 200 }),
+      fetchImpl: async () => new Response("missing", { status: 200 }),
     });
     expect(nonCsv).toMatchObject({ ok: false, gap: { reason: expect.stringContaining("non-CSV") } });
+
+    // B-1: an HTML page is an outage page, never "unknown series id".
+    const htmlCsv = await series("DGS10", {}, {
+      ...FAST_FRED,
+      fetchImpl: async () => new Response("<html>missing</html>", { status: 200 }),
+    });
+    expect(htmlCsv).toMatchObject({ ok: false, gap: { reason: expect.stringContaining("maintenance/HTML page (HTTP 200)") } });
 
     const emptyCsv = await series("DGS10", {}, {
       ...FAST_FRED,

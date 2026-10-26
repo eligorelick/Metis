@@ -10149,7 +10149,7 @@
       "decisions": [
         "D-110"
       ],
-      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moved to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109; that path has since moved on with a later stamp. No figure moves. See docs/audit/DECISIONS.md, D-110.",
+      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
       "deltas": [
         {
           "path": "report.balanceSheet.coverage.commentary.1",
@@ -10174,16 +10174,43 @@
       ]
     },
     {
-      "name": "audit-batch4-freshness-20261022",
+      "name": "audit-batch6-provider-failures-20261026",
       "decisions": [
         "D-111"
       ],
-      "reason": "Audit batch 4 (D-111), as it reaches this provider-free DEMO control. Its TTM was suppressed, so the income-derived multiples fall back to FY2025: each now records that period (B-9) and the P/E and EV/EBITDA names say it (\"P/E (FY2025)\", \"EV/EBITDA (FY2025)\"), and the P/E basis names only the formula that ran, price / diluted EPS, without the unused fallback (B-20). The report stamp moves to spec 1.42.0, out of audit-batch5-trust-signals-20261022, whose record for 1.41.0 stands in D-110; the two basis leaves move here out of the D-85/D-86 common-earnings group, whose record stands in its decisions. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-111.",
+      "reason": "Audit batch 6 of 2026-10-26 (degrade visibly when providers fail, D-111), as it reaches this provider-free DEMO control. The report stamp moves to spec 1.42.0 (the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line), out of audit-batch5-trust-signals-20261022, whose record for 1.41.0 stands in docs/audit/DECISIONS.md, D-110. The fixture carries no FRED DGS10 observation, so its risk-free rate has always come from FMP treasury rates year10 (2025-12-31); F-13 now names that substitution in fairValue.reasons as a degraded-inputs entry, in Stage B and in the report, together with the ROIC-vs-WACC history behind the terminal ROIC, which for want of any DGS10 observation compares every fiscal year to the current WACC (the terminal ROIC basis already said so). No figure moves: the rate, the WACC, the DCF and the headline value are unchanged, and the fixture has no keyless member or refused analyst estimate to name. See docs/audit/2026-10-22-audit-batch6-provider-failures.md.",
+      "deltas": [
+        {
+          "path": "report.fairValue.reasons.0",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.fairValue.degradedInputs",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
+            "severity": "warn"
+          }
+        },
+        {
+          "path": "stageB.fairValue.reasons.0",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.fairValue.degradedInputs",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
+            "severity": "warn"
+          }
+        }
+      ]
+    },
+    {
+      "name": "audit-batch4-freshness-20261026",
+      "decisions": [
+        "D-112"
+      ],
+      "reason": "Audit batch 4 (D-112), as it reaches this provider-free DEMO control. Its TTM was suppressed, so the income-derived multiples fall back to FY2025: each now records that period (B-9) and the P/E and EV/EBITDA names say it (\"P/E (FY2025)\", \"EV/EBITDA (FY2025)\"), and the P/E basis names only the formula that ran, price / diluted EPS, without the unused fallback (B-20). The report stamp moves to spec 1.43.0, out of audit-batch6-provider-failures-20261026, whose record for 1.42.0 stands in D-111; the two basis leaves move here out of the D-85/D-86 common-earnings group, whose record stands in its decisions. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-112.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.42.0"
+          "after": "1.43.0"
         },
         {
           "path": "report.valuation.multiples.0.basis",

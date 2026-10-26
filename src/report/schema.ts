@@ -133,8 +133,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.40.2 (D-107): the EV bridge note, the issuer-common equity headline and the grid guard note in reader terms.
 // 1.40.3 (D-109): a per-share basis named in a claim's metric words reads as the per-share unit.
 // 1.41.0 (D-110): "contradicted" reserved for a value conflict, per-claim verification marks, "computed" for a data-only report's figures and JUDGMENT for code-written method and data-gap notes.
-// 1.42.0 (D-111): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
-export const REPORT_SPEC_VERSION = "1.42.0" as const;
+// 1.42.0 (D-111): the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line.
+// 1.43.0 (D-112): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
+export const REPORT_SPEC_VERSION = "1.43.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2685,6 +2686,35 @@ export const ANALYST_CASE_SCHEMA = AnalystCaseObjectSchema.superRefine(
   enforceRecursiveRatingSafety,
 );
 export type AnalystCase = z.infer<typeof ANALYST_CASE_SCHEMA>;
+
+/**
+ * Audit 2026-10-22 D-3: the keys of `sections` that would fail the whole
+ * output on their own, which is either a key the schema lacks, or a section
+ * that fails its own sub-schema or the rating-safety walk. Each section is
+ * checked alone, so one bad section never condemns the others. The caller
+ * applies the parser's normalization first.
+ */
+function invalidTopLevelSections(
+  schema: z.ZodObject<z.ZodRawShape>,
+  sections: Record<string, unknown>,
+): string[] {
+  return Object.keys(sections).filter((key) => {
+    const section = schema.shape[key];
+    if (section === undefined) return true;
+    return !z.object({ [key]: section }).strict().superRefine(enforceRecursiveRatingSafety)
+      .safeParse({ [key]: sections[key] }).success;
+  });
+}
+
+/** The judge-output sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+export function invalidJudgeOutputSections(sections: Record<string, unknown>): string[] {
+  return invalidTopLevelSections(JudgeOutputObjectSchema, sections);
+}
+
+/** The analyst-case sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+export function invalidAnalystCaseSections(sections: Record<string, unknown>): string[] {
+  return invalidTopLevelSections(AnalystCaseObjectSchema, sections);
+}
 
 /* ------------------------------------------------------------------------ *
  * JSON Schema emission for Anthropic structured outputs

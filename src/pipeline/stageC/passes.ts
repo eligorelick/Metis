@@ -63,6 +63,8 @@ import {
   analystCaseToJsonSchema,
   judgeOutputToJsonSchema,
   fillNullableGaps,
+  invalidAnalystCaseSections,
+  invalidJudgeOutputSections,
   noBuySellHold,
   type AnalystCase,
   type JudgeOutput,
@@ -802,14 +804,18 @@ async function runPassInSections<T>(a: {
   parts: number;
   completed?: Record<string, unknown>;
   parse: (raw: unknown) => { ok: true; value: T } | { ok: false; error: string };
+  /** D-3: the per-section schema check a checkpointed section must pass to be reused. */
+  checkStored: (sections: Record<string, unknown>) => CarriedSectionCheck;
   field: string;
   requestedModel: string;
 }): Promise<PassRun<T>> {
   // The mirror and schema repair are different draws even within one job.
   const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
   const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
+  // Audit 2026-10-22 D-3: the checkpoint carries cut-off sections too, so a
+  // stored section that fails its schema is asked for again, not reused.
   const completed: Record<string, unknown> = {
-    ...Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key))),
+    ...a.checkStored(Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key)))).kept,
     ...(a.completed ?? {}),
   };
   let lastCheckpoint = JSON.stringify(stored);
@@ -1190,14 +1196,16 @@ function removeUnsafeAnalystAssumptions(raw: unknown): unknown {
   };
 }
 
-const parseAnalystCase = (raw: unknown) => {
+/** An analyst output as the schema sees it: the parse and the carried-section check share this. */
+function normalizeAnalystCase(raw: unknown): unknown {
   // fillNullableGaps: the request schema lets the model OMIT a nullable field
   // instead of sending null (collapseNullableComplexity, report/schema.ts) —
   // restore the null before validating against the still-strict Zod schema.
-  const normalized = normalizeKnownEnumCasing(raw);
-  const r = ANALYST_CASE_SCHEMA.safeParse(
-    fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalized)),
-  );
+  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(raw)));
+}
+
+const parseAnalystCase = (raw: unknown) => {
+  const r = ANALYST_CASE_SCHEMA.safeParse(normalizeAnalystCase(raw));
   return r.success
     ? ({ ok: true, value: r.data } as const)
     : ({ ok: false, error: r.error.message } as const);
@@ -1380,6 +1388,7 @@ async function runAnalystRequest(
       parts: ANALYST_SECTION_PARTS,
       completed,
       parse,
+      checkStored: checkCarriedAnalystSections,
       field: `llm.${side}`,
       requestedModel: deps.model,
     });
@@ -2094,13 +2103,55 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
 }
 
 const parseJudgeOutput = (raw: unknown) => {
-  const normalized = normalizeJudgeOutput(raw);
-  // See parseAnalystCase — same nullable-omission compensation.
-  const r = JUDGE_OUTPUT_SCHEMA.safeParse(fillNullableGaps(JUDGE_OUTPUT_SCHEMA, normalized));
+  // See normalizeAnalystCase — same nullable-omission compensation.
+  const r = JUDGE_OUTPUT_SCHEMA.safeParse(fillNullableGaps(JUDGE_OUTPUT_SCHEMA, normalizeJudgeOutput(raw)));
   return r.success
     ? ({ ok: true, value: r.data } as const)
     : ({ ok: false, error: r.error.message } as const);
 };
+
+/** Sections carried from a cut-off response, split by whether they can be kept (audit 2026-10-22 D-3). */
+export interface CarriedSectionCheck {
+  /** The sections that validate on their own, exactly as written. */
+  kept: Record<string, unknown>;
+  /** The sections that do not, in the order they were written; the retry asks for them again. */
+  dropped: string[];
+}
+
+function splitCarriedSections(
+  sections: Record<string, unknown>,
+  normalized: unknown,
+  invalid: (sections: Record<string, unknown>) => string[],
+): CarriedSectionCheck {
+  const view = normalized !== null && typeof normalized === "object" && !Array.isArray(normalized)
+    ? (normalized as Record<string, unknown>)
+    : {};
+  const bad = new Set(invalid(Object.fromEntries(Object.keys(sections).map((key) => [key, view[key]]))));
+  return {
+    kept: Object.fromEntries(Object.entries(sections).filter(([key]) => !bad.has(key))),
+    dropped: Object.keys(sections).filter((key) => bad.has(key)),
+  };
+}
+
+/**
+ * Audit 2026-10-22 D-3: a carried section overrides whatever the retry writes
+ * for it, so a parseable but schema-invalid one failed the merged output
+ * whatever the retry returned. Each section is normalized as the full parse
+ * normalizes it and checked alone; the ones that fail are dropped, so the
+ * retry is asked for them again.
+ */
+export function checkCarriedJudgeSections(sections: Record<string, unknown>): CarriedSectionCheck {
+  return splitCarriedSections(
+    sections,
+    fillNullableGaps(JUDGE_OUTPUT_SCHEMA, normalizeJudgeOutput(sections)),
+    invalidJudgeOutputSections,
+  );
+}
+
+/** As checkCarriedJudgeSections, for a bull or bear case. */
+export function checkCarriedAnalystSections(sections: Record<string, unknown>): CarriedSectionCheck {
+  return splitCarriedSections(sections, normalizeAnalystCase(sections), invalidAnalystCaseSections);
+}
 
 /* ------------------------------------------------------------------------ *
  * WS7 (D-20) — the adversarial protocol for one judge pass
@@ -2219,6 +2270,7 @@ export async function runJudgePass(
         parts: JUDGE_SECTION_PARTS,
         completed: continuation?.completed,
         parse,
+        checkStored: checkCarriedJudgeSections,
         field: "llm.judge",
         requestedModel: judgeModel,
       });

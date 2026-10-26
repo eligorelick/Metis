@@ -127,7 +127,7 @@ import {
 import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
-import { computeFairValue } from "@/pipeline/stageB/fairValue";
+import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -1542,7 +1542,8 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
 const SPREAD_DAYS = 24 * 3600 * 1000;
 
 /**
- * Latest risk-free rate (10y): FRED DGS10 (pct) → FMP treasury.year10 (pct).
+ * Latest risk-free rate (10y): FRED DGS10 (pct) → FMP treasury.year10 (pct)
+ * → the last good cached DGS10 observation → the Treasury par curve (B-4).
  * D-60: DGS10 first, because every per-fiscal-year WACC is recomputed from
  * DGS10; the vendor endpoint is only the fallback, and the returns notes say so
  * when it is used.
@@ -1550,7 +1551,7 @@ const SPREAD_DAYS = 24 * 3600 * 1000;
 // WS6: the series the rate came from travels with it, so the WACC disclosure
 // can name it instead of printing an unattributed percentage.
 export function riskFreePct(
-  bundle: Pick<DataBundle, "treasury" | "macro">,
+  bundle: Pick<DataBundle, "treasury" | "macro" | "riskFreeFallback">,
 ): { pct: number | null; asOf: string | null; seriesId: string | null } {
   const dgs10 = bundle.macro.core["DGS10"];
   if (dgs10 && dgs10.ok) {
@@ -1561,6 +1562,12 @@ export function riskFreePct(
   const fromTreasury = t ? num(t.year10) : null;
   if (fromTreasury !== null) {
     return { pct: fromTreasury, asOf: isoDay(t?.date), seriesId: "fmp:treasury-rates.year10" };
+  }
+  // B-4: the last good cached DGS10 observation, then the Treasury par curve
+  // (riskFreeFallback.ts), each with its own series id and date.
+  const fallback = bundle.riskFreeFallback;
+  if (fallback?.ok && Number.isFinite(fallback.value.data.value)) {
+    return { pct: fallback.value.data.value, asOf: fallback.value.data.date, seriesId: fallback.value.data.seriesId };
   }
   return { pct: null, asOf: null, seriesId: null };
 }
@@ -2624,12 +2631,22 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // valueCompany — never recomputed. assembleReport overwrites the judge's
   // valuation.dcf.perShare + upsidePct from this; suppressed (never fabricated)
   // when no per-share model applies or the equity bridge is missing.
-  const fairValue = computeFairValue({
-    valuation,
-    currentPrice,
-    currency: projectionCurrency,
-    asOf: asOfDay,
-  });
+  // Audit 2026-10-22 F-13: an available value built on substituted inputs
+  // carries a "degraded inputs" reason naming each substitution.
+  const fairValue = withDegradedInputs(
+    computeFairValue({
+      valuation,
+      currentPrice,
+      currency: projectionCurrency,
+      asOf: asOfDay,
+    }),
+    degradedInputsReason({
+      riskFree: riskFreePct(bundle),
+      waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
+      bundleGaps: bundle.gaps,
+      valuationGaps: valuation.gaps,
+    }),
+  );
 
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------
   // Forensics Z / M already suppressed inside runForensics for financials; we
