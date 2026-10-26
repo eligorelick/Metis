@@ -2667,6 +2667,35 @@ export const ANALYST_CASE_SCHEMA = AnalystCaseObjectSchema.superRefine(
 );
 export type AnalystCase = z.infer<typeof ANALYST_CASE_SCHEMA>;
 
+/**
+ * Audit 2026-10-22 D-3: the keys of `sections` that would fail the whole
+ * output on their own, which is either a key the schema lacks, or a section
+ * that fails its own sub-schema or the rating-safety walk. Each section is
+ * checked alone, so one bad section never condemns the others. The caller
+ * applies the parser's normalization first.
+ */
+function invalidTopLevelSections(
+  schema: z.ZodObject<z.ZodRawShape>,
+  sections: Record<string, unknown>,
+): string[] {
+  return Object.keys(sections).filter((key) => {
+    const section = schema.shape[key];
+    if (section === undefined) return true;
+    return !z.object({ [key]: section }).strict().superRefine(enforceRecursiveRatingSafety)
+      .safeParse({ [key]: sections[key] }).success;
+  });
+}
+
+/** The judge-output sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+export function invalidJudgeOutputSections(sections: Record<string, unknown>): string[] {
+  return invalidTopLevelSections(JudgeOutputObjectSchema, sections);
+}
+
+/** The analyst-case sections in `sections` that fail on their own (audit 2026-10-22 D-3). */
+export function invalidAnalystCaseSections(sections: Record<string, unknown>): string[] {
+  return invalidTopLevelSections(AnalystCaseObjectSchema, sections);
+}
+
 /* ------------------------------------------------------------------------ *
  * JSON Schema emission for Anthropic structured outputs
  * ------------------------------------------------------------------------ */

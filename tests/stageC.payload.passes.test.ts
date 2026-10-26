@@ -77,6 +77,8 @@ import {
   assembleReport,
   buildSources,
   normalizeJudgeOutput,
+  checkCarriedAnalystSections,
+  checkCarriedJudgeSections,
   collectTracedNumbers,
   totalCost,
   extractText,
@@ -94,7 +96,8 @@ import {
   ANALYST_SECTION_PARTS,
   type RunPassArgs,
 } from "@/pipeline/stageC/passes";
-import { completedTopLevelFields } from "@/pipeline/stageC/continuation";
+import { completedTopLevelFields, continuationInstruction, mergeContinuation } from "@/pipeline/stageC/continuation";
+import { JUDGE_OUTPUT_KEYS, JUDGE_OUTPUT_SCHEMA, fillNullableGaps } from "@/report/schema";
 import type { CostBreakdownEntry as _CBE } from "@/report/schema";
 
 /* ------------------------------------------------------------------------ *
@@ -4987,5 +4990,77 @@ describe("analyst repair request", () => {
     expect(repair.messages[1]?.role).toBe("user");
     expect(repair.messages[1]?.content).toMatch(/^Your previous output FAILED the ANALYST_CASE schema validation/);
     expect(repair.messages[1]?.content).toContain('Invalid ISO date (expected YYYY-MM-DD): "2026-Q1"');
+  });
+});
+
+describe("sections carried from a cut-off response are checked before they are kept (audit 2026-10-22 D-3)", () => {
+  const parsesWhole = (raw: unknown) =>
+    JUDGE_OUTPUT_SCHEMA.safeParse(fillNullableGaps(JUDGE_OUTPUT_SCHEMA, normalizeJudgeOutput(raw))).success;
+
+  it("drops a fundamentals section that nests its tables inside graded, keeps the rest and asks for fundamentals again", () => {
+    const judge = judgeOutput();
+    // RIVN 2026-10-22, judge attempt 1: growthTable, marginTrend, returns and fcf inside `graded`.
+    const { growthTable, marginTrend, returns, fcf, ...fundamentalsRest } = judge.fundamentals;
+    const nested = { ...fundamentalsRest, graded: { ...judge.fundamentals.graded, growthTable, marginTrend, returns, fcf } };
+    const streamed = JSON.stringify({
+      verdict: judge.verdict,
+      business: judge.business,
+      fundamentals: nested,
+      balanceSheet: judge.balanceSheet,
+      valuation: judge.valuation,
+      quality: judge.quality,
+    });
+    const carried = completedTopLevelFields(streamed.slice(0, streamed.length - 30));
+    expect(Object.keys(carried)).toEqual(["verdict", "business", "fundamentals", "balanceSheet", "valuation"]);
+
+    const checked = checkCarriedJudgeSections(carried);
+
+    expect(checked.dropped).toEqual(["fundamentals"]);
+    expect(Object.keys(checked.kept)).toEqual(["verdict", "business", "balanceSheet", "valuation"]);
+    // Kept exactly as written: the check normalizes a copy, never the carried text.
+    expect(checked.kept).toEqual({
+      verdict: carried.verdict,
+      business: carried.business,
+      balanceSheet: carried.balanceSheet,
+      valuation: carried.valuation,
+    });
+    expect(continuationInstruction(checked.kept, JUDGE_OUTPUT_KEYS)).toContain(
+      "ONLY the remaining top-level sections: fundamentals, quality, technicals,",
+    );
+    // A valid retry now completes the output; with the bad section carried it never could.
+    const retry = { ...judge, verdict: undefined, business: undefined, balanceSheet: undefined, valuation: undefined };
+    expect(parsesWhole(mergeContinuation(checked.kept, retry))).toBe(true);
+    expect(parsesWhole(mergeContinuation(carried, retry))).toBe(false);
+  });
+
+  it("checks each section as the whole parse does: normalized first, then strict and rating-safe", () => {
+    const judge = judgeOutput();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { fredAttribution, ...macroWithoutAttribution } = judge.macro;
+    const checked = checkCarriedJudgeSections({
+      // The parse fills fredAttribution itself, so its absence is no defect.
+      macro: macroWithoutAttribution,
+      verdict: judge.verdict,
+      business: { ...judge.business, invented: true },
+      // `topic` is a plain string, so only the rating-safety walk catches this.
+      disagreements: [{ topic: "A Strong Buy on margins", bullView: "up", bearView: "down", kind: "interpretation", judgeResolution: "mixed" }],
+      notASection: {},
+    });
+    expect(checked).toEqual({
+      kept: { macro: macroWithoutAttribution, verdict: judge.verdict },
+      dropped: ["business", "disagreements", "notASection"],
+    });
+    const clean = [{ topic: "Margins", bullView: "up", bearView: "down", kind: "interpretation", judgeResolution: "mixed" }];
+    expect(checkCarriedJudgeSections({ disagreements: clean }).dropped).toEqual([]);
+  });
+
+  it("checks a bull or bear case's sections against the analyst schema", () => {
+    const bull = analystCase("bull");
+    const checked = checkCarriedAnalystSections({
+      thesis: bull.thesis,
+      keyDrivers: [{ text: "no label or source" }],
+      priceTarget: { ...bull.priceTarget, value: "300" },
+    });
+    expect(checked).toEqual({ kept: { thesis: bull.thesis }, dropped: ["keyDrivers", "priceTarget"] });
   });
 });

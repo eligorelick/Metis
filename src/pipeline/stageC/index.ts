@@ -87,6 +87,8 @@ import {
 import {
   runAnalystRepairPass,
   runAnalystContinuationPass,
+  checkCarriedAnalystSections,
+  checkCarriedJudgeSections,
   runBullPass,
   runBearPass,
   buildAnalystRunPassArgs,
@@ -648,6 +650,10 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
           ? await runBullPass(passDeps, deps.payload, settlement, beforeProviderLaunch)
           : await runBearPass(passDeps, deps.payload, settlement, beforeProviderLaunch);
     return toPassResultLike(unwrap(run, side));
+  },
+
+  checkCarriedSections(pass, sections) {
+    return pass === "synthesize" ? checkCarriedJudgeSections(sections) : checkCarriedAnalystSections(sections);
   },
 
   async runJudgePass(

@@ -7209,6 +7209,104 @@ describe("runJob — judge retry after a dropped connection", () => {
     expect(result.dataOnly).toBe(false);
   });
 
+  it("drops a kept judge section that fails its own schema, asks for it again and says so (audit 2026-10-22 D-3)", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const checked: Array<{ pass: string; sections: Record<string, unknown> }> = [];
+    // RIVN 2026-10-22: the kept fundamentals nested its tables inside `graded`.
+    passes.checkCarriedSections = (pass, sections) => {
+      checked.push({ pass, sections });
+      return {
+        kept: Object.fromEntries(Object.entries(sections).filter(([key]) => key !== "fundamentals")),
+        dropped: "fundamentals" in sections ? ["fundamentals"] : [],
+      };
+    };
+    const seen: Array<{ continuation: unknown; detail: string | undefined }> = [];
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, , , , continuation] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        unknown,
+        unknown,
+        unknown,
+        unknown,
+      ];
+      seen.push({
+        continuation,
+        detail: getJobSnapshot(jobId)!.steps.find((step) => step.step === "synthesize")?.detail,
+      });
+      attempt += 1;
+      if (attempt === 1) {
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), {
+          retryable: true,
+          kind: "transport",
+          partialText: '{"verdict":{"synthesis":"s"},"business":{"b":1},"fundamentals":{"graded":{"growthTable":[]}},"balanceSheet":{"x":1},"quality":{"gr',
+        });
+      }
+      return validJudge(deps, bull, bear);
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+
+    expect(checked).toEqual([{
+      pass: "synthesize",
+      sections: { verdict: { synthesis: "s" }, business: { b: 1 }, fundamentals: { graded: { growthTable: [] } }, balanceSheet: { x: 1 } },
+    }]);
+    expect(seen).toHaveLength(2);
+    expect(seen[1]!.continuation).toEqual({ completed: { verdict: { synthesis: "s" }, business: { b: 1 }, balanceSheet: { x: 1 } } });
+    expect(seen[1]!.detail).toBe(
+      "judge attempt 1/3 failed; retrying: judge pass failed (transport): ChatGPT stream ended before completion" +
+        " (kept 3 completed sections of the cut-off response: verdict, business, balanceSheet; the retry asks only for the rest)" +
+        " (dropped 1 cut-off section that did not match its schema, so the retry writes it again: fundamentals)",
+    );
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("re-requests a cut-off analyst side's schema-invalid kept section (audit 2026-10-22 D-3)", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    const DROPPED = "bull pass failed (transport): ChatGPT stream ended before completion";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(DROPPED), {
+        bear,
+        bullError: DROPPED,
+        bullLaunched: true,
+        bearLaunched: true,
+        bullRetryable: true,
+        bullFailureKind: "transport",
+        bullPartialText: '{"thesis":[{"text":"t"}],"keyDrivers":"not a list","risksToCase":[{"te',
+      });
+    };
+    passes.checkCarriedSections = (pass, sections) => ({
+      kept: Object.fromEntries(Object.entries(sections).filter(([key]) => key !== "keyDrivers")),
+      dropped: pass === "bull" && "keyDrivers" in sections ? ["keyDrivers"] : [],
+    });
+    const seen: Array<{ continuation: unknown; detail: string | undefined }> = [];
+    passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch, _feedback, continuation) => {
+      seen.push({ continuation, detail: getJobSnapshot(jobId)!.steps.find((step) => step.step === side)?.detail });
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bull));
+      return bull;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.continuation).toEqual({ completed: { thesis: [{ text: "t" }] } });
+    expect(seen[0]!.detail).toContain(
+      `${DROPPED} (kept: thesis; dropped as not matching its schema, so asked for again: keyDrivers)`,
+    );
+    expect(result.dataOnly).toBe(false);
+  });
+
   it("never feeds a transport failure back as repair feedback, and keeps earlier schema feedback", async () => {
     const { jobId } = createJob("AAPL");
     const { passes } = mockPasses();
