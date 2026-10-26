@@ -45,7 +45,7 @@ describe("verification headline order (audit 2026-10-22 B-10)", () => {
   });
 
   it("says when no numeric validation was recorded instead of promoting traced figures", () => {
-    const { factualValidation: _v, ...legacy } = META;
+    const legacy = { ...META, factualValidation: undefined };
     expect(trustHeadline(legacy)).toBe("numeric claims not validated: no verification result recorded");
     expect(provenanceHeadline(legacy)).toBe(PROVENANCE);
   });
