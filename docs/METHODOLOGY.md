@@ -2694,6 +2694,24 @@ ran)"). The Markdown and print reports add a legend line under the first
 table with a Cited column (audit 2026-10-22 F-23). The stored `verified`
 value is unchanged, because the enterprise-value and debt checks read it.
 
+Statements the code writes about the analysis itself are labelled JUDGMENT,
+never FACT, matching the rule the analysis prompts give the model
+("Methodology, data-gap and coverage statements describe this analysis").
+The rule covers the capital grading basis and the debt-bridge convention on
+every report, and, on a data-only report, these statements:
+
+- each aspect's score-to-band sentence or its "score unavailable" reason;
+- the net-debt method note and any interest-coverage gap note;
+- the HEURISTIC maintenance-capex and buyback-price notes;
+- an unavailable dilution overhang;
+- the comparison of today's price with the average repurchase price proxy.
+
+The repurchase total stays a FACT sentence of its own. The proxy comparison
+and the timing measure follow it as a separate JUDGMENT sentence. Sentences
+that state a computed figure stay FACT: net debt to EBITDA, interest cover,
+capex intensity, the share-count change, stock-based compensation and a
+computed dilution overhang (audit 2026-10-22 F-20). No figure changes.
+
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The
 report's execution metadata distinguishes requested mode and actual outcome;
