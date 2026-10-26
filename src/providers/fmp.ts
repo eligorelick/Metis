@@ -160,7 +160,7 @@ export interface StatementFieldProvenance {
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
-  calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps";
+  calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci";
 }
 
 export interface StatementFieldConflict {

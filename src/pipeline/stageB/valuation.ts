@@ -5744,10 +5744,13 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     } };
   }
 
+  // Audit 2026-10-22 C-15: the critical DCF gap names this gate, not a missing caller input.
+  let dcfWithheldCause: string | null = null;
   if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(inputs.multiples.balance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
+    dcfWithheldCause = `DCF withheld: noncontrolling ownership unresolved at ${inputs.multiples.balance?.date ?? "the valuation balance date"} (the balance sheet carries consolidated equity without a filed parent/NCI split; see valuation.dcf.noncontrollingOwnership)`;
     inputs = { ...inputs, dcfInputs: null, dilutedShares: null };
   }
 
@@ -6061,7 +6064,7 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
     );
   } else if (dcfIn === null || !isNum(inputs.waccPct)) {
     gaps.push(
-      gapEntry("valuation.dcf", dcfIn === null ? "DCF inputs not provided by caller" : "WACC unavailable — DCF suppressed", "critical"),
+      gapEntry("valuation.dcf", dcfIn === null ? dcfWithheldCause ?? "DCF inputs not provided by caller" : "WACC unavailable — DCF suppressed", "critical"),
     );
   } else {
     const built = buildDcfAssumptions(dcfIn);

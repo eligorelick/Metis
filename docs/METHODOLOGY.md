@@ -3616,3 +3616,23 @@ labels the quote's market cap as possibly covering one share class only, but
 the AI context's quote section stated the figure bare. It now carries the same
 caveat, citing the filing that shows the second class, and says the figure is
 not the issuer's market capitalization.
+
+**NCI from the quarter's own equity statement (C-15).** Some filers tag their
+noncontrolling interest on the 10-K face (`MinorityInterest`) but in each 10-Q
+only as a dimensional fact: the consolidated-equity concept on
+`StatementEquityComponentsAxis = NoncontrollingInterestMember`. Companyfacts
+drops dimensional facts, so the latest quarterly balance had consolidated
+equity only, and the ownership gate withheld the DCF and every EV and book
+multiple (Southern Co.). The primary 10-Q and 10-K documents Métis already
+fetches are now read for that NCI column. A balance row with consolidated
+equity and neither NCI nor parent equity takes the split from the latest such
+filing at the same date, but only when the filing's undimensioned consolidated
+total at that date equals the row's total equity; parent equity is the total
+less the NCI, and the source is disclosed as an info entry. A column on any
+other member (a co-registrant subsidiary on `LegalEntityAxis`) is not the
+issuer's; an instant whose facts disagree, or whose total does not tie, is not
+admitted, and a warning says why. No NCI is carried forward from an older
+balance, and no zero is inferred from a filing that tags no NCI column, so an
+issuer with no evidenced NCI stays behind the gate. When the gate does
+withhold the DCF, the critical gap now names it ("noncontrolling ownership
+unresolved at <date>") instead of "DCF inputs not provided by caller".
