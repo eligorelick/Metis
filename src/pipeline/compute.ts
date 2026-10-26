@@ -129,6 +129,8 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
+import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
@@ -1910,7 +1912,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const todayIso = bundle.builtAt.slice(0, 10);
 
   // WS5: routing evidence from EDGAR companyfacts, read-only (D-16).
-  const routingEvidence = deriveRoutingEvidence(bundle.edgar?.companyFacts ?? null);
+  const routingEvidence = deriveRoutingEvidence(bundle.edgar?.companyFacts ?? null, { today: todayIso });
 
   // --- Route FIRST -----------------------------------------------------------
   const inc0 = incomeAnnualReported[0];
@@ -2386,6 +2388,34 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     });
   }
   const asOfDay = bundle.builtAt.slice(0, 10);
+  // Audit 2026-10-22 B-13: Moody's leverage ratios on the current capital
+  // window and the balance sheet it pairs with.
+  const utilityCredit = route.overlays.includes("regulated-utility") ? (() => {
+    const current = capital.current ?? null;
+    const asOf = current?.asOf ?? null;
+    const near = (row: FmpBalanceSheetRow | undefined): row is FmpBalanceSheetRow => {
+      const a = isoDay(row?.date), b = asOf;
+      return a !== null && b !== null && Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) <= 5 * 86400000;
+    };
+    const balance = [currentBalance, balanceAnnual[0]].find(near) ?? null;
+    const annualCf = cashflowAnnual[0];
+    const changeInWorkingCapital = current?.basis === "ttm"
+      ? sumCurrentFlow("changeInWorkingCapital")
+      : annualCf !== undefined && isoDay(annualCf.date) === asOf ? num(annualCf.changeInWorkingCapital) : null;
+    const equity = balance === null ? null : num(balance.totalEquity) ??
+      (num(balance.totalStockholdersEquity) !== null && num(balance.minorityInterest) !== null
+        ? (num(balance.totalStockholdersEquity) as number) + (num(balance.minorityInterest) as number) : null);
+    return utilityCreditMetrics({
+      asOf,
+      operatingCashFlow: current?.cashBridge.operatingCashFlow ?? null,
+      changeInWorkingCapital,
+      totalDebt: balance === null ? null : current?.debtBridge.totalDebtIncludingLeases ?? null,
+      totalEquity: equity,
+      deferredIncomeTaxes: balance === null ? null : deferredIncomeTaxesAt(
+        bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+        isoDay(balance.date), currencies.model, bundle.builtAt),
+    });
+  })() : null;
   const scores = computeScores({
     route,
     policy,
@@ -2400,6 +2430,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     valuation,
     // D-46: the bank balance sheet is graded on these route metrics.
     financialMetrics,
+    utilityCredit,
     currentPrice,
     asOf: asOfDay,
     quoteAsOf: bundle.quote.ok ? bundle.quote.value.asOf : null,
@@ -2552,7 +2583,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------
   // Forensics Z / M already suppressed inside runForensics for financials; we
   // additionally record the policy-driven suppressions for the UI.
-  if (isSuppressed("altmanZ")) suppress("forensics.altmanZ", `Altman Z-score not meaningful for ${route.base} — suppressed by metric policy`);
+  if (isSuppressed("altmanZ")) suppress("forensics.altmanZ", route.base === "general" && route.overlays.includes("regulated-utility")
+    ? "Altman Z-score not meaningful for a regulated utility (its rate base and regulatory assets are not the manufacturing balance sheets the Z models were estimated on) — suppressed by metric policy"
+    : `Altman Z-score not meaningful for ${route.base} — suppressed by metric policy`);
   if (isSuppressed("beneishM")) suppress("forensics.beneishM", `Beneish M-score not meaningful for ${route.base} — suppressed by metric policy`);
   if (isSuppressed("fcfDcf")) {
     suppress(
@@ -2938,6 +2971,8 @@ function computeReturns(
     ebitTtm: ebitForWacc,
     analysisDate: isoDay(bundle.builtAt) ?? undefined,
     isFinancial,
+    // Audit 2026-10-22 B-31: these routes value equity at the cost of equity.
+    equityOnlyRoute: isFinancial ? route.base : null,
     totalAssets: bal0 ? num(bal0.totalAssets) : null,
     // ADR guard: market cap is quoted in the trading currency while totalDebt
     // is a reporting-currency balance, so the E/D weights must not mix them.
@@ -3229,22 +3264,23 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     incomeTaxExpense: num(r.incomeTaxExpense),
   }));
 
-  const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis
-    ? {
-        leaseCoverageNote: incompleteLeaseCoverage(balPoint)?.note,
-        fieldProvenance: balPoint.fieldProvenance,
-        operatingLeaseLiability: num(balPoint.operatingLeaseLiability), financeLeaseLiability: num(balPoint.financeLeaseLiability), capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
-        shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
-        date: String(balPoint.date ?? ""),
-        basis: balPointBasis,
-        totalDebt: num(balPoint.totalDebt),
-        totalStockholdersEquity: statementParentEquity(balPoint),
-        totalEquity: num(balPoint.totalEquity),
-        minorityInterest: num(balPoint.minorityInterest),
-        cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
-        longTermInvestments: num(balPoint.longTermInvestments),
-      }
-    : null;
+  const toDcfBalance = (row: FmpBalanceSheetRow, basis: DcfBalanceRow["basis"]): DcfBalanceRow => ({
+    leaseCoverageNote: incompleteLeaseCoverage(row)?.note,
+    fieldProvenance: row.fieldProvenance,
+    operatingLeaseLiability: num(row.operatingLeaseLiability), financeLeaseLiability: num(row.financeLeaseLiability), capitalLeaseObligations: num(row.capitalLeaseObligations),
+    shortTermDebt: num(row.shortTermDebt), longTermDebt: num(row.longTermDebt),
+    date: String(row.date ?? ""),
+    basis,
+    totalDebt: num(row.totalDebt),
+    totalStockholdersEquity: statementParentEquity(row),
+    totalEquity: num(row.totalEquity),
+    minorityInterest: num(row.minorityInterest),
+    cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
+    longTermInvestments: num(row.longTermInvestments),
+  });
+  const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis ? toDcfBalance(balPoint, balPointBasis) : null;
+  // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
+  const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => toDcfBalance(row, "annual"));
 
   // D-58: the run-rate quarters — the TTM window's newest quarter and the same
   // fiscal quarter a year earlier, the latter only when its own currency
@@ -3384,6 +3420,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
+          capitalHistory: dcfCapitalHistory,
           marketCap,
           // The terminal excess-return rule reads the same annual ROIC series
           // the returns section reports.
@@ -3697,8 +3734,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // risk-free rate forever. Null leaves the house terminal-growth cap
           // as the only bound, which the basis string discloses.
           riskFreePct: rf.pct,
-          // The same return, year by year, against that year's own cost of
-          // equity — the evidence the terminal excess-return convention reads.
+          // The same return, year by year — the evidence the terminal
+          // excess-return convention reads. A financial route has no ROIC
+          // series, so no year has a cost of equity of its own and each is
+          // compared with the current one (audit 2026-10-22 B-31).
           roeHistory: commonReturns.series.map((y) => {
             const point = waccByYear.get(y.date);
             return {
@@ -3798,6 +3837,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
+    // Audit 2026-10-22 E-7: retirement and environmental obligations filed at the bridge's balance date, or in the year before it.
+    debtLikeObligations: balPoint === null ? null : debtLikeObligationsAt(
+      bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+      isoDay(balPoint.date), ctx.modelCurrency, bundle.builtAt),
     dcfInputs,
     multiples,
     excessReturn,

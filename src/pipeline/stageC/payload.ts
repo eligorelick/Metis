@@ -410,7 +410,8 @@ export interface ContextPayload {
 // D-100: the composite's evidence floor, the neutral-band qualifier and the band thresholds alter admitted context.
 // D-102: the trailing common return, the start-return x cost-of-equity grid, the trailing start and the NCI earnings key alter admitted context.
 // D-103: regained WACC, debt, EBITDA and class-tagged market cap, the newer-results notice and 10-Q passages updating a 10-K operating figure alter admitted context.
-export const PAYLOAD_VERSION = "1.43.0" as const;
+// D-104: the retirement and environmental bridge lines, the regulated-utility balance sheet and the WACC and cost of debt withheld on equity-valued routes alter admitted context.
+export const PAYLOAD_VERSION = "1.44.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -699,9 +700,10 @@ function computedSections(
   const returnsFigures: PayloadFigureInput[] = [
     // Current WACC mixes market observations and statement inputs. Its date is
     // the calculation day; each individual input retains its observation date.
-    { label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) },
+    // Audit 2026-10-22 B-31: a route valued at the cost of equity has neither; the returns notes say why.
+    ...(r.wacc.withheld ? [] : [{ label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) }]),
     { label: "cost of equity", value: r.wacc.costOfEquityPct, unit: "%", source: "computed.returns.wacc.costOfEquity", asOf: r.wacc.asOf?.riskFreeRate ?? null },
-    { label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null },
+    ...(r.wacc.withheld ? [] : [{ label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null }]),
     { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: "computed.returns.wacc.riskFree(fred:DGS10)", asOf: r.wacc.asOf?.riskFreeRate ?? null },
     { label: "ERP used", value: r.wacc.erpPct, unit: "%", source: "computed.returns.wacc.erp", asOf: null },
     { label: "beta (final)", value: r.wacc.betaFinal, unit: "x", source: "computed.returns.wacc.beta", asOf: null },

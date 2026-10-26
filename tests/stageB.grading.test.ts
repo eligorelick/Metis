@@ -1246,3 +1246,47 @@ describe("grading — reverse DCF with no root in the growth range", () => {
     expect(signal?.fallbackReason).toMatch(/No implied growth is inferred/);
   });
 });
+
+/* ------------------------------------------------------------------------ *
+ * Audit 2026-10-22 B-13 / A-3: the regulated-utility balance sheet
+ * ------------------------------------------------------------------------ */
+
+describe("B-13: a regulated utility's balance sheet is scored on Moody's financial-strength ranges", () => {
+  const utilityRoute = route("general", ["regulated-utility"]);
+  const utilityPolicy = metricPolicy(utilityRoute);
+  const credit = (cfoPreWcToDebtPct: number | null, debtToBookCapitalizationPct: number | null) =>
+    ({ asOf: "2026-03-31", cfoPreWcToDebtPct, debtToBookCapitalizationPct, notes: [] });
+
+  it("weights CFO pre-WC / debt two to one over debt / book capitalization, and nothing else", () => {
+    const s = computeScores(makeInputs({ route: utilityRoute, policy: utilityPolicy, utilityCredit: credit(18, 55) }));
+    const bs = s.aspects.balanceSheet;
+    expect(bs.drivers.map((d) => d.source)).toEqual([
+      "computed.scores.balanceSheet.cfoPreWcToDebt",
+      "computed.scores.balanceSheet.debtToBookCapitalization",
+    ]);
+    // 18% sits in Moody's Baa range (13-22%): 55 + 15 × 5/9; 55% is the Baa/Ba line: 55.
+    expect(bs.score).toBeCloseTo(((55 + 15 * 5 / 9) * 2 + 55) / 3, 2);
+    expect(bs.note).toMatch(/Regulated Electric and Gas Utilities.*6 August 2024/);
+  });
+
+  it("grades on debt / book capitalization alone when CFO before working capital is withheld", () => {
+    const s = computeScores(makeInputs({ route: utilityRoute, policy: utilityPolicy, utilityCredit: credit(null, 40) }));
+    // 40% is mid-A (35-45%): between 85 and 70.
+    expect(s.aspects.balanceSheet.score).toBeCloseTo(77.5, 6);
+    expect(s.aspects.balanceSheet.dataCompleteness).toBeCloseTo(1 / 3, 12);
+  });
+
+  it("leaves the aspect unscored, never on the general bands, when neither ratio is available", () => {
+    const s = computeScores(makeInputs({ route: utilityRoute, policy: utilityPolicy, utilityCredit: null }));
+    expect(s.aspects.balanceSheet.score).toBeNull();
+    expect(s.aspects.balanceSheet.drivers).toEqual([]);
+    expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/regulated utility/);
+  });
+
+  it("drops Altman Z from quality", () => {
+    const s = computeScores(makeInputs({ route: utilityRoute, policy: utilityPolicy, utilityCredit: credit(18, 55) }));
+    expect(s.aspects.quality.drivers.map((d) => d.source)).not.toContain("computed.scores.quality.altmanZOriginalScale");
+    const general = computeScores(makeInputs());
+    expect(general.aspects.quality.drivers.map((d) => d.source)).toContain("computed.scores.quality.altmanZOriginalScale");
+  });
+});

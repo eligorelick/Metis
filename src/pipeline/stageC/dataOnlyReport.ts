@@ -383,7 +383,9 @@ function fundamentalsSections(
       r.commonReturnTtm.basis === "tangible-common-equity" ? "Return on tangible common equity (trailing four quarters)" : "Return on common equity (trailing four quarters)",
       r.commonReturnTtm.asOf === null ? "TTM" : `TTM to ${r.commonReturnTtm.asOf}`, r.commonReturnTtm.returnPct, "%", "computed.returns.commonReturnTtm", r.commonReturnTtm.asOf),
     singleRow("WACC", "latest", r.wacc.waccPct, "%", "computed.returns.wacc", r.wacc.asOf?.statements ?? null),
-    singleRow("Cost of equity", "latest", r.wacc.costOfEquityPct, "%", "computed.returns.wacc.costOfEquity", r.wacc.asOf?.riskFreeRate ?? null),
+    // Audit 2026-10-22 B-31: with no note channel here, the row says why the WACC and cost of debt rows are absent.
+    singleRow(r.wacc.withheld ? `Cost of equity (the ${computed.route.base} route values equity at the cost of equity; no WACC or cost of debt is used)` : "Cost of equity",
+      "latest", r.wacc.costOfEquityPct, "%", "computed.returns.wacc.costOfEquity", r.wacc.asOf?.riskFreeRate ?? null),
     singleRow("Pre-tax cost of debt", "latest", r.wacc.costOfDebtPct, "%", `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, r.wacc.asOf?.statements ?? null),
     singleRow("ROIC − WACC spread", "latest", r.roicVsWacc.spreadPctPts, "pp", "computed.returns.roicVsWacc", r.roic.asOf),
   ]);

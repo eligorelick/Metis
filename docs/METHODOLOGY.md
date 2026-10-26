@@ -257,7 +257,7 @@ rate)` row) and in the report's computed-returns notes.
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed. No universal statutory rate is assumed. |
-| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, a WACC-only shortfall is disclosed as a warning rather than blocking the report. |
+| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
 rate by 0.5pp or more is disclosed in the manifest, because it materially
@@ -272,6 +272,24 @@ An observation more than 14 days before a year end is not that year's rate and
 is rejected. Years that cannot be recomputed are named, and the note then says
 the current WACC was applied to them. FRED history is fetched five years back,
 so roughly five fiscal years can carry their own rate.
+
+**No WACC on a route valued at the cost of equity (audit 2026-10-22 B-31).**
+The bank, insurer and mortgage-REIT routes value equity at the cost of equity
+(the excess-return and price-to-book models), so nothing on them uses a WACC.
+Their interest expense is also mostly the cost of deposits, policy reserves and
+repo, and over the debt the WACC divides by it is not a borrowing cost: BAC
+printed a 22.7% pre-tax cost of debt (all $74.09B of interest expense over
+$326.64B of long-term debt; its long-term-debt rate is 3.88%) and a 13.5% WACC
+above its own 9.8% cost of equity. On those routes the cost of equity is
+computed as above, and the WACC, the cost of debt, the E/D weights and the
+synthetic rating are withheld, with an info entry in the manifest saying the
+route values equity at the cost of equity. No surface shows them: the Returns
+table has no WACC or cost-of-debt row and its cost-of-equity row says why, the
+LLM payload lists neither, and the company page shows "not used" for them
+and for the weights and tax rate of its WACC build. This holds even when the
+cost of equity itself lacks an input. No per-fiscal-year WACC history is
+computed on those routes; the excess-return evidence compares each year's
+return with the current cost of equity, as it did before.
 
 ---
 
@@ -624,7 +642,8 @@ year one. Year one may sit above it unless it exceeds 100%, which no real
 operating margin can. The basis is written after the cap and names the cap
 that bound. NVDA report #34 printed "held flat at current 65.21%" beside a
 62.42% path; the path now runs 65.21% → 62.42% by year 5. Sales-to-capital is
-held inside [0.5, 5]. Both are broken-input guards in the sense of
+held inside [0.5, 5], except that the lower bound yields to a lower ratio the
+issuer's own filings establish (audit 2026-10-22 A-2, below). Both are broken-input guards in the sense of
 [RESEARCH §7.5](RESEARCH.md), not views on what a company can earn: they exist
 so that a mis-scaled statement cannot print a confident number.
 
@@ -875,7 +894,8 @@ is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equi
 value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
-on those investments (see "AMZN audit fixes (October 20, 2026)"). Minority interest
+on those investments (see "AMZN audit fixes (October 20, 2026)") − filed
+asset-retirement and environmental obligations (audit 2026-10-22 E-7, below). Minority interest
 enters the market EV at its book carrying amount, not a market or earnings-share
 value.
 
@@ -927,6 +947,67 @@ on value). When an earlier gate (diluted shares, net debt) already withheld the
 per-share value, that reason leads and the NCI warning only joins the manifest.
 Book NCI alone is not presented as the outside holders' claim. The market EV and
 the EV multiples still use book NCI.
+
+**Asset-retirement and environmental obligations in the DCF bridge (audit
+2026-10-22 E-7).** A mine, a power plant or a well must be retired, and a
+polluted site cleaned up. The filed liabilities for those costs are claims on
+the enterprise, but the FCFF path projects operating cash flow and capital
+spending only, so it never pays them. FCX's companyfacts carry a $3.84B
+asset-retirement obligation and $2.02B of environmental accruals at 2025-12-31,
+and the bridge had no line for either. The bridge now subtracts them when the
+issuer tags them: `AssetRetirementObligation`,
+else `AssetRetirementObligationsNoncurrent` plus `AssetRetirementObligationCurrent`;
+`AccrualForEnvironmentalLossContingencies`, else
+`AccruedEnvironmentalLossContingenciesNoncurrent` plus
+`AccruedEnvironmentalLossContingenciesCurrent`. The undiscounted
+`AccrualForEnvironmentalLossContingenciesGross` is not the recognised liability
+and is not read. Only facts filed by the run date count. When neither
+obligation is tagged, nothing changes. This is an owner decision.
+
+Three house conventions sit beside it; they are project choices, not owner
+decisions. First, each obligation is read at the bridge's own balance date,
+else at the latest date in the year before it that tags it, and the bridge
+names that date: its line reads "(filed, before tax; balance at 2025-12-31, the
+latest filed)" in the bridge table, "(balance at 2025-12-31)" in the scenario
+paths' fixed bridge, and the notes add "the latest filed balance, as the
+2026-06-30 balance sheet does not tag it". Many filers tag these only in the
+10-K: FCX's 10-Qs carry neither, so a rule bound to the quarter's date would
+miss them three quarters a year. A balance more than a year older than the
+bridge's is not read. An annual report's balance sheet (a date at which an
+`Assets` fact was filed on a 10-K, 20-F or 40-F, though later 10-Qs re-file
+it as their comparative column) that does not tag an obligation means the
+obligation is gone (settled or sold): when the bridge's own balance sheet is
+one, no earlier balance is read, and otherwise the look-back stops at the
+latest one before the bridge's date. A balance filed as zero (the total, or
+the noncurrent part with no current part) also means it is gone. A quarter
+that omits it cannot be told apart from one where it was settled, so a
+settlement within the year is caught at the next annual report. When the parts are summed, the noncurrent part must be
+among them: a current portion alone is not the obligation, and the look-back
+continues to the full balance.
+Second, assets the issuer tags as legally restricted to settle the retirement obligations
+(`AssetRetirementObligationLegallyRestrictedAssetsFairValue`,
+`DecommissioningFundInvestments` or `DecommissioningTrustAssetsAmount`, the
+first one filed, read at the retirement obligation's date) offset the
+retirement obligation, as rating agencies net
+nuclear decommissioning trusts. Only the part of the fund beyond the long-term
+investments and marketable equity securities the bridge already adds back is
+credited, so a trust is never counted twice. That is conservative when those
+investments are unrelated to the trust: the fund is then under-credited. The
+offset never goes below zero; a surplus fund adds nothing, and when the fund
+covers the whole obligation the notes say nothing is deducted. Third, the
+obligations are deducted at their recognised amount before tax. Settling them
+earns a tax deduction, so this overstates the claim a little. Filers also
+charge the retirement obligations' accretion to operating income, so the
+projected NOPAT already bears their time value, and deducting the obligation
+counts that time value twice. The bridge states both and adjusts for neither.
+
+The deduction sits inside the non-operating total, so the sensitivity grid,
+the growth × margin grid, the reverse DCF, the scenario paths and the E-5 NCI
+key all use the same bridge. The bridge table prints each line as "Less
+asset-retirement obligations (filed, before tax)" or "Less environmental
+remediation accruals (filed, before tax)", and the DCF notes give the tags,
+amounts and filing. When net debt itself does not bridge, no obligation is
+deducted.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
@@ -1726,6 +1807,13 @@ the manifest — `forensics.altmanZ`, `forensics.beneishM`,
 `forensics.accrualsRatio` — because a blank cell with no reason reads as a fetch
 that failed rather than as a deliberate refusal.
 
+Altman Z alone is also withheld for a regulated utility (the regulated-utility
+overlay, audit 2026-10-22 A-3). Z'' read DUK, NEE and SO as distressed on
+working capital and retained earnings that a commission, not the market,
+determines; their leverage is scored on Moody's regulated-utility ranges
+instead (see "Balance sheet of a regulated utility" below). Beneish and the
+accrual ratio still apply.
+
 SIC major group 65 (real-estate operators, agents and managers) is deliberately
 outside the exclusion band: those are ordinary operating companies with
 inventory, receivables and a working-capital cycle.
@@ -1937,6 +2025,28 @@ total debt + equity − cash and short-term investments − long-term
 investments, whose income is below the EBIT the DCF projects. When removing
 them would leave no operating capital the D-58 basis stands and says why.
 
+**The issuer's own sales-to-capital (audit 2026-10-22 A-2).** The 0.5 floor is
+a guard against a mis-scaled input, not a view of capital intensity, and a
+regulated utility turns over its capital about a quarter of a time a year
+(DUK 0.22, NEE 0.16, SO 0.27 in companyfacts). Forecasting its reinvestment at
+0.5 halved the capital its growth needs and doubled DUK's DCF. The floor now
+applies only when the issuer's own history does not establish a lower ratio:
+each fiscal year with filed revenue and positive operating invested capital at
+the same date (measured as above, with debt on the current balance's lease
+basis) gives a ratio, and with at least three such years the median of the
+newest five is the issuer's established ratio. When it is below 0.5 it is the
+lower bound in place of 0.5, so a current ratio at or above it is used as
+filed and one below it is raised to it. With fewer than three years, or an
+established ratio of 0.5 or more, the house floor applies as before. The
+sales-to-capital basis lists the years and ratios, or says why the house floor
+stands. The median, rather than the newest year or the mean, and the
+three-year minimum are project choices: one restated or acquisition year does
+not move the median, and fewer than three years do not establish a ratio. So
+is a lower bound of 0.1 on the established ratio. Capital-heavy filers sit
+near 0.15 to 0.25, so a median below 0.1 is read as a scale error, which
+would repeat in every year; the house floor then stands, and the basis says
+why.
+
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
 widened to base year-one growth + 30pp when that is higher. It retains the
 base margins, taxes, sales-to-capital, terminal assumptions and bridge. The
@@ -1979,6 +2089,21 @@ not compared with the dollar cutoff. Missing revenue does not imply zero.
 of the bundle's analysis date. Fewer than eight quarters alone is incomplete
 coverage, not proof of a recent listing. The overlays replace or suppress
 inapplicable long-history and valuation sections with disclosed reasons.
+
+**Regulated utility** (audit 2026-10-22 B-13, an owner decision) applies on the
+general route when the SEC SIC is 4911 (electric services), 4924 (natural gas
+distribution), 4931 (electric and other services combined), 4932 (gas and
+other services combined) or 4941 (water supply), and the issuer's companyfacts
+show rate regulation: `RegulatoryAssets`, `RegulatoryAssetsCurrent`,
+`RegulatoryAssetsNoncurrent` or a `RegulatedOperatingRevenue*` element (electric,
+electric non-nuclear, gas, water, pipelines, other or the total), with a fact
+filed by the run date and ending within 24 months of it (a period re-filed after the run date, as
+the next year's comparative column, is read as it was first filed). The SIC alone also covers merchant
+generators and energy marketers, so without the evidence the overlay is not
+applied and the note says why. `RegulatedAndUnregulatedOperatingRevenue` is a
+total and evidences neither. The overlay changes no base route and no
+valuation: the DCF still values a utility. It withholds Altman Z and scores
+the balance sheet on Moody's ranges.
 
 Runway uses the newest whole quarterly/annual balance as its liquidity anchor,
 cash plus short-term investments (with supported balance-sheet fallbacks), and
@@ -2173,7 +2298,7 @@ These bands have not been outcome-backtested.
 | Fundamentals | 20 | 15 | 15 | Revenue/EPS/FCF growth and operating-margin slope |
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
-| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA on the enterprise value's lease basis, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49; at its band floor when FCF before SBC is not positive and SBC is, D-99); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
+| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA on the enterprise value's lease basis, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49; at its band floor when FCF before SBC is not positive and SBC is, D-99); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46); regulated utilities: CFO before working capital/debt and debt/book capitalization (B-13) |
 | Moat | 15 | 15 | 15 | Latest ROIC (0.45), durability as the lowest annual ROIC in the window (0.30, D-61; a pre-tax-loss year with operating profit is taxed at the marginal-rate floor, D-99) and gross margin (0.25); financials substitute ROTE level and floor |
 | Leadership (capital stewardship) | 10 | 7 | 10 | Repurchase timing, the price actually paid against the same year's average price (0.30, only when the company repurchased; D-61), and net share-count trend (0.25, scored only here, D-49). ROIC − WACC is scored once, under quality (D-61); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, distance below the 52-week high 0.35, SMA50/200 gap 0.20 (D-48); RSI-14, the six-month window and the 52-week range position are displayed, not scored |
@@ -2198,6 +2323,48 @@ class) drops out, the remaining weights renormalise, and completeness falls by
 its weight. A leverage ratio is not comparable across business models, CET1 is
 shown when tagged and never graded, and no supervisory rating is used; the
 aspect note says all three. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
+
+**Balance sheet of a regulated utility (audit 2026-10-22 B-13).** A utility in
+its capex cycle borrows against a rate base the commission lets it recover, so
+the general bands (net debt/EBITDA, EBIT coverage, FCF conversion, SBC/FCF)
+read DUK, NEE and SO as distressed: DUK's balance sheet scored F. On the
+regulated-utility overlay the aspect is scored instead on the two leverage
+ratios of Moody's Investors Service, *Rating Methodology: Regulated Electric
+and Gas Utilities* (6 August 2024, replacing the 23 June 2017 edition),
+Financial Strength factor, Standard Grid. The public copy used is Exhibit
+TDS-1, page 6, in South Dakota PUC docket EL26-003
+(https://puc.sd.gov/commission/dockets/electric/2026/EL26-003/Vol2Section6/Exh1TStevens.pdf).
+Moody's weights the two at 15% and 7.5% of its scorecard, so they are weighted
+two to one here. Using Moody's ranges is the owner's decision; the weighting
+follows Moody's own.
+
+| Utility input | Weight | Moody's Standard Grid | Band |
+| --- | ---: | --- | --- |
+| CFO pre-W/C / debt | 2/3 | Aaa ≥ 40%, Aa 30–40%, A 22–30%, Baa 13–22%, Ba 5–13%, B 1–5%, Caa < 1% | 0% → 5, 1% → 20, 5% → 40, 13% → 55, 22% → 70, 30% → 85, ≥ 40% → 95 |
+| Debt / book capitalization | 1/3 | Aaa < 25%, Aa 25–35%, A 35–45%, Baa 45–55%, Ba 55–65%, B 65–75%, Caa ≥ 75% | ≤ 25% → 95, 35% → 85, 45% → 70, 55% → 55, 65% → 40, 75% → 20, 100% → 5 |
+
+Each Moody's grade boundary is a house letter boundary: Aa and better grade A
+(85 and up), A grades B (70), Baa grades C (55), Ba grades D (40), and B and
+below grade F. That mapping is a house convention, not Moody's. Moody's also
+scores business risk, the regulatory framework and two more financial ratios,
+which are not modelled, so the aspect is not a rating. The Standard Grid is
+used for every utility; Moody's lower-business-risk grid, for networks and
+transmission companies, is looser, so this is the conservative choice.
+
+CFO pre-W/C is operating cash flow less the cash-flow statement's
+working-capital change, over total debt (leases included, as the house debt
+reads it). It is withheld when the working-capital change is not on file: the
+large utilities tag the individual changes but not a total, so on the keyless
+path it is usually withheld and the aspect rests on debt / book
+capitalization. Book capitalization is Moody's definition: debt plus total
+equity, noncontrolling interests included, plus deferred income taxes. The
+deferred taxes are the net liability tagged at the same balance date
+(`DeferredIncomeTaxLiabilitiesNet`, else
+`DeferredIncomeTaxesAndOtherTaxLiabilitiesNoncurrent`, else
+`DeferredTaxLiabilitiesNoncurrent`); untagged, or with a capitalization that is
+not positive, the ratio is withheld. When neither ratio can be computed, the
+aspect is unscored with that reason and counts as missing evidence; the
+industrial bands are never used in its place.
 Moat and leadership scores are quantitative proxies, not a finding about the
 company's competitive advantage or management competence.
 

@@ -22,6 +22,7 @@ import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
+import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
@@ -52,6 +53,15 @@ export const DCF_HORIZON_YEARS = 10;
 // with no analyst estimates — corrected back to spec.)
 export const NEAR_TERM_GROWTH_CLAMP_PP: readonly [number, number] = [-10, 25];
 export const S2C_CLAMP: readonly [number, number] = [0.5, 5.0];
+/** Audit 2026-10-22 A-2: fiscal years of filed revenue and invested capital that establish an issuer's own sales-to-capital. */
+export const S2C_HISTORY_MIN_YEARS = 3;
+/**
+ * Audit 2026-10-22 A-2: the lowest history median read as the issuer's own
+ * ratio. Capital-heavy filers sit near 0.15–0.25 (water and electric
+ * utilities, pipelines); a median below this is read as a scale error, which
+ * would repeat in every year, and the house floor stands.
+ */
+export const S2C_HISTORY_MIN_RATIO = 0.1;
 export const TERMINAL_G_CAP_PCT = 2.5;
 
 /**
@@ -171,6 +181,49 @@ const gapEntry = (
   severity: ManifestEntry["severity"],
 ): ManifestEntry => ({ field, reason, severity });
 
+/**
+ * Audit 2026-10-22 A-2: the issuer's own sales-to-capital, the median of the
+ * newest five fiscal years with revenue and positive invested capital filed
+ * for the same date. Invested capital is measured as the DCF measures the
+ * current balance: debt (excluding operating leases when the current balance
+ * does) + consolidated equity - cash and short-term investments - long-term
+ * investments while capital remains. Fewer than three years: no ratio.
+ */
+function establishedSalesToCapital(
+  incomeHistory: DcfIncomeRow[],
+  capitalHistory: DcfBalanceRow[] | null,
+  leaseExcluded: boolean,
+): { ratio: number | null; basis: string } {
+  const revenueByDate = new Map(incomeHistory.flatMap((r) => isNum(r.revenue) && r.revenue > 0 ? [[r.date.slice(0, 10), r.revenue] as const] : []));
+  const years = new Map<string, number>();
+  for (const row of capitalHistory ?? []) {
+    const date = row.date.slice(0, 10);
+    const revenue = revenueByDate.get(date);
+    const debt = isNum(row.totalDebt) ? row.totalDebt - (leaseExcluded ? (isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN) : 0) : NaN;
+    const equity = resolveConsolidatedEquity(row).value;
+    if (revenue === undefined || years.has(date) || !Number.isFinite(debt) || equity === null || !isNum(row.cashAndShortTermInvestments)) continue;
+    const ic = debt + equity - row.cashAndShortTermInvestments;
+    const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
+    const operating = ic - lti > 0 ? ic - lti : ic;
+    if (operating > 0) years.set(date, revenue / operating);
+  }
+  const newest = [...years].sort(([a], [b]) => b.localeCompare(a)).slice(0, 5);
+  if (newest.length < S2C_HISTORY_MIN_YEARS) {
+    return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)` };
+  }
+  const ratio = medianOf(newest.map(([, r]) => r)) as number;
+  const list = newest.map(([d, r]) => `FY${d} ${r.toFixed(4)}x`).join(", ");
+  if (ratio < S2C_HISTORY_MIN_RATIO) {
+    return { ratio: null, basis: `its filed history's median ${ratio.toFixed(4)}x is below ${S2C_HISTORY_MIN_RATIO}, the lowest ratio read as the issuer's own (${list}), so it is not used (audit 2026-10-22 A-2)` };
+  }
+  return {
+    ratio,
+    basis: ratio < S2C_CLAMP[0]
+      ? `revenue / operating invested capital ${list}; median ${ratio.toFixed(4)}x over ${newest.length} fiscal years (audit 2026-10-22 A-2)`
+      : `history establishes ${ratio.toFixed(4)}x, not below the house floor (${list}; audit 2026-10-22 A-2)`,
+  };
+}
+
 /** Clamp with a note appended when the clamp actually fires. */
 function clampWithNote(
   v: number,
@@ -178,13 +231,14 @@ function clampWithNote(
   hi: number,
   label: string,
   notes: string[],
+  range = `house rule range [${lo}, ${hi}]`,
 ): number {
   if (v < lo) {
-    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(lo)} (house rule range [${lo}, ${hi}])`);
+    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(lo)} (${range})`);
     return lo;
   }
   if (v > hi) {
-    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(hi)} (house rule range [${lo}, ${hi}])`);
+    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(hi)} (${range})`);
     return hi;
   }
   return v;
@@ -727,6 +781,13 @@ export interface DcfAssumptionInputs {
   incomeHistory: DcfIncomeRow[];
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
   balance: DcfBalanceRow | null;
+  /**
+   * Audit 2026-10-22 A-2: annual balance rows (any order), measured like
+   * `balance`. With the income history they show whether the issuer's own
+   * filings establish a sales-to-capital below the house floor. Omitted or
+   * null: the house floor applies, as before.
+   */
+  capitalHistory?: DcfBalanceRow[] | null;
   marketCap: number | null;
   /**
    * Annual ROIC history (any order; the newest five count), the evidence
@@ -2087,15 +2148,24 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const rawS2c = startRev / (operatingIc ?? ic);
-  const s2c = clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
+  // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
+  // so it yields to a lower ratio the issuer's own filings establish.
+  const s2cHistory = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseExcluded);
+  const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
+  const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
+    : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
   let s2cBasis = operatingIc !== null
     ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
     : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
-  if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
-    `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
+  if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+    `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
+  else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+    `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
+    `${rawS2c < S2C_CLAMP[0] ? ` Floor basis: ${s2cHistory.basis}.` : ""}`;
+  else if (rawS2c < S2C_CLAMP[0]) s2cBasis += ` The house floor ${S2C_CLAMP[0]} does not apply: ${s2cHistory.basis}.`;
 
   // --- Terminal economics ----------------------------------------------------
   const terminal = terminalRoic(inputs.waccPct, inputs.roicHistory ?? null);
@@ -2262,10 +2332,11 @@ export interface DcfRunOptions {
 /**
  * D-65: one non-operating asset the equity bridge adds, at its filed carrying
  * or fair value. The "investment-tax" line is negative: the tax a sale of the
- * others would owe (AMZN audit 2026-10-20).
+ * others would owe (AMZN audit 2026-10-20). So is a "debt-like-obligation":
+ * a filed asset-retirement or environmental liability (audit 2026-10-22 E-7).
  */
 export interface NonOperatingAssetComponent {
-  kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax";
+  kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax" | "debt-like-obligation";
   label: string;
   value: number;
   basis: string;
@@ -5558,6 +5629,12 @@ export interface ValuationBundleInputs {
    * (`DcfAssumptions.nonOperatingInvestments`), never supplied separately.
    */
   longTermInvestmentsBasis?: string | null;
+  /**
+   * Audit 2026-10-22 E-7: asset-retirement and environmental obligations
+   * tagged at the bridge's balance date, and any assets legally restricted to
+   * settle the former. The DCF bridge deducts them. Null ⇒ none tagged.
+   */
+  debtLikeObligations?: DebtLikeObligations | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
   multiples: MultiplesFrameworkInputs;
@@ -6061,6 +6138,46 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
           "The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost";
         components.push({ kind: "investment-tax", label, value, basis });
         notes.push(`DCF equity bridge subtracts the ${label} of ${fmtNum(-value)}: ${basis}.`);
+      }
+      // Audit 2026-10-22 E-7: filed retirement and environmental obligations
+      // are claims the FCFF path never pays, so the bridge deducts them, before
+      // tax. Funds legally restricted to retirement settle those first, less
+      // any long-term investments already added above.
+      const obligations = isNum(netDebtForBridge) ? inputs.debtLikeObligations ?? null : null;
+      // A balance from an earlier filing is dated on its line; the bridge's
+      // own balance-sheet date would otherwise be read as its date.
+      const obligationLabel = (name: string, o: { asOf?: string }) =>
+        `${name} (filed, before tax${o.asOf === undefined ? "" : `; balance at ${o.asOf}, the latest filed`})`;
+      if (obligations !== null) {
+        const aro = obligations.assetRetirement;
+        if (aro !== null && aro.value > 0) {
+          // The fund may already be inside the investments added above; only
+          // what lies beyond them is credited, so it is never counted twice.
+          const assetsAdded = components.filter((c) => c.kind === "long-term-investments" || c.kind === "marketable-equity-securities")
+            .reduce((sum, c) => sum + c.value, 0);
+          const fund = obligations.settlementAssets;
+          const offset = fund === null ? 0 : Math.min(aro.value, Math.max(0, fund.value - assetsAdded));
+          const fundNote = fund === null ? ""
+            : `, less assets legally restricted to settle them (${fund.basis}) of ${fmtNum(fund.value)}` +
+              (assetsAdded > 0 ? ` beyond the investments of ${fmtNum(assetsAdded)} the bridge already adds` : "") +
+              `: an offset of ${fmtNum(offset)}`;
+          if (aro.value - offset > 0) {
+            components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
+          }
+          notes.push(fund === null
+            ? `DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}.`
+            : `DCF equity bridge weighs asset-retirement obligations of ${fmtNum(aro.value)} (${aro.basis})${fundNote}, so ${fmtNum(aro.value - offset)} is deducted.`);
+        }
+        const env = obligations.environmental;
+        if (env !== null && env.value > 0) {
+          components.push({ kind: "debt-like-obligation", label: obligationLabel("environmental remediation accruals", env), value: -env.value, basis: env.basis });
+          notes.push(`DCF equity bridge subtracts environmental remediation accruals of ${fmtNum(env.value)}: ${env.basis}.`);
+        }
+        if (components.some((c) => c.kind === "debt-like-obligation")) {
+          notes.push("These are filed liabilities and the FCFF path does not project their settlement, so equity value is what remains after them. " +
+            "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
+            "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either.");
+        }
       }
       const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       const runOpts: DcfRunOptions = {
