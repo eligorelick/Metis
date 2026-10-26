@@ -384,7 +384,7 @@ is separate from an existing personal CLI login. See Google's
 
 ChatGPT models come from the connected account's catalog. A catalog entry
 does not prove remaining quota or model access. Check
-[ChatGPT usage](https://chatgpt.com/#settings/Usage) and
+[ChatGPT usage](https://chatgpt.com/settings/usage) ("Manage usage") and
 [Gemini quotas](https://geminicli.com/docs/resources/quota-and-pricing/)
 before generating reports. Metis does not know your remaining allowance.
 There is no automatic change to a paid API when a connection fails.
@@ -412,8 +412,15 @@ ChatGPT model choices refresh for the selected account. GPT-6.1 Sol can also
 be requested explicitly if the account catalog has not listed it yet; that
 choice is marked as access unconfirmed and can still be rejected by OpenAI.
 ChatGPT reasoning and Standard/Fast speed are saved with the connection.
-Fast is opt-in; check its current allowance/credit effects in
+Fast is opt-in and offered only for the models OpenAI lists for it (GPT-6.1
+Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna); any other model
+runs at Standard. Fast uses your plan or credits faster; check its current
+allowance/credit effects in
 [OpenAI's speed rules](https://learn.chatgpt.com/docs/agent-configuration/speed).
+Plan-usage errors follow OpenAI's documented recovery: a usage limit names
+Manage usage, a temporary outage keeps the connection, and an expired or
+revoked sign-in clears that account's tokens so it reads signed out until it
+is reconnected (the issued registration is kept for the reconnect).
 Reports, exports and history retain actual provider model and usage evidence;
 the requested speed is shown separately from the returned tier. Successful
 ChatGPT output requires a completed event, usable final text, valid model ID

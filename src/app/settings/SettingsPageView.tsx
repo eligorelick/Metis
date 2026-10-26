@@ -175,7 +175,9 @@ export function SettingsPageView({
               <p className="pt-2 text-[11px] leading-snug text-faint">
                 Opus 5.5 is the general starting choice; Sonnet 5.5 costs less,
                 while Fable 5.1 targets the most demanding research. Claude runs at
-                standard API speed here; the Fast control above applies to ChatGPT.
+                standard API speed here, at standard prices: Metis does not request
+                Anthropic&rsquo;s premium-priced fast mode. The Fast control above
+                applies to ChatGPT.
                 {" "}<a className="underline" href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model" target="_blank" rel="noreferrer">Anthropic’s model guidance</a>.
               </p>
             </>

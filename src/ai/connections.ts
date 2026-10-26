@@ -3,7 +3,7 @@ import { getConfig } from "@/config/env";
 import { readAiStore, withAiStore } from "./store";
 import { chatGptPending } from "./chatgpt";
 import { geminiExecutable, geminiPending } from "./gemini";
-import { CHATGPT_EFFORTS, validModelId, type ChatGptEffort, type AiConnectionsView, type AiSelection } from "./contracts";
+import { CHATGPT_EFFORTS, chatGptFastOffered, validModelId, type ChatGptEffort, type AiConnectionsView, type AiSelection } from "./contracts";
 
 export function captureAiSelection(): AiSelection {
   // Existing API installations retain their explicitly configured key route;
@@ -40,6 +40,7 @@ export async function selectConnection(input: unknown): Promise<void> {
   if ((s.provider !== "chatgpt" && s.provider !== "gemini") || typeof s.connectionId !== "string" || !validModelId(s.model)) throw new Error("Choose a connection and a valid model");
   if (s.effort !== undefined && (s.provider !== "chatgpt" || !CHATGPT_EFFORTS.includes(s.effort as ChatGptEffort))) throw new Error("Choose a supported ChatGPT reasoning effort");
   if (s.serviceTier !== undefined && (s.provider !== "chatgpt" || (s.serviceTier !== "default" && s.serviceTier !== "fast"))) throw new Error("Choose Standard or Fast for ChatGPT");
+  if (s.serviceTier === "fast" && !chatGptFastOffered(s.model)) throw new Error("OpenAI does not offer Fast for this model. Choose Standard, or a model OpenAI lists for Fast.");
   const selection: AiSelection = { provider: s.provider, connectionId: s.connectionId, model: s.model,
     ...(s.effort === undefined ? {} : { effort: s.effort as ChatGptEffort }),
     ...(s.serviceTier === undefined ? {} : { serviceTier: s.serviceTier as "default" | "fast" }),

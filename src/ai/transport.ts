@@ -4,7 +4,7 @@ import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt"
 import { runGemini } from "./gemini";
 import { AI_RUNTIME_CONFLICT_HELP, isAiRuntimeConflict } from "./store";
 import { PassSettlementHookError } from "@/pipeline/jobArtifacts";
-import { CHATGPT_EFFORTS, parseSubscriptionModel, subscriptionModel, validModelId, type ChatGptEffort, type ChatGptModelChoice, type ChatGptRunOptions } from "./contracts";
+import { CHATGPT_EFFORTS, CHATGPT_MANAGE_USAGE_URL, parseSubscriptionModel, subscriptionModel, validModelId, type ChatGptEffort, type ChatGptModelChoice, type ChatGptRunOptions } from "./contracts";
 
 // Counts every streamed byte (lifecycle events echo the request), not just the answer text.
 const MAX_RESPONSE_BYTES = 16_000_000;
@@ -25,13 +25,34 @@ interface ChatGptObservation {
 class ChatGptStreamError extends Error {
   constructor(message: string, readonly observed: ChatGptObservation) { super(message); }
 }
+/**
+ * Each error code OpenAI documents for ChatGPT plan usage (Sign in with
+ * ChatGPT, "Errors and recovery") with its documented recovery. No message
+ * suggests a paid fallback: OpenAI never switches billing paths, nor does Metis.
+ */
+const CHATGPT_USAGE_LIMIT = `ChatGPT usage limit reached. Review your plan or this app's limit in ChatGPT settings (Manage usage: ${CHATGPT_MANAGE_USAGE_URL}). No paid fallback was attempted.`;
+const CHATGPT_TEMPORARILY_UNAVAILABLE = "ChatGPT plan usage is temporarily unavailable. The connection is kept; run the report again later. No paid fallback was attempted.";
+/** The Responses `service_tier` value for a saved speed: Fast is sent as "priority". */
+export function chatGptWireServiceTier(tier: "default" | "fast" | undefined): "default" | "priority" {
+  return tier === "fast" ? "priority" : "default";
+}
 function chatGptFailure(error: unknown): string | null {
   if (!error || typeof error !== "object") return null;
-  const { code, param } = error as Record<string, unknown>;
-  if (code === "subscription_sharing_usage_limit_exceeded" || code === "subscription_sharing_usage_unavailable") return "ChatGPT plan usage is unavailable or exhausted. Check your account allowance. No paid fallback was attempted.";
+  const { code, param, message } = error as Record<string, unknown>;
+  if (typeof message === "string" && /\bservice_tier\b/i.test(message)) return "ChatGPT did not accept the selected speed. Choose Standard or a model/account with Fast access. No paid fallback was attempted.";
+  if (code === "subscription_sharing_usage_limit_exceeded") return CHATGPT_USAGE_LIMIT;
+  if (code === "subscription_sharing_usage_unavailable" || code === "subscription_sharing_user_unavailable") return CHATGPT_TEMPORARILY_UNAVAILABLE;
+  if (code === "subscription_sharing_user_not_eligible") return "ChatGPT plan usage is not available for this account, workspace or policy. Metis will not retry it or fall back to paid usage.";
+  if (code === "subscription_sharing_invalid_user") return "ChatGPT did not accept this connection's sign-in. Reconnect the account in Settings → AI connections. No paid fallback was attempted.";
+  if (code === "subscription_sharing_route_not_supported" || code === "chatpass_v2_scope_not_authorized" || code === "chatpass_v2_invalid_authorization_context") {
+    return "ChatGPT rejected this plan-usage request's authorization setup. Reconnect the account in Settings → AI connections. No paid fallback was attempted.";
+  }
   if (param === "service_tier") return "ChatGPT did not accept the selected speed. Choose Standard or a model/account with Fast access. No paid fallback was attempted.";
   if (param === "reasoning.effort") return "ChatGPT did not accept the selected reasoning effort. Choose Provider default or a supported effort.";
   if (code === "model_not_found" || param === "model") return "ChatGPT did not grant access to the selected model. Refresh the account model list or choose another model. No paid fallback was attempted.";
+  if (code === "subscription_sharing_unsupported_capability") {
+    return `ChatGPT plan usage does not support a request option${typeof param === "string" && /^[\w.-]{1,60}$/.test(param) ? ` (${param})` : ""}. No paid fallback was attempted.`;
+  }
   return null;
 }
 /** Short, sanitized provider error code for diagnostics (never the request or any payload text). */
@@ -62,10 +83,14 @@ export async function consumeChatGptStream(response: Response, onPartialText?: (
     const reason = chatGptFailure(failure?.error);
     if (reason) throw new Error(reason);
   }
-  if (!response.ok || !response.body) throw new Error(response.status === 429
-    ? "ChatGPT usage allowance is exhausted. No paid fallback was attempted."
-    : response.status === 401 || response.status === 403 ? "ChatGPT connection needs authorization or model access."
-      : "ChatGPT could not start the report pass.");
+  // Documented admission statuses before a stream opens: 401 signed identity
+  // or permission not accepted, 403 policy or permission (such as the serving
+  // region), 429 usage limit, 503 direct routing unavailable (keep credentials).
+  if (!response.ok || !response.body) throw new Error(response.status === 429 ? CHATGPT_USAGE_LIMIT
+    : response.status === 401 ? "ChatGPT did not accept this connection's sign-in or plan-usage permission. Reconnect the account in Settings → AI connections."
+      : response.status === 403 ? "ChatGPT refused this request under a policy or permission check (such as the permitted serving region) or for model access."
+        : response.status === 503 ? CHATGPT_TEMPORARILY_UNAVAILABLE
+          : `ChatGPT could not start the report pass (HTTP ${response.status}).`);
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = ""; let bytes = 0;
@@ -238,7 +263,11 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
             // still returned invalid JSON on large reports, so the caller's parse and
             // schema validation (and their retries) remain the real guard.
             ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
-            service_tier: options.serviceTier ?? "default",
+            // Fast is the "priority" service tier on the wire: the Responses
+            // endpoint behind ChatGPT plan usage rejects "fast" with
+            // "Unsupported service_tier: fast" (live NVDA run 2026-10-26),
+            // as Codex itself sends "priority" for its Fast mode.
+            service_tier: chatGptWireServiceTier(options.serviceTier),
           }),
         }), args.onPartialText);
       } finally { tracked.release(); }

@@ -136,7 +136,10 @@ eligibility and hits are provider decisions, and differing request schemas can
 invalidate reuse. Recorded cache read/write tokens determine charges using
 each model's own registry rates; there is no universal cache-price ratio.
 The adapter does not request one-hour caching, Batch, Claude Fast mode or a
-region-specific pricing tier.
+region-specific pricing tier. Anthropic offers fast mode (`speed: "fast"`) on
+Opus 5.5 at premium rates ($8/$40 per MTok against Opus 5.5's standard
+rates); Metis does not request it, so every Claude cost and cap in this guide
+is at standard speed.
 
 The Anthropic SDK's own retries are disabled. Metis owns a bounded transport
 loop of up to **six attempts**, including retryable rate/transport failures,

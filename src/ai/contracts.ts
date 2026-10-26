@@ -6,6 +6,18 @@ export interface ChatGptRunOptions {
   effort?: ChatGptEffort;
   serviceTier?: "default" | "fast";
 }
+/**
+ * Models OpenAI's speed documentation lists for Fast with ChatGPT sign-in
+ * (https://learn.chatgpt.com/docs/agent-configuration/speed, 2026-10-26):
+ * GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna. Fast is
+ * not offered for any other model, so Metis does not offer it either.
+ */
+export const CHATGPT_FAST_MODELS: readonly string[] = ["gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"];
+export function chatGptFastOffered(model: string): boolean {
+  return CHATGPT_FAST_MODELS.includes(model);
+}
+/** OpenAI's "Manage usage" destination for ChatGPT plan usage (Sign in with ChatGPT UI/UX guidelines). */
+export const CHATGPT_MANAGE_USAGE_URL = "https://chatgpt.com/settings/usage";
 export interface ChatGptModelChoice {
   id: string;
   name: string;
