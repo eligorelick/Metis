@@ -838,20 +838,22 @@ function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
         m.own5yPercentile === null ? (
           <span className="mono text-faint">n/a</span>
         ) : (
-          <div className="flex items-center justify-end gap-1.5">
-            <div className="w-16">
-              <ShareBar
-                pct={m.own5yPercentile}
-                tone={m.own5yPercentile >= 70 ? "warn" : "accent"}
-                label={
-                  // A 0–100 percentile rank among N quarters, printed the way
-                  // the Markdown and print exports print it; "rank 85 of 12
-                  // quarters" read as an impossible ordinal (audit
-                  // 2026-09-06, F214).
-                  ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations)
-                }
-              />
+          // The label is a phrase, not a bar caption: in the bar's 3rem slot it
+          // broke into one- and two-letter lines ("empiri / cal / percen / tile")
+          // in both layouts. The bar takes the rank; the label sits under it.
+          <div className="ml-auto flex w-full min-w-[7.5rem] max-w-[12rem] flex-col items-end gap-1">
+            <div className="w-full">
+              <ShareBar pct={m.own5yPercentile} tone={m.own5yPercentile >= 70 ? "warn" : "accent"} hideLabel />
             </div>
+            <span className="text-right text-[10px] leading-snug text-muted">
+              {
+                // A 0–100 percentile rank among N quarters, printed the way
+                // the Markdown and print exports print it; "rank 85 of 12
+                // quarters" read as an impossible ordinal (audit
+                // 2026-09-06, F214).
+                ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations)
+              }
+            </span>
           </div>
         ),
     },

@@ -22,6 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - Read current debt securities tagged `DebtSecuritiesCurrent` as short-term investments in the keyless statements, so a filer that moved its marketable securities there keeps them in cash and short-term investments when FMP is unavailable (NVDA: 34,143 million at 2026-07-26; keyless sales-to-capital 1.53 → 1.85, against 2.58 on the vendor path, whose combined total also lets D-60 carry marketable equity as non-operating).
 - Check a dated interval claim that cites a filing fact against the fact's whole-span period, so a correct "START to END" claim is no longer counted as contradicted (NVDA report #1: the receivables cash-flow contribution for 2026-01-26 to 2026-07-26).
+- Print the multiples table's own-history percentile label ("empirical percentile 2/100 (n = 17 quarters)") whole under its bar; in the bar's 3rem caption slot it broke into one- and two-letter lines in both layouts.
 - Report 1.40.1, pipeline stage-c-1.6.2 and Stage B ACCOUNTING_EVIDENCE_23 (D-106); payload 1.45.0 is unchanged.
 
 ## Unreleased - opt-in dossier reading layout (2026-10-25 to 2026-10-26)

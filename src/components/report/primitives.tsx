@@ -535,10 +535,13 @@ export function ShareBar({
   pct,
   tone = "accent",
   label,
+  hideLabel = false,
 }: {
   pct: number | null;
   tone?: Tone;
   label?: ReactNode;
+  /** The caller prints the value beside the bar; the 3rem label slot is omitted. */
+  hideLabel?: boolean;
 }) {
   const clamped = pct === null ? 0 : Math.max(0, Math.min(100, pct));
   const color =
@@ -557,9 +560,11 @@ export function ShareBar({
           style={{ width: `${clamped}%`, backgroundColor: color }}
         />
       </div>
-      <span className="mono w-12 shrink-0 text-right text-[10px] text-muted">
-        {label ?? (pct === null ? "n/a" : `${pct.toFixed(0)}%`)}
-      </span>
+      {!hideLabel && (
+        <span className="mono w-12 shrink-0 text-right text-[10px] text-muted">
+          {label ?? (pct === null ? "n/a" : `${pct.toFixed(0)}%`)}
+        </span>
+      )}
     </div>
   );
 }
