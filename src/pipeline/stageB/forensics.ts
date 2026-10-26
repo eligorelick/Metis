@@ -693,6 +693,15 @@ export function selectAltmanVariant(
     );
     return { variant: null, notes };
   }
+  // Audit 2026-10-22 A-3: a rate-regulated utility recovers its capital through
+  // the rate base; Z'' read DUK, NEE and SO as distressed on working capital
+  // and retained earnings the commission, not the market, determines.
+  if (route.overlays.includes("regulated-utility")) {
+    notes.push(
+      "Altman Z not computed for a regulated utility: its rate base and regulatory assets are not the balance sheets the Z models were estimated on, and its leverage is scored on Moody's regulated-utility ranges instead.",
+    );
+    return { variant: null, notes };
+  }
   if (sector !== null && sector !== undefined && sector.trim().toLowerCase() === "financial services") {
     notes.push(
       'Altman Z not computed: FMP sector "Financial Services" (financials excluded from the Z family; research §6.3).',

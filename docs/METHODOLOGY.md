@@ -1763,6 +1763,13 @@ the manifest — `forensics.altmanZ`, `forensics.beneishM`,
 `forensics.accrualsRatio` — because a blank cell with no reason reads as a fetch
 that failed rather than as a deliberate refusal.
 
+Altman Z alone is also withheld for a regulated utility (the regulated-utility
+overlay, audit 2026-10-22 A-3). Z'' read DUK, NEE and SO as distressed on
+working capital and retained earnings that a commission, not the market,
+determines; their leverage is scored on Moody's regulated-utility ranges
+instead (see "Balance sheet of a regulated utility" below). Beneish and the
+accrual ratio still apply.
+
 SIC major group 65 (real-estate operators, agents and managers) is deliberately
 outside the exclusion band: those are ordinary operating companies with
 inventory, receivables and a working-capital cycle.
@@ -2017,6 +2024,20 @@ of the bundle's analysis date. Fewer than eight quarters alone is incomplete
 coverage, not proof of a recent listing. The overlays replace or suppress
 inapplicable long-history and valuation sections with disclosed reasons.
 
+**Regulated utility** (audit 2026-10-22 B-13, an owner decision) applies on the
+general route when the SEC SIC is 4911 (electric services), 4924 (natural gas
+distribution), 4931 (electric and other services combined), 4932 (gas and
+other services combined) or 4941 (water supply), and the issuer's companyfacts
+show rate regulation: `RegulatoryAssets`, `RegulatoryAssetsCurrent`,
+`RegulatoryAssetsNoncurrent` or a `RegulatedOperatingRevenue*` element (electric,
+electric non-nuclear, gas, water, pipelines, other or the total), with a fact
+ending within 24 months of the run date. The SIC alone also covers merchant
+generators and energy marketers, so without the evidence the overlay is not
+applied and the note says why. `RegulatedAndUnregulatedOperatingRevenue` is a
+total and evidences neither. The overlay changes no base route and no
+valuation: the DCF still values a utility. It withholds Altman Z and scores
+the balance sheet on Moody's ranges.
+
 Runway uses the newest whole quarterly/annual balance as its liquidity anchor,
 cash plus short-term investments (with supported balance-sheet fallbacks), and
 up to four usable recent cash-flow quarters. Average quarterly burn is the
@@ -2210,7 +2231,7 @@ These bands have not been outcome-backtested.
 | Fundamentals | 20 | 15 | 15 | Revenue/EPS/FCF growth and operating-margin slope |
 | Valuation | 20 | 22 | 25 | DCF upside, reverse-implied growth and own-history ranks; financials use implied-vs-current starting ROE and book ranks; equity REITs use FFO/AFFO rank |
 | Quality | 15 | 26 | 15 | ROIC−WACC and applicable forensic models; financials score current ROTE/common ROE − cost of equity in the ROIC−WACC slot (D-41) |
-| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA on the enterprise value's lease basis, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49; at its band floor when FCF before SBC is not positive and SBC is, D-99); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46) |
+| Balance sheet | 15 | 10 | 15 | Net debt/EBITDA on the enterprise value's lease basis, interest coverage, before-SBC FCF conversion, SBC/FCF (the only scored SBC signal, D-49; at its band floor when FCF before SBC is not positive and SBC is, D-99); banks: tangible common equity/tangible assets, net charge-offs/average loans, NPL ratio, loans/deposits (D-46); regulated utilities: CFO before working capital/debt and debt/book capitalization (B-13) |
 | Moat | 15 | 15 | 15 | Latest ROIC (0.45), durability as the lowest annual ROIC in the window (0.30, D-61; a pre-tax-loss year with operating profit is taxed at the marginal-rate floor, D-99) and gross margin (0.25); financials substitute ROTE level and floor |
 | Leadership (capital stewardship) | 10 | 7 | 10 | Repurchase timing, the price actually paid against the same year's average price (0.30, only when the company repurchased; D-61), and net share-count trend (0.25, scored only here, D-49). ROIC − WACC is scored once, under quality (D-61); SBC/revenue is displayed, not scored |
 | Technicals | 5 | 5 | 5 | 12-1 month SPY-relative return 0.45, distance below the 52-week high 0.35, SMA50/200 gap 0.20 (D-48); RSI-14, the six-month window and the 52-week range position are displayed, not scored |
@@ -2235,6 +2256,47 @@ class) drops out, the remaining weights renormalise, and completeness falls by
 its weight. A leverage ratio is not comparable across business models, CET1 is
 shown when tagged and never graded, and no supervisory rating is used; the
 aspect note says all three. `WEIGHTS_FINANCIAL.balanceSheet` stays 10.
+
+**Balance sheet of a regulated utility (audit 2026-10-22 B-13).** A utility in
+its capex cycle borrows against a rate base the commission lets it recover, so
+the general bands (net debt/EBITDA, EBIT coverage, FCF conversion, SBC/FCF)
+read DUK, NEE and SO as distressed: DUK's balance sheet scored F. On the
+regulated-utility overlay the aspect is scored instead on the two leverage
+ratios of Moody's Investors Service, *Rating Methodology: Regulated Electric
+and Gas Utilities* (6 August 2024, replacing the 23 June 2017 edition),
+Financial Strength factor, Standard Grid. The public copy used is Exhibit
+TDS-1, page 6, in South Dakota PUC docket EL26-003
+(https://puc.sd.gov/commission/dockets/electric/2026/EL26-003/Vol2Section6/Exh1TStevens.pdf).
+Moody's weights the two at 15% and 7.5% of its scorecard, so they are weighted
+two to one here. This is an owner decision.
+
+| Utility input | Weight | Moody's Standard Grid | Band |
+| --- | ---: | --- | --- |
+| CFO pre-W/C / debt | 2/3 | Aaa ≥ 40%, Aa 30–40%, A 22–30%, Baa 13–22%, Ba 5–13%, B 1–5%, Caa < 1% | 0% → 5, 1% → 20, 5% → 40, 13% → 55, 22% → 70, 30% → 85, ≥ 40% → 95 |
+| Debt / book capitalization | 1/3 | Aaa < 25%, Aa 25–35%, A 35–45%, Baa 45–55%, Ba 55–65%, B 65–75%, Caa ≥ 75% | ≤ 25% → 95, 35% → 85, 45% → 70, 55% → 55, 65% → 40, 75% → 20, 100% → 5 |
+
+Each Moody's grade boundary is a house letter boundary: Aa and better grade A
+(85 and up), A grades B (70), Baa grades C (55), Ba grades D (40), and B and
+below grade F. That mapping is a house convention, not Moody's. Moody's also
+scores business risk, the regulatory framework and two more financial ratios,
+which are not modelled, so the aspect is not a rating. The Standard Grid is
+used for every utility; Moody's lower-business-risk grid, for networks and
+transmission companies, is looser, so this is the conservative choice.
+
+CFO pre-W/C is operating cash flow less the cash-flow statement's
+working-capital change, over total debt (leases included, as the house debt
+reads it). It is withheld when the working-capital change is not on file: the
+large utilities tag the individual changes but not a total, so on the keyless
+path it is usually withheld and the aspect rests on debt / book
+capitalization. Book capitalization is Moody's definition: debt plus total
+equity, noncontrolling interests included, plus deferred income taxes. The
+deferred taxes are the net liability tagged at the same balance date
+(`DeferredIncomeTaxLiabilitiesNet`, else
+`DeferredIncomeTaxesAndOtherTaxLiabilitiesNoncurrent`, else
+`DeferredTaxLiabilitiesNoncurrent`); untagged, or with a capitalization that is
+not positive, the ratio is withheld. When neither ratio can be computed, the
+aspect is unscored with that reason and counts as missing evidence; the
+industrial bands are never used in its place.
 Moat and leadership scores are quantitative proxies, not a finding about the
 company's competitive advantage or management competence.
 

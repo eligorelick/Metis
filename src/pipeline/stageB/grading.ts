@@ -33,6 +33,7 @@ import { scoringMargin, windowCagr, type GrowthResult } from "@/pipeline/stageB/
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
 import { sbcExceedsAllFcf, type CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
+import type { UtilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { ALTMAN_ZONES, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import { isStartingGrowthFamily, type ValuationResult } from "@/pipeline/stageB/valuation";
@@ -644,6 +645,71 @@ function weightsForRoute(route: CompanyRouteResult): WeightVector {
   }
 }
 
+/*
+ * Audit 2026-10-22 B-13: Moody's "Regulated Electric and Gas Utilities"
+ * (6 August 2024), Financial Strength, Standard Grid. Each grade's boundary is
+ * a house letter boundary: Aa and better A (85+), A → B (70), Baa → C (55),
+ * Ba → D (40), B and below F; Aaa reaches 95.
+ */
+// CFO pre-W/C / Debt (%): Aaa ≥40, Aa 30-40, A 22-30, Baa 13-22, Ba 5-13, B 1-5, Caa <1.
+const UTILITY_CFO_PRE_WC_TO_DEBT_BAND: readonly BandPoint[] = [
+  [0, 5],
+  [1, 20],
+  [5, 40],
+  [13, 55],
+  [22, 70],
+  [30, 85],
+  [40, 95],
+];
+// Debt / Book Capitalization (%): Aaa <25, Aa 25-35, A 35-45, Baa 45-55, Ba 55-65, B 65-75, Caa ≥75.
+const UTILITY_DEBT_TO_BOOK_CAPITALIZATION_BAND: readonly BandPoint[] = [
+  [25, 95],
+  [35, 85],
+  [45, 70],
+  [55, 55],
+  [65, 40],
+  [75, 20],
+  [100, 5],
+];
+
+/**
+ * The regulated-utility balance-sheet aspect (audit 2026-10-22 B-13). A
+ * utility in its capex cycle borrows against a rate base the commission lets
+ * it recover, so net debt / EBITDA, EBIT coverage and FCF conversion on the
+ * industrial bands read it as distressed. It is scored instead on the two
+ * leverage ratios of Moody's financial-strength factor, weighted as Moody's
+ * weights them (15% and 7.5%, so two to one). No FCF conversion or SBC.
+ */
+function utilityBalanceSheet(
+  credit: UtilityCreditMetrics | null,
+  weightPct: number,
+  asOf: string,
+  policy: MetricPolicy,
+): ScoredAspect {
+  const signals: Signal[] = [
+    { name: "cfoPreWcToDebt", raw: credit?.cfoPreWcToDebtPct ?? null, unit: "%", weight: 2 / 3, band: UTILITY_CFO_PRE_WC_TO_DEBT_BAND },
+    { name: "debtToBookCapitalization", raw: credit?.debtToBookCapitalizationPct ?? null, unit: "%", weight: 1 / 3, band: UTILITY_DEBT_TO_BOOK_CAPITALIZATION_BAND },
+  ];
+  return scoreAspect(
+    "balanceSheet",
+    signals,
+    weightPct,
+    credit?.asOf ?? asOf,
+    "Regulated utility: CFO before working-capital changes / debt (weight 2/3) and debt / book capitalization (1/3), " +
+      "on the Standard Grid ranges of Moody's \"Regulated Electric and Gas Utilities\" methodology (6 August 2024). " +
+      "Book capitalization is debt plus total equity, noncontrolling interests included, plus deferred income taxes. " +
+      "Each Moody's grade boundary is a house letter boundary (Aa and better A, A → B, Baa → C, Ba → D, B and below F); " +
+      "that mapping is a house convention. Moody's also scores business risk, regulation and the other financial ratios, " +
+      "which are not modelled, so this is not a rating. Net debt / EBITDA, coverage, FCF conversion and SBC are not graded " +
+      "for a regulated utility. " + (credit?.notes.join(" ") ?? ""),
+    policy,
+    null,
+    "Not graded: neither CFO before working capital / debt nor debt / book capitalization could be computed for this " +
+      "regulated utility from the filings on hand, and the industrial bands are not used in their place." +
+      (credit && credit.notes.length > 0 ? ` ${credit.notes.join(" ")}` : ""),
+  );
+}
+
 /**
  * The bank balance-sheet aspect (D-46): capital, credit and funding. Graded
  * only when tangible common equity / tangible assets AND at least one other
@@ -712,6 +778,8 @@ export interface ScoringInputs {
    * graded on four of them; absent ⇒ that aspect is unscored for lack of data.
    */
   financialMetrics?: FinancialMetricsResult | null;
+  /** Audit 2026-10-22 B-13: the regulated-utility leverage ratios; read only on that overlay. */
+  utilityCredit?: UtilityCreditMetrics | null;
   /** Latest quote price (for DCF upside); null when unavailable. */
   currentPrice: number | null;
   /** Acquired quote observation; generation time is not a substitute. */
@@ -898,6 +966,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   ) ? SBC_FCF_BAND[SBC_FCF_BAND.length - 1][0] : null);
   const balanceSheet = route.base === "bank"
     ? bankBalanceSheet(inputs.financialMetrics ?? null, weights.balanceSheet, inputs.asOf, policy)
+    : !financial && route.overlays.includes("regulated-utility")
+    ? utilityBalanceSheet(inputs.utilityCredit ?? null, weights.balanceSheet, inputs.asOf, policy)
     : financial
     ? scoreAspect("balanceSheet", [], weights.balanceSheet, inputs.asOf, "Balance-sheet strength for financials is capital-adequacy (CET1/leverage), not net-debt — not modelled in v1.", policy, "Financial route: net-debt/coverage framing not meaningful; capital adequacy not computed.")
     : scoreAspect(

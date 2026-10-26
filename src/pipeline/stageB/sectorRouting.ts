@@ -857,6 +857,28 @@ export function routeCompany(
     }
   }
 
+  // regulated-utility (audit 2026-10-22 B-13): a utility SIC alone also covers
+  // merchant generators and marketers, so filed evidence of rate regulation
+  // must accompany it. The base route is untouched; only the balance-sheet
+  // scoring and the Altman suppression follow from the overlay.
+  if (sicNum !== null && REGULATED_UTILITY_SICS.includes(sicNum) && base === "general") {
+    const signals = evidence?.available === true ? evidence.regulatedUtility : [];
+    if (signals.length > 0) {
+      overlays.push("regulated-utility");
+      notes.push(
+        `regulated-utility overlay applied: SIC ${sicRaw} with rate-regulation evidence (${describeSignals(signals)}). ` +
+          "The balance sheet is scored on Moody's regulated-utility financial-strength ranges and Altman Z is withheld " +
+          "(audit 2026-10-22 B-13, owner decision).",
+      );
+    } else {
+      notes.push(
+        `regulated-utility overlay not applied: SIC ${sicRaw} is a utility code, but ${evidence?.available === true
+          ? "companyfacts carry no rate-regulated revenue or regulatory assets within the recency window"
+          : (evidence?.unavailableReason ?? "no XBRL evidence was supplied")} — the general map applies.`,
+      );
+    }
+  }
+
   const materialModelConflict = evidence?.available === true &&
     (evidenceSuggests === "bank" || evidenceSuggests === "insurer" ||
       (evidenceSuggests === "reit-mortgage" && mortgageEvidenceCorroborated)) &&
@@ -1114,6 +1136,9 @@ const BASE_POLICIES: Readonly<Record<SectorRoute, { suppress: readonly string[];
   },
 };
 
+/** SEC SIC codes of electric, gas, combination and water utilities (audit 2026-10-22 B-13). */
+export const REGULATED_UTILITY_SICS: readonly number[] = [4911, 4924, 4931, 4932, 4941];
+
 const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly string[]; lead: readonly string[] }>> = {
   // overlay behavior.
   unprofitable: {
@@ -1135,6 +1160,12 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
   adr: {
     suppress: [],
     lead: ["adrRatio", "withholdingGrossYield"],
+  },
+  // B-13 / A-3: the Z models were estimated on manufacturers; a utility's
+  // rate base and regulatory assets are not the balance sheet they describe.
+  "regulated-utility": {
+    suppress: ["altmanZ"],
+    lead: [],
   },
 };
 

@@ -21,6 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Proposed audit batch 2b: deferred valuation items (2026-10-22)
 
 - Deduct filed asset-retirement obligations and environmental remediation accruals in the DCF equity bridge when they are tagged at its balance date (the filed total, else noncurrent plus current), before tax, net of funds legally restricted to settle the retirement obligations beyond the long-term investments already added; untagged issuers are unchanged (E-7: FCX, SO, BA).
+- Add a regulated-utility overlay on the general route for SIC 4911, 4924, 4931, 4932 or 4941 with filed rate-regulated revenue or regulatory assets: its balance sheet is scored on Moody's "Regulated Electric and Gas Utilities" (6 August 2024) Standard Grid ranges for CFO before working capital / debt and debt / book capitalization, and Altman Z is withheld from quality and the forensic table (B-13, A-3: DUK, NEE, SO).
 
 ## Proposed audit batch 3a: the remaining high-severity findings (2026-10-22)
 

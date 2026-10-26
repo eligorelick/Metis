@@ -130,6 +130,7 @@ import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
+import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
@@ -1911,7 +1912,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const todayIso = bundle.builtAt.slice(0, 10);
 
   // WS5: routing evidence from EDGAR companyfacts, read-only (D-16).
-  const routingEvidence = deriveRoutingEvidence(bundle.edgar?.companyFacts ?? null);
+  const routingEvidence = deriveRoutingEvidence(bundle.edgar?.companyFacts ?? null, { today: todayIso });
 
   // --- Route FIRST -----------------------------------------------------------
   const inc0 = incomeAnnualReported[0];
@@ -2387,6 +2388,34 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     });
   }
   const asOfDay = bundle.builtAt.slice(0, 10);
+  // Audit 2026-10-22 B-13: Moody's leverage ratios on the current capital
+  // window and the balance sheet it pairs with.
+  const utilityCredit = route.overlays.includes("regulated-utility") ? (() => {
+    const current = capital.current ?? null;
+    const asOf = current?.asOf ?? null;
+    const near = (row: FmpBalanceSheetRow | undefined): row is FmpBalanceSheetRow => {
+      const a = isoDay(row?.date), b = asOf;
+      return a !== null && b !== null && Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) <= 5 * 86400000;
+    };
+    const balance = [currentBalance, balanceAnnual[0]].find(near) ?? null;
+    const annualCf = cashflowAnnual[0];
+    const changeInWorkingCapital = current?.basis === "ttm"
+      ? sumCurrentFlow("changeInWorkingCapital")
+      : annualCf !== undefined && isoDay(annualCf.date) === asOf ? num(annualCf.changeInWorkingCapital) : null;
+    const equity = balance === null ? null : num(balance.totalEquity) ??
+      (num(balance.totalStockholdersEquity) !== null && num(balance.minorityInterest) !== null
+        ? (num(balance.totalStockholdersEquity) as number) + (num(balance.minorityInterest) as number) : null);
+    return utilityCreditMetrics({
+      asOf,
+      operatingCashFlow: current?.cashBridge.operatingCashFlow ?? null,
+      changeInWorkingCapital,
+      totalDebt: balance === null ? null : current?.debtBridge.totalDebtIncludingLeases ?? null,
+      totalEquity: equity,
+      deferredIncomeTaxes: balance === null ? null : deferredIncomeTaxesAt(
+        bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+        isoDay(balance.date), currencies.model, bundle.builtAt),
+    });
+  })() : null;
   const scores = computeScores({
     route,
     policy,
@@ -2401,6 +2430,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     valuation,
     // D-46: the bank balance sheet is graded on these route metrics.
     financialMetrics,
+    utilityCredit,
     currentPrice,
     asOf: asOfDay,
     quoteAsOf: bundle.quote.ok ? bundle.quote.value.asOf : null,
@@ -2553,7 +2583,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------
   // Forensics Z / M already suppressed inside runForensics for financials; we
   // additionally record the policy-driven suppressions for the UI.
-  if (isSuppressed("altmanZ")) suppress("forensics.altmanZ", `Altman Z-score not meaningful for ${route.base} — suppressed by metric policy`);
+  if (isSuppressed("altmanZ")) suppress("forensics.altmanZ", route.base === "general" && route.overlays.includes("regulated-utility")
+    ? "Altman Z-score not meaningful for a regulated utility (its rate base and regulatory assets are not the manufacturing balance sheets the Z models were estimated on) — suppressed by metric policy"
+    : `Altman Z-score not meaningful for ${route.base} — suppressed by metric policy`);
   if (isSuppressed("beneishM")) suppress("forensics.beneishM", `Beneish M-score not meaningful for ${route.base} — suppressed by metric policy`);
   if (isSuppressed("fcfDcf")) {
     suppress(

@@ -12,6 +12,8 @@
  * - RealEstateInvestmentPropertyNet (or at cost)     → equity REIT
  * - mortgage-backed securities or loans held for investment WITHOUT investment
  *   property                                          → mortgage REIT
+ * - regulatory assets or rate-regulated revenue       → regulated-utility
+ *   overlay evidence only (audit 2026-10-22 B-13; never a base route)
  *
  * Two rules fire on a single tag group: the equity-REIT rule (investment
  * property) and the mortgage-REIT rule (mortgage assets without investment
@@ -73,6 +75,12 @@ export interface RoutingEvidence {
    * tag is present and recent, even when it does not.
    */
   mortgageFunding: EvidenceSignal[];
+  /**
+   * Audit 2026-10-22 B-13: rate-regulated revenue or regulatory assets whose
+   * newest fact ends within `recencyMonths` of the run date. Evidence for the
+   * regulated-utility overlay only; it never suggests a base route.
+   */
+  regulatedUtility: EvidenceSignal[];
   /**
    * The base route the tags alone support, in precedence order bank > insurer
    * > equity REIT > mortgage REIT; null when no financial tags are present.
@@ -177,6 +185,25 @@ export const MORTGAGE_REIT_LOAN_TAGS = [
 /** Repo funding is the hallmark mortgage-REIT liability; supporting evidence only. */
 export const MORTGAGE_REIT_FUNDING_TAGS = ["SecuritiesSoldUnderAgreementsToRepurchase"] as const;
 
+/**
+ * Audit 2026-10-22 B-13: what rate regulation leaves in the statements, the
+ * revenue a commission sets and the regulatory assets it allows to be
+ * recovered. `RegulatedAndUnregulatedOperatingRevenue` is a total and evidences
+ * neither.
+ */
+export const REGULATED_UTILITY_TAGS = [
+  "RegulatoryAssetsNoncurrent",
+  "RegulatoryAssetsCurrent",
+  "RegulatoryAssets",
+  "RegulatedOperatingRevenue",
+  "RegulatedOperatingRevenueElectric",
+  "RegulatedOperatingRevenueElectricNonNuclear",
+  "RegulatedOperatingRevenueGas",
+  "RegulatedOperatingRevenueWater",
+  "RegulatedOperatingRevenuePipelines",
+  "RegulatedOperatingRevenueOther",
+] as const;
+
 function addMonths(iso: string, months: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   const shifted = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, d.getUTCDate()));
@@ -218,6 +245,7 @@ function empty(reason: string | null, available: boolean): RoutingEvidence {
     equityReit: [],
     mortgageReit: [],
     mortgageFunding: [],
+    regulatedUtility: [],
     suggests: null,
     reitSubmap: null,
     basis: null,
@@ -237,7 +265,7 @@ export function describeSignals(signals: readonly EvidenceSignal[]): string {
  */
 export function deriveRoutingEvidence(
   companyFacts: FetchResult<CompanyFacts> | null | undefined,
-  opts: { recencyMonths?: number } = {},
+  opts: { recencyMonths?: number; today?: string } = {},
 ): RoutingEvidence {
   if (companyFacts === null || companyFacts === undefined) {
     return empty("EDGAR companyfacts not fetched for this bundle", false);
@@ -260,6 +288,14 @@ export function deriveRoutingEvidence(
     repo: MORTGAGE_REIT_FUNDING_TAGS,
   };
 
+  // B-13: utility evidence is dated against the run, not against the
+  // financial tags (a utility usually has none of those).
+  const utilityCutoff = opts.today !== undefined && /^\d{4}-\d{2}-\d{2}/.test(opts.today) ? addMonths(opts.today.slice(0, 10), -recencyMonths) : null;
+  const regulatedUtility = REGULATED_UTILITY_TAGS.flatMap((tag) => {
+    const hit = newestPoint(facts, tag);
+    return hit === null || utilityCutoff === null || hit.point.end < utilityCutoff ? [] : [toSignal(tag, hit)];
+  });
+
   // First pass: newest non-zero point per tag, and the newest end overall.
   const hits = new Map<string, EvidenceSignal>();
   let newestEnd: string | null = null;
@@ -273,7 +309,7 @@ export function deriveRoutingEvidence(
       if (newestEnd === null || signal.end > newestEnd) newestEnd = signal.end;
     }
   }
-  if (newestEnd === null) return { ...empty(null, true), asOf: null };
+  if (newestEnd === null) return { ...empty(null, true), asOf: null, regulatedUtility };
 
   // Second pass: keep only tags whose newest fact is recent relative to the
   // newest evidence fact, so retired tags cannot classify the filer.
@@ -334,6 +370,7 @@ export function deriveRoutingEvidence(
     equityReit,
     mortgageReit,
     mortgageFunding: repo,
+    regulatedUtility,
     suggests,
     reitSubmap,
     basis,
