@@ -139,7 +139,7 @@ import {
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { fairValueWithheldText } from "@/report/fairValueText";
+import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
@@ -519,6 +519,8 @@ function renderValuation(
     dcfPs
       ? `Intrinsic value per share: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
       : "Intrinsic value per share: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).",
+    // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+    ...(dcfPs && fairValueDegradedText(fairValue) ? ["", `**${prose(fairValueDegradedText(fairValue)!)}**`] : []),
     ...(fairValue
       ? [
           fairValue.status === "available"

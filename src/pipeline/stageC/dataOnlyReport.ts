@@ -49,6 +49,7 @@ import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { compositeDisplay, hasLimitedEvidence, withNeutral } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
+import { fairValueDegradedText } from "@/report/fairValueText";
 import { formatScore } from "@/report/scoreText";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import {
@@ -804,6 +805,9 @@ function synthesis(
     parts.push(
       `Deterministic ${fv.method ?? "fair-value"} model: ${fmtNum(fv.perShare.value, 2)} ${fvCurrency} per share${quote ? ` against a ${fmtNum(quote.price, 2)} quote` : ""}${upside}.`,
     );
+    // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+    const degraded = fairValueDegradedText(fv);
+    if (degraded !== null) parts.push(degraded);
   } else if (fv.status === "outside-domain") {
     // Audit 2026-10-22 B-29: the verdict says the model is outside its domain.
     parts.push(`Deterministic ${fv.method ?? "fair-value"} model: no fair value. ${fv.basis[0] ?? "Model outside its domain."}`);

@@ -33,7 +33,7 @@ import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDiscl
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { fairValueWithheldText } from "@/report/fairValueText";
+import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
@@ -466,6 +466,9 @@ function sectionValuation(
       ? `<h3>DCF</h3><p>Intrinsic value per share: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
       : `<h3>DCF</h3><p>Intrinsic value per share: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
   );
+  // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
+  const degraded = dcfPs ? fairValueDegradedText(fairValue) : null;
+  if (degraded) parts.push(`<p class="disclaimer">${prose(degraded)}</p>`);
   if (fairValue) {
     parts.push(
       fairValue.status === "available"

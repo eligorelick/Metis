@@ -14,7 +14,7 @@
  */
 
 import type { FetchResult, ManifestEntry } from "@/types/core";
-import { CACHED_DGS10_SERIES_ID, TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
+import { CACHED_DGS10_SERIES_ID, riskFreeSourceLabel, TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
 import type { FredObservation } from "@/providers/fred";
 import type { FmpPayload, FmpTreasuryRatesRow } from "@/providers/fmp";
 import { latestTenYearParYield, TREASURY_PAR_CURVE_ENDPOINT, type TreasuryConfig, type TreasuryYieldObservation } from "@/providers/treasury";
@@ -149,17 +149,6 @@ export async function resolveRiskFreeFallback(
     attemptedSources: ["fred (api_cache)", "treasury"],
   };
   return { ok: false, gap };
-}
-
-const SOURCE_LABEL: Record<string, string> = {
-  "fmp:treasury-rates.year10": "FMP treasury rates 10-year",
-  [CACHED_DGS10_SERIES_ID]: "the last cached FRED DGS10 observation",
-  [TREASURY_PAR_CURVE_SERIES_ID]: "the U.S. Treasury daily par yield curve 10 Yr",
-};
-
-/** Reader label for a risk-free series id; the id itself when it has none. */
-export function riskFreeSourceLabel(seriesId: string): string {
-  return SOURCE_LABEL[seriesId] ?? seriesId;
 }
 
 /**

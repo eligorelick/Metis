@@ -2017,6 +2017,26 @@ a live statistic, and changes only with a new census. This batch only discloses
 the base rate. The calibration behind it (B-3) and the valuation band's
 dependence on it (B-33) are left for a later batch.
 
+**Degraded inputs** (audit 2026-10-22 F-13, an owner decision). An available
+fair value built on a substituted input carries a `valuation.fairValue.degradedInputs`
+entry in `fairValue.reasons` that names each substitution:
+
+- a risk-free rate that is not FRED `DGS10`, with the source and its observation
+  date;
+- each statement, quote or price member that the keyless layer served after FMP
+  refused it, grouped by the source that served it (SEC EDGAR, Yahoo, or computed
+  from filed facts and prices);
+- the analyst-consensus growth method, when it was left out because the provider
+  refused the analyst estimates.
+
+The entry ends "A run with these providers healthy can give a different value." It
+prints beside the headline value in both layouts and in the Key data note, the
+Markdown and print exports, the data-only verdict and the AI context, which is told
+to say so wherever it cites the model value. A keyless-by-configuration run
+substitutes by design (its keyless entries are `expected`), so its value carries
+no entry. Neither does a withheld rate, which its own gap already discloses. The
+peer medians do not feed the headline value, so a peer refusal is not named here.
+
 The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
 percentage points (D-60; ±1pp spanned less than one regression beta's
 uncertainty) and terminal-growth offsets of −1, −0.5, 0, +0.5 and +1. It holds

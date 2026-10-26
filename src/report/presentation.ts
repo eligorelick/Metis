@@ -19,6 +19,7 @@ import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, 
 import { formatScore } from "@/report/scoreText";
 import { numericClaimPartition } from "@/report/claimMatching";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
+import { fairValueDegradedText } from "@/report/fairValueText";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -881,6 +882,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
         report.fairValue?.method === "fcff-dcf" ? dcfBaseRateText() : null,
         // Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
         report.fairValue?.alternative ? `${report.fairValue.alternative.label}: ${formatFinancialAmount(report.fairValue.alternative.perShare, dcf.unit, dcf.currency)}` : null,
+        // Audit 2026-10-22 F-13: the inputs an outage or refusal substituted.
+        fairValueDegradedText(report.fairValue),
       ].filter((part): part is string => part !== null).join("; ") || undefined,
     });
   } else if (report.fairValue?.status === "outside-domain") {

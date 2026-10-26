@@ -23,7 +23,7 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-104: filed retirement and environmental obligations in the DCF bridge, the regulated-utility overlay, the issuer's own sales-to-capital history and no WACC on equity-valued routes.
 // D-105: a basic count for an untagged diluted count at equal EPS, the multi-class diluted count, equity-statement NCI, the average debt behind a refused balance, EBIT under a filed non-operating aggregate, restricted-cash restrictions and a narrower combined cash total, cash-flow recoveries, managed care on the general route and Piotroski leverage on a composed long-term debt.
 // D-106: current debt securities tagged DebtSecuritiesCurrent read as short-term investments in the keyless statements.
-// D-107: the risk-free rate from the bundle's riskFreeFallback (last cached DGS10, then the Treasury par curve) when DGS10 and FMP treasury have none.
+// D-107: the risk-free rate from the bundle's riskFreeFallback (last cached DGS10, then the Treasury par curve) when DGS10 and FMP treasury have none, and a degraded-inputs entry in fairValue.reasons naming each substituted input.
 export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_24" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }

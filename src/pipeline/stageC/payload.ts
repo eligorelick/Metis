@@ -50,6 +50,7 @@ import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentR
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { BAND_THRESHOLDS_TEXT, compositeDisplay, evidencePct, isNeutralScore, MIN_HEADLINE_EVIDENCE, NEUTRAL_SCORE_BAND } from "@/report/assessment";
+import { fairValueDegradedText } from "@/report/fairValueText";
 import type { EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import {
   PROJECTION_PATH_ORDER,
@@ -1111,8 +1112,11 @@ function computedSections(
         `${anchoredLabels.length > 0 ? ` (${anchoredLabels[0]}${anchoredLabels.length > 1 ? ` through ${anchoredLabels[anchoredLabels.length - 1]}` : ""})` : ""}; ` +
         `the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.`,
   ];
+  // Audit 2026-10-22 F-13: the model is told which inputs were substituted.
+  const degradedInputs = fairValueDegradedText(computed.fairValue);
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...(degradedInputs === null ? [] : [`${degradedInputs} Say so wherever the model value is cited.`]),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => stat.basis?.trim() ? [`${stat.key}: ${stat.basis}`] : [])),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string"))),
     ...consensusNote,

@@ -127,7 +127,7 @@ import {
 import { computeScores } from "@/pipeline/stageB/grading";
 import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@/pipeline/stageB/projections";
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
-import { computeFairValue } from "@/pipeline/stageB/fairValue";
+import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
 import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -2619,12 +2619,17 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // valueCompany — never recomputed. assembleReport overwrites the judge's
   // valuation.dcf.perShare + upsidePct from this; suppressed (never fabricated)
   // when no per-share model applies or the equity bridge is missing.
-  const fairValue = computeFairValue({
-    valuation,
-    currentPrice,
-    currency: projectionCurrency,
-    asOf: asOfDay,
-  });
+  // Audit 2026-10-22 F-13: an available value built on substituted inputs
+  // carries a "degraded inputs" reason naming each substitution.
+  const fairValue = withDegradedInputs(
+    computeFairValue({
+      valuation,
+      currentPrice,
+      currency: projectionCurrency,
+      asOf: asOfDay,
+    }),
+    degradedInputsReason({ riskFree: riskFreePct(bundle), bundleGaps: bundle.gaps, valuationGaps: valuation.gaps }),
+  );
 
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------
   // Forensics Z / M already suppressed inside runForensics for financials; we

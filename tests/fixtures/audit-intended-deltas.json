@@ -10178,6 +10178,33 @@
           "after": "1.40.1"
         }
       ]
+    },
+    {
+      "name": "audit-batch6-provider-failures-20261026",
+      "decisions": [
+        "D-107"
+      ],
+      "reason": "Audit batch 6 of 2026-10-26 (degrade visibly when providers fail, D-107), as it reaches this provider-free DEMO control: the fixture carries no FRED DGS10 observation, so its risk-free rate has always come from FMP treasury rates year10 (2025-12-31). F-13 now names that substitution in fairValue.reasons as a degraded-inputs entry, in Stage B and in the report. No figure moves: the rate, the WACC, the DCF and the headline value are unchanged, and the fixture has no keyless member or refused analyst estimate to name. See docs/audit/2026-10-22-audit-batch6-provider-failures.md.",
+      "deltas": [
+        {
+          "path": "report.fairValue.reasons.0",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.fairValue.degradedInputs",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10. A run with these providers healthy can give a different value.",
+            "severity": "warn"
+          }
+        },
+        {
+          "path": "stageB.fairValue.reasons.0",
+          "beforeMissing": true,
+          "after": {
+            "field": "valuation.fairValue.degradedInputs",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10. A run with these providers healthy can give a different value.",
+            "severity": "warn"
+          }
+        }
+      ]
     }
   ]
 }

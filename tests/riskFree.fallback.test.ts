@@ -8,12 +8,11 @@ import {
   lastCachedDgs10,
   primaryRiskFreeAvailable,
   resolveRiskFreeFallback,
-  riskFreeSourceLabel,
   riskFreeSubstitutionGap,
   type CachedDgs10Row,
   type RiskFreeFallbackObservation,
 } from "@/pipeline/riskFreeFallback";
-import { CACHED_DGS10_SERIES_ID, riskFreeSeriesText, TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
+import { CACHED_DGS10_SERIES_ID, riskFreeSeriesText, riskFreeSourceLabel, TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
 import { computeWacc, waccDisclosure } from "@/pipeline/stageB/returns";
 import type { DataBundle } from "@/pipeline/types";
 import { createEdgarClient, type EdgarTransport } from "@/providers/edgar";
