@@ -68,6 +68,13 @@ describe("A-2: sales-to-capital floor yields to the issuer's own history", () =>
     expect(a.salesToCapital.basis).toMatch(/history establishes 0\.6250x, not below the house floor/);
   });
 
+  it("does not let an implausibly low history replace the floor (a scale error repeats every year)", () => {
+    // Capital 99,000: history 0.0101, below the 0.1 plausibility bound.
+    const { a } = assumptions(YEARS.map((d) => capitalRow(d, 98_000)));
+    expect(a.salesToCapital.value).toBe(0.5);
+    expect(a.salesToCapital.basis).toMatch(/median 0\.0101x is below 0\.1, the lowest ratio read as the issuer's own/);
+  });
+
   it("counts only years with revenue on the same fiscal date and positive invested capital", () => {
     const rows = [capitalRow("2024-12-31"), capitalRow("2023-12-31"), capitalRow("2022-06-30"), capitalRow("2021-12-31", -2000)];
     const { a } = assumptions(rows);

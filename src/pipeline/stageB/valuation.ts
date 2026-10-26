@@ -55,6 +55,13 @@ export const NEAR_TERM_GROWTH_CLAMP_PP: readonly [number, number] = [-10, 25];
 export const S2C_CLAMP: readonly [number, number] = [0.5, 5.0];
 /** Audit 2026-10-22 A-2: fiscal years of filed revenue and invested capital that establish an issuer's own sales-to-capital. */
 export const S2C_HISTORY_MIN_YEARS = 3;
+/**
+ * Audit 2026-10-22 A-2: the lowest history median read as the issuer's own
+ * ratio. Capital-heavy filers sit near 0.15–0.25 (water and electric
+ * utilities, pipelines); a median below this is read as a scale error, which
+ * would repeat in every year, and the house floor stands.
+ */
+export const S2C_HISTORY_MIN_RATIO = 0.1;
 export const TERMINAL_G_CAP_PCT = 2.5;
 
 /**
@@ -205,10 +212,11 @@ function establishedSalesToCapital(
   if (newest.length < S2C_HISTORY_MIN_YEARS) {
     return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)` };
   }
-  const sorted = newest.map(([, r]) => r).sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const ratio = sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  const ratio = medianOf(newest.map(([, r]) => r)) as number;
   const list = newest.map(([d, r]) => `FY${d} ${r.toFixed(4)}x`).join(", ");
+  if (ratio < S2C_HISTORY_MIN_RATIO) {
+    return { ratio: null, basis: `its filed history's median ${ratio.toFixed(4)}x is below ${S2C_HISTORY_MIN_RATIO}, the lowest ratio read as the issuer's own (${list}), so it is not used (audit 2026-10-22 A-2)` };
+  }
   return {
     ratio,
     basis: ratio < S2C_CLAMP[0]
