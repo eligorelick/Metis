@@ -2,7 +2,7 @@
 import { PROVIDER_CREDENTIALS_CHANGED } from "@/settings/credentialContracts";
 import { useCallback, useEffect, useState } from "react";
 import { Panel } from "@/components/ui";
-import { CHATGPT_EFFORTS, type ChatGptEffort, type ChatGptModelChoice, type AiConnectionsView } from "@/ai/contracts";
+import { CHATGPT_EFFORTS, CHATGPT_MANAGE_USAGE_URL, chatGptFastOffered, type ChatGptEffort, type ChatGptModelChoice, type AiConnectionsView } from "@/ai/contracts";
 
 const button = "border border-edge px-3 py-1.5 text-sm hover:border-accent disabled:opacity-40";
 export function AiConnections() {
@@ -82,6 +82,10 @@ export function AiConnections() {
   const knownSol = "gpt-6.1-sol";
   const efforts = listedModel?.efforts ?? (model === knownSol ? [...CHATGPT_EFFORTS] : []);
   const chosenUnavailable = chosen !== "none" && chosen !== "anthropic" && (!connection?.connected || !connection.planEnabled);
+  // OpenAI documents Fast only for the models it lists; for any other model
+  // Standard is the only speed offered, and a saved Fast reads as Standard here.
+  const fastOffered = model !== "" && chatGptFastOffered(model);
+  const speed = fastOffered ? serviceTier : "default";
   return <Panel title="AI connections">
     <div className="space-y-3 text-sm">
       <p>Choose how Metis runs its AI research. Financial calculations and citation checks stay in Metis.</p>
@@ -97,7 +101,7 @@ export function AiConnections() {
         {!view.geminiInstalled && <p>Gemini CLI is missing or unsupported. Install version 0.36.x using <a className="underline" href="https://geminicli.com/docs/get-started/installation/" target="_blank" rel="noreferrer">Google’s instructions</a>, then restart Metis.</p>}
         {view.pending && <div role="status" className="border border-edge p-2"><p>{view.pending.message}</p>{view.pending.url && <a className="underline" href={view.pending.url} target="_blank" rel="noreferrer">Open ChatGPT sign-in</a>}</div>}
         {view.connections.map((c) => <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-edge py-2">
-          <span>{c.label} — {c.connected ? c.planEnabled ? "connected" : "plan access not granted" : "signed out"}</span>
+          <span>{c.label} — {c.connected ? c.planEnabled ? c.provider === "chatgpt" ? "connected · ChatGPT plan usage is enabled" : "connected" : "plan access not granted" : "signed out"}</span>
           <div className="flex gap-2">
             {c.provider === "chatgpt" && <button className={button} disabled={busy} onClick={() => void act({ action: "connect-chatgpt", id: c.id })}>Reconnect</button>}
             <button className={button} disabled={busy} onClick={() => void act({ action: `disconnect-${c.provider}`, id: c.id })}>Disconnect</button>
@@ -126,16 +130,18 @@ export function AiConnections() {
             {efforts.map((level) => <option key={level} value={level}>{level}</option>)}
             {effort && !efforts.includes(effort) && <option value={effort}>{effort} · saved setting</option>}
           </select></label>
-          <label className="block">ChatGPT speed<select className="mt-1 w-full border border-edge bg-bg p-2" value={serviceTier} disabled={busy} onChange={(e) => setServiceTier(e.target.value as "default" | "fast")}>
-            <option value="default">Standard</option><option value="fast">Fast — higher allowance consumption</option>
+          <label className="block">ChatGPT speed<select className="mt-1 w-full border border-edge bg-bg p-2" value={speed} disabled={busy || !fastOffered} onChange={(e) => setServiceTier(e.target.value as "default" | "fast")}>
+            <option value="default">Standard</option>{fastOffered && <option value="fast">Fast — uses your plan or credits faster</option>}
           </select></label>
-          <p className="text-xs text-faint">Fast is subject to model and account availability. OpenAI currently documents 2.5× included usage consumption and 2× purchased-credit or Enterprise pay-as-you-go rates. The provider may serve Standard instead; the saved report records the returned tier. <a className="underline" href="https://learn.chatgpt.com/docs/agent-configuration/speed" target="_blank" rel="noreferrer">Speed and usage details</a>.</p>
+          <p className="text-xs text-faint">{fastOffered
+            ? "Fast is subject to account availability. OpenAI currently documents 2.5× included usage consumption and 2× purchased-credit or Enterprise pay-as-you-go rates. The provider may serve Standard instead; the saved report records the returned tier."
+            : "OpenAI offers Fast only for GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna, so this model runs at Standard speed."}{" "}<a className="underline" href="https://learn.chatgpt.com/docs/agent-configuration/speed" target="_blank" rel="noreferrer">Speed and usage details</a>.</p>
         </div>}
         {connection?.provider === "gemini" && <label className="block">Gemini model<input className="mt-1 w-full border border-edge bg-bg p-2" value={model} maxLength={128} onChange={(e) => setModel(e.target.value)} /><span className="text-xs text-faint">“auto” uses Google’s CLI selection; you can enter an available Gemini model ID.</span></label>}
         <button className={button} disabled={busy || chosenUnavailable || (!!connection && !model)} onClick={() => void act({ action: "select", selection: connection ? { provider: connection.provider, connectionId: connection.id, model,
-          ...(connection.provider === "chatgpt" ? { serviceTier, ...(effort ? { effort } : {}) } : {}),
+          ...(connection.provider === "chatgpt" ? { serviceTier: speed, ...(effort ? { effort } : {}) } : {}),
         } : { provider: chosen } })}>Save report connection</button>
-        <p className="text-xs text-faint">Your remaining plan allowance is not available here. A model listing does not guarantee access or remaining quota. Check <a className="underline" href="https://chatgpt.com/#settings/Usage" target="_blank" rel="noreferrer">ChatGPT usage</a> or <a className="underline" href="https://geminicli.com/docs/resources/quota-and-pricing/" target="_blank" rel="noreferrer">Gemini allowance details</a> before running reports. Your provider’s credit settings still apply.</p>
+        <p className="text-xs text-faint">Your remaining plan allowance is not available here. A model listing does not guarantee access or remaining quota. Check ChatGPT (<a className="underline" href={CHATGPT_MANAGE_USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a>) or <a className="underline" href="https://geminicli.com/docs/resources/quota-and-pricing/" target="_blank" rel="noreferrer">Gemini allowance details</a> before running reports. Your provider’s credit settings still apply.</p>
       </>}
       {!view && !message && <p>Loading connections…</p>}
       {message && <p role="status">{message}</p>}

@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - ChatGPT plan usage and speed per OpenAI's documentation (2026-10-26)
+
+- Give each documented ChatGPT plan-usage error its documented recovery (Sign in with ChatGPT, "Errors and recovery"): a usage limit names Manage usage (`https://chatgpt.com/settings/usage`); `subscription_sharing_usage_unavailable` / `user_unavailable` and HTTP 503 keep the connection as a temporary outage instead of reading as an exhausted plan; `user_not_eligible`, `invalid_user`, `unsupported_capability` (naming the rejected option), `route_not_supported` and the `chatpass_v2_*` authorization codes each say what to do. None suggests a paid fallback.
+- Clear an account's tokens when its refresh token is unusable (`invalid_grant`, `refresh_token_expired`, `refresh_token_reused` and the other documented codes), keeping the issued client ID and identity for the reconnect; a temporary token-service failure keeps the credentials.
+- Offer ChatGPT Fast only for the models OpenAI's speed page lists (GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol, GPT-6 Luna); saving Fast for any other model is refused, and Settings shows Standard. The Fast option reads "uses your plan or credits faster", the account row says "ChatGPT plan usage is enabled", and the usage link is OpenAI's Manage usage page.
+- Claude stays at standard API speed: Settings and the Claude usage guide say Metis does not request Anthropic's premium-priced fast mode (Opus 5.5). Metis's Gemini CLI connection has no speed control, so nothing changes there. No report, payload or Stage B stamp moves.
+
 ## Proposed audit batch 4: freshness and the earnings window (2026-10-26)
 
 - Order a results release that states no period by its filing date, before the first dated release filed no later than it, and rank results releases above operational updates for the four releases kept (B-26: PEP's newest release is kept; Freeport-McMoRan's 2026-10-02 third-quarter operational update is no longer among the four kept, so its newest 8-K read is a 2026-09-08 material-event filing).

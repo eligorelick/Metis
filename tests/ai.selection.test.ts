@@ -53,6 +53,10 @@ describe("explicit account selection", () => {
     await expect(selectConnection({ ...choice, effort: "ultra" })).rejects.toThrow("Choose");
     await expect(selectConnection({ ...choice, serviceTier: "invalid" })).rejects.toThrow("Choose");
     await expect(selectConnection({ ...choice, provider: "gemini" })).rejects.toThrow("Choose");
+    // OpenAI's speed page lists Fast only for GPT-6.1 Sol/Terra and GPT-6 Astra/Sol/Luna.
+    await expect(selectConnection({ ...choice, model: "gpt-5.5" })).rejects.toThrow("does not offer Fast");
     expect(s.selection).toEqual(choice);
+    await selectConnection({ ...choice, model: "gpt-5.5", serviceTier: "default" });
+    expect(s.selection).toEqual({ ...choice, model: "gpt-5.5", serviceTier: "default" });
   });
 });

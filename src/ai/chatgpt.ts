@@ -33,13 +33,31 @@ async function discovery(): Promise<{ jwks_uri: string; revocation_endpoint: str
 }
 
 interface TokenResponse { access_token: string; refresh_token?: string; id_token?: string; expires_in: number; scope?: string; token_type: string }
+/**
+ * Refresh-token errors OpenAI documents as unusable ("Errors and recovery"):
+ * clear the unusable tokens and repeat OAuth with the saved issued client ID.
+ * Any other failure keeps the credentials (a temporary network or service
+ * failure must never erase them).
+ */
+const UNUSABLE_REFRESH_ERRORS = new Set(["invalid_grant", "invalid_refresh_token", "token_expired", "refresh_token_expired", "refresh_token_invalidated", "refresh_token_reused"]);
+class ChatGptTokenError extends Error {
+  constructor(message: string, readonly unusable: boolean) { super(message); }
+}
 async function exchange(body: Record<string, string>): Promise<TokenResponse> {
   const response = await fetch(TOKEN_URL, {
     method: "POST", body: new URLSearchParams(body), redirect: "error", signal: AbortSignal.timeout(25_000),
     headers: { "content-type": "application/x-www-form-urlencoded" },
   });
-  if (!response.ok) throw new Error(response.status === 400 || response.status === 401
-    ? "ChatGPT authorization expired or was declined. Connect this account again." : "ChatGPT authorization is temporarily unavailable.");
+  if (!response.ok) {
+    const failure = await response.json().catch(() => null) as { error?: unknown } | null;
+    const code = typeof failure?.error === "string" ? failure.error : typeof (failure?.error as { code?: unknown } | undefined)?.code === "string" ? (failure!.error as { code: string }).code : undefined;
+    if (code !== undefined && UNUSABLE_REFRESH_ERRORS.has(code)) {
+      throw new ChatGptTokenError("ChatGPT sign-in has expired or was revoked. Reconnect this account in Settings → AI connections.", true);
+    }
+    if (code === "invalid_client") throw new ChatGptTokenError("ChatGPT did not accept Metis's saved registration for this account. Reconnect it in Settings → AI connections.", false);
+    throw new ChatGptTokenError(response.status === 400 || response.status === 401
+      ? "ChatGPT authorization expired or was declined. Connect this account again." : "ChatGPT authorization is temporarily unavailable.", false);
+  }
   const data = await response.json() as TokenResponse;
   if (typeof data.access_token !== "string" || data.token_type?.toLowerCase() !== "bearer" ||
       !Number.isFinite(data.expires_in) || data.expires_in <= 0) throw new Error("Invalid ChatGPT token response");
@@ -153,19 +171,32 @@ export async function beginChatGpt(profileId?: string): Promise<void> {
 }
 
 export async function chatGptAccess(profileId: string): Promise<string> {
-  return withAiStore(async (store) => {
+  const outcome = await withAiStore(async (store): Promise<{ access: string } | { unusable: string }> => {
     claimAiRuntime(store);
     const profile = store.profiles.find((p) => p.id === profileId);
     if (!profile?.tokens) throw new Error("ChatGPT connection is signed out");
     if (profile.tokens.expiresAt < Date.now() + 60_000) {
-      const data = await exchange({ grant_type: "refresh_token", client_id: profile.clientId, refresh_token: profile.tokens.refresh, resource: RESOURCE });
+      let data: TokenResponse;
+      try {
+        data = await exchange({ grant_type: "refresh_token", client_id: profile.clientId, refresh_token: profile.tokens.refresh, resource: RESOURCE });
+      } catch (error) {
+        // An unusable refresh token is cleared (the saved write below) so the
+        // account shows signed out; its issued client ID and identity stay for
+        // the reconnect, which reuses them.
+        if (error instanceof ChatGptTokenError && error.unusable) { delete profile.tokens; return { unusable: error.message }; }
+        throw error;
+      }
       // Identity was validated during sign-in. Refresh must not replace it with
-      // an unverified new ID token; retain the verified hint instead.
+      // an unverified new ID token; retain the verified hint instead. The
+      // access token, expiry, granted scopes and rotating refresh token are
+      // replaced together.
       profile.tokens = tokenRecord({ ...data, id_token: undefined }, profile.tokens);
     }
     if (!profile.tokens.scopes.includes("chatgpt.tokens.use.direct")) throw new Error("ChatGPT plan usage was not granted");
-    return profile.tokens.access;
+    return { access: profile.tokens.access };
   });
+  if ("unusable" in outcome) throw new Error(outcome.unusable);
+  return outcome.access;
 }
 
 export function trackChatGptRequest(id: string, upstream?: AbortSignal): { signal: AbortSignal; release(): void } {
