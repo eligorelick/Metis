@@ -3653,7 +3653,9 @@ touches. When the newest balance is outside the averaged pair, the debt
 weight uses the clean average instead, and the basis says the newest balance
 is not used and why. When the refusal falls on the TTM window's quarter-end
 pair, the average falls back to the latest two fiscal-year-end balances if
-they are clean, and the basis names the pair not used. The refused balance is
+both are present, both carry total debt and neither is refused, and the basis
+names the pair not used; otherwise the quarter pair's refusal stands and the
+gap names it. The refused balance is
 never used, so the EV bridge at that date stays withheld. A refused debt
 carrying total (an incomplete debt note) still withholds the WACC wherever
 it falls. When no average is established, the critical gap names the balance

@@ -1729,9 +1729,12 @@ function totalDebtSnapshot(
       : null;
   const annualPair: Pair = [balancesAnnual[0], balancesAnnual[1]];
   const quarterRefusal = quarterPair === null ? null : leaseRefusal(quarterPair);
+  // The fallback replaces a refused quarter pair only with a complete one:
+  // two fiscal-year balances, each with total debt, neither refused.
+  const annualComplete = annualPair.every(row => row !== undefined && num(row.totalDebt) !== null) && leaseRefusal(annualPair) === null;
   let pair: Pair;
   let which: string;
-  if (quarterPair !== null && (quarterRefusal === null || leaseRefusal(annualPair) !== null)) {
+  if (quarterPair !== null && (quarterRefusal === null || !annualComplete)) {
     pair = quarterPair;
     which = `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`;
   } else {
