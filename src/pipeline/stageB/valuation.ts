@@ -4257,7 +4257,9 @@ export function multiplesFramework(
   let eps = posOrNull(inc?.epsDiluted);
   let epsBasis = "price / epsDiluted";
   // Audit 2026-10-22 B-20: why price / diluted EPS did not produce the P/E, named in its basis.
-  let epsUnused = "no positive diluted EPS covers the period";
+  let epsUnused = isNum(inc?.epsDiluted)
+    ? "diluted EPS for the period is not positive"
+    : inc?.basis === "annual" ? "the fiscal year's diluted EPS is not reported" : "diluted EPS is not available for every quarter of the period";
   if (inputs.quote.isAdr === true && eps !== null) {
     const security = resolveSecurityBasis(inputs.securityBasis ?? [], inputs.securityBasisAsOf ?? "");
     if (security === null || security.quoteUnit !== "ADS" || inc?.epsSecurityBasis === undefined ||

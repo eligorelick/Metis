@@ -106,10 +106,19 @@ describe("the P/E basis names the formula that ran (audit 2026-10-22 B-20)", () 
     const pe = multiple(computed, "peTtm");
     expect(pe.current).not.toBeNull();
     expect(pe.basis).toMatch(/^marketCap \/ common income \(TTM; /);
-    expect(pe.basis).toContain("diluted EPS not used: no positive diluted EPS covers the period");
+    expect(pe.basis).toContain("diluted EPS not used: diluted EPS is not available for every quarter of the period");
     expect(pe.basis).not.toMatch(/price \/ epsDiluted|fallback/);
     const row = keyDataRows(r).find((x) => x.label === "P/E (TTM)");
     expect(row?.note).toBe("market cap / common income, not price / diluted EPS");
     for (const text of surfaces(r)) expect(text).toContain("market cap / common income, not price / diluted EPS");
+  });
+
+  it("says diluted EPS was not positive, rather than missing, when a quarterly loss leaves the sum at or below zero", () => {
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    const rows = quarters(bundle).slice(0, 4);
+    const total = rows.reduce((sum, row) => sum + (row.epsDiluted as number), 0);
+    rows[0]!.epsDiluted = (rows[0]!.epsDiluted as number) - total - 0.01;
+    const pe = multiple(report(bundle).computed, "peTtm");
+    expect(pe.basis).toContain("diluted EPS not used: diluted EPS for the period is not positive");
   });
 });
