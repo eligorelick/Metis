@@ -39,6 +39,7 @@ import { z } from "zod";
 import { EvidenceTimingSchema } from "@/report/evidenceTiming";
 import { PeriodContextSchema } from "@/types/periodContext";
 import { SourceFactSummarySchema } from "@/report/sourceFactSchema";
+import { displayedValidationStatus } from "@/report/claimMatching";
 
 import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 
@@ -1589,6 +1590,10 @@ export type VerificationLogEntry = z.infer<typeof VerificationLogEntrySchema>;
 export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): string {
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
+  // A contradicted claim was cited; a legacy metadata gap reads as unchecked (F-22).
+  if (entry.claimSupportStatus === "contradicted") {
+    return displayedValidationStatus(entry) === "unchecked" ? "Cited; prose unchecked" : "Cited; contradicted by its source";
+  }
   if (entry.claimSupportStatus === "cited") return "Cited; prose unchecked";
   if (entry.outcome === "unverified" && entry.evidenceKind === "number" && entry.source?.trim()) return "untraced";
   return citationOutcomeLabel(entry.outcome);

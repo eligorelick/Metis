@@ -133,7 +133,7 @@ describe("contradicted count (AMZN audit 2026-10-20 finding 12)", () => {
     expect(row.split("(recorded contradicted; period or unit not established; value not rechecked)").length - 1).toBe(3);
     expect(row).toContain("| cited (recorded contradicted;");
     expect(reportToAuditMarkdown(r)).toContain("Displayed factual-claim statuses:");
-    expect(reportToAuditMarkdown(r)).toContain("| Evidence class | Supported / total, as recorded |");
+    expect(reportToAuditMarkdown(r)).toContain("| Evidence class | Supported / total, grade-strip reasoning included |");
   });
 
   it("keeps the coverage count when no log is stored", () => {

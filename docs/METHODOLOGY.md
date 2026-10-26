@@ -2649,9 +2649,11 @@ entry's status column, with its numeric-support and prose-support columns
 ("cited" for the latter) read the same way. Such an entry kept only its first
 failure, so whether its value also conflicted cannot be rechecked from the
 stored report; unverified is the reading that claims no more than was checked.
-The audit export's factual-claim sentence gives these displayed statuses, and
-its evidence-class table gives the verify pass's counts as recorded, grade-strip
-reasoning included.
+Its outcome column reads "Cited; prose unchecked", and a claim contradicted for
+its value reads "Cited; contradicted by its source" (it was cited, never
+"uncited"). The audit export's factual-claim sentence gives these displayed
+statuses, and its evidence-class table gives the coverage counts with
+grade-strip reasoning included.
 
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the

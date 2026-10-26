@@ -80,11 +80,11 @@ function coverageCell(supported: number, total: number, rate: number | null): st
   return `${supported}/${total} (${rate === null ? "n/a — no items" : `${(rate * 100).toFixed(1)}%`})`;
 }
 
-// The verify pass's own counts, grade-strip reasoning included, beside the
-// displayed rows above them (review of F-21).
+// The coverage counts, grade-strip reasoning included, beside the displayed
+// rows above them (review of F-21).
 function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
   return table(
-    ["Evidence class", "Supported / total, as recorded"],
+    ["Evidence class", "Supported / total, grade-strip reasoning included"],
     [
       ["Numeric provenance", coverageCell(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)],
       ["Factual-claim citations", coverageCell(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate)],
