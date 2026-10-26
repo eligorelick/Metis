@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.40.1** and
-payload **1.45.0** (fixes from the live five-company check, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.41.0** and
+payload **1.46.0** (audit batch 4, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,18 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed audit batch 4: freshness and the earnings window (2026-10-26)
+
+- Order a results release that states no period by its filing date, before the first dated release filed no later than it, and rank results releases above operational updates for the four releases kept (B-26: PEP's newest release is kept; Freeport-McMoRan's 2026-10-02 third-quarter operational update is no longer among the four kept, so its newest 8-K read is a 2026-09-08 material-event filing).
+- Bind a newer release's dollars to the statements' currency when every income row since before its period is in that one currency, so the earnings-window guidance and the DCF guidance anchor return; the withheld note says the currency is not established rather than claiming a mismatch (B-27).
+- Merge a newer 10-Q's own XBRL facts into the companyfacts payload when companyfacts lags the filed 10-Qs, consolidated undimensioned facts only, each cited to the 10-Q's accession and filing date; where a newer periodic filing's facts could not be read, show a "Newer filing not reflected" banner and a warn gap naming it (B-23: Visa, Duke Energy, NextEra, Coca-Cola and Prologis now end at their newest 10-Q, matching the oracle's TTM figures; owner decision).
+- Withhold a bull/bear scenario fan that does not bracket its base value, naming both values (Duke Energy after its merged quarter).
+- Label P/E and EV/EBITDA with the period their earnings cover ("P/E (FY2025)" when the TTM was not available) in the multiples table, Key data, both exports and the AI payload's record, and name only the P/E formula that ran, with the reason when it is market cap over common income (B-9, B-20; owner decision).
+- Read EPS from continuing operations as EPS when no net-income EPS is tagged and no discontinued result is filed for the period, disclosed as a substitution (FCX-4: Freeport's EPS CAGR runs 2020 to 2025 instead of ending at 2021).
+- Let a trailing twelve months span a reorganisation when the successor's own filing re-presents the predecessor's net income and per-share figures unchanged, and name a resolved predecessor in the successor's no-annual-report gaps (B-36: ExxonMobil Holdings regains its P/E, 22.4x). Reading the predecessor's 10-K sections is left for later.
+- B-24 and C-16 were already fixed by batch 3a.
+- Report 1.41.0, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107); pipeline stage-c-1.6.2 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
 
 ## Unreleased - fixes from the live five-company check (2026-10-26)
 

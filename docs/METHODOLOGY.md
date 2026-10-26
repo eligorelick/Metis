@@ -3769,3 +3769,110 @@ differ, the signal is withheld and both tag sets are named. NNN stays
 withheld: its FY2025 figure carries a `LoansPayable` tag, at zero, that
 FY2024's lacks. LVGI is unchanged: it adds long-term debt to current
 liabilities, where current notes would count twice.
+
+### Audit batch 4: freshness and the earnings window (October 26, 2026)
+
+The independent audit of 2026-10-22 found reports that ended a quarter or two
+before what the issuer had already filed, or that read its newest results
+release wrongly. Decision: D-107.
+
+**A release that states no period (B-26).** A results release whose period
+could not be parsed ranked below every older release with a parsed period, so
+the newest results could fall out of the four releases kept. It now goes
+before the first dated release filed no later than it; dated releases keep
+period order. For the four slots a results release outranks an operational
+update (deliveries, production), so the kept set covers a year of results
+when enough were read.
+
+**A newer release's dollars (B-27).** In the earnings window a release
+reports a quarter no statement row covers yet, so its "$" was never bound to
+a currency: every dollar guide was withheld and the DCF lost its guidance
+anchor. Such a release, or one that states no quarter end, now reports in the
+statements' currency when every income row since before its period is
+established in that one currency. A history in more than one currency, or an
+unlabelled row at the release's own quarter, still withholds, and the note
+says the currency is not established rather than claiming a mismatch.
+
+**10-Qs that companyfacts has not caught up with (B-23).** SEC's
+companyfacts API can run a quarter or two behind the filed 10-Qs. On
+2026-10-22 it still ended at the first-quarter 10-Q for Visa, Duke Energy,
+NextEra, Coca-Cola and Prologis, although each had filed its second-quarter
+10-Q (NextEra its third-quarter one too), so statements, TTM and multiples
+ended early with nothing saying so. The newer 10-Q's XBRL instance is already
+fetched for segment revenue, so its facts are now read and merged into the
+companyfacts payload before the statements are built. Only what companyfacts
+itself publishes is read: numeric, non-nil facts in the us-gaap, srt, dei and
+ifrs-full taxonomies, on contexts with no dimension (the consolidated
+registrant; a combined filing's subsidiaries are left out), for the filer's
+own CIK. A fact stated twice at the same precision with different values is
+dropped. Each merged point carries the 10-Q's accession, form, filing date and
+fiscal focus, exactly as companyfacts would, so every figure built from it
+cites that filing. A filing companyfacts already carries, or one filed no
+later than companyfacts' newest periodic report, is never merged, so nothing
+is counted twice and a row never mixes the two bases. The merge runs after
+the predecessor check, so a successor's merged quarter cannot hide missing
+history. An info entry names each merged filing, its period and filing date.
+Where a newer 10-Q, 10-K, 20-F or 40-F was filed before the build but its
+facts could not be read (for instance a filing whose instance was not
+fetched), the report shows a "Newer filing not reflected" banner and a warn
+gap naming the filing and its date, as the newer-results notice does for a
+release: "10-Q <accession> for the period ended 2026-06-30 was filed on
+2026-07-29; statements, TTM and multiples here end 2026-03-31 and do not
+include it." The same 45-day allowance as the newer-results notice keeps a
+52/53-week calendar from raising it. In the audit panel the merged TTM
+revenue and net income match the oracle's for all five issuers (Duke $32.57B
+and $5.25B to 2026-06-30; NextEra to 2026-09-30), and P/E moves to the
+oracle's (Duke 18.1×, Coca-Cola 27.9×, NextEra 14.1×, Prologis 28.4×).
+
+**A scenario fan that does not bracket its base.** Bull and bear re-run the
+DCF with growth shifted ±σ. Where faster growth needs reinvestment that earns
+less than it costs, and slower growth releases no capital (reinvestment is
+floored at zero), the DCF's value peaks at the base path and both runs land
+below it. A "bear – bull" range then excludes the fair value it is meant to
+bracket. Such a fan is now withheld with both values named. Duke Energy's
+merged second quarter reached this (bull $37.23, base $43.09, bear $33.24);
+no issuer in the main-branch panel did.
+
+**Multiple labels name their period and formula (B-9, B-20).** When no four
+contiguous quarters cover the trailing twelve months, P/E and EV/EBITDA fall
+back to the latest fiscal year, but they were still labelled "TTM". Each
+multiple now records the period its earnings cover ("TTM to 2026-06-30" or
+"FY2025"), and the label follows it in the multiples table, Key data, the
+exports and the AI payload's record ("P/E (FY2025)", "EV/EBITDA (FY2025)").
+TTM labels are unchanged. The P/E basis used to read "price / epsDiluted
+(TTM); fallback marketCap / common income" whichever ran; it now names only
+the formula that produced the figure, and when it is market cap over common
+income it says why diluted EPS was not used (diluted EPS missing for a
+quarter of the window or for the fiscal year, a sum that is not positive, an
+ADR's unverified depositary ratio, or share classes with different economic
+weights). Key data notes "market cap / common income, not price / diluted
+EPS" beside such a P/E. The figure itself is unchanged: because a
+fourth-quarter diluted EPS is never derived, most trailing windows that
+contain a fiscal fourth quarter already ran on market cap over common income,
+and the label now says so.
+
+**EPS from continuing operations (FCX-4).** A filer with no discontinued
+operations may tag only its EPS from continuing operations: Freeport-McMoRan
+has tagged no net-income EPS since FY2022, so its annual EPS was empty from
+2022 and the EPS CAGR window ended at 2021. Net EPS is continuing EPS plus
+discontinued EPS (ASC 260-10-45-3), so when no net-income EPS is tagged and
+no discontinued result is filed for the period, in dollars or per share, the
+reported continuing figure stands in, with its own provenance and a
+substitution disclosure. A filed discontinued result keeps EPS empty.
+Freeport's EPS CAGR now runs 2020 to 2025 (1.52 in FY2025, 1.30 in FY2024).
+
+**TTM across a reorganisation (B-36).** A trailing twelve months that joins
+a predecessor's quarters to a successor's own was refused as two issuers, so
+ExxonMobil Holdings, successor to Exxon Mobil Corp since 2026-07-01, had no
+P/E. When the successor's own filing re-presents at least one predecessor
+net income, and every such net-income and per-share comparative agrees, the
+two are one reporting entity on one share basis: the predecessor rows name
+the successor as their economic issuer, the TTM may span the reorganisation,
+and the predecessor disclosure names the periods that matched. Exxon's first
+10-Q re-presents Q2 2025 at 7,082M and $1.64 a share, so its P/E is now
+22.4× on market cap over TTM net income of 32,757M. Without that evidence the
+TTM is still refused. The no-annual-report gaps now name a resolved
+predecessor rather than calling it unlinked. Reading the predecessor's 10-K
+for Item 1A, MD&A and notes is not done: it needs live SEC requests and an
+identity design for the 10-K parsers, which bind their evidence to the
+registrant's own CIK.
