@@ -2644,7 +2644,14 @@ period-word and unit-word check failures are still listed in the verification
 log and the missing-data manifest. A stored report whose log recorded such a
 metadata gap as contradicted is read under the same rule: its counts move the
 entry to unverified, and the audit export prints "unchecked (recorded
-contradicted; period or unit not established)" in the entry's status column.
+contradicted; period or unit not established; value not rechecked)" in the
+entry's status column, with its numeric-support and prose-support columns
+("cited" for the latter) read the same way. Such an entry kept only its first
+failure, so whether its value also conflicted cannot be rechecked from the
+stored report; unverified is the reading that claims no more than was checked.
+The audit export's factual-claim sentence gives these displayed statuses, and
+its evidence-class table gives the verify pass's counts as recorded, grade-strip
+reasoning included.
 
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the

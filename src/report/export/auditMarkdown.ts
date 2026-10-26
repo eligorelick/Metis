@@ -80,9 +80,11 @@ function coverageCell(supported: number, total: number, rate: number | null): st
   return `${supported}/${total} (${rate === null ? "n/a — no items" : `${(rate * 100).toFixed(1)}%`})`;
 }
 
+// The verify pass's own counts, grade-strip reasoning included, beside the
+// displayed rows above them (review of F-21).
 function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
   return table(
-    ["Evidence class", "Supported / total"],
+    ["Evidence class", "Supported / total, as recorded"],
     [
       ["Numeric provenance", coverageCell(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)],
       ["Factual-claim citations", coverageCell(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate)],
@@ -163,9 +165,14 @@ function renderVerification(report: Report): string {
         a.verificationLog.map((entry) =>
           VERIFICATION_LOG_FIELDS.map((field) => {
             if (field.key === "outcome") return verificationEntryOutcomeLabel(entry);
-            // F-22: a legacy metadata gap recorded as contradicted reads as unverified.
-            if (field.key === "validationStatus" && displayedValidationStatus(entry) !== entry.validationStatus) {
-              return `${auditValue(displayedValidationStatus(entry))} (recorded ${auditValue(entry.validationStatus)}; period or unit not established)`;
+            // F-22: a legacy metadata gap recorded as contradicted reads as
+            // unverified. Its support columns came from the same failure, and
+            // the stored entry cannot show whether the value also conflicted.
+            if (displayedValidationStatus(entry) !== entry.validationStatus) {
+              const reread = field.key === "validationStatus" ? displayedValidationStatus(entry)
+                : field.key === "numericSupportStatus" && entry.numericSupportStatus === "contradicted" ? "unchecked"
+                  : field.key === "claimSupportStatus" && entry.claimSupportStatus === "contradicted" ? "cited" : undefined;
+              if (reread !== undefined) return `${auditValue(reread)} (recorded contradicted; period or unit not established; value not rechecked)`;
             }
             return auditValue(entry[field.key]);
           })),
