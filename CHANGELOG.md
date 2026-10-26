@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - parent net income without a NetIncomeLoss tag (2026-10-26)
+
+- Derive net income attributable to the parent as `ProfitLoss` less the noncontrolling interests' share when a filer tags no `NetIncomeLoss` for the period, and disclose it; consolidated profit had been taken instead (FCX FY2025 4,152 million against 2,204 million; DuPont ROE 22.8% against about 12%; audit B-18).
+- Read that figure as parent income in Stage B, so the NCI share is not deducted twice and a TTM window mixing it with `NetIncomeLoss` quarters is no longer refused as mixed.
+- Stage B ACCOUNTING_EVIDENCE_25 (D-108); report 1.40.2 and payload 1.46.0 are unchanged.
+
 ## Unreleased - readable figures in the reader notes (2026-10-26)
 
 - Print the EV bridge note's amounts and the issuer-common equity headline's share count and capitalization with grouped digits ("42,783,000,000", "119,996,000"), at unchanged precision; they printed raw source units.
