@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.42.0** and
-payload **1.47.0** (audit batch 4, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.43.0** and
+payload **1.48.0** (audit batch 4, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -29,7 +29,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Let a trailing twelve months span a reorganisation when the successor's own filing re-presents the predecessor's net income and per-share figures unchanged, and name a resolved predecessor in the successor's no-annual-report gaps (B-36: ExxonMobil Holdings regains its P/E, 22.4x). Reading the predecessor's 10-K sections is left for later.
 - B-24 and C-16 were already fixed by batch 3a.
 - Review of this change: judge a successor's own history without the facts merged from newer filings, read every discontinued-operations element on its own (and one withheld from the row) before continuing-operations EPS stands in, add cash-flow D&A to operating income only on the same period (the fiscal year's own cash-flow D&A beside a fiscal-year operating income), label a fiscal-year P/E "P/E (current, FY2025)" in the AI payload, judge a scenario fan on the values the report shows, and compare a successor's EPS with its predecessor's by role (basic, diluted), requiring at least one matched per-share figure before a TTM spans the reorganisation.
-- Report 1.42.0, payload 1.47.0 and Stage B ACCOUNTING_EVIDENCE_26 (D-111); pipeline stage-c-1.6.4 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
+- Report 1.43.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 (D-112); pipeline stage-c-1.6.4 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
 
 ## Proposed audit batch 5: make the trust signals mean what they say (2026-10-26)
 
