@@ -629,6 +629,11 @@ describe("payload determinism + provenance", () => {
       // Audit batch 2b (D-104): the band tables gain the regulated-utility
       // ranges, which this general-route fixture does not use; only the stamp moves.
       ["SCORE_BANDS_2026_10_REGULATED_UTILITY", "SCORE_BANDS_2026_10_FRESHNESS_AUDIT", 1],
+      // D-107: the EV bridge note prints its amounts with grouped digits (this
+      // fixture's only one is its EV, in four notes), and the grid guard note
+      // says the cells are withheld rather than "rendered null". No value moves.
+      ["3,196,000,000,000", "3196000000000", 8],
+      ["are withheld and shown as —", "rendered null", 1],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -1006,9 +1011,12 @@ describe("payload determinism + provenance", () => {
       // prompt bytes, the registry and the finance block. With the preceding
       // stamp every other pin here is unchanged; no value moves. Audit batch 3
       // (D-105): only the versioned header moves with payload 1.45.0; no byte
-      // of this fixture's prompt or any record changes.
-      fingerprint: "1.45.0:37e206c3",
-      promptBytes: 140_885,
+      // of this fixture's prompt or any record changes. D-107: payload 1.46.0
+      // prints the EV bridge note's amounts with grouped digits; this
+      // fixture's EV appears four times in the prompt's notes, so the prompt
+      // grows by sixteen commas and no record or registry moves.
+      fingerprint: "1.46.0:1dc5e806",
+      promptBytes: 140_901,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
@@ -1051,7 +1059,8 @@ describe("payload determinism + provenance", () => {
       // this fixture's runs are inside it, so no target or byte moves. The
       // same review moves the two method stamps (D-102), restored above.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      financeHash: "e09a7472",
+      // D-107: the grouped EV digits and the grid guard wording, restored above.
+      financeHash: "cc08980b",
     });
   });
 
@@ -1175,7 +1184,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.45.0");
+    expect(first.payloadVersion).toBe("1.46.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2704,7 +2713,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.40.1");
+    expect(report.meta.specVersion).toBe("1.40.2");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

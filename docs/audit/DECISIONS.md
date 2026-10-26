@@ -2205,3 +2205,14 @@ A live NVDA report run on merged main (GPT-6.1-Sol, high effort, 2026-10-26) and
 - **Dated interval claims citing a filing fact (verification).** D-82 admits an explicit `START to END` claim interval only when the cited record's period is `END`. Since D-88 (exact final evidence and interval presentation) the payload registers a filing-fact duration with the whole span as its period and a matching duration context, so every correct interval claim on such a record was counted as contradicted. NVDA report #1 had one: "Accounts receivable cash-flow contribution for 2026-01-26 to 2026-07-26 was negative USD 24.59 billion." against a record of −24.59 billion for exactly that span. The record's period may now be `END` or the whole span; the label span, the claim's single interval, the duration context and every other D-82 condition are unchanged. Rebuilding that run's payload from its stored input snapshot turns the claim from contradicted to validated.
 
 Stage B ACCOUNTING_EVIDENCE_23, report 1.40.1 and pipeline stage-c-1.6.2 mark these conventions; payload 1.45.0 is unchanged. Stored reports and snapshots keep their bytes.
+
+## D-107 - Readable figures in the reader notes (2026-10-26)
+
+The live NVDA check (D-106) also found reader text that printed raw source units: the EV bridge note read "excluding 42783000000 of marketable equity securities ... EV excluding the operating-lease liability 5156250780000; EV as reported 5161744780000", the multiples note's issuer-common headline printed "119996000 economic shares ... capitalization 34672844200 USD", and the sensitivity grid's guard note said its cells were "rendered null".
+
+- **Grouped digits, not rounding.** Those amounts and counts now print with grouped digits ("42,783,000,000", "119,996,000"), at the same two-decimal precision as before. A compact form ("42.78B", "120M") was tried and rejected: it rounded 119,996,000 economic shares to 120M, and the exact figures are what the share-class and bridge tests pin. Every value is unchanged; only its digits are grouped.
+- **The grid guard note** says the cells are "withheld and shown as —", which is what the grid shows.
+- **The EV bridge note reaches the model's payload** (the valuation notes and each EV multiple's basis), so payload 1.46.0 marks it; in the pinned Stage C fixture the prompt grows by the sixteen grouping commas of one EV printed four times, and no provenance record, citation or value moves. Stage B ACCOUNTING_EVIDENCE_24 and report 1.40.2 mark the wording.
+- **Not changed: keyless marketable equity (D-106).** Treating `EquitySecuritiesFvNi` as non-operating on the keyless path was considered and left out: companyfacts does not say whether an undivided stake is current or already inside a long-term investments line, so a rule could count it twice. The difference to the vendor path stays disclosed in METHODOLOGY.
+
+Stored reports and snapshots keep their bytes.
