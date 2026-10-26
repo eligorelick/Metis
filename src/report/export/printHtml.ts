@@ -2,7 +2,7 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimStatusMarkText, COMPUTED_MARK_LEGEND, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -784,12 +784,11 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   ]
     .filter((b) => b.length > 0)
     .join("\n");
-  return withComputedMarkLegend(body);
+  return hasComputedFigures(report) ? withComputedMarkLegend(body) : body;
 }
 
 /** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
 function withComputedMarkLegend(html: string): string {
-  if (!html.includes("<td>computed</td>")) return html;
   const header = html.indexOf("<th>Cited</th></tr></thead>");
   const end = header < 0 ? -1 : html.indexOf("</table>", header);
   if (end < 0) return html;

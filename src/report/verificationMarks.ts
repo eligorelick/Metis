@@ -14,6 +14,8 @@ export type ClaimStatusMark = "validated" | "unverified" | "contradicted" | "qua
 const marks = new WeakMap<object, ClaimStatusMark>();
 /** F-23: figures of a data-only report, whose `verified` means computed, not citation-checked. */
 const computedFigures = new WeakSet<object>();
+/** Indexed data-only reports holding at least one computed figure. */
+const computedReports = new WeakSet<object>();
 const indexed = new WeakSet<object>();
 
 function markFor(entry: VerificationLogEntry): ClaimStatusMark {
@@ -34,15 +36,18 @@ function resolvePath(root: unknown, path: string): unknown {
   return node;
 }
 
-function indexComputedFigures(node: unknown): void {
-  if (node === null || typeof node !== "object") return;
-  if (Array.isArray(node)) {
-    for (const item of node) indexComputedFigures(item);
-    return;
-  }
+/** Index a data-only report's figures as computed; true when it holds any. */
+function indexComputedFigures(node: unknown): boolean {
+  if (node === null || typeof node !== "object") return false;
+  if (Array.isArray(node)) return node.map(indexComputedFigures).includes(true);
   const obj = node as Record<string, unknown>;
-  if (obj.verified === true && typeof obj.value === "number" && typeof obj.source === "string") computedFigures.add(obj);
-  for (const value of Object.values(obj)) indexComputedFigures(value);
+  let found = false;
+  if (obj.verified === true && typeof obj.value === "number" && typeof obj.source === "string") {
+    computedFigures.add(obj);
+    found = true;
+  }
+  for (const value of Object.values(obj)) found = indexComputedFigures(value) || found;
+  return found;
 }
 
 /**
@@ -55,7 +60,7 @@ export function indexVerificationMarks(report: Report): void {
   if (indexed.has(report)) return;
   indexed.add(report);
   // history.ts isDataOnly reads the same marker, but that module imports the database.
-  if (report.appendix.missingData.some((gap) => gap.field === "analysis.llm")) indexComputedFigures(report);
+  if (report.appendix.missingData.some((gap) => gap.field === "analysis.llm") && indexComputedFigures(report)) computedReports.add(report);
   for (const entry of report.appendix.verificationLog ?? []) {
     if (entry.evidenceKind !== "factual-claim" || entry.check !== undefined || entry.path === undefined || entry.validationStatus === undefined) continue;
     const node = resolvePath(report, entry.path);
@@ -80,6 +85,16 @@ export function claimStatusMarkText(claim: SourcedClaim): string | null {
  */
 export function isComputedFigure(n: TracedNumber): boolean {
   return computedFigures.has(n);
+}
+
+/**
+ * True for an indexed data-only report with a computed figure: the reports
+ * whose Cited column needs the legend. A checked report's own cells may read
+ * "computed" (a Sources row's provider), so the exporters ask this instead of
+ * reading their output (review of F-23).
+ */
+export function hasComputedFigures(report: Report): boolean {
+  return computedReports.has(report);
 }
 
 /** The legend printed under the first table with a Cited column in a data-only report (F-23). */

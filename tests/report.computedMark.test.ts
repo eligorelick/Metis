@@ -70,6 +70,15 @@ describe("data-only figure marks (audit 2026-10-22 F-23)", () => {
     expect(audit).not.toContain("| citation-traced |");
   });
 
+  it("adds no legend to a checked report whose own cells read computed (review of F-23)", () => {
+    const report = loadTask28Fixture();
+    report.appendix.sources.push({ provider: "computed", endpoint: "derived:profile(edgar:submissions)", asOf: "2026-06-30", fetchedAt: "2026-07-01T00:00:00.000Z" });
+    report.appendix.sources.push({ provider: "edgar", endpoint: "companyfacts", asOf: "2026-06-30", fetchedAt: "2026-07-01T00:00:00.000Z" });
+    expect(reportToPrintBody(report)).toContain("<td>computed</td>");
+    expect(reportToPrintBody(report)).not.toContain("table-legend");
+    expect(reportToMarkdown(report)).not.toContain(COMPUTED_MARK_LEGEND);
+  });
+
   it("keeps ✓ and no legend when the verify pass ran", () => {
     const report = loadTask28Fixture();
     expect(markdownCitedCells(reportToMarkdown(report))).toContain("✓");

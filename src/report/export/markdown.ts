@@ -23,7 +23,7 @@ import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimStatusMarkText, COMPUTED_MARK_LEGEND, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -974,13 +974,13 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
 
   // Join sections with a blank-line-separated horizontal rule for readability;
   // ensure a single trailing newline for a clean file.
-  return withComputedMarkLegend(blocks.join("\n\n---\n\n") + "\n");
+  const markdown = blocks.join("\n\n---\n\n") + "\n";
+  return hasComputedFigures(report) ? withComputedMarkLegend(markdown) : markdown;
 }
 
 /** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
 function withComputedMarkLegend(markdown: string): string {
   const lines = markdown.split("\n");
-  if (!lines.some((line) => line.startsWith("|") && line.includes(" | computed |"))) return markdown;
   const header = lines.findIndex((line) => line.startsWith("|") && line.endsWith(" | Cited |"));
   if (header < 0) return markdown;
   let end = header;
