@@ -2534,3 +2534,88 @@ describe("buildStatementsFromCompanyFacts — non-current investments (AMZN audi
     expect(row.longTermInvestments).toBeNull();
   });
 });
+
+describe("buildStatementsFromCompanyFacts — diluted weighted shares (audit 2026-10-22 B-35)", () => {
+  const K = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13" } as const;
+  const annual = (val: number): Pt[] => [{ start: "2025-01-01", end: "2025-12-31", val, ...K }];
+  const base = (extra: Record<string, Pt[]>): CompanyFacts =>
+    facts({
+      Revenues: annual(330_000),
+      NetIncomeLoss: annual(28_800),
+      Assets: [{ end: "2025-12-31", val: 450_000, ...K }],
+      ...extra,
+    });
+
+  it("stands basic weighted shares in for the diluted count when basic and diluted EPS are equal for the period", () => {
+    // Exxon Mobil has tagged no diluted count since FY2013; its basic and
+    // diluted EPS are the same figure (FY2025 6.70) and basic shares 4,305M.
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        EarningsPerShareBasic: annual(6.7),
+        EarningsPerShareDiluted: annual(6.7),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_305_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    const row = built.incomeAnnual.rows[0]!;
+    expect(row.weightedAverageShsOutDil).toBe(4_305_000_000);
+    expect(row.fieldProvenance?.weightedAverageShsOutDil).toMatchObject({
+      periodStart: "2025-01-01",
+      periodEnd: "2025-12-31",
+      calculation: "basic-shares-equal-eps",
+    });
+    expect(built.incomeAnnual.substitutions).toEqual([
+      { field: "weightedAverageShsOutDil", periods: ["2025-12-31"], text: expect.stringMatching(/basic and diluted EPS are equal.*stand-in/) },
+    ]);
+  });
+
+  it("keeps the diluted count null when basic and diluted EPS differ, or when either is missing", () => {
+    const differ = buildStatementsFromCompanyFacts(
+      base({
+        EarningsPerShareBasic: annual(3.5),
+        EarningsPerShareDiluted: annual(3.48),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_174_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(differ.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBeNull();
+    expect(differ.incomeAnnual.substitutions).toEqual([]);
+    const basicOnly = buildStatementsFromCompanyFacts(
+      base({ EarningsPerShareBasic: annual(3.48), WeightedAverageNumberOfSharesOutstandingBasic: annual(4_174_000_000) }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(basicOnly.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBeNull();
+  });
+
+  it("keeps a tagged diluted count over the stand-in", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        EarningsPerShareBasic: annual(3.48),
+        EarningsPerShareDiluted: annual(3.48),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_174_000_000),
+        WeightedAverageNumberOfDilutedSharesOutstanding: annual(4_180_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(built.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBe(4_180_000_000);
+    expect(built.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it("reads the combined basic-and-diluted elements for both counts and both EPS figures", () => {
+    const combined = base({
+      EarningsPerShareBasicAndDiluted: annual(3.48),
+      WeightedAverageNumberOfShareOutstandingBasicAndDiluted: annual(4_174_000_000),
+    });
+    // The element's name says "Share", which the fixture helper's unit guess misses.
+    const concept = combined.facts["us-gaap"]!.WeightedAverageNumberOfShareOutstandingBasicAndDiluted as { units: Record<string, unknown> };
+    concept.units = { shares: concept.units.USD };
+    const built = buildStatementsFromCompanyFacts(combined, { ...OPTS, symbol: "XYZ" });
+    expect(built.incomeAnnual.rows[0]).toMatchObject({
+      eps: 3.48,
+      epsDiluted: 3.48,
+      weightedAverageShsOut: 4_174_000_000,
+      weightedAverageShsOutDil: 4_174_000_000,
+    });
+    expect(built.incomeAnnual.substitutions).toEqual([]);
+  });
+});

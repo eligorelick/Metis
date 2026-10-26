@@ -3559,3 +3559,23 @@ example "[kept first: passages updating the 10-K's figures for gigawatts,
 megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
 whether the newer figure supersedes the older one, and the passes see both
 with their filings and dates.
+
+### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
+
+The independent audit of 2026-10-22 found figures withheld although the filed
+evidence was complete. Batch 3a fixed the high-severity ones; this batch fixes
+the medium ones on the same code paths. Decision: D-105.
+
+**Diluted weighted shares (B-35).** On the SEC path the diluted weighted share
+count came only from `WeightedAverageNumberOfDilutedSharesOutstanding`. Exxon
+Mobil has tagged none since FY2013, so it had no diluted count and no
+per-share fair value, although its basic and diluted EPS are the same figure
+in every period. Two changes: the combined elements
+`WeightedAverageNumberOfShareOutstandingBasicAndDiluted` and
+`EarningsPerShareBasicAndDiluted` are read as both the basic and the diluted
+figure; and when a period has no diluted count but the filer reports basic and
+diluted EPS that are equal, for the same interval as its basic weighted count
+and neither derived, the basic count stands in for the diluted count. The
+stand-in is disclosed per period as an info entry: dilution too small to move
+EPS at its reported rounding is not reflected. When basic and diluted EPS
+differ, or either is missing, the diluted count stays withheld.

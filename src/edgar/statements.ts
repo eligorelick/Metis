@@ -3196,6 +3196,41 @@ function deriveFourthQuarterPerShare(
   }
 }
 
+/** Disclosure for a diluted share count served by the basic count (audit 2026-10-22 B-35). */
+const BASIC_SHARES_FOR_DILUTED_DISCLOSURE =
+  "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; the basic weighted count is the diluted stand-in, so dilution too small to move EPS at its reported rounding is not reflected";
+
+/**
+ * A filer that tags no diluted weighted count (Exxon Mobil has tagged none
+ * since FY2013) but reports the same basic and diluted EPS for the period has
+ * no dilution that moves EPS, so its basic weighted count stands in for the
+ * diluted one. Both EPS figures must be reported (not derived) for the very
+ * interval of the basic count; with any doubt the diluted count stays null.
+ */
+function standInDilutedSharesFromBasic(rows: FmpIncomeStatementRow[], notes: NoteSink): void {
+  for (const row of rows) {
+    if (typeof row.date !== "string" || row.weightedAverageShsOutDil != null) continue;
+    const basic = row.weightedAverageShsOut;
+    const provenance = row.fieldProvenance;
+    const shares = provenance?.weightedAverageShsOut;
+    const eps = provenance?.eps;
+    const epsDiluted = provenance?.epsDiluted;
+    if (!isNum(basic) || !(basic > 0) || !isNum(row.eps) || !isNum(row.epsDiluted) || row.eps !== row.epsDiluted) continue;
+    if (provenance === undefined || shares === undefined || eps === undefined || epsDiluted === undefined) continue;
+    const sameInterval = [eps, epsDiluted].every((p) => p.derivation === undefined && p.periodStart === shares.periodStart && p.periodEnd === shares.periodEnd);
+    if (shares.derivation !== undefined || !sameInterval) continue;
+    row.weightedAverageShsOutDil = basic;
+    provenance.weightedAverageShsOutDil = {
+      ...shares,
+      tags: [...new Set([...shares.tags, ...eps.tags, ...epsDiluted.tags])],
+      filings: [...new Map([...shares.filings, ...eps.filings, ...epsDiluted.filings].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
+      calculation: "basic-shares-equal-eps",
+    };
+    notes.substitute("weightedAverageShsOutDil", row.date, BASIC_SHARES_FOR_DILUTED_DISCLOSURE);
+    notes.add(`weightedAverageShsOutDil ${row.date}: ${BASIC_SHARES_FOR_DILUTED_DISCLOSURE}`);
+  }
+}
+
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
@@ -3269,6 +3304,8 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     incomeQuarterlyNotes,
   );
   deriveFourthQuarterPerShare(incomeQuarterly.rows, incomeAnnual.rows, incomeQuarterlyNotes);
+  standInDilutedSharesFromBasic(incomeAnnual.rows, incomeAnnualNotes);
+  standInDilutedSharesFromBasic(incomeQuarterly.rows, incomeQuarterlyNotes);
   const balanceAnnual = buildStatementRows<FmpBalanceSheetRow>(
     BALANCE_DEF,
     annualYears.map((fy) => ({ date: fy.end, resolve: instantResolver(index, fy.end), quarter: null })),

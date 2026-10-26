@@ -262,10 +262,13 @@ export const LINE_ITEM_TAGS = {
     "DepreciationAndAmortization",
     "DepreciationAmortizationAndAccretionNet",
   ]),
-  eps: entry(["EarningsPerShareBasic"]),
-  epsDiluted: entry(["EarningsPerShareDiluted"]),
-  weightedAverageShsOut: entry(["WeightedAverageNumberOfSharesOutstandingBasic"]),
-  weightedAverageShsOutDil: entry(["WeightedAverageNumberOfDilutedSharesOutstanding"]),
+  // A filer with no dilutive securities can tag one figure for both bases with
+  // the combined elements; each is the basic and the diluted figure at once
+  // (audit 2026-10-22 B-35).
+  eps: entry(["EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"]),
+  epsDiluted: entry(["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"]),
+  weightedAverageShsOut: entry(["WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),
+  weightedAverageShsOutDil: entry(["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),
 
   // --- balance sheet --------------------------------------------------------
   cashAndCashEquivalents: entry([
