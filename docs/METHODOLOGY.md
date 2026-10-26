@@ -973,12 +973,15 @@ paths' fixed bridge, and the notes add "the latest filed balance, as the
 2026-06-30 balance sheet does not tag it". Many filers tag these only in the
 10-K: FCX's 10-Qs carry neither, so a rule bound to the quarter's date would
 miss them three quarters a year. A balance more than a year older than the
-bridge's is not read. When the bridge's own balance sheet is an annual
-report's (its `Assets` fact is filed on a 10-K, 20-F or 40-F) and does not tag
-an obligation, the obligation is taken as gone (settled or sold) and no
-earlier balance is read. A quarter that omits it cannot be told apart from
-one where it was settled, so a settlement within the year is caught at the
-next annual report. When the parts are summed, the noncurrent part must be
+bridge's is not read. An annual report's balance sheet (a date at which an
+`Assets` fact was filed on a 10-K, 20-F or 40-F, though later 10-Qs re-file
+it as their comparative column) that does not tag an obligation means the
+obligation is gone (settled or sold): when the bridge's own balance sheet is
+one, no earlier balance is read, and otherwise the look-back stops at the
+latest one before the bridge's date. A balance filed as zero (the total, or
+the noncurrent part with no current part) also means it is gone. A quarter
+that omits it cannot be told apart from one where it was settled, so a
+settlement within the year is caught at the next annual report. When the parts are summed, the noncurrent part must be
 among them: a current portion alone is not the obligation, and the look-back
 continues to the full balance.
 Second, assets the issuer tags as legally restricted to settle the retirement obligations
@@ -2094,7 +2097,8 @@ other services combined) or 4941 (water supply), and the issuer's companyfacts
 show rate regulation: `RegulatoryAssets`, `RegulatoryAssetsCurrent`,
 `RegulatoryAssetsNoncurrent` or a `RegulatedOperatingRevenue*` element (electric,
 electric non-nuclear, gas, water, pipelines, other or the total), with a fact
-filed by the run date and ending within 24 months of it. The SIC alone also covers merchant
+filed by the run date and ending within 24 months of it (a period re-filed after the run date, as
+the next year's comparative column, is read as it was first filed). The SIC alone also covers merchant
 generators and energy marketers, so without the evidence the overlay is not
 applied and the note says why. `RegulatedAndUnregulatedOperatingRevenue` is a
 total and evidences neither. The overlay changes no base route and no

@@ -3734,8 +3734,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // risk-free rate forever. Null leaves the house terminal-growth cap
           // as the only bound, which the basis string discloses.
           riskFreePct: rf.pct,
-          // The same return, year by year, against that year's own cost of
-          // equity — the evidence the terminal excess-return convention reads.
+          // The same return, year by year — the evidence the terminal
+          // excess-return convention reads. A financial route has no ROIC
+          // series, so no year has a cost of equity of its own and each is
+          // compared with the current one (audit 2026-10-22 B-31).
           roeHistory: commonReturns.series.map((y) => {
             const point = waccByYear.get(y.date);
             return {
