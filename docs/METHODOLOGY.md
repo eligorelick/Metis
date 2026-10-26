@@ -2794,7 +2794,7 @@ The row discloses the substitution. These class figures can include current debt
 - both a generic notes total and a convertible-notes total are tagged;
 - two class figures lie within 2% of each other. Secured debt classifies by collateral, so it can hold the same notes or loans another class holds. Across SEC filers' FY2025 facts, every multi-class pair this close was one obligation tagged twice (Sun Communities' `LoansPayable` 2,429.0m beside `SecuredDebt` 2,472.2m, for example). REIT mortgages beside unsecured notes sit far apart and still compose. A secured class that holds only part of another class cannot be seen from the tags; the debt plausibility check below catches understatement, not that overlap.
 
-A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
+A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone therefore do not take it as noncurrent debt, with a `forensics.longTermDebt` info gap: LVGI, which adds it to current liabilities, takes Beneish's neutral 1.0. ΔLEVER compares the composed figure year on year when both years compose it from the same tags, and is not evaluated, with both tag sets named, when they differ (audit 2026-10-22 E-8).
 
 **Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations` or `LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities`). The year's interest expense is divided by the average debt resolved at the balance dates of that year, opening to closing; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains part of its interest. Above 25%, the components cannot be the debt that carried the interest. A collapse is tested as well: debt that fell by more than 60% from the previous balance date, to a closing balance on which the interest implies more than 25%, needs net debt repayment in the period's cash flow of at least half the fall. In either case total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
 - interest below 0.25% of total assets;
@@ -3725,3 +3725,18 @@ financing debt, not float. The premium and claim-reserve tags a health plan
 files match the insurer evidence rule, so for SIC 6324 that evidence is noted
 rather than used to re-route. The forensic band that keeps Altman Z off
 financial SIC codes still includes 6324, unchanged.
+
+**Piotroski leverage on a composed long-term debt (E-8).** Realty Income and
+NNN compose long-term debt from instrument-class totals (`NotesPayable`,
+`LoansPayable`) that may hold current notes. That figure is kept out of the
+forensic long-term debt, which nulled ΔLEVER and renormalised the F-score
+over the other signals (O's passing signal and NNN's failing one were both
+dropped). The level overstates long-term debt, but the direction of leverage
+is still measurable when both years compose the figure from the same tags, so
+ΔLEVER now compares the composed figures on that basis and says so (O:
+39.64% → 37.80%, a pass). Owner decision: the comparison is by tag set,
+because the provenance does not carry a value for each class. When the tags
+differ, the signal is withheld and both tag sets are named. NNN stays
+withheld: its FY2025 figure carries a `LoansPayable` tag, at zero, that
+FY2024's lacks. LVGI is unchanged: it adds long-term debt to current
+liabilities, where current notes would count twice.

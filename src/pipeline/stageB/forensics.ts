@@ -79,6 +79,13 @@ export interface ForensicsBalanceRow {
   totalCurrentLiabilities?: number | null;
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
+  /**
+   * Audit 2026-10-22 E-8: a long-term debt composed from instrument-class tags
+   * that may hold current notes, with those tags. It stays out of
+   * `longTermDebt`; the Piotroski leverage direction compares it year on year
+   * when both years compose it from the same classes.
+   */
+  longTermDebtComposed?: { value: number; tags: readonly string[] } | null;
   taxPayables?: number | null;
   retainedEarnings?: number | null;
   totalStockholdersEquity?: number | null;
@@ -1559,12 +1566,29 @@ export function computePiotroski(
   if (balanceSheetFunded) {
     s5 = na(leverageWithheld);
   } else {
-    const ltdT = nv(current.balance?.longTermDebt);
-    const ltdP = nv(prior.balance?.longTermDebt);
+    // Audit 2026-10-22 E-8: a composed long-term debt that may hold current
+    // notes still shows the direction of leverage when both years compose it
+    // from the same classes.
+    const debtBasis = (balance: ForensicsBalanceRow | null | undefined): { value: number; tags: readonly string[] | null } | null => {
+      const reported = nv(balance?.longTermDebt);
+      if (reported !== null) return { value: reported, tags: null };
+      const composed = balance?.longTermDebtComposed;
+      return composed && Number.isFinite(composed.value) ? { value: composed.value, tags: composed.tags } : null;
+    };
+    const classes = (tags: readonly string[] | null): string => tags === null ? "long-term debt alone" : tags.map(tag => tag.replace(/^us-gaap\//, "")).join(" + ");
+    const sameClasses = (a: readonly string[] | null, b: readonly string[] | null): boolean =>
+      a === null || b === null ? a === b : a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
+    const debtT = debtBasis(current.balance);
+    const debtP = debtBasis(prior.balance);
+    const ltdT = debtT?.value ?? null;
+    const ltdP = debtP?.value ?? null;
     const taT = posOrNull(current.balance?.totalAssets);
     const taP = posOrNull(prior.balance?.totalAssets);
+    const composedTags = debtT?.tags ?? null;
     if (ltdT === null || ltdP === null || taT === null || taP === null) {
       s5 = na("longTermDebt or totalAssets missing");
+    } else if (!sameClasses(debtT!.tags, debtP!.tags)) {
+      s5 = na(`long-term debt is composed from instrument-class tags that may hold current notes, and the tags differ between years (${classes(debtT!.tags)} vs ${classes(debtP!.tags)}), so the two levels may not measure the same debt and the direction of leverage is not established`);
     } else if (ltdT === 0 && ltdP === 0) {
       s5 = { value: 1, detail: "zero long-term debt in both years — point awarded" };
       notes.push(
@@ -1583,9 +1607,13 @@ export function computePiotroski(
       }
       const lT = ltdT / avgT;
       const lP = ltdP / avgP;
+      const composedText = composedTags === null ? "" : `; long-term debt composed from ${classes(composedTags)} in both years, which may include current notes`;
+      if (composedTags !== null) {
+        notes.push(`ΔLEVER: long-term debt is composed from ${classes(composedTags)} in both years; the classes may hold current notes, so the level overstates long-term debt, but the year-on-year direction compares like with like.`);
+      }
       s5 = sig(
         lT < lP,
-        `LTD/avg TA ${(lP * 100).toFixed(2)}% → ${(lT * 100).toFixed(2)}% (average-TA denominator per the paper)`,
+        `LTD/avg TA ${(lP * 100).toFixed(2)}% → ${(lT * 100).toFixed(2)}% (average-TA denominator per the paper)${composedText}`,
         `leverage ${lT > lP ? "rose" : "was unchanged"}`,
       );
     }

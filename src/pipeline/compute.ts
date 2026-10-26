@@ -641,6 +641,10 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     // Leverage tests read long-term debt alone; a composed figure holding
     // current notes would count those notes twice beside current liabilities.
     longTermDebt: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) ? null : num(r.longTermDebt),
+    // Audit 2026-10-22 E-8: kept with its tags for the Piotroski leverage direction.
+    longTermDebtComposed: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) && num(r.longTermDebt) !== null
+      ? { value: num(r.longTermDebt)!, tags: [...r.fieldProvenance!.longTermDebt!.tags] }
+      : null,
     taxPayables: num(r.taxPayables),
     retainedEarnings: num(r.retainedEarnings),
     totalStockholdersEquity: num(r.totalStockholdersEquity),
@@ -2274,7 +2278,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   });
   if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
     forensics.gaps.push({ field: "forensics.longTermDebt", severity: "info", reason:
-      "long-term debt is composed from instrument-class tags that include current debt, so the leverage tests that read long-term debt alone (Piotroski leverage, Beneish LVGI) are not evaluated; total debt is unaffected" });
+      "long-term debt is composed from instrument-class tags that include current debt, so Beneish LVGI, which adds it to current liabilities, is not evaluated; Piotroski leverage compares the composed figure year on year only when both years compose it from the same classes; total debt is unaffected" });
   }
   if (forensicEquityScope.status === "unresolved") {
     forensics.gaps.push({ field: "forensics.economicClassBasis", reason: forensicEquityScope.basis, severity: "warn", attemptedSources: forensicEquityScope.sourceIds });
