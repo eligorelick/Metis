@@ -210,13 +210,14 @@ function addMonths(iso: string, months: number): string {
   return shifted.toISOString().slice(0, 10);
 }
 
-/** Newest deduped core-form point of a tag with a finite non-zero value, or null. */
-function newestPoint(facts: CompanyFacts, tag: string): { point: FactPoint; unit: string } | null {
+/** Newest deduped core-form point of a tag with a finite non-zero value (filed by `filedBy`, when given), or null. */
+function newestPoint(facts: CompanyFacts, tag: string, filedBy?: string): { point: FactPoint; unit: string } | null {
   const tp = tagPoints(facts, tag);
   if (tp === null) return null;
   let best: FactPoint | null = null;
   for (const p of dedupFactPoints(tp.points)) {
     if (!Number.isFinite(p.val) || p.val === 0) continue;
+    if (filedBy !== undefined && !(p.filed <= filedBy)) continue;
     if (best === null || p.end > best.end || (p.end === best.end && p.filed > best.filed)) best = p;
   }
   return best === null ? null : { point: best, unit: tp.unit };
@@ -292,7 +293,7 @@ export function deriveRoutingEvidence(
   // financial tags (a utility usually has none of those).
   const utilityCutoff = opts.today !== undefined && /^\d{4}-\d{2}-\d{2}/.test(opts.today) ? addMonths(opts.today.slice(0, 10), -recencyMonths) : null;
   const regulatedUtility = REGULATED_UTILITY_TAGS.flatMap((tag) => {
-    const hit = newestPoint(facts, tag);
+    const hit = utilityCutoff === null ? null : newestPoint(facts, tag, (opts.today as string).slice(0, 10));
     return hit === null || utilityCutoff === null || hit.point.end < utilityCutoff ? [] : [toSignal(tag, hit)];
   });
 

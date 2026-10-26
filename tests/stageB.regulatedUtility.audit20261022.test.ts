@@ -60,6 +60,14 @@ describe("B-13: regulated-utility evidence and routing", () => {
     expect(old.regulatedUtility).toEqual([]);
   });
 
+  it("reads only evidence filed by the run date, as a replay saw it", () => {
+    // Filed after the run: not evidence then, even when it is newer.
+    const later = facts({ RegulatoryAssetsNoncurrent: [pt("2026-09-30", 16e9, "10-Q", "2026-11-05")] });
+    expect(deriveRoutingEvidence(fetched(later), { today: TODAY }).regulatedUtility).toEqual([]);
+    const both = facts({ RegulatoryAssetsNoncurrent: [pt("2026-03-31", 15e9), pt("2026-09-30", 16e9, "10-Q", "2026-11-05")] });
+    expect(deriveRoutingEvidence(fetched(both), { today: TODAY }).regulatedUtility.map((sig) => sig.end)).toEqual(["2026-03-31"]);
+  });
+
   it("puts a utility SIC with regulatory evidence on the regulated-utility overlay of the general route", () => {
     for (const sic of ["4911", "4931", "4932", "4941", "4924 NATURAL GAS DISTRIBUTION"]) {
       const r = routeCompany(profile(sic), statements, { today: TODAY, evidence: deriveRoutingEvidence(fetched(DUK_FACTS), { today: TODAY }) });
