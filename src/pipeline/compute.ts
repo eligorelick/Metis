@@ -1787,8 +1787,10 @@ function totalDebtSnapshot(
     return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}` };
   }
   if (a.value === null && b.value === null) {
-    return { average: null, negativeObservation: null, basis, currency,
-      unavailable: `no book total debt on ${pair.map(row => isoDay(row?.date) ?? "a missing balance").join(" or ")}` };
+    const dated = pair.filter((row): row is FmpBalanceSheetRow => row !== undefined).map(row => isoDay(row.date));
+    const unavailable = dated.length === 0 ? "no balance sheet to average"
+      : `no book total debt on ${dated.join(" or ")}${dated.length < pair.length ? ", and no second balance to average it with" : ""}`;
+    return { average: null, negativeObservation: null, basis, currency, unavailable };
   }
   // D-60: the newest balance sheet (quarterly or annual, whichever is newer),
   // in the same established currency as the averaged pair.

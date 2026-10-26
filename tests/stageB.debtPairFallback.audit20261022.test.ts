@@ -60,6 +60,20 @@ describe("average debt behind a refused balance (audit 2026-10-22 C-1)", () => {
     expect(gap?.reason).toContain("2025-12-31");
   });
 
+  it("names a missing balance plainly in the critical gap", () => {
+    const criticalReason = (bundle: ReturnType<typeof currencyBundle>) =>
+      runStageB(bundle).returns.wacc.gaps.find(g => g.field === "returns.wacc.weights" && g.severity === "critical")?.reason;
+    const none = currencyBundle({ balanceQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    quarters(none).splice(0);
+    annual(none).splice(0);
+    expect(criticalReason(none)).toMatch(/: no balance sheet to average$/);
+    const one = currencyBundle({ balanceQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    quarters(one).splice(0);
+    annual(one).splice(1);
+    delete annual(one)[0]!.totalDebt;
+    expect(criticalReason(one)).toMatch(/: no book total debt on 2025-12-31, and no second balance to average it with$/);
+  });
+
   it("still withholds when the newest balance's debt carrying total is refused, and says so", () => {
     const bundle = currencyBundle({ balanceQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
     const newest = quarters(bundle)[0]!;
