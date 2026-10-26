@@ -3829,7 +3829,9 @@ DCF with growth shifted ±σ. Where faster growth needs reinvestment that earns
 less than it costs, and slower growth releases no capital (reinvestment is
 floored at zero), the DCF's value peaks at the base path and both runs land
 below it. A "bear – bull" range then excludes the fair value it is meant to
-bracket. Such a fan is now withheld with both values named. Duke Energy's
+bracket. Such a fan is now withheld with both values named. It is judged on
+the two-decimal per-share values the report shows, so a run that shows as
+the base touches it rather than falling outside. Duke Energy's
 merged second quarter reached this (bull $37.23, base $43.09, bear $33.24);
 no issuer in the main-branch panel did.
 
@@ -3837,9 +3839,14 @@ no issuer in the main-branch panel did.
 contiguous quarters cover the trailing twelve months, P/E and EV/EBITDA fall
 back to the latest fiscal year, but they were still labelled "TTM". Each
 multiple now records the period its earnings cover ("TTM to 2026-06-30" or
-"FY2025"), and the label follows it in the multiples table, Key data, the
-exports and the AI payload's record ("P/E (FY2025)", "EV/EBITDA (FY2025)").
-TTM labels are unchanged. The P/E basis used to read "price / epsDiluted
+"FY2025"), and the label follows it in the multiples table, Key data and the
+exports ("P/E (FY2025)", "EV/EBITDA (FY2025)"). In the AI payload a
+fiscal-year multiple names its year in the label the model reads ("peTtm
+(current, FY2025)"), and its record carries that period; a TTM record keeps
+its label and period. TTM labels are unchanged. With no income-statement D&A,
+EBITDA adds the cash-flow statement's D&A only when it covers the same
+period as the operating income; on another period EV/EBITDA is withheld with
+a gap naming both, rather than adding two periods' figures under one label. The P/E basis used to read "price / epsDiluted
 (TTM); fallback marketCap / common income" whichever ran; it now names only
 the formula that produced the figure, and when it is market cap over common
 income it says why diluted EPS was not used (diluted EPS missing for a
@@ -3858,7 +3865,11 @@ has tagged no net-income EPS since FY2022, so its annual EPS was empty from
 discontinued EPS (ASC 260-10-45-3), so when no net-income EPS is tagged and
 no discontinued result is filed for the period, in dollars or per share, the
 reported continuing figure stands in, with its own provenance and a
-substitution disclosure. A filed discontinued result keeps EPS empty.
+substitution disclosure. A discontinued result filed under any of the
+elements filers use (net of tax, attributable to the reporting entity, the
+DiscontinuedOperation* elements, a gain on disposal, or per basic, diluted or
+combined share) keeps EPS empty, even when it is withheld from the row for
+its currency or period.
 Freeport's EPS CAGR now runs 2020 to 2025 (1.52 in FY2025, 1.30 in FY2024).
 
 **TTM across a reorganisation (B-36).** A trailing twelve months that joins
