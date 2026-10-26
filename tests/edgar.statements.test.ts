@@ -2240,11 +2240,12 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
     expect(built.substitutions[0]!.text).toMatch(/may ALREADY contain the interest expense added back/);
   });
 
-  it("WITHHOLDS the derived EBIT when the interest tag is a taxonomy child of the aggregate", () => {
+  it("does not add back interest the taxonomy nests inside the subtracted aggregate (audit 2026-10-22 B-39)", () => {
     // InterestExpenseNonoperating sits inside NonoperatingIncomeExpense, so
-    // "pretax + interest − aggregate" adds back interest the aggregate already
-    // removed: a true EBIT of 1,000 with interest 100 and an aggregate of −50
-    // would publish 1,100. No figure is published at all instead.
+    // "pretax + interest − aggregate" would add back interest the aggregate
+    // already removed: a true EBIT of 1,000 with interest 100 and an aggregate
+    // of −50 would publish 1,100. The figure used to be withheld; pretax less
+    // the aggregate is exact, so it is 1,000 and says why.
     const built = ebit(
       facts({
         Revenues: annual(64_000),
@@ -2255,26 +2256,30 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
         NonoperatingIncomeExpense: annual(-50),
       }),
     );
-    expect(built.rows[0]!.operatingIncome).toBeNull();
-    // And no figure means no figure: `ebit` used to publish the 1,050 sum the
-    // derivation had just refused, under a second name, and `ebit` is the field
-    // valuation reads. Both are withheld together.
-    expect(built.rows[0]!.ebit).toBeNull();
-    expect(built.substitutions).toEqual([]);
-    expect(built.withheld).toEqual([
-      {
-        field: "operatingIncome",
-        periods: ["2025-12-31"],
-        text: expect.stringMatching(/^operating income WITHHELD rather than derived/),
-      },
-      {
-        field: "ebit",
-        periods: ["2025-12-31"],
-        text: expect.stringMatching(/^ebit WITHHELD: pre-tax income plus interest expense is available/),
-      },
-    ]);
-    expect(built.withheld[0]!.text).toMatch(/overstate EBIT by exactly that interest/);
-    expect(built.notes.some((n) => /operating income WITHHELD rather than derived/.test(n))).toBe(true);
+    expect(built.rows[0]!.operatingIncome).toBe(1_000);
+    expect(built.rows[0]!.ebit).toBe(1_000);
+    expect(built.rows[0]!.interestExpense).toBe(100);
+    expect(built.withheld).toEqual([]);
+    const text = built.substitutions.find((s) => s.field === "operatingIncome")!.text;
+    expect(text).toMatch(/^EBIT derived as pretax income \(IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest\): /);
+    expect(text).toMatch(/interest expense \(InterestExpenseNonoperating\) is not added back/);
+    expect(text).not.toMatch(/may ALREADY contain the interest expense added back/);
+  });
+
+  it("derives Eli Lilly's operating income from pretax less its non-operating total", () => {
+    // LLY FY2025 as filed (USD millions): no OperatingIncomeLoss line.
+    const built = ebit(
+      facts({
+        Revenues: annual(65_179),
+        NetIncomeLoss: annual(20_640),
+        Assets: [{ end: "2025-12-31", val: 117_000, ...K }],
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: annual(25_731),
+        InterestExpenseNonoperating: annual(895),
+        NonoperatingIncomeExpense: annual(-571),
+      }),
+    );
+    expect(built.rows[0]!.operatingIncome).toBe(26_302);
+    expect(built.rows[0]!.ebit).toBe(26_302);
   });
 
   it("still derives when that interest tag serves and no aggregate was filed", () => {

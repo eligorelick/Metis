@@ -652,10 +652,10 @@ reports one, otherwise a derivation from pre-tax income that adds back interest
 expense and removes the non-operating results the filing discloses. It is never
 pre-tax income plus interest on its own. That sum reintroduces every
 non-operating item the derivation removed, and where the derivation is refused
-outright — a bank, where interest is an operating cost, or a non-operating
-aggregate that already contains the interest being added back — EBIT is
-withheld and named in the missing-data manifest rather than published under a
-second name.
+outright — a bank, where interest is an operating cost — EBIT is withheld and
+named in the missing-data manifest rather than published under a second name.
+Interest the taxonomy nests inside the non-operating aggregate the filer
+tagged is not added back (audit 2026-10-22 B-39, below).
 
 Terminal growth is **min(2.5%, risk-free rate)** — nothing grows faster than
 the risk-free rate in perpetuity (Damodaran). Like the terminal-ROIC rule below
@@ -3653,3 +3653,19 @@ never used, so the EV bridge at that date stays withheld. A refused debt
 carrying total (an incomplete debt note) still withholds the WACC wherever
 it falls. When no average is established, the critical gap names the balance
 date and the cause.
+
+**Operating income when interest sits inside the non-operating total
+(B-39).** A filer with no `OperatingIncomeLoss` line gets EBIT derived as
+pretax income + interest expense − the non-operating items it tags. When its
+interest is tagged `InterestExpenseNonoperating`, which the us-gaap
+calculation makes a component of the `NonoperatingIncomeExpense` aggregate it
+also filed, adding the interest back would count it twice, so the figure was
+withheld, and EBIT with it. Eli Lilly had no EBIT, so when its effective cost
+of debt (2.35%) fell below the acceptance band there was no synthetic rating
+to fall back on, and no WACC or DCF. Pretax income less that aggregate is the
+operating result exactly, so EBIT is now derived that way: the interest is
+not added back, and the disclosure says why (LLY FY2025: 25,731 + 571 =
+26,302 million). Owner decision: the taxonomy nesting is taken as the filer's
+presentation, as the withholding rule already did; the disclosure says that
+where a filer's aggregate leaves its interest out, the figure understates
+EBIT by that interest.

@@ -420,12 +420,12 @@ export type ChainSpec =
         notWhenBaseTag?: readonly string[];
       }[];
       /**
-       * Tag pairs that make the whole derivation unsound: when `partTag` served
-       * a part AND `adjustmentTag` resolved as an adjustment, the taxonomy puts
-       * the first inside the second and the sum would double-count it. The
-       * figure is withheld with `disclose` as the reason.
+       * Tag pairs the taxonomy nests: when `partTag` served a part AND
+       * `adjustmentTag` resolved as an adjustment, the first is already inside
+       * the second, so that part is not added (audit 2026-10-22 B-39; it was
+       * withheld) and `disclose` says so.
        */
-      withholdWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string }[];
+      notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string }[];
       discloseAdjusted?: (ctx: {
         subtracted: string[];
         unavailable: string[];
@@ -434,6 +434,8 @@ export type ChainSpec =
         notInBase: string[];
         /** Each part's label with the tag(s) that actually served it. */
         parts: { label: string; tags: string[] }[];
+        /** The `notAddedWhen` disclosures for parts left out of the sum. */
+        notAdded: string[];
       }) => string;
     }
   | { kind: "diff"; plus: string; minus: string; unit: "money"; disclose?: string }
@@ -679,7 +681,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
           ...(a.componentOf === undefined ? {} : { componentOf: a.componentOf }),
           ...(a.notWhenBaseTag === undefined ? {} : { notWhenBaseTag: a.notWhenBaseTag }),
         })),
-        withholdWhen: [EBIT_INTEREST_INSIDE_AGGREGATE],
+        notAddedWhen: [EBIT_INTEREST_INSIDE_AGGREGATE],
         discloseAdjusted: describeDerivedEbit,
       },
     ],
@@ -730,6 +732,7 @@ function describeDerivedEbit(ctx: {
   alreadyInside: string[];
   notInBase: string[];
   parts: { label: string; tags: string[] }[];
+  notAdded: string[];
 }): string {
   // WHICH pretax element served decides whether the equity-method subtraction
   // is right, so the derivation names it rather than saying "pretax income".
@@ -749,7 +752,8 @@ function describeDerivedEbit(ctx: {
       `NOT subtracted because the pretax element that served is measured before them: ${ctx.notInBase.join(", ")}`,
     );
   }
-  if (ctx.subtracted.includes("NonoperatingIncomeExpense")) {
+  parts.push(...ctx.notAdded);
+  if (ctx.subtracted.includes("NonoperatingIncomeExpense") && ctx.notAdded.length === 0) {
     parts.push(EBIT_AGGREGATE_MAY_HOLD_INTEREST);
   }
   if (ctx.unavailable.length > 0) {
@@ -1588,6 +1592,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       const unavailable: string[] = [];
       const alreadyInside: string[] = [];
       const notInBase: string[] = [];
+      const notAdded: string[] = [];
       if (spec.minusAny !== undefined) {
         const resolvedByLabel = new Map<string, Resolved>();
         for (const adjustment of spec.minusAny) {
@@ -1603,14 +1608,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
             }
           }
         }
-        // A pair the taxonomy nests makes the whole derivation double-count, so
-        // the figure is withheld rather than published wrong.
-        for (const rule of spec.withholdWhen ?? []) {
+        // A part the taxonomy nests inside a subtracted aggregate is already
+        // in it, so it is not added back (audit 2026-10-22 B-39).
+        for (const rule of spec.notAddedWhen ?? []) {
           const inside = [...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag));
-          if (!servedByPart.has(rule.partTag) || !inside) continue;
-          notes.add(`${label}: ${rule.disclose}`);
-          if (at !== undefined) notes.withhold(at.field, at.period, rule.disclose);
-          return null;
+          const index = present.findIndex((r) => r.tags.includes(rule.partTag));
+          if (index < 0 || !inside) continue;
+          total -= present[index]!.value;
+          present.splice(index, 1);
+          partTags.splice(index, 1);
+          notAdded.push(rule.disclose);
         }
         for (const adjustment of spec.minusAny) {
           const hit = resolvedByLabel.get(adjustment.label);
@@ -1633,7 +1640,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       }
       const combined = combine(tidy(total, MONEY_DECIMALS), present);
       if (spec.discloseAdjusted !== undefined) {
-        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags });
+        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags, notAdded });
         notes.add(`${label}: ${text}`);
         if (at !== undefined) notes.substitute(at.field, at.period, text);
         return combined;
@@ -2058,8 +2065,8 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
   // a fallback, which quietly undid every rule the operating-income derivation
   // enforces: the non-operating items it subtracts, the guard that refuses to
   // derive one for a bank (where interest IS an operating cost, so the sum is
-  // not EBIT), and the withholding when the filer's non-operating aggregate
-  // already contains the interest being added back. Whenever both operands
+  // not EBIT), and the interest not added back when the filer's non-operating
+  // aggregate already contains it. Whenever both operands
   // existed the raw sum won, so a figure that had just been refused or
   // corrected was published anyway under a different name — and EBIT is the one
   // valuation actually reads.
@@ -2073,8 +2080,8 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
     if (v.ebit === null && strictSum !== null) {
       const text =
         `ebit WITHHELD: pre-tax income plus interest expense is available, but that sum is EBIT only where operating ` +
-        `income could be derived, and here it could not — a bank-style filer, where interest is an operating cost, or ` +
-        `a non-operating aggregate that already contains the interest being added back. Publishing the sum would ` +
+        `income could be derived, and here it could not — a bank-style filer, where interest is an operating cost. ` +
+        `Publishing the sum would ` +
         `restate under a second name the figure the operating-income derivation refused.`;
       notes.add(`income ${ctx}: ${text}`);
       notes.withhold("ebit", ctx, text);
