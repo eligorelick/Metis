@@ -968,21 +968,35 @@ Three house conventions sit beside it; they are project choices, not owner
 decisions. First, each obligation is read at the bridge's own balance date,
 else at the latest date in the year before it that tags it, and the bridge
 names that date: its line reads "(filed, before tax; balance at 2025-12-31, the
-latest filed)" on every surface, and the notes add "the latest filed balance,
-as the 2026-06-30 balance sheet does not tag it". Many filers tag these only in the 10-K: FCX's 10-Qs carry
-neither, so a rule bound to the quarter's date would miss them three quarters
-a year. A balance more than a year older than the bridge's is not read.
+latest filed)" in the bridge table, "(balance at 2025-12-31)" in the scenario
+paths' fixed bridge, and the notes add "the latest filed balance, as the
+2026-06-30 balance sheet does not tag it". Many filers tag these only in the
+10-K: FCX's 10-Qs carry neither, so a rule bound to the quarter's date would
+miss them three quarters a year. A balance more than a year older than the
+bridge's is not read. When the bridge's own balance sheet is an annual
+report's (its `Assets` fact is filed on a 10-K, 20-F or 40-F) and does not tag
+an obligation, the obligation is taken as gone (settled or sold) and no
+earlier balance is read. A quarter that omits it cannot be told apart from
+one where it was settled, so a settlement within the year is caught at the
+next annual report. When the parts are summed, the noncurrent part must be
+among them: a current portion alone is not the obligation, and the look-back
+continues to the full balance.
 Second, assets the issuer tags as legally restricted to settle the retirement obligations
 (`AssetRetirementObligationLegallyRestrictedAssetsFairValue`,
 `DecommissioningFundInvestments` or `DecommissioningTrustAssetsAmount`, the
 first one filed, read at the retirement obligation's date) offset the
 retirement obligation, as rating agencies net
 nuclear decommissioning trusts. Only the part of the fund beyond the long-term
-investments the bridge already adds back is credited, so a trust is never
-counted twice. The offset never goes below zero; a surplus fund adds nothing.
-Third, the obligations are deducted at their recognised amount before tax.
-Settling them earns a tax deduction, so this overstates the claim a little;
-the bridge says so.
+investments and marketable equity securities the bridge already adds back is
+credited, so a trust is never counted twice. That is conservative when those
+investments are unrelated to the trust: the fund is then under-credited. The
+offset never goes below zero; a surplus fund adds nothing, and when the fund
+covers the whole obligation the notes say nothing is deducted. Third, the
+obligations are deducted at their recognised amount before tax. Settling them
+earns a tax deduction, so this overstates the claim a little. Filers also
+charge the retirement obligations' accretion to operating income, so the
+projected NOPAT already bears their time value, and deducting the obligation
+counts that time value twice. The bridge states both and adjusts for neither.
 
 The deduction sits inside the non-operating total, so the sensitivity grid,
 the growth × margin grid, the reverse DCF, the scenario paths and the E-5 NCI
@@ -2024,7 +2038,11 @@ established ratio of 0.5 or more, the house floor applies as before. The
 sales-to-capital basis lists the years and ratios, or says why the house floor
 stands. The median, rather than the newest year or the mean, and the
 three-year minimum are project choices: one restated or acquisition year does
-not move the median, and fewer than three years do not establish a ratio.
+not move the median, and fewer than three years do not establish a ratio. So
+is a lower bound of 0.1 on the established ratio. Capital-heavy filers sit
+near 0.15 to 0.25, so a median below 0.1 is read as a scale error, which
+would repeat in every year; the house floor then stands, and the basis says
+why.
 
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
 widened to base year-one growth + 30pp when that is higher. It retains the
@@ -2076,7 +2094,7 @@ other services combined) or 4941 (water supply), and the issuer's companyfacts
 show rate regulation: `RegulatoryAssets`, `RegulatoryAssetsCurrent`,
 `RegulatoryAssetsNoncurrent` or a `RegulatedOperatingRevenue*` element (electric,
 electric non-nuclear, gas, water, pipelines, other or the total), with a fact
-ending within 24 months of the run date. The SIC alone also covers merchant
+filed by the run date and ending within 24 months of it. The SIC alone also covers merchant
 generators and energy marketers, so without the evidence the overlay is not
 applied and the note says why. `RegulatedAndUnregulatedOperatingRevenue` is a
 total and evidences neither. The overlay changes no base route and no
