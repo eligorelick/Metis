@@ -81,6 +81,33 @@ describe("E-7: reading the filed obligations at the bridge's balance date", () =
     expect(debtLikeObligationsAt(later, "2026-06-30", "USD", "2026-10-22")).toBeNull();
   });
 
+  it("does not take a current portion alone for the whole obligation; it falls back to the full balance", () => {
+    const tenQ = facts({
+      AssetRetirementObligation: [usd("2025-12-31", 3_836e6)],
+      AssetRetirementObligationCurrent: [usd("2025-12-31", 188e6), usd("2026-06-30", 190e6, "10-Q", "2026-07-30")],
+    });
+    const o = debtLikeObligationsAt(tenQ, "2026-06-30", "USD", "2026-10-22");
+    expect(o?.assetRetirement?.value).toBe(3_836e6);
+    expect(o?.assetRetirement?.asOf).toBe("2025-12-31");
+    // The noncurrent part alone still counts at its own date.
+    const noncurrent = facts({ AssetRetirementObligationsNoncurrent: [usd("2026-06-30", 3_700e6, "10-Q", "2026-07-30")] });
+    expect(debtLikeObligationsAt(noncurrent, "2026-06-30", "USD", "2026-10-22")?.assetRetirement?.value).toBe(3_700e6);
+  });
+
+  it("does not reach back past an annual balance sheet that no longer tags the obligation", () => {
+    const settled = facts({
+      Assets: [usd("2026-12-31", 50_000e6, "10-K", "2027-02-12")],
+      AssetRetirementObligation: [usd("2025-12-31", 2_000e6)],
+    });
+    expect(debtLikeObligationsAt(settled, "2026-12-31", "USD", "2027-03-01")).toBeNull();
+    // A quarter's balance sheet still reaches back to the 10-K.
+    const quarter = facts({
+      Assets: [usd("2026-06-30", 50_000e6, "10-Q", "2026-07-30")],
+      AssetRetirementObligation: [usd("2025-12-31", 2_000e6)],
+    });
+    expect(debtLikeObligationsAt(quarter, "2026-06-30", "USD", "2026-10-22")?.assetRetirement?.value).toBe(2_000e6);
+  });
+
   it("reads the retirement fund at the date of the obligation it offsets", () => {
     const q = facts({
       AssetRetirementObligation: [usd("2025-12-31", 9_625e6)],
@@ -159,6 +186,7 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     expect(notes).toMatch(/subtracts asset-retirement obligations of 384/);
     expect(notes).toMatch(/subtracts environmental remediation accruals of 202/);
     expect(notes).toMatch(/FCFF path does not project their settlement/);
+    expect(notes).toMatch(/accretion, which filers charge to operating income/);
   });
 
   it("shows each deduction as its own bridge line on every surface", () => {
@@ -178,7 +206,7 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     const labels = valuationAuditTables({ ...display!, perShare: null } as never).find((t) => t.heading === "Enterprise value to equity bridge")!.rows.map((r) => r[0]);
     expect(labels).toContain("Less asset-retirement obligations (filed, before tax; balance at 2025-09-30, the latest filed)");
     expect(labels).toContain("Less environmental remediation accruals (filed, before tax)");
-    expect(fixedBridgeNonOperatingText(earlier.dcf!.bridge, (v) => v.toFixed(2))).toBe(", less asset-retirement obligations 384.00, less environmental remediation accruals 202.00");
+    expect(fixedBridgeNonOperatingText(earlier.dcf!.bridge, (v) => v.toFixed(2))).toBe(", less asset-retirement obligations (balance at 2025-09-30) 384.00, less environmental remediation accruals 202.00");
   });
 
   it("carries the same bridge into the sensitivity grid and the reverse DCF", () => {
@@ -205,6 +233,23 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     } });
     expect(trust.dcf!.equityValue! - base.dcf!.equityValue!).toBeCloseTo(-9.5, 6);
     expect(trust.notes.join(" ")).toMatch(/legally restricted to settle them .*1264/);
+  });
+
+  it("credits only the part of a settlement fund the bridge has not already added as marketable equity securities", () => {
+    const securities = { value: 100, basis: "us-gaap/EquitySecuritiesFvNi 100 at 2025-12-31" };
+    const withSecurities = dcfOf({ nonOperatingAssets: securities });
+    const v = dcfOf({ nonOperatingAssets: securities, debtLikeObligations: { assetRetirement: filed(300, "AssetRetirementObligation"), environmental: null, settlementAssets: filed(200, "DecommissioningFundInvestments") } });
+    // 300 − (200 − 100) = 200 is deducted.
+    expect(v.dcf!.equityValue! - withSecurities.dcf!.equityValue!).toBeCloseTo(-200, 6);
+  });
+
+  it("does not say an obligation the fund fully offsets is deducted", () => {
+    const v = dcfOf({ debtLikeObligations: { assetRetirement: filed(961, "AssetRetirementObligationsNoncurrent"), environmental: null, settlementAssets: filed(1264, "DecommissioningFundInvestments") } });
+    expect(v.dcf!.equityValue).toBeCloseTo(base.dcf!.equityValue!, 6);
+    const notes = v.notes.join(" ");
+    expect(notes).not.toMatch(/subtracts asset-retirement obligations/);
+    expect(notes).toMatch(/asset-retirement obligations of 961 .*an offset of 961, so 0 is deducted/);
+    expect(notes).not.toMatch(/These are filed liabilities/);
   });
 
   it("credits only the part of a settlement fund the bridge has not already added as long-term investments", () => {

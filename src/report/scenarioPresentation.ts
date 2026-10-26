@@ -156,7 +156,11 @@ export function fixedBridgeNonOperatingText(bridge: DcfBridge, display: (v: numb
   if (bridge.nonOperatingAssets === undefined) return "";
   const components = bridge.nonOperatingComponents ?? [];
   if (components.length === 0) return `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`;
-  const name = (label: string) => label.replace(/ \(.*\)$/, "");
+  // E-7: an obligation from an earlier filing keeps its balance date.
+  const name = (label: string) => {
+    const at = /; balance at (\d{4}-\d{2}-\d{2})/.exec(label);
+    return label.replace(/ \(.*\)$/, "") + (at === null ? "" : ` (balance at ${at[1]})`);
+  };
   const added = components.filter((c) => c.value >= 0).map((c) => `${name(c.label)} ${display(c.value)}`);
   return (added.length > 0 ? `, plus non-operating ${added.join(" and ")}` : "") +
     components.filter((c) => c.value < 0).map((c) => `, less ${name(c.label)} ${display(-c.value)}`).join("");

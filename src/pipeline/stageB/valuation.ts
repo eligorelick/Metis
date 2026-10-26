@@ -6141,27 +6141,32 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       if (obligations !== null) {
         const aro = obligations.assetRetirement;
         if (aro !== null && aro.value > 0) {
-          const ltiAdded = components.find((c) => c.kind === "long-term-investments")?.value ?? 0;
+          // The fund may already be inside the investments added above; only
+          // what lies beyond them is credited, so it is never counted twice.
+          const assetsAdded = components.filter((c) => c.kind === "long-term-investments" || c.kind === "marketable-equity-securities")
+            .reduce((sum, c) => sum + c.value, 0);
           const fund = obligations.settlementAssets;
-          const offset = fund === null ? 0 : Math.min(aro.value, Math.max(0, fund.value - ltiAdded));
+          const offset = fund === null ? 0 : Math.min(aro.value, Math.max(0, fund.value - assetsAdded));
           const fundNote = fund === null ? ""
             : `, less assets legally restricted to settle them (${fund.basis}) of ${fmtNum(fund.value)}` +
-              (ltiAdded > 0 ? ` beyond the long-term investments of ${fmtNum(ltiAdded)} the bridge already adds` : "") +
+              (assetsAdded > 0 ? ` beyond the investments of ${fmtNum(assetsAdded)} the bridge already adds` : "") +
               `: an offset of ${fmtNum(offset)}`;
           if (aro.value - offset > 0) {
             components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
           }
-          notes.push(`DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}` +
-            (fund === null ? "." : `${fundNote}; ${fmtNum(aro.value - offset)} is deducted.`));
+          notes.push(fund === null
+            ? `DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}.`
+            : `DCF equity bridge weighs asset-retirement obligations of ${fmtNum(aro.value)} (${aro.basis})${fundNote}, so ${fmtNum(aro.value - offset)} is deducted.`);
         }
         const env = obligations.environmental;
         if (env !== null && env.value > 0) {
           components.push({ kind: "debt-like-obligation", label: obligationLabel("environmental remediation accruals", env), value: -env.value, basis: env.basis });
           notes.push(`DCF equity bridge subtracts environmental remediation accruals of ${fmtNum(env.value)}: ${env.basis}.`);
         }
-        if ((aro !== null && aro.value > 0) || (env !== null && env.value > 0)) {
+        if (components.some((c) => c.kind === "debt-like-obligation")) {
           notes.push("These are filed liabilities and the FCFF path does not project their settlement, so equity value is what remains after them. " +
-            "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn.");
+            "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn. " +
+            "The retirement obligations' accretion, which filers charge to operating income, also lowers the projected NOPAT, so their time value is counted twice; the bridge does not adjust for either.");
         }
       }
       const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);

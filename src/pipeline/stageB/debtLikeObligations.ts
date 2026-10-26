@@ -8,7 +8,9 @@
  * Only the issuer's own XBRL facts count: the filed total, else noncurrent
  * plus current, at the bridge's balance date, else at the latest date in the
  * year before it (many filers, FCX among them, tag these in the 10-K only), with
- * that date disclosed. The undiscounted "Gross" environmental tag is not the
+ * that date disclosed. A current portion alone is not the obligation, and an
+ * annual balance sheet that no longer tags it ends the look-back (settled or
+ * sold). The undiscounted "Gross" environmental tag is not the
  * recognised liability and is never read. Assets the filer tags as legally
  * restricted to settle the retirement obligations (nuclear decommissioning
  * trusts) are read at the retirement obligation's date and returned beside it
@@ -35,7 +37,7 @@ export interface DebtLikeObligations {
 
 interface TagChoice {
   total: string[];
-  /** Summed when no total is filed at the date: noncurrent first, then current. */
+  /** Summed when no total is filed at the date: noncurrent first, then current; the noncurrent part must be among them. */
   parts: string[];
 }
 
@@ -58,8 +60,14 @@ const filing = (f: FactPoint): string => `${f.form} filed ${f.filed}`;
 const MAX_LAG_DAYS = 366;
 const DAY_MS = 86_400_000;
 
+/** Whether the balance sheet at `date` is an annual report's: then an untagged obligation is absent, not omitted. */
+function annualBalanceDate(facts: CompanyFacts, unit: string, date: string, observedDay: string): boolean {
+  return /^(10-K|20-F|40-F)/.test(instantFact(facts, "Assets", unit, date, observedDay)?.form ?? "");
+}
+
 /** The bridge date, then each earlier date within a year at which one of the choice's tags was filed by the run. */
 function candidateDates(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): string[] {
+  if (annualBalanceDate(facts, unit, date, observedDay)) return [date];
   const floor = new Date(Date.parse(`${date}T00:00:00Z`) - MAX_LAG_DAYS * DAY_MS).toISOString().slice(0, 10);
   const earlier = [...choice.total, ...choice.parts].flatMap((tag) => {
     const concept = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
@@ -91,7 +99,7 @@ function read(facts: CompanyFacts, choice: TagChoice, unit: string, date: string
     return fact === null ? [] : [{ tag, fact }];
   });
   const value = parts.reduce((sum, p) => sum + p.fact.val, 0);
-  if (value <= 0) return null;
+  if (value <= 0 || !parts.some((p) => p.tag === choice.parts[0])) return null;
   return {
     value,
     basis: `${parts.map((p) => `us-gaap/${p.tag} ${billions(p.fact.val)}`).join(" + ")} at ${date} (${[...new Set(parts.map((p) => filing(p.fact)))].join("; ")})`,
