@@ -57,7 +57,7 @@ describe("reader trust refinement", () => {
 
   it("calls numerical matches matches, never validation of the whole claim", () => {
     const rows=trustRows({numeric:{supported:267,total:271,rate:267/271},factualClaims:{supported:140,total:140,rate:1},judgments:{cited:113,total:113,rate:1},factualValidation:{cited:140,validated:36,unchecked:104,contradicted:0,qualitative:19,total:140,rate:36/140}});
-    expect(rows[0]?.value).toBe("267/271 (98.5%)");
+    expect(rows.find(row=>row.label==="Figures traced to a cited source")?.value).toBe("267/271 (98.5%)");
     expect(rows.find(row=>row.label.startsWith("Numeric factual"))).toEqual({label:"Numeric factual claims numerically matched to a cited figure",value:"36/121; 85 not matched to a cited figure"});
     const detail=factualValidationText({numeric:{supported:267,total:271,rate:267/271},factualClaims:{supported:140,total:140,rate:1},judgments:{cited:113,total:113,rate:1},factualValidation:{cited:140,validated:36,unchecked:104,contradicted:0,qualitative:19,total:140,rate:36/140}})!;
     expect(detail).toContain("36/121 numeric factual claims numerically matched");

@@ -17,7 +17,9 @@ import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { numericClaimPartition } from "@/report/claimMatching";
+import { displayedClaimCoverage, displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
+export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
+import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 import { fairValueDegradedText } from "@/report/fairValueText";
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
@@ -356,13 +358,14 @@ export interface FigureRow {
   /** The measurement window, or null when the figure did not supply one. */
   period: string | null;
   asOf: string | null;
-  /** "✓", "untraced" or "not checked". */
+  /** "✓", "computed" (a data-only report's figure), "untraced" or "not checked". */
   cited: string;
   trace: TracedNumber;
 }
 
-export function citedMark(verified: TracedNumber["verified"]): string {
-  return verified === true ? "✓" : numericCitationTraceLabel(verified);
+export function citedMark(n: TracedNumber): string {
+  // F-23: a data-only report ran no citation check; its figures were computed.
+  return n.verified === true ? isComputedFigure(n) ? "computed" : "✓" : numericCitationTraceLabel(n.verified);
 }
 
 /**
@@ -384,7 +387,7 @@ export function figureRow(n: TracedNumber, label?: string): FigureRow {
     value: figureValueText(n),
     period: period === "not supplied" ? null : period,
     asOf: n.asOf,
-    cited: citedMark(n.verified),
+    cited: citedMark(n),
     trace: n,
   };
 }
@@ -1052,7 +1055,7 @@ function ratio(supported: number, total: number, rate: number | null): string {
  * figure contradicted while the header, counting prose claims only, said 0).
  */
 function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"]>, log: readonly VerificationLogEntry[] | undefined): { count: number; split: string | null } {
-  const figures = (log ?? []).filter((entry) => entry.evidenceKind === "number" && entry.validationStatus === "contradicted").length;
+  const figures = (log ?? []).filter((entry) => entry.evidenceKind === "number" && displayedValidationStatus(entry) === "contradicted").length;
   const claims = v.contradicted;
   return {
     count: claims + figures,
@@ -1060,13 +1063,12 @@ function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"
   };
 }
 
-export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
-  if (!coverage) return [];
-  const rows: TrustRow[] = [
-    { label: "Figures traced to a cited source", value: ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate) },
-    { label: "Factual claims carrying a citation", value: ratio(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate) },
-  ];
-  const v = coverage.factualValidation;
+export function trustRows(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
+  if (!recorded) return [];
+  const coverage = displayedClaimCoverage(recorded, log);
+  // Audit 2026-10-22 B-10: validation first; citation and tracing are provenance.
+  const rows: TrustRow[] = [];
+  const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (v) {
     const partition = numericClaimPartition(v);
     rows.push({
@@ -1079,26 +1081,40 @@ export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readon
     rows.push({ label: "Claims contradicted by their cited source", value: contradicted.split === null ? String(contradicted.count) : `${contradicted.count} (${contradicted.split})` });
     if (v.qualitative !== undefined) rows.push({ label: "Qualitative factual claims (cited; not machine-checkable)", value: String(v.qualitative) });
   }
+  rows.push(
+    { label: "Figures traced to a cited source", value: ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate) },
+    { label: "Factual claims carrying a citation", value: ratio(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate) },
+  );
   if (coverage.judgments.total > 0) rows.push({ label: "Judgments carrying a citation", value: ratio(coverage.judgments.cited, coverage.judgments.total, coverage.judgments.rate) });
   return rows;
 }
 
-/** One-line header form of {@link trustRows}. */
-export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
-  if (!coverage) return null;
-  const parts = [
-    `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source`,
-    `${coverage.factualClaims.supported}/${coverage.factualClaims.total} factual claims cited`,
-  ];
-  const v = coverage.factualValidation;
-  if (v) {
-    const partition = numericClaimPartition(v);
-    parts.push(partition.total === null ? partition.unknownText : partition.total === 0 ? "no factual claim states a figure to match" : `${v.validated}/${partition.total} numeric claims numerically matched (not whole-claim validation)`);
-    const contradicted = contradictedCount(v, log);
-    parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
-    if (v.qualitative !== undefined && v.qualitative > 0) parts.push(`${v.qualitative} qualitative claims cited, not machine-checkable`);
-  }
+/**
+ * One-line header form of {@link trustRows}: what was checked against a cited
+ * figure. Audit 2026-10-22 B-10: the line leads with the numeric validation
+ * fraction; tracing and citation are provenance, on {@link provenanceHeadline}.
+ */
+export function trustHeadline(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
+  if (!recorded) return null;
+  const coverage = displayedClaimCoverage(recorded, log);
+  const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
+  if (!v) return "numeric claims not validated: no verification result recorded";
+  const partition = numericClaimPartition(v);
+  const parts = [partition.total === null ? partition.unknownText : partition.total === 0
+    ? "no factual claim states a figure to match"
+    : `${ratio(v.validated, partition.total, v.validated / partition.total)} numeric claims numerically matched to a cited figure (not whole-claim validation)`];
+  const contradicted = contradictedCount(v, log);
+  parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
+  if (v.qualitative !== undefined && v.qualitative > 0) parts.push(`${v.qualitative} qualitative claims cited, not machine-checkable`);
   return parts.join("; ");
+}
+
+/** The header's provenance line: figures traced and claims cited, which are not validation (B-10). */
+export function provenanceHeadline(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
+  if (!recorded) return null;
+  const coverage = displayedClaimCoverage(recorded, log);
+  return `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source; ` +
+    `${coverage.factualClaims.supported}/${coverage.factualClaims.total} factual claims carry a citation (provenance, not validation)`;
 }
 
 /* ======================================================================== *

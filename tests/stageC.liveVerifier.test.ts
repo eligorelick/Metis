@@ -20,8 +20,8 @@ describe("live NVDA verifier regressions", () => {
     expect((await check("Our DCF per share is USD 217.04.", record({}))).log[0]).toMatchObject({ validationStatus: "validated" });
     const dividend = record({ id: "payload.dividend", label: "quarterly cash dividend per share", value: 0.25 });
     expect((await check("Quarterly cash dividend per share was USD 0.25.", dividend)).log[0]).toMatchObject({ validationStatus: "validated" });
-    expect((await check("Quarterly cash dividend was USD 0.25.", dividend)).log[0]).toMatchObject({ validationStatus: "contradicted", reason: "unit-mismatch" });
-    expect((await check("Quarterly cash dividend per share was EUR 0.25.", dividend)).log[0]).toMatchObject({ validationStatus: "contradicted", reason: "currency-mismatch" });
+    expect((await check("Quarterly cash dividend was USD 0.25.", dividend)).log[0]).toMatchObject({ validationStatus: "unchecked", reason: "unit-mismatch" });
+    expect((await check("Quarterly cash dividend per share was EUR 0.25.", dividend)).log[0]).toMatchObject({ validationStatus: "unchecked", reason: "currency-mismatch" });
     expect((await check("Quarterly cash dividend per share was USD 0.25.", { ...dividend, unit: "currency" })).coverage.factualValidation?.validated).toBe(0);
   });
   it("uses explicit fiscal evidence without accepting another quarter/year or guessing a fiscal calendar", async () => {

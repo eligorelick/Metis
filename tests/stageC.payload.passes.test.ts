@@ -1018,7 +1018,7 @@ describe("payload determinism + provenance", () => {
       // prints the EV bridge note's amounts with grouped digits; this
       // fixture's EV appears four times in the prompt's notes, so the prompt
       // grows by sixteen commas and no record or registry moves.
-      // Audit batch 6 (D-110): only the versioned header moves with payload
+      // Audit batch 6 (D-111): only the versioned header moves with payload
       // 1.47.0; this fixture's rate is FRED DGS10 and no member fell back, so
       // no degraded-inputs note or provider-fallback line enters its prompt.
       fingerprint: "1.47.0:f24fe9d5",
@@ -2719,7 +2719,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.41.0");
+    expect(report.meta.specVersion).toBe("1.42.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

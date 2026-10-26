@@ -2690,10 +2690,35 @@ quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
 
+"Contradicted" means a value conflict only: a stated amount outside its cited
+figure's rounding interval, or a direction word against the sign of its cited
+change (audit 2026-10-22 F-22, an owner decision). A period, unit or currency
+the cited record does not establish is a metadata gap, so the claim or figure is
+unverified (period or unit not established), never contradicted. A claim whose
+direction word conflicts with its cited change stays contradicted even when its
+period or unit word also fails. That covers a
+missing or null record period, a prose period or year the period-word check
+cannot match to the record's window ("the twelve months ended June 30, 2026"
+against `ttm: 2025-07-01 to 2026-06-30`), and a unit or currency mismatch. The
+period-word and unit-word check failures are still listed in the verification
+log and the missing-data manifest. A stored report whose log recorded such a
+metadata gap as contradicted is read under the same rule: its counts move the
+entry to unverified, and the audit export prints "unchecked (recorded
+contradicted; period or unit not established; value not rechecked)" in the
+entry's status column, with its numeric-support and prose-support columns
+("cited" for the latter) read the same way. Such an entry kept only its first
+failure, so whether its value also conflicted cannot be rechecked from the
+stored report; unverified is the reading that claims no more than was checked.
+Its outcome column reads "Cited; prose unchecked", and a claim contradicted for
+its value reads "Cited; contradicted by its source" (it was cited, never
+"uncited"). The audit export's factual-claim sentence gives these displayed
+statuses, and its evidence-class table gives the coverage counts with
+grade-strip reasoning included.
+
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the
-cited figures the verification log marks contradicted (a value, period, unit or
-currency mismatch). These are the records the audit export prints. When a figure
+cited figures the verification log marks contradicted (a value mismatch). These
+are the records the audit export prints. When a figure
 is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
 prose claims)". The audit export's prose-claim sentence still counts prose
 claims only. A pass that ran on a plan allowance (ChatGPT or Gemini CLI) sends
@@ -2704,6 +2729,63 @@ from the same execution entries whose per-pass note the audit export prints,
 counting only passes that ran to a usable analysis: a failed attempt a
 data-only report lists, or a model the registry refused, is left out (see
 "AMZN audit fixes (October 20, 2026)").
+
+The verification line leads with the share of numeric factual claims
+numerically matched to a cited figure, as a fraction and a percentage, for
+example "40/109 (36.7%) numeric claims numerically matched to a cited figure
+(not whole-claim validation); 0 contradicted; 41 qualitative claims cited, not
+machine-checkable" (audit 2026-10-22 B-10). The figures traced to a cited
+source and the factual claims carrying a citation follow on a separate
+Provenance line in the report header, the print header and the page header,
+because a citation shows where a figure came from, not that the prose matches
+it. A stored report with no recorded validation result reads "numeric claims
+not validated: no verification result recorded". The Verification table lists
+the numeric validation row first and the provenance rows after it.
+
+Each factual claim (FACT or ESTIMATE) the verify pass logged carries its
+status after its citation, in the page, Markdown and print reports: `[validated]`
+when a figure it states matched the cited record, `[contradicted]` for a value
+conflict, `[qualitative]` when it is cited and states no figure to match, and
+`[unverified]` otherwise (audit 2026-10-22 F-21). The mark comes from the
+claim's own verification-log entry, matched by report path and text; a
+judgment, a data-only report and a note written after the verify pass carry
+none. The counts on the verification and provenance lines and in the
+Verification table are counts of those marked claims. The grade strip prints
+each section's grade and one-line why, not its reasoning, so the verify pass's
+entries for grade-strip reasoning (often a copy of the section's own claims)
+stay in the verification log but are left out of the factual and judgment
+counts, and the audit export says how many were left out. A removed log entry
+marks nothing and counts nothing: the earnings-reference guard's rows record a
+rewritten pointer, not a counted claim, and a claim the legacy entity check
+withholds when a stored report is read prints as an unmarked placeholder, so the
+read view takes it out of the counts at the status it was recorded with.
+
+A data-only report runs no citation-check pass. Its figures carry
+`verified: true` only because the pipeline computed them, so they print
+"computed" where a checked report prints ✓: in the Cited column of the
+Markdown and print tables, beside each figure on the page, in the figure's
+citation-status detail and in the audit export ("computed (no citation check
+ran)"). The Markdown and print reports add a legend line under the first
+table with a Cited column (audit 2026-10-22 F-23). The stored `verified`
+value is unchanged, because the enterprise-value and debt checks read it.
+
+Statements the code writes about the analysis itself are labelled JUDGMENT,
+never FACT, matching the rule the analysis prompts give the model
+("Methodology, data-gap and coverage statements describe this analysis").
+The rule covers the capital grading basis and the debt-bridge convention on
+every report, and, on a data-only report, these statements:
+
+- each aspect's score-to-band sentence or its "score unavailable" reason;
+- the net-debt method note and any interest-coverage gap note;
+- the HEURISTIC maintenance-capex and buyback-price notes;
+- an unavailable dilution overhang;
+- the comparison of today's price with the average repurchase price proxy.
+
+The repurchase total stays a FACT sentence of its own. The proxy comparison
+and the timing measure follow it as a separate JUDGMENT sentence. Sentences
+that state a computed figure stay FACT: net debt to EBITDA, interest cover,
+capex intensity, the share-count change, stock-based compensation and a
+computed dilution overhang (audit 2026-10-22 F-20). No figure changes.
 
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The

@@ -22,10 +22,10 @@ import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
-  numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { figureCitationStatus, indexVerificationMarks } from "@/report/verificationMarks";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   markdownBlockquote,
@@ -72,7 +72,7 @@ function auditValue(value: unknown): string {
 
 function tracedAuditCells(trace: TracedNumber): string[] {
   return TRACED_NUMBER_FIELDS.map((field) => {
-    if (field.key === "verified") return numericCitationTraceLabel(trace.verified);
+    if (field.key === "verified") return figureCitationStatus(trace);
     return auditValue(trace[field.key]);
   });
 }
@@ -81,9 +81,11 @@ function coverageCell(supported: number, total: number, rate: number | null): st
   return `${supported}/${total} (${rate === null ? "n/a — no items" : `${(rate * 100).toFixed(1)}%`})`;
 }
 
+// The coverage counts, grade-strip reasoning included, beside the displayed
+// rows above them (review of F-21).
 function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
   return table(
-    ["Evidence class", "Supported / total"],
+    ["Evidence class", "Supported / total, grade-strip reasoning included"],
     [
       ["Numeric provenance", coverageCell(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)],
       ["Factual-claim citations", coverageCell(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate)],
@@ -138,7 +140,7 @@ function renderVerification(report: Report): string {
   const coverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
   const rows = trustRows(coverage, a.verificationLog);
   if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
-  const detail = factualValidationText(coverage);
+  const detail = factualValidationText(coverage, a.verificationLog);
   if (detail) lines.push(markdownProse(detail), "");
   if (coverage) lines.push(provenanceCoverageTable(coverage), "");
   lines.push(
@@ -164,6 +166,15 @@ function renderVerification(report: Report): string {
         a.verificationLog.map((entry) =>
           VERIFICATION_LOG_FIELDS.map((field) => {
             if (field.key === "outcome") return verificationEntryOutcomeLabel(entry);
+            // F-22: a legacy metadata gap recorded as contradicted reads as
+            // unverified. Its support columns came from the same failure, and
+            // the stored entry cannot show whether the value also conflicted.
+            if (displayedValidationStatus(entry) !== entry.validationStatus) {
+              const reread = field.key === "validationStatus" ? displayedValidationStatus(entry)
+                : field.key === "numericSupportStatus" && entry.numericSupportStatus === "contradicted" ? "unchecked"
+                  : field.key === "claimSupportStatus" && entry.claimSupportStatus === "contradicted" ? "cited" : undefined;
+              if (reread !== undefined) return `${auditValue(reread)} (recorded contradicted; period or unit not established; value not rechecked)`;
+            }
             return auditValue(entry[field.key]);
           })),
       ),
@@ -448,6 +459,7 @@ function renderOwnHistory(report: Report): string {
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  indexVerificationMarks(report);
   const m = report.meta;
   const blocks = [
     [

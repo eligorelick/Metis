@@ -56,6 +56,7 @@ import {
   seeAlsoText,
   splitCommonLines,
   evidenceScopeSummary,
+  provenanceHeadline,
   trustHeadline,
   trustRows,
   usageSummary,
@@ -2124,6 +2125,7 @@ export function ReportMetaStrip({
     report.appendix.sources,
   );
   const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
+  const provenance = provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const identityNote = reportIdentityNote(report,{selectedReportId});
   return (
@@ -2167,6 +2169,7 @@ export function ReportMetaStrip({
         </span>
       </div>
       {verification && <p className="mt-2 basis-full text-[11px] text-muted">Verification · {verification}</p>}
+      {provenance && <p className="basis-full text-[11px] text-faint">Provenance · {provenance}</p>}
       {identityNote && <p className="basis-full text-[12px] text-warn">{identityNote}</p>}
       {/* WS6 (D-19): the stored disclaimer, verbatim, on the page that shows
           seven letter grades and three price targets. */}

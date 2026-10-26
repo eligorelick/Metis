@@ -603,9 +603,15 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     expect(serialized).toContain("Diluted share count changed -7.5% between 2022-09-24 and 2025-09-27 (buyback).");
     expect(serialized).toContain(
       // D-61: the premium is measured on the proxy price; it is appreciation
-      // since the repurchases, said so, not timing.
-      "Repurchased 90B USD of stock across the analysed years; the current price is 12.5% below the average repurchase price proxy (price appreciation since the repurchases, not timing).",
+      // since the repurchases, said so, not timing. F-20: the proxy comparison
+      // is its own JUDGMENT sentence; the cash total stays FACT.
+      "Repurchased 90B USD of stock across the analysed years.",
     );
+    expect(report.balanceSheet.capitalAllocation.filter((claim) => /repurchase/i.test(claim.text)).map(({ label, text }) => ({ label, text }))).toEqual([
+      { label: "FACT", text: "Repurchased 90B USD of stock across the analysed years." },
+      { label: "JUDGMENT", text: "The current price is 12.5% below the average repurchase price proxy (price appreciation since the repurchases, not timing)." },
+      { label: "JUDGMENT", text: "Average price proxy: repurchase dollars over the change in diluted shares." },
+    ]);
     expect(serialized).toContain("Average price proxy: repurchase dollars over the change in diluted shares.");
     // No quote, and the fair value's own currency is unknown (null): it is
     // stated as unknown, with no comparison to a price. (Until 2026-09-29 the

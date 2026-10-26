@@ -3022,7 +3022,9 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
         evidenceKind: "number",
         source: sourceId ?? number.source,
         reason,
-        validationStatus: reason === "value-mismatch" || reason === "period-mismatch" || reason === "unit-mismatch" || reason === "currency-mismatch" ? "contradicted" : "unchecked",
+        // F-22: only a value conflict contradicts; a period, unit or currency
+        // the record does not establish leaves the figure unverified.
+        validationStatus: reason === "value-mismatch" ? "contradicted" : "unchecked",
         ...(numberSourceSpans.length === 0 ? {} : { sourceSpans: numberSourceSpans }),
       });
     }
@@ -3065,9 +3067,21 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       validation.reason = "supported";
       validation.note = "citation and ordered declared text values matched; metric-specific content remains unchecked";
     }
-    const semanticFailure = supported ? consistency.findings.find((finding) => finding.path === path &&
-      (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : undefined;
-    const validationStatus = semanticFailure === undefined ? validation.status : "contradicted";
+    const semanticFailures = supported ? consistency.findings.filter((finding) => finding.path === path &&
+      (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : [];
+    const semanticFailure = semanticFailures.find((finding) => finding.check === "direction") ?? semanticFailures[0];
+    // F-22: a direction word against the sign of its cited change is a value
+    // conflict, and it outranks a period or unit finding on the same claim.
+    // A period or unit word the check could not establish against the cited
+    // record is a metadata gap: the claim is unverified, never validated, and
+    // contradicted only when its value conflicts as well.
+    const validationStatus = semanticFailure === undefined ? validation.status
+      : semanticFailure.check === "direction" || validation.status === "contradicted" ? "contradicted" : "unchecked";
+    // The recorded reason names the conflict, so a contradicted entry never
+    // carries a metadata reason (presentation reads such legacy entries as
+    // unverified).
+    const statusFinding = semanticFailure !== undefined && semanticFailure.check !== "direction" && validation.status === "contradicted"
+      ? undefined : semanticFailure;
     const validated = supported && validationStatus === "validated";
     if (judgment) {
       judgmentsTotal += 1;
@@ -3094,7 +3108,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       // Keep numeric validation/counts while exposing the narrower claim scope.
       outcome: "unverified",
       note: supported
-        ? semanticFailure?.note ?? validation.note
+        ? statusFinding?.note ?? validation.note
         : rejected
           ? rejection?.check === "named-individual"
             ? "[unverified] rejected by the named-individual restriction; see the check entry for this path"
@@ -3110,7 +3124,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       path,
       evidenceKind: judgment ? "judgment" : "factual-claim",
       source: sourceId ?? claim.source,
-      reason: rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : semanticFailure?.reason ?? validation.reason,
+      reason: rejected ? (rejection?.reason ?? "unknown-source") : !supported ? match.reason : statusFinding?.reason ?? validation.reason,
       validationStatus,
       numericSupportStatus: validationStatus,
       claimSupportStatus: validated ? "numeric-only" : validationStatus === "contradicted" ? "contradicted" : supported ? "cited" : "unreviewed",

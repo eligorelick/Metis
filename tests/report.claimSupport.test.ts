@@ -26,6 +26,12 @@ describe('numeric support never implies whole-prose verification',()=>{
   expect(verificationEntryOutcomeLabel({...entry,outcome:'removed'})).toBe('removed');
   expect(verificationEntryOutcomeLabel({claim:'Legacy',outcome:'unverified'})).toBe('uncited');
  });
+ // Review of F-22: a contradicted claim was cited; its outcome said "uncited".
+ it('labels a contradicted claim cited and contradicted, and a legacy metadata gap cited and unchecked',()=>{
+  const contradicted:Parameters<typeof verificationEntryOutcomeLabel>[0]={claim:'Revenue was 9',outcome:'unverified',evidenceKind:'factual-claim',reason:'value-mismatch',validationStatus:'contradicted',claimSupportStatus:'contradicted'};
+  expect(verificationEntryOutcomeLabel(contradicted)).toBe('Cited; contradicted by its source');
+  expect(verificationEntryOutcomeLabel({...contradicted,reason:'period-word-mismatch'})).toBe('Cited; prose unchecked');
+ });
  it('retains separate support dimensions and expresses them in the audit export',()=>{
   const entry=VerificationLogEntrySchema.parse({claim:'Revenue100; unrelated allegation',outcome:'unverified',validationStatus:'validated',numericSupportStatus:'validated',claimSupportStatus:'numeric-only'});
   expect(entry.numericSupportStatus).toBe('validated');

@@ -23,6 +23,7 @@ import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
+import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -110,6 +111,7 @@ import {
   sourceLabel,
   splitCommonLines,
   evidenceScopeSummary,
+  provenanceHeadline,
   trustHeadline,
   trustRows,
   usageSummary,
@@ -217,10 +219,16 @@ function subsection(heading: string, body: string): string[] {
  * Shared block renderers
  * ======================================================================== */
 
+/** F-21: a factual claim's verification status after its citation, or nothing. */
+function withStatusMark(claim: SourcedClaim): string {
+  const mark = claimStatusMarkText(claim);
+  return mark === null ? "" : ` ${mark}`;
+}
+
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_`)
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${withStatusMark(c)}`)
     .join("\n");
 }
 
@@ -281,7 +289,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         periodCell,
         figureValueText(v.value),
         v.value.asOf ?? DASH,
-        citedMark(v.value.verified),
+        citedMark(v.value),
       ]);
     }
   }
@@ -333,6 +341,7 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Data completeness", dataStateText(completeness)],
         ...evidenceRow(report),
         ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+        ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
         ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
       ],
     ),
@@ -761,11 +770,11 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
   lines.push(...subsection("### Catalysts", bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, displayProse(c.reasoning.text, c.reasoning.source)]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, `${displayProse(c.reasoning.text, c.reasoning.source)}${withStatusMark(c.reasoning)}`]),
   )));
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), `${displayProse(r.reasoning.text, r.reasoning.source)}${withStatusMark(r.reasoning)}`]),
     ["Probability"],
   )));
   lines.push(...auditTableBlocks(extra));
@@ -939,6 +948,7 @@ function capitalize(s: string): string {
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,
@@ -968,7 +978,19 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
 
   // Join sections with a blank-line-separated horizontal rule for readability;
   // ensure a single trailing newline for a clean file.
-  return blocks.join("\n\n---\n\n") + "\n";
+  const markdown = blocks.join("\n\n---\n\n") + "\n";
+  return hasComputedFigures(report) ? withComputedMarkLegend(markdown) : markdown;
+}
+
+/** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
+function withComputedMarkLegend(markdown: string): string {
+  const lines = markdown.split("\n");
+  const header = lines.findIndex((line) => line.startsWith("|") && line.endsWith(" | Cited |"));
+  if (header < 0) return markdown;
+  let end = header;
+  while (end + 1 < lines.length && lines[end + 1].startsWith("|")) end++;
+  lines.splice(end + 1, 0, "", `_${markdownProse(COMPUTED_MARK_LEGEND)}_`);
+  return lines.join("\n");
 }
 
 export { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
