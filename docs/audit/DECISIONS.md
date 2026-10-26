@@ -2225,5 +2225,10 @@ Audit 2026-10-22 B-18 (Medium). The keyless netIncome chain is `NetIncomeLoss`, 
 - **Stage B reads it as parent income.** The ownership basis was inferred from the netIncome tags, and `ProfitLoss` among them meant "consolidated", which would have deducted the NCI share a second time. A figure whose tags carry both `ProfitLoss` and the NCI tag is now "parent".
 - **Unchanged:** the consolidated-profit field, the cash-flow statement's net income (it starts from consolidated profit), the vendor path, and REIT FFO's own net-income read.
 - Stage B ACCOUNTING_EVIDENCE_25 marks the change; the report spec and payload do not move.
+- **Control panel** (45 audited companies, keyless and offline against the audit's cached data behind a dead proxy, clock pinned to 2026-10-22T06:00Z; base `7f5221d`, head this change; both sides 45 of 45 done). Every moved figure is intended:
+  - FCX: TTM net income 4,183 million → 2,945 million (the oracle's parent figure); FY2025 DuPont ROE 22.76% → 12.08% and net margin 16.02% → 8.50% (the audit's parent figures); P/E (TTM) is now produced, 33.6× on parent income, where it was withheld as a mixed ownership basis, so that warning is gone; composite 54.47 → 53.63.
+  - AMT: composite 52.77 → 52.84 (parent income on the quarters that lacked NetIncomeLoss).
+  - MA: the P/E basis now reads "parent income"; its NCI income is a few million, and the withheld P/E is unchanged.
+  - No other company, column or gap family moves; no new withhold or gap.
 
 Stored reports and snapshots keep their bytes.
