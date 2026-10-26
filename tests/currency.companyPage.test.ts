@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { currencyBundle, type CurrencyBundleOptions } from "./helpers/currencyBundle";
 
@@ -26,12 +26,14 @@ vi.mock("@/pipeline/stageA/validate", () => ({
 vi.mock("@/report/query", () => ({ getLatestDoneReport: vi.fn(() => null) }));
 vi.mock("@/app/company/[symbol]/GenerateReport", () => ({ GenerateReport: () => null }));
 vi.mock("@/components/watchlist/Sidebar", () => ({ WatchlistSidebar: () => null }));
+vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: vi.fn(() => null) }));
 vi.mock("@/components/charts/lazy", () => ({
   FundamentalsChartGrid: () => null,
   TechnicalsChartPanel: () => null,
 }));
 
 import { CompanyBody } from "@/app/company/[symbol]/page";
+import { resetConfigCache } from "@/config/env";
 
 type Props = Record<string, unknown> & { children?: ReactNode };
 
@@ -142,5 +144,34 @@ describe("company page money cells", () => {
     const p = await panels({ bank: true, profileCurrency: "EUR", annualCurrency: "EUR" });
     expect(cell(p.ValuationPanel!, "value / share")).toMatch(/ EUR$/);
     expect(p.ValuationPanel).not.toContain("$");
+  });
+});
+
+describe("company page returns panel on an equity-only route (audit 2026-10-22, B-31)", () => {
+  afterEach(() => { delete process.env.METIS_UI_REDESIGN; resetConfigCache(); });
+
+  /** The rendered returns panel for a bundle, under the classic or dossier layout. */
+  async function returnsPanel(opts: CurrencyBundleOptions, dossier: boolean): Promise<string> {
+    if (dossier) process.env.METIS_UI_REDESIGN = "1";
+    resetConfigCache();
+    harness.buildDataBundle.mockResolvedValue(currencyBundle(opts));
+    const tree = await CompanyBody({ symbol: opts.bank ? "BNK" : "GEN" });
+    const panel = elementsWithin(tree).find(e => typeof e.type === "function" && (e.type as FunctionComponent).name === "ReturnsPanel");
+    if (!panel) throw new Error("ReturnsPanel not rendered");
+    return renderToStaticMarkup(panel);
+  }
+
+  it.each([false, true])("says the WACC, cost of debt and capital weights are not used for a bank (dossier %s)", async dossier => {
+    const html = await returnsPanel({ bank: true }, dossier);
+    expect(cell(html, "wacc")).toBe("not used");
+    expect(cell(html, "cost of debt")).toBe("not used");
+    expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|weight E \/ D\|+not used\|/);
+    expect(cell(html, "cost of equity")).toMatch(/^\d+\.\d+%$/);
+  });
+
+  it("control: a general company shows its WACC and capital weights", async () => {
+    const html = await returnsPanel({}, false);
+    expect(cell(html, "wacc")).toMatch(/^\d+\.\d+%$/);
+    expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|weight E \/ D\|+[\d.]+% \/ [\d.]+%\|/);
   });
 });

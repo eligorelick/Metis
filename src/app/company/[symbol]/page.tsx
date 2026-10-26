@@ -396,7 +396,7 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
             <Row k="ERP" v={fmtPct(r.wacc.erpPct)} />
             <Row k="tax used" v={r.wacc.taxRateUsed === null ? "n/a" : fmtPct(r.wacc.taxRateUsed * 100)} />
             {r.wacc.syntheticRating ? <Row k="synthetic rating" v={r.wacc.syntheticRating} /> : null}
-            <Row k="weight E / D" v={`${fmtFractionPct(r.wacc.weightEquity)} / ${fmtFractionPct(r.wacc.weightDebt)}`} />
+            <Row k="weight E / D" v={r.wacc.withheld ? "not used" : `${fmtFractionPct(r.wacc.weightEquity)} / ${fmtFractionPct(r.wacc.weightDebt)}`} />
           </dl>
         </div>
         <div className="text-[11px]">
