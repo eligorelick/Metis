@@ -2206,7 +2206,18 @@ A live NVDA report run on merged main (GPT-6.1-Sol, high effort, 2026-10-26) and
 
 Stage B ACCOUNTING_EVIDENCE_23, report 1.40.1 and pipeline stage-c-1.6.2 mark these conventions; payload 1.45.0 is unchanged. Stored reports and snapshots keep their bytes.
 
-## D-107 - Audit batch 5: make the trust signals mean what they say: "contradicted" for value conflicts only, the numeric validation share first, a status mark on each claim, "computed" for a data-only report's figures, and JUDGMENT for code-written method notes (2026-10-26)
+## D-107 - Readable figures in the reader notes (2026-10-26)
+
+The live NVDA check (D-106) also found reader text that printed raw source units: the EV bridge note read "excluding 42783000000 of marketable equity securities ... EV excluding the operating-lease liability 5156250780000; EV as reported 5161744780000", the multiples note's issuer-common headline printed "119996000 economic shares ... capitalization 34672844200 USD", and the sensitivity grid's guard note said its cells were "rendered null".
+
+- **Grouped digits, not rounding.** Those amounts and counts now print with grouped digits ("42,783,000,000", "119,996,000"), at the same two-decimal precision as before. A compact form ("42.78B", "120M") was tried and rejected: it rounded 119,996,000 economic shares to 120M, and the exact figures are what the share-class and bridge tests pin. Every value is unchanged; only its digits are grouped.
+- **The grid guard note** says the cells are "withheld and shown as —", which is what the grid shows.
+- **The EV bridge note reaches the model's payload** (the valuation notes and each EV multiple's basis), so payload 1.46.0 marks it; in the pinned Stage C fixture the prompt grows by the sixteen grouping commas of one EV printed four times, and no provenance record, citation or value moves. Stage B ACCOUNTING_EVIDENCE_24 and report 1.40.2 mark the wording.
+- **Not changed: keyless marketable equity (D-106).** Treating `EquitySecuritiesFvNi` as non-operating on the keyless path was considered and left out: companyfacts does not say whether an undivided stake is current or already inside a long-term investments line, so a rule could count it twice. The difference to the vendor path stays disclosed in METHODOLOGY.
+
+Stored reports and snapshots keep their bytes.
+
+## D-108 - Audit batch 5: make the trust signals mean what they say: "contradicted" for value conflicts only, the numeric validation share first, a status mark on each claim, "computed" for a data-only report's figures, and JUDGMENT for code-written method notes (2026-10-26)
 
 The 2026-10-22 audit found that the report's trust signals overstated what had been checked. The owner set each convention below on 2026-10-26.
 
@@ -2216,4 +2227,4 @@ The 2026-10-22 audit found that the report's trust signals overstated what had b
 - **"computed", not ✓, on a data-only report (F-23).** No citation-check pass runs on a data-only report, so its figures print "computed" under Cited and beside each figure, with a legend under the first table that uses the column. The stored `verified` value is unchanged, because the enterprise-value and debt checks read it.
 - **Code-written method notes are JUDGMENT (F-20).** The capital grading basis, the debt-bridge convention, the HEURISTIC maintenance-capex and buyback-price notes, the price-versus-repurchase-proxy comparison, each aspect's score-to-band sentence and the data-gap notes carry JUDGMENT, the label the shared prompt rule gives methodology, data-gap and coverage statements. Computed-figure sentences stay FACT. A METHOD label was not added: the label set is the model's structured-output schema, so a new value would change the contract every pass and stored report is validated against.
 
-No figure changes. Report 1.41.0 and pipeline stage-c-1.6.3 mark these conventions; payload 1.45.0 and Stage B ACCOUNTING_EVIDENCE_23 are unchanged. Stored reports and snapshots keep their bytes.
+No figure changes. Report 1.41.0 and pipeline stage-c-1.6.3 mark these conventions; payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107) are unchanged by this batch. Stored reports and snapshots keep their bytes.

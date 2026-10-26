@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.41.0** and
-payload **1.45.0** (audit batch 5, trust signals, 2026-10-26). The
+payload **1.46.0** (audit batch 5, trust signals, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -25,7 +25,13 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Mark each logged factual claim `[validated]`, `[unverified]`, `[contradicted]` or `[qualitative]` after its citation, in both page layouts, the Markdown and the print report; the header counts equal the marked claims, grade-strip reasoning that no surface prints is left out of them, as the audit export says, and a removed log entry (an earnings-reference guard row, a legacy claim withheld on read) marks and counts nothing (F-21).
 - Print "computed" in place of ✓ for a data-only report's figures, with a legend under the first table that has a Cited column (a checked report gets none); the page's figure detail and the audit export say "computed (no citation check ran)" (F-23).
 - Label the capital grading basis, the debt-bridge convention, the HEURISTIC capex and buyback notes, the repurchase-price proxy comparison, score-to-band sentences and data-gap notes JUDGMENT, not FACT; computed-figure sentences stay FACT (F-20).
-- Report 1.41.0 and pipeline stage-c-1.6.3 (D-107); payload 1.45.0 and Stage B ACCOUNTING_EVIDENCE_23 are unchanged. No figure changes.
+- Report 1.41.0 and pipeline stage-c-1.6.3 (D-108); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107) are unchanged by this batch. No figure changes.
+
+## Unreleased - readable figures in the reader notes (2026-10-26)
+
+- Print the EV bridge note's amounts and the issuer-common equity headline's share count and capitalization with grouped digits ("42,783,000,000", "119,996,000"), at unchanged precision; they printed raw source units.
+- Say that sensitivity-grid cells failing the Gordon guard are "withheld and shown as —", not "rendered null".
+- Report 1.40.2, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107); no value moves.
 
 ## Unreleased - fixes from the live five-company check (2026-10-26)
 

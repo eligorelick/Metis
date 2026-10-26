@@ -115,7 +115,7 @@ describe("D-65 enterprise values (P1)", () => {
     });
     // 5,235.243 + (38.860 − 99.369 + 42.783) − 5.494 = 5,212.023B, not the 5,169.24B that netted the equity stakes as cash.
     expect(r.enterpriseValue.value).toBeCloseTo(5_212_023e6, -3);
-    expect(r.enterpriseValue.basis).toMatch(/excluding 42783000000 of marketable equity securities/);
+    expect(r.enterpriseValue.basis).toMatch(/excluding 42,783,000,000 of marketable equity securities/);
   });
 });
 
