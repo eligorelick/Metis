@@ -45,7 +45,8 @@ describe("FRED unreadable response bodies", () => {
       : new Response("<html>private fallback content</html>"));
     const result = await series("DGS10", {}, { ...NO_THROTTLE, apiKey: "FRED-KEY", retryDelaysMs: [], fetchImpl });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.gap.reason).toMatch(/FRED API returned an unrecognized payload.*fredgraph.csv returned non-CSV/);
+    // B-1: an HTML body is an outage page, not an unrecognized payload or an unknown series.
+    if (!result.ok) expect(result.gap.reason).toMatch(/FRED API returned a maintenance\/HTML page.*fredgraph.csv returned a maintenance\/HTML page/);
     expect(JSON.stringify(result)).not.toContain("private");
     expect(JSON.stringify(result)).not.toContain("FRED-KEY");
   });
