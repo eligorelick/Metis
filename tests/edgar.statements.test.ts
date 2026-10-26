@@ -2591,6 +2591,22 @@ describe("buildStatementsFromCompanyFacts — diluted weighted shares (audit 202
     ]);
   });
 
+  it("says a loss period's equal EPS reflects antidilution, not dilution too small to show", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        NetIncomeLoss: annual(-5_160),
+        EarningsPerShareBasic: annual(-1.2),
+        EarningsPerShareDiluted: annual(-1.2),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_300_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(built.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBe(4_300_000_000);
+    const text = built.incomeAnnual.substitutions.find(s => s.field === "weightedAverageShsOutDil")?.text;
+    expect(text).toMatch(/loss.*antidilutive/);
+    expect(text).not.toMatch(/too small/);
+  });
+
   it("keeps the diluted count null when basic and diluted EPS differ, or when either is missing", () => {
     const differ = buildStatementsFromCompanyFacts(
       base({

@@ -3270,6 +3270,10 @@ function deriveFourthQuarterPerShare(
 /** Disclosure for a diluted share count served by the basic count (audit 2026-10-22 B-35). */
 const BASIC_SHARES_FOR_DILUTED_DISCLOSURE =
   "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; the basic weighted count is the diluted stand-in, so dilution too small to move EPS at its reported rounding is not reflected";
+// In a loss period every potential share is antidilutive and excluded, so the
+// diluted count is the basic count by definition (ASC 260-10-45-20).
+const BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE =
+  "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; it is a loss period, in which potential shares are antidilutive and excluded, so the basic weighted count is the diluted count";
 
 /**
  * A filer that tags no diluted weighted count (Exxon Mobil has tagged none
@@ -3297,8 +3301,9 @@ function standInDilutedSharesFromBasic(rows: FmpIncomeStatementRow[], notes: Not
       filings: [...new Map([...shares.filings, ...eps.filings, ...epsDiluted.filings].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
       calculation: "basic-shares-equal-eps",
     };
-    notes.substitute("weightedAverageShsOutDil", row.date, BASIC_SHARES_FOR_DILUTED_DISCLOSURE);
-    notes.add(`weightedAverageShsOutDil ${row.date}: ${BASIC_SHARES_FOR_DILUTED_DISCLOSURE}`);
+    const disclosure = row.eps < 0 ? BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE : BASIC_SHARES_FOR_DILUTED_DISCLOSURE;
+    notes.substitute("weightedAverageShsOutDil", row.date, disclosure);
+    notes.add(`weightedAverageShsOutDil ${row.date}: ${disclosure}`);
   }
 }
 
