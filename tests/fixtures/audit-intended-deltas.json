@@ -8227,11 +8227,6 @@
       "reason": "Common-earnings admission changes the report convention and exact fallback basis/ROTE explanatory text. The ROTE object is reclassified only for its note; all numerical and availability fields remain pinned. Frozen-build positive controls preserve complete outputs after restoring only the two exact explanatory strings. The cumulative report stamp is 1.25.1 after D-86 source-bound timing evidence; this fixture has no payment schedule, so that intervening disclosure adds no financial or payment-data leaves.",
       "deltas": [
         {
-          "path": "report.valuation.multiples.0.basis",
-          "beforeMissing": true,
-          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; parent income; no outside preferred claims known and no second NCI deduction)"
-        },
-        {
           "path": "stageB.returns.rote",
           "beforeMissing": true,
           "after": {
@@ -8257,11 +8252,6 @@
             ],
             "gaps": []
           }
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.0.basis",
-          "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / common income (latest annual FY 2025-12-31 — TTM suppressed; parent income; no outside preferred claims known and no second NCI deduction)"
         }
       ]
     },
@@ -10200,11 +10190,6 @@
           }
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.42.0"
-        },
-        {
           "path": "stageB.fairValue.reasons.0",
           "beforeMissing": true,
           "after": {
@@ -10212,6 +10197,55 @@
             "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
             "severity": "warn"
           }
+        }
+      ]
+    },
+    {
+      "name": "audit-batch4-freshness-20261026",
+      "decisions": [
+        "D-112"
+      ],
+      "reason": "Audit batch 4 (D-112), as it reaches this provider-free DEMO control. Its TTM was suppressed, so the income-derived multiples fall back to FY2025: each now records that period (B-9) and the P/E and EV/EBITDA names say it (\"P/E (FY2025)\", \"EV/EBITDA (FY2025)\"), and the P/E basis names only the formula that ran, price / diluted EPS, without the unused fallback (B-20). The report stamp moves to spec 1.43.0, out of audit-batch6-provider-failures-20261026, whose record for 1.42.0 stands in D-111; the two basis leaves move here out of the D-85/D-86 common-earnings group, whose record stands in its decisions. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-112.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.43.0"
+        },
+        {
+          "path": "report.valuation.multiples.0.basis",
+          "beforeMissing": true,
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)"
+        },
+        {
+          "path": "report.valuation.multiples.0.name",
+          "before": "P/E (TTM)",
+          "after": "P/E (FY2025)"
+        },
+        {
+          "path": "report.valuation.multiples.1.name",
+          "before": "EV/EBITDA",
+          "after": "EV/EBITDA (FY2025)"
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.0.basis",
+          "before": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed); fallback marketCap / netIncome (latest annual FY 2025-12-31 — TTM suppressed)",
+          "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)"
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.0.period",
+          "beforeMissing": true,
+          "after": "FY2025"
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.1.period",
+          "beforeMissing": true,
+          "after": "FY2025"
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.2.period",
+          "beforeMissing": true,
+          "after": "FY2025"
         }
       ]
     }

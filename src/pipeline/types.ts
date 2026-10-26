@@ -135,6 +135,13 @@ export interface XbrlSummary {
  * profile's only source of a company name, listing venue, jurisdiction and
  * filed form mix.
  */
+/** Audit 2026-10-22 B-23: the filings merged into companyfacts from their instances. */
+export interface CompanyFactsInstances {
+  /** companyfacts' own newest 10-K/10-Q filing date before the merge. */
+  companyFactsThrough: string | null;
+  merged: { accession: string; form: string; filingDate: string; periodEnd: string | null; count: number }[];
+}
+
 export interface EdgarRegistrant {
   name: string;
   cik10: string;
@@ -208,6 +215,13 @@ export interface EdgarBundle {
   quarterlySegments?: FetchResult<QuarterlySegmentRevenue>;
   /** Full companyfacts JSON — validation runs getConcept chains against this. */
   companyFacts: FetchResult<CompanyFacts>;
+  /**
+   * Audit 2026-10-22 B-23: periodic filings companyfacts had not yet carried,
+   * whose XBRL instance facts were merged into `companyFacts`. Plain data, not
+   * a FetchResult, for the same reason as `registrant`. Absent when nothing
+   * was merged.
+   */
+  companyFactsInstances?: CompanyFactsInstances;
   // --- WS4 (D-14) ------------------------------------------------------------
   /**
    * A successor registrant's predecessor and its facts, when the registrant

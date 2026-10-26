@@ -30,7 +30,7 @@ import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVer
  */
 
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
-import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
@@ -784,6 +784,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     headerBlock(report, completeness, context),
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
+    newerFilingBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer filing not reflected.</strong> ${esc(newerFilingBanner(report.filingDisclosures)!)}</aside>` : "",
     keyDataBlock(report),
     ...REPORT_SECTION_MANIFEST.map((section) => sections[section.key]),
   ]

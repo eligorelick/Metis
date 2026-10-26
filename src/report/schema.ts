@@ -134,7 +134,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.40.3 (D-109): a per-share basis named in a claim's metric words reads as the per-share unit.
 // 1.41.0 (D-110): "contradicted" reserved for a value conflict, per-claim verification marks, "computed" for a data-only report's figures and JUDGMENT for code-written method and data-gap notes.
 // 1.42.0 (D-111): the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line.
-export const REPORT_SPEC_VERSION = "1.42.0" as const;
+// 1.43.0 (D-112): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
+export const REPORT_SPEC_VERSION = "1.43.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2350,6 +2351,17 @@ export const FilingDisclosuresSchema = z
       revenue: z.number().nullable(),
       epsDiluted: z.number().nullable(),
       currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+    }).strict().optional(),
+    /**
+     * Audit 2026-10-22 B-23: a 10-Q or 10-K on file for a period later than
+     * the newest statement period, whose facts did not reach the statements
+     * (companyfacts had not carried it and its XBRL instance was not merged).
+     * Optional on older reports.
+     */
+    newerFiling: z.object({
+      source: FilingRefSchema,
+      periodEnd: IsoDaySchema,
+      statementsEnd: IsoDaySchema,
     }).strict().optional(),
     /**
      * D-66: figures the notes, the condensed statements and the CFO

@@ -294,6 +294,13 @@ function genericRegistryLabel(source: string): string {
 export function metricLabel(source: string, unit = ""): string {
   const fromUnit = unitLabel(unit);
   if (fromUnit) return fromUnit[0]!.toUpperCase() + fromUnit.slice(1);
+  // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
+  // suppressed) names that year in its payload label, so in its id too.
+  const annual = /^computed\.valuation\.(p-e|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
+  if (annual) {
+    const year = annual[2]!.startsWith("fy-ended-") ? `FY ended ${annual[2]!.slice("fy-ended-".length)}` : annual[2]!.toUpperCase();
+    return `${({ "p-e": "P/E", evtoebitda: "EV/EBITDA", evtosales: "EV/Sales" } as const)[annual[1] as "p-e" | "evtoebitda" | "evtosales"]} (${year})`;
+  }
   const exact = EXACT_LABELS[source];
   if (exact !== undefined) return exact;
   for (const [pattern, label] of PATTERN_LABELS) {
@@ -845,7 +852,13 @@ export function keyDataRows(report: Report): KeyDataRow[] {
 
   const pe = report.valuation.multiples.find((m) => /^P\/E/i.test(m.name) && m.current !== null);
   // AMZN audit 2026-10-20: a P/E carried by non-operating gains says so.
-  if (pe) rows.push({ label: pe.name, value: formatMultiple(pe.current), ...(pe.earningsCaveat ? { note: `caveat: ${pe.earningsCaveat}` } : {}) });
+  // Audit 2026-10-22 B-20: a P/E that is market cap over common income, not
+  // price over diluted EPS (the reading a reader assumes), says so.
+  if (pe) {
+    const notes = [/^marketCap \/ common income \(/.test(pe.basis ?? "") ? "market cap / common income, not price / diluted EPS" : null,
+      pe.earningsCaveat ? `caveat: ${pe.earningsCaveat}` : null].filter((note): note is string => note !== null);
+    rows.push({ label: pe.name, value: formatMultiple(pe.current), ...(notes.length > 0 ? { note: notes.join("; ") } : {}) });
+  }
   const forward = estimates.find((e) => e.epsAvg !== null && e.epsAvg > 0);
   const tracedEps = md === undefined ? firstTrace(traces, /^payload\.estimates\.est-eps-\d{4}-\d{2}-\d{2}$/) : null;
   if (forward && price !== null) {
@@ -862,7 +875,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
   // Audit 2026-10-22 B-7: an EBITDA on a composed, lower-bound D&A says so.
-  if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current), ...(evEbitda.earningsCaveat ? { note: `caveat: ${evEbitda.earningsCaveat}` } : {}) });
+  // Audit 2026-10-22 B-9: an annual-basis name already carries its year.
+  const evLabel = (name: string): string => name === "EV/EBITDA" ? "EV/EBITDA (TTM)" : name;
+  if (evEbitda) rows.push({ label: evLabel(evEbitda.name), value: formatMultiple(evEbitda.current), ...(evEbitda.earningsCaveat ? { note: `caveat: ${evEbitda.earningsCaveat}` } : {}) });
   else {
     // Net debt the pipeline withheld for the current EV is not an absent
     // input: say the multiple was withheld, so the box cannot read as merely
@@ -870,7 +885,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     // the statement builder or the plausibility check withheld the debt.
     const withheldEv = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name));
     const netDebtGap = report.appendix.missingData.find((gap) => gap.severity !== "info" && !gap.resolution && gap.field === "valuation.multiples.netDebt");
-    if (withheldEv && netDebtGap) rows.push({ label: `${withheldEv.name} (TTM)`, value: "withheld", note: "net debt withheld, so EV is too (see the data gaps)" });
+    if (withheldEv && netDebtGap) rows.push({ label: evLabel(withheldEv.name), value: "withheld", note: "net debt withheld, so EV is too (see the data gaps)" });
   }
 
   const si = md?.shortInterest;

@@ -417,7 +417,8 @@ export interface ContextPayload {
 // D-105: regained diluted shares, per-share values, NCI, WACC, EBIT, cash, net charge-offs and managed-care routes, the EV/EBITDA lower-bound caveat and the quote section's class-scope caveat alter admitted context.
 // D-107: the EV bridge note's amounts printed with grouped digits alter admitted context.
 // 1.47.0 (D-111): the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
-export const PAYLOAD_VERSION = "1.47.0" as const;
+// 1.48.0 (D-112): newer 10-Q facts, the newer-filing notice, each multiple's period and fiscal period, the P/E formula that ran, the withheld non-bracketing scenario fan, continuing-operations EPS and a TTM across a re-presented reorganisation alter admitted context.
+export const PAYLOAD_VERSION = "1.48.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1086,10 +1087,17 @@ function computedSections(
     );
   }
   for (const m of val.kind === "pre-revenue" ? [] : val.multiples.multiples) {
+    // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
+    // suppressed) names that year in its label, so the prompt shows the period
+    // its record carries; a TTM multiple keeps its label and registers none.
+    // An annual P/E is not labelled by its key: the claim checker reads the
+    // "Ttm" in "peTtm" as a window the prose must name.
+    const annual = m.period !== undefined && m.period.startsWith("FY") ? m.period : null;
     valFigures.push({
-      label: `${m.key} (current)`,
+      label: annual === null ? `${m.key} (current)` : `${m.key === "peTtm" ? "P/E" : m.key} (current, ${annual})`,
       value: m.current,
       unit: "x",
+      ...(annual === null ? {} : { period: annual, ...(/^FY\d{4}$/.test(annual) ? { fiscalPeriod: annual } : {}) }),
       source: `computed.valuation.multiples.${m.key}`,
       asOf: val.kind === "pre-revenue" ? null : val.multiples.asOf.quote,
     });

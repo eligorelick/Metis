@@ -42,7 +42,7 @@ import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { routeMetricsBlock, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
-import { EV_LEASE_SETTING_TEXT, isStartingGrowthFamily, type MultipleKey } from "@/pipeline/stageB/valuation";
+import { EV_LEASE_SETTING_TEXT, isStartingGrowthFamily, type MultipleKey, type MultipleStat } from "@/pipeline/stageB/valuation";
 import { piotroskiSignalOutcomes } from "@/pipeline/stageB/forensics";
 import { applyScenarioPresentation, buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { buildThesisTriggers } from "@/report/thesisTriggers";
@@ -3405,6 +3405,19 @@ function groupedFigure(v: number | null): string {
 }
 
 /**
+ * Audit 2026-10-22 B-9: a P/E or EV/EBITDA whose earnings are the latest
+ * fiscal year (TTM suppressed) is named for that year, "P/E (FY2025)", never
+ * "(TTM)". Every other row keeps its fixed label.
+ */
+export function multipleLabel(stat: Pick<MultipleStat, "key" | "period" | "ownershipScope">): string {
+  if (stat.key === "priceToFcf" && stat.ownershipScope) return "P/FCF (before SBC; cash attribution unresolved)";
+  const annual = stat.period !== undefined && stat.period.startsWith("FY");
+  if (annual && stat.key === "peTtm") return `P/E (${stat.period})`;
+  if (annual && stat.key === "evToEbitda") return `EV/EBITDA (${stat.period})`;
+  return MULTIPLE_LABELS[stat.key];
+}
+
+/**
  * Replace the judge's valuation.multiples rows WHOLESALE with rows derived from
  * the DETERMINISTIC Stage B multiples framework (2026-07 invariant-1 hardening):
  * current / peer median / own-5y percentile / sector-appropriate flag all come
@@ -3440,7 +3453,7 @@ export function applyMultiples(
           // (Codex review of PR #41).
           const history = stat.gainInflatedEarnings ? null : stat.ownHistory;
           return {
-            name: stat.key === "priceToFcf" && stat.ownershipScope ? "P/FCF (before SBC; cash attribution unresolved)" : MULTIPLE_LABELS[stat.key],
+            name: multipleLabel(stat),
             current: stat.current,
             ...(typeof stat.basis === "string" && stat.basis.trim() ? { basis: rowBasis(stat.basis) } : {}),
             peerMedian: stat.peers?.median ?? null,

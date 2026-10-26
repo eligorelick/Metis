@@ -669,6 +669,22 @@ export function lowerBoundDAndACaveat(rows: readonly { date?: unknown; fieldProv
   return `D&A is a lower bound for ${composed.map((row) => row.date).join(", ")} (no combined depreciation-and-amortization tag is filed; it is the filer's ${parts}), so EBITDA omits any other amortization and EV/EBITDA may read high`;
 }
 
+/** Working fields for the continuing-operations EPS stand-in; never left on a row. */
+const CONTINUING_EPS_FIELDS = {
+  eps: "epsContinuingOperations",
+  epsDiluted: "epsDilutedContinuingOperations",
+} as const;
+/**
+ * One working field per discontinued-operations element, read on its own: on
+ * a first-hit chain a zero under an earlier element would hide a result filed
+ * under a later one.
+ */
+const DISCONTINUED_ELEMENT_FIELDS: readonly { field: string; spec: ChainSpec }[] = [
+  ...tagsFor("epsDiscontinuedOperations").map((tag) => ({ tag, unit: "perShare" as const })),
+  ...tagsFor("discontinuedOperationsIncome").map((tag) => ({ tag, unit: "money" as const })),
+].map(({ tag, unit }) => ({ field: `discontinued:${tag}`, spec: { kind: "first", tags: [tag], unit } }));
+const CONTINUING_EPS_WORKING_FIELDS: ReadonlySet<string> = new Set([...Object.values(CONTINUING_EPS_FIELDS), ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)]);
+
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,
   costOfRevenue: lineItemChain("costOfRevenue", "money"),
@@ -755,6 +771,11 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   epsDiluted: lineItemChain("epsDiluted", "perShare"),
   weightedAverageShsOut: lineItemChain("weightedAverageShsOut", "shares"),
   weightedAverageShsOutDil: lineItemChain("weightedAverageShsOutDil", "shares"),
+  // Read only by standInEpsFromContinuingOperations, which removes them from
+  // the rows (audit 2026-10-22 FCX-4).
+  [CONTINUING_EPS_FIELDS.eps]: lineItemChain(CONTINUING_EPS_FIELDS.eps, "perShare"),
+  [CONTINUING_EPS_FIELDS.epsDiluted]: lineItemChain(CONTINUING_EPS_FIELDS.epsDiluted, "perShare"),
+  ...Object.fromEntries(DISCONTINUED_ELEMENT_FIELDS.map((element) => [element.field, element.spec])),
 };
 
 /**
@@ -2942,7 +2963,8 @@ function buildStatementRows<TRow>(
     }
 
     if (slot.quarter !== null) {
-      const derivedFields = [...resolutions.entries()].filter(([, r]) => r.derivation !== undefined);
+      // A working field leaves the row, so its derivation is not the row's.
+      const derivedFields = [...resolutions.entries()].filter(([field, r]) => r.derivation !== undefined && !CONTINUING_EPS_WORKING_FIELDS.has(field));
       const derivation = anchor.derivation ?? derivedFields[0]?.[1].derivation;
       if (derivation !== undefined) {
         row.derivation = derivation;
@@ -3340,6 +3362,56 @@ function standInDilutedSharesFromBasic(rows: FmpIncomeStatementRow[], notes: Not
   }
 }
 
+/** Disclosure for EPS served by continuing-operations EPS (audit 2026-10-22 FCX-4). */
+const CONTINUING_EPS_DISCLOSURE =
+  "no net-income EPS is tagged for the period; the filer's EPS from continuing operations stands in, and with no discontinued result filed for the period the two are equal (ASC 260-10-45-3)";
+
+/**
+ * A filer with no discontinued operations may tag only its EPS from
+ * continuing operations (Freeport-McMoRan has tagged no EarningsPerShare* since
+ * FY2022). Net EPS is continuing EPS plus discontinued EPS, so with no
+ * discontinued result filed for the period, in dollars or per share, the
+ * reported continuing figure is the net figure. With one filed, even one
+ * withheld from the row, or when the net figure is tagged, the working fields
+ * are dropped unused, with any note or withholding they raised.
+ */
+function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes: NoteSink): void {
+  const discontinuedFields: string[] = ["netIncomeFromDiscontinuedOperations", ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)];
+  for (const row of rows) {
+    const record = row as unknown as Record<string, unknown>;
+    const noDiscontinued = discontinuedFields.every((field) => {
+      const v = record[field];
+      return (v === null || v === undefined || v === 0) && !notes.withheld.some((held) => held.field === field && typeof row.date === "string" && held.periods.includes(row.date));
+    });
+    for (const target of ["eps", "epsDiluted"] as const) {
+      const source = CONTINUING_EPS_FIELDS[target];
+      const value = record[source];
+      const provenance = row.fieldProvenance?.[source];
+      if (typeof row.date === "string" && record[target] == null && noDiscontinued && isNum(value) && provenance !== undefined && provenance.derivation === undefined) {
+        record[target] = value;
+        row.fieldProvenance![target] = provenance;
+        const original = (record.original as Record<string, unknown> | undefined)?.[source];
+        if (original !== undefined) (record.original as Record<string, unknown>)[target] = original;
+        notes.substitute(target, row.date, CONTINUING_EPS_DISCLOSURE);
+        notes.add(`${target} ${row.date}: ${CONTINUING_EPS_DISCLOSURE}`);
+      }
+    }
+    const original = record.original as Record<string, unknown> | undefined;
+    for (const field of CONTINUING_EPS_WORKING_FIELDS) {
+      delete record[field];
+      if (row.fieldProvenance !== undefined) delete row.fieldProvenance[field];
+      if (original !== undefined) delete original[field];
+    }
+    if (original !== undefined && Object.keys(original).length === 0) delete record.original;
+  }
+  for (const list of [notes.withheld, notes.substitutions]) {
+    for (let i = list.length - 1; i >= 0; i--) if (CONTINUING_EPS_WORKING_FIELDS.has(list[i]!.field)) list.splice(i, 1);
+  }
+  for (let i = notes.notes.length - 1; i >= 0; i--) {
+    if (CONTINUING_EPS_WORKING_FIELDS.has(notes.notes[i]!.split(" ", 1)[0]!)) notes.notes.splice(i, 1);
+  }
+}
+
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
@@ -3412,6 +3484,8 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     state,
     incomeQuarterlyNotes,
   );
+  standInEpsFromContinuingOperations(incomeAnnual.rows, incomeAnnualNotes);
+  standInEpsFromContinuingOperations(incomeQuarterly.rows, incomeQuarterlyNotes);
   deriveFourthQuarterPerShare(incomeQuarterly.rows, incomeAnnual.rows, incomeQuarterlyNotes);
   standInDilutedSharesFromBasic(incomeAnnual.rows, incomeAnnualNotes);
   standInDilutedSharesFromBasic(incomeQuarterly.rows, incomeQuarterlyNotes);

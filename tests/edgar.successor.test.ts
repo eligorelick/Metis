@@ -183,6 +183,9 @@ describe("predecessorFromFilers", () => {
     expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "8-K")]))).toBe(false);
     expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "10-K")]))).toBe(true);
     expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "40-F")]))).toBe(true);
+    // Audit 2026-10-22 B-23: a point merged from a newer filing's instance is
+    // not history companyfacts carried, which is what the second hop judged.
+    expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "10-K")]), new Set(["0000000000-26-000001"]))).toBe(false);
   });
 });
 
@@ -519,6 +522,41 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
     expect(out.notes.some((n) => n.startsWith("incomeAnnual: 5 pre-reorganization period(s)"))).toBe(true);
   });
 
+  it("names the successor as the economic issuer only when its filing re-presents a predecessor period unchanged (audit 2026-10-22 B-36)", async () => {
+    // The successor's FY2026 10-K carries FY2025 as its comparative; the
+    // predecessor filed FY2025 net income of 140 and diluted EPS of 1.40.
+    const withComparative = (val: number, eps: number | null = 1.4): KeylessInputs => {
+      const base = inputs();
+      const facts = annualFacts(2115436, "EXAMPLE SUCCESSOR HOLDINGS CORP", [2026]);
+      const netIncome = facts.facts["us-gaap"]!["NetIncomeLoss"] as { units: { USD: Record<string, unknown>[] } };
+      const fy2025 = { ...netIncome.units.USD[0]!, start: "2025-01-01", end: "2025-12-31", fy: 2026 };
+      netIncome.units.USD.push({ ...fy2025, val });
+      if (eps !== null) facts.facts["us-gaap"]!["EarningsPerShareDiluted"] = { label: "x", units: { "USD/shares": [{ ...fy2025, val: eps }] } };
+      const companyFacts = base.edgar.companyFacts.ok ? { ok: true as const, value: { ...base.edgar.companyFacts.value, data: facts } } : base.edgar.companyFacts;
+      const prior = base.edgar.predecessor!;
+      const priorFacts = structuredClone(prior.facts);
+      const priorNet = (priorFacts.facts["us-gaap"]!["NetIncomeLoss"] as { units: { USD: Record<string, unknown>[] } }).units.USD.find((p) => p["end"] === "2025-12-31")!;
+      priorFacts.facts["us-gaap"]!["EarningsPerShareDiluted"] = { label: "x", units: { "USD/shares": [{ ...priorNet, val: 1.4 }] } };
+      return inputs({ edgar: { ...base.edgar, companyFacts, predecessor: { ...prior, facts: priorFacts } } });
+    };
+    const inherited = async (over: KeylessInputs) => {
+      const out = await applyKeylessFallbacks(over);
+      const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];
+      return { rows: rows.filter((row) => row["predecessor"] === true), entry: out.gaps.find((g) => g.field === "edgar.predecessor")! };
+    };
+    const continuing = await inherited(withComparative(140));
+    expect(continuing.rows.length).toBeGreaterThan(0);
+    for (const row of continuing.rows) expect(row["successorCik"]).toBe(SUCCESSOR_CIK);
+    expect(continuing.entry.reason).toMatch(/re-presents the predecessor's 2025-01-01 to 2025-12-31 net income and per-share figures unchanged/);
+    // A different net income or EPS, no per-share comparative, or no comparative at all.
+    for (const over of [withComparative(139), withComparative(140, 0.7), withComparative(140, null), inputs()]) {
+      const unproven = await inherited(over);
+      expect(unproven.rows.length).toBeGreaterThan(0);
+      for (const row of unproven.rows) expect(row["successorCik"]).toBeUndefined();
+      expect(unproven.entry.reason).not.toMatch(/re-presents/);
+    }
+  });
+
   it("files one manifest entry naming both CIKs and the span it supplied", async () => {
     const out = await applyKeylessFallbacks(inputs());
     const entries = out.gaps.filter((g) => g.field === "edgar.predecessor");
@@ -594,6 +632,28 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
     expect(entry.severity).toBe("warn");
     expect(entry.reason).toMatch(/successor issuer \(Form 8-K12B\)/);
     expect(entry.reason).toMatch(/only the successor's own filing history/);
+  });
+
+  it("still warns when the only annual history is a newer filing merged from its instance (audit 2026-10-22 B-23)", async () => {
+    const base = inputs();
+    const accn = "0002115436-26-000009";
+    const merged: CompanyFacts = { cik: 2115436, entityName: "EXAMPLE SUCCESSOR HOLDINGS CORP", facts: { "us-gaap": { Revenues: { label: "Revenues", units: { USD: [
+      { start: "2025-07-01", end: "2026-06-30", val: 1, accn, fy: 2026, fp: "FY", form: "10-K", filed: "2026-08-20" },
+    ] } } } } };
+    const out = await applyKeylessFallbacks(
+      inputs({
+        edgar: {
+          ...base.edgar,
+          predecessor: null,
+          companyFacts: {
+            ok: true,
+            value: { data: merged, asOf: "2026-06-30", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() },
+          },
+          companyFactsInstances: { companyFactsThrough: null, merged: [{ accession: accn, form: "10-K", filingDate: "2026-08-20", periodEnd: "2026-06-30", count: 1 }] },
+        },
+      }),
+    );
+    expect(out.gaps.find((g) => g.field === "edgar.predecessor")?.severity).toBe("warn");
   });
 
   it("files no warning for a successor that carries its own us-gaap history", async () => {

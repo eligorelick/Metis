@@ -4,7 +4,8 @@
  *
  *   collectCurrentReports — the latest four Item 2.02 8-Ks' EX-99.1 release and
  *     EX-99.2 commentary (guidance, issuer FCF, capital return; the newest
- *     one's narrative for the analysts), plus up to ten material-event 8-Ks
+ *     one's narrative for the analysts), results releases ahead of operational
+ *     updates for those four slots, plus up to ten material-event 8-Ks
  *     since the latest annual filing (a year when that baseline is missing).
  *   collectQuarterlySegments — the XBRL instances of the latest 10-K and up to
  *     three 10-Qs, read for segment revenue by quarter.
@@ -332,17 +333,45 @@ function earningsFilings(filings: readonly EdgarFiling[], today: string, notes: 
   return candidates.slice(0, MAX_EARNINGS_RELEASES * 2);
 }
 
-/** Reporting-period order, with filing/acceptance order only breaking ties. */
+/**
+ * Reporting-period order, with filing/acceptance order only breaking ties.
+ * Audit 2026-10-22 B-26: a release that states no period is as new as its
+ * filing, so it goes before the first dated release filed no later than it,
+ * never below every dated release.
+ */
 export function orderedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
   const fiscalOrder = (record: EarningsReleaseRecord): number | null => record.reported.fiscal === null ? null
     : record.reported.fiscal.fiscalYear * 4 + (record.reported.fiscal.fiscalQuarter ?? 4);
-  return [...records].sort((a, b) => {
+  const byFiling = (a: EarningsReleaseRecord, b: EarningsReleaseRecord): number =>
+    b.filingDate.localeCompare(a.filingDate) || (b.acceptedAt ?? "").localeCompare(a.acceptedAt ?? "") || b.accession.localeCompare(a.accession);
+  const isDated = (record: EarningsReleaseRecord): boolean => record.reported.fiscal !== null || record.reported.periodEnd !== null;
+  const dated = records.filter(isDated).sort((a, b) => {
     if (a.reported.periodEnd !== null && b.reported.periodEnd !== null && a.reported.periodEnd !== b.reported.periodEnd) return b.reported.periodEnd.localeCompare(a.reported.periodEnd);
     const af = fiscalOrder(a), bf = fiscalOrder(b);
     if (af !== null && bf !== null && af !== bf) return bf - af;
     if ((af !== null) !== (bf !== null)) return af === null ? 1 : -1;
-    return b.filingDate.localeCompare(a.filingDate) || (b.acceptedAt ?? "").localeCompare(a.acceptedAt ?? "") || b.accession.localeCompare(a.accession);
+    return byFiling(a, b);
   });
+  const undated = records.filter((record) => !isDated(record)).sort(byFiling);
+  const ordered: EarningsReleaseRecord[] = [];
+  let next = 0;
+  for (const record of dated) {
+    while (next < undated.length && byFiling(undated[next]!, record) <= 0) ordered.push(undated[next++]!);
+    ordered.push(record);
+  }
+  return [...ordered, ...undated.slice(next)];
+}
+
+/**
+ * The releases kept, in release order: a release stating results outranks an
+ * operational update (deliveries, production) for the bounded slots, so four
+ * covers a year of results. An update fills a slot only when fewer results
+ * releases were read. Records stored before `reportsResults` count as results.
+ */
+function retainedEarningsReleases(records: readonly EarningsReleaseRecord[]): EarningsReleaseRecord[] {
+  const ordered = orderedEarningsReleases(records);
+  const kept = new Set([...ordered.filter((r) => r.reportsResults !== false), ...ordered.filter((r) => r.reportsResults === false)].slice(0, MAX_EARNINGS_RELEASES));
+  return ordered.filter((r) => kept.has(r));
 }
 
 export async function collectCurrentReports(
@@ -459,7 +488,7 @@ export async function collectCurrentReports(
     for (const sentence of guidance?.unparsed ?? []) notes.push(`8-K ${filing.accessionNumber}: outlook sentence not read as guidance: "${sentence}"`);
     releases.push(record);
   }
-  const ordered = orderedEarningsReleases(releases).slice(0, MAX_EARNINGS_RELEASES);
+  const ordered = retainedEarningsReleases(releases);
   releases.splice(0, releases.length, ...ordered.map((record, i) => i === 0 ? record : { ...record, releaseNarrative: null, commentaryNarrative: null }));
   if (earnings.length === 0) notes.push(`no Item 2.02 (results) 8-K among the filings of the last ${RELEASE_WINDOW_DAYS} days`);
 
@@ -517,6 +546,8 @@ export async function collectQuarterlySegments(
   cik: string,
   filings: readonly EdgarFiling[],
   today: string,
+  /** Audit 2026-10-22 B-23: each instance read, for the companyfacts merge. */
+  onInstance?: (filing: EdgarFiling, xml: string, url: string) => void,
 ): Promise<FetchResult<QuarterlySegmentRevenue>> {
   const chosen = segmentFilings(filings, today);
   const field = "edgar.quarterlySegments";
@@ -539,6 +570,7 @@ export async function collectQuarterlySegments(
     if (typeof doc === "string") { problems.push(`${filing.form} ${filing.accessionNumber}: instance unreadable (${doc})`); continue; }
     fetchedAt ??= doc.fetchedAt;
     endpoint ??= doc.url;
+    onInstance?.(filing, doc.text, doc.url);
     const parsed = parseInstanceRevenue(doc.text);
     read.push({ accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, facts: parsed.facts, concept: parsed.concept });
     if (position === 0) {

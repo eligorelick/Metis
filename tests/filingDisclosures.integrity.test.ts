@@ -209,8 +209,10 @@ describe("filing disclosures statement integrity", () => {
     expect(buildFilingDisclosures(bundle)!.guidanceChecks.find((c) => c.metric === "revenue")?.actual).toBe(NVDA_QUARTER * M);
   });
 
-  it("keeps an unmatched release period unknown instead of inheriting the latest quarter", () => {
-    const bundle = withRelease(currencyBundle());
+  it("keeps an unmatched release period unknown, not the latest quarter's, across a reporting-currency change", () => {
+    // Audit 2026-10-22 B-27: a single-currency history binds it instead
+    // (tests/filingDisclosures.releaseCurrency.test.ts).
+    const bundle = withRelease(currencyBundle({ quarterCurrencies: ["USD", "CAD", "CAD", "CAD"], annualCurrency: "CAD" }));
     expect(nextPeriodRevenueGuidance(bundle)).toBeNull();
     const result = buildFilingDisclosures(bundle)!;
     expect(result.freeCashFlow).toEqual([]);

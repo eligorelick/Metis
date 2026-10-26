@@ -339,6 +339,20 @@ export function newerResultsBanner(d: FilingDisclosures | undefined): string | n
   return d?.newerResults ? newerResultsSentence(d.newerResults) : null;
 }
 
+/**
+ * Audit 2026-10-22 B-23: the notice that a periodic report on file covers a
+ * period the statements do not reach. One wording for the banner and the gap.
+ */
+export function newerFilingSentence(n: NonNullable<FilingDisclosures["newerFiling"]>): string {
+  return `${n.source.form} ${n.source.accession} for the period ended ${n.periodEnd} was filed on ${n.source.filingDate}; ` +
+    `statements, TTM and multiples here end ${n.statementsEnd} and do not include it.`;
+}
+
+/** The report banner, when the report has a newer-filing notice. */
+export function newerFilingBanner(d: FilingDisclosures | undefined): string | null {
+  return d?.newerFiling ? newerFilingSentence(d.newerFiling) : null;
+}
+
 export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements) | undefined, section: FilingDisclosureSection): ReportAuditTable[] {
   if (!d) return [];
   switch (section) {

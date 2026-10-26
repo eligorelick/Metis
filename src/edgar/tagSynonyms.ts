@@ -265,6 +265,33 @@ export const LINE_ITEM_TAGS = {
   // (audit 2026-10-22 B-35).
   eps: entry(["EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"]),
   epsDiluted: entry(["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"]),
+  // EPS from continuing and discontinued operations: a filer with no
+  // discontinued result may tag only the continuing figure, which is then the
+  // net figure (audit 2026-10-22 FCX-4).
+  epsContinuingOperations: entry(["IncomeLossFromContinuingOperationsPerBasicShare"]),
+  epsDilutedContinuingOperations: entry(["IncomeLossFromContinuingOperationsPerDilutedShare"]),
+  epsDiscontinuedOperations: entry([
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerDilutedShare",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxPerDilutedShare",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerBasicShare",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicShare",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerBasicAndDilutedShare",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicAndDilutedShare",
+    "DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTaxPerDilutedShare",
+    "DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTaxPerBasicShare",
+  ]),
+  // The other elements a discontinued result is filed under; any of them
+  // means the continuing figure is not the net figure. Each is read on its
+  // own, so a zero under one does not hide a result under another.
+  discontinuedOperationsIncome: entry([
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToReportingEntity",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxIncludingPortionAttributableToNoncontrollingInterest",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToNoncontrollingInterest",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationBeforeIncomeTax",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationDuringPhaseOutPeriodNetOfTax",
+    "DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax",
+  ]),
   weightedAverageShsOut: entry(["WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),
   weightedAverageShsOutDil: entry(["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),
 

@@ -53,10 +53,11 @@ import {
   predecessorManifestEntry,
   predecessorUnresolvedEntry,
   hasOwnAnnualHistory,
+  successorContinuity,
   type PredecessorFacts,
 } from "@/edgar/successor";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
-import type { EdgarRegistrant } from "@/pipeline/types";
+import type { CompanyFactsInstances, EdgarRegistrant } from "@/pipeline/types";
 import type { CikMapping } from "@/providers/edgar";
 import { isPlanLimited } from "@/providers/fmp";
 import type {
@@ -147,6 +148,8 @@ export interface KeylessInputs {
      * every existing test) keeps working unchanged.
      */
     predecessor?: PredecessorFacts | null;
+    /** Audit 2026-10-22 B-23: the newer filings merged into `companyFacts` from their instances. */
+    companyFactsInstances?: CompanyFactsInstances;
   };
   yahoo: YahooClient;
   annualPeriods: number;
@@ -1176,8 +1179,13 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // was never attempted and nothing was lost. Warning on the second case told a
   // reader that every multi-year figure measures only the successor's own
   // filing history while that history was in fact present and complete.
-  const successorCarriesOwnHistory =
-    inputs.edgar.companyFacts.ok && hasOwnAnnualHistory(inputs.edgar.companyFacts.value.data);
+  // Judged on the facts companyfacts itself carried, as `resolvePredecessor`
+  // judged them: a newer filing merged from its instance (audit 2026-10-22
+  // B-23) is one period, not the history the second hop looked for.
+  const successorCarriesOwnHistory = inputs.edgar.companyFacts.ok && hasOwnAnnualHistory(
+    inputs.edgar.companyFacts.value.data,
+    new Set((inputs.edgar.companyFactsInstances?.merged ?? []).map((filing) => filing.accession)),
+  );
   if (
     predecessor === null &&
     filedSuccessorForm &&
@@ -1216,6 +1224,11 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   }
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource !== "fmp") {
     const predecessorBuilt = buildStatementsFromCompanyFacts(predecessor.facts, { ...buildOptions(predecessor.cik10), factsObservedAt: predecessor.fetchedAt });
+    // Audit 2026-10-22 B-36: when the successor's own filing re-presents the
+    // predecessor's periods unchanged, the two are one reporting entity, and
+    // each predecessor row names the successor as its economic issuer so a
+    // trailing twelve months may span the reorganization.
+    const continuity = inputs.edgar.companyFacts.ok ? successorContinuity(inputs.edgar.companyFacts.value.data, predecessor.facts) : null;
     let filledPeriods = 0;
     let oldest: string | null = null;
     let newest: string | null = null;
@@ -1249,6 +1262,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
             sourceFetchedAt: predecessor.fetchedAt,
             predecessor: true,
             predecessorCik: predecessor.cik10,
+            ...(continuity === null ? {} : { successorCik: cik10 }),
           }) as TRow,
       );
       const dates = tagged.map((row) => isoDay(row["date"]) as string).sort();
@@ -1295,7 +1309,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     fillFromPredecessor("cashflowQuarterly", predecessorBuilt.cashflowQuarterly, STATEMENT_ENDPOINTS.cashflowQuarterly);
     if (filledPeriods > 0) {
       gaps.push(
-        predecessorManifestEntry(predecessor, cik10, filledPeriods, oldest ?? "", newest ?? ""),
+        predecessorManifestEntry(predecessor, cik10, filledPeriods, oldest ?? "", newest ?? "", continuity),
       );
     }
   }

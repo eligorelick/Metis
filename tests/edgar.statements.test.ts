@@ -2679,3 +2679,123 @@ describe("buildStatementsFromCompanyFacts — diluted weighted shares (audit 202
     expect(built.incomeAnnual.substitutions).toEqual([]);
   });
 });
+
+describe("buildStatementsFromCompanyFacts — EPS from continuing operations (audit 2026-10-22 FCX-4)", () => {
+  const K = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13" } as const;
+  const annual = (val: number): Pt[] => [{ start: "2025-01-01", end: "2025-12-31", val, ...K }];
+  const base = (extra: Record<string, Pt[]>): CompanyFacts =>
+    facts({
+      Revenues: annual(25_000),
+      NetIncomeLoss: annual(2_200),
+      Assets: [{ end: "2025-12-31", val: 55_000, ...K }],
+      ...extra,
+    }, {}, Object.fromEntries(Object.keys(extra).filter((tag) => /Per(Basic|Diluted|BasicAndDiluted)Share$/.test(tag)).map((tag) => [tag, "USD/shares"])));
+
+  it("reads continuing-operations EPS as EPS when no net-income EPS and no discontinued result is filed", () => {
+    // Freeport-McMoRan has tagged only IncomeLossFromContinuingOperationsPer*
+    // Share since FY2022 (FY2025 diluted 1.52), so its EPS CAGR ended at 2021.
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        IncomeLossFromContinuingOperationsPerBasicShare: annual(1.53),
+        IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52),
+      }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    const row = built.incomeAnnual.rows[0]!;
+    expect(row.eps).toBe(1.53);
+    expect(row.epsDiluted).toBe(1.52);
+    expect(row.fieldProvenance?.epsDiluted).toMatchObject({ periodStart: "2025-01-01", periodEnd: "2025-12-31" });
+    expect(row.fieldProvenance?.epsDiluted?.tags).toEqual(["us-gaap/IncomeLossFromContinuingOperationsPerDilutedShare"]);
+    expect(Object.keys(row)).not.toContain("epsDilutedContinuingOperations");
+    expect(built.incomeAnnual.substitutions).toEqual([
+      { field: "eps", periods: ["2025-12-31"], text: expect.stringMatching(/^no net-income EPS is tagged for the period.*continuing operations/) },
+      { field: "epsDiluted", periods: ["2025-12-31"], text: expect.stringMatching(/^no net-income EPS is tagged for the period.*continuing operations/) },
+    ]);
+  });
+
+  it("keeps the filed net-income EPS, and withholds the stand-in beside a discontinued result", () => {
+    const filed = buildStatementsFromCompanyFacts(
+      base({ EarningsPerShareDiluted: annual(1.5), IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52) }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(filed.incomeAnnual.rows[0]!.epsDiluted).toBe(1.5);
+    const discontinued = buildStatementsFromCompanyFacts(
+      base({ IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(-40) }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(discontinued.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    const perShare = buildStatementsFromCompanyFacts(
+      base({ IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52), IncomeLossFromDiscontinuedOperationsNetOfTaxPerDilutedShare: annual(-0.03) }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(perShare.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    expect(perShare.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it.each([
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToReportingEntity", -40],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax", -40],
+    ["DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax", 15],
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicAndDilutedShare", -0.03],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerBasicAndDilutedShare", -0.03],
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxIncludingPortionAttributableToNoncontrollingInterest", -40],
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToNoncontrollingInterest", -2],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationBeforeIncomeTax", -50],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationDuringPhaseOutPeriodNetOfTax", -5],
+    ["DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTaxPerDilutedShare", 0.01],
+  ])("withholds the stand-in beside a discontinued result filed as %s", (tag, val) => {
+    const built = buildStatementsFromCompanyFacts(
+      base({ IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52), [tag]: annual(val) }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    expect(built.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it("reads every discontinued element, so a zero filed under one does not hide a result filed under another", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52),
+        IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToReportingEntity: annual(0),
+        DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax: annual(15),
+      }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    expect(Object.keys(built.incomeAnnual.rows[0]!).filter((key) => /discontinued:/.test(key))).toEqual([]);
+  });
+
+  it("does not mark a row derived, or name a working field, for a working figure backed out of year-to-date", () => {
+    // Apple-like quarters: revenue and net income are tagged for Q2 itself; a
+    // discontinued result only for Q1 and the six months, so its Q2 figure is
+    // year-to-date less Q1. It is read only to decide the EPS stand-in.
+    const base = appleLike();
+    base.facts["us-gaap"]!.DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax = { units: { USD: [
+      { start: "2024-09-29", end: "2024-12-28", val: -4, accn: "q1-disc", fy: 2025, fp: "Q1", form: "10-Q", filed: "2025-01-31" },
+      { start: "2024-09-29", end: "2025-03-29", val: -9, accn: "q2-disc", fy: 2025, fp: "Q2", form: "10-Q", filed: "2025-05-02" },
+    ] } } as never;
+    const built = buildStatementsFromCompanyFacts(base, OPTS);
+    const q2 = built.incomeQuarterly.rows.find((row) => row.date === "2025-03-29")!;
+    expect(q2.derivation).toBeUndefined();
+    expect(built.incomeQuarterly.notes.filter((note) => /ContinuingOperations|discontinued:/.test(note))).toEqual([]);
+  });
+
+  it("treats a discontinued result it could not read as filed, and names no working field", () => {
+    // A discontinued result in another currency is withheld from the row; it
+    // was still filed, so the continuing figure is not the net figure.
+    const built = buildStatementsFromCompanyFacts(
+      facts({
+        Revenues: annual(25_000),
+        NetIncomeLoss: annual(2_200),
+        Assets: [{ end: "2025-12-31", val: 55_000, ...K }],
+        IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52),
+        DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax: annual(-40),
+      }, {}, { IncomeLossFromContinuingOperationsPerDilutedShare: "USD/shares", DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax: "EUR" }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    const working = /ContinuingOperations|DiscontinuedOperations|discontinuedOperationsIncome|^discontinued:/;
+    expect(built.incomeAnnual.withheld.map((held) => held.field).filter((field) => working.test(field) && field !== "netIncomeFromDiscontinuedOperations")).toEqual([]);
+    expect(built.incomeAnnual.notes.filter((note) => /^(epsContinuingOperations|epsDilutedContinuingOperations|epsDiscontinuedOperations|discontinuedOperationsIncome|discontinued:\S+) /.test(note))).toEqual([]);
+  });
+});

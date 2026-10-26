@@ -16,8 +16,8 @@ import { validateBundle, type ValidationReport, type ValidatableBundle } from "@
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
-import { buildFilingDisclosures, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
-import { newerResultsSentence } from "@/report/filingDisclosurePresentation";
+import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -423,9 +423,18 @@ function toGrowthCashFlow(r: FmpCashFlowRow): GrowthCashFlowRow {
   };
 }
 
+/**
+ * The issuer whose earnings a row reports: its filer, or, for a predecessor's
+ * row that the successor's own filing re-presents unchanged, the successor
+ * (audit 2026-10-22 B-36).
+ */
+function economicIssuerId(row: FmpStatementRow): string | null {
+  return row.predecessor === true ? str(row.successorCik) ?? str(row.cik) : str(row.cik);
+}
+
 function commonFlowScope(row: FmpStatementRow, field: string, basis: "annual" | "quarter" | "ttm"): CommonIncomeFlowScope {
   const evidence = row.fieldProvenance?.[field];
-  return { issuerId: str(row.cik), currency: evidence?.unit ?? str(row.reportedCurrency),
+  return { issuerId: economicIssuerId(row), currency: evidence?.unit ?? str(row.reportedCurrency),
     periodStart: evidence?.periodStart ?? str(row.periodStart), periodEnd: evidence?.periodEnd ?? str(row.date), basis,
     observedAt: evidence?.observedAt,
     // Primary field evidence belongs to this operand; unrelated row timing
@@ -446,7 +455,7 @@ function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "qua
     nciDeducted ? "parent" : consolidatedTag ? "consolidated" :
       tags.includes("us-gaap/NetIncomeLoss") ? "parent" : undefined;
   return { netIncome: num(row.netIncome), netIncomeAvailableToCommon: num(row.netIncomeAvailableToCommon),
-    admissionAsOf, targetScope: { issuerId: str(row.cik), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
+    admissionAsOf, targetScope: { issuerId: economicIssuerId(row), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
     incomeScope: commonFlowScope(row, "netIncome", basis), commonIncomeScope: commonFlowScope(row, "netIncomeAvailableToCommon", basis),
     noncontrollingIncomeScope: commonFlowScope(row, "netIncomeAttributableToNoncontrollingInterest", basis),
     noncontrollingIncome: num(row.netIncomeAttributableToNoncontrollingInterest), netIncomeOwnershipBasis: ownership,
@@ -2664,6 +2673,13 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
 
+  // Audit 2026-10-22 B-23: a 10-Q or 10-K on file that the statements do not reach.
+  const newerFiling = newerPeriodicFiling(bundle);
+  if (newerFiling !== null) newerResultsGaps.push({ field: "fundamentals.newerFiling", severity: "warn", reason: newerFilingSentence({
+    source: { form: newerFiling.filing.form, accession: newerFiling.filing.accessionNumber, exhibit: null, filingDate: newerFiling.filing.filingDate, url: null },
+    periodEnd: newerFiling.filing.reportDate.slice(0, 10), statementsEnd: newerFiling.statementsEnd,
+  }) });
+
   // --- Merge all gaps + notes ------------------------------------------------
   const gaps = mergeManifest(
     newerResultsGaps,
@@ -3570,6 +3586,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
           date: String(inc0.date ?? ""),
           basis: "annual",
+          fiscalYear: typeof inc0.fiscalYear === "string" ? inc0.fiscalYear : typeof inc0.fiscalYear === "number" ? String(inc0.fiscalYear) : null,
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
@@ -3588,6 +3605,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingCashFlow: ttmCf.operatingCashFlow,
         capitalExpenditure: ttmCf.capitalExpenditure,
         depreciationAndAmortization: ttmCf.depreciationAndAmortization,
+        annualDepreciationAndAmortization: ctx.cashflowAnnual[0]
+          ? { date: String(ctx.cashflowAnnual[0].date ?? ""), value: num(ctx.cashflowAnnual[0].depreciationAndAmortization) }
+          : null,
       }
     : ctx.cashflowAnnual[0]
       ? {

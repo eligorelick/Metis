@@ -148,7 +148,7 @@ describe("a revenue outlook far from the statements (audit 2026-10-22 B-25)", ()
   it("names the currency, not a misread scale, for a guide printed in another currency", () => {
     const bundle = bundleWith([{ text: release("First", "second", "approximately ¥180 billion"), accession: "0000000001-26-000010", filed: "2026-04-28" }]);
     const notes = buildFilingDisclosures(bundle)!.notes.join(" ");
-    expect(notes).toMatch(/currency is not the statements'/);
+    expect(notes).toMatch(/that currency \(JPY\) is not the statements' \(USD\)/);
     expect(notes).not.toMatch(/scale was misread/);
   });
 

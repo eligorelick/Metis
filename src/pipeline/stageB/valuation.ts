@@ -3353,6 +3353,8 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
    * when absent (legacy callers).
    */
   basis?: "ttm" | "annual";
+  /** Audit 2026-10-22 B-9: the annual row's own fiscal year, which names an annual-basis multiple. */
+  fiscalYear?: string | null;
   revenue: number | null;
   operatingIncome: number | null;
   /** AMZN audit 2026-10-20: pre-tax income, to measure how much of it is non-operating. */
@@ -3379,6 +3381,8 @@ export interface MultiplesCashFlowTtm {
   operatingCashFlow: number | null;
   capitalExpenditure: number | null;
   depreciationAndAmortization?: number | null;
+  /** The latest annual cash-flow row's D&A and date, beside a TTM slice: a fiscal-year operating income's own-period D&A. */
+  annualDepreciationAndAmortization?: { date: string; value: number | null } | null;
 }
 
 /** Latest balance sheet slice (FMP names). */
@@ -3675,6 +3679,13 @@ export interface MultipleStat {
    * P/E caveat, the own-history rank stays: the history is built the same way.
    */
   ebitdaLowerBound?: { basis: string };
+  /**
+   * Audit 2026-10-22 B-9: the statement period an income-derived multiple's
+   * denominator covers: "TTM to <date>" for four summed quarters, or "FY<year>"
+   * when TTM was suppressed and the latest annual row stands in. Labels are
+   * derived from it.
+   */
+  period?: string;
 }
 
 /** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
@@ -4078,15 +4089,31 @@ export function multiplesFramework(
 
   // --- Raw building blocks (zero-for-undisclosed handled where implausible) --
   const revenue = posOrNull(zeroAsNull(inc?.revenue));
-  const dAndA = isNum(inc?.depreciationAndAmortization)
-    ? inc.depreciationAndAmortization
-    : isNum(cf?.depreciationAndAmortization)
-      ? cf.depreciationAndAmortization
-      : null;
+  // Audit 2026-10-22 B-9 review: the cash-flow statement's D&A stands in only
+  // on the income statement's own period; on another, EBITDA would add two
+  // periods' figures under one period's label.
+  const period = (row: { date: string; basis?: "ttm" | "annual"; fiscalYear?: string | null }): string =>
+    row.basis === "annual"
+      ? (/^\d{4}$/.test(row.fiscalYear ?? "") ? `FY${row.fiscalYear}` : row.date === "" ? "an undated fiscal year" : `FY ended ${row.date}`)
+      : row.date === "" ? "an undated TTM" : `TTM to ${row.date}`;
+  // An undated row matches nothing: two empty dates are not one period.
+  const onIncomeDate = (date: string): boolean => inc !== null && inc.date !== "" && date === inc.date;
+  const cashFlowDaSamePeriod =
+    inc === null || cf === null
+      ? null
+      : isNum(cf.depreciationAndAmortization) && onIncomeDate(cf.date) && (cf.basis ?? "ttm") === (inc.basis ?? "ttm")
+        ? cf.depreciationAndAmortization
+        : inc.basis === "annual" && isNum(cf.annualDepreciationAndAmortization?.value) && onIncomeDate(cf.annualDepreciationAndAmortization.date)
+          ? cf.annualDepreciationAndAmortization.value
+          : null;
+  const cashFlowDaElsewhere = inc !== null && !isNum(inc.depreciationAndAmortization) && cashFlowDaSamePeriod === null && isNum(cf?.depreciationAndAmortization);
+  const dAndA = isNum(inc?.depreciationAndAmortization) ? inc.depreciationAndAmortization : cashFlowDaSamePeriod;
   const ebitda =
     isNum(inc?.operatingIncome) && isNum(dAndA) ? inc.operatingIncome + dAndA : null;
   const ebitdaLowerBound = ebitda !== null && isNum(inc?.depreciationAndAmortization) && inc.dAndALowerBound ? inc.dAndALowerBound : null;
-  if (!financialsRoute && inc && !isNum(dAndA)) {
+  if (!financialsRoute && inc && cashFlowDaElsewhere) {
+    gaps.push(gapEntry("valuation.multiples.ebitda", `no income-statement D&A, and the cash-flow D&A covers ${period(cf!)}, not ${period(inc)} — EBITDA (computed) withheld rather than adding two periods`, "info"));
+  } else if (!financialsRoute && inc && !isNum(dAndA)) {
     gaps.push(gapEntry("valuation.multiples.ebitda", "depreciationAndAmortization missing — EBITDA (computed) unavailable", "info"));
   }
   const fcf = deriveFcf(cf?.operatingCashFlow, cf?.capitalExpenditure);
@@ -4249,12 +4276,17 @@ export function multiplesFramework(
   // --- Current multiples from raw fields ------------------------------------
   let eps = posOrNull(inc?.epsDiluted);
   let epsBasis = "price / epsDiluted";
+  // Audit 2026-10-22 B-20: why price / diluted EPS did not produce the P/E, named in its basis.
+  let epsUnused = isNum(inc?.epsDiluted)
+    ? "diluted EPS for the period is not positive"
+    : inc?.basis === "annual" ? "the fiscal year's diluted EPS is not reported" : "diluted EPS is not available for every quarter of the period";
   if (inputs.quote.isAdr === true && eps !== null) {
     const security = resolveSecurityBasis(inputs.securityBasis ?? [], inputs.securityBasisAsOf ?? "");
     if (security === null || security.quoteUnit !== "ADS" || inc?.epsSecurityBasis === undefined ||
       (inputs.quote.issuerId !== undefined && security.issuerId !== inputs.quote.issuerId) ||
       (inputs.quote.securityId !== undefined && security.securityId !== inputs.quote.securityId)) {
       eps = null;
+      epsUnused = "the ADR's depositary ratio and EPS basis are not verified";
       const reason = "ADR/ADS price-to-EPS basis unavailable: a verified effective-dated depositary ratio and explicit ordinary-versus-quoted EPS basis are required; price/EPS withheld, with common-income market-cap fallback only when eligible";
       notes.push(reason);
       gaps.push(gapEntry("valuation.multiples.peTtm.securityBasis", reason, "warn"));
@@ -4269,6 +4301,7 @@ export function multiplesFramework(
   // the issuer-economic capitalization over common income instead.
   if (eps !== null && equityScope.status === "resolved" && equityScope.weightedClasses === true) {
     eps = null;
+    epsUnused = "share classes carry different economic weights and the diluted EPS class basis is not established";
     const reason = "share classes carry different economic weights and the diluted EPS class basis is not established; P/E is issuer-economic market cap / common income, not price / EPS";
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.peTtm.economicClassBasis", reason, "info"));
@@ -4499,6 +4532,7 @@ export function multiplesFramework(
     inputs.cashFlowTtm?.basis === "annual"
       ? `latest annual FY ${inputs.cashFlowTtm.date} — TTM suppressed`
       : "TTM";
+  const incomePeriod = inputs.incomeTtm === null || inputs.incomeTtm === undefined || inputs.incomeTtm.date === "" ? undefined : period(inputs.incomeTtm);
   if (inputs.incomeTtm?.basis === "annual") {
     notes.push(
       "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
@@ -4518,7 +4552,9 @@ export function multiplesFramework(
         ? `latest annual balance sheet ${bal.date}`
         : "latest";
   const basisByKey: Record<MultipleKey, string> = {
-    peTtm: `${epsBasis} (${incomeBasisLabel}); fallback marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis})` +
+    peTtm: (price !== null && eps !== null
+      ? `${epsBasis} (${incomeBasisLabel})`
+      : `marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) +
       (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
         ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
         : ""),
@@ -4564,6 +4600,7 @@ export function multiplesFramework(
       basis: basisByKey[key],
       ...(key === "priceToFcf" && historicalFcfScope ? { basis: `${basisByKey[key]}. ${historicalFcfScope}`, historyScope: historicalFcfScope } : {}),
       ...(key === "evToEbitda" && ebitdaLowerBound !== null && cur !== null ? { ebitdaLowerBound: { basis: ebitdaLowerBound } } : {}),
+      ...(incomePeriod !== undefined && (key === "peTtm" || key === "evToEbitda" || key === "evToSales") ? { period: incomePeriod } : {}),
       ownHistory: priceCurrency.comparable && marketCapSecurityKnown
         ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history", historyDetails[key])
         : null,

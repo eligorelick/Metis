@@ -29,6 +29,7 @@
  */
 import type { ManifestEntry } from "@/types/core";
 import type { FilingFiler } from "@/providers/edgar";
+import { tagsFor } from "@/edgar/tagSynonyms";
 import { conceptFactsSchema, filterToCoreForms, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 
 /** The form a successor issuer files to register under the predecessor's listing. */
@@ -158,7 +159,7 @@ const DAY_MS = 86_400_000;
  * concepts with one quarter each, and the predecessor's ninety years were then
  * never fetched because the successor "had history".
  */
-export function hasOwnAnnualHistory(facts: CompanyFacts | null): boolean {
+export function hasOwnAnnualHistory(facts: CompanyFacts | null, mergedAccessions: ReadonlySet<string> = new Set()): boolean {
   if (facts === null) return false;
   const concepts = facts.facts["us-gaap"];
   if (concepts === undefined || concepts === null || typeof concepts !== "object") return false;
@@ -168,13 +169,85 @@ export function hasOwnAnnualHistory(facts: CompanyFacts | null): boolean {
     for (const rawPoints of Object.values(parsed.data.units)) {
       if (!Array.isArray(rawPoints)) continue;
       for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
-        if (p.start === undefined) continue;
+        // Audit 2026-10-22 B-23: a point merged from a newer filing's instance
+        // is not history companyfacts carried.
+        if (p.start === undefined || mergedAccessions.has(p.accn)) continue;
         const days = (Date.parse(`${p.end}T00:00:00Z`) - Date.parse(`${p.start}T00:00:00Z`)) / DAY_MS;
         if (days >= ANNUAL_MIN_DAYS && days <= ANNUAL_MAX_DAYS) return true;
       }
     }
   }
   return false;
+}
+
+/**
+ * Each core-form duration point of the tags, latest-filed per unit and
+ * interval, keyed by `role` so that synonym tags meet: the first tag in the
+ * list that carries an interval gives the role's value there.
+ */
+function durationPoints(facts: CompanyFacts, role: string, tags: readonly string[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const tag of tags) {
+    for (const [key, val] of tagDurationPoints(facts, tag)) {
+      const roleKey = `${role}|${key}`;
+      if (!out.has(roleKey)) out.set(roleKey, val);
+    }
+  }
+  return out;
+}
+
+/** One tag's core-form duration points, latest-filed per `unit|start|end`. */
+function tagDurationPoints(facts: CompanyFacts, tag: string): Map<string, number> {
+  const latest = new Map<string, { val: number; filed: string }>();
+  const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+  if (!parsed.success) return new Map();
+  for (const [unit, rawPoints] of Object.entries(parsed.data.units)) {
+    if (!Array.isArray(rawPoints)) continue;
+    for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
+      if (p.start === undefined || !Number.isFinite(p.val)) continue;
+      const key = `${unit}|${p.start}|${p.end}`;
+      const seen = latest.get(key);
+      if (seen === undefined || p.filed > seen.filed) latest.set(key, { val: p.val, filed: p.filed });
+    }
+  }
+  return new Map([...latest].map(([key, p]) => [key, p.val]));
+}
+
+/**
+ * Whether the successor's own filings re-present the predecessor's periods
+ * unchanged (audit 2026-10-22 B-36): a net income it reports for an interval
+ * the predecessor also reported, with every such net income and per-share
+ * comparative equal. That is the evidence of one continuing reporting entity
+ * on one share basis — ExxonMobil Holdings' first 10-Q restates Exxon Mobil
+ * Corp's Q2 2025 at 7,082M and 1.64 a share — so the predecessor's quarters
+ * may share a trailing twelve months with the successor's. EPS is compared by
+ * role, basic and diluted, so a combined basic-and-diluted tag on one side
+ * meets separate tags on the other, and at least one per-share comparative
+ * must match: matching earnings alone do not show one share basis. Returns the
+ * matched intervals, or null when there is none or any comparative differs.
+ */
+export function successorContinuity(successor: CompanyFacts, predecessor: CompanyFacts): { periods: string[] } | null {
+  const periods = new Set<string>();
+  let perShareMatched = false;
+  // Each net-income tag is its own concept (parent, consolidated, available to
+  // common), so it meets only itself; an EPS tag stands for its role.
+  const comparisons: { role: string; tags: readonly string[]; tolerance: number; perShare: boolean }[] = [
+    ...tagsFor("netIncome").map((tag) => ({ role: tag, tags: [tag], tolerance: 0.5, perShare: false })),
+    { role: "eps", tags: tagsFor("eps"), tolerance: 0.005, perShare: true },
+    { role: "epsDiluted", tags: tagsFor("epsDiluted"), tolerance: 0.005, perShare: true },
+  ];
+  for (const { role, tags, tolerance, perShare } of comparisons) {
+    const before = durationPoints(predecessor, role, tags);
+    for (const [key, val] of durationPoints(successor, role, tags)) {
+      const prior = before.get(key);
+      if (prior === undefined) continue;
+      if (Math.abs(prior - val) > tolerance) return null;
+      const [, , start, end] = key.split("|");
+      if (perShare) perShareMatched = true;
+      else periods.add(`${start} to ${end}`);
+    }
+  }
+  return periods.size === 0 || !perShareMatched ? null : { periods: [...periods].sort() };
 }
 
 /**
@@ -189,6 +262,7 @@ export function predecessorManifestEntry(
   periods: number,
   oldest: string,
   newest: string,
+  continuity: { periods: string[] } | null = null,
 ): ManifestEntry {
   const name = predecessor.name ?? `CIK ${predecessor.cik10}`;
   return {
@@ -200,7 +274,9 @@ export function predecessorManifestEntry(
       `co-registers ${name}, CIK ${predecessor.cik10}. Its own companyfacts payload begins at the reorganization. ` +
       `${periods} older period(s), ${oldest} to ${newest}, were taken from the predecessor's filings and each row is ` +
       'tagged `predecessor: true` with that CIK. They were filed by a different legal entity, so a change of ' +
-      "accounting policy, perimeter or fiscal calendar at the reorganization would not be visible as a restatement.",
+      "accounting policy, perimeter or fiscal calendar at the reorganization would not be visible as a restatement." +
+      (continuity === null ? "" : ` The successor's own filing re-presents the predecessor's ${continuity.periods.join(", ")} net income and ` +
+        "per-share figures unchanged, so the two report as one entity on one share basis and a trailing twelve months may span the reorganization."),
     severity: "info",
     attemptedSources: [`edgar:companyfacts CIK${predecessor.cik10}`, predecessor.endpoint],
     expected: true,
