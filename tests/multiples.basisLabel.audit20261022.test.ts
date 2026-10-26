@@ -8,7 +8,8 @@ import { ReportView } from "@/components/report/ReportView";
 import { runStageB } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
-import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { multipleLabel } from "@/pipeline/stageC/passes";
+import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
@@ -57,9 +58,12 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
     const labels = keyDataRows(r).map((row) => row.label);
     expect(labels).toContain("P/E (TTM)");
     expect(labels).toContain("EV/EBITDA (TTM)");
-    const figure = assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] } as unknown as ValidationReport).computed.flatMap((s) => s.figures).find((f) => f.source === "computed.valuation.multiples.peTtm")!;
-    expect(figure).toMatchObject({ label: "peTtm (current)", period: "TTM to 2026-03-31" });
-    expect(figure.fiscalPeriod).toBeUndefined();
+    // The TTM record keeps its label and registers no period, as before: the
+    // prompt shows none, so a period the model supplies cannot mismatch it.
+    const payload = assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
+    const record = (payload.provenanceRegistry ?? []).find((entry) => entry.origin === "computed.valuation.multiples.peTtm")!;
+    expect(record).toMatchObject({ id: "computed.valuation.pettm-current", label: "peTtm (current)", period: null });
+    expect(record.fiscalPeriod).toBeUndefined();
   });
 
   it("names the fiscal year when TTM was suppressed, in every surface and the record", () => {
@@ -82,11 +86,34 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
       expect(text).not.toContain("P/E (TTM)");
       expect(text).not.toContain("EV/EBITDA (TTM)");
     }
-    const figure = assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] } as unknown as ValidationReport).computed.flatMap((s) => s.figures).find((f) => f.source === "computed.valuation.multiples.peTtm")!;
-    expect(figure).toMatchObject({ label: "peTtm (current)", period: "FY2025", fiscalPeriod: "FY2025" });
-    expect(metricLabel("computed.valuation.pettm-current", "", "FY2025")).toBe("P/E (FY2025)");
-    expect(metricLabel("computed.valuation.evtoebitda-current", "", "FY2025")).toBe("EV/EBITDA (FY2025)");
-    expect(metricLabel("computed.valuation.pettm-current", "", "TTM to 2026-03-31")).toBe("P/E (TTM)");
+    // The AI context names the year in the label the prompt shows, so the
+    // period its record carries is one the model can see and cite.
+    const payload = assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
+    const record = (payload.provenanceRegistry ?? []).find((entry) => entry.origin === "computed.valuation.multiples.peTtm")!;
+    expect(record).toMatchObject({ id: "computed.valuation.pettm-current-fy2025", label: "peTtm (current, FY2025)", period: "FY2025", fiscalPeriod: "FY2025" });
+    expect(serializePayloadForPrompt(payload)).toContain("peTtm (current, FY2025): ");
+    expect(serializePayloadForPrompt(payload)).toContain("evToEbitda (current, FY2025): ");
+    expect(metricLabel("computed.valuation.pettm-current-fy2025")).toBe("P/E (FY2025)");
+    expect(metricLabel("computed.valuation.evtoebitda-current-fy2025")).toBe("EV/EBITDA (FY2025)");
+    expect(metricLabel("computed.valuation.evtosales-current-fy2025")).toBe("EV/Sales (FY2025)");
+    expect(metricLabel("computed.valuation.pettm-current")).toBe("P/E (TTM)");
+  });
+
+  it("names the fiscal year from a numeric fiscal year, and labels an undated fiscal year the same way everywhere", () => {
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    quarters(bundle).splice(1, 1);
+    if (!bundle.statements.incomeAnnual.ok) throw new Error("no annual income");
+    const annual = bundle.statements.incomeAnnual.value.data.rows as unknown as Rows;
+    annual[0]!.fiscalYear = Number(annual[0]!.fiscalYear);
+    const { computed, report: r } = report(bundle);
+    expect(multiple(computed, "peTtm").period).toBe("FY2025");
+    expect(r.valuation.multiples.map((m) => m.name)).toContain("P/E (FY2025)");
+    // A fiscal year the statements do not name is labelled by its end date,
+    // alike in the table and the record labels.
+    expect(multipleLabel({ key: "peTtm", period: "FY ended 2025-12-31" })).toBe("P/E (FY ended 2025-12-31)");
+    expect(metricLabel("computed.valuation.pettm-current-fy-ended-2025-12-31")).toBe("P/E (FY ended 2025-12-31)");
+    expect(multipleLabel({ key: "evToEbitda", period: "FY ended 2025-12-31" })).toBe("EV/EBITDA (FY ended 2025-12-31)");
+    expect(metricLabel("computed.valuation.evtoebitda-current-fy-ended-2025-12-31")).toBe("EV/EBITDA (FY ended 2025-12-31)");
   });
 });
 

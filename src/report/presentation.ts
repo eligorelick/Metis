@@ -287,14 +287,16 @@ function genericRegistryLabel(source: string): string {
  * not a computed/payload/manifest id or an SEC citation) are returned
  * unchanged, so a label the pipeline already wrote is never rewritten.
  */
-export function metricLabel(source: string, unit = "", period: string | null = null): string {
+export function metricLabel(source: string, unit = ""): string {
   const fromUnit = unitLabel(unit);
   if (fromUnit) return fromUnit[0]!.toUpperCase() + fromUnit.slice(1);
-  // Audit 2026-10-22 B-9: a P/E or EV/EBITDA record on the latest fiscal year
-  // (TTM suppressed) is named for that year, as the multiples table names it.
-  const annual = period !== null && /^FY\d{4}$/.test(period) ? period : null;
-  if (annual !== null && source === "computed.valuation.pettm-current") return `P/E (${annual})`;
-  if (annual !== null && source === "computed.valuation.evtoebitda-current") return `EV/EBITDA (${annual})`;
+  // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
+  // suppressed) names that year in its payload label, so in its id too.
+  const annual = /^computed\.valuation\.(pettm|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
+  if (annual) {
+    const year = annual[2]!.startsWith("fy-ended-") ? `FY ended ${annual[2]!.slice("fy-ended-".length)}` : annual[2]!.toUpperCase();
+    return `${({ pettm: "P/E", evtoebitda: "EV/EBITDA", evtosales: "EV/Sales" } as const)[annual[1] as "pettm" | "evtoebitda" | "evtosales"]} (${year})`;
+  }
   const exact = EXACT_LABELS[source];
   if (exact !== undefined) return exact;
   for (const [pattern, label] of PATTERN_LABELS) {
@@ -375,7 +377,7 @@ export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "curren
 export function figureRow(n: TracedNumber, label?: string): FigureRow {
   const period = tracedPeriodLabel(n.period, n.periodContext).replace(/^not supplied; /, "");
   return {
-    label: label ?? metricLabel(n.source, n.unit, n.period),
+    label: label ?? metricLabel(n.source, n.unit),
     value: figureValueText(n),
     period: period === "not supplied" ? null : period,
     asOf: n.asOf,
@@ -626,7 +628,7 @@ export function geographicBasisNote(rows: readonly { revenue: TracedNumber }[]):
 /** A technical indicator's label, naming an intraday quote "latest price" rather than "last close". */
 export function indicatorLabel(n: TracedNumber, timing: { intraday: boolean; detail: string | null }): string {
   if (n.source === "computed.technicals.last-close" && timing.intraday) return `Latest price (${timing.detail})`;
-  return metricLabel(n.source, n.unit, n.period);
+  return metricLabel(n.source, n.unit);
 }
 
 /** The reverse-DCF implied value with the unit its metric names. */
@@ -1316,7 +1318,7 @@ export function displayClaimText(claim: SourcedClaim, numbers: readonly TracedNu
   const digits = raw.split(".")[1]?.length ?? 0;
   // Numeric compatibility at the stated precision is not factual validation.
   if (Math.sign(value) !== Math.sign(typed) || decimalRound(typed, digits) !== value) return text;
-  return `${text} [Original rounded claim; cited measure: ${figureValueText(n)} (${metricLabel(n.source, n.unit, n.period)}; ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}).]`;
+  return `${text} [Original rounded claim; cited measure: ${figureValueText(n)} (${metricLabel(n.source, n.unit)}; ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}).]`;
 }
 
 /**
@@ -1346,7 +1348,7 @@ export function qualityAccrualClarifications(quality: Report["quality"]): string
     // into a different supplied as-of day.
     const asOfDay = new Date(`${n.asOf}T00:00:00Z`);
     if (!Number.isFinite(asOfDay.getTime()) || asOfDay.toISOString().slice(0, 10) !== n.asOf) return [];
-    return [`Structured measure clarification: ${metricLabel(n.source, n.unit, n.period)}: ${figureValueText(n)} (recorded period: ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}). Original model wording is retained; this separate quality-section measure does not validate the entity or measurement window of the original claim.`];
+    return [`Structured measure clarification: ${metricLabel(n.source, n.unit)}: ${figureValueText(n)} (recorded period: ${tracedPeriodLabel(n.period, n.periodContext)}; as of ${n.asOf}). Original model wording is retained; this separate quality-section measure does not validate the entity or measurement window of the original claim.`];
   });
 }
 

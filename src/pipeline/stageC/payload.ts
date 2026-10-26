@@ -1083,12 +1083,15 @@ function computedSections(
     );
   }
   for (const m of val.kind === "pre-revenue" ? [] : val.multiples.multiples) {
+    // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
+    // suppressed) names that year in its label, so the prompt shows the period
+    // its record carries; a TTM multiple keeps its label and registers none.
+    const annual = m.period !== undefined && m.period.startsWith("FY") ? m.period : null;
     valFigures.push({
-      label: `${m.key} (current)`,
+      label: annual === null ? `${m.key} (current)` : `${m.key} (current, ${annual})`,
       value: m.current,
       unit: "x",
-      // Audit 2026-10-22 B-9: the earnings period the record's denominator covers.
-      ...(m.period === undefined ? {} : { period: m.period, ...(/^FY\d{4}$/.test(m.period) ? { fiscalPeriod: m.period } : {}) }),
+      ...(annual !== null && /^FY\d{4}$/.test(annual) ? { period: annual, fiscalPeriod: annual } : {}),
       source: `computed.valuation.multiples.${m.key}`,
       asOf: val.kind === "pre-revenue" ? null : val.multiples.asOf.quote,
     });

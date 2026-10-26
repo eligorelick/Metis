@@ -652,13 +652,8 @@ describe("payload determinism + provenance", () => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
-      // Audit 2026-10-22 B-9 (D-107): the income-derived multiples' records
-      // carry the period their earnings cover; the preceding records had none.
-      if (before.origin.startsWith("computed.valuation.multiples.") && before.period === "TTM to 2026-03-28") before.period = null;
       return before;
     });
-    expect((payload.provenanceRegistry ?? []).filter((record) => record.origin.startsWith("computed.valuation.multiples.") && record.period === "TTM to 2026-03-28")
-      .map((record) => record.id)).toEqual(["computed.valuation.pettm-current", "computed.valuation.evtoebitda-current", "computed.valuation.evtosales-current"]);
     expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     // Restoring only the preceding version must reproduce its whole prompt.
     // D-99 adds one payload note, the consensus-target reconciliation (AMZN
@@ -1022,9 +1017,10 @@ describe("payload determinism + provenance", () => {
       // (D-105): only the versioned header moves with payload 1.45.0; no byte
       // of this fixture's prompt or any record changes. Audit batch 4 (D-107,
       // -120 prompt bytes): the P/E note names only the formula that ran
-      // (B-20), and the three income-derived multiples' records carry their
-      // "TTM to 2026-03-28" period (B-9); restoring both above reproduces every
-      // preceding pin, and the versioned header moves with payload 1.46.0.
+      // (B-20); restoring it above reproduces every preceding pin, and the
+      // versioned header moves with payload 1.46.0. This fixture's multiples
+      // are TTM, so their records keep their labels, ids and null period (B-9
+      // names only a fiscal-year multiple's year, in its label).
       fingerprint: "1.46.0:f9b27757",
       promptBytes: 140_765,
       provenanceCount: 531,
@@ -1032,8 +1028,7 @@ describe("payload determinism + provenance", () => {
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      // Audit batch 4 (D-107): the multiples' periods; see the fingerprint.
-      provenanceHash: "ad57187d",
+      provenanceHash: "73762e7f",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -1070,8 +1065,8 @@ describe("payload determinism + provenance", () => {
       // this fixture's runs are inside it, so no target or byte moves. The
       // same review moves the two method stamps (D-102), restored above.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      // Audit batch 4 (D-107): the P/E basis and the multiples' period leaves,
-      // restored above for the preceding pin; no value moves.
+      // Audit batch 4 (D-107): the P/E basis and the Stage B multiples' period
+      // leaves, restored above for the preceding pin; no value moves.
       financeHash: "1b80b65d",
     });
   });
