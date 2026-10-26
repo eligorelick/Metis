@@ -9,8 +9,8 @@ Metis is a local-first equity research app with financial calculations and optio
 ## What it does
 
 - Fetches typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance,
-  FINRA, FRED and Finnhub, and validates freshness, balance-sheet identities
-  and selected vendor figures against EDGAR XBRL.
+  FINRA, FRED, Finnhub and the U.S. Treasury (risk-free fallback), and validates
+  freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
 - Computes growth, returns, capital structure, valuation, scenarios,
   technicals, grades and forensic indicators in deterministic TypeScript, on a
   sector route drawn from the industry label and SIC code and checked against

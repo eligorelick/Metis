@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
 import { ReportTrustDetails } from "./ReportTrustSummary";
 import { evidencePercentText, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { fairValueWithheldText } from "@/report/fairValueText";
+import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
@@ -988,6 +988,10 @@ export function ValuationSection({
                 {formatPct(dcf.upsidePct, 1, true)}
               </span>
             </div>
+          )}
+          {/* Audit 2026-10-22 F-13: substituted inputs are named beside the value they moved. */}
+          {dcf.perShare && fairValueDegradedText(fairValue) && (
+            <p className="text-[11px] leading-snug text-warn">{displayProse(fairValueDegradedText(fairValue)!)}</p>
           )}
           {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" ? "Model value provenance" : "DCF provenance"} />}
           {fairValue ? (

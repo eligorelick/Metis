@@ -468,6 +468,19 @@ describe("applyKeylessFallbacks", () => {
     expect(out.gaps.find((g) => g.field === "keyless.sectorEtf")?.reason).toMatch(/HTTP 402/);
   });
 
+  // Audit 2026-10-22 F-1/F-13: a member the key's subscription never serves is
+  // the plan's design, so its stand-in raises no provider-fallback line or
+  // degraded-inputs entry; a quota refusal on the same plan still does.
+  it("marks a stand-in for an FMP subscription refusal as expected on a keyed plan", async () => {
+    const fmp = allGaps();
+    fmp.sectorEtf = { ok: false, gap: { field: "fmp.historicalPriceEodFull(XLK)", severity: "warn", expected: true,
+      reason: "FMP subscription (HTTP 402): this symbol is unavailable on this endpoint with this key. Use other available sources; access is rechecked after 15 minutes." } };
+    fmp.quote = { ok: false, gap: { field: "fmp.quote(AAPL)", severity: "warn", reason: "FMP quota/rate limit (HTTP 429): Limit Reach" } };
+    const out = await applyKeylessFallbacks(inputs({ fmp, fmpKeyless: false }));
+    expect(out.gaps.find((g) => g.field === "keyless.sectorEtf")?.expected).toBe(true);
+    expect(out.gaps.find((g) => g.field === "keyless.quote")?.expected).toBe(false);
+  });
+
   it("leaves the vendor member untouched under THESIS_STATEMENT_SOURCE=fmp", async () => {
     const fmp = allGaps();
     fmp.incomeAnnual = okRows([{ date: "2025-09-27", revenue: 1 }]);

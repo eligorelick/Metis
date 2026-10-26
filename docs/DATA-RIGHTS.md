@@ -81,6 +81,14 @@ The report includes FRED attribution, but the app does not perform a per-series
 license review or record all upstream notices. The keyless CSV fallback is
 also FRED content subject to applicable terms.
 
+**U.S. Treasury.** The last fallback for the risk-free rate reads the 10 Yr
+point of the daily par yield curve CSV from `home.treasury.gov`, only when FRED
+`DGS10`, FMP treasury rates and the last cached `DGS10` observation all have no
+value. The Department of the Treasury publishes these rates itself, and works
+of the U.S. government are not subject to copyright in the United States; see
+the [government-work copyright provision](https://www.copyright.gov/title17/92chap1.html#105)
+and the Treasury's [site policies and notices](https://home.treasury.gov/footer/site-policies-and-notices).
+
 **Finnhub.** Used for insider sentiment, news/earnings fallback and certain
 sector data. Its posted terms limit personal plans, restrict business use even
 internally without written approval, and restrict sharing of data or derived

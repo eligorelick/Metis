@@ -441,6 +441,21 @@ interface HttpText {
   status: number;
   text: string;
   failure?: string;
+  /** Set when the last attempt was an HTTP 200 HTML page: what the page was. */
+  htmlPage?: string;
+}
+
+const MAINTENANCE_TITLE = /<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i;
+
+/**
+ * Audit 2026-10-22 B-1: neither the API (JSON) nor fredgraph.csv (CSV) ever
+ * returns HTML as data, so an HTTP 200 whose body opens with '<' is an outage or
+ * maintenance page. It is retried like a 503. The body decides, not the content
+ * type: an edge that labels a good CSV text/html must not turn it into an outage.
+ */
+function htmlPageServed(text: string): string | null {
+  if (!text.trimStart().startsWith("<")) return null;
+  return MAINTENANCE_TITLE.test(text) ? "a site maintenance page (HTTP 200)" : "a maintenance/HTML page (HTTP 200)";
 }
 
 async function fredRequest(url: string, config: FredConfig): Promise<HttpText> {
@@ -448,6 +463,7 @@ async function fredRequest(url: string, config: FredConfig): Promise<HttpText> {
   const retries = config.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let lastFailure = "no attempt made";
+  let lastHtmlPage: string | undefined;
   for (let attempt = 0; attempt <= retries.length; attempt++) {
     config.signal?.throwIfAborted();
     if (attempt > 0) await sleep(retries[attempt - 1], config.signal);
@@ -477,8 +493,17 @@ async function fredRequest(url: string, config: FredConfig): Promise<HttpText> {
         lastFailure = `HTTP ${res.status} with unreadable body: ${
           err instanceof Error ? err.message : String(err)
         }`;
+        lastHtmlPage = undefined;
         continue;
       }
+      const htmlPage = res.ok ? htmlPageServed(text) : null;
+      if (htmlPage !== null) {
+        // The page's own text never travels into the gap: it is provider content.
+        lastHtmlPage = htmlPage;
+        lastFailure = htmlPage;
+        continue;
+      }
+      lastHtmlPage = undefined;
       if (res.ok) return { ok: true, status: res.status, text };
       lastFailure = `HTTP ${res.status}`;
       // 429 (rate) / 423 (locked) / 5xx are transient; other 4xx will not improve.
@@ -488,12 +513,15 @@ async function fredRequest(url: string, config: FredConfig): Promise<HttpText> {
     } catch (err) {
       config.signal?.throwIfAborted();
       lastFailure = `network error: ${err instanceof Error ? err.message : String(err)}`;
+      lastHtmlPage = undefined;
       continue;
     } finally {
       if (timer !== undefined) clearTimeout(timer);
     }
   }
-  return { ok: false, status: 0, text: "", failure: lastFailure };
+  return lastHtmlPage !== undefined
+    ? { ok: false, status: 200, text: "", failure: lastFailure, htmlPage: lastHtmlPage }
+    : { ok: false, status: 0, text: "", failure: lastFailure };
 }
 
 const observationsSchema = z.object({
@@ -551,11 +579,10 @@ export async function series(
       }
       const parsed = observationsSchema.safeParse(body);
       if (!parsed.success) {
-        // Maintenance pages can be served with HTTP 200. They are failures,
-        // not empty observations, and must still allow the keyless fallback.
-        apiFailure = /<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i.test(res.text)
-          ? "FRED API returned a site maintenance page (HTTP 200); retry after provider maintenance"
-          : `FRED API returned an unrecognized payload for ${seriesId} (HTTP ${res.status})`;
+        // A JSON body of the wrong shape is a failure, not empty observations,
+        // and still allows the keyless fallback. (HTML pages never get here:
+        // fredRequest retries them as an outage.)
+        apiFailure = `FRED API returned an unrecognized payload for ${seriesId} (HTTP ${res.status})`;
       } else {
         const rows: FredObservation[] = [];
         for (const o of parsed.data.observations) {
@@ -573,10 +600,9 @@ export async function series(
         return { ok: true, value: sourced(rows, rows[rows.length - 1].date, endpoint) };
       }
     }
-    if (res.status === 400) {
-      // Bad/unregistered key or bad series id — fall through to keyless CSV.
-    }
-    // Keyed path failed → attempt keyless fallback below.
+    if (res.htmlPage !== undefined) apiFailure = `FRED API returned ${res.htmlPage}`;
+    // Keyed path failed (including a 400 for a bad/unregistered key or series
+    // id) → attempt the keyless fallback below.
   }
 
   // Keyless fallback: fredgraph.csv (undocumented; dev/degraded mode).
@@ -586,15 +612,16 @@ export async function series(
   const res = await fredRequest(`${CSV_BASE}?${csvParams.toString()}`, config);
   if (!res.ok) {
     const via = config.apiKey ? "FRED API and fredgraph.csv fallback both failed" : "fredgraph.csv (keyless mode) failed";
-    return { ok: false, gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}${via}: ${res.failure ?? "unknown failure"}`, "warn") };
+    const failure = res.htmlPage !== undefined
+      ? `fredgraph.csv returned ${res.htmlPage}; retry after provider maintenance`
+      : res.failure ?? "unknown failure";
+    return { ok: false, gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}${via}: ${failure}`, "warn") };
   }
   const parsed = parseFredCsv(res.text, units !== "lin");
   if (parsed === null) {
     return {
       ok: false,
-      gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}${/<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed\s*</i.test(res.text)
-        ? "fredgraph.csv returned a site maintenance page; retry after provider maintenance"
-        : `fredgraph.csv returned non-CSV for ${seriesId} (unknown series id?)`}`, "warn"),
+      gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}fredgraph.csv returned non-CSV for ${seriesId} (unknown series id?)`, "warn"),
     };
   }
   const rows = units === "lin" ? parsed : applyFredUnits(parsed, units);

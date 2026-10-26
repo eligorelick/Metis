@@ -21,6 +21,8 @@ import { displayedClaimCoverage, displayedFactualValidation, displayedValidation
 export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
+import { fairValueDegradedText } from "@/report/fairValueText";
+import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
@@ -310,6 +312,11 @@ export function metricLabel(source: string, unit = ""): string {
   return source;
 }
 
+/** B-4: the risk-free citation, `computed.returns.wacc.riskFree(<series id>)`. */
+const RISK_FREE_CITATION = /^computed\.returns\.wacc\.riskFree\(([^()\s]+)\)$/;
+/** The risk-free series ids that are not `fred:<SERIES>`, read under their labels in prose. */
+const RISK_FREE_BARE_IDS = /(?<![\w/])(?:fmp:treasury-rates\.year10|fred:DGS10\.last-cached|treasury:par-yield-curve\.10yr)/g;
+
 /**
  * A reader label for a claim's citation ("edgar:10-Q item2" → "10-Q Item 2").
  * Computed and payload ids read as the figure they name; anything unknown is
@@ -329,6 +336,9 @@ export function sourceLabel(source: string): string {
   if (sec) return sec[1]!;
   const fred = /^fred:([A-Za-z0-9]+)$/.exec(source);
   if (fred) return `FRED ${fred[1]!.toUpperCase()}`;
+  // B-4: the risk-free citation carries the series that served the rate.
+  const riskFree = RISK_FREE_CITATION.exec(source);
+  if (riskFree) return `Risk-free rate (${riskFreeSourceLabel(riskFree[1]!)})`;
   if (/^(computed|payload|manifest)\.[^\s]+$/.test(source)) return metricLabel(source);
   return source;
 }
@@ -899,6 +909,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
         report.fairValue?.method === "fcff-dcf" ? dcfBaseRateText() : null,
         // Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
         report.fairValue?.alternative ? `${report.fairValue.alternative.label}: ${formatFinancialAmount(report.fairValue.alternative.perShare, dcf.unit, dcf.currency)}` : null,
+        // Audit 2026-10-22 F-13: the inputs an outage or refusal substituted.
+        fairValueDegradedText(report.fairValue),
       ].filter((part): part is string => part !== null).join("; ") || undefined,
     });
   } else if (report.fairValue?.status === "outside-domain") {
@@ -1213,6 +1225,8 @@ export function humanizeInlineCitations(text: string): string {
  */
 export function humanizeBareIds(text: string): string {
   return text
+    .replace(/(?<![\w[`/.])computed\.returns\.wacc\.riskFree\([^()\s]+\)/g, (id) => sourceLabel(id))
+    .replace(RISK_FREE_BARE_IDS, (id) => riskFreeSourceLabel(id))
     .replace(/(?<![\w[`/.])((?:computed|payload|manifest)(?:\.[A-Za-z0-9][A-Za-z0-9\-_]*)+(?:\([A-Z0-9.,\- ]*\))?)(\.\*)?/g, (_match, id: string, wildcard: string | undefined) =>
       wildcard ? `${segmentWords(id.split(".").slice(1).join(" ")).join(" ")} model outputs` : sourceLabel(id))
     .replace(/(?<![\w/])sec:(?=(?:8-K|6-K|10-K|10-Q|20-F|40-F|DEF 14A)\b)/g, "")

@@ -17,8 +17,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 describe("provider dispatch and catalog lifecycle", () => {
   it("discloses the local runtime ownership conflict instead of suggesting a dropped subscription transport", async () => {
-    const reason = "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
-    fake.access.mockRejectedValueOnce(new Error(reason));
+    const thrown = "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
+    // Audit 2026-10-22 F-12: the reason sends the operator to the troubleshooting row that matches it.
+    const reason = `${thrown} See "AI store is held by another server" in the troubleshooting table of docs/OPERATIONS.md.`;
+    fake.access.mockRejectedValueOnce(new Error(thrown));
     const result = await runSubscriptionPass(args, "account");
     expect(result.ok).toBe(false);
     if (!result.ok) {

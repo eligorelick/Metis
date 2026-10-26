@@ -29,6 +29,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | Financial Modeling Prep (`financialmodelingprep.com`) | The symbol and endpoint parameters; `FMP_API_KEY` in an `apikey` header, never in the URL | `FMP_API_KEY` is set |
 | Yahoo (`query1.finance.yahoo.com`) | The symbol, chart parameters/date range and a product-identifying `User-Agent` (`YAHOO_DEFAULT_USER_AGENT`). **`EDGAR_CONTACT` is not used by the Yahoo client** | Quote or price history fallback is needed and FMP could not serve it |
 | FRED (`api.stlouisfed.org`, `fred.stlouisfed.org`) | Series ID, date range and transformation parameters; keyed requests include `FRED_API_KEY` as an `api_key` query parameter. The keyless `fredgraph.csv` fallback sends no credential | Macro series are requested; CSV also provides a fallback when keyed retrieval fails |
+| U.S. Treasury (`home.treasury.gov`) | The year of the daily par yield curve CSV requested; no key, contact or identity header | Only when FRED `DGS10`, FMP treasury rates and the last cached `DGS10` observation all have no risk-free rate |
 | Finnhub (`finnhub.io`) | Symbol, endpoint/date parameters; `FINNHUB_API_KEY` in an `X-Finnhub-Token` header | `FINNHUB_API_KEY` is set |
 | FINRA (`api.finra.org`) | Partition requests; symbol and requested settlement cycles in short-interest queries. The production path configures no FINRA credential | Short-interest data is requested |
 

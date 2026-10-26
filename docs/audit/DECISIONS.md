@@ -2255,6 +2255,37 @@ The 2026-10-22 audit found that the report's trust signals overstated what had b
 
 No figure changes. Report 1.41.0 and pipeline stage-c-1.6.4 mark these conventions; payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. Stored reports and snapshots keep their bytes.
 
+## D-111 - Audit batch 6: degrade visibly when providers fail: a FRED HTML page as an outage, the risk-free rate's fallback order, the degraded-inputs note, the provider-fallback line, a plan connection held by another server, and kept sections checked before they are kept (2026-10-26)
+
+The independent audit of 2026-10-22 found that a provider failure could change a report without the reader being told, or could cost a run more than it needed to. This batch fixes B-1, B-4, F-13, F-1, F-12 and D-3. The Low items on the same code paths (D-4, F-16, F-15, F-18, F-17 and F-14) are postponed by the owner. Every rule is class-wide; none names a ticker.
+
+- **A FRED HTML page is an outage (B-1).** Neither the FRED API nor `fredgraph.csv` returns HTML as data, so an HTTP 200 whose body opens with `<` is retried like a 503. The body decides, not the content type, so a good CSV that an edge labels `text/html` is still read as data. After the retries, the keyed API falls back to `fredgraph.csv`. The gap says "returned a maintenance/HTML page (HTTP 200)", or names the St. Louis Fed site-maintenance page, and never quotes the page.
+- **Owner decision: the risk-free rate's fallback order (B-4).**
+  1. FRED `DGS10`, keyed, then `fredgraph.csv`.
+  2. FMP treasury rates, `year10`.
+  3. The last good cached `DGS10` observation, if it is at most 10 business days old.
+  4. The 10 Yr point of the U.S. Treasury daily par yield curve (`home.treasury.gov`; no key or identity is sent). The previous year's file is read only in January, when the current year's can still be missing or empty; at other times its last rate would be months old.
+
+  The WACC line names the source and its observation date, and a `riskFree.substitution` entry says which source stood in and why. The AI context cites the series actually used. With every source down, the WACC is withheld as before. The two fallback sources run only when the first two gave no value.
+- **Owner decision: the degraded-inputs note (F-13).** `fairValue.reasons` carries one "Degraded inputs: …" entry beside the headline value when any of these holds:
+  - the risk-free rate is not FRED `DGS10`;
+  - on the DCF route, the ROIC-vs-WACC history had no `DGS10` observation at all, so every fiscal year was compared to the current WACC, and the terminal ROIC rule read that comparison;
+  - the keyless layer served a statement, the quote or prices the value reads after an FMP refusal (the sector ETF prices and the shares float feed no fair value and are not named here);
+  - the analyst-consensus growth method was dropped because the estimates were refused.
+
+  It prints under the headline in both layouts, in the Key data note, the Markdown and print exports, the data-only verdict and the AI context. A keyless-by-configuration run carries none, because its substitutions are the plan's design. Neither does a member the key's subscription never serves: FMP already marks that refusal `expected`, and its keyless stand-in is now `expected` too, so an entry-tier key's healthy run shows no outage. A quota or outage refusal stays unexpected. Peers do not feed the headline value, so a dropped peer set is not named there.
+- **Owner decision: the provider-fallback line (F-1).** One "Provider fallback · …" line names each FMP member that SEC EDGAR, Yahoo or filed-fact computation served after an FMP refusal, and the risk-free rate's stand-in with its observation date, in a fixed order. It appears:
+  - in the saved-snapshot header, in both layouts;
+  - under the classic header;
+  - at the head of the Markdown, audit and print exports;
+  - in the AI context, which is told never to attribute a substituted figure to FMP or FRED `DGS10`.
+
+  A keyless-by-configuration run shows none, nor does a member the key's subscription never serves.
+- **A plan connection held by another server (F-12).** A job on a ChatGPT or Gemini plan connection claims the AI runtime at the start of the fetch step. If another Metis server owns it, the job ends in that one attempt, before any data is fetched. A pass refused mid-run gives the same reason and is not retried as a dropped connection. Both name the OPERATIONS troubleshooting row "AI store is held by another server". A signed-out connection runs no pass, so it claims nothing and still ends in a data-only report. A busy credentials lock is unchanged.
+- **Kept sections are checked before they are kept (D-3).** When a bull, bear or judge response is cut off, each top-level section it finished is normalized as the whole parse normalizes it. It is then checked alone against its own sub-schema and the rating-safety walk; a key the schema lacks also fails. A failing section is dropped, the retry is asked to write it again, and the step detail names it. On a plan connection that writes in parts, sections reloaded from the run's section checkpoint get the same check. Before, a kept section that parsed but did not match its schema made the merged output fail whatever the retry returned.
+
+Report 1.42.0, payload 1.47.0, pipeline stage-c-1.6.5 and Stage B ACCOUNTING_EVIDENCE_26 mark these conventions. In the provider-free DEMO control, `fairValue.reasons` gains the degraded-inputs entry for its FMP treasury rate and its current-WACC-only ROIC-vs-WACC history, and the spec version moves; no figure moves. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch6-provider-failures.md).
+
 ## D-112 - Audit batch 4: freshness and the earnings window: undated releases, a newer release's currency, 10-Qs companyfacts lags, multiple labels by period, continuing-operations EPS and a TTM across a reorganisation (2026-10-26)
 
 The independent audit of 2026-10-22 found reports that ended a quarter or two before what the issuer had already filed, or that read its newest results release wrongly. Batch 3a fixed B-24 (the newer-results notice) and C-16 (the 10-Q supersession pass); this batch fixes the rest: B-26, B-27, B-23, B-9 with B-20, B-36 in part and FCX-4. Every rule is class-wide; none names a ticker. Each withholds with a specific reason where its evidence is incomplete.
@@ -2267,4 +2298,4 @@ The independent audit of 2026-10-22 found reports that ended a quarter or two be
 - **Owner decision: continuing-operations EPS (FCX-4).** When no net-income EPS is tagged for a period and no discontinued result is filed for it, in dollars or per share, the filer's EPS from continuing operations stands in (net EPS is continuing plus discontinued EPS, ASC 260-10-45-3), with its own provenance and a substitution disclosure. A discontinued result filed under any of the elements filers use, each read on its own, even one withheld from the row, keeps EPS empty. A fourth-quarter diluted EPS is still never derived from it.
 - **Owner decision: a TTM across a reorganisation (B-36).** When a successor's own filing re-presents at least one predecessor net income and at least one per-share figure, and every re-presented net-income and per-share comparative agrees with the predecessor's (within 0.5 and 0.005; EPS compared by role, basic and diluted, so a combined basic-and-diluted tag meets separate tags), the two are one reporting entity on one share basis: the predecessor rows name the successor as their economic issuer and the TTM may span the reorganisation, with the matched periods named in the predecessor disclosure. Without that evidence the TTM is still refused. A successor's no-annual-report gaps name a resolved predecessor. Reading the predecessor's 10-K for Item 1A, MD&A and notes is left for later: it needs live SEC requests and an identity design for the 10-K parsers, which bind their evidence to the registrant's own CIK.
 
-Report 1.43.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 mark these conventions; pipeline stage-c-1.6.4 is unchanged. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch4-freshness.md).
+Report 1.43.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 mark these conventions; pipeline stage-c-1.6.5 is unchanged. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch4-freshness.md).
