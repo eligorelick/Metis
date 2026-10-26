@@ -277,6 +277,10 @@ export const LINE_ITEM_TAGS = {
   cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
   restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
   restrictedCashAndCashEquivalentsNoncurrent: entry(["RestrictedCashAndCashEquivalentsNoncurrent"]),
+  // Audit 2026-10-22 B-43: restrictions tagged as restricted cash only, read
+  // as unrestricted cash's subtrahends after the cash-and-equivalents forms.
+  restrictedCashCurrent: entry(["RestrictedCashCurrent"]),
+  restrictedCashNoncurrent: entry(["RestrictedCashNoncurrent"]),
   shortTermInvestments: entry([
     "ShortTermInvestments",
     "MarketableSecuritiesCurrent",

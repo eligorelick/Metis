@@ -836,6 +836,9 @@ const CURRENT_MATURITY_TAGS: readonly string[] = [...tagsFor("debtCurrent"), ...
 
 const MATURITIES_STAND_IN_SPEC = standInSteps(standInsFor("currentMaturitiesOfLongTermDebt"), "money");
 
+const RESTRICTED_CASH_CURRENT_TAGS = tagsFor("restrictedCashCurrent");
+const RESTRICTED_CASH_NONCURRENT_TAGS = tagsFor("restrictedCashNoncurrent");
+
 const BALANCE_CHAINS: Record<string, ChainSpec> = {
   /**
    * Bank tagging (JPM): `CashAndCashEquivalentsAtCarryingValue` goes stale — its
@@ -844,14 +847,18 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
    * cash. It can establish unrestricted cash only with a same-filing tagged
    * current AND noncurrent restricted components, validated below before they
    * supply liquidity. AtCarryingValue describes only CURRENT restrictions.
+   * Audit 2026-10-22 B-43: filers that tag the restrictions as restricted cash
+   * (`RestrictedCashCurrent` / `RestrictedCashNoncurrent`; Chevron since its
+   * balance-sheet cash moved to a custom tag) are read too, each after the
+   * cash-and-equivalents form.
    */
   cashAndCashEquivalents: {
     kind: "chain", unit: "money", steps: [
       lineItemChain("cashAndCashEquivalents", "money"),
       { kind: "sumAll", unit: "money", parts: [
         { label: "combined cash", spec: lineItemChain("cashAndCashEquivalentsIncludingRestricted", "money") },
-        { label: "current restrictions", spec: { kind: "first", tags: ["RestrictedCashAndCashEquivalentsAtCarryingValue"], unit: "money", sign: -1 } },
-        { label: "noncurrent restrictions", spec: { kind: "first", tags: tagsFor("restrictedCashAndCashEquivalentsNoncurrent"), unit: "money", sign: -1 } },
+        { label: "current restrictions", spec: { kind: "first", tags: ["RestrictedCashAndCashEquivalentsAtCarryingValue", ...RESTRICTED_CASH_CURRENT_TAGS], unit: "money", sign: -1 } },
+        { label: "noncurrent restrictions", spec: { kind: "first", tags: [...tagsFor("restrictedCashAndCashEquivalentsNoncurrent"), ...RESTRICTED_CASH_NONCURRENT_TAGS], unit: "money", sign: -1 } },
       ], disclose: "unrestricted cash derived as combined cash minus separately tagged current AND noncurrent restrictions; neither an absent component nor an ambiguous restricted-cash aggregate is treated as zero" },
     ],
   },
@@ -2108,6 +2115,33 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     notes.withhold("cashAndCashEquivalents", ctx, reason);
     notes.add(`cashAndCashEquivalents ${ctx}: ${reason}`);
   }
+  // Audit 2026-10-22 B-34: a combined cash-and-short-term-investments total
+  // below the same filing's cash plus short-term investments is a narrower
+  // schedule (Cisco's FY2026 total covers its fair-valued investments only,
+  // not its bank deposits). The two components are disjoint balance lines, so
+  // their sum is the total; a combined figure ABOVE them is left alone, since
+  // nothing says what the components would be missing.
+  const combinedCash = cc.resolved.get("cashAndShortTermInvestments");
+  const cashPart = cc.resolved.get("cashAndCashEquivalents");
+  const investmentsPart = cc.resolved.get("shortTermInvestments");
+  if (combinedCash && cashPart && investmentsPart && !restrictionDerived &&
+      v.cashAndShortTermInvestments != null && v.cashAndCashEquivalents != null && v.shortTermInvestments != null) {
+    const parts = [combinedCash, cashPart, investmentsPart];
+    const filings = new Set(parts.flatMap(r => (r.evidencePoints ?? [r.point]).map(p => `${p.accn}|${p.filed}`)));
+    const componentSum = tidy(v.cashAndCashEquivalents + v.shortTermInvestments, MONEY_DECIMALS);
+    const combined = v.cashAndShortTermInvestments;
+    if (filings.size === 1 && parts.every(r => r.unit === combinedCash.unit) && v.cashAndCashEquivalents >= 0 && v.shortTermInvestments >= 0 &&
+        componentSum - combined > Math.max(1, Math.abs(combined) * 1e-6)) {
+      const fmt = (n: number) => n.toLocaleString("en-US");
+      const text = `CashCashEquivalentsAndShortTermInvestments (${fmt(combined)}) is below the same filing's ${cashPart.tags.join(" + ")} ` +
+        `(${fmt(v.cashAndCashEquivalents)}) plus ${investmentsPart.tags.join(" + ")} (${fmt(v.shortTermInvestments)}), so it is a narrower ` +
+        `schedule than the balance sheet's two lines; their sum ${fmt(componentSum)} is used (audit 2026-10-22 B-34)`;
+      v.cashAndShortTermInvestments = componentSum;
+      cc.replace?.("cashAndShortTermInvestments", combine(componentSum, [cashPart, investmentsPart]));
+      notes.substitute("cashAndShortTermInvestments", ctx, text);
+      notes.add(`cashAndShortTermInvestments ${ctx}: ${text}`);
+    }
+  }
   // A strict `add` here returned null for every filer that presents a single
   // "Cash and cash equivalents" line and tags no short-term-investment concept
   // (Home Depot, McDonald's, UPS, Costco and hundreds like them). That
@@ -2576,7 +2610,7 @@ function balanceEvidenceGuards(facts: CompanyFacts, asOf: string): Pick<BuildSta
   const temporaryEquityPeriods = new Set<string>();
   const balanceRefusals = new Map<string, string>();
   const sensitiveTags = new Set([...TEMPORARY_EQUITY_TAGS, "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
-    "RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalentsNoncurrent"]);
+    "RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalentsNoncurrent", ...RESTRICTED_CASH_CURRENT_TAGS, ...RESTRICTED_CASH_NONCURRENT_TAGS]);
   for (const tag of sensitiveTags) {
     const raw = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
     if (!raw.success) continue;

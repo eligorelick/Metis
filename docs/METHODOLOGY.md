@@ -3669,3 +3669,30 @@ not added back, and the disclosure says why (LLY FY2025: 25,731 + 571 =
 presentation, as the withholding rule already did; the disclosure says that
 where a filer's aggregate leaves its interest out, the figure understates
 EBIT by that interest.
+
+**Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
+capital although the filing establishes the figure.
+
+- *Restrictions tagged as restricted cash (B-43).* When a filer tags no
+  unrestricted cash line, cash is derived from the combined
+  restricted-plus-unrestricted total less the current and noncurrent
+  restrictions, all from one filing. The restrictions were read only as
+  `RestrictedCashAndCashEquivalentsAtCarryingValue` and
+  `RestrictedCashAndCashEquivalentsNoncurrent`. Chevron, whose balance-sheet
+  cash line has used a custom tag since Q3 2024, tags them
+  `RestrictedCashCurrent` and `RestrictedCashNoncurrent`, so its cash, net
+  debt and invested capital were withheld and no DCF was built. Those two
+  tags are now read, each after the cash-and-equivalents form; both sides are
+  still required, from the same filing, and none is presumed zero (2026-06-30:
+  9,582 − 236 − 819 = 8,527 million, Chevron's balance-sheet cash).
+- *A combined total narrower than its components (B-34).* Cisco's FY2026 10-K
+  tags `CashCashEquivalentsAndShortTermInvestments` as the total of its
+  fair-valued investment schedule, 14,297 million, which leaves out bank
+  deposits; its balance-sheet cash (7,218) and short-term investments (8,700)
+  sum to 15,918. The combined field won, so net debt was refused for the
+  conflict while sales-to-capital used the narrower figure. Owner decision:
+  when the combined figure is below the same filing's cash plus short-term
+  investments, the two components are disjoint balance-sheet lines, so their
+  sum is used, in net debt and invested capital alike, and the substitution is
+  disclosed. A combined figure above the components, or from another filing,
+  is left as it is, and net debt still refuses a conflict.
