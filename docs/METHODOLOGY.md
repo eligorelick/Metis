@@ -3609,3 +3609,10 @@ quoted share) and the basis is disclosed as an info entry. Otherwise the
 per-share value stays withheld, and the warning names the test that failed.
 ADRs are out of scope: their per-share bridge needs a depositary ratio and
 dated security evidence that no data path supplies yet.
+
+**The quote's market cap in the AI context (B-8, left by batch 3a).** When a
+second common class leaves the issuer's economic scope unresolved, the report
+labels the quote's market cap as possibly covering one share class only, but
+the AI context's quote section stated the figure bare. It now carries the same
+caveat, citing the filing that shows the second class, and says the figure is
+not the issuer's market capitalization.

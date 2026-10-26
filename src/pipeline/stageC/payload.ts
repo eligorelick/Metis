@@ -50,6 +50,7 @@ import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentR
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { BAND_THRESHOLDS_TEXT, compositeDisplay, evidencePct, isNeutralScore, MIN_HEADLINE_EVIDENCE, NEUTRAL_SCORE_BAND } from "@/report/assessment";
+import type { EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import {
   PROJECTION_PATH_ORDER,
   SCORE_ASPECT_ORDER,
@@ -547,10 +548,18 @@ function firstRow<TRow extends FmpRawRow>(f: {
  * Section builders — each returns a deterministically ordered PayloadSection.
  * ------------------------------------------------------------------------ */
 
-/** The quote is in the listing's trading currency. */
-function quoteSection(bundle: DataBundle, currency: string | null): PayloadSection {
+/**
+ * The quote is in the listing's trading currency. When a second common class
+ * leaves the issuer's economic scope unresolved, the quote's market cap may
+ * price one class only, and the section says so as the report does (audit
+ * 2026-10-22 B-8).
+ */
+function quoteSection(bundle: DataBundle, currency: string | null, equityScope?: EconomicEquityScope): PayloadSection {
   const q = firstRow(bundle.quote);
   const asOf = quotePriceObservationDay(q);
+  const classScopeNote = equityScope?.status === "unresolved" && equityScope.classAmbiguity === true && numOrNull(q?.marketCap) !== null
+    ? [`marketCap is the quote's figure and may cover one share class only: the issuer has more than one common class and its all-class economic scope is unresolved${equityScope.sourceIds.length ? ` (${equityScope.sourceIds.join(", ")})` : ""}. It is not the issuer's market capitalization.`]
+    : [];
   const figures: PayloadFigureInput[] = [
     { label: "price", value: numOrNull(q?.price), unit: "currency/share", currency, source: "fmp:quote", asOf },
     { label: "marketCap", value: numOrNull(q?.marketCap), unit: "currency", currency, source: "fmp:quote", asOf },
@@ -560,7 +569,7 @@ function quoteSection(bundle: DataBundle, currency: string | null): PayloadSecti
     { label: "yearHigh", value: numOrNull(q?.yearHigh), unit: "currency/share", currency, source: "fmp:quote", asOf },
     { label: "volume", value: numOrNull(q?.volume), unit: "shares", source: "fmp:quote", asOf },
   ];
-  return payloadSection({ title: "Quote", figures, notes: q && asOf === null ? ["Price observation date unavailable; source retrieval time does not establish the quote session."] : [] });
+  return payloadSection({ title: "Quote", figures, notes: [...(q && asOf === null ? ["Price observation date unavailable; source retrieval time does not establish the quote session."] : []), ...classScopeNote] });
 }
 
 /**
@@ -3070,7 +3079,7 @@ export function assembleContextPayload(
       sector: computed.route.evidence.sector,
       industry: computed.route.evidence.industry,
     },
-    quote: quoteSection(bundle, currencies.trading),
+    quote: quoteSection(bundle, currencies.trading, computed.valuation.multiples?.enterpriseValue.equityScope),
     computed: computedSections(computed, computedCurrencies(bundle, computed), comparableScenarioPrice(computed, bundle)),
     statements: statementExtracts(bundle),
     ...(quarterlyTrend === undefined ? {} : { quarterlyTrend }),
