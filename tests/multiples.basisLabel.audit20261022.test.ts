@@ -7,6 +7,7 @@ vi.mock("server-only", () => ({}));
 import { ReportView } from "@/components/report/ReportView";
 import { runStageB } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { multiplesFramework } from "@/pipeline/stageB/valuation";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { multipleLabel } from "@/pipeline/stageC/passes";
@@ -144,6 +145,34 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
     if (computed.valuation.kind === "pre-revenue") throw new Error("no multiples");
     expect(computed.valuation.multiples.gaps.map((gap) => gap.reason).join(" | ")).toMatch(/cash-flow D&A covers FY ended 2025-12-31, not TTM to 2026-03-31/);
     expect(keyDataRows(r).some((row) => /^EV\/EBITDA/.test(row.label) && row.value !== "withheld")).toBe(false);
+  });
+
+  it("takes the fiscal year's cash-flow D&A beside a fiscal-year operating income when the cash-flow slice is TTM", () => {
+    // The cash-flow slice is TTM whenever four cash-flow quarters exist, whatever
+    // the income basis; the annual cash-flow row on the income's own date still
+    // carries the year's D&A, so EV/EBITDA stands on one period.
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD", cashflowQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    quarters(bundle).splice(1, 1);
+    for (const row of quarters(bundle)) row.depreciationAndAmortization = null;
+    if (!bundle.statements.incomeAnnual.ok) throw new Error("no annual income");
+    for (const row of bundle.statements.incomeAnnual.value.data.rows as unknown as Rows) row.depreciationAndAmortization = null;
+    const { computed } = report(bundle);
+    if (computed.valuation.kind === "pre-revenue") throw new Error("no multiples");
+    expect(computed.valuation.multiples.notes.join(" | ")).not.toMatch(/cash-flow-derived multiples use the latest ANNUAL/);
+    expect(multiple(computed, "peTtm").period).toBe("FY2025");
+    expect(multiple(computed, "evToEbitda").current).not.toBeNull();
+    expect(multiple(computed, "evToEbitda").period).toBe("FY2025");
+  });
+
+  it("does not take two undated rows for one period", () => {
+    const ebitda = (incomeDate: string, cashFlowDate: string) => multiplesFramework("general", {
+      quote: { price: 100, marketCap: 1000, currency: "USD" }, reportedCurrency: "USD",
+      incomeTtm: { date: incomeDate, revenue: 100, operatingIncome: 20, depreciationAndAmortization: null, netIncome: 16, epsDiluted: 4 },
+      cashFlowTtm: { date: cashFlowDate, operatingCashFlow: 24, capitalExpenditure: -4, depreciationAndAmortization: 4 },
+      balance: { date: "2025-12-31", totalDebt: 100, cashAndShortTermInvestments: 70, totalStockholdersEquity: 100, goodwill: 0, intangibleAssets: 0, minorityInterest: 0, preferredStock: 0 },
+    }).multiples.find((m) => m.key === "evToEbitda")!.current;
+    expect(ebitda("2025-12-31", "2025-12-31")).not.toBeNull();
+    expect(ebitda("", "")).toBeNull();
   });
 });
 

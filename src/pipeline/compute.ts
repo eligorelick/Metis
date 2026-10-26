@@ -3585,6 +3585,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         operatingCashFlow: ttmCf.operatingCashFlow,
         capitalExpenditure: ttmCf.capitalExpenditure,
         depreciationAndAmortization: ttmCf.depreciationAndAmortization,
+        annualDepreciationAndAmortization: ctx.cashflowAnnual[0]
+          ? { date: String(ctx.cashflowAnnual[0].date ?? ""), value: num(ctx.cashflowAnnual[0].depreciationAndAmortization) }
+          : null,
       }
     : ctx.cashflowAnnual[0]
       ? {

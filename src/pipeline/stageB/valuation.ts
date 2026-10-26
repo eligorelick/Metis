@@ -3379,6 +3379,8 @@ export interface MultiplesCashFlowTtm {
   operatingCashFlow: number | null;
   capitalExpenditure: number | null;
   depreciationAndAmortization?: number | null;
+  /** The latest annual cash-flow row's D&A and date, beside a TTM slice: a fiscal-year operating income's own-period D&A. */
+  annualDepreciationAndAmortization?: { date: string; value: number | null } | null;
 }
 
 /** Latest balance sheet slice (FMP names). */
@@ -4089,14 +4091,21 @@ export function multiplesFramework(
   // on the income statement's own period; on another, EBITDA would add two
   // periods' figures under one period's label.
   const period = (row: { date: string; basis?: "ttm" | "annual"; fiscalYear?: string | null }): string =>
-    row.basis === "annual" ? (/^\d{4}$/.test(row.fiscalYear ?? "") ? `FY${row.fiscalYear}` : `FY ended ${row.date}`) : `TTM to ${row.date}`;
-  const cashFlowDaElsewhere = inc !== null && !isNum(inc.depreciationAndAmortization) && cf !== null && isNum(cf.depreciationAndAmortization) &&
-    (cf.date !== inc.date || (cf.basis ?? "ttm") !== (inc.basis ?? "ttm"));
-  const dAndA = isNum(inc?.depreciationAndAmortization)
-    ? inc.depreciationAndAmortization
-    : isNum(cf?.depreciationAndAmortization) && !cashFlowDaElsewhere
-      ? cf.depreciationAndAmortization
-      : null;
+    row.basis === "annual"
+      ? (/^\d{4}$/.test(row.fiscalYear ?? "") ? `FY${row.fiscalYear}` : row.date === "" ? "an undated fiscal year" : `FY ended ${row.date}`)
+      : row.date === "" ? "an undated TTM" : `TTM to ${row.date}`;
+  // An undated row matches nothing: two empty dates are not one period.
+  const onIncomeDate = (date: string): boolean => inc !== null && inc.date !== "" && date === inc.date;
+  const cashFlowDaSamePeriod =
+    inc === null || cf === null
+      ? null
+      : isNum(cf.depreciationAndAmortization) && onIncomeDate(cf.date) && (cf.basis ?? "ttm") === (inc.basis ?? "ttm")
+        ? cf.depreciationAndAmortization
+        : inc.basis === "annual" && isNum(cf.annualDepreciationAndAmortization?.value) && onIncomeDate(cf.annualDepreciationAndAmortization.date)
+          ? cf.annualDepreciationAndAmortization.value
+          : null;
+  const cashFlowDaElsewhere = inc !== null && !isNum(inc.depreciationAndAmortization) && cashFlowDaSamePeriod === null && isNum(cf?.depreciationAndAmortization);
+  const dAndA = isNum(inc?.depreciationAndAmortization) ? inc.depreciationAndAmortization : cashFlowDaSamePeriod;
   const ebitda =
     isNum(inc?.operatingIncome) && isNum(dAndA) ? inc.operatingIncome + dAndA : null;
   const ebitdaLowerBound = ebitda !== null && isNum(inc?.depreciationAndAmortization) && inc.dAndALowerBound ? inc.dAndALowerBound : null;
