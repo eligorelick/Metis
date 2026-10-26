@@ -3262,22 +3262,23 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     incomeTaxExpense: num(r.incomeTaxExpense),
   }));
 
-  const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis
-    ? {
-        leaseCoverageNote: incompleteLeaseCoverage(balPoint)?.note,
-        fieldProvenance: balPoint.fieldProvenance,
-        operatingLeaseLiability: num(balPoint.operatingLeaseLiability), financeLeaseLiability: num(balPoint.financeLeaseLiability), capitalLeaseObligations: num(balPoint.capitalLeaseObligations),
-        shortTermDebt: num(balPoint.shortTermDebt), longTermDebt: num(balPoint.longTermDebt),
-        date: String(balPoint.date ?? ""),
-        basis: balPointBasis,
-        totalDebt: num(balPoint.totalDebt),
-        totalStockholdersEquity: statementParentEquity(balPoint),
-        totalEquity: num(balPoint.totalEquity),
-        minorityInterest: num(balPoint.minorityInterest),
-        cashAndShortTermInvestments: num(balPoint.cashAndShortTermInvestments),
-        longTermInvestments: num(balPoint.longTermInvestments),
-      }
-    : null;
+  const toDcfBalance = (row: FmpBalanceSheetRow, basis: DcfBalanceRow["basis"]): DcfBalanceRow => ({
+    leaseCoverageNote: incompleteLeaseCoverage(row)?.note,
+    fieldProvenance: row.fieldProvenance,
+    operatingLeaseLiability: num(row.operatingLeaseLiability), financeLeaseLiability: num(row.financeLeaseLiability), capitalLeaseObligations: num(row.capitalLeaseObligations),
+    shortTermDebt: num(row.shortTermDebt), longTermDebt: num(row.longTermDebt),
+    date: String(row.date ?? ""),
+    basis,
+    totalDebt: num(row.totalDebt),
+    totalStockholdersEquity: statementParentEquity(row),
+    totalEquity: num(row.totalEquity),
+    minorityInterest: num(row.minorityInterest),
+    cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
+    longTermInvestments: num(row.longTermInvestments),
+  });
+  const dcfBalance: DcfBalanceRow | null = balPoint && balPointBasis ? toDcfBalance(balPoint, balPointBasis) : null;
+  // Audit 2026-10-22 A-2: the annual rows behind the issuer's own sales-to-capital.
+  const dcfCapitalHistory: DcfBalanceRow[] = balanceAnnual.map((row) => toDcfBalance(row, "annual"));
 
   // D-58: the run-rate quarters — the TTM window's newest quarter and the same
   // fiscal quarter a year earlier, the latter only when its own currency
@@ -3417,6 +3418,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           }),
           incomeHistory: dcfIncomeHistory,
           balance: dcfBalance,
+          capitalHistory: dcfCapitalHistory,
           marketCap,
           // The terminal excess-return rule reads the same annual ROIC series
           // the returns section reports.

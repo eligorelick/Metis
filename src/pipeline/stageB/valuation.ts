@@ -53,6 +53,8 @@ export const DCF_HORIZON_YEARS = 10;
 // with no analyst estimates — corrected back to spec.)
 export const NEAR_TERM_GROWTH_CLAMP_PP: readonly [number, number] = [-10, 25];
 export const S2C_CLAMP: readonly [number, number] = [0.5, 5.0];
+/** Audit 2026-10-22 A-2: fiscal years of filed revenue and invested capital that establish an issuer's own sales-to-capital. */
+export const S2C_HISTORY_MIN_YEARS = 3;
 export const TERMINAL_G_CAP_PCT = 2.5;
 
 /**
@@ -173,6 +175,48 @@ const gapEntry = (
 ): ManifestEntry => ({ field, reason, severity });
 
 /** Clamp with a note appended when the clamp actually fires. */
+/**
+ * Audit 2026-10-22 A-2: the issuer's own sales-to-capital, the median of the
+ * newest five fiscal years with revenue and positive invested capital filed
+ * for the same date. Invested capital is measured as the DCF measures the
+ * current balance: debt (excluding operating leases when the current balance
+ * does) + consolidated equity - cash and short-term investments - long-term
+ * investments while capital remains. Fewer than three years: no ratio.
+ */
+function establishedSalesToCapital(
+  incomeHistory: DcfIncomeRow[],
+  capitalHistory: DcfBalanceRow[] | null,
+  leaseExcluded: boolean,
+): { ratio: number | null; basis: string } {
+  const revenueByDate = new Map(incomeHistory.flatMap((r) => isNum(r.revenue) && r.revenue > 0 ? [[r.date.slice(0, 10), r.revenue] as const] : []));
+  const years = new Map<string, number>();
+  for (const row of capitalHistory ?? []) {
+    const date = row.date.slice(0, 10);
+    const revenue = revenueByDate.get(date);
+    const debt = isNum(row.totalDebt) ? row.totalDebt - (leaseExcluded ? (isNum(row.operatingLeaseLiability) ? row.operatingLeaseLiability : NaN) : 0) : NaN;
+    const equity = resolveConsolidatedEquity(row).value;
+    if (revenue === undefined || years.has(date) || !Number.isFinite(debt) || equity === null || !isNum(row.cashAndShortTermInvestments)) continue;
+    const ic = debt + equity - row.cashAndShortTermInvestments;
+    const lti = isNum(row.longTermInvestments) && row.longTermInvestments > 0 ? row.longTermInvestments : 0;
+    const operating = ic - lti > 0 ? ic - lti : ic;
+    if (operating > 0) years.set(date, revenue / operating);
+  }
+  const newest = [...years].sort(([a], [b]) => b.localeCompare(a)).slice(0, 5);
+  if (newest.length < S2C_HISTORY_MIN_YEARS) {
+    return { ratio: null, basis: `the issuer's filings show ${newest.length} fiscal year${newest.length === 1 ? "" : "s"} of filed revenue and invested capital; three are required to establish its own ratio (audit 2026-10-22 A-2)` };
+  }
+  const sorted = newest.map(([, r]) => r).sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const ratio = sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  const list = newest.map(([d, r]) => `FY${d} ${r.toFixed(4)}x`).join(", ");
+  return {
+    ratio,
+    basis: ratio < S2C_CLAMP[0]
+      ? `revenue / operating invested capital ${list}; median ${ratio.toFixed(4)}x over ${newest.length} fiscal years (audit 2026-10-22 A-2)`
+      : `history establishes ${ratio.toFixed(4)}x, not below the house floor (${list}; audit 2026-10-22 A-2)`,
+  };
+}
+
 function clampWithNote(
   v: number,
   lo: number,
@@ -728,6 +772,13 @@ export interface DcfAssumptionInputs {
   incomeHistory: DcfIncomeRow[];
   /** Selected newest whole balance row; required invested-capital fields fail closed. */
   balance: DcfBalanceRow | null;
+  /**
+   * Audit 2026-10-22 A-2: annual balance rows (any order), measured like
+   * `balance`. With the income history they show whether the issuer's own
+   * filings establish a sales-to-capital below the house floor. Omitted or
+   * null: the house floor applies, as before.
+   */
+  capitalHistory?: DcfBalanceRow[] | null;
   marketCap: number | null;
   /**
    * Annual ROIC history (any order; the newest five count), the evidence
@@ -2088,15 +2139,23 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const lti = isNum(bal.longTermInvestments) && bal.longTermInvestments > 0 ? bal.longTermInvestments : null;
   const operatingIc = lti !== null && ic - lti > 0 ? ic - lti : null;
   const rawS2c = startRev / (operatingIc ?? ic);
-  const s2c = clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes);
+  // Audit 2026-10-22 A-2: the house floor guards against a mis-scaled input,
+  // so it yields to a lower ratio the issuer's own filings establish.
+  const s2cHistory = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseExcluded);
+  const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
+  const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes) : Math.min(Math.max(rawS2c, s2cFloor), S2C_CLAMP[1]);
   let s2cBasis = operatingIc !== null
     ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
     : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
       `${lti !== null ? `; long-term investments ${fmtMoney(lti)} exceed the remaining capital, so they are not removed` : ""})`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
-  if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
-    `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
+  if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+    `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
+  else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${startRev} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
+    `Applied ${rawS2c > S2C_CLAMP[1] ? "upper cap" : "lower floor"} ${s2c.toFixed(4)}x within house-policy range [${S2C_CLAMP[0]}, ${S2C_CLAMP[1]}]: a house input guard against extreme or mis-scaled capital-efficiency inputs, not an observed economic limit or a calibrated capital-productivity estimate. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}` +
+    `${rawS2c < S2C_CLAMP[0] ? ` Floor basis: ${s2cHistory.basis}.` : ""}`;
+  else if (rawS2c < S2C_CLAMP[0]) s2cBasis += ` The house floor ${S2C_CLAMP[0]} does not apply: ${s2cHistory.basis}.`;
 
   // --- Terminal economics ----------------------------------------------------
   const terminal = terminalRoic(inputs.waccPct, inputs.roicHistory ?? null);

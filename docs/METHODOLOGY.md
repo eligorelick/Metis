@@ -624,7 +624,8 @@ year one. Year one may sit above it unless it exceeds 100%, which no real
 operating margin can. The basis is written after the cap and names the cap
 that bound. NVDA report #34 printed "held flat at current 65.21%" beside a
 62.42% path; the path now runs 65.21% → 62.42% by year 5. Sales-to-capital is
-held inside [0.5, 5]. Both are broken-input guards in the sense of
+held inside [0.5, 5], except that the lower bound yields to a lower ratio the
+issuer's own filings establish (audit 2026-10-22 A-2, below). Both are broken-input guards in the sense of
 [RESEARCH §7.5](RESEARCH.md), not views on what a company can earn: they exist
 so that a mis-scaled statement cannot print a confident number.
 
@@ -1980,6 +1981,23 @@ Sales-to-capital divides TTM revenue by **operating** invested capital (D-60):
 total debt + equity − cash and short-term investments − long-term
 investments, whose income is below the EBIT the DCF projects. When removing
 them would leave no operating capital the D-58 basis stands and says why.
+
+**The issuer's own sales-to-capital (audit 2026-10-22 A-2).** The 0.5 floor is
+a guard against a mis-scaled input, not a view of capital intensity, and a
+regulated utility turns over its capital about a quarter of a time a year
+(DUK 0.22, NEE 0.16, SO 0.27 in companyfacts). Forecasting its reinvestment at
+0.5 halved the capital its growth needs and doubled DUK's DCF. The floor now
+applies only when the issuer's own history does not establish a lower ratio:
+each fiscal year with filed revenue and positive operating invested capital at
+the same date (measured as above, with debt on the current balance's lease
+basis) gives a ratio, and with at least three such years the median of the
+newest five is the issuer's established ratio. When it is below 0.5 it is the
+lower bound in place of 0.5, so a current ratio at or above it is used as
+filed and one below it is raised to it. With fewer than three years, or an
+established ratio of 0.5 or more, the house floor applies as before. The
+sales-to-capital basis lists the years and ratios, or says why the house floor
+stands. The median, rather than the newest year or the mean, is the owner's
+choice: one restated or acquisition year does not move it.
 
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
 widened to base year-one growth + 30pp when that is higher. It retains the
