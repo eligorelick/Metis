@@ -536,7 +536,7 @@ describe("payload determinism + provenance", () => {
     const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
     const currentBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction)";
     const precedingBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; net income less disclosed preferred distributions (parent income; no second NCI deduction))";
-    // Audit 2026-10-22 B-20 (D-109) names only the formula that ran, and
+    // Audit 2026-10-22 B-20 (D-110) names only the formula that ran, and
     // B-9 records each multiple's period; restore the D-85 wording and drop
     // the period leaf for the preceding pin.
     const ranBasis = "price / epsDiluted (TTM)";
@@ -675,7 +675,7 @@ describe("payload determinism + provenance", () => {
     const f19Restorations: [string, string, number][] = [
       [" (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)", "", 1],
       [", neutral 45–55)", ")", 1],
-      // Audit 2026-10-22 B-20 (D-109): the P/E note names only the formula that ran.
+      // Audit 2026-10-22 B-20 (D-110): the P/E note names only the formula that ran.
       ["peTtm: price / epsDiluted (TTM). EPS convention", "peTtm: price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction). EPS convention", 1],
     ];
     const payloadText = JSON.stringify(payload);
@@ -1024,7 +1024,7 @@ describe("payload determinism + provenance", () => {
       // prints the EV bridge note's amounts with grouped digits; this
       // fixture's EV appears four times in the prompt's notes, so the prompt
       // grows by sixteen commas and no record or registry moves. Audit batch 4
-      // (D-109, -120 prompt bytes): the P/E note names only the formula that
+      // (D-110, -120 prompt bytes): the P/E note names only the formula that
       // ran (B-20); restoring it above reproduces every preceding pin, and the
       // versioned header moves with payload 1.47.0. This fixture's multiples
       // are TTM, so their records keep their labels, ids and null period (B-9
@@ -1074,7 +1074,7 @@ describe("payload determinism + provenance", () => {
       // same review moves the two method stamps (D-102), restored above.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
       // D-107: the grouped EV digits and the grid guard wording, restored above.
-      // Audit batch 4 (D-109): the P/E basis and the Stage B multiples' period
+      // Audit batch 4 (D-110): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
       financeHash: "4022589a",
     });

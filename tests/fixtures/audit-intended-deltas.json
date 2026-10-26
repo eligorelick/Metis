@@ -10167,9 +10167,9 @@
     {
       "name": "audit-batch4-freshness-20261022",
       "decisions": [
-        "D-109"
+        "D-110"
       ],
-      "reason": "Audit batch 4 (D-109), as it reaches this provider-free DEMO control. Its TTM was suppressed, so the income-derived multiples fall back to FY2025: each now records that period (B-9) and the P/E and EV/EBITDA names say it (\"P/E (FY2025)\", \"EV/EBITDA (FY2025)\"), and the P/E basis names only the formula that ran, price / diluted EPS, without the unused fallback (B-20). The report stamp moves to spec 1.41.0, out of readable-note-figures-20261026, whose record for 1.40.2 stands in D-107; the two basis leaves move here out of the D-85/D-86 common-earnings group, whose record stands in its decisions. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-109.",
+      "reason": "Audit batch 4 (D-110), as it reaches this provider-free DEMO control. Its TTM was suppressed, so the income-derived multiples fall back to FY2025: each now records that period (B-9) and the P/E and EV/EBITDA names say it (\"P/E (FY2025)\", \"EV/EBITDA (FY2025)\"), and the P/E basis names only the formula that ran, price / diluted EPS, without the unused fallback (B-20). The report stamp moves to spec 1.41.0, out of per-share-label-unit-20261026, whose only delta it was and whose record for 1.40.3 stands in D-109; the two basis leaves move here out of the D-85/D-86 common-earnings group, whose record stands in its decisions. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-110.",
       "deltas": [
         {
           "path": "report.meta.specVersion",

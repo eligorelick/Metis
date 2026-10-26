@@ -1,6 +1,6 @@
 # Audit batch 4: freshness and the earnings window (2026-10-22)
 
-Base: `2f2aa3b` (main, after PR #55). Scope: batch 4 of the independent audit of 2026-10-22, findings B-26, B-24, B-27, B-23, B-9 with B-20, B-36, C-16 and FCX-4: reports that ended a quarter or two before what the issuer had already filed, that read its newest results release wrongly, or that labelled a multiple for a period it did not cover. Decision: D-109 in [DECISIONS](DECISIONS.md) (PR #55 took D-106); report 1.41.0, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24, the stamps after D-106's. Pipeline stage-c-1.6.2 is unchanged: the orchestration did not change. The audit evidence folders stay out of the repository.
+Base: `2f2aa3b` (main, after PR #55). Scope: batch 4 of the independent audit of 2026-10-22, findings B-26, B-24, B-27, B-23, B-9 with B-20, B-36, C-16 and FCX-4: reports that ended a quarter or two before what the issuer had already filed, that read its newest results release wrongly, or that labelled a multiple for a period it did not cover. Decision: D-110 in [DECISIONS](DECISIONS.md) (PR #55 took D-106); report 1.41.0, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24, the stamps after D-106's. Pipeline stage-c-1.6.2 is unchanged: the orchestration did not change. The audit evidence folders stay out of the repository.
 
 This change made no model calls and no paid provider calls. The only provider traffic was the keyless, data-only control panel below, served from the run cache behind a dead proxy. No fixture file was added; the new tests build their inputs inline from the wording and figures of public SEC filings.
 
@@ -60,11 +60,11 @@ A second review, `/code-review` and a fresh subagent again, ran over the fixes a
 | S6 | A working figure backed out of year-to-date marked the row derived and named itself in the derivation note (both reviews). | Fixed in `3314075`. |
 | S7 | The merged-filings record is optional on the keyless inputs, so a caller that drops it would judge a successor's history on merged facts (code review). | Not changed: it is absent exactly when nothing was merged, the one builder sets it whenever a filing is merged, and a test pins the merged case. |
 | S8 | The presentation layer reads a fiscal-year multiple's label from its provenance id by pattern (code review). | Not changed: design. Tests pin the ids and labels; a structured period field would replace the pattern (left for later, with R11). |
-| S9 | Docs still named the payload label "peTtm (current, FY2025)" (code review). | Fixed in this note, METHODOLOGY, D-109 and the changelog. |
+| S9 | Docs still named the payload label "peTtm (current, FY2025)" (code review). | Fixed in this note, METHODOLOGY, D-110 and the changelog. |
 
 ## Control panel
 
-Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place, before main's #56 and #57 were merged in (see the note after the table). Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
+Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place, before main's #56, #57 and #58 were merged in (see the note after the table). Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
 
 | Figure | Base produced | Head produced | Gained | Lost | Changed value |
 |---|---|---|---|---|---|
@@ -99,4 +99,4 @@ The watch list:
 - The scenario fan is withheld only for Duke Energy (bull 37.23, base 43.09, bear 33.24).
 - No other value moved.
 
-After main's #56 and #57 (D-107 readable note figures, D-108 parent net income) were merged in, a rerun of both sides against the new main (`c10bb4b`) was stopped by the host for low memory before either side finished, and is still to run. Main's D-108 records its own panel (only FCX, AMT and MA move). Freeport is the one company both changes touch: D-108 derives its parent net income, and FCX-4 its continuing-operations EPS. Their unit tests pass together on the merged tree.
+After main's #56 and #57 (D-107 readable note figures, D-108 parent net income) were merged in, a rerun of both sides against the new main (`c10bb4b`) was stopped by the host for low memory before either side finished, and is still to run. Main's #58 (D-109, a per-share basis named in a claim's words) was merged after that; it changes only how an AI report's claims are checked, so it does not reach these data-only reports. Because this batch's decision number was taken by #58, the batch's record is D-110. Main's D-108 records its own panel (only FCX, AMT and MA move). Freeport is the one company both changes touch: D-108 derives its parent net income, and FCX-4 its continuing-operations EPS. Their unit tests pass together on the merged tree.

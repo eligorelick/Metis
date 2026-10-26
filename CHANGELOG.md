@@ -29,7 +29,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Let a trailing twelve months span a reorganisation when the successor's own filing re-presents the predecessor's net income and per-share figures unchanged, and name a resolved predecessor in the successor's no-annual-report gaps (B-36: ExxonMobil Holdings regains its P/E, 22.4x). Reading the predecessor's 10-K sections is left for later.
 - B-24 and C-16 were already fixed by batch 3a.
 - Review of this change: judge a successor's own history without the facts merged from newer filings, read every discontinued-operations element on its own (and one withheld from the row) before continuing-operations EPS stands in, add cash-flow D&A to operating income only on the same period (the fiscal year's own cash-flow D&A beside a fiscal-year operating income), label a fiscal-year P/E "P/E (current, FY2025)" in the AI payload, and judge a scenario fan on the values the report shows.
-- Report 1.41.0, payload 1.47.0 and Stage B ACCOUNTING_EVIDENCE_26 (D-109); pipeline stage-c-1.6.2 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
+- Report 1.41.0, payload 1.47.0 and Stage B ACCOUNTING_EVIDENCE_26 (D-110); pipeline stage-c-1.6.3 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
+
+## Unreleased - a per-share basis named in claim words (2026-10-26)
+
+- Read a claim's figure in the cited record's per-share unit when the record is per share and the claim's metric words say "per share" ("Our DCF per share as of 2026-10-26 is USD 320.63"); the live MSFT report counted that correct claim as contradicted. The value is still checked, so a wrong figure or a total stays contradicted.
+- Report 1.40.3 and pipeline stage-c-1.6.3 (D-109).
 
 ## Unreleased - parent net income without a NetIncomeLoss tag (2026-10-26)
 
