@@ -4085,15 +4085,24 @@ export function multiplesFramework(
 
   // --- Raw building blocks (zero-for-undisclosed handled where implausible) --
   const revenue = posOrNull(zeroAsNull(inc?.revenue));
+  // Audit 2026-10-22 B-9 review: the cash-flow statement's D&A stands in only
+  // on the income statement's own period; on another, EBITDA would add two
+  // periods' figures under one period's label.
+  const period = (row: { date: string; basis?: "ttm" | "annual"; fiscalYear?: string | null }): string =>
+    row.basis === "annual" ? (/^\d{4}$/.test(row.fiscalYear ?? "") ? `FY${row.fiscalYear}` : `FY ended ${row.date}`) : `TTM to ${row.date}`;
+  const cashFlowDaElsewhere = inc !== null && !isNum(inc.depreciationAndAmortization) && cf !== null && isNum(cf.depreciationAndAmortization) &&
+    (cf.date !== inc.date || (cf.basis ?? "ttm") !== (inc.basis ?? "ttm"));
   const dAndA = isNum(inc?.depreciationAndAmortization)
     ? inc.depreciationAndAmortization
-    : isNum(cf?.depreciationAndAmortization)
+    : isNum(cf?.depreciationAndAmortization) && !cashFlowDaElsewhere
       ? cf.depreciationAndAmortization
       : null;
   const ebitda =
     isNum(inc?.operatingIncome) && isNum(dAndA) ? inc.operatingIncome + dAndA : null;
   const ebitdaLowerBound = ebitda !== null && isNum(inc?.depreciationAndAmortization) && inc.dAndALowerBound ? inc.dAndALowerBound : null;
-  if (!financialsRoute && inc && !isNum(dAndA)) {
+  if (!financialsRoute && inc && cashFlowDaElsewhere) {
+    gaps.push(gapEntry("valuation.multiples.ebitda", `no income-statement D&A, and the cash-flow D&A covers ${period(cf!)}, not ${period(inc)} — EBITDA (computed) withheld rather than adding two periods`, "info"));
+  } else if (!financialsRoute && inc && !isNum(dAndA)) {
     gaps.push(gapEntry("valuation.multiples.ebitda", "depreciationAndAmortization missing — EBITDA (computed) unavailable", "info"));
   }
   const fcf = deriveFcf(cf?.operatingCashFlow, cf?.capitalExpenditure);
@@ -4512,11 +4521,7 @@ export function multiplesFramework(
     inputs.cashFlowTtm?.basis === "annual"
       ? `latest annual FY ${inputs.cashFlowTtm.date} — TTM suppressed`
       : "TTM";
-  const incomePeriod = inputs.incomeTtm === null || inputs.incomeTtm === undefined || inputs.incomeTtm.date === ""
-    ? undefined
-    : inputs.incomeTtm.basis === "annual"
-      ? /^\d{4}$/.test(inputs.incomeTtm.fiscalYear ?? "") ? `FY${inputs.incomeTtm.fiscalYear}` : `FY ended ${inputs.incomeTtm.date}`
-      : `TTM to ${inputs.incomeTtm.date}`;
+  const incomePeriod = inputs.incomeTtm === null || inputs.incomeTtm === undefined || inputs.incomeTtm.date === "" ? undefined : period(inputs.incomeTtm);
   if (inputs.incomeTtm?.basis === "annual") {
     notes.push(
       "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",

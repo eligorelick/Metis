@@ -115,6 +115,35 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
     expect(multipleLabel({ key: "evToEbitda", period: "FY ended 2025-12-31" })).toBe("EV/EBITDA (FY ended 2025-12-31)");
     expect(metricLabel("computed.valuation.evtoebitda-current-fy-ended-2025-12-31")).toBe("EV/EBITDA (FY ended 2025-12-31)");
   });
+
+  it("adds cash-flow D&A to operating income only when both cover the same period", () => {
+    // With no income-statement D&A, the cash-flow statement's stands in. This
+    // bundle's cash flow is on FY2025 (no four-quarter cash-flow TTM): beside a
+    // FY2025 operating income it stands in, and the multiple is named for the
+    // year; beside a TTM operating income it would add two periods' figures, so
+    // EV/EBITDA is withheld rather than labelled for either.
+    const strip = (rows: Rows) => { for (const row of rows) row.depreciationAndAmortization = null; };
+    const annualRows = (bundle: DataBundle): Rows => {
+      if (!bundle.statements.incomeAnnual.ok) throw new Error("no annual income");
+      return bundle.statements.incomeAnnual.value.data.rows as unknown as Rows;
+    };
+    const same = completeCurrencyBundle({ annualCurrency: "USD" });
+    quarters(same).splice(1, 1);
+    strip(quarters(same));
+    strip(annualRows(same));
+    const fy = report(same).computed;
+    expect(multiple(fy, "evToEbitda").current).not.toBeNull();
+    expect(multiple(fy, "evToEbitda").period).toBe("FY2025");
+
+    const mixed = completeCurrencyBundle({ annualCurrency: "USD" });
+    strip(quarters(mixed));
+    const { computed, report: r } = report(mixed);
+    expect(multiple(computed, "peTtm").period).toBe("TTM to 2026-03-31");
+    expect(multiple(computed, "evToEbitda").current).toBeNull();
+    if (computed.valuation.kind === "pre-revenue") throw new Error("no multiples");
+    expect(computed.valuation.multiples.gaps.map((gap) => gap.reason).join(" | ")).toMatch(/cash-flow D&A covers FY ended 2025-12-31, not TTM to 2026-03-31/);
+    expect(keyDataRows(r).some((row) => /^EV\/EBITDA/.test(row.label) && row.value !== "withheld")).toBe(false);
+  });
 });
 
 describe("the P/E basis names the formula that ran (audit 2026-10-22 B-20)", () => {
