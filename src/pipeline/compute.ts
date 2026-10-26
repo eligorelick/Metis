@@ -2628,7 +2628,12 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       currency: projectionCurrency,
       asOf: asOfDay,
     }),
-    degradedInputsReason({ riskFree: riskFreePct(bundle), bundleGaps: bundle.gaps, valuationGaps: valuation.gaps }),
+    degradedInputsReason({
+      riskFree: riskFreePct(bundle),
+      waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
+      bundleGaps: bundle.gaps,
+      valuationGaps: valuation.gaps,
+    }),
   );
 
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------

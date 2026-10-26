@@ -69,6 +69,20 @@ describe("fair value degraded inputs (F-13)", () => {
     });
   });
 
+  it("names a ROIC-vs-WACC history that had no per-year DGS10 observation, since it sets the terminal ROIC", () => {
+    const reason = degradedInputsReason({
+      riskFree: { pct: 5.12, asOf: "2026-10-20", seriesId: "fred:DGS10.last-cached" },
+      waccHistoryCurrentOnly: true,
+      bundleGaps: [],
+      valuationGaps: [],
+    });
+    expect(reason?.reason).toBe(
+      "Degraded inputs: the risk-free rate is the last cached FRED DGS10 observation (observation 2026-10-20), not FRED DGS10; " +
+        "the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available. " +
+        "A run with these providers healthy can give a different value.",
+    );
+  });
+
   it("names every keyless member that replaced an FMP member, grouped by the source that served it", () => {
     const reason = degradedInputsReason({
       riskFree: { pct: 4.01, asOf: "2026-10-21", seriesId: TREASURY_PAR_CURVE_SERIES_ID },
@@ -131,7 +145,7 @@ describe("degraded inputs end to end: Stage B, both layouts, the exports and the
     const computed = runStageB(bundle);
     expect(computed.fairValue.status).toBe("available");
     const text = fairValueDegradedText(computed.fairValue);
-    expect(text).toMatch(/^Degraded inputs: the risk-free rate is FMP treasury rates 10-year \(observation 2026-07-04\), not FRED DGS10; the analyst-consensus growth method was left out because the provider refused the analyst estimates\./);
+    expect(text).toMatch(/^Degraded inputs: the risk-free rate is FMP treasury rates 10-year \(observation 2026-07-04\), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available; the analyst-consensus growth method was left out because the provider refused the analyst estimates\./);
 
     const report = dataOnly(bundle, computed);
     expect(fairValueDegradedText(report.fairValue)).toBe(text);

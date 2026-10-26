@@ -10170,14 +10170,14 @@
       "decisions": [
         "D-107"
       ],
-      "reason": "Audit batch 6 of 2026-10-26 (degrade visibly when providers fail, D-107), as it reaches this provider-free DEMO control. The report stamp moves to spec 1.41.0 (the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line), out of live-check-fixes-20261026, whose record for 1.40.1 stands in docs/audit/DECISIONS.md, D-106. The fixture carries no FRED DGS10 observation, so its risk-free rate has always come from FMP treasury rates year10 (2025-12-31); F-13 now names that substitution in fairValue.reasons as a degraded-inputs entry, in Stage B and in the report. No figure moves: the rate, the WACC, the DCF and the headline value are unchanged, and the fixture has no keyless member or refused analyst estimate to name. See docs/audit/2026-10-22-audit-batch6-provider-failures.md.",
+      "reason": "Audit batch 6 of 2026-10-26 (degrade visibly when providers fail, D-107), as it reaches this provider-free DEMO control. The report stamp moves to spec 1.41.0 (the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line), out of live-check-fixes-20261026, whose record for 1.40.1 stands in docs/audit/DECISIONS.md, D-106. The fixture carries no FRED DGS10 observation, so its risk-free rate has always come from FMP treasury rates year10 (2025-12-31); F-13 now names that substitution in fairValue.reasons as a degraded-inputs entry, in Stage B and in the report, together with the ROIC-vs-WACC history behind the terminal ROIC, which for want of any DGS10 observation compares every fiscal year to the current WACC (the terminal ROIC basis already said so). No figure moves: the rate, the WACC, the DCF and the headline value are unchanged, and the fixture has no keyless member or refused analyst estimate to name. See docs/audit/2026-10-22-audit-batch6-provider-failures.md.",
       "deltas": [
         {
           "path": "report.fairValue.reasons.0",
           "beforeMissing": true,
           "after": {
             "field": "valuation.fairValue.degradedInputs",
-            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10. A run with these providers healthy can give a different value.",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available. A run with these providers healthy can give a different value.",
             "severity": "warn"
           }
         },
@@ -10191,7 +10191,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.fairValue.degradedInputs",
-            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10. A run with these providers healthy can give a different value.",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available. A run with these providers healthy can give a different value.",
             "severity": "warn"
           }
         }

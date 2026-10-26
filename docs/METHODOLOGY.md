@@ -2023,6 +2023,9 @@ entry in `fairValue.reasons` that names each substitution:
 
 - a risk-free rate that is not FRED `DGS10`, with the source and its observation
   date;
+- on the DCF route, a ROIC-vs-WACC history that had no `DGS10` observation at all
+  (FRED down), so every fiscal year was compared to the current WACC and the
+  terminal ROIC rule read that comparison;
 - each statement, quote or price member that the keyless layer served after FMP
   refused it, grouped by the source that served it (SEC EDGAR, Yahoo, or computed
   from filed facts and prices);
