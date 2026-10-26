@@ -92,11 +92,34 @@ function periodReportingCurrency(bundle: DataBundle, end: string | null): string
   return establishedCurrencyOn(normalized.rows, end, statementCurrencyEvidence(bundle));
 }
 
+/**
+ * The one currency every dated income row (quarterly and annual) is
+ * established in, and the oldest row's date; null when any row is unknown,
+ * in conflict, or in another currency.
+ */
+function singleCurrencyHistory(bundle: DataBundle): { currency: string; since: string } | null {
+  const income = [...rowsOf(bundle.statements?.incomeQuarterly), ...rowsOf(bundle.statements?.incomeAnnual)].filter((row) => day(row.date) !== null);
+  if (income.length === 0) return null;
+  const evidence = statementCurrencyEvidence(bundle);
+  const codes = new Set(income.map((row) => establishedCurrencyOn([row], day(row.date), evidence)));
+  const currency = codes.size === 1 ? [...codes][0] : null;
+  return currency === null || currency === undefined ? null : { currency, since: income.map((row) => day(row.date)!).sort()[0]! };
+}
+
 function releaseReportingCurrency(bundle: DataBundle, release: EarningsReleaseRecord): string | null {
   // Commentary-only exhibits may state the quarter end only in their table
   // headers. Those parsed three-month column dates are source evidence too.
   const end = release.reported.periodEnd ?? [...release.freeCashFlow, ...(release.reconciliation ?? [])]
     .filter((f) => f.months === 3).map((f) => f.periodEnd).sort().at(-1) ?? null;
+  const covered = end !== null && [...rowsOf(bundle.statements?.incomeQuarterly), ...rowsOf(bundle.statements?.incomeAnnual)].some((row) => day(row.date) === end);
+  if (end === null || !covered) {
+    // Audit 2026-10-22 B-27: a release whose quarter no statement row covers
+    // yet (its 10-Q is not filed or not in the statements), or that states no
+    // quarter end, reports in the statements' currency when every income row
+    // since before its period is established in that one currency.
+    const history = singleCurrencyHistory(bundle);
+    if (history !== null && history.since < (end ?? release.filingDate)) return history.currency;
+  }
   return periodReportingCurrency(bundle, end);
 }
 
@@ -343,7 +366,10 @@ function guidanceRows(items: readonly GuidanceItem[], currency: string | null, s
     if (item.unit !== "%" && item.unit !== "percentage-points") {
       const itemCurrency = symbolCurrency(item.symbol, sourceCurrency);
       if (itemCurrency === null || itemCurrency !== currency) {
-        notes.push(`Guidance for ${item.period.label} ${item.metric} printed in "${item.symbol ?? "no symbol"}" was left out: that currency is not the statements' (${currency ?? "unestablished"}).`);
+        // Audit 2026-10-22 B-27: an unestablished currency is not a mismatch.
+        notes.push(`Guidance for ${item.period.label} ${item.metric} printed in "${item.symbol ?? "no symbol"}" was left out: ${itemCurrency === null
+          ? `its currency is not established${currency === null ? "" : ` (the statements report in ${currency})`}`
+          : `that currency (${itemCurrency}) is not the statements' (${currency ?? "unestablished"})`}.`);
         continue;
       }
     }
