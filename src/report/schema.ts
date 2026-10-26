@@ -126,7 +126,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // D-100: the composite withheld below the evidence floor, neutral-band qualifiers, the band thresholds beside the composite and a derived market-cap origin.
 // D-102: a DCF outside its domain, the excess-return start-return grid, the NCI deduction basis and the house DCF base rate.
 // D-103: the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, and the economic-weight basis.
-export const REPORT_SPEC_VERSION = "1.38.0" as const;
+// D-104: the retirement and environmental bridge lines, the regulated-utility balance-sheet basis, the sales-to-capital floor basis and the cost-of-equity row without a WACC.
+export const REPORT_SPEC_VERSION = "1.39.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

@@ -410,7 +410,8 @@ export interface ContextPayload {
 // D-100: the composite's evidence floor, the neutral-band qualifier and the band thresholds alter admitted context.
 // D-102: the trailing common return, the start-return x cost-of-equity grid, the trailing start and the NCI earnings key alter admitted context.
 // D-103: regained WACC, debt, EBITDA and class-tagged market cap, the newer-results notice and 10-Q passages updating a 10-K operating figure alter admitted context.
-export const PAYLOAD_VERSION = "1.43.0" as const;
+// D-104: the retirement and environmental bridge lines, the regulated-utility balance sheet and the WACC and cost of debt withheld on equity-valued routes alter admitted context.
+export const PAYLOAD_VERSION = "1.44.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

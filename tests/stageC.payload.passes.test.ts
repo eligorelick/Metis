@@ -626,6 +626,9 @@ describe("payload determinism + provenance", () => {
       // Codex review of PR #49 (audit 2026-10-22 B-29): a fan with a run
       // outside the DCF's domain is withheld, no longer floored at 0.
       ["so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.", "so the higher scenario is always bull and per-share is floored at 0.", 1],
+      // Audit batch 2b (D-104): the band tables gain the regulated-utility
+      // ranges, which this general-route fixture does not use; only the stamp moves.
+      ["SCORE_BANDS_2026_10_REGULATED_UTILITY", "SCORE_BANDS_2026_10_FRESHNESS_AUDIT", 1],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -997,14 +1000,19 @@ describe("payload determinism + provenance", () => {
       // payload 1.42.0; prompt bytes and every registry pin stay exact.
       // Audit batch 3a (D-103, re-pinned 2026-10-22 after merging batch 2):
       // only the versioned header moves with payload 1.43.0; no byte of this
-      // fixture's prompt or any record changes.
-      fingerprint: "1.43.0:b071d996",
-      promptBytes: 140_883,
+      // fixture's prompt or any record changes. Audit batch 2b (D-104): the
+      // versioned header moves with payload 1.44.0, and the score-bands stamp
+      // SCORE_BANDS_2026_10_REGULATED_UTILITY (two characters longer) moves the
+      // prompt bytes, the registry and the finance block. With the preceding
+      // stamp every other pin here is unchanged; no value moves.
+      fingerprint: "1.44.0:d8f80fe4",
+      promptBytes: 140_885,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
-      provenanceHash: "1d8c652c",
+      // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
+      provenanceHash: "73762e7f",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -1040,7 +1048,8 @@ describe("payload determinism + provenance", () => {
       // when a run is outside the DCF's domain instead of floored at 0, and
       // this fixture's runs are inside it, so no target or byte moves. The
       // same review moves the two method stamps (D-102), restored above.
-      financeHash: "9b006f53",
+      // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
+      financeHash: "e09a7472",
     });
   });
 
@@ -1164,7 +1173,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.43.0");
+    expect(first.payloadVersion).toBe("1.44.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2693,7 +2702,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.38.0");
+    expect(report.meta.specVersion).toBe("1.39.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

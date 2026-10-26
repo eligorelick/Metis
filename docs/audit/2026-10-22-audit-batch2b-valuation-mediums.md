@@ -1,0 +1,99 @@
+# Audit batch 2b: the deferred valuation items (2026-10-22)
+
+Base: `f9658f7` (main, with batches 2 and 3a and the dossier layout). Scope: batch 2b of the independent audit of 2026-10-22, the Medium valuation findings batch 2 deferred: E-7, B-13 with A-3, A-2, the financial-route cost of debt and WACC carried over from batch 1 (B-31), B-3 and B-33. Decision: D-104 in [DECISIONS](DECISIONS.md) (batch 3a took D-103); report 1.39.0, payload 1.44.0, Stage B ACCOUNTING_EVIDENCE_21 and score bands SCORE_BANDS_2026_10_REGULATED_UTILITY, the stamps after batch 3a's. The audit evidence folders stay out of the repository.
+
+This change made no model calls and no paid provider calls. The only provider traffic was the keyless, data-only control panel below, served from the run cache behind a dead proxy, and one keyless data-only run of Southern Co. (SO), which the panel does not hold. No fixture file was added; the new tests build their inputs inline from the tags and figures of public SEC filings.
+
+## Disposition
+
+| Finding | Disposition | Commit | Tests |
+|---|---|---|---|
+| E-7 Retirement and environmental obligations missing from the bridge | Fixed. The DCF equity bridge deducts filed asset-retirement obligations and environmental remediation accruals when tagged (the total tag, else noncurrent plus current), and names each deduction; untagged issuers are unchanged. Each is read at the bridge's balance date, else at the latest date in the year before it, with that date named, because many filers (FCX) tag them in the 10-K only. Funds legally restricted to settle the retirement obligations offset them at the same date, only beyond the long-term investments the bridge already adds and never below zero. The deduction is before tax, and the bridge says so. | `cdc7a16`, `9e32b9d` | `tests/stageB.debtLikeObligations.audit20261022.test.ts` |
+| B-13 Regulated utilities on general-industrial balance-sheet bands | Fixed. A regulated-utility overlay applies on the general route for SIC 4911, 4924, 4931, 4932 or 4941 with filed rate-regulated revenue or regulatory assets within 24 months; the SIC alone does not apply it, and no base route moves. Its balance sheet is scored on the Standard Grid ranges of Moody's "Regulated Electric and Gas Utilities" (6 August 2024) for CFO before working capital / debt and debt / book capitalization, weighted two to one as Moody's weights them. Net debt / EBITDA, coverage, FCF conversion and SBC / FCF are not graded on that overlay. | `b4662cd` | `tests/stageB.regulatedUtility.audit20261022.test.ts`, `tests/stageB.grading.test.ts` |
+| A-3 Altman Z'' applied to utilities | Fixed with B-13: Altman Z is withheld from quality and the forensic table on the overlay, with a route reason. | `b4662cd` | as B-13 |
+| A-2 Sales-to-capital floor over genuine capital intensity | Fixed. The 0.5 floor applies only when the issuer's own history does not establish a lower ratio: with at least three fiscal years of filed revenue and positive operating invested capital at the same date, the median of the newest five is the lower bound when it is below 0.5. The basis lists the years and ratios, or says why the house floor stands. | `ba60a2a` | `tests/stageB.salesToCapitalHistory.audit20261022.test.ts` |
+| B-31 WACC and cost of debt shown on financial routes | Fixed. On the bank, insurer and mortgage-REIT routes the WACC and pre-tax cost of debt are withheld with an info gap saying the route values equity at the cost of equity; the cost of equity and its history are kept. No surface shows either figure: the returns table, the LLM payload, the Markdown, audit and print exports, and the company page in both layouts, whose WACC build also no longer prints the equity and debt weights. Fair values on those routes are unchanged. | `dc73ff6`, `058bfc3` | `tests/stageB.financialRouteWacc.audit20261022.test.ts`, `tests/stageB.ttm.compute.test.ts`, `tests/currency.companyPage.test.ts` |
+| B-3 KO's DCF at −57% of price | Diagnosed; no defect, so no code change. See [KO's DCF](#kos-dcf-b-3). | none | none |
+| B-33 The composite barely discriminates | Reported; a recalibration is proposed for the owner and not applied. See [The composite's spread](#the-composites-spread-b-33). | none | none |
+
+Every new test failed before its fix, except the negative cases (an untagged issuer, a non-utility with a utility SIC, a history above the floor, a general-route WACC), which pass on both sides by design.
+
+## Independent review
+
+The independent reviews of this batch are recorded here once they finish.
+
+## Left for later
+
+- E-7: the deduction is before tax. A tax-effected deduction needs the deferred-tax asset on each obligation, which issuers do not tag consistently.
+- B-13: the overlay grades leverage only. Moody's other factors (regulatory framework, cost recovery, diversification) are qualitative and not read.
+- SO's DCF is withheld on both sides (its noncontrolling-interest split is unresolved, a pre-existing gap), so E-7 and A-2 cannot be shown on it.
+- B-33: the recalibration itself, once the owner chooses.
+
+## Control panel
+
+Base is `f9658f7` (origin/main) and head is the final code commit of this branch. Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and diffed field by field; the figures the oracle (`oracle-compare.csv`) holds (revenue, net income, EPS, debt, market cap, P/E) did not move on any ticker.
+
+| Figure | Base produced | Head produced | Gained | Lost | Changed value |
+|---|---|---|---|---|---|
+| Overlay | 3 | 5 | DUK, NEE (regulated utility) | none | none |
+| WACC | 37 | 32 | none | BAC, BRK.B, JPM, PGR, UNH (withheld by B-31) | none |
+| Fair value | 21 | 21 | none | none | BA, DUK, FCX |
+| Balance-sheet letter | 40 | 40 | none | none | DUK F → D, NEE F → D |
+| Quality letter | 44 | 44 | none | none | NEE D → C |
+| Composite score | 45 | 45 | none | none | DUK 47.26 → 51.98, NEE 49.24 → 52.50 (both stay D) |
+| Total debt, net debt, market cap, P/E, EV/EBITDA, P/B, every other letter, composite band | unchanged | unchanged | none | none | none |
+
+No company changed base route, and no figure other than the WACC on the five equity-valued routes was lost.
+
+**WACC withheld (B-31).** BAC (WACC 13.53%, cost of debt 22.68%) and JPM (11.49%, 19.30%) are on the bank route; PGR (7.43%, 5.52%), BRK.B (8.21%) and UNH (7.24%, 5.11%) are on the insurer route, which UNH already took on main. Each keeps its cost of equity unchanged (BAC 9.81%, JPM 9.40%, PGR 7.63%, BRK.B 8.21%, UNH 7.81%), and no fair value on these routes moved.
+
+**Fair values, each with its cause:**
+
+| Ticker | Base | Head | Cause | Decomposition |
+|---|---|---|---|---|
+| BA | 34.93 | 33.70 | E-7 | Environmental remediation accrual of $0.971B at 2026-06-30 (10-Q), before tax, over 0.79B diluted shares: −$1.23. No retirement obligation is tagged. |
+| DUK | 71.92 | 36.64 | A-2 and E-7 | Sales-to-capital 0.5 → 0.2254, its own TTM ratio, which the 0.5 floor had replaced. The issuer's FY2021–25 ratios (0.205 to 0.227, median 0.2200) establish that a ratio below 0.5 is genuine. More reinvestment per dollar of growth lowers each year's free cash flow. E-7 deducts the $0.095B environmental accrual (−$0.12). The $9.61B retirement obligation is fully offset by the $12.64B nuclear decommissioning trust, so nothing is deducted for it. |
+| FCX | 19.70 | 17.10 | E-7 | Retirement obligations $3.836B and environmental accruals $2.018B at 2025-12-31 (10-K filed 2026-02-13; the 2026-06-30 10-Q does not tag them). The noncontrolling owners bear their 35.8% earnings share of the deduction, so the per-share effect is $5.854B × 0.642 / 1.443B = −$2.60. |
+
+Hand checks, independent of the code:
+
+- **DUK.** The explicit-period present value is 20.54B and the terminal present value 97.96B, so EV is 118.50B. Equity is 118.50 − 88.11 net debt − 2.02 NCI + 0.16 non-operating = 28.54B, and over 0.779B shares that is $36.64. The audit's own no-floor replay gave $36.76; less the $0.12 E-7 deduction, that is $36.64.
+- **FCX.** EV of 49.611B less 5.306B net debt and 5.854B of obligations is 38.451B. The NCI deduction is 0.3584 × 38.451 = 13.780B (base: 0.3584 × 44.305 = 15.878B), so equity is 24.671B, which over 1.443B shares is $17.10.
+
+NEE keeps no fair value on either side (outside the DCF domain). Its $3.73B retirement obligation is offset by the $10.71B decommissioning fund beyond the $6.65B of long-term investments the bridge already adds, so E-7 would deduct nothing.
+
+**Southern Co. (SO), outside the panel.** One keyless data-only run per side, both offline on the same pinned clock (`2026-10-26T05:45:00Z`, after the cache's fetch). Head applies the regulated-utility overlay. The balance sheet goes from F (22.2) to D (48.6), quality from D (51.9) to C (56.7), and the composite from 45.59 to 49.49 (both D). The WACC is unchanged at 6.0%. The DCF is withheld on both sides (pre-existing: the noncontrolling-interest split is unresolved).
+
+## KO's DCF (B-3)
+
+KO's fair value is $39.86 against a price of $92.68 (−57%). The decomposition, from the run's own figures:
+
+- **WACC 7.33%.**
+  - Risk-free 5.12% (DGS10), ERP 4.18%, beta 0.60: the floor, over a raw 0.30.
+  - Cost of equity 7.63%.
+  - Pre-tax cost of debt 5.52% (synthetic AAA).
+  - Equity / debt 90 / 10.
+- **Growth and margin.** Revenue growth fades from 3.54% to the 2.5% terminal cap. The EBIT margin fades from 29.34% TTM to its five-year median of 25.37% by year 5.
+- **Reinvestment.** Sales-to-capital 1.026 (the issuer's own figure, above the floor); terminal ROIC 12.31%.
+- **Value.** Explicit-period PV is 77.31B. The terminal value of 221.82B has a PV of 113.31B (59% of EV). EV is 190.62B.
+- **Bridge.** Net debt 32.73B, NCI 2.10B, non-operating +16.15B (long-term investments of 20.45B less 4.29B tax). Equity is 171.95B, which over 4.314B shares is $39.86 (hand-checked).
+- **Sensitivity.** The highest cell of the WACC ± 2pp × terminal growth ± 1pp grid (WACC 5.33%, growth 3.5%) gives $84.64, still below the price. The reverse DCF needs 36.7% year-one growth.
+
+No single input is wrong. The gap is the house calibration audit finding B-30 describes: a high risk-free rate, a 2.5% growth cap, and a margin fading to its median. It is not a defect, so nothing was changed. Batch 2's house base-rate line already states this pattern beside the headline.
+
+## The composite's spread (B-33)
+
+On the head panel the composite letters are D 17, C 26, B 2, with no A and no F: 43 of 45 companies sit in C or D. The scores run from 40.27 to 80.75:
+
+| Percentile | 10th | 20th | 25th | 40th | 50th | 60th | 75th | 80th | 90th |
+|---|---|---|---|---|---|---|---|---|---|
+| Score | 49.83 | 52.08 | 52.77 | 55.12 | 56.30 | 57.90 | 62.65 | 63.43 | 66.52 |
+
+The aspects spread more than the composite does. For example, valuation is F on 18 companies and withheld on 10; the balance sheet is B 18, C 10, F 7, D 4, A 1; technicals are F on 14. Averaging seven aspects pulls the composite toward the middle.
+
+**Owner decision (proposed, not applied).**
+
+- **Option 1 (recommended).** Keep the absolute bands (85 / 70 / 55 / 40) and show the score's percentile within the dated panel beside the letter. The letter keeps its fixed meaning, and the percentile adds the discrimination.
+- **Option 2.** Recalibrate the cut points to the panel's quintiles (A ≥ 63.4, B ≥ 57.9, C ≥ 55.1, D ≥ 52.1). The letters would spread evenly, but they would grade on a curve: a letter would then depend on the panel, and B to D would span about 6 points.
+
+The bands stay 85 / 70 / 55 / 40 until the owner chooses.

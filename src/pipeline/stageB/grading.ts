@@ -48,7 +48,7 @@ import type {
 import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 
 /** Versioned band-table id, stamped into the report for auditability. */
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_FRESHNESS_AUDIT" as const;
+export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_REGULATED_UTILITY" as const;
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives

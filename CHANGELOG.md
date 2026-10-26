@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.38.0** and
-payload **1.43.0** (audit batch 3a, the remaining high-severity findings,
+Current source declares application **0.1.0**, report spec **1.39.0** and
+payload **1.44.0** (audit batch 2b, the deferred valuation items,
 2026-10-22). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -24,6 +24,8 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Add a regulated-utility overlay on the general route for SIC 4911, 4924, 4931, 4932 or 4941 with filed rate-regulated revenue or regulatory assets: its balance sheet is scored on Moody's "Regulated Electric and Gas Utilities" (6 August 2024) Standard Grid ranges for CFO before working capital / debt and debt / book capitalization, and Altman Z is withheld from quality and the forensic table (B-13, A-3: DUK, NEE, SO).
 - Apply the 0.5 sales-to-capital floor only when the issuer's own history does not establish a lower ratio: with at least three fiscal years of filed revenue and operating invested capital, the median of the newest five is the lower bound when below 0.5, and the basis lists the years (A-2: DUK, NEE, SO).
 - Withhold the WACC and the pre-tax cost of debt on the bank, insurer and mortgage-REIT routes, which value equity at the cost of equity: the cost of equity and its per-year history are kept, the Returns table's cost-of-equity row says why the other two are absent, and neither reaches the LLM payload or the company page (B-31: BAC printed 22.7% and 13.5%).
+- KO's DCF 57% below price is diagnosed as the house calibration batch 2's base-rate line already states, not a defect, and is left unchanged (B-3); the composite's band distribution over the 45-company panel is reported and a recalibration is proposed to the owner, not applied (B-33).
+- Report 1.39.0, payload 1.44.0, Stage B ACCOUNTING_EVIDENCE_21 and score bands SCORE_BANDS_2026_10_REGULATED_UTILITY (D-104). See the [disposition record](docs/audit/2026-10-22-audit-batch2b-valuation-mediums.md).
 
 ## Proposed audit batch 3a: the remaining high-severity findings (2026-10-22)
 
