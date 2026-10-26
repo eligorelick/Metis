@@ -1,4 +1,5 @@
 import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
+import { numericClaimPartition } from "./claimMatching";
 import { evidencePercentText, withNeutral } from "./assessment";
 import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
 import { formatScore } from "./scoreText";
@@ -179,7 +180,8 @@ export function factualValidationText(coverage?: ProvenanceCoverage): string | n
   // zero numeric figures tracing to their source.
   // Claims that state no figure have nothing to check numerically; say how
   // many of the unchecked are those (NVDA report 34: 60 of 89).
-  const qualitative = v.qualitative ?? 0;
-  const split = v.qualitative === undefined ? "Qualitative split was not recorded in this legacy snapshot." : `${qualitative} qualitative claims cited but not machine-checkable.`;
-  return `${v.validated}/${v.total - qualitative} numeric factual claims numerically matched; ${v.unchecked - qualitative} unmatched numeric claims. ${split} Recorded factual-claim statuses: ${v.validated} numeric matches, ${v.unchecked} unchecked, ${v.contradicted} contradicted; ${v.total} total. Factual claims cited: ${v.cited}/${v.total}. Figure traceability: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (a separate denominator). Numeric matches do not validate whole prose claims.`;
+  const partition = numericClaimPartition(v);
+  const matching = partition.total === null ? partition.unknownText : `${v.validated}/${partition.total} numeric factual claims numerically matched; ${partition.unmatched} unmatched numeric claims`;
+  const split = v.qualitative === undefined ? "Qualitative split was not recorded in this legacy snapshot." : `${v.qualitative} qualitative claims cited but not machine-checkable.`;
+  return `${matching}. ${split} Recorded factual-claim statuses: ${v.validated} numeric matches, ${v.unchecked} unchecked, ${v.contradicted} contradicted; ${v.total} total. Factual claims cited: ${v.cited}/${v.total}. Figure traceability: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (a separate denominator). Numeric matches do not validate whole prose claims.`;
 }

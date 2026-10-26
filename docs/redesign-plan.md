@@ -70,4 +70,3 @@ Arbitrary custom-assumption sliders require a separate production capability con
 - WCAG 2.2: https://www.w3.org/TR/WCAG22/ — contrast, focus, target sizing and motion informed the prototype; this is not a conformance certification.
 - Bloomberg research workflow: https://professional.bloomberg.com/products/bloomberg-terminal/research/research-management-solutions/ — centralized research and connected evidence, not visual imitation.
 - User-supplied metis-demo.html, metis_institutional_equity_research_quantitative_grader.html and current-interface screenshot.
-

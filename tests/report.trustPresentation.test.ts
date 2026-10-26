@@ -59,8 +59,9 @@ describe("report trust presentation", () => {
 
     expect(output).toContain("107/119 (89.9%) figures traced to a cited source");
     expect(output).toContain("38/38 factual claims cited");
-    // A report recorded before the qualitative split counts every claim as numeric.
-    expect(output).toContain("0/38 numeric claims numerically matched (not whole-claim validation)");
+    // An absent qualitative partition cannot establish a numeric denominator.
+    expect(output).toContain("numeric-claim denominator unknown");
+    expect(output).not.toContain("0/38 numeric claims");
     expect(output).toContain("0 contradicted");
     expect(output).not.toContain("Factual prose claims");
   });

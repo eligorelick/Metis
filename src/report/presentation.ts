@@ -17,6 +17,7 @@ import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
+import { numericClaimPartition } from "@/report/claimMatching";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
@@ -1052,18 +1053,16 @@ export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readon
   ];
   const v = coverage.factualValidation;
   if (v) {
-    const qualitative = v.qualitative ?? 0;
-    const numericClaims = v.total - qualitative;
-    const uncheckedNumeric = v.unchecked - qualitative;
+    const partition = numericClaimPartition(v);
     rows.push({
       label: "Numeric factual claims numerically matched to a cited figure",
-      value: numericClaims === 0
+      value: partition.total === null ? partition.unknownText : partition.total === 0
         ? "none to check — no factual claim states a figure"
-        : `${v.validated}/${numericClaims}${uncheckedNumeric > 0 ? `; ${uncheckedNumeric} not matched to a cited figure` : ""}`,
+        : `${v.validated}/${partition.total}${partition.unmatched > 0 ? `; ${partition.unmatched} not matched to a cited figure` : ""}`,
     });
     const contradicted = contradictedCount(v, log);
     rows.push({ label: "Claims contradicted by their cited source", value: contradicted.split === null ? String(contradicted.count) : `${contradicted.count} (${contradicted.split})` });
-    if (v.qualitative !== undefined) rows.push({ label: "Qualitative factual claims (cited; not machine-checkable)", value: String(qualitative) });
+    if (v.qualitative !== undefined) rows.push({ label: "Qualitative factual claims (cited; not machine-checkable)", value: String(v.qualitative) });
   }
   if (coverage.judgments.total > 0) rows.push({ label: "Judgments carrying a citation", value: ratio(coverage.judgments.cited, coverage.judgments.total, coverage.judgments.rate) });
   return rows;
@@ -1078,12 +1077,11 @@ export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: re
   ];
   const v = coverage.factualValidation;
   if (v) {
-    const qualitative = v.qualitative ?? 0;
-    const numericClaims = v.total - qualitative;
-    parts.push(numericClaims === 0 ? "no factual claim states a figure to match" : `${v.validated}/${numericClaims} numeric claims numerically matched (not whole-claim validation)`);
+    const partition = numericClaimPartition(v);
+    parts.push(partition.total === null ? partition.unknownText : partition.total === 0 ? "no factual claim states a figure to match" : `${v.validated}/${partition.total} numeric claims numerically matched (not whole-claim validation)`);
     const contradicted = contradictedCount(v, log);
     parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
-    if (qualitative > 0) parts.push(`${qualitative} qualitative claims cited, not machine-checkable`);
+    if (v.qualitative !== undefined && v.qualitative > 0) parts.push(`${v.qualitative} qualitative claims cited, not machine-checkable`);
   }
   return parts.join("; ");
 }

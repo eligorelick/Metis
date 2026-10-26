@@ -679,7 +679,7 @@ body[data-ui-layout="classic"] .report-grade-strip .group > div { flex-wrap:wrap
 body[data-ui-layout="classic"] .thesis-report :is(p,li,dt,dd,summary,span) { overflow-wrap:anywhere; }
 body[data-ui-layout="classic"] .thesis-report .scorecard-aspect { min-width:0; }
 body[data-ui-layout="classic"] .thesis-report .scorecard-aspect > div { flex-wrap:wrap; }
-body[data-ui-layout="classic"] .thesis-report :is(.report-section,#report-catalystsRisks) { scroll-margin-top:var(--classic-report-scroll-offset,112px); }
+body[data-ui-layout="classic"] .thesis-report :is(.report-section,#report-catalystsRisks,.trust-details) { scroll-margin-top:var(--classic-report-scroll-offset,112px); }
 .report-snapshot-header { min-width:0; border-bottom:1px solid var(--border); }
 .snapshot-heading-row { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px 24px; }
 .snapshot-heading-row h1 { font-size:24px; line-height:1.25; overflow-wrap:anywhere; }
@@ -782,7 +782,7 @@ body[data-ui-layout="dossier"][data-ui-density="compact"] .report-trust-summary 
   .snapshot-financial-ledger dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:800px) {
-  body[data-ui-layout="classic"] .thesis-report :is(.report-section,#report-catalystsRisks) { scroll-margin-top:var(--classic-report-scroll-offset,260px); }
+  body[data-ui-layout="classic"] .thesis-report :is(.report-section,#report-catalystsRisks,.trust-details) { scroll-margin-top:var(--classic-report-scroll-offset,260px); }
 }
 @media(max-width:650px) {
   .snapshot-workspace-tools { gap:4px; }

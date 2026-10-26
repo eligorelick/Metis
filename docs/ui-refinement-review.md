@@ -77,3 +77,17 @@ Final browser closure additionally reproduced classic mobile headings hidden by 
 The final browser closure also passed all seven checks, including the actual recorded #11/#12 diff route, classic sticky clearance, stubbed controller recovery and native no-JavaScript evidence. The 17-check portable reading regression is committed for repeatable local review. Private evidence includes complete failed attempts as well as the passing closure; no historical test run is substituted for this final-source result.
 
 Final wording correction: the evidence rail now says **Requested model**, with an explicit pointer to actual pass models and unknowns in run details. Its new trust-label regression failed before the change and passed afterward. Fresh typecheck, lint and the full product suite passed afterward (**8842 passed, 3 skipped**, 428 files). The preceding complete `npm run verify` at `e9ff206` remains the integration/coverage/security result; its analytical and coverage-source paths are unchanged by this wording-only patch. The final build and browser label check are recorded in the private handoff. This distinction is explicit rather than presenting the earlier full run as a run of the later label.
+
+## Public integration branch
+
+Use `codex/metis-ui-public-ready` for public-main integration. Its initial publication commit has the same sanitized implementation tree as the reviewed refinement, with public main `089a6cf0fd28665fc6d34725061eb011f22ff9d9` as its only parent. Earlier local development branches are preserved separately and should not be pushed as part of this release: their intermediate documentation contained personal filesystem paths. Publication commits use the established GitHub noreply identity.
+
+The follow-up readiness audit also identified and repaired three presentation issues:
+
+- The dossier cover now withholds the valuation letter under the existing evidence rule, including partial single-signal cases. Recorded scores and bands remain available in the audit.
+- UI, Markdown, audit and print share a conservative numeric-claim partition presenter. Missing qualitative metadata, uncited claims or contradicted claims cannot establish the numeric denominator from saved counts alone. Raw counts and statuses remain; MU's established 36/121 partition is unchanged.
+- The reconciliation link has one focusable native disclosure per layout: near the dossier headline or in the classic Appendix. Classic scroll clearance includes that destination.
+
+Sticky assessment shortcuts now spell out their section names, including Leadership proxy, and keyboard focus reveals the complete item in its horizontal container. The full capital-stewardship definition remains accessible.
+
+Regressions were observed failing before the repairs and passing afterward; focused trust/reading/export tests, release contracts, TypeScript and ESLint passed. The publication handoff records the final source commit, fresh full verification, browser checks, history scan and integration rehearsal. These are local checks; hosted CI must still run when the branch is eventually published. Preserve any newer main work and use an ordinary reviewed integration; do not force-push or reset another checkout. No database migration or report regeneration is required.

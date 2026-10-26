@@ -212,7 +212,7 @@ export function ReportView({
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : layout === "dossier" ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></SectionFrame> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
-    appendix: <AppendixSection report={report} selectedReportId={reportId} completeness={completeness} index={reportSection("appendix").index} />,
+    appendix: <AppendixSection report={report} selectedReportId={reportId} completeness={completeness} showTrustDetails={layout === "classic"} index={reportSection("appendix").index} />,
   };
 
   return (

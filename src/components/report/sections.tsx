@@ -14,6 +14,7 @@
  */
 
 import type { ReactNode } from "react";
+import { ReportTrustDetails } from "./ReportTrustSummary";
 import { evidencePercentText, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueWithheldText } from "@/report/fairValueText";
@@ -1981,11 +1982,13 @@ export function AppendixSection({
   report,
   selectedReportId,
   completeness,
+  showTrustDetails = false,
   index,
 }: {
   report: Report;
   selectedReportId?: number;
   completeness?: ReportCompletenessPresentation;
+  showTrustDetails?: boolean;
   index: number;
 }) {
   const appendix: Appendix = report.appendix;
@@ -2018,6 +2021,7 @@ export function AppendixSection({
         </span>
       }
     >
+      {showTrustDetails && <ReportTrustDetails report={report} completeness={presentation} />}
       {/* D-62: the standard limitations, stated once. */}
       <SubBlock label="methodology and limitations">
         <ul className="flex flex-col gap-1">

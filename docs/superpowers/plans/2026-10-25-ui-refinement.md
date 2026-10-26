@@ -78,3 +78,17 @@ Fresh review of `38f8329..b03c863`: two Important findings accepted. The content
 Ruling: analytical revalidation remains outside this UI change, as requested; inherited financial/model limitations remain. Browser, print and operational evidence are mandatory separate checks because static review cannot establish them.
 
 Task 4 is complete with the explicit native-zoom and assistive-technology boundaries in the review handoff. Final application commit e9ff206 passed the full unchanged npm run verify: 8841 product tests, 4 integration tests, both coverage floors, build and security audit (0 vulnerabilities). Three intentional platform/live-network skips remain. The final seven-check browser closure and 17-check portable reading regression passed. Earlier failed attempts are retained. No tests, timeouts or coverage floors were weakened. The review handoff records screenshots, the preservation matrix, actual files, native reading fixes and rollback instructions.
+
+## Public-readiness repair plan
+
+The follow-up audit reproduced two trust-presentation edge cases and a classic reconciliation link without a target. The user authorized repairing all findings and preparing local commits for public-main integration. Existing development branches and the other checkouts remain intact; publication uses a separate branch whose parent is the verified public main and whose initial tree equals the sanitized final implementation tree. Public commits use the existing GitHub noreply identity.
+
+- Add RED regressions for a low-evidence valuation headline, missing/partial qualitative partitions, and the classic reconciliation destination. Preserve all recorded values and MU's established 36/121 numeric partition.
+- Keep the cover's valuation letter subject to the existing evidence gate. Retain the raw recorded band in the audit. Share a conservative numeric-claim partition presenter across trust rows, headlines and audit exports; absent partition evidence stays unknown.
+- Reuse the native reconciliation disclosure in the classic Appendix, with one destination per layout and correct focus/scroll clearance. Keep raw gaps and grouping explanations reachable.
+- Remove the extra documentation EOF blank line. Run focused tests, static checks, independent review, the unchanged full verification gate, and isolated browser/export checks for the repaired paths.
+- Scan every new publication commit for private paths, credentials and artifact files. Rehearse integration with the other main checkout without modifying its index, files or branch. Supply local merge instructions and evidence; do not push, merge or deploy.
+
+Review boundaries: do not infer numeric denominators from uncited or contradicted qualitative claims; do not promote a partial single-signal valuation; do not duplicate disclosure IDs; do not change financial engines, providers, schema or stored report bytes. Prior toolchain notices remain distinct from actionable UI/publication findings.
+
+Repair regressions reproduced eleven failures before implementation. The focused reading/trust/export group then passed 145 tests, the release and coverage contracts passed 22 tests, and TypeScript/ESLint passed. Original report values remain unchanged. The numeric partition presenter is included in the existing risk coverage gate; no thresholds were reduced. The first release-contract attempt correctly rejected the not-yet-staged test file; staging the new source/test files resolved its tracked-test inventory mismatch without changing the guard.
