@@ -51,13 +51,28 @@ describe("B-31: WACC and cost of debt withheld on equity-valued routes", () => {
     expect(summary).not.toMatch(/WACC n\/a|cost of debt unavailable/);
   });
 
-  it("keeps each fiscal year's cost of equity, which the excess-return model reads, without a WACC", () => {
-    const priced = waccByFiscalYear(computeWacc({ ...BAC, isFinancial: true }), YEARS, RF);
-    const equityOnly = waccByFiscalYear(computeWacc({ ...BAC, equityOnlyRoute: "insurer" }), YEARS, RF);
-    expect(equityOnly.points.map((p) => p.costOfEquityPct)).toEqual(priced.points.map((p) => p.costOfEquityPct));
-    expect(equityOnly.points.every((p) => p.waccPct === null && p.costOfDebtPct === null)).toBe(true);
-    expect(equityOnly.basis).toMatch(/^per-fiscal-year cost of equity/);
-    expect(equityOnly.notes.join(" ")).not.toMatch(/WACC \d/);
+  it("withholds them, saying why, even when the cost of equity itself cannot be computed", () => {
+    for (const missing of [{ erpPct: null, analysisDate: "2030-06-30" }, { beta: null }, { riskFreePct: null }] as const) {
+      const w = computeWacc({ ...BAC, ...missing, equityOnlyRoute: "bank" });
+      expect(w.costOfEquityPct).toBeNull();
+      expect(w.withheld).toMatch(/bank route values equity at the cost of equity/);
+      expect(w.notes[0]).toBe(w.withheld);
+      expect(w.gaps).toContainEqual(expect.objectContaining({ field: "returns.wacc", severity: "info", expected: true }));
+      expect(waccDisclosure(w).summary).toMatch(/WACC and pre-tax cost of debt withheld on this route$/);
+    }
+  });
+
+  it("computes no per-fiscal-year WACC history and says nothing about one", () => {
+    // The excess-return evidence compares each year's return with the current
+    // cost of equity, as it did before the WACC was withheld.
+    const w = computeWacc({ ...BAC, equityOnlyRoute: "insurer" });
+    for (const years of [YEARS, []]) {
+      const history = waccByFiscalYear(w, years, RF);
+      expect(history.points).toEqual([]);
+      expect(history.notes).toEqual([]);
+      expect(history.gaps).toEqual([]);
+      expect(history.basis).not.toMatch(/WACC/);
+    }
   });
 
   it.each([
@@ -75,6 +90,7 @@ describe("B-31: WACC and cost of debt withheld on equity-valued routes", () => {
     expect(computed.returns.wacc.waccPct).toBeNull();
     expect(computed.returns.wacc.costOfDebtPct).toBeNull();
     expect(computed.returns.notes.join(" ")).not.toMatch(/WACC \d|cost of debt \d/);
+    expect(computed.returns.notes.join(" ")).not.toMatch(/per-fiscal-year WACC/);
     expect(computed.gaps.map((g) => g.reason).join(" ")).toMatch(new RegExp(`${route} route values equity at the cost of equity`));
 
     const payload = serializePayloadForPrompt(assembleContextPayload(b, computed, { checks: [], flags: [], gaps: [] }));

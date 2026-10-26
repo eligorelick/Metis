@@ -285,10 +285,11 @@ computed as above, and the WACC, the cost of debt, the E/D weights and the
 synthetic rating are withheld, with an info entry in the manifest saying the
 route values equity at the cost of equity. No surface shows them: the Returns
 table has no WACC or cost-of-debt row and its cost-of-equity row says why, the
-LLM payload lists neither, and the company page shows "not used". The
-per-fiscal-year history on those routes is each year's cost of equity, the
-hurdle the excess-return model reads, recomputed from that year's risk-free
-observation as above.
+LLM payload lists neither, and the company page shows "not used" for them
+and for the weights and tax rate of its WACC build. This holds even when the
+cost of equity itself lacks an input. No per-fiscal-year WACC history is
+computed on those routes; the excess-return evidence compares each year's
+return with the current cost of equity, as it did before.
 
 ---
 

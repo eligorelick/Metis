@@ -472,6 +472,19 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     taxRateUsed = null;
   }
 
+  // Audit 2026-10-22 B-31: a route valued on the cost of equity alone has no
+  // use for a WACC, and its interest expense (deposits, policy reserves, repo)
+  // over its debt is not a borrowing cost (BAC printed 22.7%). Neither is
+  // computed, so neither can reach a surface — also when the cost of equity
+  // itself is missing an input below.
+  const withheld = inputs.equityOnlyRoute
+    ? `WACC and pre-tax cost of debt withheld: the ${inputs.equityOnlyRoute} route values equity at the cost of equity, so no WACC is used, and its interest expense (deposits, policy reserves, repo) over its debt is not a borrowing cost`
+    : undefined;
+  if (withheld !== undefined) {
+    notes.unshift(withheld);
+    gaps.push({ field: "returns.wacc", reason: withheld, severity: "info", expected: true });
+  }
+
   const base: Omit<
     WaccResult,
     "waccPct" | "waccRawPct" | "costOfEquityPct" | "costOfDebtPct" | "costOfDebtMethod" | "weightEquity" | "weightDebt"
@@ -498,6 +511,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     ...(inputs.betaSource !== undefined ? { betaSource: inputs.betaSource } : {}),
     ...(inputs.betaRegression !== undefined ? { betaRegression: inputs.betaRegression } : {}),
     ...(inputs.betaRegressionUnavailable !== undefined ? { betaRegressionUnavailable: inputs.betaRegressionUnavailable } : {}),
+    ...(withheld !== undefined ? { withheld } : {}),
   };
 
   // --- Risk-free rate is load-bearing ------------------------------------------
@@ -558,14 +572,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     re = RE_CEILING_PCT;
   }
 
-  // Audit 2026-10-22 B-31: a route valued on the cost of equity alone has no
-  // use for a WACC, and its interest expense (deposits, policy reserves, repo)
-  // over its debt is not a borrowing cost (BAC printed 22.7%). Neither is
-  // computed, so neither can reach a surface.
-  if (inputs.equityOnlyRoute) {
-    const withheld = `WACC and pre-tax cost of debt withheld: the ${inputs.equityOnlyRoute} route values equity at the cost of equity, so no WACC is used, and its interest expense (deposits, policy reserves, repo) over its debt is not a borrowing cost`;
-    notes.unshift(withheld);
-    gaps.push({ field: "returns.wacc", reason: withheld, severity: "info", expected: true });
+  if (withheld !== undefined) {
     return {
       ...base,
       waccPct: null,
@@ -575,7 +582,6 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       costOfDebtMethod: "unavailable",
       weightEquity: null,
       weightDebt: null,
-      withheld,
     };
   }
 
@@ -1101,55 +1107,6 @@ export interface WaccHistoryResult {
 export const WACC_HISTORY_RF_MAX_AGE_DAYS = 14;
 
 /**
- * Audit 2026-10-22 B-31: on a route valued at the cost of equity the history
- * is each fiscal year's cost of equity, the hurdle the excess-return model
- * reads, with the same risk-free selection and Re clamps as the WACC history.
- */
-function costOfEquityByFiscalYear(
-  wacc: WaccResult,
-  years: readonly string[],
-  riskFreeObservations: ReadonlyArray<{ date: string; value: number }>,
-  seriesId: string,
-  maxAgeDays: number,
-): WaccHistoryResult {
-  const gaps: ManifestEntry[] = [];
-  const betaFinal = wacc.betaFinal;
-  const erp = wacc.erpPct;
-  if (betaFinal === null || erp === null) {
-    const reason = "current cost of equity or one of its components (beta, ERP) is unavailable";
-    return { points: [], missing: years.map((date) => ({ date, reason })), basis: `per-fiscal-year cost of equity unavailable: ${reason}`, notes: [`per-fiscal-year cost of equity unavailable: ${reason}`], gaps };
-  }
-  const observations = riskFreeObservations
-    .filter((o) => isFiniteNumber(o.value) && /^\d{4}-\d{2}-\d{2}/.test(o.date))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const points: WaccYearPoint[] = [];
-  const missing: Array<{ date: string; reason: string }> = [];
-  for (const yearEnd of years) {
-    const obs = observations.filter((o) => o.date <= yearEnd).at(-1) ?? null;
-    if (obs === null || (Date.parse(`${yearEnd.slice(0, 10)}T00:00:00Z`) - Date.parse(`${obs.date.slice(0, 10)}T00:00:00Z`)) / 86_400_000 > maxAgeDays) {
-      missing.push({ date: yearEnd, reason: obs === null ? `no ${seriesId} observation on or before ${yearEnd}` : `latest ${seriesId} observation ${obs.date} is more than ${maxAgeDays} days before ${yearEnd}` });
-      continue;
-    }
-    const re = Math.min(Math.max(obs.value + betaFinal * erp, obs.value + RE_FLOOR_OVER_RF_PCT), RE_CEILING_PCT);
-    points.push({ date: yearEnd, waccPct: null, riskFreePct: obs.value, riskFreeAsOf: obs.date, costOfEquityPct: re, costOfDebtPct: null });
-  }
-  const pointText = points.map((p) => `${p.date}: rf ${fmt(p.riskFreePct)}% (${p.riskFreeAsOf}) → cost of equity ${fmt(p.costOfEquityPct)}%`).join("; ");
-  const basis = points.length === 0
-    ? `per-fiscal-year cost of equity unavailable: ${missing.map((m) => m.reason).join("; ")}`
-    : `per-fiscal-year cost of equity from ${seriesId} at each fiscal year end, holding beta ${fmt(betaFinal)} and ERP ${fmt(erp)}% constant: ${pointText}` +
-      (missing.length > 0 ? `; ${missing.map((m) => `${m.date}: ${m.reason}`).join("; ")}` : "");
-  if (missing.length > 0) {
-    gaps.push({
-      field: "returns.wacc.history",
-      reason: `per-fiscal-year cost of equity unavailable for ${missing.map((m) => m.date).join(", ")} — the current cost of equity is applied to those years`,
-      severity: "info",
-      attemptedSources: [seriesId],
-    });
-  }
-  return { points, missing, basis, notes: [basis], gaps };
-}
-
-/**
  * WACC at each fiscal year end, holding the current beta, ERP, E/D weights,
  * tax rate and cost-of-debt method constant and replacing only the risk-free
  * rate with the observation on or before that year end (D-19). A synthetic
@@ -1177,8 +1134,13 @@ export function waccByFiscalYear(
     notes: [`per-fiscal-year WACC unavailable: ${reason}`],
     gaps,
   });
+  // Audit 2026-10-22 B-31: no WACC is used on the route, so there is no
+  // history of one; the excess-return evidence compares each year's return
+  // with the current cost of equity.
+  if (wacc.withheld !== undefined) {
+    return { points: [], missing: [], basis: "not computed: the route values equity at the current cost of equity", notes: [], gaps };
+  }
   if (years.length === 0) return unavailable("no fiscal year ends supplied");
-  if (wacc.withheld !== undefined) return costOfEquityByFiscalYear(wacc, years, riskFreeObservations, seriesId, maxAgeDays);
   if (
     wacc.waccPct === null ||
     wacc.betaFinal === null ||

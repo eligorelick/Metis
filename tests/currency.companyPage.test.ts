@@ -166,6 +166,8 @@ describe("company page returns panel on an equity-only route (audit 2026-10-22, 
     expect(cell(html, "wacc")).toBe("not used");
     expect(cell(html, "cost of debt")).toBe("not used");
     expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|weight E \/ D\|+not used\|/);
+    // The tax rate in the WACC build is the debt shield's, which no WACC uses here.
+    expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|tax used\|+not used\|/);
     expect(cell(html, "cost of equity")).toMatch(/^\d+\.\d+%$/);
   });
 
