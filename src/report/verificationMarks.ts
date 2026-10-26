@@ -1,4 +1,4 @@
-import { displayedValidationStatus } from "./claimMatching";
+import { displayedValidationStatus, isCountedClaimEntry } from "./claimMatching";
 import { numericCitationTraceLabel } from "./format";
 import type { Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "./schema";
 
@@ -62,7 +62,8 @@ export function indexVerificationMarks(report: Report): void {
   // history.ts isDataOnly reads the same marker, but that module imports the database.
   if (report.appendix.missingData.some((gap) => gap.field === "analysis.llm") && indexComputedFigures(report)) computedReports.add(report);
   for (const entry of report.appendix.verificationLog ?? []) {
-    if (entry.evidenceKind !== "factual-claim" || entry.check !== undefined || entry.path === undefined || entry.validationStatus === undefined) continue;
+    // A removed entry (an earnings-reference guard row, a withheld legacy claim) marks nothing.
+    if (!isCountedClaimEntry(entry, "factual-claim") || entry.path === undefined) continue;
     const node = resolvePath(report, entry.path);
     if (node !== null && typeof node === "object" && (node as Partial<SourcedClaim>).text === entry.claim) marks.set(node, markFor(entry));
   }

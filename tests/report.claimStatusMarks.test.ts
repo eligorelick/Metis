@@ -70,6 +70,24 @@ describe("per-claim validation marks (audit 2026-10-22 F-21)", () => {
     expect(reportToAuditMarkdown(r)).toContain("1 grade-strip reasoning claim, which no report surface prints, is listed in the verification log but not counted.");
   });
 
+  it("does not subtract an earnings-guard audit entry, which no count includes (review of F-21)", () => {
+    const r = markedReport();
+    const before = trustHeadline(r.meta.provenanceCoverage, r.appendix.verificationLog);
+    const guard: VerificationLogEntry = {
+      claim: "See the earnings bridge below.", outcome: "removed", reason: "unsupported-report-reference", validationStatus: "unchecked",
+      claimSupportStatus: "unreviewed", evidenceKind: "factual-claim", path: "verdict.gradeStrip.fundamentals.reasoning[0]", source: "edgar:10-K", note: "withheld",
+    };
+    r.appendix.verificationLog = [...r.appendix.verificationLog!, guard];
+    expect(trustHeadline(r.meta.provenanceCoverage, r.appendix.verificationLog)).toBe(before);
+    expect(provenanceHeadline(r.meta.provenanceCoverage, r.appendix.verificationLog)).toContain("4/4 factual claims carry a citation");
+  });
+
+  it("marks no claim from a removed entry (review of F-21)", () => {
+    const r = markedReport();
+    r.appendix.verificationLog = r.appendix.verificationLog!.map((row) => row.path === "fundamentals.commentary[0]" ? { ...row, outcome: "removed" as const } : row);
+    expect(reportToMarkdown(r)).not.toMatch(/\[qualitative\]/);
+  });
+
   it("marks each factual bullet after its citation in Markdown", () => {
     const md = reportToMarkdown(markedReport());
     // Bullets end "_(citation)_ [mark]"; a table cell escapes the brackets.

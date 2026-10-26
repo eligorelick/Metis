@@ -2634,7 +2634,9 @@ so these checks are not a comprehensive proof that the narrative is true.
 figure's rounding interval, or a direction word against the sign of its cited
 change (audit 2026-10-22 F-22, an owner decision). A period, unit or currency
 the cited record does not establish is a metadata gap, so the claim or figure is
-unverified (period or unit not established), never contradicted. That covers a
+unverified (period or unit not established), never contradicted. A claim whose
+direction word conflicts with its cited change stays contradicted even when its
+period or unit word also fails. That covers a
 missing or null record period, a prose period or year the period-word check
 cannot match to the record's window ("the twelve months ended June 30, 2026"
 against `ttm: 2025-07-01 to 2026-06-30`), and a unit or currency mismatch. The
@@ -2683,7 +2685,11 @@ Verification table are counts of those marked claims. The grade strip prints
 each section's grade and one-line why, not its reasoning, so the verify pass's
 entries for grade-strip reasoning (often a copy of the section's own claims)
 stay in the verification log but are left out of the factual and judgment
-counts, and the audit export says how many were left out.
+counts, and the audit export says how many were left out. A removed log entry
+marks nothing and counts nothing: the earnings-reference guard's rows record a
+rewritten pointer, not a counted claim, and a claim the legacy entity check
+withholds when a stored report is read prints as an unmarked placeholder, so the
+read view takes it out of the counts at the status it was recorded with.
 
 A data-only report runs no citation-check pass. Its figures carry
 `verified: true` only because the pipeline computed them, so they print
