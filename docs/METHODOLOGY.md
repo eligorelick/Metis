@@ -3591,3 +3591,21 @@ other amortization, so EV/EBITDA may read high. Unlike the P/E caveat for
 gain-inflated earnings, the own-history rank stays, because the history uses
 the same composed D&A. A D&A taken from the cash-flow statement, or from a
 vendor row without SEC provenance, carries no caveat.
+
+**Per-share value for issuers with more than one common class (B-37, left by
+batch 3a).** A per-share intrinsic value needs a diluted share count on the
+same basis as the all-class equity value. The valuation accepted only a count
+marked as issuer-economic, but nothing ever marked one, so every issuer with
+more than one common class (Expedia, Meta) had its per-share value withheld.
+The filed diluted count is now marked issuer-economic when three tests pass:
+the issuer's class scope is resolved from the filed class inventory; the
+basic weighted count from the same income row matches the inventory's
+all-class economic share total on exactly one class's unit basis, within 3%
+and within half the smallest class's share of that total, so a count that
+leaves out a class cannot pass; and that row ends within 120 days of the
+inventory date. The diluted count is then restated in quoted-share units (a
+count filed in Class A equivalents is multiplied by the Class A units per
+quoted share) and the basis is disclosed as an info entry. Otherwise the
+per-share value stays withheld, and the warning names the test that failed.
+ADRs are out of scope: their per-share bridge needs a depositary ratio and
+dated security evidence that no data path supplies yet.

@@ -135,7 +135,7 @@ import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
-import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
@@ -3697,6 +3697,18 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // Audit 2026-10-22 C-10: start from the trailing four quarters when that
   // return is complete and newer than the latest fiscal year, from the book
   // value at the window's end; the fiscal-year start is valued beside it.
+  // Audit 2026-10-22 B-37: with more than one common class, the diluted count
+  // is the per-share denominator only when the basic count from the same row
+  // spans every class (`issuerEconomicDilutedShares`); it is then restated in
+  // quoted-share units.
+  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
+  const economicDiluted = issuerEconomicDilutedShares(
+    resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
+    bundle.economicShareEvidence ?? [],
+    { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
+  );
+  const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
+
   const ttmReturn = ctx.commonReturnTtm;
   const fyBasis = route.base === "bank" ? "fiscal-year-rote" as const : "fiscal-year-common-roe" as const;
   const ttmStart = ttmReturn !== null && ttmReturn.returnPct !== null && ttmReturn.closingEquity !== null && ttmReturn.closingEquity > 0 &&
@@ -3723,7 +3735,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // Audit L4: (dividends + net buybacks) / net income, 3y average, from
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
-          dilutedShares,
+          dilutedShares: valuationDilutedShares,
           marketCap,
           asOf: ttmStart?.asOf ?? commonReturns.asOf,
           // WS5: P/TBV is read against ROTE, both on the tangible base the
@@ -3765,7 +3777,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           ffoApprox,
           affoApprox,
           sharePrice: currentPrice,
-          shares: dilutedShares,
+          shares: valuationDilutedShares,
           netDebt: netDebtDerived,
           noiApprox,
           // The FFO computation's own period end, never the trailing income
@@ -3793,7 +3805,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     currentPrice,
     waccPct: wacc.waccPct,
     netDebt: netDebtDerived,
-    dilutedShares,
+    dilutedShares: valuationDilutedShares,
+    ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
+    ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
     noncontrollingOwnershipUnresolved: balPoint !== null && num(balPoint.minorityInterest) === null &&
       (statementEquityOwnershipBasis(balPoint) === "consolidated" ||
         (num(balPoint.totalEquity) !== null && num(balPoint.totalStockholdersEquity) !== null &&

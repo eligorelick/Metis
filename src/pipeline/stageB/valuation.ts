@@ -5598,6 +5598,12 @@ export interface ValuationBundleInputs {
   dilutedShares: number | null;
   /** Required for an ADR per-share bridge, along with dated ADS evidence. */
   dilutedShareSecurityBasis?: "ordinary" | "quoted" | "issuer-economic";
+  /**
+   * Audit 2026-10-22 B-37: how the multi-class producer
+   * (`issuerEconomicDilutedShares`) decided — the basis of an admitted
+   * issuer-economic count, or the reason it was refused.
+   */
+  dilutedShareEconomicBasis?: string | null;
   /** Consolidated equity proves outside claims, but the equity bridge has no allocation. */
   noncontrollingOwnershipUnresolved?: boolean;
   /** Minority interest / preferred equity for the DCF equity bridge (0 when absent). */
@@ -5815,12 +5821,16 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
   const multiclassEvidence = inputs.multiples.economicShareEvidence?.some(row => row.classes.length > 1) === true;
   if (economicScope.status === "unresolved" ||
     (multiclassEvidence && inputs.dilutedShareSecurityBasis !== "issuer-economic")) {
-    const reason = "Per-share intrinsic valuation withheld: common-class coverage or the economic basis of weighted-average diluted shares is unresolved. Outstanding class counts do not establish the diluted denominator; no class ratio is guessed.";
+    const reason = "Per-share intrinsic valuation withheld: common-class coverage or the economic basis of weighted-average diluted shares is unresolved. Outstanding class counts do not establish the diluted denominator; no class ratio is guessed." +
+      (economicScope.status === "resolved" && inputs.dilutedShareEconomicBasis ? ` ${inputs.dilutedShareEconomicBasis}` : "");
     notes.push(reason);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", reason, "warn"));
     inputs = { ...inputs, dilutedShares: null,
       excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, dilutedShares: null } : null,
       reit: inputs.reit ? { ...inputs.reit, shares: null, sharePrice: null } : null };
+  } else if (multiclassEvidence && inputs.dilutedShareEconomicBasis) {
+    notes.push(inputs.dilutedShareEconomicBasis);
+    gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
   if (economicScope.status !== "unverified-vendor-scope") inputs = { ...inputs,
     excessReturn: inputs.excessReturn ? { ...inputs.excessReturn, marketCap: economicScope.marketCap } : null };
