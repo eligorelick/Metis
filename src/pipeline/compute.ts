@@ -129,6 +129,7 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseScopeUnproven, resolveNetDebt, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { debtLikeObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { marketableEquityInCash, nonMarketableEquityCarrying } from "@/pipeline/stageB/marketableEquity";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
@@ -3798,6 +3799,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
+    // Audit 2026-10-22 E-7: retirement and environmental obligations filed at the bridge's balance date.
+    debtLikeObligations: balPoint === null ? null : debtLikeObligationsAt(
+      bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
+      isoDay(balPoint.date), ctx.modelCurrency, bundle.builtAt),
     dcfInputs,
     multiples,
     excessReturn,

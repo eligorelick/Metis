@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Proposed audit batch 2b: deferred valuation items (2026-10-22)
+
+- Deduct filed asset-retirement obligations and environmental remediation accruals in the DCF equity bridge when they are tagged at its balance date (the filed total, else noncurrent plus current), before tax, net of funds legally restricted to settle the retirement obligations beyond the long-term investments already added; untagged issuers are unchanged (E-7: FCX, SO, BA).
+
 ## Proposed audit batch 3a: the remaining high-severity findings (2026-10-22)
 
 - When no trailing tax rate exists, the WACC uses the latest annual effective rate, or a 0% shield on a pre-tax loss, with the basis stated; pre-tax income on the SEC path is the sum of its domestic and foreign components when no total is tagged (B-32: PG, COST, INTC, SNOW, ORCL).

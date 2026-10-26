@@ -22,6 +22,7 @@ import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
+import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
@@ -2262,10 +2263,11 @@ export interface DcfRunOptions {
 /**
  * D-65: one non-operating asset the equity bridge adds, at its filed carrying
  * or fair value. The "investment-tax" line is negative: the tax a sale of the
- * others would owe (AMZN audit 2026-10-20).
+ * others would owe (AMZN audit 2026-10-20). So is a "debt-like-obligation":
+ * a filed asset-retirement or environmental liability (audit 2026-10-22 E-7).
  */
 export interface NonOperatingAssetComponent {
-  kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax";
+  kind: "marketable-equity-securities" | "long-term-investments" | "investment-tax" | "debt-like-obligation";
   label: string;
   value: number;
   basis: string;
@@ -5558,6 +5560,12 @@ export interface ValuationBundleInputs {
    * (`DcfAssumptions.nonOperatingInvestments`), never supplied separately.
    */
   longTermInvestmentsBasis?: string | null;
+  /**
+   * Audit 2026-10-22 E-7: asset-retirement and environmental obligations
+   * tagged at the bridge's balance date, and any assets legally restricted to
+   * settle the former. The DCF bridge deducts them. Null ⇒ none tagged.
+   */
+  debtLikeObligations?: DebtLikeObligations | null;
   /** General route: DCF assumption inputs (null when not applicable). */
   dcfInputs: DcfAssumptionInputs | null;
   multiples: MultiplesFrameworkInputs;
@@ -6061,6 +6069,37 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
           "The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost";
         components.push({ kind: "investment-tax", label, value, basis });
         notes.push(`DCF equity bridge subtracts the ${label} of ${fmtNum(-value)}: ${basis}.`);
+      }
+      // Audit 2026-10-22 E-7: filed retirement and environmental obligations
+      // are claims the FCFF path never pays, so the bridge deducts them, before
+      // tax. Funds legally restricted to retirement settle those first, less
+      // any long-term investments already added above.
+      const obligations = isNum(netDebtForBridge) ? inputs.debtLikeObligations ?? null : null;
+      if (obligations !== null) {
+        const aro = obligations.assetRetirement;
+        if (aro !== null && aro.value > 0) {
+          const ltiAdded = components.find((c) => c.kind === "long-term-investments")?.value ?? 0;
+          const fund = obligations.settlementAssets;
+          const offset = fund === null ? 0 : Math.min(aro.value, Math.max(0, fund.value - ltiAdded));
+          const fundNote = fund === null ? ""
+            : `, less assets legally restricted to settle them (${fund.basis}) of ${fmtNum(fund.value)}` +
+              (ltiAdded > 0 ? ` beyond the long-term investments of ${fmtNum(ltiAdded)} the bridge already adds` : "") +
+              `: an offset of ${fmtNum(offset)}`;
+          if (aro.value - offset > 0) {
+            components.push({ kind: "debt-like-obligation", label: "asset-retirement obligations (filed, before tax)", value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
+          }
+          notes.push(`DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}` +
+            (fund === null ? "." : `${fundNote}; ${fmtNum(aro.value - offset)} is deducted.`));
+        }
+        const env = obligations.environmental;
+        if (env !== null && env.value > 0) {
+          components.push({ kind: "debt-like-obligation", label: "environmental remediation accruals (filed, before tax)", value: -env.value, basis: env.basis });
+          notes.push(`DCF equity bridge subtracts environmental remediation accruals of ${fmtNum(env.value)}: ${env.basis}.`);
+        }
+        if ((aro !== null && aro.value > 0) || (env !== null && env.value > 0)) {
+          notes.push("These are filed liabilities and the FCFF path does not project their settlement, so equity value is what remains after them. " +
+            "They are deducted at the recognised amount before any tax relief, which overstates the claim by the tax deduction a settlement would earn.");
+        }
       }
       const nonOperatingTotal = components.reduce((sum, c) => sum + c.value, 0);
       const runOpts: DcfRunOptions = {

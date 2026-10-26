@@ -148,6 +148,20 @@ export function fixedBridgeMinorityText(bridge: DcfBridge, claim: (v: number | n
     : claim(bridge.minorityInterest);
 }
 
+/**
+ * The non-operating lines each scenario path carries unchanged: assets added,
+ * then the investment tax and any E-7 obligations subtracted.
+ */
+export function fixedBridgeNonOperatingText(bridge: DcfBridge, display: (v: number) => string): string {
+  if (bridge.nonOperatingAssets === undefined) return "";
+  const components = bridge.nonOperatingComponents ?? [];
+  if (components.length === 0) return `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`;
+  const name = (label: string) => label.replace(/ \(.*\)$/, "");
+  const added = components.filter((c) => c.value >= 0).map((c) => `${name(c.label)} ${display(c.value)}`);
+  return (added.length > 0 ? `, plus non-operating ${added.join(" and ")}` : "") +
+    components.filter((c) => c.value < 0).map((c) => `, less ${name(c.label)} ${display(-c.value)}`).join("");
+}
+
 function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["name"]): string[] {
   const targets = computed.scenarioTargets;
   const target = targets?.status === "available" ? targets.targets.find((entry) => entry.name === name) : undefined;
@@ -175,11 +189,7 @@ function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["nam
     `Operating-margin path (% per year, in horizon order): ${path(a.ebitMarginPath.value)}.`,
     `Fixed base inputs: starting revenue ${display(a.startRevenue.value)} reporting-currency units; WACC ${display(a.wacc.value)}%; terminal growth actually used ${display(valuation.dcf.gTermUsedPct)}%; terminal ROIC ${display(a.terminal.roicTermPct.value)}%; sales-to-capital ${display(a.salesToCapital.value)}x; tax path (%): ${path(a.taxRatePath.value)}; mid-year discounting ${a.midYear.value ? "on" : "off"}.`,
     `Fixed base equity bridge: net debt ${known(bridge.netDebt)}, minority interest ${fixedBridgeMinorityText(bridge, claim)}, preferred equity ${claim(bridge.preferred)}` +
-      `${bridge.nonOperatingAssets === undefined ? ""
-        : bridge.nonOperatingComponents && bridge.nonOperatingComponents.length > 0
-          ? `, plus non-operating ${bridge.nonOperatingComponents.filter((c) => c.value >= 0).map((c) => `${c.label.replace(/ \(.*\)$/, "")} ${display(c.value)}`).join(" and ")}` +
-            bridge.nonOperatingComponents.filter((c) => c.value < 0).map((c) => `, less ${c.label.replace(/ \(.*\)$/, "")} ${display(-c.value)}`).join("")
-          : `, plus non-operating marketable equity securities ${display(bridge.nonOperatingAssets)}`} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}` +
+      `${fixedBridgeNonOperatingText(bridge, display)} (reporting-currency units); diluted shares ${known(bridge.dilutedShares)}` +
       `${a.valuationDate === undefined ? "" : `; value stated at the quote date ${a.valuationDate.value}`}.`,
     target?.perShare != null
       ? "Targets are labeled by per-share value; a negative perturbed equity value is floored at zero. No scenario is a future-price forecast."

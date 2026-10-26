@@ -875,7 +875,8 @@ is read: P/B, returns and the DCF inputs, not only the EV bridge. The DCF's equi
 value = EV − net debt − minority interest − preferred equity + non-operating
 marketable equity securities (D-60, when identified) + the long-term
 investments sales-to-capital removed as non-operating (D-65) − the estimated tax
-on those investments (see "AMZN audit fixes (October 20, 2026)"). Minority interest
+on those investments (see "AMZN audit fixes (October 20, 2026)") − filed
+asset-retirement and environmental obligations (audit 2026-10-22 E-7, below). Minority interest
 enters the market EV at its book carrying amount, not a market or earnings-share
 value.
 
@@ -927,6 +928,42 @@ on value). When an earlier gate (diluted shares, net debt) already withheld the
 per-share value, that reason leads and the NCI warning only joins the manifest.
 Book NCI alone is not presented as the outside holders' claim. The market EV and
 the EV multiples still use book NCI.
+
+**Asset-retirement and environmental obligations in the DCF bridge (audit
+2026-10-22 E-7).** A mine, a power plant or a well must be retired, and a
+polluted site cleaned up. The filed liabilities for those costs are claims on
+the enterprise, but the FCFF path projects operating cash flow and capital
+spending only, so it never pays them. FCX's companyfacts carry a $3.84B
+asset-retirement obligation and $2.02B of environmental accruals at 2025-12-31,
+and the bridge had no line for either. The bridge now subtracts them when the
+issuer tags them at the bridge's own balance date: `AssetRetirementObligation`,
+else `AssetRetirementObligationsNoncurrent` plus `AssetRetirementObligationCurrent`;
+`AccrualForEnvironmentalLossContingencies`, else
+`AccruedEnvironmentalLossContingenciesNoncurrent` plus
+`AccruedEnvironmentalLossContingenciesCurrent`. The undiscounted
+`AccrualForEnvironmentalLossContingenciesGross` is not the recognised liability
+and is not read. Only facts filed by the run date count. When neither
+obligation is tagged at that date, nothing changes. This is an owner decision.
+
+Two house conventions sit beside it, also owner decisions. First, assets the
+issuer tags as legally restricted to settle the retirement obligations
+(`AssetRetirementObligationLegallyRestrictedAssetsFairValue`,
+`DecommissioningFundInvestments` or `DecommissioningTrustAssetsAmount`, the
+first one filed) offset the retirement obligation, as rating agencies net
+nuclear decommissioning trusts. Only the part of the fund beyond the long-term
+investments the bridge already adds back is credited, so a trust is never
+counted twice. The offset never goes below zero; a surplus fund adds nothing.
+Second, the obligations are deducted at their recognised amount before tax.
+Settling them earns a tax deduction, so this overstates the claim a little;
+the bridge says so.
+
+The deduction sits inside the non-operating total, so the sensitivity grid,
+the growth × margin grid, the reverse DCF, the scenario paths and the E-5 NCI
+key all use the same bridge. The bridge table prints each line as "Less
+asset-retirement obligations (filed, before tax)" or "Less environmental
+remediation accruals (filed, before tax)", and the DCF notes give the tags,
+amounts and filing. When net debt itself does not bridge, no obligation is
+deducted.
 
 **Three enterprise values, three labels (D-65).** The key-data box's
 **Enterprise value (market)** is the quote's market cap plus the D-60 net debt
