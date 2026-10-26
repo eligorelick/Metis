@@ -108,22 +108,26 @@ async function fetchYear(year: number, config: TreasuryConfig): Promise<{ ok: tr
 
 /**
  * Latest 10-year par yield on or before `today` (YYYY-MM-DD). In the first days
- * of January the current year's file can still be empty, so the previous
- * year's file is read once when the current one has no row.
+ * of January the current year's file can still be missing, empty or without a
+ * row, so in January the previous year's file is read once when the current one
+ * gives no rate. Outside January it never is: its last rate would be months old.
  */
 export async function latestTenYearParYield(today: string, config: TreasuryConfig = {}): Promise<FetchResult<TreasuryYieldObservation>> {
   const year = Number(today.slice(0, 4));
   if (!Number.isInteger(year)) throw new TypeError(`treasury: invalid date "${today}"`);
-  let lastProblem = "no attempt made";
-  for (const y of [year, year - 1]) {
+  const years = today.slice(5, 7) === "01" ? [year, year - 1] : [year];
+  let problem = "no attempt made";
+  for (const y of years) {
     const res = await fetchYear(y, config);
-    if (!res.ok) return { ok: false, gap: gap(`U.S. Treasury par yield curve unavailable: ${res.failure}`) };
-    const parsed = parseTreasuryParCurveCsv(res.text, today);
-    if (parsed === null) return { ok: false, gap: gap("U.S. Treasury par yield curve returned no recognizable CSV (no Date and 10 Yr columns)") };
-    if (parsed !== "no-rows") {
+    const parsed = res.ok ? parseTreasuryParCurveCsv(res.text, today) : null;
+    if (parsed !== null && parsed !== "no-rows") {
       return { ok: true, value: { data: parsed, asOf: parsed.date, source: "treasury", endpoint: TREASURY_PAR_CURVE_ENDPOINT, fetchedAt: new Date().toISOString() } };
     }
-    lastProblem = `no 10-year observation on or before ${today} in the ${y} file`;
+    problem = !res.ok
+      ? `unavailable: ${res.failure}`
+      : parsed === null
+        ? "returned no recognizable CSV (no Date and 10 Yr columns)"
+        : `had no 10-year observation on or before ${today} in the ${y} file`;
   }
-  return { ok: false, gap: gap(`U.S. Treasury par yield curve: ${lastProblem}`) };
+  return { ok: false, gap: gap(`U.S. Treasury par yield curve ${problem}`) };
 }

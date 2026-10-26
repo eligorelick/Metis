@@ -708,15 +708,18 @@ current WACC takes the newest `DGS10` observation still in the local cache,
 provided it is at most 10 business days before the analysis date (weekdays
 counted; holidays are not removed, so the count can only overstate the age).
 Failing that, it reads the 10 Yr column of the U.S. Treasury's daily par yield
-curve file for the current year (the previous year's file in early January),
-the rate FRED's `DGS10` republishes. The WACC line prints which of the two it
+curve file for the current year, the rate FRED's `DGS10` republishes. Only in
+January, when the current year's file can still be missing, empty or without a
+row, is the previous year's file read; at any other time its last rate would be
+months old. The WACC line prints which of the two it
 was (`FRED DGS10 last cached observation` or `U.S. Treasury par yield curve
 10 Yr`) and its observation date, and the missing-data list carries a
 `riskFree.substitution` entry naming the source and why. If neither answers,
 a `riskFree.fallback` gap names both reasons and the WACC is withheld. FRED
-answering HTTP 200 with an HTML maintenance or outage page is treated as an
-outage: it is retried with backoff, then the keyed path tries `fredgraph.csv`,
-and the gap names an HTML page rather than an unknown series.
+answering HTTP 200 with an HTML maintenance or outage page (a body opening with
+`<`, whatever the content type says) is treated as an outage: it is retried with
+backoff, then the keyed path tries `fredgraph.csv`, and the gap names an HTML
+page rather than an unknown series.
 
 Terminal reinvestment is g ÷ ROIC_terminal, Damodaran's consistency rule.
 
@@ -2028,7 +2031,9 @@ entry in `fairValue.reasons` that names each substitution:
   terminal ROIC rule read that comparison;
 - each statement, quote or price member that the keyless layer served after FMP
   refused it, grouped by the source that served it (SEC EDGAR, Yahoo, or computed
-  from filed facts and prices);
+  from filed facts and prices). The sector ETF prices (technicals only) and the
+  shares float (read nowhere in Stage B) feed no fair value and are not named
+  here; the run-level line below still lists them;
 - the analyst-consensus growth method, when it was left out because the provider
   refused the analyst estimates.
 
@@ -2037,7 +2042,9 @@ prints beside the headline value in both layouts and in the Key data note, the
 Markdown and print exports, the data-only verdict and the AI context, which is told
 to say so wherever it cites the model value. A keyless-by-configuration run
 substitutes by design (its keyless entries are `expected`), so its value carries
-no entry. Neither does a withheld rate, which its own gap already discloses. The
+no entry. So does a member the key's subscription never serves: FMP marks that
+refusal `expected` (a restricted endpoint or symbol), and its stand-in is
+`expected` too, while a quota or outage refusal on the same key is not. Neither does a withheld rate, which its own gap already discloses. The
 peer medians do not feed the headline value, so a peer refusal is not named here.
 
 **Provider fallback line** (audit 2026-10-22 F-1, an owner decision). When a run's
@@ -2051,7 +2058,8 @@ rate is … (observation …), not FRED DGS10." It is built from the recorded
 both layouts, under the classic report header, at the head of the Markdown,
 audit and print exports, and in the AI context, which is told never to
 attribute a substituted figure to FMP or FRED `DGS10`. A keyless plan, or
-`THESIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line. The
+`THESIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
+neither does a member the key's subscription never serves. The
 fair value's degraded-inputs entry uses the same wording.
 
 The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
@@ -3403,7 +3411,10 @@ overrides whatever the retry writes for it. So each one is first checked
 against its own part of the schema, after the same normalization the whole
 output gets and with the same rating-language check; a key the schema does
 not have also fails. A section that fails is dropped, the retry is asked to
-write it again, and the step detail names it. Before, a kept section that
+write it again, and the step detail names it. On a plan connection that writes
+in parts, the sections saved to the run's section checkpoint are checked the same
+way when a retry or a restarted worker reloads them, so a failing one is asked for
+again rather than reused. Before, a kept section that
 parsed but did not match the schema made the merged output fail whatever the
 retry returned (the RIVN judge, 2026-10-22, lost one attempt this way).
 

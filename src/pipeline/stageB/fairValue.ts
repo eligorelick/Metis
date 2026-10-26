@@ -81,20 +81,23 @@ export interface DegradedInputs {
  * Audit 2026-10-22 F-13 (owner decision): the "degraded inputs" reason beside
  * an available headline fair value, naming each substitution an outage or a
  * refusal forced — the risk-free rate from a source other than FRED DGS10, a
- * ROIC-vs-WACC history with no per-year DGS10, an FMP member served by the keyless layer, the analyst-growth method left out
+ * ROIC-vs-WACC history with no per-year DGS10, an FMP member the value reads served by the keyless layer, the analyst-growth method left out
  * because the provider refused the estimates. A substitution the run was
  * configured for (`expected`: a keyless plan, THESIS_STATEMENT_SOURCE=edgar) is
  * not a degradation and is not named. Null when nothing was substituted.
  */
+/** Keyless members no fair-value model reads: the sector ETF feeds technicals only, the float nothing in Stage B. */
+const NOT_VALUE_INPUTS = new Set(["keyless.sectorEtf", "keyless.sharesFloat"]);
+
 export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | null {
   const parts: string[] = [];
   const { riskFree } = inputs;
   const rate = riskFree.pct === null ? null : riskFreeSubstitutionText(riskFree.seriesId, riskFree.asOf);
   if (rate !== null) parts.push(rate);
   if (inputs.waccHistoryCurrentOnly === true) {
-    parts.push("the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available");
+    parts.push("the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates");
   }
-  const keyless = keylessSubstitutionText(inputs.bundleGaps);
+  const keyless = keylessSubstitutionText(inputs.bundleGaps.filter((g) => !NOT_VALUE_INPUTS.has(g.field)));
   if (keyless !== null) parts.push(`${keyless}, not FMP`);
   if (inputs.valuationGaps.some((g) => g.field === "valuation.dcf.analystGrowth" && g.severity === "warn")) {
     parts.push("the analyst-consensus growth method was left out because the provider refused the analyst estimates");

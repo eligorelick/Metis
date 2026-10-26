@@ -75,6 +75,24 @@ describe("U.S. Treasury par yield curve client", () => {
     expect(empty).toMatchObject({ ok: false, gap: { field: "riskFree.treasuryParCurve", reason: expect.stringContaining("no 10-year observation on or before 2027-01-02 in the 2026 file") } });
   });
 
+  it("in January reads the previous year's file after a 404 or an empty current-year file too", async () => {
+    for (const current of [new Response("", { status: 404 }), new Response("", { status: 200 })]) {
+      const fetchImpl = vi.fn(async (url: string | URL) =>
+        String(url).includes("=2027") ? current.clone() : csvResponse("Date,10 Yr\n12/31/2026,4.11\n"));
+      const result = await latestTenYearParYield("2027-01-02", { fetchImpl, timeoutMs: 0 });
+      expect(result).toMatchObject({ ok: true, value: { data: { date: "2026-12-31", value: 4.11 } } });
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  it("never reads the previous year's file outside January, where its rate would be months old", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL) =>
+      String(url).includes("=2026") ? csvResponse("Date,10 Yr\n") : csvResponse("Date,10 Yr\n12/31/2025,4.11\n"));
+    const result = await latestTenYearParYield("2026-10-22", { fetchImpl, timeoutMs: 0 });
+    expect(result).toMatchObject({ ok: false, gap: { reason: expect.stringContaining("no 10-year observation on or before 2026-10-22 in the 2026 file") } });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("files an HTTP error, a network error or an HTML page as a gap and propagates a caller abort", async () => {
     const http = await latestTenYearParYield("2026-10-22", { fetchImpl: async () => new Response("", { status: 503 }), timeoutMs: 0 });
     expect(http).toMatchObject({ ok: false, gap: { reason: "U.S. Treasury par yield curve unavailable: HTTP 503", attemptedSources: ["treasury"] } });

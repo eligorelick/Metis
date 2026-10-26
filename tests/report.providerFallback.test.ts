@@ -8,7 +8,7 @@ import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
 import { ReportView } from "@/components/report/ReportView";
 import { runStageB } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
-import { TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
+import { CACHED_DGS10_SERIES_ID, TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
@@ -16,6 +16,7 @@ import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { providerFallbackNotice } from "@/report/providerFallback";
+import { humanizeBareIds, sourceLabel } from "@/report/presentation";
 import type { Report } from "@/report/schema";
 import type { ManifestEntry } from "@/types/core";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -99,5 +100,18 @@ describe("provider-fallback header line (F-1)", () => {
       "Provider fallback · The risk-free rate is FMP treasury rates 10-year (observation date not reported), not FRED DGS10. " +
         "A run with these providers healthy can give different figures; each substitution is listed under missing data.",
     );
+  });
+});
+
+describe("the risk-free citation reads under its source label (audit 2026-10-22 B-4)", () => {
+  it.each([
+    ["fred:DGS10", "FRED DGS10"],
+    ["fmp:treasury-rates.year10", "FMP treasury rates 10-year"],
+    [CACHED_DGS10_SERIES_ID, "the last cached FRED DGS10 observation"],
+    [TREASURY_PAR_CURVE_SERIES_ID, "the U.S. Treasury daily par yield curve 10 Yr"],
+  ])("%s", (id, label) => {
+    const citation = `computed.returns.wacc.riskFree(${id})`;
+    expect(sourceLabel(citation)).toBe(`Risk-free rate (${label})`);
+    expect(humanizeBareIds(`WACC rests on the rate (${citation}); bare ${id}.`)).toBe(`WACC rests on the rate (Risk-free rate (${label})); bare ${label}.`);
   });
 });

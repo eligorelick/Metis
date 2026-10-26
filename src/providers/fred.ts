@@ -449,13 +449,12 @@ const MAINTENANCE_TITLE = /<title[^>]*>\s*Site Maintenance\s*\|\s*St\. Louis Fed
 
 /**
  * Audit 2026-10-22 B-1: neither the API (JSON) nor fredgraph.csv (CSV) ever
- * returns HTML as data, so an HTTP 200 whose content type is HTML or whose body
- * opens with '<' is an outage or maintenance page. It is retried like a 503.
+ * returns HTML as data, so an HTTP 200 whose body opens with '<' is an outage or
+ * maintenance page. It is retried like a 503. The body decides, not the content
+ * type: an edge that labels a good CSV text/html must not turn it into an outage.
  */
-function htmlPageServed(res: Response, text: string): string | null {
-  const type = res.headers?.get?.("content-type") ?? "";
-  const htmlType = type.toLowerCase().includes("text/html") || type.toLowerCase().includes("application/xhtml+xml");
-  if (!htmlType && !text.trimStart().startsWith("<")) return null;
+function htmlPageServed(text: string): string | null {
+  if (!text.trimStart().startsWith("<")) return null;
   return MAINTENANCE_TITLE.test(text) ? "a site maintenance page (HTTP 200)" : "a maintenance/HTML page (HTTP 200)";
 }
 
@@ -497,7 +496,7 @@ async function fredRequest(url: string, config: FredConfig): Promise<HttpText> {
         lastHtmlPage = undefined;
         continue;
       }
-      const htmlPage = res.ok ? htmlPageServed(res, text) : null;
+      const htmlPage = res.ok ? htmlPageServed(text) : null;
       if (htmlPage !== null) {
         // The page's own text never travels into the gap: it is provider content.
         lastHtmlPage = htmlPage;

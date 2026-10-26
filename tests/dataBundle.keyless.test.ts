@@ -514,9 +514,13 @@ describe("buildDataBundle without an FMP key", () => {
     expect(bundle.statements.incomeAnnual.ok && bundle.statements.incomeAnnual.value.source).toBe("fmp");
     expect(bundle.benchmarkPrices.sectorEtf.ok && bundle.benchmarkPrices.sectorEtf.value.source).toBe("yahoo");
     const g = bundle.gaps.find((x) => x.field === "keyless.sectorEtf");
-    // A keyed plan makes the substitution unexpected: `expected` is never true.
-    expect(g?.expected).not.toBe(true);
+    // The key's subscription never serves XLK: FMP marks that refusal expected,
+    // so its stand-in is the plan's design, not an outage (audit 2026-10-22
+    // F-1/F-13; a quota refusal on a keyed plan stays unexpected, keyless.test.ts).
+    expect(g?.expected).toBe(true);
     expect(g?.reason).toMatch(/HTTP 402/);
+    // The members this fake refuses with a 401 are real failures and are named; XLK is not.
+    expect(providerFallbackNotice({ appendix: { missingData: bundle.gaps } })).not.toMatch(/sector ETF/);
   });
 });
 

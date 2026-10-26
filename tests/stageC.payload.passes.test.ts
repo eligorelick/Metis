@@ -4141,6 +4141,37 @@ describe("mock-driven bull/bear/judge passes", () => {
       }
     });
 
+    // Audit 2026-10-22 D-3: the checkpoint is a second carrier of cut-off
+    // sections, so a section restored from it is checked as a carried one is.
+    it("asks again for a checkpointed judge section that does not match its schema", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const judge = judgeOutput();
+      const { growthTable, marginTrend, returns, fcf, ...fundamentalsRest } = judge.fundamentals;
+      let saved: Record<string, unknown> = { ...whole, fundamentals: { ...fundamentalsRest, graded: { ...judge.fundamentals.graded, growthTable, marginTrend, returns, fcf } } };
+      const checkpoint = { load: () => saved, save: (_field: string, sections: Record<string, unknown>) => { saved = structuredClone(sections); } };
+      const provider = partProvider(whole);
+      const run = await runJudgePass({ ...sectioned(provider.runPass), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
+      expect(run.ok).toBe(true);
+      const asked = provider.prompts.flatMap((p) => /ONLY these top-level sections now: ([^.]+)\./.exec(p)![1]!.split(", "));
+      expect(asked).toEqual(["fundamentals"]);
+    });
+
+    it("asks again for a checkpointed analyst section that does not match its schema", async () => {
+      const { payload } = buildInputs();
+      const whole = analystCase("bull") as unknown as Record<string, unknown>;
+      const [first] = Object.keys(whole);
+      let saved: Record<string, unknown> = { ...whole, [first!]: { invented: true } };
+      const checkpoint = { load: () => saved, save: (_field: string, sections: Record<string, unknown>) => { saved = structuredClone(sections); } };
+      const provider = partProvider(whole);
+      const run = await runAnalystContinuationPass({ ...sectioned(provider.runPass), sectionCheckpoint: checkpoint }, payload, "bull", { completed: {}, sectionRetryCount: 0 });
+      expect(run.ok).toBe(true);
+      const asked = provider.prompts.flatMap((p) => /ONLY these top-level sections now: ([^.]+)\./.exec(p)![1]!.split(", "));
+      // The bad section, and only the sections the fixture case never had.
+      expect(asked[0]).toBe(first);
+      expect(asked.slice(1).every((key) => !(key in whole))).toBe(true);
+    });
+
     it("retains earlier part usage and partial sections in the failure settlement", async () => {
       const { payload } = buildInputs();
       const provider = partProvider(judgeOutput() as Record<string, unknown>, 2);

@@ -10177,7 +10177,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.fairValue.degradedInputs",
-            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available. A run with these providers healthy can give a different value.",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
             "severity": "warn"
           }
         },
@@ -10191,7 +10191,7 @@
           "beforeMissing": true,
           "after": {
             "field": "valuation.fairValue.degradedInputs",
-            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available. A run with these providers healthy can give a different value.",
+            "reason": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2025-12-31), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
             "severity": "warn"
           }
         }

@@ -6117,6 +6117,16 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(result.status).toBe("done");
     expect(calls.length).toBeGreaterThan(0);
   });
+  it("makes no runtime claim for a signed-out plan connection, which still ends in a data-only report", async () => {
+    const {jobId}=createJob("MSFT");
+    let claims=0;
+    const result=await runJob(jobId,mockPasses().passes,{bundle:fakeBundle("MSFT"),hasAnthropicKey:false,now:NOW,
+      aiSelection:{provider:"chatgpt",connectionId:"test-connection",model:"gpt-6.1-sol",effort:"high"},
+      claimAiRuntime:async ()=>{ claims+=1; throw new Error(AI_RUNTIME_CONFLICT_MESSAGE); }});
+    expect(claims).toBe(0);
+    expect(result.status).toBe("done");
+    expect(result.dataOnly).toBe(true);
+  });
   it("makes no runtime claim for an API-key job", async () => {
     const {jobId}=createJob("MSFT");
     let claims=0;

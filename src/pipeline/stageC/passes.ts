@@ -804,14 +804,18 @@ async function runPassInSections<T>(a: {
   parts: number;
   completed?: Record<string, unknown>;
   parse: (raw: unknown) => { ok: true; value: T } | { ok: false; error: string };
+  /** D-3: the per-section schema check a checkpointed section must pass to be reused. */
+  checkStored: (sections: Record<string, unknown>) => CarriedSectionCheck;
   field: string;
   requestedModel: string;
 }): Promise<PassRun<T>> {
   // The mirror and schema repair are different draws even within one job.
   const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
   const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
+  // Audit 2026-10-22 D-3: the checkpoint carries cut-off sections too, so a
+  // stored section that fails its schema is asked for again, not reused.
   const completed: Record<string, unknown> = {
-    ...Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key))),
+    ...a.checkStored(Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key)))).kept,
     ...(a.completed ?? {}),
   };
   let lastCheckpoint = JSON.stringify(stored);
@@ -1384,6 +1388,7 @@ async function runAnalystRequest(
       parts: ANALYST_SECTION_PARTS,
       completed,
       parse,
+      checkStored: checkCarriedAnalystSections,
       field: `llm.${side}`,
       requestedModel: deps.model,
     });
@@ -2265,6 +2270,7 @@ export async function runJudgePass(
         parts: JUDGE_SECTION_PARTS,
         completed: continuation?.completed,
         parse,
+        checkStored: checkCarriedJudgeSections,
         field: "llm.judge",
         requestedModel: judgeModel,
       });

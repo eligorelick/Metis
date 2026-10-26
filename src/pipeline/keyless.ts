@@ -250,6 +250,11 @@ function fmpReason(result: AnyMemberResult): string {
   return result.ok ? "returned no rows" : result.gap.reason;
 }
 
+/** FMP's own `expected` refusal: the key's subscription does not cover the endpoint or symbol. */
+function subscriptionRefused(result: AnyMemberResult): boolean {
+  return !result.ok && result.gap.expected === true;
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -676,8 +681,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         : `served by ${source} (${endpoint}) because FMP ${fmpReason(inputs.fmp[member] as AnyMemberResult)}`,
       severity: "info",
       // A configured source choice is structural on any plan; an FMP shortfall
-      // is structural only on a keyless plan.
-      expected: overridden > 0 || inputs.fmpKeyless,
+      // is structural only on a keyless plan, or when FMP itself marked the
+      // refusal expected (a subscription that never serves this endpoint or
+      // symbol, audit 2026-10-22 F-1/F-13).
+      expected: overridden > 0 || inputs.fmpKeyless || subscriptionRefused(inputs.fmp[member] as AnyMemberResult),
     });
   };
 

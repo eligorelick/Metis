@@ -78,7 +78,7 @@ describe("fair value degraded inputs (F-13)", () => {
     });
     expect(reason?.reason).toBe(
       "Degraded inputs: the risk-free rate is the last cached FRED DGS10 observation (observation 2026-10-20), not FRED DGS10; " +
-        "the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available. " +
+        "the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. " +
         "A run with these providers healthy can give a different value.",
     );
   });
@@ -103,6 +103,21 @@ describe("fair value degraded inputs (F-13)", () => {
         "the annual income statement and the annual balance sheet are from SEC EDGAR, the quote is from Yahoo and the enterprise values are computed from filed facts and prices, not FMP. " +
         "A run with these providers healthy can give a different value.",
     );
+  });
+
+  it("leaves out the members that never feed the fair value: the sector ETF prices and the shares float", () => {
+    const only = degradedInputsReason({
+      riskFree: { pct: 4.02, asOf: "2026-10-21", seriesId: "fred:DGS10" },
+      bundleGaps: [keyless("sectorEtf", "yahoo"), keyless("sharesFloat", "edgar")],
+      valuationGaps: [],
+    });
+    expect(only).toBeNull();
+    const mixed = degradedInputsReason({
+      riskFree: { pct: 4.02, asOf: "2026-10-21", seriesId: "fred:DGS10" },
+      bundleGaps: [keyless("sectorEtf", "yahoo"), keyless("quote", "yahoo")],
+      valuationGaps: [],
+    });
+    expect(mixed?.reason).toBe("Degraded inputs: the quote is from Yahoo, not FMP. A run with these providers healthy can give a different value.");
   });
 
   it("gives no reason on a healthy run or a keyless-by-configuration run", () => {
@@ -145,7 +160,7 @@ describe("degraded inputs end to end: Stage B, both layouts, the exports and the
     const computed = runStageB(bundle);
     expect(computed.fairValue.status).toBe("available");
     const text = fairValueDegradedText(computed.fairValue);
-    expect(text).toMatch(/^Degraded inputs: the risk-free rate is FMP treasury rates 10-year \(observation 2026-07-04\), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because no FRED DGS10 history was available; the analyst-consensus growth method was left out because the provider refused the analyst estimates\./);
+    expect(text).toMatch(/^Degraded inputs: the risk-free rate is FMP treasury rates 10-year \(observation 2026-07-04\), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates; the analyst-consensus growth method was left out because the provider refused the analyst estimates\./);
 
     const report = dataOnly(bundle, computed);
     expect(fairValueDegradedText(report.fairValue)).toBe(text);

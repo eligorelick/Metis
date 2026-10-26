@@ -79,4 +79,11 @@ describe("FRED HTTP 200 HTML outage pages (B-1)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.gap.reason).toMatch(/non-CSV for NOPE \(unknown series id\?\)/);
   });
+
+  it("reads a CSV body as data even when an edge labels it text/html: the body decides", async () => {
+    const fetchImpl = vi.fn(async () => html("observation_date,DGS10\n2026-10-21,4.02\n"));
+    const result = await series("DGS10", {}, { ...NO_THROTTLE, retryDelaysMs: [0, 0], fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, value: { data: [{ date: "2026-10-21", value: 4.02 }] } });
+  });
 });

@@ -2781,8 +2781,9 @@ export async function runJob<TPayload = unknown>(
     startStep(state, "fetch");
     // Audit 2026-10-22 F-12: a plan connection owned by another Metis server
     // ends the job here, in one attempt, before any data is fetched. Any other
-    // store problem is left to the pass, which reports its own reason.
-    if ("connectionId" in aiSelection) {
+    // store problem is left to the pass, which reports its own reason. A
+    // signed-out connection runs no pass, so it claims nothing.
+    if ("connectionId" in aiSelection && hasKey) {
       try {
         await (opts.claimAiRuntime ?? claimAiRuntimeForRun)();
       } catch (err) {
