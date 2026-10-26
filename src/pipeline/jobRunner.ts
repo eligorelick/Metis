@@ -521,7 +521,7 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.3 (D-107): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). */
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.3 (D-109): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). */
 export const PIPELINE_VERSION = "stage-c-1.6.3" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */

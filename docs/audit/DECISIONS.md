@@ -2206,7 +2206,34 @@ A live NVDA report run on merged main (GPT-6.1-Sol, high effort, 2026-10-26) and
 
 Stage B ACCOUNTING_EVIDENCE_23, report 1.40.1 and pipeline stage-c-1.6.2 mark these conventions; payload 1.45.0 is unchanged. Stored reports and snapshots keep their bytes.
 
-## D-107 - Audit batch 6: degrade visibly when providers fail: a FRED HTML page as an outage, the risk-free rate's fallback order, the degraded-inputs note, the provider-fallback line, a plan connection held by another server, and kept sections checked before they are kept (2026-10-26)
+## D-107 - Readable figures in the reader notes (2026-10-26)
+
+The live NVDA check (D-106) also found reader text that printed raw source units: the EV bridge note read "excluding 42783000000 of marketable equity securities ... EV excluding the operating-lease liability 5156250780000; EV as reported 5161744780000", the multiples note's issuer-common headline printed "119996000 economic shares ... capitalization 34672844200 USD", and the sensitivity grid's guard note said its cells were "rendered null".
+
+- **Grouped digits, not rounding.** Those amounts and counts now print with grouped digits ("42,783,000,000", "119,996,000"), at the same two-decimal precision as before. A compact form ("42.78B", "120M") was tried and rejected: it rounded 119,996,000 economic shares to 120M, and the exact figures are what the share-class and bridge tests pin. Every value is unchanged; only its digits are grouped.
+- **The grid guard note** says the cells are "withheld and shown as —", which is what the grid shows.
+- **The EV bridge note reaches the model's payload** (the valuation notes and each EV multiple's basis), so payload 1.46.0 marks it; in the pinned Stage C fixture the prompt grows by the sixteen grouping commas of one EV printed four times, and no provenance record, citation or value moves. Stage B ACCOUNTING_EVIDENCE_24 and report 1.40.2 mark the wording.
+- **Not changed: keyless marketable equity (D-106).** Treating `EquitySecuritiesFvNi` as non-operating on the keyless path was considered and left out: companyfacts does not say whether an undivided stake is current or already inside a long-term investments line, so a rule could count it twice. The difference to the vendor path stays disclosed in METHODOLOGY.
+
+Stored reports and snapshots keep their bytes.
+
+## D-108 - Net income attributable to the parent when NetIncomeLoss is not filed (2026-10-26)
+
+Audit 2026-10-22 B-18 (Medium). The keyless netIncome chain is `NetIncomeLoss`, then consolidated `ProfitLoss`, then the amount available to common. Freeport-McMoRan files no `NetIncomeLoss` in its 10-K/10-Q facts, so every annual row from 2016 and most quarters resolved to `ProfitLoss`, which includes the noncontrolling interests' share. Net income, net margin and the DuPont ROE carried it: FY2025 4,152 million against 2,204 million to the parent, and ROE 22.8% against about 12%, set against a parent-only equity denominator and beside the report's own 12.4% return on tangible common equity. The TTM mixed one `NetIncomeLoss` quarter with three `ProfitLoss` quarters, so P/E was withheld as an inconsistent ownership basis.
+
+- **The parent figure is derived by the taxonomy's calculation.** After `NetIncomeLoss`, the chain takes `ProfitLoss` less `NetIncomeLossAttributableToNoncontrollingInterest` for the same period, each resolved (and, for a quarter, derived) on its own tag. The step is disclosed as a substitution for every period it serves. Without an NCI tag for the period the chain falls to consolidated profit as before, whose basis stays "consolidated" and whose NCI deduction Stage B already makes.
+- **Stage B reads it as parent income.** The ownership basis was inferred from the netIncome tags, and `ProfitLoss` among them meant "consolidated", which would have deducted the NCI share a second time. A figure whose tags carry both `ProfitLoss` and the NCI tag is now "parent".
+- **Unchanged:** the consolidated-profit field, the cash-flow statement's net income (it starts from consolidated profit), the vendor path, and REIT FFO's own net-income read.
+- Stage B ACCOUNTING_EVIDENCE_25 marks the change; the report spec and payload do not move.
+- **Control panel** (45 audited companies, keyless and offline against the audit's cached data behind a dead proxy, clock pinned to 2026-10-22T06:00Z; base `7f5221d`, head this change; both sides 45 of 45 done). Every moved figure is intended:
+  - FCX: TTM net income 4,183 million → 2,945 million (the oracle's parent figure); FY2025 DuPont ROE 22.76% → 12.08% and net margin 16.02% → 8.50% (the audit's parent figures); P/E (TTM) is now produced, 33.6× on parent income, where it was withheld as a mixed ownership basis, so that warning is gone; composite 54.47 → 53.63.
+  - AMT: composite 52.77 → 52.84 (parent income on the quarters that lacked NetIncomeLoss).
+  - MA: the P/E basis now reads "parent income"; its NCI income is a few million, and the withheld P/E is unchanged.
+  - No other company, column or gap family moves; no new withhold or gap.
+
+Stored reports and snapshots keep their bytes.
+
+## D-109 - Audit batch 6: degrade visibly when providers fail: a FRED HTML page as an outage, the risk-free rate's fallback order, the degraded-inputs note, the provider-fallback line, a plan connection held by another server, and kept sections checked before they are kept (2026-10-26)
 
 The independent audit of 2026-10-22 found that a provider failure could change a report without the reader being told, or could cost a run more than it needed to. This batch fixes B-1, B-4, F-13, F-1, F-12 and D-3. The Low items on the same code paths (D-4, F-16, F-15, F-18, F-17 and F-14) are postponed by the owner. Every rule is class-wide; none names a ticker.
 
@@ -2235,4 +2262,4 @@ The independent audit of 2026-10-22 found that a provider failure could change a
 - **A plan connection held by another server (F-12).** A job on a ChatGPT or Gemini plan connection claims the AI runtime at the start of the fetch step. If another Metis server owns it, the job ends in that one attempt, before any data is fetched. A pass refused mid-run gives the same reason and is not retried as a dropped connection. Both name the OPERATIONS troubleshooting row "AI store is held by another server". A signed-out connection runs no pass, so it claims nothing and still ends in a data-only report. A busy credentials lock is unchanged.
 - **Kept sections are checked before they are kept (D-3).** When a bull, bear or judge response is cut off, each top-level section it finished is normalized as the whole parse normalizes it. It is then checked alone against its own sub-schema and the rating-safety walk; a key the schema lacks also fails. A failing section is dropped, the retry is asked to write it again, and the step detail names it. On a plan connection that writes in parts, sections reloaded from the run's section checkpoint get the same check. Before, a kept section that parsed but did not match its schema made the merged output fail whatever the retry returned.
 
-Report 1.41.0, payload 1.46.0, pipeline stage-c-1.6.3 and Stage B ACCOUNTING_EVIDENCE_24 mark these conventions. In the provider-free DEMO control, `fairValue.reasons` gains the degraded-inputs entry for its FMP treasury rate and its current-WACC-only ROIC-vs-WACC history, and the spec version moves; no figure moves. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch6-provider-failures.md).
+Report 1.41.0, payload 1.47.0, pipeline stage-c-1.6.3 and Stage B ACCOUNTING_EVIDENCE_26 mark these conventions. In the provider-free DEMO control, `fairValue.reasons` gains the degraded-inputs entry for its FMP treasury rate and its current-WACC-only ROIC-vs-WACC history, and the spec version moves; no figure moves. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch6-provider-failures.md).

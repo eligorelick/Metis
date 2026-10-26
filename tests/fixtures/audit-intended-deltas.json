@@ -7111,21 +7111,6 @@
             },
             "basis": "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2025-12-31: 1800000000 before SBC → 1550000000 after subtracting SBC of 250000000."
           }
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.1.basis",
-          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
-          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000. Balance basis: latest quarterly balance sheet 2025-12-31."
-        },
-        {
-          "path": "stageB.valuation.multiples.multiples.2.basis",
-          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
-          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-        },
-        {
-          "path": "stageB.valuation.multiples.notes.0",
-          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
-          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
         }
       ]
     },
@@ -8007,33 +7992,6 @@
               "nearTermRateUsed": false,
               "guidedQuarter": null
             }
-          }
-        },
-        {
-          "path": "stageB.valuation.multiples.enterpriseValue",
-          "beforeMissing": true,
-          "after": {
-            "equityScope": {
-              "status": "unverified-vendor-scope",
-              "marketCap": 8000000000,
-              "priceAsOf": "2025-12-31",
-              "economicShares": null,
-              "approximate": false,
-              "sourceIds": [],
-              "sourceHashes": [],
-              "shareCountAsOf": null,
-              "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope."
-            },
-            "noncontrollingInterestBasis": "none-disclosed",
-            "nonOperatingHoldingsScope": "not-comprehensively-resolved",
-            "value": 6700000000,
-            "excludingLeases": 6700000000,
-            "includingLeases": 6700000000,
-            "leaseLiability": null,
-            "totalLeaseLiability": 100000000,
-            "financeLeaseLiability": null,
-            "includeLeases": false,
-            "basis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
           }
         },
         {
@@ -9002,23 +8960,9 @@
       "reason": "D-92 advances the report stamp and preserves explicit existing sensitivity conventions. The two previously allowlisted growth-margin grid objects are reclassified because a note was inserted inside each whole-object pin; all axes, numeric cells and null cells are independently compared with the prior pins and are identical. The remaining changes are sensitivity note text/positions and saved-report metadata, with no revised valuation arithmetic or numeric provenance.",
       "deltas": [
         {
-          "path": "report.valuation.dcf.sensitivityNotes",
-          "beforeMissing": true,
-          "after": [
-            "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-            "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
-            "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
-          ]
-        },
-        {
           "path": "stageB.valuation.sensitivity.notes.0",
           "before": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard, spec §3)",
           "after": "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells."
-        },
-        {
-          "path": "stageB.valuation.sensitivity.notes.1",
-          "beforeMissing": true,
-          "after": "grid cells with WACC - gTerm < 1.5pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
         },
         {
           "path": "stageB.valuation.sensitivity.notes.2",
@@ -9770,22 +9714,6 @@
           ]
         },
         {
-          "path": "report.valuation.marketValueScope",
-          "beforeMissing": true,
-          "after": {
-            "status": "unverified-vendor-scope",
-            "marketCap": 8000000000,
-            "economicShares": null,
-            "currency": null,
-            "shareCountAsOf": null,
-            "priceAsOf": "2025-12-31",
-            "approximate": false,
-            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
-            "enterpriseValue": 6700000000,
-            "enterpriseValueBasis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
-          }
-        },
-        {
           "path": "report.valuation.multiples.1.basis",
           "beforeMissing": true,
           "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2025-12-31."
@@ -9794,11 +9722,6 @@
           "path": "report.valuation.multiples.2.basis",
           "beforeMissing": true,
           "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value as stated once in the enterprise-value bridge note."
-        },
-        {
-          "path": "report.valuation.multiplesBasis",
-          "beforeMissing": true,
-          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100000000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6700000000; EV as reported 6700000000."
         },
         {
           "path": "stageB.gaps.12.reason",
@@ -10166,11 +10089,97 @@
       ]
     },
     {
-      "name": "audit-batch6-provider-failures-20261026",
+      "name": "readable-note-figures-20261026",
       "decisions": [
         "D-107"
       ],
-      "reason": "Audit batch 6 of 2026-10-26 (degrade visibly when providers fail, D-107), as it reaches this provider-free DEMO control. The report stamp moves to spec 1.41.0 (the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line), out of live-check-fixes-20261026, whose record for 1.40.1 stands in docs/audit/DECISIONS.md, D-106. The fixture carries no FRED DGS10 observation, so its risk-free rate has always come from FMP treasury rates year10 (2025-12-31); F-13 now names that substitution in fairValue.reasons as a degraded-inputs entry, in Stage B and in the report, together with the ROIC-vs-WACC history behind the terminal ROIC, which for want of any DGS10 observation compares every fiscal year to the current WACC (the terminal ROIC basis already said so). No figure moves: the rate, the WACC, the DCF and the headline value are unchanged, and the fixture has no keyless member or refused analyst estimate to name. See docs/audit/2026-10-22-audit-batch6-provider-failures.md.",
+      "reason": "Readable figures in the reader notes (D-107), as they reach this provider-free DEMO control: the EV bridge note prints its amounts with grouped digits (6,700,000,000 and 100,000,000 here) and the sensitivity grid's guard note says its cells are withheld and shown as a dash rather than \"rendered null\", and the report stamp moves to spec 1.40.2. Each of these nine paths equals its previously blessed value once the grouping and that wording are undone, so no number, date or availability moves; they are reclassified here from expe-ownership-and-evidence, expe-primary-evidence-followup, amzn-deferred-fixes-20261020, first-report-source-and-sensitivity-evidence and live-check-fixes-20261026, whose records stand for the earlier wording. See docs/audit/DECISIONS.md, D-107.",
+      "deltas": [
+        {
+          "path": "report.valuation.dcf.sensitivityNotes",
+          "beforeMissing": true,
+          "after": [
+            "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
+            "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)",
+            "terminal ROIC held at WACC + 0pp in every cell (the house convention defines it relative to the discount rate)"
+          ]
+        },
+        {
+          "path": "report.valuation.marketValueScope",
+          "beforeMissing": true,
+          "after": {
+            "status": "unverified-vendor-scope",
+            "marketCap": 8000000000,
+            "economicShares": null,
+            "currency": null,
+            "shareCountAsOf": null,
+            "priceAsOf": "2025-12-31",
+            "approximate": false,
+            "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope.",
+            "enterpriseValue": 6700000000,
+            "enterpriseValueBasis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
+          }
+        },
+        {
+          "path": "report.valuation.multiplesBasis",
+          "beforeMissing": true,
+          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
+        },
+        {
+          "path": "stageB.valuation.multiples.enterpriseValue",
+          "beforeMissing": true,
+          "after": {
+            "equityScope": {
+              "status": "unverified-vendor-scope",
+              "marketCap": 8000000000,
+              "priceAsOf": "2025-12-31",
+              "economicShares": null,
+              "approximate": false,
+              "sourceIds": [],
+              "sourceHashes": [],
+              "shareCountAsOf": null,
+              "basis": "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope."
+            },
+            "noncontrollingInterestBasis": "none-disclosed",
+            "nonOperatingHoldingsScope": "not-comprehensively-resolved",
+            "value": 6700000000,
+            "excludingLeases": 6700000000,
+            "includingLeases": 6700000000,
+            "leaseLiability": null,
+            "totalLeaseLiability": 100000000,
+            "financeLeaseLiability": null,
+            "includeLeases": false,
+            "basis": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
+          }
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.1.basis",
+          "before": "EV (mcap + totalDebt + preferred + minority - cash&STI, latest quarterly balance sheet 2025-12-31) / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted",
+          "after": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31."
+        },
+        {
+          "path": "stageB.valuation.multiples.multiples.2.basis",
+          "before": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed)",
+          "after": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
+        },
+        {
+          "path": "stageB.valuation.multiples.notes.0",
+          "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
+          "after": "Enterprise value EXCLUDES the OPERATING-lease liability (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it). EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments; a total lease liability of 100,000,000 is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it, so removing the operating-lease liability keeps numerator and denominator on the same basis. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The finance-lease liability remains financing debt in both frames and is never removed. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV excluding the operating-lease liability 6,700,000,000; EV as reported 6,700,000,000."
+        },
+        {
+          "path": "stageB.valuation.sensitivity.notes.1",
+          "beforeMissing": true,
+          "after": "grid cells with WACC - gTerm < 1.5pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)"
+        }
+      ]
+    },
+    {
+      "name": "audit-batch6-provider-failures-20261026",
+      "decisions": [
+        "D-109"
+      ],
+      "reason": "Audit batch 6 of 2026-10-26 (degrade visibly when providers fail, D-109), as it reaches this provider-free DEMO control. The report stamp moves to spec 1.41.0 (the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line), out of readable-note-figures-20261026, whose record for 1.40.2 stands in docs/audit/DECISIONS.md, D-107. The fixture carries no FRED DGS10 observation, so its risk-free rate has always come from FMP treasury rates year10 (2025-12-31); F-13 now names that substitution in fairValue.reasons as a degraded-inputs entry, in Stage B and in the report, together with the ROIC-vs-WACC history behind the terminal ROIC, which for want of any DGS10 observation compares every fiscal year to the current WACC (the terminal ROIC basis already said so). No figure moves: the rate, the WACC, the DCF and the headline value are unchanged, and the fixture has no keyless member or refused analyst estimate to name. See docs/audit/2026-10-22-audit-batch6-provider-failures.md.",
       "deltas": [
         {
           "path": "report.fairValue.reasons.0",
