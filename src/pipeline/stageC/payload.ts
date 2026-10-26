@@ -1086,6 +1086,8 @@ function computedSections(
       label: `${m.key} (current)`,
       value: m.current,
       unit: "x",
+      // Audit 2026-10-22 B-9: the earnings period the record's denominator covers.
+      ...(m.period === undefined ? {} : { period: m.period, ...(/^FY\d{4}$/.test(m.period) ? { fiscalPeriod: m.period } : {}) }),
       source: `computed.valuation.multiples.${m.key}`,
       asOf: val.kind === "pre-revenue" ? null : val.multiples.asOf.quote,
     });

@@ -3351,6 +3351,8 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
    * when absent (legacy callers).
    */
   basis?: "ttm" | "annual";
+  /** Audit 2026-10-22 B-9: the annual row's own fiscal year, which names an annual-basis multiple. */
+  fiscalYear?: string | null;
   revenue: number | null;
   operatingIncome: number | null;
   /** AMZN audit 2026-10-20: pre-tax income, to measure how much of it is non-operating. */
@@ -3673,6 +3675,13 @@ export interface MultipleStat {
    * P/E caveat, the own-history rank stays: the history is built the same way.
    */
   ebitdaLowerBound?: { basis: string };
+  /**
+   * Audit 2026-10-22 B-9: the statement period an income-derived multiple's
+   * denominator covers: "TTM to <date>" for four summed quarters, or "FY<year>"
+   * when TTM was suppressed and the latest annual row stands in. Labels are
+   * derived from it.
+   */
+  period?: string;
 }
 
 /** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
@@ -4247,12 +4256,15 @@ export function multiplesFramework(
   // --- Current multiples from raw fields ------------------------------------
   let eps = posOrNull(inc?.epsDiluted);
   let epsBasis = "price / epsDiluted";
+  // Audit 2026-10-22 B-20: why price / diluted EPS did not produce the P/E, named in its basis.
+  let epsUnused = "no positive diluted EPS covers the period";
   if (inputs.quote.isAdr === true && eps !== null) {
     const security = resolveSecurityBasis(inputs.securityBasis ?? [], inputs.securityBasisAsOf ?? "");
     if (security === null || security.quoteUnit !== "ADS" || inc?.epsSecurityBasis === undefined ||
       (inputs.quote.issuerId !== undefined && security.issuerId !== inputs.quote.issuerId) ||
       (inputs.quote.securityId !== undefined && security.securityId !== inputs.quote.securityId)) {
       eps = null;
+      epsUnused = "the ADR's depositary ratio and EPS basis are not verified";
       const reason = "ADR/ADS price-to-EPS basis unavailable: a verified effective-dated depositary ratio and explicit ordinary-versus-quoted EPS basis are required; price/EPS withheld, with common-income market-cap fallback only when eligible";
       notes.push(reason);
       gaps.push(gapEntry("valuation.multiples.peTtm.securityBasis", reason, "warn"));
@@ -4267,6 +4279,7 @@ export function multiplesFramework(
   // the issuer-economic capitalization over common income instead.
   if (eps !== null && equityScope.status === "resolved" && equityScope.weightedClasses === true) {
     eps = null;
+    epsUnused = "share classes carry different economic weights and the diluted EPS class basis is not established";
     const reason = "share classes carry different economic weights and the diluted EPS class basis is not established; P/E is issuer-economic market cap / common income, not price / EPS";
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.peTtm.economicClassBasis", reason, "info"));
@@ -4497,6 +4510,11 @@ export function multiplesFramework(
     inputs.cashFlowTtm?.basis === "annual"
       ? `latest annual FY ${inputs.cashFlowTtm.date} — TTM suppressed`
       : "TTM";
+  const incomePeriod = inputs.incomeTtm === null || inputs.incomeTtm === undefined || inputs.incomeTtm.date === ""
+    ? undefined
+    : inputs.incomeTtm.basis === "annual"
+      ? /^\d{4}$/.test(inputs.incomeTtm.fiscalYear ?? "") ? `FY${inputs.incomeTtm.fiscalYear}` : `FY ended ${inputs.incomeTtm.date}`
+      : `TTM to ${inputs.incomeTtm.date}`;
   if (inputs.incomeTtm?.basis === "annual") {
     notes.push(
       "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
@@ -4516,7 +4534,9 @@ export function multiplesFramework(
         ? `latest annual balance sheet ${bal.date}`
         : "latest";
   const basisByKey: Record<MultipleKey, string> = {
-    peTtm: `${epsBasis} (${incomeBasisLabel}); fallback marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis})` +
+    peTtm: (price !== null && eps !== null
+      ? `${epsBasis} (${incomeBasisLabel})`
+      : `marketCap / common income (${incomeBasisLabel}; ${capital.incomeBasis}); diluted EPS not used: ${price === null ? "no quote price" : epsUnused}`) +
       (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
         ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
         : ""),
@@ -4562,6 +4582,7 @@ export function multiplesFramework(
       basis: basisByKey[key],
       ...(key === "priceToFcf" && historicalFcfScope ? { basis: `${basisByKey[key]}. ${historicalFcfScope}`, historyScope: historicalFcfScope } : {}),
       ...(key === "evToEbitda" && ebitdaLowerBound !== null && cur !== null ? { ebitdaLowerBound: { basis: ebitdaLowerBound } } : {}),
+      ...(incomePeriod !== undefined && (key === "peTtm" || key === "evToEbitda" || key === "evToSales") ? { period: incomePeriod } : {}),
       ownHistory: priceCurrency.comparable && marketCapSecurityKnown
         ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history", historyDetails[key])
         : null,

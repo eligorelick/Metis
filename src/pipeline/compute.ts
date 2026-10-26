@@ -3557,6 +3557,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
           date: String(inc0.date ?? ""),
           basis: "annual",
+          fiscalYear: typeof inc0.fiscalYear === "string" ? inc0.fiscalYear : null,
           revenue: num(inc0.revenue),
           operatingIncome: num(inc0.operatingIncome),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
