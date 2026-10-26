@@ -1027,15 +1027,14 @@ describe("payload determinism + provenance", () => {
       // prints the EV bridge note's amounts with grouped digits; this
       // fixture's EV appears four times in the prompt's notes, so the prompt
       // grows by sixteen commas and no record or registry moves.
-      // Audit batch 6 (D-111): only the versioned header moves with payload
+      // Audit batch 6 (D-111): only the versioned header moved with payload
       // 1.47.0; this fixture's rate is FRED DGS10 and no member fell back, so
       // no degraded-inputs note or provider-fallback line enters its prompt.
       // Audit batch 4 (D-112, -120 prompt bytes): the P/E note names only the
       // formula that ran (B-20); restoring it above reproduces every preceding
       // pin, and the versioned header moves with payload 1.48.0. This
       // fixture's multiples are TTM, so their records keep their labels, ids
-      // and null period (B-9 names only a fiscal-year multiple's year, in its
-      // label).
+      // and null period (B-9 names only a fiscal-year multiple's year).
       fingerprint: "1.48.0:416db791",
       promptBytes: 140_781,
       provenanceCount: 531,
