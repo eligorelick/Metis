@@ -524,14 +524,20 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
 
   it("names the successor as the economic issuer only when its filing re-presents a predecessor period unchanged (audit 2026-10-22 B-36)", async () => {
     // The successor's FY2026 10-K carries FY2025 as its comparative; the
-    // predecessor filed FY2025 net income of 140.
-    const withComparative = (val: number): KeylessInputs => {
+    // predecessor filed FY2025 net income of 140 and diluted EPS of 1.40.
+    const withComparative = (val: number, eps: number | null = 1.4): KeylessInputs => {
       const base = inputs();
       const facts = annualFacts(2115436, "EXAMPLE SUCCESSOR HOLDINGS CORP", [2026]);
       const netIncome = facts.facts["us-gaap"]!["NetIncomeLoss"] as { units: { USD: Record<string, unknown>[] } };
-      netIncome.units.USD.push({ ...netIncome.units.USD[0]!, start: "2025-01-01", end: "2025-12-31", val, fy: 2026 });
+      const fy2025 = { ...netIncome.units.USD[0]!, start: "2025-01-01", end: "2025-12-31", fy: 2026 };
+      netIncome.units.USD.push({ ...fy2025, val });
+      if (eps !== null) facts.facts["us-gaap"]!["EarningsPerShareDiluted"] = { label: "x", units: { "USD/shares": [{ ...fy2025, val: eps }] } };
       const companyFacts = base.edgar.companyFacts.ok ? { ok: true as const, value: { ...base.edgar.companyFacts.value, data: facts } } : base.edgar.companyFacts;
-      return inputs({ edgar: { ...base.edgar, companyFacts } });
+      const prior = base.edgar.predecessor!;
+      const priorFacts = structuredClone(prior.facts);
+      const priorNet = (priorFacts.facts["us-gaap"]!["NetIncomeLoss"] as { units: { USD: Record<string, unknown>[] } }).units.USD.find((p) => p["end"] === "2025-12-31")!;
+      priorFacts.facts["us-gaap"]!["EarningsPerShareDiluted"] = { label: "x", units: { "USD/shares": [{ ...priorNet, val: 1.4 }] } };
+      return inputs({ edgar: { ...base.edgar, companyFacts, predecessor: { ...prior, facts: priorFacts } } });
     };
     const inherited = async (over: KeylessInputs) => {
       const out = await applyKeylessFallbacks(over);
@@ -542,7 +548,8 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
     expect(continuing.rows.length).toBeGreaterThan(0);
     for (const row of continuing.rows) expect(row["successorCik"]).toBe(SUCCESSOR_CIK);
     expect(continuing.entry.reason).toMatch(/re-presents the predecessor's 2025-01-01 to 2025-12-31 net income and per-share figures unchanged/);
-    for (const over of [withComparative(139), inputs()]) {
+    // A different net income or EPS, no per-share comparative, or no comparative at all.
+    for (const over of [withComparative(139), withComparative(140, 0.7), withComparative(140, null), inputs()]) {
       const unproven = await inherited(over);
       expect(unproven.rows.length).toBeGreaterThan(0);
       for (const row of unproven.rows) expect(row["successorCik"]).toBeUndefined();

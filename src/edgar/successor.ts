@@ -180,20 +180,34 @@ export function hasOwnAnnualHistory(facts: CompanyFacts | null, mergedAccessions
   return false;
 }
 
-/** Each core-form duration point of the tags, latest-filed per unit and interval. */
-function durationPoints(facts: CompanyFacts, tags: readonly string[]): Map<string, number> {
-  const latest = new Map<string, { val: number; filed: string }>();
+/**
+ * Each core-form duration point of the tags, latest-filed per unit and
+ * interval, keyed by `role` so that synonym tags meet: the first tag in the
+ * list that carries an interval gives the role's value there.
+ */
+function durationPoints(facts: CompanyFacts, role: string, tags: readonly string[]): Map<string, number> {
+  const out = new Map<string, number>();
   for (const tag of tags) {
-    const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
-    if (!parsed.success) continue;
-    for (const [unit, rawPoints] of Object.entries(parsed.data.units)) {
-      if (!Array.isArray(rawPoints)) continue;
-      for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
-        if (p.start === undefined || !Number.isFinite(p.val)) continue;
-        const key = `${tag}|${unit}|${p.start}|${p.end}`;
-        const seen = latest.get(key);
-        if (seen === undefined || p.filed > seen.filed) latest.set(key, { val: p.val, filed: p.filed });
-      }
+    for (const [key, val] of tagDurationPoints(facts, tag)) {
+      const roleKey = `${role}|${key}`;
+      if (!out.has(roleKey)) out.set(roleKey, val);
+    }
+  }
+  return out;
+}
+
+/** One tag's core-form duration points, latest-filed per `unit|start|end`. */
+function tagDurationPoints(facts: CompanyFacts, tag: string): Map<string, number> {
+  const latest = new Map<string, { val: number; filed: string }>();
+  const parsed = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+  if (!parsed.success) return new Map();
+  for (const [unit, rawPoints] of Object.entries(parsed.data.units)) {
+    if (!Array.isArray(rawPoints)) continue;
+    for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
+      if (p.start === undefined || !Number.isFinite(p.val)) continue;
+      const key = `${unit}|${p.start}|${p.end}`;
+      const seen = latest.get(key);
+      if (seen === undefined || p.filed > seen.filed) latest.set(key, { val: p.val, filed: p.filed });
     }
   }
   return new Map([...latest].map(([key, p]) => [key, p.val]));
@@ -206,25 +220,34 @@ function durationPoints(facts: CompanyFacts, tags: readonly string[]): Map<strin
  * comparative equal. That is the evidence of one continuing reporting entity
  * on one share basis — ExxonMobil Holdings' first 10-Q restates Exxon Mobil
  * Corp's Q2 2025 at 7,082M and 1.64 a share — so the predecessor's quarters
- * may share a trailing twelve months with the successor's. Returns the matched
- * intervals, or null when there is none or any comparative differs.
+ * may share a trailing twelve months with the successor's. EPS is compared by
+ * role, basic and diluted, so a combined basic-and-diluted tag on one side
+ * meets separate tags on the other, and at least one per-share comparative
+ * must match: matching earnings alone do not show one share basis. Returns the
+ * matched intervals, or null when there is none or any comparative differs.
  */
 export function successorContinuity(successor: CompanyFacts, predecessor: CompanyFacts): { periods: string[] } | null {
   const periods = new Set<string>();
-  for (const [tags, tolerance, anchor] of [
-    [tagsFor("netIncome"), 0.5, true],
-    [[...tagsFor("eps"), ...tagsFor("epsDiluted")], 0.005, false],
-  ] as const) {
-    const before = durationPoints(predecessor, tags);
-    for (const [key, val] of durationPoints(successor, tags)) {
+  let perShareMatched = false;
+  // Each net-income tag is its own concept (parent, consolidated, available to
+  // common), so it meets only itself; an EPS tag stands for its role.
+  const comparisons: { role: string; tags: readonly string[]; tolerance: number; perShare: boolean }[] = [
+    ...tagsFor("netIncome").map((tag) => ({ role: tag, tags: [tag], tolerance: 0.5, perShare: false })),
+    { role: "eps", tags: tagsFor("eps"), tolerance: 0.005, perShare: true },
+    { role: "epsDiluted", tags: tagsFor("epsDiluted"), tolerance: 0.005, perShare: true },
+  ];
+  for (const { role, tags, tolerance, perShare } of comparisons) {
+    const before = durationPoints(predecessor, role, tags);
+    for (const [key, val] of durationPoints(successor, role, tags)) {
       const prior = before.get(key);
       if (prior === undefined) continue;
       if (Math.abs(prior - val) > tolerance) return null;
       const [, , start, end] = key.split("|");
-      if (anchor) periods.add(`${start} to ${end}`);
+      if (perShare) perShareMatched = true;
+      else periods.add(`${start} to ${end}`);
     }
   }
-  return periods.size === 0 ? null : { periods: [...periods].sort() };
+  return periods.size === 0 || !perShareMatched ? null : { periods: [...periods].sort() };
 }
 
 /**

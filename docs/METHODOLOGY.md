@@ -3979,10 +3979,13 @@ Freeport's EPS CAGR now runs 2020 to 2025 (1.52 in FY2025, 1.30 in FY2024).
 a predecessor's quarters to a successor's own was refused as two issuers, so
 ExxonMobil Holdings, successor to Exxon Mobil Corp since 2026-07-01, had no
 P/E. When the successor's own filing re-presents at least one predecessor
-net income, and every such net-income and per-share comparative agrees, the
-two are one reporting entity on one share basis: the predecessor rows name
+net income and at least one per-share figure, and every such net-income and
+per-share comparative agrees, the two are one reporting entity on one share basis: the predecessor rows name
 the successor as their economic issuer, the TTM may span the reorganisation,
-and the predecessor disclosure names the periods that matched. Exxon's first
+and the predecessor disclosure names the periods that matched. EPS is
+compared by role, basic and diluted, so a combined basic-and-diluted tag on one
+side meets separate tags on the other; matching net income alone does not show
+one share basis. Exxon's first
 10-Q re-presents Q2 2025 at 7,082M and $1.64 a share, so its P/E is now
 22.4× on market cap over TTM net income of 32,757M. Without that evidence the
 TTM is still refused. The no-annual-report gaps now name a resolved

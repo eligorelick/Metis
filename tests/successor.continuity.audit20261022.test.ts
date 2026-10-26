@@ -54,6 +54,26 @@ describe("a successor that re-presents its predecessor's periods unchanged (audi
     expect(successorContinuity(successorFacts(7_082_000_000, 0.82), predecessorFacts)).toBeNull();
   });
 
+  it("compares EPS by role, so a combined basic-and-diluted tag meets separate basic and diluted tags", () => {
+    const combined = facts(34088, {
+      NetIncomeLoss: { unit: "USD", points: [{ ...Q2_2025, val: 7_082_000_000, filed: "2025-08-04" }] },
+      EarningsPerShareBasicAndDiluted: { unit: "USD/shares", points: [{ ...Q2_2025, val: 1.64, filed: "2025-08-04" }] },
+    });
+    const separate = (eps: number) => facts(2115436, {
+      NetIncomeLoss: { unit: "USD", points: [{ ...Q2_2025, val: 7_082_000_000 }] },
+      EarningsPerShareBasic: { unit: "USD/shares", points: [{ ...Q2_2025, val: eps }] },
+      EarningsPerShareDiluted: { unit: "USD/shares", points: [{ ...Q2_2025, val: eps }] },
+    });
+    expect(successorContinuity(separate(1.64), combined)).toEqual({ periods: ["2025-04-01 to 2025-06-30"] });
+    // Same earnings, half the EPS: a two-for-one share exchange, not one share basis.
+    expect(successorContinuity(separate(0.82), combined)).toBeNull();
+  });
+
+  it("finds none when no per-share comparative is re-presented, since one share basis is then not shown", () => {
+    const noEps = facts(2115436, { NetIncomeLoss: { unit: "USD", points: [{ ...Q2_2025, val: 7_082_000_000 }, { ...Q2_2026, val: 14_525_000_000 }] } });
+    expect(successorContinuity(noEps, predecessorFacts)).toBeNull();
+  });
+
   it("finds none when the successor re-presents no predecessor period", () => {
     const own = facts(2115436, { NetIncomeLoss: { unit: "USD", points: [{ ...Q2_2026, val: 14_525_000_000 }] } });
     expect(successorContinuity(own, predecessorFacts)).toBeNull();

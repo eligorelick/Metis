@@ -62,6 +62,12 @@ A second review, `/code-review` and a fresh subagent again, ran over the fixes a
 | S8 | The presentation layer reads a fiscal-year multiple's label from its provenance id by pattern (code review). | Not changed: design. Tests pin the ids and labels; a structured period field would replace the pattern (left for later, with R11). |
 | S9 | Docs still named the payload label "peTtm (current, FY2025)" (code review). | Fixed in this note, METHODOLOGY, D-111 and the changelog. |
 
+Pull request review (Codex, #61):
+
+| # | Finding | Disposition |
+|---|---|---|
+| C1 | Successor continuity compared EPS by tag, so a predecessor's combined basic-and-diluted EPS never met a successor's separate basic and diluted tags; matching net income with half the EPS still asserted continuity and the manifest's "per-share figures unchanged". | Fixed: EPS is compared by role, and at least one per-share comparative must match. XOM's cached facts still show continuity (basic and diluted 1.64 on both sides), so the panel's XOM P/E stands. |
+
 ## Control panel
 
 Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place, before main's #56 to #59 were merged in (see the note after the table). Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
