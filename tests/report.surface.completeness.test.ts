@@ -271,7 +271,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
     );
     const rendered = renderWithoutMutation(report);
     expectConfirmedScopes(completenessScopes(report, rendered), {
-      state: "blocked",
+      state: "complete",
       critical: 0,
       warnings: 0,
       edgar: "available",
@@ -283,7 +283,11 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
       expect(text, surface).toContain("No completed multi-pass analysis");
       expect(text, surface).toContain("Deterministic data is complete");
-      expectConfirmedState(text, { state: "blocked", critical: 0, warnings: 0, edgar: "available", xbrl: "checked", forensics: "complete" }, surface);
+      // Persisted "blocked" came from the analysis gap alone, which is a process
+      // disclosure: the data state reads complete and the analysis is what is blocked.
+      expect(text, surface).toMatch(/1 analysis-process disclosure \(not data gaps\), which blocks the analysis/);
+      expect(text, surface).not.toMatch(/blocked: 0 critical/i);
+      expectConfirmedState(text, { state: "complete", critical: 0, warnings: 0, edgar: "available", xbrl: "checked", forensics: "complete" }, surface);
       expectNoLegacyOverclaim(text);
     });
   });
@@ -307,7 +311,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
     const report = reportWithCompleteness(gaps, buildDataCompleteness(gaps));
     const rendered = renderWithoutMutation(report);
     expectConfirmedScopes(completenessScopes(report, rendered), {
-      state: "blocked",
+      state: "complete",
       critical: 0,
       warnings: 0,
       edgar: "available",
@@ -318,6 +322,8 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
       expect(text, surface).toContain("1 additional data gap");
+      expect(text, surface).toMatch(/1 analysis-process disclosure \(not data gaps\), which blocks the analysis/);
+      expect(text, surface).not.toMatch(/blocked: 0 critical/i);
       expect(text, surface).not.toContain("1 additional data gaps");
       expect(text, surface).not.toMatch(/deterministic data is complete/i);
       expectNoLegacyOverclaim(text);

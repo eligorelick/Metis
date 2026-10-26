@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
-import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
+import { ReportSnapshotHeader, observationText } from "@/components/report/ReportSnapshotHeader";
 import { ReportEvidenceRail } from "@/components/report/ReportEvidenceRail";
 import { GradeStripBar } from "@/components/report/sections";
 import { Sidebar } from "@/components/watchlist/Sidebar";
@@ -82,5 +82,18 @@ describe("refined research reading sequence",()=>{
     expect(text).toContain("2026-10-25 17:11:18.588 UTC");
     expect(text).toContain("Process: DONE");
     expect(text).toContain("Saved snapshot");
+  });
+  it("reads a recorded quote time as a date or a UTC minute, never a raw ISO string",()=>{
+    expect(observationText("2025-12-31")).toBe("2025-12-31");
+    expect(observationText("2025-12-31T00:00:00.000Z")).toBe("2025-12-31");
+    expect(observationText("2025-12-31T00:00:00+00:00")).toBe("2025-12-31");
+    expect(observationText("2026-10-23T20:15:42.123Z")).toBe("2026-10-23 20:15 UTC");
+    expect(observationText("2026-10-23T16:15:42-04:00")).toBe("2026-10-23 20:15 UTC");
+    expect(observationText("not a date")).toBe("not a date");
+    const report=loadTask28Fixture();
+    report.meta.evidenceTiming={...(report.meta.evidenceTiming as object),quote:{...(report.meta.evidenceTiming?.quote ?? {}),observedAt:"2025-12-31T00:00:00.000Z"}} as typeof report.meta.evidenceTiming;
+    const html=renderToStaticMarkup(createElement(ReportSnapshotHeader,{snapshot:report,reportId:46,status:"done",actions:null}));
+    expect(readableHtml(html).text).toContain("Quote observed 2025-12-31");
+    expect(html).toContain('dateTime="2025-12-31T00:00:00.000Z"');
   });
 });
