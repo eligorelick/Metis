@@ -75,13 +75,16 @@ export function parseEquityStatementNci(html: string, identity: { issuerId: stri
     if (code) units.set(attr(m[1]!, "id"), code);
   }
   const byInstant = new Map<string, { nci: Set<string>; total: Set<string>; invalid: boolean }>();
-  for (const f of html.matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/g)) {
+  // A self-closing fact (`xsi:nil="true"`) has no content: matched as its own
+  // tag, so it neither takes the next fact's number nor swallows that fact, and
+  // a nil value leaves its instant unresolved rather than read as zero.
+  for (const f of html.matchAll(/<ix:nonFraction\b([^>]*?)(?:\/>|>([\s\S]*?)<\/ix:nonFraction>)/g)) {
     if (attr(f[1]!, "name") !== TOTAL) continue;
     const ctx = contexts.get(attr(f[1]!, "contextRef"));
     if (!ctx) continue;
     const record = byInstant.get(ctx.instant) ?? { nci: new Set<string>(), total: new Set<string>(), invalid: false };
     const currency = units.get(attr(f[1]!, "unitRef"));
-    const value = factValue(f[1]!, f[2]!);
+    const value = f[2] === undefined ? null : factValue(f[1]!, f[2]);
     if (!currency || value === null) record.invalid = true;
     else (ctx.nci ? record.nci : record.total).add(`${currency}|${value}`);
     byInstant.set(ctx.instant, record);

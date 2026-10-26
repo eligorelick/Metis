@@ -59,6 +59,15 @@ describe("NCI from the filing's equity statement (audit 2026-10-22 C-15)", () =>
     expect(parseEquityStatementNci(conflicting, identity).observations).toEqual([]);
   });
 
+  it("reads a self-closing nil fact as no value, neither taking the next fact's number nor losing that fact", () => {
+    const nil = `<ix:nonFraction name="us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest" contextRef="c-2" unitRef="usd" xsi:nil="true"/>`;
+    const otherNil = `<ix:nonFraction name="us-gaap:MinorityInterest" contextRef="c-1" unitRef="usd" xsi:nil="true"/>`;
+    expect(parseEquityStatementNci(filing(`${fact("c-1", "39,912")}${nil}${fact("c-3", "15")}`), identity).observations).toEqual([]);
+    expect(parseEquityStatementNci(filing(`${otherNil}${fact("c-1", "39,912")}${fact("c-2", "2,790")}`), identity).observations).toEqual([
+      { end: "2026-03-31", currency: "USD", noncontrollingInterest: 2_790e6, totalEquity: 39_912e6 },
+    ]);
+  });
+
   it("fills a quarterly row that has the consolidated total only, and says where the split came from", () => {
     const balance = sourced([{ date: "2026-03-31", reportedCurrency: "USD", totalEquity: 39_912e6 }]);
     const out = enrichFinancialFields(balance, sourced<FmpCashFlowRow>([]), noFacts, "quarter", observedAt, [], [], [parseEquityStatementNci(statement, identity)]);
