@@ -966,8 +966,9 @@ obligation is tagged, nothing changes. This is an owner decision.
 Three house conventions sit beside it; they are project choices, not owner
 decisions. First, each obligation is read at the bridge's own balance date,
 else at the latest date in the year before it that tags it, and the bridge
-names that date ("the latest filed balance, as the 2026-06-30 balance sheet
-does not tag it"). Many filers tag these only in the 10-K: FCX's 10-Qs carry
+names that date: its line reads "(filed, before tax; balance at 2025-12-31, the
+latest filed)" on every surface, and the notes add "the latest filed balance,
+as the 2026-06-30 balance sheet does not tag it". Many filers tag these only in the 10-K: FCX's 10-Qs carry
 neither, so a rule bound to the quarter's date would miss them three quarters
 a year. A balance more than a year older than the bridge's is not read.
 Second, assets the issuer tags as legally restricted to settle the retirement obligations

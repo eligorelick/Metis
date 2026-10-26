@@ -6134,6 +6134,10 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
       // tax. Funds legally restricted to retirement settle those first, less
       // any long-term investments already added above.
       const obligations = isNum(netDebtForBridge) ? inputs.debtLikeObligations ?? null : null;
+      // A balance from an earlier filing is dated on its line; the bridge's
+      // own balance-sheet date would otherwise be read as its date.
+      const obligationLabel = (name: string, o: { asOf?: string }) =>
+        `${name} (filed, before tax${o.asOf === undefined ? "" : `; balance at ${o.asOf}, the latest filed`})`;
       if (obligations !== null) {
         const aro = obligations.assetRetirement;
         if (aro !== null && aro.value > 0) {
@@ -6145,14 +6149,14 @@ export function valueCompany(route: CompanyRoute, inputs: ValuationBundleInputs)
               (ltiAdded > 0 ? ` beyond the long-term investments of ${fmtNum(ltiAdded)} the bridge already adds` : "") +
               `: an offset of ${fmtNum(offset)}`;
           if (aro.value - offset > 0) {
-            components.push({ kind: "debt-like-obligation", label: "asset-retirement obligations (filed, before tax)", value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
+            components.push({ kind: "debt-like-obligation", label: obligationLabel("asset-retirement obligations", aro), value: -(aro.value - offset), basis: `${aro.basis}${fundNote}` });
           }
           notes.push(`DCF equity bridge subtracts asset-retirement obligations of ${fmtNum(aro.value)}: ${aro.basis}` +
             (fund === null ? "." : `${fundNote}; ${fmtNum(aro.value - offset)} is deducted.`));
         }
         const env = obligations.environmental;
         if (env !== null && env.value > 0) {
-          components.push({ kind: "debt-like-obligation", label: "environmental remediation accruals (filed, before tax)", value: -env.value, basis: env.basis });
+          components.push({ kind: "debt-like-obligation", label: obligationLabel("environmental remediation accruals", env), value: -env.value, basis: env.basis });
           notes.push(`DCF equity bridge subtracts environmental remediation accruals of ${fmtNum(env.value)}: ${env.basis}.`);
         }
         if ((aro !== null && aro.value > 0) || (env !== null && env.value > 0)) {

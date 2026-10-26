@@ -72,6 +72,10 @@ describe("E-7: reading the filed obligations at the bridge's balance date", () =
     expect(o?.assetRetirement?.value).toBe(3_836e6);
     expect(o?.assetRetirement?.basis).toMatch(/at 2025-12-31 \(10-K filed 2026-02-12\); the latest filed balance, as the 2026-06-30 balance sheet does not tag it/);
     expect(o?.environmental?.value).toBe(2_018e6);
+    // The earlier balance date travels with each figure, for the bridge's label.
+    expect(o?.assetRetirement?.asOf).toBe("2025-12-31");
+    expect(o?.environmental?.asOf).toBe("2025-12-31");
+    expect(debtLikeObligationsAt(FCX_FACTS, "2025-12-31", "USD", "2026-10-22")?.assetRetirement?.asOf).toBeUndefined();
     // A balance dated after the bridge's is not read.
     const later = facts({ AssetRetirementObligation: [usd("2026-09-30", 4_000e6, "10-Q", "2026-10-20")] });
     expect(debtLikeObligationsAt(later, "2026-06-30", "USD", "2026-10-22")).toBeNull();
@@ -164,6 +168,17 @@ describe("E-7: the equity bridge deducts tagged retirement and environmental obl
     expect(labels.some((l) => /^Less asset-retirement obligations/.test(l))).toBe(true);
     expect(labels.some((l) => /^Less environmental remediation accruals/.test(l))).toBe(true);
     expect(labels.some((l) => /^Plus non-operating/.test(l))).toBe(false);
+  });
+
+  it("names an earlier balance date on the bridge line, which otherwise reads as the bridge's own balance sheet", () => {
+    const earlier = dcfOf({ debtLikeObligations: {
+      assetRetirement: { ...filed(384, "AssetRetirementObligation"), asOf: "2025-09-30" }, environmental: filed(202, "AccrualForEnvironmentalLossContingencies"), settlementAssets: null,
+    } });
+    const display = computeDcfDisplay(earlier, "USD");
+    const labels = valuationAuditTables({ ...display!, perShare: null } as never).find((t) => t.heading === "Enterprise value to equity bridge")!.rows.map((r) => r[0]);
+    expect(labels).toContain("Less asset-retirement obligations (filed, before tax; balance at 2025-09-30, the latest filed)");
+    expect(labels).toContain("Less environmental remediation accruals (filed, before tax)");
+    expect(fixedBridgeNonOperatingText(earlier.dcf!.bridge, (v) => v.toFixed(2))).toBe(", less asset-retirement obligations 384.00, less environmental remediation accruals 202.00");
   });
 
   it("carries the same bridge into the sensitivity grid and the reverse DCF", () => {

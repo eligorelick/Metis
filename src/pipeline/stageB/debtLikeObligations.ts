@@ -22,6 +22,8 @@ export interface FiledObligation {
   value: number;
   /** The tags, amounts and filing, for the bridge disclosure. */
   basis: string;
+  /** The balance date read, when earlier than the bridge's (the bridge line names it). */
+  asOf?: string;
 }
 
 export interface DebtLikeObligations {
@@ -73,7 +75,7 @@ function readLatest(facts: CompanyFacts, choice: TagChoice, unit: string, date: 
     const found = read(facts, choice, unit, at, observedDay);
     if (found !== null) {
       return at === date ? { ...found, date: at }
-        : { ...found, date: at, basis: `${found.basis}; the latest filed balance, as the ${date} balance sheet does not tag it` };
+        : { ...found, date: at, asOf: at, basis: `${found.basis}; the latest filed balance, as the ${date} balance sheet does not tag it` };
     }
   }
   return null;
@@ -102,7 +104,8 @@ export function debtLikeObligationsAt(facts: CompanyFacts | null | undefined, da
   const aro = readLatest(facts, ASSET_RETIREMENT, unit, date, observedDay);
   const env = readLatest(facts, ENVIRONMENTAL, unit, date, observedDay);
   if (aro === null && env === null) return null;
-  const strip = (o: (FiledObligation & { date: string }) | null): FiledObligation | null => o === null ? null : { value: o.value, basis: o.basis };
+  const strip = (o: (FiledObligation & { date: string }) | null): FiledObligation | null =>
+    o === null ? null : { value: o.value, basis: o.basis, ...(o.asOf === undefined ? {} : { asOf: o.asOf }) };
   return {
     assetRetirement: strip(aro),
     environmental: strip(env),
