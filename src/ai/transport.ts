@@ -32,9 +32,14 @@ class ChatGptStreamError extends Error {
  */
 const CHATGPT_USAGE_LIMIT = `ChatGPT usage limit reached. Review your plan or this app's limit in ChatGPT settings (Manage usage: ${CHATGPT_MANAGE_USAGE_URL}). No paid fallback was attempted.`;
 const CHATGPT_TEMPORARILY_UNAVAILABLE = "ChatGPT plan usage is temporarily unavailable. The connection is kept; run the report again later. No paid fallback was attempted.";
+/** The Responses `service_tier` value for a saved speed: Fast is sent as "priority". */
+export function chatGptWireServiceTier(tier: "default" | "fast" | undefined): "default" | "priority" {
+  return tier === "fast" ? "priority" : "default";
+}
 function chatGptFailure(error: unknown): string | null {
   if (!error || typeof error !== "object") return null;
-  const { code, param } = error as Record<string, unknown>;
+  const { code, param, message } = error as Record<string, unknown>;
+  if (typeof message === "string" && /\bservice_tier\b/i.test(message)) return "ChatGPT did not accept the selected speed. Choose Standard or a model/account with Fast access. No paid fallback was attempted.";
   if (code === "subscription_sharing_usage_limit_exceeded") return CHATGPT_USAGE_LIMIT;
   if (code === "subscription_sharing_usage_unavailable" || code === "subscription_sharing_user_unavailable") return CHATGPT_TEMPORARILY_UNAVAILABLE;
   if (code === "subscription_sharing_user_not_eligible") return "ChatGPT plan usage is not available for this account, workspace or policy. Metis will not retry it or fall back to paid usage.";
@@ -85,7 +90,7 @@ export async function consumeChatGptStream(response: Response, onPartialText?: (
     : response.status === 401 ? "ChatGPT did not accept this connection's sign-in or plan-usage permission. Reconnect the account in Settings → AI connections."
       : response.status === 403 ? "ChatGPT refused this request under a policy or permission check (such as the permitted serving region) or for model access."
         : response.status === 503 ? CHATGPT_TEMPORARILY_UNAVAILABLE
-          : "ChatGPT could not start the report pass.");
+          : `ChatGPT could not start the report pass (HTTP ${response.status}).`);
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = ""; let bytes = 0;
@@ -258,7 +263,11 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
             // still returned invalid JSON on large reports, so the caller's parse and
             // schema validation (and their retries) remain the real guard.
             ...(args.outputSchema ? { text: { format: { type: "json_object" } } } : {}),
-            service_tier: options.serviceTier ?? "default",
+            // Fast is the "priority" service tier on the wire: the Responses
+            // endpoint behind ChatGPT plan usage rejects "fast" with
+            // "Unsupported service_tier: fast" (live NVDA run 2026-10-26),
+            // as Codex itself sends "priority" for its Fast mode.
+            service_tier: chatGptWireServiceTier(options.serviceTier),
           }),
         }), args.onPartialText);
       } finally { tracked.release(); }

@@ -45,7 +45,7 @@ describe("provider dispatch and catalog lifecycle", () => {
     remote.mockResolvedValueOnce(event({ ...completed, response: { ...completed.response, model: "gpt-6.1-sol", reasoning: { effort: "high" }, service_tier: "default" } }));
     const result = await runSubscriptionPass({ ...args, model: "chatgpt/gpt-6.1-sol", effort: "low" }, "account", { effort: "high", serviceTier: "fast" });
     const [, options] = remote.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(options.body as string)).toMatchObject({ model: "gpt-6.1-sol", reasoning: { effort: "high" }, service_tier: "fast" });
+    expect(JSON.parse(options.body as string)).toMatchObject({ model: "gpt-6.1-sol", reasoning: { effort: "high" }, service_tier: "priority" });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.data.execution).toMatchObject({ requestedEffort: "high", effectiveEffort: "high", requestedServiceTier: "fast", effectiveServiceTier: "default" });
   });

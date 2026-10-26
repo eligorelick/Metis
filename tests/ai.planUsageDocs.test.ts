@@ -98,3 +98,18 @@ describe("Fast is offered only where OpenAI documents it", () => {
     for (const model of ["gpt-6.1-luna", "gpt-5.5", "gpt-6.1-sol-mini", ""]) expect(chatGptFastOffered(model)).toBe(false);
   });
 });
+
+describe("Fast on the wire (live NVDA run, 2026-10-26)", () => {
+  it("sends Fast as the priority service tier and Standard as default", async () => {
+    const { chatGptWireServiceTier } = await import("@/ai/transport");
+    expect(chatGptWireServiceTier("fast")).toBe("priority");
+    expect(chatGptWireServiceTier("default")).toBe("default");
+    expect(chatGptWireServiceTier(undefined)).toBe("default");
+  });
+
+  it("names the speed when the provider rejects a service tier, and gives the status otherwise", async () => {
+    const rejected = Response.json({ error: { message: "Unsupported service_tier: fast", type: "invalid_request_error", param: null } }, { status: 400 });
+    await expect(consumeChatGptStream(rejected)).rejects.toThrow("selected speed");
+    await expect(consumeChatGptStream(Response.json({ error: { message: "other" } }, { status: 400 }))).rejects.toThrow("(HTTP 400)");
+  });
+});
