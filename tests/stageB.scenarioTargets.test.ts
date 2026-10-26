@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeScenarioTargets,
+  fanOutsideBase,
   SCENARIO_TARGET_METHOD_VERSION,
   type ScenarioTargetsInputs,
 } from "@/pipeline/stageB/scenarioTargets";
@@ -404,6 +405,16 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
         "where faster growth needs reinvestment that earns less than it costs and slower growth releases no capital",
     );
     expect(r.basis).toEqual(["Scenario price targets unavailable: both ±σ runs fall below the base DCF value, so they do not bracket it."]);
+  });
+
+  it("judges the fan on the per-share values the report shows", () => {
+    expect(fanOutsideBase(43.09, 37.23, 33.24)).toBe("below");
+    expect(fanOutsideBase(43.09, 50.1, 47)).toBe("above");
+    expect(fanOutsideBase(43.09, 50.1, 33.24)).toBeNull();
+    // A run within half a cent of the base shows as the base: the fan touches
+    // it, so it still brackets the value it is shown beside.
+    expect(fanOutsideBase(43.09, 43.0861, 33.24)).toBeNull();
+    expect(fanOutsideBase(43.0851, 43.09, 50)).toBeNull();
   });
 });
 

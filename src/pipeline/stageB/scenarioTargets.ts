@@ -73,6 +73,18 @@ const isNum = (v: number | null | undefined): v is number =>
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
+/**
+ * Which side of the base DCF both ±σ runs fall on, or null when they bracket
+ * it. Judged on the per-share values the report shows, so a run that shows as
+ * the base touches it rather than falling outside.
+ */
+export function fanOutsideBase(base: number, bull: number, bear: number): "below" | "above" | null {
+  const [b, runs] = [round2(base), [round2(bull), round2(bear)]];
+  if (runs.every((v) => v < b)) return "below";
+  if (runs.every((v) => v > b)) return "above";
+  return null;
+}
+
 function suppressed(missingReasons: ManifestEntry[], basis: string[]): ScenarioTargets {
   return {
     status: "suppressed",
@@ -304,25 +316,25 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   // capital (reinvestment is floored at zero), gives that peak; Duke Energy's
   // merged second quarter reached it in the 2026-10-22 audit panel.
   const base = baseDcf.perShare;
-  const runs = [optimistic.value, pessimistic.value];
-  if (isNum(base) && runs.every(isNum) && (runs.every((v) => v < base) || runs.every((v) => v > base))) {
-    const below = runs.every((v) => v < base);
+  const side = isNum(base) && isNum(optimistic.value) && isNum(pessimistic.value) ? fanOutsideBase(base, optimistic.value, pessimistic.value) : null;
+  if (side !== null) {
+    const below = side === "below";
     return suppressed(
       [
         {
           field: "valuation.scenarioTargets",
-          reason: `Scenario price targets withheld: both ±σ runs value the shares ${below ? "below" : "above"} the base DCF ` +
-            `(${round2(optimistic.value as number)} and ${round2(pessimistic.value as number)} against ${round2(base)} per share), so they do not bracket it and give no range around it` +
+          reason: `Scenario price targets withheld: both ±σ runs value the shares ${side} the base DCF ` +
+            `(${round2(optimistic.value as number)} and ${round2(pessimistic.value as number)} against ${round2(base as number)} per share), so they do not bracket it and give no range around it` +
             (below ? "; the DCF's value peaks near the base growth path, where faster growth needs reinvestment that earns less than it costs and slower growth releases no capital" : ""),
           severity: "warn",
         },
       ],
-      [`Scenario price targets unavailable: both ±σ runs fall ${below ? "below" : "above"} the base DCF value, so they do not bracket it.`],
+      [`Scenario price targets unavailable: both ±σ runs fall ${side} the base DCF value, so they do not bracket it.`],
     );
   }
 
   const targets: ScenarioTarget[] = [
-    mk("bull", optimistic.value,optimistic.growthDeltaPp, optimistic.marginDeltaPp),
+    mk("bull", optimistic.value, optimistic.growthDeltaPp, optimistic.marginDeltaPp),
     mk("base", baseDcf.perShare, 0, 0),
     mk("bear", pessimistic.value, pessimistic.growthDeltaPp, pessimistic.marginDeltaPp),
   ];
