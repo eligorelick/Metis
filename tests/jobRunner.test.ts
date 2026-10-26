@@ -118,6 +118,7 @@ import {
 } from "@/db";
 import { costLog, jobLlmLeases, jobPassArtifacts, jobs, reports } from "@/db/schema";
 import { setSetting } from "@/settings/settings";
+import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE } from "@/ai/store";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
 import { createRuntimeArtifactManifest } from "../scripts/runtime-artifact-manifest.mjs";
@@ -6085,6 +6086,43 @@ describe("runJob — full pipeline with mock passes", () => {
       aiSelection:{provider:"chatgpt",connectionId:"test-connection",model:"gpt-6.1-sol",effort:"high"}});
     expect(captured).toEqual([{model:"chatgpt/gpt-6.1-sol",connectionId:"test-connection",options:{effort:"high"}}]);
   });
+  it("ends a plan-connection job in one attempt, before any data is fetched, when another Metis server owns the connection (audit 2026-10-22 F-12)", async () => {
+    const {jobId}=createJob("MSFT");
+    const {passes,calls}=mockPasses({bullCostUsd:0,bearCostUsd:0,judgeCostUsd:0,verifyCostUsd:0});
+    let claims=0;
+    let fetches=0;
+    const options={hasAnthropicKey:true,now:NOW,
+      aiSelection:{provider:"chatgpt" as const,connectionId:"test-connection",model:"gpt-6.1-sol",effort:"high" as const},
+      claimAiRuntime:async ()=>{ claims+=1; throw new Error(AI_RUNTIME_CONFLICT_MESSAGE); }};
+    Object.defineProperty(options,"bundle",{get(){ fetches+=1; return fakeBundle("MSFT"); }});
+    const result=await runJob(jobId,passes,options);
+    expect(result.status).toBe("error");
+    expect(claims).toBe(1);
+    expect(fetches).toBe(0);
+    expect(calls).toEqual([]);
+    const row=handle.db.select().from(jobs).where(eq(jobs.id,jobId)).get();
+    const steps=JSON.parse(row!.stepsJson) as StepProgress[];
+    const message=`${AI_RUNTIME_CONFLICT_MESSAGE} ${AI_RUNTIME_CONFLICT_HELP}`;
+    expect(steps.find((s)=>s.step==="fetch")).toMatchObject({status:"error",detail:message});
+    expect(steps.filter((s)=>s.step!=="fetch").every((s)=>s.status==="skipped")).toBe(true);
+    expect(row?.error).toBe(message);
+    expect(message).toContain('"AI store is held by another server"');
+  });
+  it("leaves any other runtime-claim problem to the pass and runs the job", async () => {
+    const {jobId}=createJob("MSFT");
+    const {passes,calls}=mockPasses({bullCostUsd:0,bearCostUsd:0,judgeCostUsd:0,verifyCostUsd:0});
+    const result=await runJob(jobId,passes,{bundle:fakeBundle("MSFT"),hasAnthropicKey:true,now:NOW,
+      aiSelection:{provider:"chatgpt",connectionId:"test-connection",model:"gpt-6.1-sol",effort:"high"},
+      claimAiRuntime:async ()=>{ throw new Error("AI connection storage cannot be read; credentials were not replaced"); }});
+    expect(result.status).toBe("done");
+    expect(calls.length).toBeGreaterThan(0);
+  });
+  it("makes no runtime claim for an API-key job", async () => {
+    const {jobId}=createJob("MSFT");
+    let claims=0;
+    await runJob(jobId,mockPasses().passes,{bundle:fakeBundle("MSFT"),hasAnthropicKey:true,now:NOW,claimAiRuntime:async ()=>{ claims+=1; }});
+    expect(claims).toBe(0);
+  });
   it("runs all steps in order, logs cost, persists the report, links jobs.reportId", async () => {
     const { jobId } = createJob("AAPL");
     const { passes, calls } = mockPasses();
@@ -6149,7 +6187,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.2");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.3");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);

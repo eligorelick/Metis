@@ -2,6 +2,7 @@ import "server-only";
 import type { RunPassArgs, RunPassOutcome } from "@/pipeline/stageC/passes";
 import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt";
 import { runGemini } from "./gemini";
+import { AI_RUNTIME_CONFLICT_HELP, isAiRuntimeConflict } from "./store";
 import { PassSettlementHookError } from "@/pipeline/jobArtifacts";
 import { CHATGPT_EFFORTS, parseSubscriptionModel, subscriptionModel, validModelId, type ChatGptEffort, type ChatGptModelChoice, type ChatGptRunOptions } from "./contracts";
 
@@ -257,10 +258,11 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
   } catch (error) {
     if (error instanceof PassSettlementHookError) throw error;
     const observed = error instanceof ChatGptStreamError ? error.observed : undefined;
-    const runtimeConflict = error instanceof Error && error.message === "AI connections are active in another Metis server. Use that server or stop it before connecting here.";
-    const reason = error instanceof Error && (/^(ChatGPT|Gemini|Invalid completed|Invalid subscription)/.test(error.message)
-      || runtimeConflict)
-      ? error.message : `${parsed.provider} pass failed or was canceled. No paid fallback was attempted.`;
+    const runtimeConflict = isAiRuntimeConflict(error);
+    const reason = runtimeConflict
+      ? `${(error as Error).message} ${AI_RUNTIME_CONFLICT_HELP}`
+      : error instanceof Error && /^(ChatGPT|Gemini|Invalid completed|Invalid subscription)/.test(error.message)
+        ? error.message : `${parsed.provider} pass failed or was canceled. No paid fallback was attempted.`;
     return { ok: false, gap: { field, reason, severity: "critical", attemptedSources: [parsed.provider] },
       error: { kind: "transport", message: reason, model: observed?.model ? subscriptionModel(parsed.provider, observed.model) : args.model, costUsd: 0, fallbackUsed: false, aborted: args.signal?.aborted === true,
         ...(runtimeConflict ? { notLaunched: true } : {}),

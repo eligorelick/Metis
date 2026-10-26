@@ -300,7 +300,7 @@ suite. A historical audit's passing counts do not prove the current checkout.
 | PDF download is HTML | Open the print view and use browser Print → Save as PDF. |
 | Corrected export refuses a path | Choose new HTML and JSON destinations; existing files are never overwritten. |
 | WACC line names a cached or Treasury risk-free rate, or a FRED gap names an HTML page | FRED served a maintenance/outage page (HTTP 200) on both its API and `fredgraph.csv`. The run used the last cached `DGS10` observation (at most 10 business days old) or the Treasury par yield curve, as its `riskFree.substitution` entry says; rerun once FRED is back for a `DGS10` rate. |
-| AI store is held by another server | Use the owning local server or stop it before connecting here; changing DB paths does not isolate AI credentials. |
+| AI store is held by another server | A plan-connection job stops at the start of its fetch step, in one attempt and before any data is fetched, with "AI connections are active in another Metis server"; a pass refused mid-run says the same and is not retried. Use the owning local server or stop it before connecting here; changing DB paths does not isolate AI credentials. |
 
 Implementation anchors: `src/app/api/`, `src/app/requestSecurity.ts`,
 `src/pipeline/jobRunner.ts`, `jobStore.ts`, `jobScheduler.ts`, `events.ts`,

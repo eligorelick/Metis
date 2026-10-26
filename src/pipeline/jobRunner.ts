@@ -33,6 +33,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
 import { parseSubscriptionModel, subscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
+import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
 import { costLog, jobPassArtifacts, jobs, reports, type JobRow } from "@/db/schema";
@@ -508,8 +509,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). */
-export const PIPELINE_VERSION = "stage-c-1.6.2" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.3 (D-107): the plan-connection runtime claim before the data fetch. */
+export const PIPELINE_VERSION = "stage-c-1.6.3" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -2268,6 +2269,11 @@ export interface RunJobOptions<TPayload = unknown> {
   /** Options forwarded to buildDataBundle (injectable clients/clock in tests). */
   bundleOptions?: BuildDataBundleOptions;
   /**
+   * The plan-connection runtime claim made before the data fetch (audit
+   * 2026-10-22 F-12). Defaults to `claimAiRuntimeForRun`; tests inject it.
+   */
+  claimAiRuntime?: () => Promise<void>;
+  /**
    * Test/override hook: skip live fetch and use this bundle directly. When set,
    * the fetch step is marked done immediately with this bundle.
    */
@@ -2741,6 +2747,17 @@ export async function runJob<TPayload = unknown>(
 
     // -- fetch ----------------------------------------------------------------
     startStep(state, "fetch");
+    // Audit 2026-10-22 F-12: a plan connection owned by another Metis server
+    // ends the job here, in one attempt, before any data is fetched. Any other
+    // store problem is left to the pass, which reports its own reason.
+    if ("connectionId" in aiSelection) {
+      try {
+        await (opts.claimAiRuntime ?? claimAiRuntimeForRun)();
+      } catch (err) {
+        if (isAiRuntimeConflict(err)) return failRun(state, "fetch", new Error(`${AI_RUNTIME_CONFLICT_MESSAGE} ${AI_RUNTIME_CONFLICT_HELP}`));
+      }
+      throwIfJobAborted(jobSignal);
+    }
     let bundle: DataBundle;
     const stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
     try {
