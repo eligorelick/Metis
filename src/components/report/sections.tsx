@@ -2121,7 +2121,7 @@ export function ReportMetaStrip({
     report.appendix.sources,
   );
   const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
-  const provenance = provenanceHeadline(m.provenanceCoverage);
+  const provenance = provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
   const identityNote = reportIdentityNote(report,{selectedReportId});
   return (

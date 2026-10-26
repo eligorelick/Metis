@@ -95,6 +95,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/diff.ts",
   "src/report/diffPresentation.ts",
   "src/report/claimMatching.ts",
+  "src/report/verificationMarks.ts",
   "src/report/legacyEntitySafety.ts",
   "src/report/principalAggregationSafety.ts",
   "src/report/enterpriseValueSafety.ts",

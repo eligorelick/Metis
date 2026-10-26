@@ -23,6 +23,7 @@ import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
+import { claimStatusMarkText, indexVerificationMarks } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -217,10 +218,16 @@ function subsection(heading: string, body: string): string[] {
  * Shared block renderers
  * ======================================================================== */
 
+/** F-21: a factual claim's verification status after its citation, or nothing. */
+function withStatusMark(claim: SourcedClaim): string {
+  const mark = claimStatusMarkText(claim);
+  return mark === null ? "" : ` ${mark}`;
+}
+
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_`)
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${withStatusMark(c)}`)
     .join("\n");
 }
 
@@ -333,7 +340,7 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
         ["Data completeness", dataStateText(completeness)],
         ...evidenceRow(report),
         ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
-        ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage)!]] : []),
+        ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
         ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
       ],
     ),
@@ -759,11 +766,11 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
   if (dataOnly) lines.push("Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.", "");
   lines.push(...subsection("### Catalysts", bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, displayProse(c.reasoning.text, c.reasoning.source)]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, `${displayProse(c.reasoning.text, c.reasoning.source)}${withStatusMark(c.reasoning)}`]),
   )));
   lines.push(...subsection("### Risks", bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), `${displayProse(r.reasoning.text, r.reasoning.source)}${withStatusMark(r.reasoning)}`]),
     ["Probability"],
   )));
   lines.push(...auditTableBlocks(extra));
@@ -937,6 +944,7 @@ function capitalize(s: string): string {
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,

@@ -17,7 +17,7 @@ import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
+import { displayedClaimCoverage, displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
 export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
@@ -1049,8 +1049,9 @@ function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"
   };
 }
 
-export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
-  if (!coverage) return [];
+export function trustRows(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
+  if (!recorded) return [];
+  const coverage = displayedClaimCoverage(recorded, log);
   // Audit 2026-10-22 B-10: validation first; citation and tracing are provenance.
   const rows: TrustRow[] = [];
   const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
@@ -1079,8 +1080,9 @@ export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readon
  * figure. Audit 2026-10-22 B-10: the line leads with the numeric validation
  * fraction; tracing and citation are provenance, on {@link provenanceHeadline}.
  */
-export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
-  if (!coverage) return null;
+export function trustHeadline(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
+  if (!recorded) return null;
+  const coverage = displayedClaimCoverage(recorded, log);
   const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (!v) return "numeric claims not validated: no verification result recorded";
   const partition = numericClaimPartition(v);
@@ -1094,8 +1096,9 @@ export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: re
 }
 
 /** The header's provenance line: figures traced and claims cited, which are not validation (B-10). */
-export function provenanceHeadline(coverage: ProvenanceCoverage | undefined): string | null {
-  if (!coverage) return null;
+export function provenanceHeadline(recorded: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
+  if (!recorded) return null;
+  const coverage = displayedClaimCoverage(recorded, log);
   return `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source; ` +
     `${coverage.factualClaims.supported}/${coverage.factualClaims.total} factual claims carry a citation (provenance, not validation)`;
 }

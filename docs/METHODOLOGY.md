@@ -2671,6 +2671,20 @@ it. A stored report with no recorded validation result reads "numeric claims
 not validated: no verification result recorded". The Verification table lists
 the numeric validation row first and the provenance rows after it.
 
+Each factual claim (FACT or ESTIMATE) the verify pass logged carries its
+status after its citation, in the page, Markdown and print reports: `[validated]`
+when a figure it states matched the cited record, `[contradicted]` for a value
+conflict, `[qualitative]` when it is cited and states no figure to match, and
+`[unverified]` otherwise (audit 2026-10-22 F-21). The mark comes from the
+claim's own verification-log entry, matched by report path and text; a
+judgment, a data-only report and a note written after the verify pass carry
+none. The counts on the verification and provenance lines and in the
+Verification table are counts of those marked claims. The grade strip prints
+each section's grade and one-line why, not its reasoning, so the verify pass's
+entries for grade-strip reasoning (often a copy of the section's own claims)
+stay in the verification log but are left out of the factual and judgment
+counts, and the audit export says how many were left out.
+
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The
 report's execution metadata distinguishes requested mode and actual outcome;

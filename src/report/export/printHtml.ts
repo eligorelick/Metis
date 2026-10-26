@@ -2,6 +2,7 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
+import { claimStatusMarkText, indexVerificationMarks } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -240,11 +241,23 @@ function subsection(heading: string, body: string, level = "h3"): string {
   return body ? `<${level}>${esc(heading)}</${level}>${body}` : "";
 }
 
+/** F-21: a factual claim's verification status after its citation, or nothing. */
+function statusMark(claim: SourcedClaim): string {
+  const mark = claimStatusMarkText(claim);
+  return mark === null ? "" : ` <span class="claim-status">${esc(mark)}</span>`;
+}
+
+/** The same mark as plain text for a table cell, which the table escapes. */
+function statusMarkSuffix(claim: SourcedClaim): string {
+  const mark = claimStatusMarkText(claim);
+  return mark === null ? "" : ` ${mark}`;
+}
+
 /** Claims with ONE source marker each (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   if (claims.length === 0) return "";
   return `<ul class="claims">${claims
-    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${esc(claimCitation(c))}</span></li>`)
+    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${esc(claimCitation(c))}</span>${statusMark(c)}</li>`)
     .join("")}</ul>`;
 }
 
@@ -324,7 +337,7 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Data completeness", dataStateText(completeness)],
       ...evidenceRow(report),
       ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
-      ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage)!]] : []),
+      ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage, report.appendix.verificationLog)!]] : []),
       ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
     ].map((r) => r.map((c) => esc(String(c)))),
   );
@@ -637,11 +650,11 @@ function sectionCompetitive(c: Competitive, report: Report): string {
 function sectionCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: ReportAuditTable[] = []): string {
   const catalysts = bodyTable(
     ["Catalyst", "Expected", "Direction", "Significance", "Note"],
-    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, displayProse(c.reasoning.text, c.reasoning.source)]),
+    cr.catalysts.map((c) => [c.title, c.expectedDate ?? DASH, c.direction, c.significance, `${displayProse(c.reasoning.text, c.reasoning.source)}${statusMarkSuffix(c.reasoning)}`]),
   );
   const risks = bodyTable(
     ["Risk", "Severity", "Probability", "Source", "Note"],
-    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), displayProse(r.reasoning.text, r.reasoning.source)]),
+    cr.risks.map((r) => [r.title, r.severity, r.probability, sourceLabel(r.source), `${displayProse(r.reasoning.text, r.reasoning.source)}${statusMarkSuffix(r.reasoning)}`]),
     ["Probability"],
   );
   const disclosure = dataOnly ? "<p>Not assessed — no completed analyst assessment is available. Empty lists do not establish that no catalysts or risks exist.</p>" : "";
@@ -744,6 +757,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  indexVerificationMarks(report);
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
@@ -805,6 +819,7 @@ p { margin: 4pt 0; overflow-wrap: anywhere; }
 .mono { font-family: "SF Mono", "Consolas", "Menlo", monospace; font-variant-numeric: tabular-nums; }
 .asof { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .src { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
+.claim-status { color: #3d382f; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
 .print-ledger-table { table-layout: fixed; }
 .report-header table { table-layout: fixed; }
