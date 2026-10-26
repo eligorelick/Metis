@@ -51,7 +51,7 @@ Every new test failed before its fix, except the negative cases (another filing,
 
 ## Control panel
 
-All 45 control-panel tickers ran keyless on copies of the census data, with every cost cap at 0, behind a dead proxy so that only the run cache served provider data. Base is `2f0772c` and head is this branch. No ticker errored and no company lost a figure.
+All 45 control-panel tickers ran keyless on the final code (rerun after the review fixes; every figure matched the first head run) on copies of the census data, with every cost cap at 0, behind a dead proxy so that only the run cache served provider data. Base is `2f0772c` and head is this branch. No ticker errored and no company lost a figure.
 
 | Figure | Base | Head | Change |
 |---|---|---|---|
@@ -79,8 +79,11 @@ What moved the bands and composites:
 Text-only changes:
 
 - **V.** Its critical DCF gap now names the NCI ownership gate ("noncontrolling ownership unresolved at …") instead of "DCF inputs not provided by caller" (C-15). The figure stays withheld because Visa's NCI is still unresolved.
-- **TSM.** Its debt gap now names its cause. The first head run worded a missing balance badly; `25bd6ca` fixed that wording.
+- **TSM.** Its critical WACC gap now names its cause: "no balance sheet to average". The first head run worded a missing balance badly, and `25bd6ca` fixed that wording.
 - **T.** Its DCF is still withheld, now by the existing sales-to-capital gate (lease-excluded debt unavailable) rather than by WACC.
+- **LLY.** An info gap now says operating income is derived in only some of the latest four quarters, so no partial sum is labelled TTM; the DCF is still built (842.45 a share).
+- **TSLA.** Its share-basis warning lists one more left-out fact, because the combined basic-and-diluted EPS element is now read (B-35).
+- **JNJ.** It gets no B-34 substitution: its quarters differ from their components by display rounding only (`242a822`). CSCO is the only panel ticker the rule fires on.
 
 Cache-miss and provider-error rows were identical on both sides:
 
