@@ -217,6 +217,13 @@ export interface WaccInputs {
   analysisDate?: string;
   /** Use the financial-service spread table (banks/insurers/capital markets). Default false. */
   isFinancial?: boolean;
+  /**
+   * Audit 2026-10-22 B-31: the route ("bank", "insurer", "reit-mortgage") when
+   * it values equity at the cost of equity alone. The cost of equity is
+   * computed; the WACC and the cost of debt are withheld, since nothing on the
+   * route uses them.
+   */
+  equityOnlyRoute?: string | null;
   /** Latest totalAssets — enables the 2%-of-assets de-minimis debt test when provided. */
   totalAssets?: number | null;
   /** Statements' reported currency (e.g. inc0.reportedCurrency). */
@@ -345,6 +352,8 @@ export interface WaccResult {
   betaRegressionUnavailable?: string | null;
   /** D-60: what the debt WEIGHT divided by, when it differs from debtBasis (the latest balance). */
   debtWeightBasis?: string | null;
+  /** Audit 2026-10-22 B-31: why the WACC and cost of debt were withheld on an equity-valued route. */
+  withheld?: string;
 }
 
 function fmt(n: number): string {
@@ -547,6 +556,27 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
   } else if (re > RE_CEILING_PCT) {
     clampsApplied.push(`cost of equity clamped ${fmt(re)}% → ${RE_CEILING_PCT}% (ceiling)`);
     re = RE_CEILING_PCT;
+  }
+
+  // Audit 2026-10-22 B-31: a route valued on the cost of equity alone has no
+  // use for a WACC, and its interest expense (deposits, policy reserves, repo)
+  // over its debt is not a borrowing cost (BAC printed 22.7%). Neither is
+  // computed, so neither can reach a surface.
+  if (inputs.equityOnlyRoute) {
+    const withheld = `WACC and pre-tax cost of debt withheld: the ${inputs.equityOnlyRoute} route values equity at the cost of equity, so no WACC is used, and its interest expense (deposits, policy reserves, repo) over its debt is not a borrowing cost`;
+    notes.unshift(withheld);
+    gaps.push({ field: "returns.wacc", reason: withheld, severity: "info", expected: true });
+    return {
+      ...base,
+      waccPct: null,
+      waccRawPct: null,
+      costOfEquityPct: re,
+      costOfDebtPct: null,
+      costOfDebtMethod: "unavailable",
+      weightEquity: null,
+      weightDebt: null,
+      withheld,
+    };
   }
 
   // --- Cost of debt --------------------------------------------------------------
@@ -1022,6 +1052,10 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
       : "";
   const betaSourceText = result.betaSource ? ` — ${result.betaSource}` : "";
   const summary =
+    result.withheld ? `Cost of equity ${pctOrNa(result.costOfEquityPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${result.riskFreeSeriesId ?? "series not stated"}` +
+    `${rfAsOf ? `, observation ${rfAsOf}` : ""}); ERP ${pctOrNa(result.erpPct)} (${erpSourceLabel ?? "unavailable"}` +
+    `${result.erpSource === "vendor" ? erpVintageText : result.erpAsOf ? `${erpVintageText || `, as of ${result.erpAsOf}`}` : ""}); beta ${result.betaFinal === null ? "n/a" : fmt(result.betaFinal)}` +
+    ` (${BETA_METHOD_LABEL}${result.betaRaw !== null ? `, raw ${fmt(result.betaRaw)}${betaSourceText}${regressionText}` : ""}); WACC and pre-tax cost of debt withheld on this route` :
     `WACC ${pctOrNa(result.waccPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${result.riskFreeSeriesId ?? "series not stated"}` +
     `${rfAsOf ? `, observation ${rfAsOf}` : ""}); ERP ${pctOrNa(result.erpPct)} (${erpSourceLabel ?? "unavailable"}` +
     `${result.erpSource === "vendor" ? erpVintageText : result.erpAsOf ? `${erpVintageText || `, as of ${result.erpAsOf}`}` : ""}); beta ${result.betaFinal === null ? "n/a" : fmt(result.betaFinal)}` +
@@ -1043,7 +1077,8 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
 export interface WaccYearPoint {
   /** Fiscal year end the WACC applies to. */
   date: string;
-  waccPct: number;
+  /** Null on a route valued at the cost of equity (audit 2026-10-22 B-31). */
+  waccPct: number | null;
   riskFreePct: number;
   /** Date of the risk-free observation used (on or before the fiscal year end). */
   riskFreeAsOf: string;
@@ -1064,6 +1099,55 @@ export interface WaccHistoryResult {
 
 /** A risk-free observation older than this at a fiscal year end is not "that year's" rate. */
 export const WACC_HISTORY_RF_MAX_AGE_DAYS = 14;
+
+/**
+ * Audit 2026-10-22 B-31: on a route valued at the cost of equity the history
+ * is each fiscal year's cost of equity, the hurdle the excess-return model
+ * reads, with the same risk-free selection and Re clamps as the WACC history.
+ */
+function costOfEquityByFiscalYear(
+  wacc: WaccResult,
+  years: readonly string[],
+  riskFreeObservations: ReadonlyArray<{ date: string; value: number }>,
+  seriesId: string,
+  maxAgeDays: number,
+): WaccHistoryResult {
+  const gaps: ManifestEntry[] = [];
+  const betaFinal = wacc.betaFinal;
+  const erp = wacc.erpPct;
+  if (betaFinal === null || erp === null) {
+    const reason = "current cost of equity or one of its components (beta, ERP) is unavailable";
+    return { points: [], missing: years.map((date) => ({ date, reason })), basis: `per-fiscal-year cost of equity unavailable: ${reason}`, notes: [`per-fiscal-year cost of equity unavailable: ${reason}`], gaps };
+  }
+  const observations = riskFreeObservations
+    .filter((o) => isFiniteNumber(o.value) && /^\d{4}-\d{2}-\d{2}/.test(o.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const points: WaccYearPoint[] = [];
+  const missing: Array<{ date: string; reason: string }> = [];
+  for (const yearEnd of years) {
+    const obs = observations.filter((o) => o.date <= yearEnd).at(-1) ?? null;
+    if (obs === null || (Date.parse(`${yearEnd.slice(0, 10)}T00:00:00Z`) - Date.parse(`${obs.date.slice(0, 10)}T00:00:00Z`)) / 86_400_000 > maxAgeDays) {
+      missing.push({ date: yearEnd, reason: obs === null ? `no ${seriesId} observation on or before ${yearEnd}` : `latest ${seriesId} observation ${obs.date} is more than ${maxAgeDays} days before ${yearEnd}` });
+      continue;
+    }
+    const re = Math.min(Math.max(obs.value + betaFinal * erp, obs.value + RE_FLOOR_OVER_RF_PCT), RE_CEILING_PCT);
+    points.push({ date: yearEnd, waccPct: null, riskFreePct: obs.value, riskFreeAsOf: obs.date, costOfEquityPct: re, costOfDebtPct: null });
+  }
+  const pointText = points.map((p) => `${p.date}: rf ${fmt(p.riskFreePct)}% (${p.riskFreeAsOf}) → cost of equity ${fmt(p.costOfEquityPct)}%`).join("; ");
+  const basis = points.length === 0
+    ? `per-fiscal-year cost of equity unavailable: ${missing.map((m) => m.reason).join("; ")}`
+    : `per-fiscal-year cost of equity from ${seriesId} at each fiscal year end, holding beta ${fmt(betaFinal)} and ERP ${fmt(erp)}% constant: ${pointText}` +
+      (missing.length > 0 ? `; ${missing.map((m) => `${m.date}: ${m.reason}`).join("; ")}` : "");
+  if (missing.length > 0) {
+    gaps.push({
+      field: "returns.wacc.history",
+      reason: `per-fiscal-year cost of equity unavailable for ${missing.map((m) => m.date).join(", ")} — the current cost of equity is applied to those years`,
+      severity: "info",
+      attemptedSources: [seriesId],
+    });
+  }
+  return { points, missing, basis, notes: [basis], gaps };
+}
 
 /**
  * WACC at each fiscal year end, holding the current beta, ERP, E/D weights,
@@ -1094,6 +1178,7 @@ export function waccByFiscalYear(
     gaps,
   });
   if (years.length === 0) return unavailable("no fiscal year ends supplied");
+  if (wacc.withheld !== undefined) return costOfEquityByFiscalYear(wacc, years, riskFreeObservations, seriesId, maxAgeDays);
   if (
     wacc.waccPct === null ||
     wacc.betaFinal === null ||
@@ -1160,7 +1245,7 @@ export function waccByFiscalYear(
     `beta ${fmt(betaFinal)}, ERP ${fmt(erp)}%, E/D weights ${fmt(wE * 100)}%/${fmt(wD * 100)}%, ` +
     `${wacc.taxRateUsed === null ? "no tax shield" : `tax rate ${fmt(wacc.taxRateUsed * 100)}%`} and the ${wacc.costOfDebtMethod} cost of debt ` +
     `${wacc.costOfDebtMethod === "synthetic" ? "(rf + rating spread, so it moves with rf)" : "(held at the current rate)"}`;
-  const pointText = points.map((p) => `${p.date}: rf ${fmt(p.riskFreePct)}% (${p.riskFreeAsOf}) → WACC ${fmt(p.waccPct)}%`).join("; ");
+  const pointText = points.map((p) => `${p.date}: rf ${fmt(p.riskFreePct)}% (${p.riskFreeAsOf}) → WACC ${p.waccPct === null ? "n/a" : fmt(p.waccPct)}%`).join("; ");
   const basis =
     points.length === 0
       ? `per-fiscal-year WACC unavailable: ${missing.map((m) => m.reason).join("; ")}`

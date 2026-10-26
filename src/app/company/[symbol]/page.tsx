@@ -372,7 +372,7 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
           delta={roicAsOf ? <span className="text-faint">{roicAsOf.slice(0, 4)}</span> : undefined}
           tone="neutral"
         />
-        <StatCell label="wacc" value={fmtPct(r.wacc.waccPct)} tone="neutral" />
+        <StatCell label="wacc" value={r.wacc.withheld ? "not used" : fmtPct(r.wacc.waccPct)} tone="neutral" />
         <StatCell
           label="spread"
           value={spreadDisplay === null ? "n/a" : `${spreadDisplay >= 0 ? "+" : ""}${spreadDisplay.toFixed(1)} pp`}
@@ -381,8 +381,8 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
         <StatCell label="cost of equity" value={fmtPct(r.wacc.costOfEquityPct)} tone="muted" />
         <StatCell
           label="cost of debt"
-          value={fmtPct(r.wacc.costOfDebtPct)}
-          delta={<span className="text-faint">{r.wacc.costOfDebtMethod}</span>}
+          value={r.wacc.withheld ? "not used" : fmtPct(r.wacc.costOfDebtPct)}
+          delta={r.wacc.withheld ? undefined : <span className="text-faint">{r.wacc.costOfDebtMethod}</span>}
           tone="muted"
         />
       </div>

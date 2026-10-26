@@ -257,7 +257,7 @@ rate)` row) and in the report's computed-returns notes.
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed. No universal statutory rate is assumed. |
-| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, a WACC-only shortfall is disclosed as a warning rather than blocking the report. |
+| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
 The final WACC is clamped to [max(6%, rf + 1%), 20%]; a clamp that moves the
 rate by 0.5pp or more is disclosed in the manifest, because it materially
@@ -272,6 +272,23 @@ An observation more than 14 days before a year end is not that year's rate and
 is rejected. Years that cannot be recomputed are named, and the note then says
 the current WACC was applied to them. FRED history is fetched five years back,
 so roughly five fiscal years can carry their own rate.
+
+**No WACC on a route valued at the cost of equity (audit 2026-10-22 B-31).**
+The bank, insurer and mortgage-REIT routes value equity at the cost of equity
+(the excess-return and price-to-book models), so nothing on them uses a WACC.
+Their interest expense is also mostly the cost of deposits, policy reserves and
+repo, and over the debt the WACC divides by it is not a borrowing cost: BAC
+printed a 22.7% pre-tax cost of debt (all $74.09B of interest expense over
+$326.64B of long-term debt; its long-term-debt rate is 3.88%) and a 13.5% WACC
+above its own 9.8% cost of equity. On those routes the cost of equity is
+computed as above, and the WACC, the cost of debt, the E/D weights and the
+synthetic rating are withheld, with an info entry in the manifest saying the
+route values equity at the cost of equity. No surface shows them: the Returns
+table has no WACC or cost-of-debt row and its cost-of-equity row says why, the
+LLM payload lists neither, and the company page shows "not used". The
+per-fiscal-year history on those routes is each year's cost of equity, the
+hurdle the excess-return model reads, recomputed from that year's risk-free
+observation as above.
 
 ---
 

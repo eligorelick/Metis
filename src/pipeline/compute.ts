@@ -2971,6 +2971,8 @@ function computeReturns(
     ebitTtm: ebitForWacc,
     analysisDate: isoDay(bundle.builtAt) ?? undefined,
     isFinancial,
+    // Audit 2026-10-22 B-31: these routes value equity at the cost of equity.
+    equityOnlyRoute: isFinancial ? route.base : null,
     totalAssets: bal0 ? num(bal0.totalAssets) : null,
     // ADR guard: market cap is quoted in the trading currency while totalDebt
     // is a reporting-currency balance, so the E/D weights must not mix them.

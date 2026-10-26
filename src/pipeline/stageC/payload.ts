@@ -699,9 +699,10 @@ function computedSections(
   const returnsFigures: PayloadFigureInput[] = [
     // Current WACC mixes market observations and statement inputs. Its date is
     // the calculation day; each individual input retains its observation date.
-    { label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) },
+    // Audit 2026-10-22 B-31: a route valued at the cost of equity has neither; the returns notes say why.
+    ...(r.wacc.withheld ? [] : [{ label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) }]),
     { label: "cost of equity", value: r.wacc.costOfEquityPct, unit: "%", source: "computed.returns.wacc.costOfEquity", asOf: r.wacc.asOf?.riskFreeRate ?? null },
-    { label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null },
+    ...(r.wacc.withheld ? [] : [{ label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null }]),
     { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: "computed.returns.wacc.riskFree(fred:DGS10)", asOf: r.wacc.asOf?.riskFreeRate ?? null },
     { label: "ERP used", value: r.wacc.erpPct, unit: "%", source: "computed.returns.wacc.erp", asOf: null },
     { label: "beta (final)", value: r.wacc.betaFinal, unit: "x", source: "computed.returns.wacc.beta", asOf: null },
