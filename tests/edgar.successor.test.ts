@@ -183,6 +183,9 @@ describe("predecessorFromFilers", () => {
     expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "8-K")]))).toBe(false);
     expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "10-K")]))).toBe(true);
     expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "40-F")]))).toBe(true);
+    // Audit 2026-10-22 B-23: a point merged from a newer filing's instance is
+    // not history companyfacts carried, which is what the second hop judged.
+    expect(hasOwnAnnualHistory(withPoints([point("2025-01-01", "2025-12-31", "10-K")]), new Set(["0000000000-26-000001"]))).toBe(false);
   });
 });
 
@@ -622,6 +625,28 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
     expect(entry.severity).toBe("warn");
     expect(entry.reason).toMatch(/successor issuer \(Form 8-K12B\)/);
     expect(entry.reason).toMatch(/only the successor's own filing history/);
+  });
+
+  it("still warns when the only annual history is a newer filing merged from its instance (audit 2026-10-22 B-23)", async () => {
+    const base = inputs();
+    const accn = "0002115436-26-000009";
+    const merged: CompanyFacts = { cik: 2115436, entityName: "EXAMPLE SUCCESSOR HOLDINGS CORP", facts: { "us-gaap": { Revenues: { label: "Revenues", units: { USD: [
+      { start: "2025-07-01", end: "2026-06-30", val: 1, accn, fy: 2026, fp: "FY", form: "10-K", filed: "2026-08-20" },
+    ] } } } } };
+    const out = await applyKeylessFallbacks(
+      inputs({
+        edgar: {
+          ...base.edgar,
+          predecessor: null,
+          companyFacts: {
+            ok: true,
+            value: { data: merged, asOf: "2026-06-30", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() },
+          },
+          companyFactsInstances: { companyFactsThrough: null, merged: [{ accession: accn, form: "10-K", filingDate: "2026-08-20", periodEnd: "2026-06-30", count: 1 }] },
+        },
+      }),
+    );
+    expect(out.gaps.find((g) => g.field === "edgar.predecessor")?.severity).toBe("warn");
   });
 
   it("files no warning for a successor that carries its own us-gaap history", async () => {

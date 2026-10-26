@@ -159,7 +159,7 @@ const DAY_MS = 86_400_000;
  * concepts with one quarter each, and the predecessor's ninety years were then
  * never fetched because the successor "had history".
  */
-export function hasOwnAnnualHistory(facts: CompanyFacts | null): boolean {
+export function hasOwnAnnualHistory(facts: CompanyFacts | null, mergedAccessions: ReadonlySet<string> = new Set()): boolean {
   if (facts === null) return false;
   const concepts = facts.facts["us-gaap"];
   if (concepts === undefined || concepts === null || typeof concepts !== "object") return false;
@@ -169,7 +169,9 @@ export function hasOwnAnnualHistory(facts: CompanyFacts | null): boolean {
     for (const rawPoints of Object.values(parsed.data.units)) {
       if (!Array.isArray(rawPoints)) continue;
       for (const p of filterToCoreForms(parseFactPoints(rawPoints))) {
-        if (p.start === undefined) continue;
+        // Audit 2026-10-22 B-23: a point merged from a newer filing's instance
+        // is not history companyfacts carried.
+        if (p.start === undefined || mergedAccessions.has(p.accn)) continue;
         const days = (Date.parse(`${p.end}T00:00:00Z`) - Date.parse(`${p.start}T00:00:00Z`)) / DAY_MS;
         if (days >= ANNUAL_MIN_DAYS && days <= ANNUAL_MAX_DAYS) return true;
       }

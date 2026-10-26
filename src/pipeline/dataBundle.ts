@@ -2238,6 +2238,7 @@ export async function buildDataBundle(
           companyFacts: edgarBundle.companyFacts,
           // WS4 (D-14): pre-reorganization history for a successor registrant.
           predecessor: edgarBundle.predecessor,
+          ...(edgarBundle.companyFactsInstances === undefined ? {} : { companyFactsInstances: edgarBundle.companyFactsInstances }),
         },
         yahoo,
         annualPeriods: ANNUAL_PERIODS,

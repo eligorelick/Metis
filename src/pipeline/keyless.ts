@@ -57,7 +57,7 @@ import {
   type PredecessorFacts,
 } from "@/edgar/successor";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
-import type { EdgarRegistrant } from "@/pipeline/types";
+import type { CompanyFactsInstances, EdgarRegistrant } from "@/pipeline/types";
 import type { CikMapping } from "@/providers/edgar";
 import { isPlanLimited } from "@/providers/fmp";
 import type {
@@ -148,6 +148,8 @@ export interface KeylessInputs {
      * every existing test) keeps working unchanged.
      */
     predecessor?: PredecessorFacts | null;
+    /** Audit 2026-10-22 B-23: the newer filings merged into `companyFacts` from their instances. */
+    companyFactsInstances?: CompanyFactsInstances;
   };
   yahoo: YahooClient;
   annualPeriods: number;
@@ -1170,8 +1172,13 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   // was never attempted and nothing was lost. Warning on the second case told a
   // reader that every multi-year figure measures only the successor's own
   // filing history while that history was in fact present and complete.
-  const successorCarriesOwnHistory =
-    inputs.edgar.companyFacts.ok && hasOwnAnnualHistory(inputs.edgar.companyFacts.value.data);
+  // Judged on the facts companyfacts itself carried, as `resolvePredecessor`
+  // judged them: a newer filing merged from its instance (audit 2026-10-22
+  // B-23) is one period, not the history the second hop looked for.
+  const successorCarriesOwnHistory = inputs.edgar.companyFacts.ok && hasOwnAnnualHistory(
+    inputs.edgar.companyFacts.value.data,
+    new Set((inputs.edgar.companyFactsInstances?.merged ?? []).map((filing) => filing.accession)),
+  );
   if (
     predecessor === null &&
     filedSuccessorForm &&
