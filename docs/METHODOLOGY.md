@@ -3841,12 +3841,16 @@ back to the latest fiscal year, but they were still labelled "TTM". Each
 multiple now records the period its earnings cover ("TTM to 2026-06-30" or
 "FY2025"), and the label follows it in the multiples table, Key data and the
 exports ("P/E (FY2025)", "EV/EBITDA (FY2025)"). In the AI payload a
-fiscal-year multiple names its year in the label the model reads ("peTtm
-(current, FY2025)"), and its record carries that period; a TTM record keeps
-its label and period. TTM labels are unchanged. With no income-statement D&A,
-EBITDA adds the cash-flow statement's D&A only when it covers the same
-period as the operating income; on another period EV/EBITDA is withheld with
-a gap naming both, rather than adding two periods' figures under one label. The P/E basis used to read "price / epsDiluted
+fiscal-year multiple names its year in the label the model reads ("P/E
+(current, FY2025)", "evToEbitda (current, FY2025)"), and its record carries
+that period; a TTM record keeps its label ("peTtm (current)") and period.
+TTM labels are unchanged. With no income-statement D&A, EBITDA adds the
+cash-flow statement's D&A only when it covers the same period as the
+operating income: the cash-flow slice on the same date and basis, or, beside
+a fiscal-year operating income, the annual cash-flow row on that year's date
+even when the cash-flow slice is TTM. On another period, or with either date
+unknown, EV/EBITDA is withheld with a gap naming both, rather than adding two
+periods' figures under one label. The P/E basis used to read "price / epsDiluted
 (TTM); fallback marketCap / common income" whichever ran; it now names only
 the formula that produced the figure, and when it is market cap over common
 income it says why diluted EPS was not used (diluted EPS missing for a
@@ -3866,10 +3870,13 @@ discontinued EPS (ASC 260-10-45-3), so when no net-income EPS is tagged and
 no discontinued result is filed for the period, in dollars or per share, the
 reported continuing figure stands in, with its own provenance and a
 substitution disclosure. A discontinued result filed under any of the
-elements filers use (net of tax, attributable to the reporting entity, the
-DiscontinuedOperation* elements, a gain on disposal, or per basic, diluted or
-combined share) keeps EPS empty, even when it is withheld from the row for
-its currency or period.
+elements filers use (net of tax, before tax, attributable to the reporting
+entity or to noncontrolling interests or including both, during a phase-out
+period, a gain on disposal, or per basic, diluted or combined share) keeps
+EPS empty, even when it is withheld from the row for its currency or period.
+Each element is read on its own, so a zero filed under one does not hide a
+result filed under another; these working figures never stay on the row,
+mark it derived or appear in its notes.
 Freeport's EPS CAGR now runs 2020 to 2025 (1.52 in FY2025, 1.30 in FY2024).
 
 **TTM across a reorganisation (B-36).** A trailing twelve months that joins

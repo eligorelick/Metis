@@ -39,7 +39,7 @@ Two reviews ran on the branch before the pull request: `/code-review` at high ef
 |---|---|---|
 | R1 | A fiscal-year period not named by year ("FY ended 2025-12-31", from a numeric fiscal year) was labelled one way in the table and "P/E (TTM)" in the figure rows and the payload. | Fixed in `3eb8665`: a numeric fiscal year is read as the year, and "FY ended" periods map alike in every label. |
 | R2 | Every multiple's payload record now carried a period the prompt never showed, so a model citing "TTM" or the as-of date would fail the period check, and the period-word check would run on every multiple sentence (both reviews). | Fixed in `3eb8665`: a TTM record carries no period, as on main; a fiscal-year record names its year in the label the model reads, so its period is one the model can see. The payload's provenance hash is main's again. |
-| R3 | The AI read an annual-basis multiple as "peTtm (current)" with no year (subagent). | Fixed in `3eb8665`: "peTtm (current, FY2025)". |
+| R3 | The AI read an annual-basis multiple as "peTtm (current)" with no year (subagent). | Fixed in `3eb8665`, and the key replaced in `fbeefee`: "P/E (current, FY2025)". |
 | R4 | The successor's own-history check ran on the merged facts, so a merged newer filing could drop the "predecessor unresolved" warning. | Fixed in `085d76d`: merged filings' points are left out, as in the predecessor search. |
 | R5 | The continuing-EPS stand-in missed discontinued results filed under other elements, and its working fields could leave notes and warn gaps (both reviews). | Fixed in `7d362d0`: every element filers use counts, one withheld from the row counts as filed, and the working fields' notes and withholdings are dropped. |
 | R6 | EV/EBITDA could add a fiscal-year operating income to a TTM cash-flow D&A, or the reverse, under one period's label. | Fixed in `85da9cf`: the cash-flow D&A stands in only on the same date and basis; otherwise EV/EBITDA is withheld with both periods named. |
@@ -48,7 +48,19 @@ Two reviews ran on the branch before the pull request: `/code-review` at high ef
 | R9, R10 | The instance parse runs before the merge discards most instances, and a release's currency history is recomputed per item. | Not changed: cost, not correctness. Left for later. |
 | R11, R12 | Key data's P/E note and the annual label parse prose; the newer-filing reference is built in two places. | Not changed: design. Tests pin each wording and the banner and gap text. Left for later. |
 
-A second review ran over the fixes above; its findings and dispositions are in the pull request.
+A second review, `/code-review` and a fresh subagent again, ran over the fixes above:
+
+| # | Finding | Disposition |
+|---|---|---|
+| S1 | A fiscal-year P/E's payload label read "peTtm (current, FY2025)", a key that says TTM. | Fixed in `fbeefee`: "P/E (current, FY2025)"; "the current TTM P/E" does not validate on it, and the TTM record is unchanged. |
+| S2 | Beside a fiscal-year operating income, EV/EBITDA was withheld when the cash-flow slice was TTM, although the annual cash-flow row of the same year carries its D&A (subagent). | Fixed in `5797f46`: that row's D&A stands in. |
+| S3 | Two undated rows were read as one period (subagent). | Fixed in `5797f46`: an undated row matches nothing. |
+| S4 | The before-tax, phase-out, disposal per-share and noncontrolling-interest discontinued elements were not read (code review). | Fixed in `3314075`. |
+| S5 | On a first-hit chain a zero under one discontinued element hid a result under a later one (code review). | Fixed in `3314075`: each element is read on its own. |
+| S6 | A working figure backed out of year-to-date marked the row derived and named itself in the derivation note (both reviews). | Fixed in `3314075`. |
+| S7 | The merged-filings record is optional on the keyless inputs, so a caller that drops it would judge a successor's history on merged facts (code review). | Not changed: it is absent exactly when nothing was merged, the one builder sets it whenever a filing is merged, and a test pins the merged case. |
+| S8 | The presentation layer reads a fiscal-year multiple's label from its provenance id by pattern (code review). | Not changed: design. Tests pin the ids and labels; a structured period field would replace the pattern (left for later, with R11). |
+| S9 | Docs still named the payload label "peTtm (current, FY2025)" (code review). | Fixed in this note, METHODOLOGY, D-107 and the changelog. |
 
 ## Control panel
 
