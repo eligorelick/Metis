@@ -1086,12 +1086,14 @@ function computedSections(
     // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
     // suppressed) names that year in its label, so the prompt shows the period
     // its record carries; a TTM multiple keeps its label and registers none.
+    // An annual P/E is not labelled by its key: the claim checker reads the
+    // "Ttm" in "peTtm" as a window the prose must name.
     const annual = m.period !== undefined && m.period.startsWith("FY") ? m.period : null;
     valFigures.push({
-      label: annual === null ? `${m.key} (current)` : `${m.key} (current, ${annual})`,
+      label: annual === null ? `${m.key} (current)` : `${m.key === "peTtm" ? "P/E" : m.key} (current, ${annual})`,
       value: m.current,
       unit: "x",
-      ...(annual !== null && /^FY\d{4}$/.test(annual) ? { period: annual, fiscalPeriod: annual } : {}),
+      ...(annual === null ? {} : { period: annual, ...(/^FY\d{4}$/.test(annual) ? { fiscalPeriod: annual } : {}) }),
       source: `computed.valuation.multiples.${m.key}`,
       asOf: val.kind === "pre-revenue" ? null : val.multiples.asOf.quote,
     });

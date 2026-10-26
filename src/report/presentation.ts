@@ -292,10 +292,10 @@ export function metricLabel(source: string, unit = ""): string {
   if (fromUnit) return fromUnit[0]!.toUpperCase() + fromUnit.slice(1);
   // Audit 2026-10-22 B-9: a multiple on the latest fiscal year (TTM
   // suppressed) names that year in its payload label, so in its id too.
-  const annual = /^computed\.valuation\.(pettm|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
+  const annual = /^computed\.valuation\.(p-e|evtoebitda|evtosales)-current-(fy\d{4}|fy-ended-\d{4}-\d{2}-\d{2})$/.exec(source);
   if (annual) {
     const year = annual[2]!.startsWith("fy-ended-") ? `FY ended ${annual[2]!.slice("fy-ended-".length)}` : annual[2]!.toUpperCase();
-    return `${({ pettm: "P/E", evtoebitda: "EV/EBITDA", evtosales: "EV/Sales" } as const)[annual[1] as "pettm" | "evtoebitda" | "evtosales"]} (${year})`;
+    return `${({ "p-e": "P/E", evtoebitda: "EV/EBITDA", evtosales: "EV/Sales" } as const)[annual[1] as "p-e" | "evtoebitda" | "evtosales"]} (${year})`;
   }
   const exact = EXACT_LABELS[source];
   if (exact !== undefined) return exact;

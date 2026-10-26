@@ -8,6 +8,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { runStageB } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
+import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import { multipleLabel } from "@/pipeline/stageC/passes";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
@@ -90,10 +91,10 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
     // period its record carries is one the model can see and cite.
     const payload = assembleContextPayload(bundle, computed, { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
     const record = (payload.provenanceRegistry ?? []).find((entry) => entry.origin === "computed.valuation.multiples.peTtm")!;
-    expect(record).toMatchObject({ id: "computed.valuation.pettm-current-fy2025", label: "peTtm (current, FY2025)", period: "FY2025", fiscalPeriod: "FY2025" });
-    expect(serializePayloadForPrompt(payload)).toContain("peTtm (current, FY2025): ");
+    expect(record).toMatchObject({ id: "computed.valuation.p-e-current-fy2025", label: "P/E (current, FY2025)", period: "FY2025", fiscalPeriod: "FY2025" });
+    expect(serializePayloadForPrompt(payload)).toContain("P/E (current, FY2025): ");
     expect(serializePayloadForPrompt(payload)).toContain("evToEbitda (current, FY2025): ");
-    expect(metricLabel("computed.valuation.pettm-current-fy2025")).toBe("P/E (FY2025)");
+    expect(metricLabel("computed.valuation.p-e-current-fy2025")).toBe("P/E (FY2025)");
     expect(metricLabel("computed.valuation.evtoebitda-current-fy2025")).toBe("EV/EBITDA (FY2025)");
     expect(metricLabel("computed.valuation.evtosales-current-fy2025")).toBe("EV/Sales (FY2025)");
     expect(metricLabel("computed.valuation.pettm-current")).toBe("P/E (TTM)");
@@ -111,7 +112,7 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
     // A fiscal year the statements do not name is labelled by its end date,
     // alike in the table and the record labels.
     expect(multipleLabel({ key: "peTtm", period: "FY ended 2025-12-31" })).toBe("P/E (FY ended 2025-12-31)");
-    expect(metricLabel("computed.valuation.pettm-current-fy-ended-2025-12-31")).toBe("P/E (FY ended 2025-12-31)");
+    expect(metricLabel("computed.valuation.p-e-current-fy-ended-2025-12-31")).toBe("P/E (FY ended 2025-12-31)");
     expect(multipleLabel({ key: "evToEbitda", period: "FY ended 2025-12-31" })).toBe("EV/EBITDA (FY ended 2025-12-31)");
     expect(metricLabel("computed.valuation.evtoebitda-current-fy-ended-2025-12-31")).toBe("EV/EBITDA (FY ended 2025-12-31)");
   });
@@ -143,6 +144,32 @@ describe("multiple labels follow the period their earnings cover (audit 2026-10-
     if (computed.valuation.kind === "pre-revenue") throw new Error("no multiples");
     expect(computed.valuation.multiples.gaps.map((gap) => gap.reason).join(" | ")).toMatch(/cash-flow D&A covers FY ended 2025-12-31, not TTM to 2026-03-31/);
     expect(keyDataRows(r).some((row) => /^EV\/EBITDA/.test(row.label) && row.value !== "withheld")).toBe(false);
+  });
+});
+
+describe("the claim checker reads a fiscal-year P/E as the fiscal year (audit 2026-10-22 B-9 review)", () => {
+  const check = (text: string, record: NonNullable<ReturnType<typeof assembleContextPayload>["provenanceRegistry"]>[number]) =>
+    validateClaimNumericSupport({ label: "FACT", text, source: record.id, asOf: null }, { record, excerpts: [], sourceId: record.id, reportingCurrency: "USD" }).status;
+  const peRecord = (bundle: DataBundle) => {
+    const payload = assembleContextPayload(bundle, report(bundle).computed, { checks: [], flags: [], gaps: [] } as unknown as ValidationReport);
+    return (payload.provenanceRegistry ?? []).find((entry) => entry.origin === "computed.valuation.multiples.peTtm")!;
+  };
+
+  it("validates a P/E named for its fiscal year, and not one called trailing", () => {
+    const bundle = completeCurrencyBundle({ annualCurrency: "USD" });
+    quarters(bundle).splice(1, 1);
+    const record = peRecord(bundle);
+    const v = (record.value as number).toFixed(2);
+    expect(check(`The current P/E for FY2025 is ${v}x.`, record)).toBe("validated");
+    expect(check(`The current P/E is ${v}x.`, record)).toBe("validated");
+    expect(check(`The current TTM P/E is ${v}x.`, record)).not.toBe("validated");
+    expect(check(`The current trailing twelve-month P/E is ${v}x.`, record)).not.toBe("validated");
+  });
+
+  it("still validates the TTM P/E called TTM", () => {
+    const record = peRecord(completeCurrencyBundle({ annualCurrency: "USD" }));
+    const v = (record.value as number).toFixed(2);
+    expect(check(`The current TTM P/E is ${v}x.`, record)).toBe("validated");
   });
 });
 
