@@ -3732,8 +3732,11 @@ withheld). Owner decision: these issuers go on the general route with a note.
 Their earnings and free cash flow are the right yardstick, and their debt is
 financing debt, not float. The premium and claim-reserve tags a health plan
 files match the insurer evidence rule, so for SIC 6324 that evidence is noted
-rather than used to re-route. The forensic band that keeps Altman Z off
-financial SIC codes still includes 6324, unchanged.
+rather than used to re-route. The forensic financial band (SIC 6000 to 6499
+and 6700 to 6799) still includes 6324, unchanged, so a health plan's Altman
+Z, Beneish M-score and accruals ratio are still withheld as for a financial
+company, and its Piotroski score uses the financial variant; whether managed
+care leaves that band too is left for a later owner decision.
 
 **Piotroski leverage on a composed long-term debt (E-8).** Realty Income and
 NNN compose long-term debt from instrument-class totals (`NotesPayable`,
