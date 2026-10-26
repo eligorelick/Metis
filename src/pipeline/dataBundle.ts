@@ -76,7 +76,8 @@ import {
   type ParsedDocument,
   type SectionSpec,
 } from "@/edgar/extract";
-import { latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
+import { latestEligibleFactEnd, latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
+import { mergeInstanceFacts, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
 // WS4 (D-14): successor registrants — the predecessor CIK and its facts.
 import {
   SUCCESSOR_FORM,
@@ -125,6 +126,7 @@ import {
   resolve13FQuarter,
   type BenchmarkPrices,
   type DataBundle,
+  type CompanyFactsInstances,
   type EdgarBundle,
   type ExtractedSection,
   type MacroBundle,
@@ -1222,8 +1224,12 @@ async function buildEdgarBundle(
   const pCurrentReports = sub.ok && filingDisclosures
     ? settle(`edgar.currentReports(${symbol})`, collectCurrentReports(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), sub.value.endpoint))
     : null;
+  // Audit 2026-10-22 B-23: the same instances carry each filing's own facts,
+  // merged below where companyfacts has not yet caught up with the filing.
+  const instanceFacts: InstanceFacts[] = [];
   const pQuarterlySegments = sub.ok && filingDisclosures
-    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10)))
+    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
+      (filing, xml) => instanceFacts.push(parseInstanceFacts(xml, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }, String(cik)))))
     : null;
 
   const economicShareInventory: FilingEconomicShares[] = [];
@@ -1465,7 +1471,24 @@ async function buildEdgarBundle(
     tenQMdna = gapResult(`edgar.tenQMdna(${symbol})`, reason, "warn");
   }
 
-  const companyFacts = await pFacts;
+  const filedFacts = await pFacts;
+
+  // WS4 (D-14): a successor registrant's own facts begin at the
+  // reorganization; the predecessor's CIK is only in the 8-K12B's header.
+  // Resolved on companyfacts as SEC serves it, before any filing is merged.
+  const predecessor = await resolvePredecessor(
+    symbol,
+    cikRes.value.data.cik10,
+    sub.ok ? sub.value.data.recentFilings : [],
+    filedFacts.ok ? filedFacts.value.data : null,
+    edgar,
+    progress,
+  );
+
+  const currentReports = pCurrentReports === null ? null : await pCurrentReports;
+  const quarterlySegments = pQuarterlySegments === null ? null : await pQuarterlySegments;
+
+  const { companyFacts, companyFactsInstances } = withNewerFilings(filedFacts, instanceFacts);
   let xbrlSummary: XbrlSummary | null = null;
   if (companyFacts.ok) {
     const facts = companyFacts.value.data;
@@ -1477,20 +1500,6 @@ async function buildEdgarBundle(
       bankTagging: looksLikeBankTagging(facts),
     };
   }
-
-  // WS4 (D-14): a successor registrant's own facts begin at the
-  // reorganization; the predecessor's CIK is only in the 8-K12B's header.
-  const predecessor = await resolvePredecessor(
-    symbol,
-    cikRes.value.data.cik10,
-    sub.ok ? sub.value.data.recentFilings : [],
-    companyFacts.ok ? companyFacts.value.data : null,
-    edgar,
-    progress,
-  );
-
-  const currentReports = pCurrentReports === null ? null : await pCurrentReports;
-  const quarterlySegments = pQuarterlySegments === null ? null : await pQuarterlySegments;
 
   return {
     cik: cikRes,
@@ -1513,6 +1522,7 @@ async function buildEdgarBundle(
     ...(currentReports === null ? {} : { currentReports }),
     ...(quarterlySegments === null ? {} : { quarterlySegments }),
     companyFacts,
+    ...(companyFactsInstances === null ? {} : { companyFactsInstances }),
     predecessor,
     xbrlSummary,
     // Altman's variant selection is SIC-decisive; FMP's profile has no SIC, so
@@ -1533,6 +1543,48 @@ async function buildEdgarBundle(
           forms: [...new Set(sub.value.data.recentFilings.map((f) => f.form))],
         }
       : null,
+  };
+}
+
+/** Audit 2026-10-22 B-23: the disclosure of each filing merged into companyfacts. */
+export function companyFactsInstanceEntries(instances: CompanyFactsInstances | undefined): ManifestEntry[] {
+  if (instances === undefined || instances.merged.length === 0) return [];
+  const filings = instances.merged.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
+  return [{
+    field: "edgar.companyFacts.newerFilings",
+    reason: `SEC companyfacts carried periodic reports only through the one filed ${instances.companyFactsThrough ?? "(none)"}; ` +
+      (instances.merged.length === 1
+        ? `the facts of ${filings} were read from the filing's own XBRL instance and merged, each citing that filing`
+        : `the facts of ${filings} were read from each filing's own XBRL instance and merged, each citing its filing`),
+    severity: "info",
+    attemptedSources: instances.merged.map((f) => f.accession),
+  }];
+}
+
+/**
+ * Audit 2026-10-22 B-23: companyfacts plus the periodic filings it has not
+ * caught up with, read from their XBRL instances. Every merged point carries
+ * its own filing's accession, form and date, so the statements built from it
+ * cite the 10-Q; the endpoint names the instances and the as-of date moves to
+ * the newest merged period. Unchanged when nothing newer was read.
+ */
+export function withNewerFilings(
+  facts: FetchResult<CompanyFacts>,
+  instances: readonly InstanceFacts[],
+): { companyFacts: FetchResult<CompanyFacts>; companyFactsInstances: CompanyFactsInstances | null } {
+  if (!facts.ok || instances.length === 0) return { companyFacts: facts, companyFactsInstances: null };
+  const merge = mergeInstanceFacts(facts.value.data, instances);
+  if (merge.merged.length === 0) return { companyFacts: facts, companyFactsInstances: null };
+  const fetchedDay = facts.value.fetchedAt.slice(0, 10);
+  const named = merge.merged.map((f) => `${f.form} ${f.accession} XBRL instance (filed ${f.filingDate})`).join(" + ");
+  return {
+    companyFacts: { ok: true, value: {
+      ...facts.value,
+      data: merge.facts,
+      endpoint: `${facts.value.endpoint} + ${named}`,
+      asOf: latestEligibleFactEnd(merge.facts, fetchedDay) ?? facts.value.asOf,
+    } },
+    companyFactsInstances: { companyFactsThrough: merge.companyFactsThrough, merged: merge.merged },
   };
 }
 
@@ -2423,6 +2475,7 @@ export async function buildDataBundle(
       // the provider gaps. Empty whenever the fallback layer was off or skipped.
       ...keylessGaps,
       ...configuredFallbackGaps,
+      ...companyFactsInstanceEntries(edgarBundle.companyFactsInstances),
       // WS4 (D-11): one entry naming the whole reserved-symbol rule, so a
       // reader of a DEMO/DBNK report is told that nothing here came from a
       // provider — not merely that individual members are missing.

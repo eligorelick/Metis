@@ -546,6 +546,8 @@ export async function collectQuarterlySegments(
   cik: string,
   filings: readonly EdgarFiling[],
   today: string,
+  /** Audit 2026-10-22 B-23: each instance read, for the companyfacts merge. */
+  onInstance?: (filing: EdgarFiling, xml: string, url: string) => void,
 ): Promise<FetchResult<QuarterlySegmentRevenue>> {
   const chosen = segmentFilings(filings, today);
   const field = "edgar.quarterlySegments";
@@ -568,6 +570,7 @@ export async function collectQuarterlySegments(
     if (typeof doc === "string") { problems.push(`${filing.form} ${filing.accessionNumber}: instance unreadable (${doc})`); continue; }
     fetchedAt ??= doc.fetchedAt;
     endpoint ??= doc.url;
+    onInstance?.(filing, doc.text, doc.url);
     const parsed = parseInstanceRevenue(doc.text);
     read.push({ accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, facts: parsed.facts, concept: parsed.concept });
     if (position === 0) {

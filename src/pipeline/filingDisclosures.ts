@@ -18,6 +18,7 @@ import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import { admittedStatementRow } from "@/providers/fmp";
 import type { CurrentReports, EarningsFactSource, EarningsReleaseRecord } from "@/providers/currentReports";
+import type { EdgarFiling } from "@/providers/edgar";
 import { establishedCurrencyOn, statementCurrencyEvidence } from "@/pipeline/compute";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { orderedEarningsReleases } from "@/providers/currentReports";
@@ -155,6 +156,35 @@ function releaseRef(release: EarningsReleaseRecord, exhibit: "EX-99.1" | "EX-99.
  */
 const LATER_PERIOD_DAYS = 45;
 
+/** The newest dated income-statement row, quarterly or annual. */
+function newestStatementRow(bundle: DataBundle): FmpIncomeStatementRow | undefined {
+  return [...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly), ...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)]
+    .filter((row) => day(row.date) !== null).sort((a, b) => day(b.date)!.localeCompare(day(a.date)!))[0];
+}
+
+const PERIODIC_FORMS: ReadonlySet<string> = new Set(["10-Q", "10-K", "20-F", "40-F"]);
+
+/**
+ * Audit 2026-10-22 B-23: the newest periodic report on file whose period ends
+ * a quarter or more after every statement row. Where its XBRL instance was
+ * read, its facts were merged into companyfacts and the statements already
+ * reach it, so this is null; otherwise the statements, TTM and multiples end
+ * before a filing the issuer has made.
+ */
+export function newerPeriodicFiling(bundle: DataBundle): { filing: EdgarFiling; statementsEnd: string } | null {
+  const newest = newestStatementRow(bundle);
+  if (newest === undefined) return null;
+  const statementsEnd = day(newest.date)!;
+  const builtDay = bundle.builtAt.slice(0, 10);
+  const filing = [bundle.edgar?.latestTenQ, bundle.edgar?.latestTenK]
+    .flatMap((r) => r?.ok ? [r.value.data] : [])
+    .filter((f) => PERIODIC_FORMS.has(f.form) && day(f.reportDate) !== null && day(f.filingDate) !== null && f.filingDate <= builtDay)
+    .sort((a, b) => b.reportDate.localeCompare(a.reportDate))[0];
+  if (filing === undefined) return null;
+  const periodEnd = day(filing.reportDate)!;
+  return periodEnd > statementsEnd && daysApart(periodEnd, statementsEnd) > LATER_PERIOD_DAYS ? { filing, statementsEnd } : null;
+}
+
 /**
  * Audit 2026-10-22 B-24: the newest results release reporting a period later
  * than the newest statement period. Statements come from XBRL filings, so a
@@ -168,8 +198,7 @@ const LATER_PERIOD_DAYS = 45;
 export function newerResultsRelease(bundle: DataBundle): { release: EarningsReleaseRecord; statementsEnd: string; reportedPeriodEnd: string | null } | null {
   const reports = currentReportsOf(bundle);
   if (reports === null) return null;
-  const newest = [...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly), ...rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeAnnual)]
-    .filter((row) => day(row.date) !== null).sort((a, b) => day(b.date)!.localeCompare(day(a.date)!))[0];
+  const newest = newestStatementRow(bundle);
   if (newest === undefined) return null;
   const statementsEnd = day(newest.date)!;
   const fiscalYear = Number(newest.fiscalYear);
@@ -578,7 +607,8 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
         consideration: null, funding: null,
         limitations: "Bounded official company statements, not a comprehensive transaction or leadership ledger. Completion is issuer-stated, not independently verified. Consideration and funding remain unestablished by this reader.",
       })) : [];
-  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && segmentPerformance.length === 0 && tradingArrangements.length === 0 && notes.length === 0 && companyStatements.length === 0) return undefined;
+  if (reports === null && segments === null && trend.length === 0 && filingFacts.length === 0 && segmentPerformance.length === 0 && tradingArrangements.length === 0 && notes.length === 0 && companyStatements.length === 0 &&
+    newerPeriodicFiling(bundle) === null) return undefined;
 
   for (const release of releases) {
     const sourceCurrency = releaseReportingCurrency(bundle, release);
@@ -856,6 +886,12 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     : [];
   const basisNote = releases.find((r) => typeof r.nonGaapBasisNote === "string")?.nonGaapBasisNote ?? null;
   const newerResults = newerResultsNotice(bundle, currency);
+  const newerFilingFound = newerPeriodicFiling(bundle);
+  const newerFiling: FilingDisclosures["newerFiling"] | null = newerFilingFound === null ? null : {
+    source: { form: newerFilingFound.filing.form, accession: newerFilingFound.filing.accessionNumber, exhibit: null, filingDate: newerFilingFound.filing.filingDate, url: null },
+    periodEnd: day(newerFilingFound.filing.reportDate)!,
+    statementsEnd: newerFilingFound.statementsEnd,
+  };
   // D-66: the notes', statements' and commentary's facts; officers and votes.
 
   return {
@@ -884,6 +920,7 @@ export function buildFilingDisclosures(bundle: DataBundle): FilingDisclosures | 
     ...(sayOnPay === null ? {} : { sayOnPay }),
     ...(tradingArrangements.length === 0 ? {} : { tradingArrangements }),
     ...(newerResults === null ? {} : { newerResults }),
+    ...(newerFiling === null ? {} : { newerFiling }),
     notes: notes.map((n) => safeText(n, "A disclosure note is withheld from display by the rating-language filter.")),
   };
 }

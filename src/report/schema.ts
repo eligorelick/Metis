@@ -2343,6 +2343,17 @@ export const FilingDisclosuresSchema = z
       currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
     }).strict().optional(),
     /**
+     * Audit 2026-10-22 B-23: a 10-Q or 10-K on file for a period later than
+     * the newest statement period, whose facts did not reach the statements
+     * (companyfacts had not carried it and its XBRL instance was not merged).
+     * Optional on older reports.
+     */
+    newerFiling: z.object({
+      source: FilingRefSchema,
+      periodEnd: IsoDaySchema,
+      statementsEnd: IsoDaySchema,
+    }).strict().optional(),
+    /**
      * D-66: figures the notes, the condensed statements and the CFO
      * commentary print that no typed statement row carries (investment scale,
      * lock-ups, commitments, a deal's consideration and goodwill, DSO), in the

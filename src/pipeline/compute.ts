@@ -16,8 +16,8 @@ import { validateBundle, type ValidationReport, type ValidatableBundle } from "@
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { comparePeerFundamentals } from "@/pipeline/peers";
-import { buildFilingDisclosures, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
-import { newerResultsSentence } from "@/report/filingDisclosurePresentation";
+import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextPeriodRevenueGuidance } from "@/pipeline/filingDisclosures";
+import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import type {
@@ -2643,6 +2643,13 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     source: { form: newer.release.form ?? "8-K", accession: newer.release.accession, exhibit: null, filingDate: newer.release.filingDate, url: null },
     reportedPeriod: newer.release.reported.fiscal?.label ?? null, reportedPeriodEnd: newer.reportedPeriodEnd, statementsEnd: newer.statementsEnd,
   }) }];
+
+  // Audit 2026-10-22 B-23: a 10-Q or 10-K on file that the statements do not reach.
+  const newerFiling = newerPeriodicFiling(bundle);
+  if (newerFiling !== null) newerResultsGaps.push({ field: "fundamentals.newerFiling", severity: "warn", reason: newerFilingSentence({
+    source: { form: newerFiling.filing.form, accession: newerFiling.filing.accessionNumber, exhibit: null, filingDate: newerFiling.filing.filingDate, url: null },
+    periodEnd: newerFiling.filing.reportDate.slice(0, 10), statementsEnd: newerFiling.statementsEnd,
+  }) });
 
   // --- Merge all gaps + notes ------------------------------------------------
   const gaps = mergeManifest(

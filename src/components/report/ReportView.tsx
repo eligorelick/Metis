@@ -43,7 +43,7 @@ import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
-import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import {
   REPORT_SECTION_MANIFEST,
@@ -115,13 +115,16 @@ function AnchorNav() {
   );
 }
 
-/** Audit 2026-10-22 B-24: a results release the statements do not reach yet. */
-function NewerResultsBanner({ text }: { text: string }) {
+/**
+ * Audit 2026-10-22 B-24: a results release the statements do not reach yet;
+ * B-23: a 10-Q or 10-K on file they do not reach.
+ */
+function NewerResultsBanner({ text, label = "newer results not reflected" }: { text: string; label?: string }) {
   return (
     <div className="border border-warn/50 bg-warn/10 px-3 py-2.5">
       <div className="flex items-center gap-2">
         <span className="mono border border-warn/50 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-warn">
-          newer results not reflected
+          {label}
         </span>
       </div>
       <p className="mt-1 text-[11px] leading-snug text-muted">
@@ -235,6 +238,7 @@ export function ReportView({
       {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}
 
       {newerResultsBanner(report.filingDisclosures) && <NewerResultsBanner text={newerResultsBanner(report.filingDisclosures)!} />}
+      {newerFilingBanner(report.filingDisclosures) && <NewerResultsBanner text={newerFilingBanner(report.filingDisclosures)!} label="newer filing not reflected" />}
 
       {layout === "classic" && <KeyDataBox report={report} />}
 

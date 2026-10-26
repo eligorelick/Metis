@@ -23,7 +23,7 @@ import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
+import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { valuationAuditTables, projectionAuditTables } from "@/report/auditTables";
@@ -194,8 +194,8 @@ function item(text: string): string {
 }
 
 /** One generated blockquote line; the template marker remains trusted syntax. */
-function blockquote(text: string): string {
-  return `> ${markdownBlockquote(text)}`;
+function blockquote(text: string, boldLabel?: string): string {
+  return `> ${boldLabel === undefined ? "" : `**${boldLabel}** `}${markdownBlockquote(text)}`;
 }
 
 /**
@@ -943,7 +943,8 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
   const blocks: string[] = [
     renderHeader(report, completeness, context),
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
-    newerResultsBanner(report.filingDisclosures) ? blockquote(`**Newer results not reflected.** ${newerResultsBanner(report.filingDisclosures)}`) : "",
+    newerResultsBanner(report.filingDisclosures) ? blockquote(newerResultsBanner(report.filingDisclosures)!, "Newer results not reflected.") : "",
+    newerFilingBanner(report.filingDisclosures) ? blockquote(newerFilingBanner(report.filingDisclosures)!, "Newer filing not reflected.") : "",
     renderKeyData(report),
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
