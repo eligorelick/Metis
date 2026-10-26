@@ -645,9 +645,17 @@ export function lowerBoundDAndACaveat(rows: readonly { date?: unknown; fieldProv
 const CONTINUING_EPS_FIELDS = {
   eps: "epsContinuingOperations",
   epsDiluted: "epsDilutedContinuingOperations",
-  discontinued: "epsDiscontinuedOperations",
-  discontinuedIncome: "discontinuedOperationsIncome",
 } as const;
+/**
+ * One working field per discontinued-operations element, read on its own: on
+ * a first-hit chain a zero under an earlier element would hide a result filed
+ * under a later one.
+ */
+const DISCONTINUED_ELEMENT_FIELDS: readonly { field: string; spec: ChainSpec }[] = [
+  ...tagsFor("epsDiscontinuedOperations").map((tag) => ({ tag, unit: "perShare" as const })),
+  ...tagsFor("discontinuedOperationsIncome").map((tag) => ({ tag, unit: "money" as const })),
+].map(({ tag, unit }) => ({ field: `discontinued:${tag}`, spec: { kind: "first", tags: [tag], unit } }));
+const CONTINUING_EPS_WORKING_FIELDS: ReadonlySet<string> = new Set([...Object.values(CONTINUING_EPS_FIELDS), ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)]);
 
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,
@@ -739,8 +747,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   // the rows (audit 2026-10-22 FCX-4).
   [CONTINUING_EPS_FIELDS.eps]: lineItemChain(CONTINUING_EPS_FIELDS.eps, "perShare"),
   [CONTINUING_EPS_FIELDS.epsDiluted]: lineItemChain(CONTINUING_EPS_FIELDS.epsDiluted, "perShare"),
-  [CONTINUING_EPS_FIELDS.discontinued]: lineItemChain(CONTINUING_EPS_FIELDS.discontinued, "perShare"),
-  [CONTINUING_EPS_FIELDS.discontinuedIncome]: lineItemChain(CONTINUING_EPS_FIELDS.discontinuedIncome, "money"),
+  ...Object.fromEntries(DISCONTINUED_ELEMENT_FIELDS.map((element) => [element.field, element.spec])),
 };
 
 /**
@@ -2928,7 +2935,8 @@ function buildStatementRows<TRow>(
     }
 
     if (slot.quarter !== null) {
-      const derivedFields = [...resolutions.entries()].filter(([, r]) => r.derivation !== undefined);
+      // A working field leaves the row, so its derivation is not the row's.
+      const derivedFields = [...resolutions.entries()].filter(([field, r]) => r.derivation !== undefined && !CONTINUING_EPS_WORKING_FIELDS.has(field));
       const derivation = anchor.derivation ?? derivedFields[0]?.[1].derivation;
       if (derivation !== undefined) {
         row.derivation = derivation;
@@ -3340,7 +3348,7 @@ const CONTINUING_EPS_DISCLOSURE =
  * are dropped unused, with any note or withholding they raised.
  */
 function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes: NoteSink): void {
-  const discontinuedFields: string[] = ["netIncomeFromDiscontinuedOperations", CONTINUING_EPS_FIELDS.discontinued, CONTINUING_EPS_FIELDS.discontinuedIncome];
+  const discontinuedFields: string[] = ["netIncomeFromDiscontinuedOperations", ...DISCONTINUED_ELEMENT_FIELDS.map((element) => element.field)];
   for (const row of rows) {
     const record = row as unknown as Record<string, unknown>;
     const noDiscontinued = discontinuedFields.every((field) => {
@@ -3361,19 +3369,18 @@ function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes
       }
     }
     const original = record.original as Record<string, unknown> | undefined;
-    for (const field of Object.values(CONTINUING_EPS_FIELDS)) {
+    for (const field of CONTINUING_EPS_WORKING_FIELDS) {
       delete record[field];
       if (row.fieldProvenance !== undefined) delete row.fieldProvenance[field];
       if (original !== undefined) delete original[field];
     }
     if (original !== undefined && Object.keys(original).length === 0) delete record.original;
   }
-  const working = new Set<string>(Object.values(CONTINUING_EPS_FIELDS));
   for (const list of [notes.withheld, notes.substitutions]) {
-    for (let i = list.length - 1; i >= 0; i--) if (working.has(list[i]!.field)) list.splice(i, 1);
+    for (let i = list.length - 1; i >= 0; i--) if (CONTINUING_EPS_WORKING_FIELDS.has(list[i]!.field)) list.splice(i, 1);
   }
   for (let i = notes.notes.length - 1; i >= 0; i--) {
-    if (working.has(notes.notes[i]!.split(" ", 1)[0]!)) notes.notes.splice(i, 1);
+    if (CONTINUING_EPS_WORKING_FIELDS.has(notes.notes[i]!.split(" ", 1)[0]!)) notes.notes.splice(i, 1);
   }
 }
 

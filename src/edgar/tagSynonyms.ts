@@ -277,12 +277,19 @@ export const LINE_ITEM_TAGS = {
     "IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicShare",
     "DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerBasicAndDilutedShare",
     "IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicAndDilutedShare",
+    "DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTaxPerDilutedShare",
+    "DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTaxPerBasicShare",
   ]),
   // The other elements a discontinued result is filed under; any of them
-  // means the continuing figure is not the net figure.
+  // means the continuing figure is not the net figure. Each is read on its
+  // own, so a zero under one does not hide a result under another.
   discontinuedOperationsIncome: entry([
     "IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToReportingEntity",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxIncludingPortionAttributableToNoncontrollingInterest",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToNoncontrollingInterest",
     "DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationBeforeIncomeTax",
+    "DiscontinuedOperationIncomeLossFromDiscontinuedOperationDuringPhaseOutPeriodNetOfTax",
     "DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax",
   ]),
   weightedAverageShsOut: entry(["WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),

@@ -2738,6 +2738,11 @@ describe("buildStatementsFromCompanyFacts — EPS from continuing operations (au
     ["DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax", 15],
     ["IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicAndDilutedShare", -0.03],
     ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerBasicAndDilutedShare", -0.03],
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxIncludingPortionAttributableToNoncontrollingInterest", -40],
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToNoncontrollingInterest", -2],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationBeforeIncomeTax", -50],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationDuringPhaseOutPeriodNetOfTax", -5],
+    ["DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTaxPerDilutedShare", 0.01],
   ])("withholds the stand-in beside a discontinued result filed as %s", (tag, val) => {
     const built = buildStatementsFromCompanyFacts(
       base({ IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52), [tag]: annual(val) }),
@@ -2745,6 +2750,34 @@ describe("buildStatementsFromCompanyFacts — EPS from continuing operations (au
     );
     expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
     expect(built.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it("reads every discontinued element, so a zero filed under one does not hide a result filed under another", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52),
+        IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToReportingEntity: annual(0),
+        DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax: annual(15),
+      }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    expect(Object.keys(built.incomeAnnual.rows[0]!).filter((key) => /discontinued:/.test(key))).toEqual([]);
+  });
+
+  it("does not mark a row derived, or name a working field, for a working figure backed out of year-to-date", () => {
+    // Apple-like quarters: revenue and net income are tagged for Q2 itself; a
+    // discontinued result only for Q1 and the six months, so its Q2 figure is
+    // year-to-date less Q1. It is read only to decide the EPS stand-in.
+    const base = appleLike();
+    base.facts["us-gaap"]!.DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax = { units: { USD: [
+      { start: "2024-09-29", end: "2024-12-28", val: -4, accn: "q1-disc", fy: 2025, fp: "Q1", form: "10-Q", filed: "2025-01-31" },
+      { start: "2024-09-29", end: "2025-03-29", val: -9, accn: "q2-disc", fy: 2025, fp: "Q2", form: "10-Q", filed: "2025-05-02" },
+    ] } } as never;
+    const built = buildStatementsFromCompanyFacts(base, OPTS);
+    const q2 = built.incomeQuarterly.rows.find((row) => row.date === "2025-03-29")!;
+    expect(q2.derivation).toBeUndefined();
+    expect(built.incomeQuarterly.notes.filter((note) => /ContinuingOperations|discontinued:/.test(note))).toEqual([]);
   });
 
   it("treats a discontinued result it could not read as filed, and names no working field", () => {
@@ -2761,8 +2794,8 @@ describe("buildStatementsFromCompanyFacts — EPS from continuing operations (au
       { ...OPTS, symbol: "FCX" },
     );
     expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
-    const working = /ContinuingOperations|DiscontinuedOperations|discontinuedOperationsIncome/;
+    const working = /ContinuingOperations|DiscontinuedOperations|discontinuedOperationsIncome|^discontinued:/;
     expect(built.incomeAnnual.withheld.map((held) => held.field).filter((field) => working.test(field) && field !== "netIncomeFromDiscontinuedOperations")).toEqual([]);
-    expect(built.incomeAnnual.notes.filter((note) => /^(epsContinuingOperations|epsDilutedContinuingOperations|epsDiscontinuedOperations|discontinuedOperationsIncome) /.test(note))).toEqual([]);
+    expect(built.incomeAnnual.notes.filter((note) => /^(epsContinuingOperations|epsDilutedContinuingOperations|epsDiscontinuedOperations|discontinuedOperationsIncome|discontinued:\S+) /.test(note))).toEqual([]);
   });
 });
