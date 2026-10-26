@@ -64,7 +64,7 @@ A second review, `/code-review` and a fresh subagent again, ran over the fixes a
 
 ## Control panel
 
-Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place. Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
+Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place, before main's #56 and #57 were merged in (see the note after the table). Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
 
 | Figure | Base produced | Head produced | Gained | Lost | Changed value |
 |---|---|---|---|---|---|
@@ -98,3 +98,5 @@ The watch list:
 - The P/E basis text changes on every issuer, because it now names only the formula that ran. No P/E moves for it: in head 35 of the 37 P/Es (all but NNN and PLD) run on market cap over common income, mostly because a fourth-quarter diluted EPS is never derived, which main's basis did not say; Key data now says so beside them, with the reason ("diluted EPS is not available for every quarter of the period").
 - The scenario fan is withheld only for Duke Energy (bull 37.23, base 43.09, bear 33.24).
 - No other value moved.
+
+After main's #56 and #57 (D-107 readable note figures, D-108 parent net income) were merged in, a rerun of both sides against the new main (`c10bb4b`) was stopped by the host for low memory before either side finished, and is still to run. Main's D-108 records its own panel (only FCX, AMT and MA move). Freeport is the one company both changes touch: D-108 derives its parent net income, and FCX-4 its continuing-operations EPS. Their unit tests pass together on the merged tree.
