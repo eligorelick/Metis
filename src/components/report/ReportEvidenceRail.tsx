@@ -4,6 +4,7 @@ import { deriveReportCompletenessPresentation } from "@/report/completeness";
 import { dataStateText } from "@/report/presentation";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
 import { sectionAnchorId } from "./primitives";
+import { generatedTimeText } from "@/components/report/ReportSnapshotHeader";
 
 /** Recorded snapshot context; no new fetch, confidence score or inferred date. */
 export function ReportEvidenceRail({ report, inspector, selectedReportId }: { report: Report; inspector?: ReactNode; selectedReportId?: number }) {
@@ -15,7 +16,7 @@ export function ReportEvidenceRail({ report, inspector, selectedReportId }: { re
       {inspector}
       <p className="mt-2 text-[12px] text-muted">Report snapshot · {report.meta.symbol}{selectedReportId !== undefined ? ` / #${selectedReportId}` : ""}</p>
       <dl className="mt-2 space-y-2 text-[12px]">
-        <div><dt className="text-faint">Generated</dt><dd className="mono break-words">{report.meta.generatedAt}</dd></div>
+        <div><dt className="text-faint">Generated</dt><dd className="mono break-words"><time dateTime={report.meta.generatedAt}>{generatedTimeText(report.meta.generatedAt)}</time></dd></div>
         <div><dt className="text-faint">Requested model</dt><dd className="break-words">{report.meta.model}</dd><dd className="text-faint">Requested configuration; see run details for actual pass models and unknowns.</dd></div>
       </dl>
       <p className="mt-3 text-[12px] text-muted">{dataStateText(completeness)}</p>

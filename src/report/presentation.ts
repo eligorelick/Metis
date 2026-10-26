@@ -1417,10 +1417,18 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
  */
 export function dataStateText(c: ReportCompletenessPresentation): string {
   if (c.metadataStatus !== "confirmed") return c.statusText;
-  const state = c.state === "complete" ? "Complete" : c.state === "degraded" ? "Degraded" : c.state === "blocked" ? "Blocked" : "Unknown";
+  // The persisted state was set when every critical entry, process ones
+  // included, counted toward "blocked". When the only critical entries are
+  // analysis-process disclosures, "Blocked: 0 critical data issues" reads as a
+  // contradiction: the data state follows the data counts, and the sentence
+  // says that it is the analysis that is blocked.
+  const processBlocked = c.state === "blocked" && c.dataCriticalCount === 0 && c.processDisclosureCount > 0;
+  const shown = processBlocked ? (c.dataWarningCount > 0 ? "degraded" : "complete") : c.state;
+  const state = shown === "complete" ? "Complete" : shown === "degraded" ? "Degraded" : shown === "blocked" ? "Blocked" : "Unknown";
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   // D-67: one count per underlying data gap; how the passes ran is counted apart.
-  const process = c.processDisclosureCount > 0 ? `; ${count(c.processDisclosureCount, "analysis-process disclosure", "analysis-process disclosures")} (not data gaps)` : "";
+  const blocks = processBlocked ? (c.processDisclosureCount === 1 ? ", which blocks the analysis" : ", which block the analysis") : "";
+  const process = c.processDisclosureCount > 0 ? `; ${count(c.processDisclosureCount, "analysis-process disclosure", "analysis-process disclosures")} (not data gaps)${blocks}` : "";
   return `${c.dataOnly ? "Data-only · " : ""}${state}: ${count(c.dataCriticalCount, "critical data issue", "critical data issues")}, ${count(c.dataWarningCount, "data issue", "data issues")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
 }
 

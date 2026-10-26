@@ -770,7 +770,12 @@ body[data-ui-layout="dossier"] .dossier-debate p { font-size:14px; line-height:1
 body[data-ui-layout="dossier"] .thesis-report :is(p,li,dt,dd,summary) { overflow-wrap:anywhere; }
 body[data-ui-layout="dossier"] .report-section-body li { font-size:14px; line-height:1.65; max-width:80ch; }
 body[data-ui-layout="dossier"] .report-section-body :is(.text-\[9px\],.text-\[10px\],.text-\[11px\]) { font-size:12px; }
-body[data-ui-layout="dossier"] .thesis-report table td { white-space:normal; overflow-wrap:anywhere; min-width:90px; max-width:65ch; }
+body[data-ui-layout="dossier"] .thesis-report table td { white-space:normal; overflow-wrap:break-word; min-width:90px; max-width:65ch; }
+/* Table cells wrap between words only. `anywhere`, inherited from the panel and
+   prose rules above, lets a column's minimum width collapse to one character
+   ("ASSU/MPTIO/N"); `break-word` keeps word widths and still breaks a token that
+   would overflow. Report tables sit in overflow-x scroll wrappers. */
+body[data-ui-layout="dossier"] :is(.thesis-panel-body,.thesis-report) :is(th,td) { overflow-wrap:break-word; }
 body[data-ui-layout="dossier"] .grade-admission-details summary { font-size:12px; min-height:28px; cursor:pointer; color:var(--accent); }
 body[data-ui-layout="dossier"] .evidence-inspector { margin-top:10px; padding-block:10px; }
 .evidence-selection-status { font-size:12px; }
