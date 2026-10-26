@@ -6,9 +6,11 @@
  * bridge had no line for them.
  *
  * The owner's rule: deduct asset-retirement and environmental obligations
- * when they are tagged at the bridge's balance date (the filed total, else
- * noncurrent plus current) and disclose the deduction; when they are not
- * tagged, change nothing. House convention beside it: assets the filer tags
+ * when they are tagged (the filed total, else noncurrent plus current) and
+ * disclose the deduction; when they are not tagged, change nothing. House
+ * conventions beside it: a balance tagged in the year before the bridge's
+ * date stands in, with its date, when the bridge's quarter does not tag it
+ * (FCX tags them in the 10-K only); and assets the filer tags
  * as legally restricted to settle the retirement obligations (nuclear
  * decommissioning trusts) offset them, less any long-term investments the
  * bridge already adds back, so a trust is never credited twice.
@@ -65,10 +67,30 @@ describe("E-7: reading the filed obligations at the bridge's balance date", () =
     expect(o?.settlementAssets?.value).toBe(12_644e6);
   });
 
-  it("changes nothing when nothing is tagged at the balance date", () => {
+  it("falls back to the latest filed balance within a year when the bridge's quarter does not tag them (FCX tags them in the 10-K only)", () => {
+    const o = debtLikeObligationsAt(FCX_FACTS, "2026-06-30", "USD", "2026-10-22");
+    expect(o?.assetRetirement?.value).toBe(3_836e6);
+    expect(o?.assetRetirement?.basis).toMatch(/at 2025-12-31 \(10-K filed 2026-02-12\); the latest filed balance, as the 2026-06-30 balance sheet does not tag it/);
+    expect(o?.environmental?.value).toBe(2_018e6);
+    // A balance dated after the bridge's is not read.
+    const later = facts({ AssetRetirementObligation: [usd("2026-09-30", 4_000e6, "10-Q", "2026-10-20")] });
+    expect(debtLikeObligationsAt(later, "2026-06-30", "USD", "2026-10-22")).toBeNull();
+  });
+
+  it("reads the retirement fund at the date of the obligation it offsets", () => {
+    const q = facts({
+      AssetRetirementObligation: [usd("2025-12-31", 9_625e6)],
+      DecommissioningFundInvestments: [usd("2025-12-31", 11_900e6), usd("2026-06-30", 12_644e6, "10-Q", "2026-08-05")],
+    });
+    const o = debtLikeObligationsAt(q, "2026-06-30", "USD", "2026-10-22");
+    expect(o?.assetRetirement?.value).toBe(9_625e6);
+    expect(o?.settlementAssets?.value).toBe(11_900e6);
+  });
+
+  it("changes nothing when nothing is tagged at the balance date or in the year before it", () => {
     expect(debtLikeObligationsAt(facts({}), "2025-12-31", "USD", "2026-10-22")).toBeNull();
-    // A fact at another date, or filed after the run, is not evidence for this balance sheet.
-    expect(debtLikeObligationsAt(FCX_FACTS, "2026-06-30", "USD", "2026-10-22")).toBeNull();
+    // A balance more than a year older than the bridge's, or filed after the run, is not evidence for this balance sheet.
+    expect(debtLikeObligationsAt(FCX_FACTS, "2027-01-02", "USD", "2027-03-01")).toBeNull();
     expect(debtLikeObligationsAt(FCX_FACTS, "2025-12-31", "USD", "2026-01-31")).toBeNull();
     expect(debtLikeObligationsAt(FCX_FACTS, "2025-12-31", "EUR", "2026-10-22")).toBeNull();
     expect(debtLikeObligationsAt(null, "2025-12-31", "USD", "2026-10-22")).toBeNull();

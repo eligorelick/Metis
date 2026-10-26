@@ -3835,7 +3835,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         (privateStakes === null ? "" : `; of which non-marketable equity securities ${b(privateStakes.value)} (us-gaap/EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, ${privateStakes.form} filed ${privateStakes.filed}), carried at cost less impairment adjusted for observable price changes`) +
         "; a stake the statements do not break out of other assets stays in operating capital";
     })(),
-    // Audit 2026-10-22 E-7: retirement and environmental obligations filed at the bridge's balance date.
+    // Audit 2026-10-22 E-7: retirement and environmental obligations filed at the bridge's balance date, or in the year before it.
     debtLikeObligations: balPoint === null ? null : debtLikeObligationsAt(
       bundle.edgar?.companyFacts?.ok ? (bundle.edgar.companyFacts.value.data as CompanyFacts) : null,
       isoDay(balPoint.date), ctx.modelCurrency, bundle.builtAt),

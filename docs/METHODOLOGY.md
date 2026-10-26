@@ -954,24 +954,31 @@ the enterprise, but the FCFF path projects operating cash flow and capital
 spending only, so it never pays them. FCX's companyfacts carry a $3.84B
 asset-retirement obligation and $2.02B of environmental accruals at 2025-12-31,
 and the bridge had no line for either. The bridge now subtracts them when the
-issuer tags them at the bridge's own balance date: `AssetRetirementObligation`,
+issuer tags them: `AssetRetirementObligation`,
 else `AssetRetirementObligationsNoncurrent` plus `AssetRetirementObligationCurrent`;
 `AccrualForEnvironmentalLossContingencies`, else
 `AccruedEnvironmentalLossContingenciesNoncurrent` plus
 `AccruedEnvironmentalLossContingenciesCurrent`. The undiscounted
 `AccrualForEnvironmentalLossContingenciesGross` is not the recognised liability
 and is not read. Only facts filed by the run date count. When neither
-obligation is tagged at that date, nothing changes. This is an owner decision.
+obligation is tagged, nothing changes. This is an owner decision.
 
-Two house conventions sit beside it, also owner decisions. First, assets the
-issuer tags as legally restricted to settle the retirement obligations
+Three house conventions sit beside it; they are project choices, not owner
+decisions. First, each obligation is read at the bridge's own balance date,
+else at the latest date in the year before it that tags it, and the bridge
+names that date ("the latest filed balance, as the 2026-06-30 balance sheet
+does not tag it"). Many filers tag these only in the 10-K: FCX's 10-Qs carry
+neither, so a rule bound to the quarter's date would miss them three quarters
+a year. A balance more than a year older than the bridge's is not read.
+Second, assets the issuer tags as legally restricted to settle the retirement obligations
 (`AssetRetirementObligationLegallyRestrictedAssetsFairValue`,
 `DecommissioningFundInvestments` or `DecommissioningTrustAssetsAmount`, the
-first one filed) offset the retirement obligation, as rating agencies net
+first one filed, read at the retirement obligation's date) offset the
+retirement obligation, as rating agencies net
 nuclear decommissioning trusts. Only the part of the fund beyond the long-term
 investments the bridge already adds back is credited, so a trust is never
 counted twice. The offset never goes below zero; a surplus fund adds nothing.
-Second, the obligations are deducted at their recognised amount before tax.
+Third, the obligations are deducted at their recognised amount before tax.
 Settling them earns a tax deduction, so this overstates the claim a little;
 the bridge says so.
 
@@ -2013,8 +2020,9 @@ lower bound in place of 0.5, so a current ratio at or above it is used as
 filed and one below it is raised to it. With fewer than three years, or an
 established ratio of 0.5 or more, the house floor applies as before. The
 sales-to-capital basis lists the years and ratios, or says why the house floor
-stands. The median, rather than the newest year or the mean, is the owner's
-choice: one restated or acquisition year does not move it.
+stands. The median, rather than the newest year or the mean, and the
+three-year minimum are project choices: one restated or acquisition year does
+not move the median, and fewer than three years do not establish a ratio.
 
 The **reverse DCF** first searches year-one revenue growth over [−20%, 60%],
 widened to base year-one growth + 30pp when that is higher. It retains the
@@ -2303,7 +2311,8 @@ Financial Strength factor, Standard Grid. The public copy used is Exhibit
 TDS-1, page 6, in South Dakota PUC docket EL26-003
 (https://puc.sd.gov/commission/dockets/electric/2026/EL26-003/Vol2Section6/Exh1TStevens.pdf).
 Moody's weights the two at 15% and 7.5% of its scorecard, so they are weighted
-two to one here. This is an owner decision.
+two to one here. Using Moody's ranges is the owner's decision; the weighting
+follows Moody's own.
 
 | Utility input | Weight | Moody's Standard Grid | Band |
 | --- | ---: | --- | --- |
