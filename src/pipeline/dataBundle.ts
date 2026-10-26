@@ -1098,10 +1098,23 @@ export function selectAnnualFiling(
     `no "10-K", "20-F" or "40-F" among ${sub.data.recentFilings.length} recent filings (exact form match; older overflow pages not searched)` +
       (successor === undefined
         ? ""
-        : `; the registrant is a successor issuer (Form 8-K12B filed ${successor.filingDate}) — its predecessor's annual reports live under another CIK that EDGAR does not link`),
+        : `; the registrant is a successor issuer (Form 8-K12B filed ${successor.filingDate})${UNLINKED_PREDECESSOR}`),
     "critical",
     [sub.endpoint],
   );
+}
+
+const UNLINKED_PREDECESSOR = " — its predecessor's annual reports live under another CIK that EDGAR does not link";
+
+/**
+ * A successor's no-annual-report gap once its predecessor is resolved (audit
+ * 2026-10-22 B-36): the predecessor is named, not called unlinked, and the
+ * gap says why its 10-K is not read in the registrant's place.
+ */
+export function withResolvedPredecessor<T>(result: FetchResult<T>, predecessor: { cik10: string; name: string | null } | null): FetchResult<T> {
+  if (result.ok || predecessor === null || !result.gap.reason.includes(UNLINKED_PREDECESSOR)) return result;
+  const named = `; its predecessor, ${predecessor.name ?? "the co-registrant"} (CIK ${predecessor.cik10}), was resolved for the XBRL history, but annual-report sections are read only from this registrant's own filings, so they return with its first annual report`;
+  return { ok: false, gap: { ...result.gap, reason: result.gap.reason.replace(UNLINKED_PREDECESSOR, named) } };
 }
 
 /**
@@ -1484,6 +1497,12 @@ async function buildEdgarBundle(
     edgar,
     progress,
   );
+
+  latestTenK = withResolvedPredecessor(latestTenK, predecessor);
+  item1a = withResolvedPredecessor(item1a, predecessor);
+  mdna = withResolvedPredecessor(mdna, predecessor);
+  if (business !== undefined) business = withResolvedPredecessor(business, predecessor);
+  if (tenKNotes !== undefined) tenKNotes = withResolvedPredecessor(tenKNotes, predecessor);
 
   const currentReports = pCurrentReports === null ? null : await pCurrentReports;
   const quarterlySegments = pQuarterlySegments === null ? null : await pQuarterlySegments;

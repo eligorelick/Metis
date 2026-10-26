@@ -14,7 +14,7 @@ import {
   type EdgarTransportResponse,
 } from "@/providers/edgar";
 import { createFmpClient } from "@/providers/fmp";
-import { buildDataBundle, selectAnnualFiling, selectInterimFiling } from "@/pipeline/dataBundle";
+import { buildDataBundle, selectAnnualFiling, selectInterimFiling, withResolvedPredecessor } from "@/pipeline/dataBundle";
 
 function filing(form: string): EdgarFiling {
   return {
@@ -214,6 +214,19 @@ describe("selectAnnualFiling — no annual form on file", () => {
       expect(result.gap.reason).toMatch(/^no "10-K", "20-F" or "40-F" among 3 recent filings/);
       expect(result.gap.reason).toMatch(/successor issuer \(Form 8-K12B filed 2026-03-01\)/);
     }
+  });
+
+  it("names a predecessor Métis resolved instead of calling it unlinked (audit 2026-10-22 B-36)", () => {
+    const result = selectAnnualFiling(submissions(["8-K12B", "10-Q", "8-K"]), "XOM");
+    const section = result.ok ? result : { ok: false as const, gap: { ...result.gap, field: "edgar.item1a(XOM)", reason: `no annual primary filing (10-K or 20-F) to extract from: ${result.gap.reason}` } };
+    for (const gap of [result, section].map((r) => withResolvedPredecessor(r, { cik10: "0000034088", name: "EXXON MOBIL CORP" }))) {
+      expect(gap.ok).toBe(false);
+      if (gap.ok) continue;
+      expect(gap.gap.severity).toBe("critical");
+      expect(gap.gap.reason).not.toMatch(/does not link/);
+      expect(gap.gap.reason).toMatch(/successor issuer \(Form 8-K12B filed 2026-03-01\); its predecessor, EXXON MOBIL CORP \(CIK 0000034088\), was resolved for the XBRL history, but annual-report sections are read only from this registrant's own filings, so they return with its first annual report$/);
+    }
+    expect(withResolvedPredecessor(result, null)).toBe(result);
   });
 
   it("reports a plain absence when there is no successor notice", () => {
