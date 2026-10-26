@@ -375,6 +375,36 @@ describe("scenarioTargets — ordering / floor / degeneracy invariants", () => {
     expect(targetFor(r, "bull").marginDeltaPp).toBeCloseTo(0, 10);
     expect(r.missingReasons.some((g) => g.field === "valuation.scenarioTargets.dispersion.degenerate")).toBe(true);
   });
+
+  it("withholds a fan whose two runs both fall below the base (audit 2026-10-22, found with B-23)", () => {
+    // Revenue swinging ±10% a year makes σ growth large; at sales-to-capital
+    // 0.3 and 1% base growth the extra growth costs more than it earns, and the
+    // slower path releases no capital (reinvestment is floored at zero), so the
+    // DCF peaks at the base path. Duke Energy's merged second-quarter figures
+    // produced the same shape: bull 37.23, base 43.09, bear 33.24.
+    const SWINGING: ProjectionIncomeRow[] = [
+      { date: "2021-12-31", revenue: 800, ebit: 240, netIncome: 140, epsDiluted: 1.3 },
+      { date: "2022-12-31", revenue: 960, ebit: 288, netIncome: 160, epsDiluted: 1.5 },
+      { date: "2023-12-31", revenue: 880, ebit: 264, netIncome: 178, epsDiluted: 1.7 },
+      { date: "2024-12-31", revenue: 1050, ebit: 315, netIncome: 196, epsDiluted: 1.9 },
+      { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1 },
+    ];
+    const a = structuredClone(buildDcf().assumptions);
+    a.salesToCapital.value = 0.3;
+    a.growthPath.value = a.growthPath.value.map(() => 1);
+    const dcf = runDcf(a, { waccPct: 9, netDebt: -100, dilutedShares: 100 });
+    expect(dcfDomainFailure(dcf)).toBeNull();
+    const r = computeScenarioTargets(makeInputs({ valuation: dcfValuation({ assumptions: a, dcf }), incomeHistory: SWINGING }));
+    expect(r.status).toBe("suppressed");
+    expect(r.targets).toEqual([]);
+    const reason = r.missingReasons.find((g) => g.field === "valuation.scenarioTargets")?.reason ?? "";
+    expect(reason).toBe(
+      "Scenario price targets withheld: both ±σ runs value the shares below the base DCF (25.98 and 19.32 against 28.44 per share), " +
+        "so they do not bracket it and give no range around it; the DCF's value peaks near the base growth path, " +
+        "where faster growth needs reinvestment that earns less than it costs and slower growth releases no capital",
+    );
+    expect(r.basis).toEqual(["Scenario price targets unavailable: both ±σ runs fall below the base DCF value, so they do not bracket it."]);
+  });
 });
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;

@@ -297,8 +297,32 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
     );
   }
 
+  // A fan is a range around the base. Where the DCF's value peaks (or bottoms)
+  // at the base path, both ±σ runs land on one side of it, and a "bear – bull"
+  // range would exclude the fair value it is meant to bracket. Faster growth
+  // that earns less than its reinvestment, with slower growth releasing no
+  // capital (reinvestment is floored at zero), gives that peak; Duke Energy's
+  // merged second quarter reached it in the 2026-10-22 audit panel.
+  const base = baseDcf.perShare;
+  const runs = [optimistic.value, pessimistic.value];
+  if (isNum(base) && runs.every(isNum) && (runs.every((v) => v < base) || runs.every((v) => v > base))) {
+    const below = runs.every((v) => v < base);
+    return suppressed(
+      [
+        {
+          field: "valuation.scenarioTargets",
+          reason: `Scenario price targets withheld: both ±σ runs value the shares ${below ? "below" : "above"} the base DCF ` +
+            `(${round2(optimistic.value as number)} and ${round2(pessimistic.value as number)} against ${round2(base)} per share), so they do not bracket it and give no range around it` +
+            (below ? "; the DCF's value peaks near the base growth path, where faster growth needs reinvestment that earns less than it costs and slower growth releases no capital" : ""),
+          severity: "warn",
+        },
+      ],
+      [`Scenario price targets unavailable: both ±σ runs fall ${below ? "below" : "above"} the base DCF value, so they do not bracket it.`],
+    );
+  }
+
   const targets: ScenarioTarget[] = [
-    mk("bull", optimistic.value, optimistic.growthDeltaPp, optimistic.marginDeltaPp),
+    mk("bull", optimistic.value,optimistic.growthDeltaPp, optimistic.marginDeltaPp),
     mk("base", baseDcf.perShare, 0, 0),
     mk("bear", pessimistic.value, pessimistic.growthDeltaPp, pessimistic.marginDeltaPp),
   ];
