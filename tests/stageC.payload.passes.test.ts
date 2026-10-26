@@ -536,11 +536,18 @@ describe("payload determinism + provenance", () => {
     const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
     const currentBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction)";
     const precedingBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; net income less disclosed preferred distributions (parent income; no second NCI deduction))";
-    expect(computed.valuation.multiples?.multiples[0]?.basis).toBe(currentBasis + epsDisclosure);
-    const precedingFinance = JSON.parse(JSON.stringify(finance, (_key, value) => {
+    // Audit 2026-10-22 B-20 (D-107) names only the formula that ran, and
+    // B-9 records each multiple's period; restore the D-85 wording and drop
+    // the period leaf for the preceding pin.
+    const ranBasis = "price / epsDiluted (TTM)";
+    expect(computed.valuation.multiples?.multiples[0]?.basis).toBe(ranBasis + epsDisclosure);
+    expect(computed.valuation.multiples?.multiples.filter((m) => m.period !== undefined).map((m) => [m.key, m.period])).toEqual(
+      ["peTtm", "evToEbitda", "evToSales"].map((key) => [key, "TTM to 2026-03-28"]));
+    const precedingFinance = JSON.parse(JSON.stringify(finance, (key, value) => {
+      if (key === "period" && value === "TTM to 2026-03-28") return undefined;
       if (typeof value !== "string") return value;
       const withoutEps = value.replace(epsDisclosure, "");
-      return withoutEps === currentBasis ? precedingBasis : withoutEps;
+      return withoutEps === ranBasis ? precedingBasis : withoutEps === currentBasis ? precedingBasis : withoutEps;
     }));
     // D-87 changes these seven explanatory leaves only. Assert their exact
     // paths/content before restoring the preceding wording for the whole-finance
@@ -645,8 +652,13 @@ describe("payload determinism + provenance", () => {
       const before = { ...record };
       if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
       delete before.unitScale;
+      // Audit 2026-10-22 B-9 (D-107): the income-derived multiples' records
+      // carry the period their earnings cover; the preceding records had none.
+      if (before.origin.startsWith("computed.valuation.multiples.") && before.period === "TTM to 2026-03-28") before.period = null;
       return before;
     });
+    expect((payload.provenanceRegistry ?? []).filter((record) => record.origin.startsWith("computed.valuation.multiples.") && record.period === "TTM to 2026-03-28")
+      .map((record) => record.id)).toEqual(["computed.valuation.pettm-current", "computed.valuation.evtoebitda-current", "computed.valuation.evtosales-current"]);
     expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4c5e217d");
     // Restoring only the preceding version must reproduce its whole prompt.
     // D-99 adds one payload note, the consensus-target reconciliation (AMZN
@@ -663,6 +675,8 @@ describe("payload determinism + provenance", () => {
     const f19Restorations: [string, string, number][] = [
       [" (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)", "", 1],
       [", neutral 45–55)", ")", 1],
+      // Audit 2026-10-22 B-20 (D-107): the P/E note names only the formula that ran.
+      ["peTtm: price / epsDiluted (TTM). EPS convention", "peTtm: price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction). EPS convention", 1],
     ];
     const payloadText = JSON.stringify(payload);
     for (const [now, , count] of f19Restorations) expect(payloadText.split(now).length - 1).toBe(count);
@@ -1006,15 +1020,20 @@ describe("payload determinism + provenance", () => {
       // prompt bytes, the registry and the finance block. With the preceding
       // stamp every other pin here is unchanged; no value moves. Audit batch 3
       // (D-105): only the versioned header moves with payload 1.45.0; no byte
-      // of this fixture's prompt or any record changes.
-      fingerprint: "1.45.0:37e206c3",
-      promptBytes: 140_885,
+      // of this fixture's prompt or any record changes. Audit batch 4 (D-107,
+      // -120 prompt bytes): the P/E note names only the formula that ran
+      // (B-20), and the three income-derived multiples' records carry their
+      // "TTM to 2026-03-28" period (B-9); restoring both above reproduces every
+      // preceding pin, and the versioned header moves with payload 1.46.0.
+      fingerprint: "1.46.0:f9b27757",
+      promptBytes: 140_765,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
       // (restored above for the preceding pin); no value or byte moves.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "73762e7f",
+      // Audit batch 4 (D-107): the multiples' periods; see the fingerprint.
+      provenanceHash: "ad57187d",
       provenanceIdsHash: "623dfb46",
       citationCount: 74,
       citationHash: "5d7e100c",
@@ -1051,7 +1070,9 @@ describe("payload determinism + provenance", () => {
       // this fixture's runs are inside it, so no target or byte moves. The
       // same review moves the two method stamps (D-102), restored above.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      financeHash: "e09a7472",
+      // Audit batch 4 (D-107): the P/E basis and the multiples' period leaves,
+      // restored above for the preceding pin; no value moves.
+      financeHash: "1b80b65d",
     });
   });
 
@@ -1175,7 +1196,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.45.0");
+    expect(first.payloadVersion).toBe("1.46.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2704,7 +2725,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.40.1");
+    expect(report.meta.specVersion).toBe("1.41.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
