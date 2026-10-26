@@ -70,7 +70,7 @@ Pull request review (Codex, #61):
 
 ## Control panel
 
-Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place, before main's #56 to #59 were merged in (see the note after the table). Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
+Base is `2f2aa3b` (origin/main) and head is this branch with every fix in place, before main's #56 to #60 were merged in (see the note after the table). Both sides ran the 45-ticker panel keylessly, offline behind a dead proxy, with a pinned clock (`PANEL_NOW=2026-10-22T06:00:00Z`), cost caps of 0 and a fresh copy of the audit's cached `metis.db`. Each side finished 45 of 45 with no errors. The background-refresh failures in the logs are expected behind the dead proxy and changed nothing. Each side was extracted with `extract-census.mjs` and compared column by column.
 
 | Figure | Base produced | Head produced | Gained | Lost | Changed value |
 |---|---|---|---|---|---|
