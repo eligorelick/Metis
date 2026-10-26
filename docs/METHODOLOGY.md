@@ -251,7 +251,7 @@ rate)` row) and in the report's computed-returns notes.
 
 | Input | Source | Convention |
 | --- | --- | --- |
-| Risk-free rate | **FRED `DGS10`** (latest finite observation), else FMP treasury rates (`year10`) | The series id and the observation date are both stated. D-60: DGS10 comes first so the current WACC and every per-year WACC share one series; the vendor endpoint is only the fallback. |
+| Risk-free rate | **FRED `DGS10`** (latest finite observation; keyed API, then `fredgraph.csv`), else FMP treasury rates (`year10`), else the last good cached `DGS10` observation if it is at most 10 business days old, else the U.S. Treasury daily par yield curve 10 Yr | The source and the observation date are both stated. D-60: DGS10 comes first so the current WACC and every per-year WACC share one series; the other three are fallbacks, and any of them is disclosed as a substitution. With every source down the WACC is withheld. |
 | Equity risk premium | FMP market-risk-premium `totalEquityRiskPremium` for the issuer's domicile, with country-code/name alias matching; an absent or conflicting domicile row falls back to the unambiguous US row with disclosure, then the dated **Damodaran US** implied-ERP fallback if the selected input is missing or implausible | Conflicting distinct premiums for one country are not chosen by array order. The static fallback is 4.18%, dated 2026-07-01 in `returns.ts`; it requires a valid analysis date, cannot post-date that analysis, and expires after 210 days. A value outside [3%, 25%] falls back. This domicile rule is a house assumption, not an estimate of geographic revenue exposure. D-60: the vendor row carries no vintage, so its date is printed as the acquisition date with "vintage not published by the vendor", beside the dated Damodaran reference. |
 | Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. D-60: a vendor beta publishes no window or fit, so the basis also prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. The WACC keeps the beta it used; no bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
@@ -702,6 +702,21 @@ D-60 the current WACC takes `DGS10` first too, falling back to the provider's
 10-year treasury rate only when FRED has no observation. When the fallback runs,
 the returns notes say the newest fiscal year's own WACC can differ from the
 current one because the two rates come from different series.
+
+When FRED and the provider both have no value (audit 2026-10-22 B-4), the
+current WACC takes the newest `DGS10` observation still in the local cache,
+provided it is at most 10 business days before the analysis date (weekdays
+counted; holidays are not removed, so the count can only overstate the age).
+Failing that, it reads the 10 Yr column of the U.S. Treasury's daily par yield
+curve file for the current year (the previous year's file in early January),
+the rate FRED's `DGS10` republishes. The WACC line prints which of the two it
+was (`FRED DGS10 last cached observation` or `U.S. Treasury par yield curve
+10 Yr`) and its observation date, and the missing-data list carries a
+`riskFree.substitution` entry naming the source and why. If neither answers,
+a `riskFree.fallback` gap names both reasons and the WACC is withheld. FRED
+answering HTTP 200 with an HTML maintenance or outage page is treated as an
+outage: it is retried with backoff, then the keyed path tries `fredgraph.csv`,
+and the gap names an HTML page rather than an unknown series.
 
 Terminal reinvestment is g ÷ ROIC_terminal, Damodaran's consistency rule.
 

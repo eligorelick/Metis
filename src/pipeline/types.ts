@@ -58,6 +58,7 @@ import type { ExtractMethod } from "@/edgar/extract";
 import type { QuarterlySegmentRevenue } from "@/edgar/segmentFacts";
 import type { AnnualGeography } from "@/edgar/annualGeography";
 import type { CurrentReports } from "@/providers/currentReports";
+import type { RiskFreeFallbackObservation } from "@/pipeline/riskFreeFallback";
 import type { CompanyIrMaterialEvents } from "@/providers/companyIr";
 import type { ShortInterestPoint } from "@/providers/finra";
 import type { FredObservation } from "@/providers/fred";
@@ -392,6 +393,12 @@ export interface DataBundle {
 
   macro: MacroBundle;
   treasury: FmpFetch<FmpTreasuryRatesRow>;
+  /**
+   * Audit 2026-10-22 B-4: the risk-free rate from the last good cached DGS10
+   * observation or the U.S. Treasury par yield curve. Present only when DGS10
+   * and FMP treasury both had no value; absent on every healthy run.
+   */
+  riskFreeFallback?: FetchResult<RiskFreeFallbackObservation>;
   marketRiskPremium: FmpFetch<FmpMarketRiskPremiumRow>;
 
   edgar: EdgarBundle;

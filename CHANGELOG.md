@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Proposed audit batch 6: degrade visibly when providers fail (2026-10-26)
+
+- Treat FRED answering HTTP 200 with an HTML page (its site-maintenance page or any outage page) as an outage on both endpoints: the request is retried with backoff, the keyed API then tries `fredgraph.csv`, and the gap reads "returned a maintenance/HTML page (HTTP 200)" instead of an unrecognized payload or an unknown series id (B-1).
+- Keep the WACC when FRED `DGS10` and FMP treasury rates both fail: the current WACC takes the last good cached `DGS10` observation if it is at most 10 business days old, else the 10 Yr point of the U.S. Treasury daily par yield curve (`home.treasury.gov`, no key or identity sent). The WACC line names the source and its observation date, a `riskFree.substitution` entry says which source stood in and why, the AI context cites the series actually used, and with every source down the WACC is withheld as before (B-4; owner order). Stage B ACCOUNTING_EVIDENCE_24 (D-107).
+
 ## Unreleased - fixes from the live five-company check (2026-10-26)
 
 - Read current debt securities tagged `DebtSecuritiesCurrent` as short-term investments in the keyless statements, so a filer that moved its marketable securities there keeps them in cash and short-term investments when FMP is unavailable (NVDA: 34,143 million at 2026-07-26; keyless sales-to-capital 1.53 → 1.85, against 2.58 on the vendor path, whose combined total also lets D-60 carry marketable equity as non-operating).
