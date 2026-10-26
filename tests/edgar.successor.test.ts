@@ -519,6 +519,34 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
     expect(out.notes.some((n) => n.startsWith("incomeAnnual: 5 pre-reorganization period(s)"))).toBe(true);
   });
 
+  it("names the successor as the economic issuer only when its filing re-presents a predecessor period unchanged (audit 2026-10-22 B-36)", async () => {
+    // The successor's FY2026 10-K carries FY2025 as its comparative; the
+    // predecessor filed FY2025 net income of 140.
+    const withComparative = (val: number): KeylessInputs => {
+      const base = inputs();
+      const facts = annualFacts(2115436, "EXAMPLE SUCCESSOR HOLDINGS CORP", [2026]);
+      const netIncome = facts.facts["us-gaap"]!["NetIncomeLoss"] as { units: { USD: Record<string, unknown>[] } };
+      netIncome.units.USD.push({ ...netIncome.units.USD[0]!, start: "2025-01-01", end: "2025-12-31", val, fy: 2026 });
+      const companyFacts = base.edgar.companyFacts.ok ? { ok: true as const, value: { ...base.edgar.companyFacts.value, data: facts } } : base.edgar.companyFacts;
+      return inputs({ edgar: { ...base.edgar, companyFacts } });
+    };
+    const inherited = async (over: KeylessInputs) => {
+      const out = await applyKeylessFallbacks(over);
+      const rows = out.members.incomeAnnual.ok ? out.members.incomeAnnual.value.data.rows : [];
+      return { rows: rows.filter((row) => row["predecessor"] === true), entry: out.gaps.find((g) => g.field === "edgar.predecessor")! };
+    };
+    const continuing = await inherited(withComparative(140));
+    expect(continuing.rows.length).toBeGreaterThan(0);
+    for (const row of continuing.rows) expect(row["successorCik"]).toBe(SUCCESSOR_CIK);
+    expect(continuing.entry.reason).toMatch(/re-presents the predecessor's 2025-01-01 to 2025-12-31 net income and per-share figures unchanged/);
+    for (const over of [withComparative(139), inputs()]) {
+      const unproven = await inherited(over);
+      expect(unproven.rows.length).toBeGreaterThan(0);
+      for (const row of unproven.rows) expect(row["successorCik"]).toBeUndefined();
+      expect(unproven.entry.reason).not.toMatch(/re-presents/);
+    }
+  });
+
   it("files one manifest entry naming both CIKs and the span it supplied", async () => {
     const out = await applyKeylessFallbacks(inputs());
     const entries = out.gaps.filter((g) => g.field === "edgar.predecessor");

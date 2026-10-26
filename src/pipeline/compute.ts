@@ -423,9 +423,18 @@ function toGrowthCashFlow(r: FmpCashFlowRow): GrowthCashFlowRow {
   };
 }
 
+/**
+ * The issuer whose earnings a row reports: its filer, or, for a predecessor's
+ * row that the successor's own filing re-presents unchanged, the successor
+ * (audit 2026-10-22 B-36).
+ */
+function economicIssuerId(row: FmpStatementRow): string | null {
+  return row.predecessor === true ? str(row.successorCik) ?? str(row.cik) : str(row.cik);
+}
+
 function commonFlowScope(row: FmpStatementRow, field: string, basis: "annual" | "quarter" | "ttm"): CommonIncomeFlowScope {
   const evidence = row.fieldProvenance?.[field];
-  return { issuerId: str(row.cik), currency: evidence?.unit ?? str(row.reportedCurrency),
+  return { issuerId: economicIssuerId(row), currency: evidence?.unit ?? str(row.reportedCurrency),
     periodStart: evidence?.periodStart ?? str(row.periodStart), periodEnd: evidence?.periodEnd ?? str(row.date), basis,
     observedAt: evidence?.observedAt,
     // Primary field evidence belongs to this operand; unrelated row timing
@@ -443,7 +452,7 @@ function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "qua
     tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`)) ? "consolidated" :
       tags.includes("us-gaap/NetIncomeLoss") ? "parent" : undefined;
   return { netIncome: num(row.netIncome), netIncomeAvailableToCommon: num(row.netIncomeAvailableToCommon),
-    admissionAsOf, targetScope: { issuerId: str(row.cik), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
+    admissionAsOf, targetScope: { issuerId: economicIssuerId(row), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
     incomeScope: commonFlowScope(row, "netIncome", basis), commonIncomeScope: commonFlowScope(row, "netIncomeAvailableToCommon", basis),
     noncontrollingIncomeScope: commonFlowScope(row, "netIncomeAttributableToNoncontrollingInterest", basis),
     noncontrollingIncome: num(row.netIncomeAttributableToNoncontrollingInterest), netIncomeOwnershipBasis: ownership,

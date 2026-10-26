@@ -53,6 +53,7 @@ import {
   predecessorManifestEntry,
   predecessorUnresolvedEntry,
   hasOwnAnnualHistory,
+  successorContinuity,
   type PredecessorFacts,
 } from "@/edgar/successor";
 import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
@@ -1209,6 +1210,11 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   }
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource !== "fmp") {
     const predecessorBuilt = buildStatementsFromCompanyFacts(predecessor.facts, { ...buildOptions(predecessor.cik10), factsObservedAt: predecessor.fetchedAt });
+    // Audit 2026-10-22 B-36: when the successor's own filing re-presents the
+    // predecessor's periods unchanged, the two are one reporting entity, and
+    // each predecessor row names the successor as its economic issuer so a
+    // trailing twelve months may span the reorganization.
+    const continuity = inputs.edgar.companyFacts.ok ? successorContinuity(inputs.edgar.companyFacts.value.data, predecessor.facts) : null;
     let filledPeriods = 0;
     let oldest: string | null = null;
     let newest: string | null = null;
@@ -1242,6 +1248,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
             sourceFetchedAt: predecessor.fetchedAt,
             predecessor: true,
             predecessorCik: predecessor.cik10,
+            ...(continuity === null ? {} : { successorCik: cik10 }),
           }) as TRow,
       );
       const dates = tagged.map((row) => isoDay(row["date"]) as string).sort();
@@ -1288,7 +1295,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     fillFromPredecessor("cashflowQuarterly", predecessorBuilt.cashflowQuarterly, STATEMENT_ENDPOINTS.cashflowQuarterly);
     if (filledPeriods > 0) {
       gaps.push(
-        predecessorManifestEntry(predecessor, cik10, filledPeriods, oldest ?? "", newest ?? ""),
+        predecessorManifestEntry(predecessor, cik10, filledPeriods, oldest ?? "", newest ?? "", continuity),
       );
     }
   }
