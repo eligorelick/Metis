@@ -40,6 +40,7 @@ import {
   tracedPeriodLabel,
 } from "@/report/format";
 import { ClaimText } from "./ClaimText";
+import { figureCitationStatus, isComputedFigure } from "@/report/verificationMarks";
 import { GRADE_SURFACE_BY_KEY } from "@/report/surfaceManifest";
 import { evidenceAttributes } from "./evidenceIdentity";
 
@@ -123,6 +124,18 @@ export function ClaimList({
  * to a source", NOT "confirmed correct". Source + as-of live in the title.
  */
 export function VerificationDot({ n }: { n: TracedNumber }) {
+  // F-23: a data-only report ran no citation check; its figures were computed.
+  if (n.verified === true && isComputedFigure(n)) {
+    return (
+      <span
+        className="mono text-[10px] text-faint"
+        title="computed by the pipeline from its stated inputs; no citation-check pass ran on this data-only report"
+        aria-label="computed"
+      >
+        computed
+      </span>
+    );
+  }
   if (n.verified === true) {
     return (
       <span
@@ -387,7 +400,7 @@ export function TracedNumberSourceDetails({ n, label = "Number provenance" }: { 
     ["as of", n.asOf],
     ["period", n.period],
     ...(n.periodContext ? [["structured period", JSON.stringify(n.periodContext)] as const] : []),
-    ["citation status", numericCitationTraceLabel(n.verified)],
+    ["citation status", figureCitationStatus(n)],
     ...(n.verificationNote ? [["citation note", n.verificationNote] as const] : []),
   ] as const;
   return (

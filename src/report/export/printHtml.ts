@@ -2,7 +2,7 @@ import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimStatusMarkText, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimStatusMarkText, COMPUTED_MARK_LEGEND, indexVerificationMarks } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -306,7 +306,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
     for (const v of row.values) {
       const window = tracedPeriodLabel(v.value.period, v.value.periodContext);
       const periodCell = window === "not supplied" || v.period.includes(window) ? v.period : window.includes(v.period) ? window : `${v.period} (${window})`;
-      body.push([row.label, periodCell, figureValueText(v.value), v.value.asOf ?? DASH, citedMark(v.value.verified)]);
+      body.push([row.label, periodCell, figureValueText(v.value), v.value.asOf ?? DASH, citedMark(v.value)]);
     }
   }
   return bodyTable(["Metric", "Period", "Value", "As of", "Cited"], body, ["Cited"]);
@@ -775,7 +775,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     macro: sectionMacro(report.macro),
     appendix: sectionAppendix(report, completeness, context),
   };
-  return [
+  const body = [
     headerBlock(report, completeness, context),
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
@@ -784,6 +784,17 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   ]
     .filter((b) => b.length > 0)
     .join("\n");
+  return withComputedMarkLegend(body);
+}
+
+/** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
+function withComputedMarkLegend(html: string): string {
+  if (!html.includes("<td>computed</td>")) return html;
+  const header = html.indexOf("<th>Cited</th></tr></thead>");
+  const end = header < 0 ? -1 : html.indexOf("</table>", header);
+  if (end < 0) return html;
+  const at = end + "</table>".length;
+  return `${html.slice(0, at)}<p class="table-legend">${esc(COMPUTED_MARK_LEGEND)}</p>${html.slice(at)}`;
 }
 
 /**
@@ -820,6 +831,7 @@ p { margin: 4pt 0; overflow-wrap: anywhere; }
 .asof { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .src { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .claim-status { color: #3d382f; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
+.table-legend { color: #3d382f; font-size: 8.5pt; margin: 2pt 0 8pt; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
 .print-ledger-table { table-layout: fixed; }
 .report-header table { table-layout: fixed; }

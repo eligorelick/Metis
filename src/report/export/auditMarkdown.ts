@@ -22,10 +22,10 @@ import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { FilingSupplements } from "@/report/filingSupplementPresentation";
 import {
   formatCostUsd,
-  numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
 import { displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { figureCitationStatus, indexVerificationMarks } from "@/report/verificationMarks";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -71,7 +71,7 @@ function auditValue(value: unknown): string {
 
 function tracedAuditCells(trace: TracedNumber): string[] {
   return TRACED_NUMBER_FIELDS.map((field) => {
-    if (field.key === "verified") return numericCitationTraceLabel(trace.verified);
+    if (field.key === "verified") return figureCitationStatus(trace);
     return auditValue(trace[field.key]);
   });
 }
@@ -451,6 +451,7 @@ function renderOwnHistory(report: Report): string {
 /** The full audit trail for one report, as Markdown. */
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
+  indexVerificationMarks(report);
   const m = report.meta;
   const blocks = [
     [

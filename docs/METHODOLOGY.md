@@ -2685,6 +2685,15 @@ entries for grade-strip reasoning (often a copy of the section's own claims)
 stay in the verification log but are left out of the factual and judgment
 counts, and the audit export says how many were left out.
 
+A data-only report runs no citation-check pass. Its figures carry
+`verified: true` only because the pipeline computed them, so they print
+"computed" where a checked report prints ✓: in the Cited column of the
+Markdown and print tables, beside each figure on the page, in the figure's
+citation-status detail and in the audit export ("computed (no citation check
+ran)"). The Markdown and print reports add a legend line under the first
+table with a Cited column (audit 2026-10-22 F-23). The stored `verified`
+value is unchanged, because the enterprise-value and debt checks read it.
+
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The
 report's execution metadata distinguishes requested mode and actual outcome;

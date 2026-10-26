@@ -1,5 +1,6 @@
 import { displayedValidationStatus } from "./claimMatching";
-import type { Report, SourcedClaim, VerificationLogEntry } from "./schema";
+import { numericCitationTraceLabel } from "./format";
+import type { Report, SourcedClaim, TracedNumber, VerificationLogEntry } from "./schema";
 
 /**
  * Audit 2026-10-22 F-21: each factual claim carries its verification status
@@ -11,6 +12,8 @@ import type { Report, SourcedClaim, VerificationLogEntry } from "./schema";
 export type ClaimStatusMark = "validated" | "unverified" | "contradicted" | "qualitative";
 
 const marks = new WeakMap<object, ClaimStatusMark>();
+/** F-23: figures of a data-only report, whose `verified` means computed, not citation-checked. */
+const computedFigures = new WeakSet<object>();
 const indexed = new WeakSet<object>();
 
 function markFor(entry: VerificationLogEntry): ClaimStatusMark {
@@ -31,14 +34,28 @@ function resolvePath(root: unknown, path: string): unknown {
   return node;
 }
 
+function indexComputedFigures(node: unknown): void {
+  if (node === null || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const item of node) indexComputedFigures(item);
+    return;
+  }
+  const obj = node as Record<string, unknown>;
+  if (obj.verified === true && typeof obj.value === "number" && typeof obj.source === "string") computedFigures.add(obj);
+  for (const value of Object.values(obj)) indexComputedFigures(value);
+}
+
 /**
  * Index the report a renderer is about to print. The log's claim entries
  * (factual-claim, no `check`) name the claim's report path and text; an entry
- * whose path no longer holds that text marks nothing.
+ * whose path no longer holds that text marks nothing. A data-only report's
+ * figures are indexed as computed.
  */
 export function indexVerificationMarks(report: Report): void {
   if (indexed.has(report)) return;
   indexed.add(report);
+  // history.ts isDataOnly reads the same marker, but that module imports the database.
+  if (report.appendix.missingData.some((gap) => gap.field === "analysis.llm")) indexComputedFigures(report);
   for (const entry of report.appendix.verificationLog ?? []) {
     if (entry.evidenceKind !== "factual-claim" || entry.check !== undefined || entry.path === undefined || entry.validationStatus === undefined) continue;
     const node = resolvePath(report, entry.path);
@@ -55,4 +72,20 @@ export function claimStatusMark(claim: SourcedClaim): ClaimStatusMark | undefine
 export function claimStatusMarkText(claim: SourcedClaim): string | null {
   const mark = marks.get(claim);
   return mark === undefined ? null : `[${mark}]`;
+}
+
+/**
+ * True for a figure of an indexed data-only report: no citation-check pass
+ * ran, and `verified` records only that the pipeline computed it (F-23).
+ */
+export function isComputedFigure(n: TracedNumber): boolean {
+  return computedFigures.has(n);
+}
+
+/** The legend printed under the first table with a Cited column in a data-only report (F-23). */
+export const COMPUTED_MARK_LEGEND = "Cited column: \"computed\" means the pipeline calculated the figure from its stated inputs. No citation-check pass ran on this data-only report, so no figure is marked ✓ (citation-traced).";
+
+/** A figure's citation status in words: "computed (no citation check ran)" for a data-only report's figure (F-23). */
+export function figureCitationStatus(n: TracedNumber): string {
+  return n.verified === true && isComputedFigure(n) ? "computed (no citation check ran)" : numericCitationTraceLabel(n.verified);
 }

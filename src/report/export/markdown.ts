@@ -23,7 +23,7 @@ import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimStatusMarkText, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimStatusMarkText, COMPUTED_MARK_LEGEND, indexVerificationMarks } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -288,7 +288,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
         periodCell,
         figureValueText(v.value),
         v.value.asOf ?? DASH,
-        citedMark(v.value.verified),
+        citedMark(v.value),
       ]);
     }
   }
@@ -974,7 +974,19 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
 
   // Join sections with a blank-line-separated horizontal rule for readability;
   // ensure a single trailing newline for a clean file.
-  return blocks.join("\n\n---\n\n") + "\n";
+  return withComputedMarkLegend(blocks.join("\n\n---\n\n") + "\n");
+}
+
+/** F-23: a data-only report says what "computed" means under its first table with a Cited column. */
+function withComputedMarkLegend(markdown: string): string {
+  const lines = markdown.split("\n");
+  if (!lines.some((line) => line.startsWith("|") && line.includes(" | computed |"))) return markdown;
+  const header = lines.findIndex((line) => line.startsWith("|") && line.endsWith(" | Cited |"));
+  if (header < 0) return markdown;
+  let end = header;
+  while (end + 1 < lines.length && lines[end + 1].startsWith("|")) end++;
+  lines.splice(end + 1, 0, "", `_${markdownProse(COMPUTED_MARK_LEGEND)}_`);
+  return lines.join("\n");
 }
 
 export { reportToAuditMarkdown } from "@/report/export/auditMarkdown";

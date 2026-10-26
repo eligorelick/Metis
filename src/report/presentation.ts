@@ -19,6 +19,7 @@ import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, 
 import { formatScore } from "@/report/scoreText";
 import { displayedClaimCoverage, displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
 export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
+import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
@@ -347,13 +348,14 @@ export interface FigureRow {
   /** The measurement window, or null when the figure did not supply one. */
   period: string | null;
   asOf: string | null;
-  /** "✓", "untraced" or "not checked". */
+  /** "✓", "computed" (a data-only report's figure), "untraced" or "not checked". */
   cited: string;
   trace: TracedNumber;
 }
 
-export function citedMark(verified: TracedNumber["verified"]): string {
-  return verified === true ? "✓" : numericCitationTraceLabel(verified);
+export function citedMark(n: TracedNumber): string {
+  // F-23: a data-only report ran no citation check; its figures were computed.
+  return n.verified === true ? isComputedFigure(n) ? "computed" : "✓" : numericCitationTraceLabel(n.verified);
 }
 
 /**
@@ -375,7 +377,7 @@ export function figureRow(n: TracedNumber, label?: string): FigureRow {
     value: figureValueText(n),
     period: period === "not supplied" ? null : period,
     asOf: n.asOf,
-    cited: citedMark(n.verified),
+    cited: citedMark(n),
     trace: n,
   };
 }
