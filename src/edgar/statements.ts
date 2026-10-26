@@ -359,10 +359,6 @@ function durationDays(p: FactPoint): number | null {
   return p.start !== undefined ? daysBetween(p.start, p.end) : null;
 }
 
-/**
- * Strip binary-float noise from a derived value and normalise `-0` to `0`.
- * EPS differences are the motivating case (7.5 - 5.9 = 1.5999999999999996).
- */
 /** The coarsest power of ten, up to a million, that divides every value: the rounding unit the filer displayed them in. */
 function displayRoundingUnit(values: readonly number[]): number {
   let unit = 1_000_000;
@@ -370,6 +366,10 @@ function displayRoundingUnit(values: readonly number[]): number {
   return unit;
 }
 
+/**
+ * Strip binary-float noise from a derived value and normalise `-0` to `0`.
+ * EPS differences are the motivating case (7.5 - 5.9 = 1.5999999999999996).
+ */
 function tidy(x: number, decimals: number): number {
   if (!Number.isFinite(x)) return x;
   const r = Number(x.toFixed(decimals));
@@ -3270,10 +3270,12 @@ function deriveFourthQuarterPerShare(
 /** Disclosure for a diluted share count served by the basic count (audit 2026-10-22 B-35). */
 const BASIC_SHARES_FOR_DILUTED_DISCLOSURE =
   "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; the basic weighted count is the diluted stand-in, so dilution too small to move EPS at its reported rounding is not reflected";
-// In a loss period every potential share is antidilutive and excluded, so the
-// diluted count is the basic count by definition (ASC 260-10-45-20).
+// In a loss from continuing operations, ASC 260's control number, every
+// potential share is antidilutive and excluded, so the diluted count is the
+// basic count by definition (ASC 260-10-45-18 to 45-20). Net EPS alone does
+// not show that when a discontinued result is filed.
 const BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE =
-  "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; it is a loss period, in which potential shares are antidilutive and excluded, so the basic weighted count is the diluted count";
+  "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; it is a loss period for continuing operations, in which potential shares are antidilutive and excluded, so the basic weighted count is the diluted count";
 
 /**
  * A filer that tags no diluted weighted count (Exxon Mobil has tagged none
@@ -3301,7 +3303,10 @@ function standInDilutedSharesFromBasic(rows: FmpIncomeStatementRow[], notes: Not
       filings: [...new Map([...shares.filings, ...eps.filings, ...epsDiluted.filings].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
       calculation: "basic-shares-equal-eps",
     };
-    const disclosure = row.eps < 0 ? BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE : BASIC_SHARES_FOR_DILUTED_DISCLOSURE;
+    const continuing = row.netIncomeFromContinuingOperations;
+    const discontinued = row.netIncomeFromDiscontinuedOperations;
+    const continuingLoss = isNum(continuing) ? continuing < 0 : (!isNum(discontinued) || discontinued === 0) && row.eps < 0;
+    const disclosure = continuingLoss ? BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE : BASIC_SHARES_FOR_DILUTED_DISCLOSURE;
     notes.substitute("weightedAverageShsOutDil", row.date, disclosure);
     notes.add(`weightedAverageShsOutDil ${row.date}: ${disclosure}`);
   }

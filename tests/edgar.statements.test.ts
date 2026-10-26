@@ -2607,6 +2607,28 @@ describe("buildStatementsFromCompanyFacts — diluted weighted shares (audit 202
     expect(text).not.toMatch(/too small/);
   });
 
+  it("keys the loss wording on continuing operations, ASC 260's control number, not on net EPS", () => {
+    const disclosure = (extra: Record<string, Pt[]>) => buildStatementsFromCompanyFacts(
+      base({ WeightedAverageNumberOfSharesOutstandingBasic: annual(4_300_000_000), ...extra }),
+      { ...OPTS, symbol: "XOM" },
+    ).incomeAnnual.substitutions.find(s => s.field === "weightedAverageShsOutDil")?.text;
+    // A net loss from a discontinued-operations charge while continuing operations earn a profit.
+    expect(disclosure({
+      NetIncomeLoss: annual(-2_150), IncomeLossFromContinuingOperations: annual(3_000), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(-5_150),
+      EarningsPerShareBasic: annual(-0.5), EarningsPerShareDiluted: annual(-0.5),
+    })).toMatch(/too small/);
+    // A continuing loss offset by a discontinued gain.
+    expect(disclosure({
+      NetIncomeLoss: annual(2_150), IncomeLossFromContinuingOperations: annual(-3_000), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(5_150),
+      EarningsPerShareBasic: annual(0.5), EarningsPerShareDiluted: annual(0.5),
+    })).toMatch(/loss.*antidilutive/);
+    // A net loss with a discontinued result but no continuing-operations figure: no loss claim.
+    expect(disclosure({
+      NetIncomeLoss: annual(-2_150), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(-5_150),
+      EarningsPerShareBasic: annual(-0.5), EarningsPerShareDiluted: annual(-0.5),
+    })).toMatch(/too small/);
+  });
+
   it("keeps the diluted count null when basic and diluted EPS differ, or when either is missing", () => {
     const differ = buildStatementsFromCompanyFacts(
       base({

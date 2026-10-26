@@ -3582,9 +3582,11 @@ figure; and when a period has no diluted count but the filer reports basic and
 diluted EPS that are equal, for the same interval as its basic weighted count
 and neither derived, the basic count stands in for the diluted count. The
 stand-in is disclosed per period as an info entry: dilution too small to move
-EPS at its reported rounding is not reflected. In a loss period the entry says
-instead that potential shares are antidilutive and excluded, so the basic
-count is the diluted count by definition. When basic and diluted EPS
+EPS at its reported rounding is not reflected. In a loss from continuing
+operations (ASC 260's control number: the filed continuing-operations result,
+or net EPS when no discontinued result is filed) the entry says instead that
+potential shares are antidilutive and excluded, so the basic count is the
+diluted count by definition. When basic and diluted EPS
 differ, or either is missing, the diluted count stays withheld.
 
 **The lower-bound D&A on the EV/EBITDA row (B-7, left by batch 3a).** Batch
