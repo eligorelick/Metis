@@ -19,9 +19,10 @@
  * The parent page stays a server component and passes `symbol` in.
  */
 
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useUiDesign } from "@/appearance/UiDesignProvider";
 
 import { Panel } from "@/components/ui";
 import { isUnsupportedInstrumentKind, type UnsupportedInstrumentKind } from "@/pipeline/stageB/instrumentSupport";
@@ -93,6 +94,9 @@ interface ReportSummary {
 }
 
 type Phase = "idle" | "starting" | "running" | "done" | "error" | "unsupported";
+const subscribeHydration = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 
 type TerminalSnapshotState = "done" | "error" | "unsupported" | "canceled";
 
@@ -648,9 +652,16 @@ function asGrade(g: string | null): Grade | null {
  * Component
  * ------------------------------------------------------------------------ */
 
-export function GenerateReport({ symbol }: { symbol: string }) {
+export function GenerateReport({ symbol, initialJobId = null }: { symbol: string; initialJobId?: string | null }) {
+  const initial = decodeAcceptedJobId({ jobId: initialJobId });
+  return <GenerateReportController key={`${symbol}:${initial ?? ""}`} symbol={symbol} initialJobId={initial} />;
+}
+
+function GenerateReportController({ symbol, initialJobId }: { symbol: string; initialJobId: string | null }) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("idle");
+  const dossier = useUiDesign().layout === "dossier";
+  const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
+  const [phase, setPhase] = useState<Phase>(initialJobId === null ? "idle" : "running");
   const [steps, setSteps] = useState<StepProgress[]>(() =>
     PIPELINE_STEPS.map((step) => ({ step, status: "pending" as const })),
   );
@@ -658,9 +669,12 @@ export function GenerateReport({ symbol }: { symbol: string }) {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [dataOnly, setDataOnly] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(initialJobId);
   const [unsupportedMessage, setUnsupportedMessage] = useState<string | null>(null);
   const [resumable, setResumable] = useState(false);
+  const [acceptedStatus, setAcceptedStatus] = useState<string | null>(null);
+  const [observedAt, setObservedAt] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const esRef = useRef<EventSource | null>(null);
   const streamFenceRef = useRef<JobStreamSnapshotFence>(createJobStreamSnapshotFence());
@@ -689,6 +703,9 @@ export function GenerateReport({ symbol }: { symbol: string }) {
           const raw = JSON.parse((ev as MessageEvent).data) as unknown;
           const snap = streamFenceRef.current.accept(es, raw);
           if (snap === null) return;
+          setAcceptedStatus(snap.status);
+          setObservedAt(snap.updatedAt);
+          setReconnecting(false);
           setSteps(snap.steps);
           setTotalCost(snap.totalCostUsd);
           setDataOnly(snap.dataOnly);
@@ -741,10 +758,18 @@ export function GenerateReport({ symbol }: { symbol: string }) {
       es.addEventListener("error", () => {
         // Transport hiccups are nonterminal; EventSource auto-reconnects and
         // the next validated snapshot catches up by canonical revision.
+        if (esRef.current === es) setReconnecting(true);
       });
     },
     [closeCurrentStream, router, symbol],
   );
+
+  // The server supplies a read-only active-job identity using its existing
+  // lease rules. Reloading attaches to SSE; it never creates or retries work.
+  // Repeated StrictMode setup safely replaces the previous stream.
+  useEffect(() => {
+    if (initialJobId !== null) openStream(initialJobId);
+  }, [initialJobId, openStream]);
 
   const start = useCallback(async () => {
     const requestToken = requestFenceRef.current.begin(symbol);
@@ -757,6 +782,9 @@ export function GenerateReport({ symbol }: { symbol: string }) {
     setDataOnly(false);
     setUnsupportedMessage(null);
     setResumable(false);
+    setAcceptedStatus(null);
+    setObservedAt(null);
+    setReconnecting(false);
     setSteps(PIPELINE_STEPS.map((step) => ({ step, status: "pending" as const })));
 
     try {
@@ -814,7 +842,7 @@ export function GenerateReport({ symbol }: { symbol: string }) {
   }, [jobId, phase, symbol]);
 
   const busy = phase === "starting" || phase === "running";
-  const generationDisabled = busy || phase === "unsupported";
+  const generationDisabled = busy || phase === "unsupported" || (dossier && !hydrated);
 
   const canResume = shouldShowServerRetry({ busy, jobId, phase, resumable });
   const resumeHint =
@@ -829,6 +857,9 @@ export function GenerateReport({ symbol }: { symbol: string }) {
     setSummary(null);
     setDataOnly(false);
     setResumable(false);
+    setAcceptedStatus(null);
+    setObservedAt(null);
+    setReconnecting(false);
     try {
       const res = await fetch(`/api/report/${jobId}/retry`, { method: "POST" });
       if (!requestFenceRef.current.accepts(requestToken)) return;
@@ -849,20 +880,22 @@ export function GenerateReport({ symbol }: { symbol: string }) {
   }, [jobId, symbol, openStream, closeCurrentStream]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-end gap-3">
+    <div className={`flex flex-col gap-3 ${dossier ? "research-run" : ""}`} data-run-phase={phase}>
+      <div className="research-run-actions flex flex-wrap items-center justify-end gap-3">
         {busy ? (
-          <span className="mono text-[11px] text-muted">
-            running · <span className="text-accent">{fmtUsd(totalCost)}</span>
+          <span role="status" className="text-[12px] text-muted">
+            {dossier ? (acceptedStatus === "queued" ? "Queued" : acceptedStatus === "running" ? "Running" : jobId ? "Connecting to existing run" : "Requesting report") : "running"}
+            {(!dossier || acceptedStatus !== null) && <> · <span className="mono text-accent">{fmtUsd(totalCost)}</span></>}
           </span>
         ) : null}
         {phase === "running" && jobId !== null ? (
           <button
             type="button"
             onClick={() => void cancel()}
+            disabled={dossier && !hydrated}
             className="mono border border-neg/50 px-3 py-1 text-[11px] uppercase tracking-[0.1em] text-neg hover:bg-neg/10"
           >
-            cancel
+            {dossier ? "Cancel run" : "cancel"}
           </button>
         ) : null}
         <button
@@ -875,7 +908,7 @@ export function GenerateReport({ symbol }: { symbol: string }) {
               : "border-accent/50 text-accent hover:bg-accent/10"
           }`}
         >
-          {phase === "unsupported"
+          {dossier ? (phase === "unsupported" ? "Unsupported instrument" : busy ? "Working…" : phase === "done" ? "Generate another report" : "Generate report") : phase === "unsupported"
             ? "unsupported"
             : phase === "idle" || phase === "error"
               ? "generate report ·"
@@ -885,20 +918,23 @@ export function GenerateReport({ symbol }: { symbol: string }) {
         </button>
       </div>
 
+      <RunDisclosure dossier={dossier} phase={phase} totalCost={totalCost} reportId={summary?.reportId ?? null}>
       {phase !== "idle" ? (
         <Panel
           title="report pipeline"
           right={
             <span className="mono text-[11px]">
-              total <span className="text-accent">{fmtUsd(totalCost)}</span>
+              {dossier && acceptedStatus === null ? "Server state pending" : <>total <span className="text-accent">{fmtUsd(totalCost)}</span></>}
             </span>
           }
         >
-          <ol className="flex flex-col divide-y divide-edge">
+          {dossier && <p className="mb-3 text-[12px] leading-relaxed text-muted">{observedAt ? <>Last server update <time className="mono" dateTime={observedAt}>{observedAt}</time>. </> : "Waiting for a validated server snapshot. "}{busy ? "Research stays available below while the run progresses." : "The recorded run details and research remain available."}</p>}
+          {dossier && reconnecting && <p role="status" className="mb-3 text-[12px] text-warn">Connection interrupted; reconnecting and waiting for a validated server snapshot. The run may still be active.</p>}
+          {(!dossier || acceptedStatus !== null) && <ol className="flex flex-col divide-y divide-edge">
             {steps.map((s) => {
               const ms = durationMs(s);
               return (
-                <li key={s.step} className="flex items-center gap-3 py-1.5">
+                <li key={s.step} className="research-run-step flex items-center gap-3 py-1.5">
                   <span
                     className={`mono inline-flex h-5 w-5 items-center justify-center border text-[12px] leading-none ${STATUS_TONE[s.status]}`}
                     aria-label={s.status}
@@ -911,7 +947,7 @@ export function GenerateReport({ symbol }: { symbol: string }) {
                   <span className={`mono w-16 shrink-0 text-[10px] uppercase tracking-[0.08em] ${STATUS_TONE[s.status].split(" ")[0]}`}>
                     {s.status}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-faint">
+                  <span className={`research-run-detail min-w-0 flex-1 ${dossier ? "text-[13px]" : "truncate text-[11px]"} text-faint`}>
                     {s.detail ?? ""}
                   </span>
                   {typeof s.costUsd === "number" ? (
@@ -923,10 +959,10 @@ export function GenerateReport({ symbol }: { symbol: string }) {
                 </li>
               );
             })}
-          </ol>
+          </ol>}
 
           {error ? (
-            <div className="mt-2 border border-neg/40 bg-neg/10 px-2 py-1.5 text-[11px] text-neg">
+            <div role="alert" className="mt-2 border border-neg/40 bg-neg/10 px-2 py-1.5 text-[11px] text-neg">
               {error}
             </div>
           ) : null}
@@ -943,9 +979,10 @@ export function GenerateReport({ symbol }: { symbol: string }) {
               <button
                 type="button"
                 onClick={retrySynthesis}
+                disabled={dossier && !hydrated}
                 className="mono shrink-0 border border-accent/50 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-accent hover:bg-accent/10"
               >
-                resume run ·
+                {dossier ? "Resume run" : "resume run ·"}
               </button>
             </div>
           ) : null}
@@ -955,8 +992,19 @@ export function GenerateReport({ symbol }: { symbol: string }) {
       {phase === "done" ? (
         <ReportReadyPanel summary={summary} dataOnly={dataOnly} totalCost={totalCost} steps={steps} />
       ) : null}
+      </RunDisclosure>
     </div>
   );
+}
+
+function RunDisclosure({ dossier, phase, totalCost, reportId, children }: {
+  dossier: boolean; phase: Phase; totalCost: number; reportId: number | null; children: ReactNode;
+}) {
+  if (!dossier || phase === "idle") return children;
+  return <details className="research-run-disclosure" open={phase !== "done"}>
+    <summary>{phase === "done" ? <>Completed run{reportId !== null && <> · #{reportId}</>} · <span className="mono">{fmtUsd(totalCost)}</span> · View pipeline, result and gaps</> : "Run progress & details"}</summary>
+    {children}
+  </details>;
 }
 
 /* ------------------------------------------------------------------------ *

@@ -77,7 +77,7 @@ export function StatCell({
   tone?: Tone;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 px-2 py-1">
+    <div className="thesis-stat flex min-w-0 flex-col gap-0.5 px-2 py-1">
       <div className="truncate text-[10px] uppercase tracking-[0.1em] text-faint">
         {label}
       </div>
@@ -98,7 +98,7 @@ export function GradeChip({ grade }: { grade: Grade | "not-assessed" | null }) {
   const color = `var(--grade-${grade.toLowerCase()})`;
   return (
     <span
-      className="mono inline-flex h-5 w-5 items-center justify-center border text-[12px] font-semibold leading-none"
+      className="thesis-grade mono inline-flex h-5 w-5 items-center justify-center border text-[12px] font-semibold leading-none"
       style={{
         color,
         borderColor: color,
@@ -139,7 +139,7 @@ export function ScorePill({
   const color = `var(--grade-${band.toLowerCase()})`;
   return (
     <span
-      className="mono inline-flex items-center gap-1 border px-1.5 py-px text-[12px] font-semibold leading-none"
+      className="thesis-grade mono inline-flex items-center gap-1 border px-1.5 py-px text-[12px] font-semibold leading-none"
       style={{
         color,
         borderColor: color,
@@ -201,7 +201,7 @@ export function DataTable<Row>({
   empty?: ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} aria-label="Scrollable data table">
       <table className="w-full border-collapse text-[12px]">
         <thead>
           <tr className="border-b border-edge-strong">

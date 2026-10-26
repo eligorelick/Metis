@@ -1,17 +1,19 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { useUiDesign } from "@/appearance/UiDesignProvider";
 import type { UiDesign } from "@/appearance/preference";
 import { Panel } from "@/components/ui";
 
-export function AppearanceSettingsView({ design, saved, onChange }: {
+export function AppearanceSettingsView({ design, saved, onChange, interactive = true }: {
   design: UiDesign;
   saved: boolean | null;
   onChange(design: UiDesign): void;
+  interactive?: boolean;
 }) {
   return (
     <Panel title="appearance">
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex flex-col gap-2" disabled={!interactive}>
         <legend className="sr-only">Interface design</legend>
         {([
           ["current", "Metis Ink", "Compact dark interface with warm ivory type and bronze accents."],
@@ -36,5 +38,10 @@ export function AppearanceSettingsView({ design, saved, onChange }: {
 
 export function AppearanceSettings() {
   const { design, saved, chooseDesign } = useUiDesign();
-  return <AppearanceSettingsView design={design} saved={saved} onChange={chooseDesign} />;
+  const interactive = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
+  return <AppearanceSettingsView design={design} saved={saved} onChange={chooseDesign} interactive={interactive} />;
 }
+
+const subscribeHydration = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;

@@ -41,24 +41,24 @@ function reportWith(evidence: number, technicals: number) {
 describe("the composite carries the aspects' evidence floor (audit 2026-10-22 F-19)", () => {
   it("prints no letter below 50% of route-applicable evidence, and shows the score and the evidence share", () => {
     const row = keyDataRows(reportWith(0.05, 76)).find((r) => r.label === "Composite grade")!;
-    expect(row.value).toBe("Not graded: evidence 5% (score 51/100)");
+    expect(row.value).toBe("Not graded: evidence 5.0% (score 51/100)");
     expect(row.value).not.toMatch(/\b[A-F]\b/);
-    expect(row.note).toMatch(/evidence for 5% of the route-applicable signal weight/);
+    expect(row.note).toMatch(/evidence for 5.0% of the route-applicable signal weight/);
     expect(row.note).toMatch(/A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral/);
   });
 
   it("withholds the composite letter in the markdown and print exports too", () => {
     const report = reportWith(0.05, 76);
-    expect(reportToMarkdown(report)).toContain("**Composite: 51 / 100 (Not graded: evidence 5%)**");
+    expect(reportToMarkdown(report)).toContain("**Composite: 51 / 100 (Not graded: evidence 5.0%)**");
     const body = reportToPrintBody(report);
-    expect(body).toMatch(/Composite: <strong class="mono">51 \/ 100<\/strong> <span class="chip g-unavailable">Not graded: evidence 5%<\/span>/);
-    expect(body).toContain("evidence for 5% of the route-applicable signal weight");
+    expect(body).toMatch(/Composite: <strong class="mono">51 \/ 100<\/strong> <span class="chip g-unavailable">Not graded: evidence 5.0%<\/span>/);
+    expect(body).toContain("evidence for 5.0% of the route-applicable signal weight");
   });
 
   it("keeps the letter at or above the floor, beside the thresholds and the evidence share", () => {
     const row = keyDataRows(reportWith(0.8, 76)).find((r) => r.label === "Composite grade")!;
     expect(row.value).toBe("B (71/100)");
-    expect(row.note).toMatch(/evidence for 80%/);
+    expect(row.note).toMatch(/evidence for 80.0%/);
   });
 });
 

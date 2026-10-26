@@ -224,7 +224,7 @@ function expectUnknownCompleteness(text: string): void {
  */
 function expectConfirmedState(text: string, expected: ExpectedDimensions, scope?: string): void {
   // D-67: warnings are counted once per underlying data gap ("1 data warning").
-  expect(text, scope).toMatch(new RegExp(`\\b${expected.state}: ${expected.critical} critical gaps?, ${expected.warnings} data warnings?;`, "i"));
+  expect(text, scope).toMatch(new RegExp(`\\b${expected.state}: ${expected.critical} critical data issues?, ${expected.warnings} data issues?`, "i"));
   expect(text, scope).toMatch(new RegExp(`EDGAR ${expected.edgar}`, "i"));
   expect(text, scope).toMatch(new RegExp(`XBRL ${expected.xbrl}`, "i"));
   expect(text, scope).toMatch(new RegExp(`forensics ${expected.forensics}`, "i"));
@@ -272,7 +272,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
     const rendered = renderWithoutMutation(report);
     expectConfirmedScopes(completenessScopes(report, rendered), {
       state: "blocked",
-      critical: 1,
+      critical: 0,
       warnings: 0,
       edgar: "available",
       xbrl: "checked",
@@ -283,7 +283,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
       expect(text, surface).toContain("No completed multi-pass analysis");
       expect(text, surface).toContain("Deterministic data is complete");
-      expectConfirmedState(text, { state: "blocked", critical: 1, warnings: 0, edgar: "available", xbrl: "checked", forensics: "complete" }, surface);
+      expectConfirmedState(text, { state: "blocked", critical: 0, warnings: 0, edgar: "available", xbrl: "checked", forensics: "complete" }, surface);
       expectNoLegacyOverclaim(text);
     });
   });
@@ -308,7 +308,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
     const rendered = renderWithoutMutation(report);
     expectConfirmedScopes(completenessScopes(report, rendered), {
       state: "blocked",
-      critical: 1,
+      critical: 0,
       warnings: 0,
       edgar: "available",
       xbrl: "checked",

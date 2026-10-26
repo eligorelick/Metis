@@ -11,6 +11,7 @@
  */
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 
 type Tab = "analysis" | "report";
 
@@ -19,12 +20,16 @@ export function ReportTabs({
   report,
   reportMeta,
   initialTab = "report",
+  revisionsHref,
+  reportNotes,
 }: {
   analysis: ReactNode;
   report: ReactNode;
   /** Short label shown on the report tab, e.g. "#42 · 2026-07-06". */
   reportMeta: string;
   initialTab?: Tab;
+  revisionsHref?: string;
+  reportNotes?: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const panelId = (key: Tab): string => `report-tabs-panel-${key}`;
@@ -42,7 +47,8 @@ export function ReportTabs({
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" aria-label="report views" onKeyDown={onKeyDown} className="flex items-center gap-1.5 border-b border-edge">
+      <div className="report-view-navigation flex flex-wrap items-center gap-3 border-b border-edge">
+      <div role="tablist" aria-label="report views" onKeyDown={onKeyDown} className="flex items-center gap-1.5">
         <TabButton id={tabId("report")} controls={panelId("report")} active={tab === "report"} onClick={() => setTab("report")}>
           full report
           <span className="ml-1.5 text-[9px] text-faint">{reportMeta}</span>
@@ -51,10 +57,13 @@ export function ReportTabs({
           live analysis
         </TabButton>
       </div>
+      {revisionsHref && <Link href={revisionsHref} prefetch={false} className="px-3 py-2 text-[13px] text-muted hover:text-accent">Revisions</Link>}
+      </div>
       {/* Mount only the active tab: charting libraries (recharts / lightweight-
           charts) measure their container at mount and won't re-measure if it was
           hidden via display:none, so a hidden tab would render 0-width charts. */}
       <div role="tabpanel" id={panelId(tab)} aria-labelledby={tabId(tab)}>
+        {tab === "report" && reportNotes}
         {tab === "report" ? report : analysis}
       </div>
     </div>

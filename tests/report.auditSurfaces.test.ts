@@ -47,10 +47,10 @@ describe("audit disclosures across live, Markdown and print reports",()=>{
     // the scenario-construction record and the full validation partition in the
     // audit export.
     for (const surface of surfaces) {
-      for (const text of ["Enterprise value to equity bridge","DCF annual cash-flow path","Common equity value","Score drivers","Factor-family exposure","Business quality","price attractiveness","2027-06-30","1/4 numeric claims validated","1 contradicted","3/4 factual claims cited","No attributable execution evidence in this run","EPS share-count sensitivity","unfunded hypothetical","a".repeat(64)]) expect(surface).toContain(text);
+      for (const text of ["Enterprise value to equity bridge","DCF annual cash-flow path","Common equity value","Score drivers","Factor-family exposure","Business quality","price attractiveness","2027-06-30","1/4 numeric claims numerically matched (not whole-claim validation)","1 contradicted","3/4 factual claims cited","No attributable execution evidence in this run","EPS share-count sensitivity","unfunded hypothetical","a".repeat(64)]) expect(surface).toContain(text);
     }
     const audit = reportToAuditMarkdown(report);
-    for (const text of ["Signal evidence and contributions","2026-07-01","rolling-12-month","scenario-sentinel-1","1/4 validated; 1 contradicted; 2 unchecked","Citation presence: 3/4"]) expect(audit).toContain(text);
+    for (const text of ["Signal evidence and contributions","2026-07-01","rolling-12-month","scenario-sentinel-1","1/4 numeric factual claims numerically matched","2 unchecked, 1 contradicted","Factual claims cited: 3/4"]) expect(audit).toContain(text);
     expect(JSON.stringify(report)).toBe(before);
   });
   it("does not manufacture legacy evidence, bridges or sensitivity paths",()=>{

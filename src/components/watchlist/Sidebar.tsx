@@ -37,7 +37,7 @@ import { RunsDisclosure } from "./RunsDisclosure";
  * Keeps the app chrome available when loading fails, while distinguishing
  * unavailable data from a successfully loaded empty watchlist.
  */
-export async function WatchlistSidebar({ activeSymbol }: { activeSymbol?: string }) {
+export async function WatchlistSidebar({ activeSymbol, activeReportId }: { activeSymbol?: string; activeReportId?: number }) {
   let rows: WatchlistRowView[] = [];
   let loadFailed = false;
   try {
@@ -45,7 +45,7 @@ export async function WatchlistSidebar({ activeSymbol }: { activeSymbol?: string
   } catch {
     loadFailed = true;
   }
-  return <Sidebar rows={rows} activeSymbol={activeSymbol} loadFailed={loadFailed} />;
+  return <Sidebar rows={rows} activeSymbol={activeSymbol} activeReportId={activeReportId} loadFailed={loadFailed} />;
 }
 
 /* ------------------------------------------------------------------------ *
@@ -55,10 +55,12 @@ export async function WatchlistSidebar({ activeSymbol }: { activeSymbol?: string
 export function Sidebar({
   rows,
   activeSymbol,
+  activeReportId,
   loadFailed = false,
 }: {
   rows: WatchlistRowView[];
   activeSymbol?: string;
+  activeReportId?: number;
   loadFailed?: boolean;
 }) {
   return (
@@ -90,6 +92,7 @@ export function Sidebar({
               key={row.symbol}
               row={row}
               active={activeSymbol !== undefined && row.symbol === activeSymbol}
+              selectedReportId={row.symbol === activeSymbol ? activeReportId : undefined}
             />
           ))}
         </ul>
@@ -102,37 +105,38 @@ export function Sidebar({
  * Row
  * ------------------------------------------------------------------------ */
 
-function WatchRow({ row, active }: { row: WatchlistRowView; active: boolean }) {
+function WatchRow({ row, active, selectedReportId }: { row: WatchlistRowView; active: boolean; selectedReportId?: number }) {
   const price = typeof row.price === "number" ? row.price : null;
   const change = typeof row.changePct === "number" ? row.changePct : null;
   const changeTone =
     change === null ? "text-faint" : change >= 0 ? "text-pos" : "text-neg";
 
   return (
-    <li className="group relative border-b border-edge last:border-b-0">
+    <li className="watch-row group relative border-b border-edge last:border-b-0">
       {/* The remove control is a SIBLING of the row link, not a child: HTML
           forbids interactive content inside <a>, and a nested button folded
           "remove AAPL" into the link's accessible name (audit 2026-09-06,
           F218). It sits at the top-right, over the padding the price row
           leaves for it. */}
-      <div className="absolute right-3 top-2">
+      <div className="watch-row-remove absolute right-3 top-2">
         <RemoveButton symbol={row.symbol} />
       </div>
       <Link
         href={`/company/${encodeURIComponent(row.symbol)}`}
+        aria-current={active ? "page" : undefined}
         className="block px-3 py-2 hover:bg-raised"
       >
         {/* ticker + price */}
-        <div className="flex items-baseline justify-between gap-2 pr-5">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="mono text-[13px] font-semibold tracking-[0.06em] text-fg">
+        <div className="watch-row-heading flex items-baseline justify-between gap-2 pr-5">
+          <div className="watch-row-identity flex min-w-0 items-baseline gap-2">
+            <span className="watch-row-ticker mono text-[13px] font-semibold tracking-[0.06em] text-fg">
               {row.symbol}
             </span>
             {row.companyName ? (
-              <span className="truncate text-[10px] text-faint">{row.companyName}</span>
+              <span className="watch-row-company truncate text-[10px] text-faint">{row.companyName}</span>
             ) : null}
           </div>
-          <span className="mono shrink-0 text-[12px] text-fg">
+          <span className="watch-row-price mono shrink-0 text-[12px] text-fg">
             {price === null ? "—" : fmtPrice(price)}
           </span>
         </div>
@@ -142,7 +146,7 @@ function WatchRow({ row, active }: { row: WatchlistRowView; active: boolean }) {
           <span className={`mono text-[11px] ${changeTone}`}>
             {change === null ? "" : fmtSignedPct(change)}
           </span>
-          <GradeStrip grades={row.grades ?? null} labels={row.gradeLabels} />
+          <div>{row.lastReportAt && <span className="watch-grade-identity">Latest saved report{row.latestReportId ? ` #${row.latestReportId}` : ""}</span>}<GradeStrip grades={row.grades ?? null} labels={row.gradeLabels} /></div>
         </div>
 
         {price !== null && row.asOf ? (
@@ -157,7 +161,7 @@ function WatchRow({ row, active }: { row: WatchlistRowView; active: boolean }) {
             {row.lastReportAt ? `rpt ${row.lastReportAt.slice(0, 10)}` : "no report"}
             {typeof row.verificationRate === "number" ? (
               <span title="citation coverage — provenance, not correctness">
-                {` · ${(row.verificationRate * 100).toFixed(0)}% cited`}
+                {` · ${(row.verificationRate * 100).toFixed(1)}% figures traced`}
               </span>
             ) : (
               ""
@@ -168,7 +172,7 @@ function WatchRow({ row, active }: { row: WatchlistRowView; active: boolean }) {
           </span>
         </div>
       </Link>
-      <RunsDisclosure symbol={row.symbol} runs={row.runs ?? []} defaultOpen={active} />
+      <RunsDisclosure symbol={row.symbol} runs={row.runs ?? []} defaultOpen={active} selectedReportId={selectedReportId} />
     </li>
   );
 }

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
 import { AppShell } from "@/components/shell";
+import { getConfig } from "@/config/env";
 import { CompanyBodySkeleton, SidebarSkeleton } from "./skeletons";
 import {
   AsOf,
@@ -49,15 +50,26 @@ import {
 } from "@/components/charts/map";
 import { PersistedReportView } from "@/components/report/PersistedReportView";
 import { ExportButtons } from "@/components/report/ExportButtons";
+import { ReportNotes } from "@/components/report/ReportNotes";
+import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
 import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
 import { getLatestDoneReport, type LatestReport } from "@/report/query";
 
 import { fmtBig, fmtFractionPct, fmtMoney, fmtNum, fmtPct, fmtSignedPct, fmtX, upsidePct } from "./format";
 import { GenerateReport } from "./GenerateReport";
 import { ReportTabs } from "./ReportTabs";
+import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { normalizeRouteSymbol } from "@/symbol";
 import { notFound } from "next/navigation";
 import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
+
+async function activeRunIdentity(symbol: string): Promise<string | null> {
+  if (!getConfig().uiRedesign) return null;
+  try {
+    const { getReusableActiveJobForSymbol } = await import("@/pipeline/jobRunner");
+    return getReusableActiveJobForSymbol(symbol)?.jobId ?? null;
+  } catch { return null; }
+}
 
 // The bundle reads keys from process.env at request time and hits the network
 // (live EDGAR/FINRA/FRED even keyless) — never statically render this route.
@@ -188,19 +200,20 @@ function QuoteHeader({ bundle, computed }: { bundle: DataBundle; computed: Compu
   const changeTone: Tone = change === null ? "muted" : change >= 0 ? "pos" : "neg";
 
   const route = computed.route;
+  const NameTag = getConfig().uiRedesign ? "h1" : "span";
 
   return (
-    <div className="border border-edge bg-panel">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-edge px-3 py-2">
-        <div className="flex items-baseline gap-3">
-          <span className="mono text-[20px] font-semibold tracking-[0.08em] text-fg">{bundle.symbol}</span>
-          <span className="text-[13px] text-muted">{String(name)}</span>
+    <div className="live-company-masthead border border-edge bg-panel">
+      <div className="live-company-heading flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-edge px-3 py-2">
+        <div className="live-company-identity flex items-baseline gap-3">
+          <span className="live-company-ticker mono text-[20px] font-semibold tracking-[0.08em] text-fg">{bundle.symbol}</span>
+          <NameTag className="live-company-name text-[13px] text-muted">{String(name)}</NameTag>
           {exchange ? <span className="mono text-[10px] text-faint">{String(exchange)}</span> : null}
         </div>
         <Stamp sourced={quoteSourced} />
       </div>
 
-      <div className="flex flex-wrap items-stretch divide-x divide-edge">
+      <div className="live-quote-stats flex flex-wrap items-stretch divide-x divide-edge">
         <StatCell label="price" value={price === null ? "n/a" : fmtMoney(price, statementCurrencies(bundle).trading)} tone="neutral" />
         <StatCell
           label="change"
@@ -212,7 +225,7 @@ function QuoteHeader({ bundle, computed }: { bundle: DataBundle; computed: Compu
         <StatCell label="industry" value={profile?.industry ?? "n/a"} tone="muted" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-edge px-3 py-2">
+      <div className="live-quote-route flex flex-wrap items-center gap-1.5 border-t border-edge px-3 py-2">
         <Badge tone="accent">route · {route.base}</Badge>
         {route.overlays.map((o) => (
           <Badge key={o} tone="warn">
@@ -891,6 +904,20 @@ function UnknownTicker({ symbol, gap }: { symbol: string; gap: ManifestEntry | n
   );
 }
 
+/** A failed refresh must not strand a reader who already has saved research. */
+function UnavailableLiveAnalysis({ symbol, children }: { symbol: string; children: ReactNode }) {
+  if (!getConfig().uiRedesign) return children;
+  let saved: LatestReport | null = null;
+  try { saved = getLatestDoneReport(symbol); } catch { /* Keep the original failure and history route readable. */ }
+  const reportHref = saved?.report
+    ? `/company/${encodeURIComponent(symbol)}/report/${saved.reportId}` : undefined;
+  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 p-4">
+    <ResearchNavigation symbol={symbol} active="analysis" reportHref={reportHref} />
+    {saved?.report && <p className="text-[12px] text-muted">Saved report #{saved.reportId} · {saved.createdAt.slice(0, 10)} remains available through Report. This failed Live request does not change it.</p>}
+    {children}
+  </div>;
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -910,22 +937,17 @@ export default async function CompanyPage({ params, searchParams }: {
     try { saved = getLatestDoneReport(symbol); } catch { /* Existing live fallback remains available. */ }
   }
   if (saved?.report) {
+    const dossier = getConfig().uiRedesign;
+    const initialJobId = await activeRunIdentity(symbol);
     return (
-      <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} />}>
-        <div className="flex flex-col gap-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-3">
-            <div>
-              <h1 className="mono text-[15px] font-semibold">{symbol} · {saved.report.meta.companyName}</h1>
-              <p className="text-[11px] text-muted">Saved report #{saved.reportId} · {saved.createdAt.slice(0, 10)}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ExportButtons reportId={saved.reportId} symbol={symbol} />
-              <Link href={`/company/${encodeURIComponent(symbol)}/history`} prefetch={false} className="mono text-[11px] text-accent hover:underline">history</Link>
-              <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false} className="mono border border-edge-strong px-3 py-1.5 text-[11px] text-accent hover:border-accent">live analysis</Link>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted">Showing saved research. Open live analysis to refresh market data or generate a new report.</p>
-          <PersistedReportView report={saved.report} />
+      <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={saved.reportId} />}>
+        <div className="saved-research-workspace flex flex-col gap-3 p-4">
+          <ReportSnapshotHeader snapshot={saved.report} reportId={saved.reportId} status={saved.status}
+            actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
+            navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
+            controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
+          />
+          <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} />
         </div>
       </AppShell>
     );
@@ -962,16 +984,18 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
     data = await coordinatedCompanyLoad(symbol);
   } catch (err) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
-        <div className="border border-neg/40 bg-neg/10 px-4 py-3 text-[12px] text-neg">
-          <div className="mono font-semibold">pipeline error for {symbol}</div>
-          <p className="mt-1 text-muted">{err instanceof Error ? err.message : String(err)}</p>
+      <UnavailableLiveAnalysis symbol={symbol}>
+        <div className="mx-auto max-w-2xl p-6">
+          <div className="border border-neg/40 bg-neg/10 px-4 py-3 text-[12px] text-neg">
+            <div className="mono font-semibold">pipeline error for {symbol}</div>
+            <p className="mt-1 text-muted">{err instanceof Error ? err.message : String(err)}</p>
+          </div>
         </div>
-      </div>
+      </UnavailableLiveAnalysis>
     );
   }
 
-  if (data === null) return <UnknownTicker symbol={symbol} gap={null} />;
+  if (data === null) return <UnavailableLiveAnalysis symbol={symbol}><UnknownTicker symbol={symbol} gap={null} /></UnavailableLiveAnalysis>;
 
   const { bundle } = data;
 
@@ -979,11 +1003,12 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
   const profileRow = bundle.profile.ok ? bundle.profile.value.data.rows[0] : undefined;
   if (!profileRow || (!profileRow.companyName && !profileRow.symbol)) {
     const gap = bundle.profile.ok ? null : bundle.profile.gap;
-    return <UnknownTicker symbol={symbol} gap={gap} />;
+    return <UnavailableLiveAnalysis symbol={symbol}><UnknownTicker symbol={symbol} gap={gap} /></UnavailableLiveAnalysis>;
   }
 
   if (data.status === "unsupported") {
     return (
+      <UnavailableLiveAnalysis symbol={symbol}>
       <div className="mx-auto max-w-2xl p-6">
         <div className="border border-warn/40 bg-warn/10 px-4 py-3 text-[12px] text-warn">
           <div className="mono font-semibold">company analysis unavailable for {symbol}</div>
@@ -993,6 +1018,7 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
           </p>
         </div>
       </div>
+      </UnavailableLiveAnalysis>
     );
   }
 
@@ -1034,7 +1060,7 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <div className="flex items-center gap-2">
+          <div className="company-actions flex items-center gap-2">
             {hasReport && data.latestReport ? (
               <ExportButtons
                 reportId={data.latestReport.reportId}
@@ -1051,16 +1077,19 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
           </div>
         </div>
 
-        <GenerateReport key={bundle.symbol} symbol={bundle.symbol} />
+        {getConfig().uiRedesign ? <GenerateReport key={bundle.symbol} symbol={bundle.symbol} initialJobId={await activeRunIdentity(bundle.symbol)} /> : <GenerateReport key={bundle.symbol} symbol={bundle.symbol} />}
 
         <QuoteHeader bundle={bundle} computed={computed} />
 
         {hasReport && data.latestReport ? (
           <ReportTabs
+            reportNotes={getConfig().uiRedesign ? <ReportNotes symbol={symbol} reportId={data.latestReport.reportId} /> : undefined}
+            revisionsHref={getConfig().uiRedesign ? `/company/${encodeURIComponent(symbol)}/history` : undefined}
             initialTab={liveRequested ? "analysis" : "report"}
             reportMeta={`#${data.latestReport.reportId} · ${data.latestReport.createdAt.slice(0, 10)}`}
             report={
               <PersistedReportView
+                key={data.latestReport.reportId} selectedReportId={data.latestReport.reportId}
                 report={data.latestReport.report as NonNullable<LatestReport["report"]>}
               />
             }

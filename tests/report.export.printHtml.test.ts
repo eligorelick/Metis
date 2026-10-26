@@ -298,8 +298,8 @@ describe("reportToPrintBody — optional sections absent", () => {
     const body = reportToPrintBody(parsed);
     // D-62: each check by name in the body; the denominator table, with its
     // honest zero-item rate, in the audit export.
-    expect(body).toContain("<td>Figures traced to a cited source</td><td>8/10 (80%)</td>");
-    expect(body).toContain("<td>Factual claims carrying a citation</td><td>3/4 (75%)</td>");
+    expect(body).toContain("<td>Figures traced to a cited source</td><td>8/10 (80.0%)</td>");
+    expect(body).toContain("<td>Factual claims carrying a citation</td><td>3/4 (75.0%)</td>");
     const audit = reportToAuditMarkdown(parsed);
     expect(audit).toContain("Numeric provenance");
     expect(audit).toContain("Judgment citations");

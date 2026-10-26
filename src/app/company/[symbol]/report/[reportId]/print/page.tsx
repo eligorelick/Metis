@@ -64,7 +64,7 @@ export default async function PrintReportPage({
     );
   }
 
-  const bodyHtml = reportToPrintBody(loaded.report);
+  const bodyHtml = reportToPrintBody(loaded.report,{selectedReportId:loaded.row.id});
   const shouldAutoPrint = autoprint === "1";
 
   return (
@@ -83,7 +83,7 @@ export default async function PrintReportPage({
 }
 
 const FALLBACK_CSS = `
-:root { color-scheme: light; }
+:root { color-scheme: light; background: #fff; }
 body { margin: 0; background: #fff; color: #16181d; font-family: Georgia, serif; }
 .print-fallback { max-width: 40rem; margin: 4rem auto; padding: 0 1.5rem; }
 .print-fallback h1 { font-size: 20pt; }

@@ -48,7 +48,7 @@ describe("factual prose numeric validation", () => {
     expect(result.coverage.factualValidation?.unchecked).toBe(1);
     // NVDA report 34: 60 of 89 "unchecked" claims stated no figure at all.
     expect(result.coverage.factualValidation?.qualitative).toBe(1);
-    expect(factualValidationText(result.coverage)).toContain("1 qualitative with no figure to check");
+    expect(factualValidationText(result.coverage)).toContain("1 qualitative claims cited but not machine-checkable");
     const web = await runVerifyPass({} as PassDeps, payload(""), {
       commentary: [{ label: "FACT", text: "Operating margin was 99%.", source: "https://example.com/release", asOf }],
     }, { fetchedUrls: ["https://example.com/release"] });

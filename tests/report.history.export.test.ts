@@ -436,7 +436,7 @@ describe("reportToMarkdown", () => {
   it("reports citation coverage as a percentage", () => {
     // The synthetic fixture pins the backwards-compatible field to 0.92.
     // (Field name is kept for backward-compat; the LABEL is citation coverage.)
-    expect(md).toContain("Citation coverage: **92%**");
+    expect(md).toContain("Citation coverage: **92.0%**");
   });
 
   it("exports the explicit numeric, factual-claim, and judgment coverage denominators", () => {
@@ -452,13 +452,13 @@ describe("reportToMarkdown", () => {
     // D-62: the report states each kind of check by name; the audit export
     // keeps the denominator table, including the honest zero-item rate.
     const out = reportToMarkdown(parsed);
-    expect(out).toContain("| Figures traced to a cited source | 8/10 (80%) |");
-    expect(out).toContain("| Factual claims carrying a citation | 3/4 (75%) |");
+    expect(out).toContain("| Figures traced to a cited source | 8/10 (80.0%) |");
+    expect(out).toContain("| Factual claims carrying a citation | 3/4 (75.0%) |");
     const audit = reportToAuditMarkdown(parsed);
     expect(audit).toContain("Numeric provenance");
-    expect(audit).toContain("8/10 (80%)");
+    expect(audit).toContain("8/10 (80.0%)");
     expect(audit).toContain("Factual-claim citations");
-    expect(audit).toContain("3/4 (75%)");
+    expect(audit).toContain("3/4 (75.0%)");
     expect(audit).toContain("Judgment citations");
     expect(audit).toContain("0/0 (n/a — no items)");
   });

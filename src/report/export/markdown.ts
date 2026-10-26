@@ -115,6 +115,7 @@ import {
   usageSummary,
   type FigureRow,
 } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
   markdownBlockquote,
@@ -136,7 +137,7 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
@@ -311,7 +312,7 @@ function auditTableBlocks(tables: readonly ReportAuditTable[], level = "###"): s
  * Header, key data, verdict
  * ======================================================================== */
 
-function renderHeader(report: Report, completeness: ReportCompletenessPresentation): string {
+function renderHeader(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
   const m = report.meta;
   const lines: string[] = [
     `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Research Report`,
@@ -322,6 +323,9 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
       ["Report", "Detail"],
       [
         ["Generated", m.generatedAt],
+        ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
+        ["Snapshot", "Saved research; observations retain their recorded dates"],
+        ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),
         // D-62: one line; the judge protocol and the per-pass record are in the appendix and the audit export.
         ["Model", runSummary(report)],
         ["Usage", usageSummary(report)],
@@ -334,6 +338,7 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
     "",
     // Mandatory disclaimer, verbatim.
     `> ${markdownBlockquote(m.disclaimer)}`,
+    ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
   ];
   return lines.join("\n");
 }
@@ -841,7 +846,7 @@ function renderMacro(m: Macro): string {
  * Appendix
  * ======================================================================== */
 
-function renderAppendix(report: Report, completeness: ReportCompletenessPresentation): string {
+function renderAppendix(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
   const a: Appendix = report.appendix;
   const m = report.meta;
   const lines: string[] = [sectionHeading("appendix"), ""];
@@ -869,7 +874,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
     if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
   }
   lines.push(
-    `Citation coverage: **${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(0)}%`}** of report figures trace to a citation or payload value (provenance, not correctness).`,
+    `Citation coverage: **${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(1)}%`}** of report figures trace to a citation or payload value (provenance, not correctness).`,
     "",
   );
   if (a.consistencyChecks) {
@@ -881,6 +886,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
 
   // D-67: one row per underlying data gap; process disclosures and moot entries apart.
   lines.push("### Data gaps", "", markdownProse(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`), "");
+  lines.push(bodyTable(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(a.missingData, completeness).map(row => [row.label, String(row.groups), String(row.entries)])), "", "Recorded warning and critical severities are retained in the full audit. Grouping describes related issues; numerical matches do not validate whole prose claims.", "");
   lines.push(...auditTableBlocks(dataGapTables(completeness), "####"));
   const families = gapSummary(a.missingData, completeness.classification);
   if (families.length > 0) lines.push(table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [row.family, String(row.entries), row.highest])), "");
@@ -896,7 +902,7 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
     "",
   );
 
-  const path = auditExportPath(report);
+  const path = auditExportPath(report,context);
   lines.push(
     "### Audit trail",
     "",
@@ -926,7 +932,7 @@ function capitalize(s: string): string {
  * report section, the appendix, the disclaimer and the FRED attribution are
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
-export function reportToMarkdown(report: Report): string {
+export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const completeness = deriveReportCompletenessPresentation(
@@ -935,7 +941,7 @@ export function reportToMarkdown(report: Report): string {
     report.appendix.sources,
   );
   const blocks: string[] = [
-    renderHeader(report, completeness),
+    renderHeader(report, completeness, context),
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
     newerResultsBanner(report.filingDisclosures) ? blockquote(`**Newer results not reflected.** ${newerResultsBanner(report.filingDisclosures)}`) : "",
     renderKeyData(report),
@@ -953,7 +959,7 @@ export function reportToMarkdown(report: Report): string {
     renderOutlook(report),
     report.projections ? renderProjections(report.projections) : "",
     renderMacro(report.macro),
-    renderAppendix(report, completeness),
+    renderAppendix(report, completeness, context),
   ].filter((b) => b.length > 0);
 
   // Join sections with a blank-line-separated horizontal rule for readability;

@@ -31,7 +31,7 @@ function reportWithCosts(costs: number[]): Report {
 }
 
 function costSection(markdown: string): string {
-  const start = markdown.indexOf("### Cost breakdown");
+  const start = markdown.indexOf("### Recorded API charge breakdown");
   expect(start).toBeGreaterThan(-1);
   return markdown.slice(start, start + 1200);
 }
@@ -42,7 +42,7 @@ describe("Markdown cost appendix", () => {
     const section = costSection(reportToAuditMarkdown(reportWithCosts(costs)));
 
     const expectedTotal = formatCostUsd(roundedDisplayedCostTotal(costs));
-    expect(section).toContain(`Total: **${expectedTotal}**`);
+    expect(section).toContain(`Recorded API charge total: **${expectedTotal}**`);
 
     // Every row is rendered with the same canonical formatter, so a reader can
     // add the printed numbers and land on the printed total.
@@ -64,8 +64,8 @@ describe("Markdown cost appendix", () => {
     report.meta.costUsd = 0.0036;
     const markdown = reportToMarkdown(report);
     const expected = formatCostUsd(roundedDisplayedCostTotal([0.001234, 0.002345]));
-    expect(markdown).toContain(`| Usage | ${expected} API cost`);
-    expect(costSection(reportToAuditMarkdown(report))).toContain(`Total: **${expected}**`);
+    expect(markdown).toContain(`| Usage | ${expected} recorded API cost`);
+    expect(costSection(reportToAuditMarkdown(report))).toContain(`Recorded API charge total: **${expected}**`);
     expect(markdown).not.toContain("$0.003600");
   });
 

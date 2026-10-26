@@ -8,6 +8,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/shell";
+import { getConfig } from "@/config/env";
+import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
+import { ResearchNavigation } from "@/components/report/ResearchNavigation";
+import { RevisionDigest } from "@/components/report/RevisionDigest";
 import { diffReports } from "@/report/diff";
 import {
   loadReportPairForSymbol,
@@ -119,12 +123,14 @@ export default async function DiffPage({
   const { a: fromRaw, b: toRaw } = await searchParams;
   const symbol = normalizeRouteSymbol(routeSymbol);
   if (symbol === null) notFound();
+  const dossier = getConfig().uiRedesign;
+  const sidebar = dossier ? <WatchlistSidebar activeSymbol={symbol} /> : <Sidebar symbol={symbol} />;
 
   const fromId = parseReportId(fromRaw);
   const toId = parseReportId(toRaw);
   const header = (
     <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <h1 className="mono text-[16px] font-semibold tracking-[0.08em] text-fg">
+      <h1 className="dossier-company-title mono text-[16px] font-semibold tracking-[0.08em] text-fg">
         {symbol} report diff
       </h1>
       <Link
@@ -138,7 +144,7 @@ export default async function DiffPage({
 
   if (fromId === null || toId === null) {
     return (
-      <AppShell sidebar={<Sidebar symbol={symbol} />}>
+      <AppShell sidebar={sidebar}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 p-4">
           {header}
           <Notice
@@ -153,7 +159,7 @@ export default async function DiffPage({
 
   if (fromId === toId) {
     return (
-      <AppShell sidebar={<Sidebar symbol={symbol} />}>
+      <AppShell sidebar={sidebar}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 p-4">
           {header}
           <Notice
@@ -174,7 +180,7 @@ export default async function DiffPage({
   }
   if (pair === null) {
     return (
-      <AppShell sidebar={<Sidebar symbol={symbol} />}>
+      <AppShell sidebar={sidebar}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 p-4">
           {header}
           <Notice
@@ -196,11 +202,13 @@ export default async function DiffPage({
   });
 
   return (
-    <AppShell sidebar={<Sidebar symbol={symbol} />}>
+    <AppShell sidebar={sidebar}>
       <div className="mx-auto flex max-w-5xl flex-col gap-3 p-4">
         {header}
+        {dossier && <ResearchNavigation symbol={symbol} active="revisions" />}
         <CompareHeader older={older} newer={newer} swapped={swapped} />
-        <DiffBody diff={diff} />
+        {dossier && <RevisionDigest diff={diff} compareHref="#full-comparison" />}
+        <div id="full-comparison" tabIndex={dossier ? -1 : undefined}><DiffBody diff={diff} /></div>
       </div>
     </AppShell>
   );

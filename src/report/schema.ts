@@ -157,6 +157,16 @@ export function withLenientLegacyRead<T>(fn: () => T): T {
 
 const STRICT_ISO_DATE = z.iso.date();
 
+/** Preserve pre-4.6 zoned timestamps without rewriting recorded evidence. */
+function compatibleIsoDateTime(offset = false) {
+  const seconds = z.iso.datetime({ offset });
+  const minutes = z.iso.datetime({ offset, precision: -1 });
+  return z.string().refine(
+    value => seconds.safeParse(value).success || minutes.safeParse(value).success,
+    { error: "Invalid ISO datetime" },
+  ).meta({ format: "date-time" });
+}
+
 /**
  * Strict calendar date used by newly generated evidence objects. The rejected
  * value is named in the issue: a model pass that fails here is billed and
@@ -832,7 +842,7 @@ export const MetaSchema = z
     dataCompleteness: DataCompletenessSchema.optional(),
     /** Requested versus effective per-pass execution settings. */
     execution: z.array(ExecutionMetadataEntrySchema).optional(),
-    runSnapshot: z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), formatVersion: z.literal("RUN_INPUT_SNAPSHOT_1"), capturedAt: z.iso.datetime() }).strict().optional(),
+    runSnapshot: z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), formatVersion: z.literal("RUN_INPUT_SNAPSHOT_1"), capturedAt: compatibleIsoDateTime() }).strict().optional(),
     /**
      * DISCLAIMER: stored verbatim from the constant in force at generation time.
      * Parse-side accepts ANY non-empty string so a future edit to DISCLAIMER_TEXT
@@ -1478,7 +1488,7 @@ export const ManifestEntrySchema = z
       evidence: z.array(z.object({
         scope: z.enum(["balanceAnnual", "balanceQuarterly"]),
         field: z.string().min(1), period: z.iso.date(), currency: z.string().regex(/^[A-Z]{3}$/),
-        cik: z.string().regex(/^\d{1,10}$/), value: z.number().finite(), observedAt: z.iso.datetime({ offset: true }),
+        cik: z.string().regex(/^\d{1,10}$/), value: z.number().finite(), observedAt: compatibleIsoDateTime(true),
         tags: z.array(z.string().min(1)).min(1),
         filings: z.array(z.object({ accn: z.string().min(1), filed: z.iso.date(), form: z.string().min(1) }).strict()).min(1),
       }).strict()).min(1),
@@ -2810,8 +2820,9 @@ export function relaxUnsupportedConstraints<T>(schema: T): T {
  * keyword list above: "Schemas contains too many parameters with union types
  * (N parameters with type arrays or anyOf)... limit: 16 parameters with
  * unions" (400, observed live 2026-07-08 on JUDGE_OUTPUT_SCHEMA at 17 — every
- * `.nullable()` field in this codebase compiles to a 2-branch `anyOf:
- * [T, {type:"null"}]`, and JUDGE_OUTPUT_SCHEMA has 21 of them once `reused:
+ * `.nullable()` field compiled to a 2-branch `anyOf: [T, {type:"null"}]`
+ * (newer emitters also use `type: [T, "null"]` for plain primitives),
+ * and JUDGE_OUTPUT_SCHEMA had 21 of them once `reused:
  * "ref"` (toStructuredJsonSchema) collapsed the duplicate-shape inlining that
  * used to inflate the count to 115). the Anthropic API contract anticipated
  * exactly this: "mark as many fields required as possible and avoid nullable
@@ -2829,6 +2840,10 @@ export function relaxUnsupportedConstraints<T>(schema: T): T {
  * function existed.
  */
 function collapseNullableUnion(node: Record<string, unknown>): boolean {
+  if (Array.isArray(node.type) && node.type.length === 2 && node.type.includes("null")) {
+    node.type = node.type.find((type) => type !== "null");
+    return true;
+  }
   if (!Array.isArray(node.anyOf) || node.anyOf.length !== 2) return false;
   const branches = node.anyOf as unknown[];
   const isNullBranch = (b: unknown): boolean =>

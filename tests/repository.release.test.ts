@@ -101,6 +101,16 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/RESEARCH.md",
   "docs/REPORT-EVALUATION.md",
   "docs/VALIDATION-STATUS.md",
+  // Portable UI migration specification and verification record. Personal
+  // filesystem paths and credentials remain forbidden by unsafePublicDocument.
+  "docs/redesign-plan.md",
+  "docs/metis-ui-codex-goal.md",
+  "docs/metis-ui-codex-goal.txt",
+  "docs/ui-redesign-execution.md",
+  "docs/ui-redesign-parity.md",
+  "docs/ui-refinement-review.md",
+  "docs/superpowers/plans/2026-10-25-ui-refinement.md",
+  "docs/superpowers/plans/2026-10-24-production-ui-integration.md",
   "docs/superpowers/plans/2026-10-13-research-reliability.md",
   "docs/superpowers/plans/2026-10-14-evidence-reliability-roadmap.md",
   "docs/superpowers/plans/2026-10-14-research-validation-roadmap.md",

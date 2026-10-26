@@ -261,7 +261,9 @@ describe("Task 32 provider-free historical fixture comparison", () => {
           // 2026-10-15: happy-dom is dev-only for credential UI interaction tests.
         // Reproduced the comparison with no additional financial deltas;
         // historical source/fixture hashes and projection remain pinned.
-        comparisonPackageLockBlob: "66839222735b70a365e66a13c73c77e6b8a2d88f",
+        // 2026-10-25: happy-dom 21.0.4 and zod 4.6.6 security patches.
+        // Exact financial delta contract replayed unchanged before this pin moved.
+        comparisonPackageLockBlob: "76cc4d445212431bd8f10eab94eb8bc464a6945d",
         generationNode: "v24.11.1",
         generationNpm: "11.6.2",
         command:

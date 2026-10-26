@@ -68,7 +68,7 @@ export async function GET(
   const base = `${slug(report.meta.symbol)}-report-${reportId}`;
 
   if (format === "md") {
-    const md = reportToMarkdown(report);
+    const md = reportToMarkdown(report,{selectedReportId:reportId});
     return new Response(md, {
       status: 200,
       headers: {
@@ -81,7 +81,7 @@ export async function GET(
   }
 
   if (format === "audit") {
-    return new Response(reportToAuditMarkdown(report), {
+    return new Response(reportToAuditMarkdown(report,{selectedReportId:reportId}), {
       status: 200,
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
@@ -93,7 +93,7 @@ export async function GET(
   }
 
   // format === "pdf": self-contained print-optimized HTML.
-  const html = reportToPrintHtml(report, { autoPrint: true });
+  const html = reportToPrintHtml(report, { autoPrint: true, selectedReportId: reportId });
   return new Response(html, {
     status: 200,
     headers: {

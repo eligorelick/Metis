@@ -215,6 +215,21 @@ describe("GET /api/export/[reportId]", () => {
     expect(stored?.reportJson).toBe(storedBytes);
   });
 
+  it.each([undefined,999])("exports the selected row ID rather than absent/conflicting embedded metadata (%s)",async embedded=>{
+    const report=loadFixtureReport();
+    if(embedded === undefined) delete report.meta.reportId; else report.meta.reportId=embedded;
+    const bytes=JSON.stringify(report);
+    const id=seedReport(report,{id:3});
+    for(const format of ["md","audit","pdf"]){
+      const response=await exportGET(...exportReq(String(id),format));
+      expect(response.status).toBe(200);
+      const text=(await response.text()).replaceAll("\\#","#");
+      expect(text).toContain(format === "pdf" ? "<td>Saved report</td><td>#3</td>" : "| Saved report | #3 |");
+      if(embedded !== undefined) expect(text).toContain("embedded report ID #999");
+    }
+    expect(handle.db.select().from(reports).where(eq(reports.id,id)).get()?.reportJson).toBe(bytes);
+  });
+
   it("applies immutable legacy entity safety to the Markdown API read", async () => {
     const entityConflict = "TRIUMPH evaluates Foundayo";
     const insertedJsonByteForByte = unsafeLegacyReportJson();

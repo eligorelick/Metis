@@ -61,6 +61,7 @@ import type {
   Scoring,
   TracedNumber,
 } from "@/report/schema";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, usageSummary } from "@/report/presentation";
 
 function auditValue(value: unknown): string {
   if (value === null || value === undefined) return "n/a";
@@ -76,7 +77,7 @@ function tracedAuditCells(trace: TracedNumber): string[] {
 }
 
 function coverageCell(supported: number, total: number, rate: number | null): string {
-  return `${supported}/${total} (${rate === null ? "n/a — no items" : `${(rate * 100).toFixed(0)}%`})`;
+  return `${supported}/${total} (${rate === null ? "n/a — no items" : `${(rate * 100).toFixed(1)}%`})`;
 }
 
 function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
@@ -101,11 +102,14 @@ function checkCell(rate: CheckRate): string {
   return `${rate.passed}/${rate.checked} (${rate.rate === null ? "n/a — nothing eligible" : `${(rate.rate * 100).toFixed(0)}%`})`;
 }
 
-function renderRun(report: Report): string {
+function renderRun(report: Report, context: ReportPresentationContext): string {
   const m = report.meta;
   const lines: string[] = ["## Run execution", ""];
   lines.push(table(["Field", "Value"], [
     ["Generated", m.generatedAt],
+    ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
+    ["Recorded usage", usageSummary(report)],
+    ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),
     ["Model", m.model],
     ["Spec version", m.specVersion],
     ["Pipeline version", m.pipelineVersion],
@@ -118,11 +122,11 @@ function renderRun(report: Report): string {
   }
   const totalCost = roundedDisplayedCostTotal(report.appendix.costBreakdown.map((entry) => entry.costUsd));
   lines.push(
-    "### Cost breakdown",
+    "### Recorded API charge breakdown",
     "",
     table(["Step", "Model", "Cost (USD)"], report.appendix.costBreakdown.map((e) => [e.step, e.model, formatCostUsd(e.costUsd)])),
     "",
-    `Total: **${formatCostUsd(totalCost)}**`,
+    `Recorded API charge total: **${formatCostUsd(totalCost)}**. Plan subscriptions and unreported usage are not priced by this ledger.`,
   );
   return lines.join("\n");
 }
@@ -137,7 +141,7 @@ function renderVerification(report: Report): string {
   if (detail) lines.push(markdownProse(detail), "");
   if (coverage) lines.push(provenanceCoverageTable(coverage), "");
   lines.push(
-    `Citation coverage: **${a.verificationRate === null ? "—" : `${(a.verificationRate * 100).toFixed(0)}%`}** — share of report figures traceable to a citation or payload value; a provenance check, not a correctness check.`,
+    `Citation coverage: **${a.verificationRate === null ? "—" : `${(a.verificationRate * 100).toFixed(1)}%`}** — share of report figures traceable to a citation or payload value; a provenance check, not a correctness check.`,
     "",
   );
   if (a.consistencyChecks) {
@@ -441,18 +445,19 @@ function renderOwnHistory(report: Report): string {
 }
 
 /** The full audit trail for one report, as Markdown. */
-export function reportToAuditMarkdown(report: Report): string {
+export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const m = report.meta;
   const blocks = [
     [
       `# ${markdownHeading(m.companyName)} (${markdownHeading(m.symbol)}) — Audit trail`,
       "",
-      `*Metis · companion to the research report${m.reportId === undefined ? "" : ` #${m.reportId}`} generated ${markdownProse(m.generatedAt)}*`,
+      `*Metis · companion to the research report${presentationReportId(report,context) === undefined ? "" : ` #${presentationReportId(report,context)}`} generated ${markdownProse(m.generatedAt)}*`,
       "",
       `> ${markdownBlockquote("Machine-checkable record behind the report: raw values, registry ids, checks and data gaps. It is not a second report and adds no analysis.")}`,
+      ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
     ].join("\n"),
-    renderRun(report),
+    renderRun(report,context),
     report.marketData?.enterpriseValueNote ? `## Historical enterprise-value presentation\n\n${markdownProse(report.marketData.enterpriseValueNote)}` : "",
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
@@ -463,6 +468,7 @@ export function reportToAuditMarkdown(report: Report): string {
     renderTiming(report),
     report.projections ? renderProjections(report.projections) : "",
     renderManifest(report),
+    table(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(report.appendix.missingData, deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources)).map(row => [row.label, String(row.groups), String(row.entries)])),
     renderSources(report),
     renderBodyReading(report),
   ].filter((block) => block.length > 0);

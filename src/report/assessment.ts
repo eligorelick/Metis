@@ -33,6 +33,14 @@ export function evidencePct(share: number): number {
   return Math.floor(share * 100 + 1e-9);
 }
 
+/** Display precision only. A rounded percentage must never imply an unmet evidence floor. */
+export function evidencePercentText(share: number): string {
+  const shown = (share * 100).toFixed(1);
+  return share < MIN_HEADLINE_EVIDENCE && Number(shown) >= MIN_HEADLINE_EVIDENCE * 100
+    ? `<${(MIN_HEADLINE_EVIDENCE * 100).toFixed(1)}%`
+    : share < 1 && Number(shown) === 100 ? "<100.0%" : `${shown}%`;
+}
+
 /**
  * F-19: the composite carries the aspects' evidence floor. Below half of the
  * route-applicable signal weight no letter is shown, only the score and the
@@ -57,9 +65,17 @@ export function compositeDisplay(scores: CompositeEvidence): {
   return { grade: band, label: withNeutral(band, score), evidence };
 }
 
+/** Reader formatting is separate so generation/prompt consumers retain their exact contract. */
+export function compositeDisplayForReader(scores: CompositeEvidence): ReturnType<typeof compositeDisplay> {
+  const view = compositeDisplay(scores);
+  return view.evidence !== null && view.evidence < MIN_HEADLINE_EVIDENCE && view.label !== "—"
+    ? { ...view, label: `Not graded: evidence ${evidencePercentText(view.evidence)}` }
+    : view;
+}
+
 /** "B (71/100)", or "Not graded: evidence 5% (score 51/100)" under the floor. */
 export function compositeText(scores: Pick<Scoring, "composite" | "assessments">): string {
-  const view = compositeDisplay(scores);
+  const view = compositeDisplayForReader(scores);
   const score = scores.composite.score;
   if (score === null) return view.label;
   return view.grade === null && view.label !== "—"
@@ -71,7 +87,7 @@ export function compositeText(scores: Pick<Scoring, "composite" | "assessments">
 export function compositeNote(scores: Pick<Scoring, "composite" | "assessments">): string {
   const { evidence } = compositeDisplay(scores);
   const floor = `a letter needs ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}%`;
-  return `${evidence === null ? "" : `evidence for ${evidencePct(evidence)}% of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
+  return `${evidence === null ? "" : `evidence for ${evidencePercentText(evidence)} of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
 }
 
 /**
@@ -148,7 +164,7 @@ export function hasLimitedEvidence(aspect: AspectEvidence | null | undefined): b
  * same floor to its own route-applicable evidence (F-19, `compositeDisplay`).
  */
 export function limitedEvidenceText(aspect: AspectEvidence): string {
-  return `score ${formatScore(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${Math.round(aspect.dataCompleteness * 100)}% of signals`;
+  return `score ${formatScore(aspect.score ?? 0)}/100 on ${restsOnSingleSignal(aspect) ? "one signal, " : ""}${evidencePercentText(aspect.dataCompleteness)} of signals`;
 }
 
 /**

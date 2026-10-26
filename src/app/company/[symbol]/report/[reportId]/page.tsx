@@ -20,22 +20,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/shell";
-import { Badge } from "@/components/ui";
 import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
 import { PersistedReportView } from "@/components/report/PersistedReportView";
-import { isDataOnlyReport } from "@/components/report/ReportView";
 import { ExportButtons } from "@/components/report/ExportButtons";
+import { ReportNotes } from "@/components/report/ReportNotes";
+import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
 import { getReportByIdForSymbol, parseReportId } from "@/report/history";
 import { normalizeRouteSymbol } from "@/symbol";
-import { subscriptionExecutionModels } from "@/report/execution";
+import { getConfig } from "@/config/env";
+import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 
 // Reads persisted rows at request time — never statically pre-render.
 export const dynamic = "force-dynamic";
-
-/** "claude-opus-4-8" → "opus-4-8" for a denser header. */
-function shortModel(model: string): string {
-  return model.replace(/^claude-/, "");
-}
 
 export default async function RunReportPage({
   params,
@@ -82,63 +78,18 @@ export default async function RunReportPage({
   }
 
   const { row, report } = loaded;
-  const date = row.createdAt.slice(0, 10);
-  const time = row.createdAt.slice(11, 16);
-  const statusTone =
-    row.status === "done" ? "pos" : row.status === "error" ? "neg" : "muted";
-  const dataOnly = isDataOnlyReport(report);
-  const actualModels = subscriptionExecutionModels(report.meta.execution);
+  const dossier = getConfig().uiRedesign;
 
   return (
-    <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} />}>
-      {/* Run header strip — which run this is, when it ran, and its actions. */}
-      <div className="mx-auto w-full max-w-[1400px] px-4 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="mono text-[15px] font-semibold tracking-[0.08em] text-fg">
-              {symbol} <span className="text-faint">· run #{row.id}</span>
-            </h1>
-            <span className="mono text-[11px] text-faint" title={`Requested model: ${row.model}`}>
-              {date} {time} · {(actualModels.length > 0 ? actualModels : [row.model]).map(shortModel).join(" · ")}
-            </span>
-            <Badge tone={statusTone}>{row.status}</Badge>
-            {dataOnly ? <Badge tone="warn">data-only</Badge> : null}
-            {typeof row.verificationRate === "number" ? (
-              <span
-                className="mono text-[10px] text-faint"
-                title="citation coverage — provenance, not correctness"
-              >
-                {(row.verificationRate * 100).toFixed(0)}% cited
-              </span>
-            ) : null}
-            {typeof row.costUsd === "number" ? (
-              <span className="mono text-[10px] text-faint">
-                ${row.costUsd.toFixed(2)}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportButtons reportId={row.id} symbol={symbol} />
-            <Link
-              href={`/company/${encodeURIComponent(symbol)}/history`}
-              className="mono border border-edge-strong px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-muted transition-colors hover:border-accent hover:text-accent"
-              title="all saved runs for this ticker"
-            >
-              history
-            </Link>
-            <Link
-              href={`/company/${encodeURIComponent(symbol)}?view=live`}
-              prefetch={false}
-              className="mono border border-edge-strong px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-muted transition-colors hover:border-accent hover:text-accent"
-              title="company page · latest saved report + current live analysis"
-            >
-              live →
-            </Link>
-          </div>
-        </div>
+    <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={row.id} />}>
+      <div className="saved-research-workspace flex flex-col gap-3 p-4">
+        <ReportSnapshotHeader snapshot={report} reportId={row.id} status={row.status}
+          actions={<><ExportButtons reportId={row.id} symbol={symbol} />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
+          navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" reportHref={`/company/${encodeURIComponent(symbol)}/report/${row.id}`} /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
+          controls={dossier ? <div className="snapshot-controls"><ReportNotes symbol={symbol} reportId={row.id} /></div> : undefined}
+        />
+        <PersistedReportView key={row.id} report={report} selectedReportId={row.id} />
       </div>
-
-      <PersistedReportView report={report} />
     </AppShell>
   );
 }

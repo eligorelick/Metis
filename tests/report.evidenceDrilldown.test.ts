@@ -3,7 +3,9 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { UiDesignProvider } from "@/appearance/UiDesignProvider";
-import { GradeReasoning, TracedStat } from "@/components/report/primitives";
+import { GradeReasoning, TracedStat, TracedNumberSourceDetails } from "@/components/report/primitives";
+import { ClaimText } from "@/components/report/ClaimText";
+import { ReportView } from "@/components/report/ReportView";
 import { ValuationSection } from "@/components/report/sections";
 import type { GradeBlock, TracedNumber } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -15,6 +17,59 @@ function text(html: string) { return html.replace(/<[^>]*>/g, " ").replace(/\s+/
 const input: TracedNumber = { value: 10.125, unit: "percent", period: "FY2025",
   sourceId: "grade-input:wacc:recorded", source: "computed.costOfCapital.wacc",
   asOf: "2026-09-30", verified: true, verificationNote: "Recorded citation coverage only" };
+
+describe("snapshot-bound evidence enhancement", () => {
+  it("distinguishes figures sharing a source but having different measurement windows", () => {
+    const html = renderToStaticMarkup(createElement("div", null,
+      createElement(TracedNumberSourceDetails, { n: input }),
+      createElement(TracedNumberSourceDetails, { n: { ...input, period: "FY2024", value: 0 } }),
+    ));
+    const keys = [...html.matchAll(/data-evidence-key="([^"]+)"/g)].map(match => match[1]);
+    expect(keys).toHaveLength(2);
+    expect(new Set(keys).size).toBe(2);
+    expect(html).toContain('data-evidence-kind="number"');
+    expect(html).toContain('data-evidence-source-id="grade-input:wacc:recorded"');
+    expect(text(html)).toContain("FY2024");
+    expect(text(html)).toContain("recorded value 0");
+  });
+
+  it("retains native claim provenance and its own observation date before hydration", () => {
+    const html = renderToStaticMarkup(createElement(ClaimText, { claim: {
+      label: "FACT", text: "Recorded revenue", source: "filing:original", sourceId: "claim:1", asOf: "2025-11-01",
+    } }));
+    expect(html).toContain('data-evidence-kind="claim"');
+    expect(html).toContain("<summary");
+    expect(text(html)).toContain("claim:1");
+    expect(text(html)).toContain("2025-11-01");
+    expect(html).not.toContain("<button");
+  });
+
+  it("renders one inspector for the selected dossier while preserving its gaps and native disclosures", () => {
+    const report = loadTask28Fixture();
+    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    expect(html.match(/aria-label="Selected evidence"/g)).toHaveLength(1);
+    expect(html).toContain("Recorded gaps (");
+    expect(html).toContain('data-evidence-kind="claim"');
+    expect(html).toContain("Select a claim or a figure");
+    const classic = renderToStaticMarkup(createElement(ReportView, { report }));
+    expect(classic).not.toContain('aria-label="Selected evidence"');
+  });
+
+  it("retains explicitly recorded filing context for inspection without inferring XBRL metadata", () => {
+    const report = loadTask28Fixture();
+    report.sourceFactSummary = {
+      version: "1.0.0", status: "available", reason: null, qualifier: "as reported",
+      rows: [{ metric: "revenue", label: "Reported revenue", definition: "reported-statement-line-item", value: 1200, unit: "currency", currency: "EUR", period: "2025-12-31",
+        periodContext: { kind: "duration", start: "2025-01-01", end: "2025-12-31" }, source: "filing:revenue:2025", asOf: "2026-02-01", provenanceId: "filing:revenue:2025", origin: "Recorded filing reference 0000123456-26-000001", qualifier: "as reported", canonicalText: "Reported revenue was 1,200 EUR." }],
+      earningsReconciliation: { status: "unavailable", reason: "Earnings operands not recorded", method: null, pretaxMinusTax: null, reconciledNetIncome: null, reportedNetIncome: null, residual: null, operandIds: [], explanation: "No reconciliation was recorded." },
+    };
+    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    expect(html).toContain('data-evidence-context="recorded"');
+    expect(html).toContain("Recorded filing reference 0000123456-26-000001");
+    expect(html).toContain("Reported revenue was 1,200 EUR.");
+    expect(html).not.toContain("us-gaap:Revenue");
+  });
+});
 function block(keyNumbers: TracedNumber[]): GradeBlock {
   return { grade: "B", confidence: "medium", oneLineWhy: "Recorded inputs support the grade",
     reasoning: [], keyNumbers };

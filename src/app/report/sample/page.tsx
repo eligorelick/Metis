@@ -16,6 +16,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/shell";
 import { ReportView } from "@/components/report/ReportView";
+import { getConfig } from "@/config/env";
 import { FundamentalsChartGrid, TechnicalsChartPanel } from "@/components/charts/lazy";
 import { syntheticFundamentals, syntheticMarketData } from "@/components/charts/synthetic";
 import { ReportSchema, type Report } from "@/report/schema";
@@ -95,6 +96,7 @@ export default function ReportSamplePage() {
     <AppShell sidebar={<Sidebar />}>
       {report ? (
         <ReportView
+          layout={getConfig().uiRedesign ? "dossier" : "classic"}
           report={report}
           technicalsChart={
             <TechnicalsChartPanel

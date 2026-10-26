@@ -18,9 +18,12 @@ const harness = vi.hoisted(() => ({
   getLatestDoneReport: vi.fn(),
   getReportByIdForSymbol: vi.fn(),
   runStageB: vi.fn(),
+  activeJob: vi.fn(),
+  instrumentSupport: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob }));
 vi.mock("@/pipeline/dataBundle", () => ({
   buildDataBundle: harness.buildDataBundle,
 }));
@@ -32,7 +35,7 @@ vi.mock("@/pipeline/compute", async (importOriginal) => {
   return { ...actual, runStageB: harness.runStageB };
 });
 vi.mock("@/pipeline/stageB/instrumentSupport", () => ({
-  classifyInstrumentSupport: vi.fn(() => ({ supported: true, kind: "company" })),
+  classifyInstrumentSupport: harness.instrumentSupport,
 }));
 vi.mock("@/components/charts/map", () => ({
   fundamentalsChartDataFromBundle: vi.fn(() => ({ series: [] })),
@@ -55,6 +58,9 @@ vi.mock("@/components/watchlist/Sidebar", () => ({
 
 import CompanyPage, { CompanyBody } from "@/app/company/[symbol]/page";
 import { ReportTabs } from "@/app/company/[symbol]/ReportTabs";
+import { ReportNotes } from "@/components/report/ReportNotes";
+import { GenerateReport } from "@/app/company/[symbol]/GenerateReport";
+import { resetConfigCache } from "@/config/env";
 import SavedReportPage from "@/app/company/[symbol]/report/[reportId]/page";
 import PrintReportPage from "@/app/company/[symbol]/report/[reportId]/print/page";
 import { FundamentalsChartGrid, TechnicalsChartPanel } from "@/components/charts/lazy";
@@ -76,7 +82,7 @@ function elementsWithin(node: ReactNode): ReactElement<Props>[] {
   if (Array.isArray(node)) return node.flatMap(elementsWithin);
   if (!isValidElement(node)) return [];
   const element = node as ReactElement<Props>;
-  return [element, ...elementsWithin(element.props.children)];
+  return [element, ...[element.props.children, element.props.actions, element.props.navigation, element.props.controls].flatMap(value => elementsWithin(value as ReactNode))];
 }
 
 function structuralText(node: ReactNode): string {
@@ -209,6 +215,8 @@ describe("persisted report presentation", () => {
     harness.buildDataBundle.mockResolvedValue(bundle);
     harness.runStageB.mockReset();
     harness.runStageB.mockReturnValue(computed);
+    harness.instrumentSupport.mockReset().mockReturnValue({ supported: true, kind: "company" });
+    harness.activeJob.mockReset().mockReturnValue(null);
     harness.getLatestDoneReport.mockReset();
     harness.getLatestDoneReport.mockReturnValue({
       reportId: 42,
@@ -243,6 +251,36 @@ describe("persisted report presentation", () => {
     expect(JSON.stringify(report)).toBe(before);
   });
 
+  it("attaches the dossier saved page to its server-owned active run without invoking research", async () => {
+    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    harness.activeJob.mockReturnValue({ jobId: "existing-job", status: "queued", updatedAt: "2026-10-24T00:00:00.000Z" });
+    try {
+      const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
+      const run = elementsWithin(tree).find(element => element.type === GenerateReport);
+      expect(run?.props).toEqual({ symbol: "DEMO", initialJobId: "existing-job" });
+      expect(harness.activeJob).toHaveBeenCalledWith("DEMO");
+      expect(elementsWithin(tree).some(element => element.props.report === report)).toBe(true);
+      expect(harness.buildDataBundle).not.toHaveBeenCalled(); expect(harness.runStageB).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); resetConfigCache(); }
+  });
+
+  it("binds local notes to the actual saved row across latest, historic and live report views", async () => {
+    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache(); harness.activeJob.mockReturnValue(null);
+    try {
+      const latest = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
+      const historic = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
+      for (const tree of [latest,historic]) {
+        const note = elementsWithin(tree).find(element => element.type === ReportNotes);
+        expect(note?.props).toEqual({ symbol: "DEMO", reportId: 42 });
+      }
+      const live = await CompanyBody({ symbol: "DEMO", liveRequested: true });
+      const tabs = elementsWithin(live).find(element => element.type === ReportTabs)!;
+      expect((tabs.props.reportNotes as ReactElement<Props>).type).toBe(ReportNotes);
+      expect((tabs.props.reportNotes as ReactElement<Props>).props).toEqual({ symbol: "DEMO", reportId: 42 });
+      expect((tabs.props.report as ReactElement<Props>).props).toEqual({ report, selectedReportId:42 });
+    } finally { vi.unstubAllEnvs(); resetConfigCache(); }
+  });
+
   it("loads live analysis only when explicitly requested", async () => {
     const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }), searchParams: Promise.resolve({ view: "live" }) });
     const live = elementsWithin(tree).find((element) => element.type === CompanyBody);
@@ -253,6 +291,33 @@ describe("persisted report presentation", () => {
     expect(harness.buildDataBundle).toHaveBeenCalledOnce();
     const tabs = elementsWithin(body).find((element) => element.type === ReportTabs);
     expect(tabs!.props.initialTab).toBe("analysis");
+  });
+
+  it.each([
+    ["LIVEERROR", "exception"],
+    ["LIVEMISSING", "confirmed-missing"],
+    ["LIVEPROFILE", "unresolved-profile"],
+    ["LIVEETF", "unsupported"],
+  ] as const)("keeps direct saved research and revisions recovery after %s Live failure", async (symbol, failure) => {
+    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    const saved = { ...report, meta: { ...report.meta, symbol, companyName: "Saved research issuer" } };
+    const before = JSON.stringify(saved);
+    harness.getLatestDoneReport.mockReturnValue({ reportId: 42, createdAt: "2026-07-01T12:00:00.000Z", report: saved });
+    const rows = failure === "confirmed-missing" ? [] : failure === "unresolved-profile" ? [{}] : [{ symbol, companyName: "Current issuer" }];
+    harness.buildDataBundle.mockResolvedValue({ ...bundle, symbol, profile: { ...bundle.profile, value: { ...bundle.profile.value, data: { rows, raw: {} } } } });
+    if (failure === "exception") harness.buildDataBundle.mockRejectedValue(new Error("Provider unavailable"));
+    if (failure === "unsupported") harness.instrumentSupport.mockReturnValue({ supported: false, kind: "etf", reason: "ETF analysis is not supported." });
+    try {
+      const html = renderToStaticMarkup(await CompanyBody({ symbol, liveRequested: true }));
+      expect(html).toContain('aria-label="Company research views"');
+      expect(html).toContain(`href="/company/${symbol}/report/42"`);
+      expect(html).toContain(`href="/company/${symbol}/history"`);
+      expect(html).toContain("Saved report #42"); expect(html).toContain("2026-07-01");
+      expect(harness.buildDataBundle).toHaveBeenCalledTimes(1);
+      expect(harness.getLatestDoneReport).toHaveBeenCalledWith(symbol);
+      expect(harness.activeJob).not.toHaveBeenCalled();
+      expect(JSON.stringify(saved)).toBe(before);
+    } finally { vi.unstubAllEnvs(); resetConfigCache(); }
   });
 
   it.each([{ view: undefined }, { view: ["live", "report"] }, { view: "other" }])("keeps ambiguous or absent view $view on saved research", async ({ view }) => {
@@ -271,7 +336,7 @@ describe("persisted report presentation", () => {
   it("delegates both persisted routes to one exact report-only boundary", async () => {
     expectTypeOf<PersistedReportViewExport>()
       .parameter(0)
-      .toEqualTypeOf<{ report: Report }>();
+      .toEqualTypeOf<{ report: Report; selectedReportId?: number }>();
 
     const companyTree = await CompanyBody({ symbol: "DEMO" });
     const tabs = elementsWithin(companyTree).find((element) => element.type === ReportTabs);
@@ -290,9 +355,13 @@ describe("persisted report presentation", () => {
     expect(harness.buildDataBundle).toHaveBeenCalledTimes(1);
     expect(harness.runStageB).toHaveBeenCalledTimes(1);
 
-    expect(Object.keys(companyPersisted.props)).toEqual(["report"]);
-    expect(Object.keys(savedPersisted!.props)).toEqual(["report"]);
+    expect(companyPersisted.props).toEqual({report,selectedReportId:42});
+    expect(savedPersisted!.props).toEqual({report,selectedReportId:42});
     expect(companyPersisted.type).toBe(savedPersisted!.type);
+    // Identical report bytes in different saved rows must not retain a previous
+    // row's interactive selection. React's key is outside the report-only props.
+    expect(companyPersisted.key).toBe("42");
+    expect(savedPersisted!.key).toBe("42");
     const { PersistedReportView } = await import(
       "@/components/report/PersistedReportView"
     );
@@ -300,14 +369,14 @@ describe("persisted report presentation", () => {
 
     const reportNode = invoke(companyPersisted);
     expect(reportNode.type).toBe(ReportView);
-    expect(Object.keys(reportNode.props)).toEqual(["report"]);
+    expect(reportNode.props).toEqual({report,selectedReportId:42});
     expect(elementsWithin(reportNode).some((element) => element.type === TechnicalsChartPanel)).toBe(false);
     expect(elementsWithin(reportNode).some((element) => element.type === FundamentalsChartGrid)).toBe(false);
   });
 
   it("keeps the saved-run live link explicit and disables provider-triggering prefetch", async () => {
     const tree = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
-    const live = elementsWithin(tree).find((element) => structuralText(element.props.children) === "live →");
+    const live = elementsWithin(tree).find((element) => element.props.href === "/company/DEMO?view=live");
     expect(live).toBeDefined();
     expect(live!.props.href).toBe("/company/DEMO?view=live");
     expect(live!.props.prefetch).toBe(false);

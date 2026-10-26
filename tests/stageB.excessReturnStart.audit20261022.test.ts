@@ -172,7 +172,7 @@ describe("C-10: the model starts from the trailing return and exposes the fiscal
     // Stage C's applyFairValue writes the fair value over the DCF headline.
     report.valuation.dcf.perShare = fairValue.perShare;
     report.valuation.dcf.upsidePct = fairValue.upsidePct;
-    const row = keyDataRows(report).find((r) => r.label === "Model fair value (DCF)");
+    const row = keyDataRows(report).find((r) => r.label === "Model fair value (excess return)");
     expect(row?.note).toMatch(/FY 2025-12-31 ROTE start 4\.2%: \$/);
   });
 

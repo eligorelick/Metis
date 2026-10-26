@@ -42,6 +42,9 @@ export interface SensitivityHeatmapProps {
    * the bare amount. Required, so no caller can fall back to a dollar sign.
    */
   currency: string | null;
+  /** Optional client enhancement; omitted for static/no-hydration presentation. */
+  onCellSelect?: (cell: SensitivityCell) => void;
+  selectedCell?: SensitivityCell | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,11 +74,11 @@ function lookup(
   cells: readonly SensitivityCell[],
   wacc: number,
   g: number,
-): number | null {
+): SensitivityCell | undefined {
   for (const c of cells) {
-    if (near(c.waccPct, wacc) && near(c.gTermPct, g)) return c.perShare;
+    if (near(c.waccPct, wacc) && near(c.gTermPct, g)) return c;
   }
-  return null;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +93,8 @@ export function SensitivityHeatmap({
   baseG = null,
   digits = 0,
   currency,
+  onCellSelect,
+  selectedCell,
 }: SensitivityHeatmapProps) {
   const rows = waccAxis && waccAxis.length > 0 ? [...waccAxis] : deriveAxis(cells, "waccPct");
   const cols = gAxis && gAxis.length > 0 ? [...gAxis] : deriveAxis(cells, "gTermPct");
@@ -105,7 +110,7 @@ export function SensitivityHeatmap({
   const range = heatmapRange(cells.map((c) => c.perShare));
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} aria-label="Scrollable valuation sensitivity table">
       <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr className="border-b border-edge-strong">
@@ -145,7 +150,9 @@ export function SensitivityHeatmap({
                   {pct(w, 1)}
                 </th>
                 {cols.map((g) => {
-                  const v = lookup(cells, w, g);
+                  const recordedCell = lookup(cells, w, g);
+                  const v = recordedCell?.perShare ?? null;
+                  const selected = recordedCell !== undefined && selectedCell?.waccPct === recordedCell.waccPct && selectedCell?.gTermPct === recordedCell.gTermPct;
                   const isBaseCell =
                     isBaseRow && baseG !== null && near(g, baseG);
                   const t = range ? normalizeToRange(v, range.min, range.max) : null;
@@ -156,8 +163,8 @@ export function SensitivityHeatmap({
                       className={`mono px-2 py-1 text-right ${v === null ? "text-faint" : "text-fg"}`}
                       style={{
                         backgroundColor: bg,
-                        outline: isBaseCell ? "1px solid var(--accent)" : undefined,
-                        outlineOffset: isBaseCell ? "-1px" : undefined,
+                        outline: selected ? "2px solid var(--accent)" : isBaseCell ? "1px solid var(--accent)" : undefined,
+                        outlineOffset: selected ? "-2px" : isBaseCell ? "-1px" : undefined,
                       }}
                       aria-label={
                         v === null
@@ -165,7 +172,8 @@ export function SensitivityHeatmap({
                           : `WACC ${w}% growth ${g}%: ${moneyIn(v, currency, digits)} per share`
                       }
                     >
-                      {v === null ? EM_DASH : moneyIn(v, currency, digits)}
+                      {onCellSelect && recordedCell ? <button type="button" className="sensitivity-case-button" data-sensitivity-wacc={recordedCell.waccPct} data-sensitivity-growth={recordedCell.gTermPct} aria-pressed={selected} aria-label={`Inspect recorded case: WACC ${recordedCell.waccPct}%, terminal growth ${recordedCell.gTermPct}%`} onClick={() => onCellSelect(recordedCell)}>{v === null ? EM_DASH : moneyIn(v, currency, digits)}</button>
+                        : v === null ? EM_DASH : moneyIn(v, currency, digits)}
                     </td>
                   );
                 })}

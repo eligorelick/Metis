@@ -60,7 +60,7 @@ function PanelSkeleton({ rows = 4 }: { rows?: number }) {
 /** Placeholder while saved research or the live analysis surface loads. */
 export function CompanyBodySkeleton({ symbol }: { symbol?: string }) {
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-3 p-4" aria-busy>
+    <div className="company-loading mx-auto flex max-w-6xl flex-col gap-3 p-4" aria-busy>
       <div className="flex items-center justify-between">
         <Bar className="h-3 w-40" />
         <Bar className="h-6 w-28" />

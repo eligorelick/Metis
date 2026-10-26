@@ -78,7 +78,7 @@ describe("score freshness and historical growth context", () => {
     report.valuation.graded.grade = "A"; report.verdict.gradeStrip.valuation.grade = "A";
     const safe = applyReportAssessmentStatus(report);
     expect(gradeForDisplay(safe.valuation.graded)).toBeNull();
-    const label = "Not assessed — limited evidence (score 88/100 on one signal, 30% of signals)";
+    const label = "Not assessed — limited evidence (score 88/100 on one signal, 30.0% of signals)";
     expect(gradeDisplayLabel(safe.valuation.graded, scores.aspects.valuation)).toBe(label);
     expect(reportToMarkdown(safe)).toContain(label);
     expect(reportToPrintBody(safe)).toContain(label);

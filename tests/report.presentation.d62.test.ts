@@ -117,7 +117,7 @@ describe("trust headline (P0-7)", () => {
       judgments: { cited: 70, total: 70, rate: 1 },
       factualValidation: { cited: 30, validated: 0, contradicted: 0, unchecked: 30, qualitative: 30, total: 30, rate: 0 },
     });
-    expect(headline).toBe("286/292 (98%) figures traced to a cited source; 30/30 factual claims cited; no factual claim states a figure to validate; 0 contradicted; 30 qualitative claims cited, not machine-checkable");
+    expect(headline).toBe("286/292 (97.9%) figures traced to a cited source; 30/30 factual claims cited; no factual claim states a figure to match; 0 contradicted; 30 qualitative claims cited, not machine-checkable");
   });
 });
 

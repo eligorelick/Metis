@@ -90,7 +90,7 @@ describe("default watchlist cache-only boundary", () => {
     expect(row?.nextEarnings).toBeNull();
     expect(row?.grades?.quality).toBeNull();
     expect(row?.grades?.valuation).toBe("B");
-    expect(row?.gradeLabels?.quality).toMatch(/limited evidence.*40%.*50%/i);
+    expect(row?.gradeLabels?.quality).toMatch(/limited evidence.*40\.0%.*50%/i);
     expect(network).not.toHaveBeenCalled();
     expect(handle.db.select().from(reports).all()).toEqual(before);
     expect(handle.db.select().from(apiCache).all()).toEqual([]);

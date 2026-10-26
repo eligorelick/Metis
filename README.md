@@ -2,8 +2,7 @@
 
 ![Metis equity research](public/brand/metis-lockup.svg)
 
-Metis is a local-first equity research app with financial calculations and optional AI. Its name comes from the ancient Greek Titan goddess associated with wisdom and planning; see the [brand guide](docs/BRAND.md).
-Saved reports expose number provenance and missing evidence, model-derived review conditions, scenario display weights, sensitivity conclusions, and eligible peer comparisons with exclusions. The [evaluation CLI](docs/REPORT-EVALUATION.md) freezes snapshots and compares eligible outcomes; it does not establish forecasting accuracy. **Settings → Appearance** switches between Metis Ink and Metis Ivory, saved in this browser. Both designs offer paginated price/relative-strength tables.
+Metis is a local-first equity research app with financial calculations and optional AI. Its name comes from the ancient Greek Titan goddess associated with wisdom and planning; see the [brand guide](docs/BRAND.md). Saved reports expose number provenance and missing evidence, model-derived review conditions, scenario display weights, sensitivity conclusions, and eligible peer comparisons with exclusions. The [evaluation CLI](docs/REPORT-EVALUATION.md) freezes snapshots and compares eligible outcomes; it does not establish forecasting accuracy. **Settings → Appearance** switches between Metis Ink and Metis Ivory, saved in this browser. Both designs offer paginated price/relative-strength tables.
 
 > **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
 
@@ -89,6 +88,7 @@ explicit canonical values win, including blank/invalid values. See [compatibilit
 | `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
 | `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
 | `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
+| `METIS_UI_REDESIGN` | `0` | Opt into the dossier UI. |
 | `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
 
 <!-- END GENERATED: config -->

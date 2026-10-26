@@ -51,7 +51,7 @@ describe("a valuation grade needs corroborating evidence (audit PGR-4)", () => {
     const shown = applyReportAssessmentStatus(report);
     expect(gradeForDisplay(shown.valuation.graded)).toBeNull();
     expect(gradeForDisplay(shown.verdict.gradeStrip.valuation)).toBeNull();
-    expect(gradeDisplayLabel(shown.valuation.graded, valuation)).toBe(`Not assessed — limited evidence (score ${Math.round(valuation.score!)}/100 on one signal, 50% of signals)`);
+    expect(gradeDisplayLabel(shown.valuation.graded, valuation)).toBe(`Not assessed — limited evidence (score ${Math.round(valuation.score!)}/100 on one signal, 50.0% of signals)`);
   });
 
   it("withholds the letter from the price-attractiveness summary line as well", () => {

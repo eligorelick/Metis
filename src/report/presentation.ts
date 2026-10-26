@@ -15,7 +15,7 @@ import { parseSubscriptionModel } from "@/ai/contracts";
 import { executionCompleted, subscriptionExecution } from "@/report/execution";
 import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { compositeNote, compositeText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
+import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
@@ -869,7 +869,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
 
   if (dcf) {
     rows.push({
-      label: "Model fair value (DCF)",
+      label: report.fairValue?.method === "excess-return" ? "Model fair value (excess return)" : "Model fair value (DCF)",
       value: formatFinancialAmount(dcf.value, dcf.unit, dcf.currency),
       note: [
         report.valuation.dcf.upsidePct === null ? null : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
@@ -882,7 +882,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   } else if (report.fairValue?.status === "outside-domain") {
     // Audit 2026-10-22 B-29: the headline says why no DCF value is shown.
     rows.push({
-      label: "Model fair value (DCF)",
+      label: report.fairValue?.method === "excess-return" ? "Model fair value (excess return)" : "Model fair value (DCF)",
       value: "Model outside its domain",
       note: report.fairValue.basis[0]?.replace(/^Model outside its domain: /, "").replace(/\.$/, ""),
     });
@@ -977,8 +977,50 @@ export interface TrustRow {
   value: string;
 }
 
+/** Authoritative selected row, separate from optional identity embedded in old snapshots. */
+export interface ReportPresentationContext { selectedReportId?: number }
+export function presentationReportId(report: Pick<Report,"meta">, context: ReportPresentationContext = {}): number | undefined {
+  return context.selectedReportId ?? report.meta.reportId;
+}
+export function reportIdentityNote(report: Pick<Report,"meta">, context: ReportPresentationContext = {}): string | null {
+  return context.selectedReportId !== undefined && report.meta.reportId !== undefined && context.selectedReportId !== report.meta.reportId
+    ? `Selected saved row #${context.selectedReportId}; embedded report ID #${report.meta.reportId}. The selected row controls navigation and exports; its recorded content is unchanged.`
+    : null;
+}
+
+/** Explicit recorded provenance, never a guess from the ticker or company name. */
+export function syntheticNotice(report: Pick<Report, "meta" | "appendix">): string | null {
+  const reserved = report.appendix.missingData.some(gap => /^fixture\.reserved\([^)]+\)$/.test(gap.field));
+  const historical = report.meta.model === "synthetic-fixture" && report.meta.pipelineVersion.startsWith("synthetic-sample-");
+  return reserved || historical
+    ? "Synthetic demonstration · fictional issuer and invented observations. This snapshot is not live company research."
+    : null;
+}
+
+export interface ManifestReconciliationRow {
+  kind: "expected" | "info" | "data" | "process" | "resolved";
+  label: string;
+  entries: number;
+  groups: number;
+}
+
+/** Disjoint accounting of every raw row; grouped display counts never replace recorded severities. */
+export function manifestReconciliationRows(gaps: readonly ManifestEntry[], c: Pick<ReportCompletenessPresentation, "classification">): ManifestReconciliationRow[] {
+  const k = c.classification;
+  const sum = (rows: readonly ClassifiedGap[]) => rows.reduce((n, row) => n + row.fields.length, 0);
+  const expected = gaps.filter(gap => gap.expected === true).length;
+  const info = gaps.filter(gap => gap.expected !== true && gap.severity === "info").length;
+  return [
+    { kind: "expected", label: "Expected disclosures", entries: expected, groups: expected },
+    { kind: "info", label: "Informational notes", entries: info, groups: info },
+    { kind: "data", label: "Grouped data issues", entries: sum(k.dataGaps), groups: k.dataGaps.length },
+    { kind: "process", label: "Analysis-process issues", entries: sum(k.processDisclosures), groups: k.processDisclosures.length },
+    { kind: "resolved", label: "Recorded warnings shown as information", entries: sum(k.downgraded), groups: k.downgraded.length },
+  ].filter(row => row.entries > 0) as ManifestReconciliationRow[];
+}
+
 function ratio(supported: number, total: number, rate: number | null): string {
-  return rate === null ? `${supported}/${total}` : `${supported}/${total} (${Math.round(rate * 100)}%)`;
+  return rate === null ? `${supported}/${total}` : `${supported}/${total} (${(rate * 100).toFixed(1)}%)`;
 }
 
 /**
@@ -1014,7 +1056,7 @@ export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readon
     const numericClaims = v.total - qualitative;
     const uncheckedNumeric = v.unchecked - qualitative;
     rows.push({
-      label: "Numeric factual claims validated against their cited figure",
+      label: "Numeric factual claims numerically matched to a cited figure",
       value: numericClaims === 0
         ? "none to check — no factual claim states a figure"
         : `${v.validated}/${numericClaims}${uncheckedNumeric > 0 ? `; ${uncheckedNumeric} not matched to a cited figure` : ""}`,
@@ -1038,7 +1080,7 @@ export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: re
   if (v) {
     const qualitative = v.qualitative ?? 0;
     const numericClaims = v.total - qualitative;
-    parts.push(numericClaims === 0 ? "no factual claim states a figure to validate" : `${v.validated}/${numericClaims} numeric claims validated`);
+    parts.push(numericClaims === 0 ? "no factual claim states a figure to match" : `${v.validated}/${numericClaims} numeric claims numerically matched (not whole-claim validation)`);
     const contradicted = contradictedCount(v, log);
     parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
     if (qualitative > 0) parts.push(`${qualitative} qualitative claims cited, not machine-checkable`);
@@ -1357,15 +1399,17 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
   const output = total(execution.map((entry) => entry.outputTokens));
   const tokens = input === null && output === null ? null
     : `${input === null ? "unknown" : formatNumber(input, 0)} input / ${output === null ? "unknown" : formatNumber(output, 0)} output tokens`;
+  const unreported = execution.filter(entry => entry.inputTokens === undefined || entry.outputTokens === undefined).map(entry => entry.step === "synthesize" ? "judge" : entry.step);
+  const usageLimit = unreported.length ? `; usage incomplete for ${unreported.join(", ")}` : "";
   const plan = execution.length > 0 && execution.every((entry) => parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel));
   // The same figure the audit ledger totals: the sum of the displayed rows.
   const cost = roundedDisplayedCostTotal(report.appendix.costBreakdown.map((entry) => entry.costUsd));
   if (plan) {
     const provider = execution.some((entry) => /^gemini\//.test(entry.effectiveModel)) ? "Gemini CLI" : "ChatGPT plan";
-    return `${tokens ?? "token usage not reported"} on the ${provider} allowance (no API charge recorded)`;
+    return `${tokens ?? "token usage not reported"} on the ${provider} allowance (no API charge recorded)${usageLimit}`;
   }
-  const dollars = `${formatCostUsd(cost)} API cost`;
-  return tokens ? `${dollars}; ${tokens}` : dollars;
+  const dollars = `${formatCostUsd(cost)} recorded API cost`;
+  return `${tokens ? `${dollars}; ${tokens}` : dollars}${usageLimit}`;
 }
 
 /**
@@ -1379,7 +1423,7 @@ export function dataStateText(c: ReportCompletenessPresentation): string {
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   // D-67: one count per underlying data gap; how the passes ran is counted apart.
   const process = c.processDisclosureCount > 0 ? `; ${count(c.processDisclosureCount, "analysis-process disclosure", "analysis-process disclosures")} (not data gaps)` : "";
-  return `${state}: ${count(c.dataCriticalCount, "critical gap", "critical gaps")}, ${count(c.dataWarningCount, "data warning", "data warnings")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
+  return `${c.dataOnly ? "Data-only · " : ""}${state}: ${count(c.dataCriticalCount, "critical data issue", "critical data issues")}, ${count(c.dataWarningCount, "data issue", "data issues")}${process}; EDGAR ${c.edgar}; XBRL ${c.xbrl}; forensics ${c.forensicValidation}.`;
 }
 
 /**
@@ -1390,11 +1434,13 @@ export function dataStateText(c: ReportCompletenessPresentation): string {
  */
 export function displayConfidence(
   stored: "high" | "medium" | "low",
-  c: Pick<ReportCompletenessPresentation, "metadataStatus" | "dataCriticalCount" | "dataWarningCount">,
+  c: Pick<ReportCompletenessPresentation, "metadataStatus" | "dataCriticalCount" | "dataWarningCount"> & Partial<Pick<ReportCompletenessPresentation, "dataOnly">>,
 ): { level: "high" | "medium" | "low"; cap: string | null } {
   const rank = { low: 0, medium: 1, high: 2 } as const;
   const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
-  const ceiling: { level: "high" | "medium" | "low"; why: string } | null = c.dataCriticalCount > 0
+  const ceiling: { level: "high" | "medium" | "low"; why: string } | null = c.dataOnly
+    ? { level: "low", why: "no completed multi-pass analysis" }
+    : c.dataCriticalCount > 0
     ? { level: "low", why: plural(c.dataCriticalCount, "critical data gap") }
     : c.dataWarningCount > 0
       ? { level: "medium", why: plural(c.dataWarningCount, "data warning") }
@@ -1591,8 +1637,8 @@ export function methodologyNotes(report: Pick<Report, "scores" | "projections" |
 }
 
 /** Where the separate audit export lives for a persisted report. */
-export function auditExportPath(report: Pick<Report, "meta">): string | null {
-  const id = report.meta.reportId;
+export function auditExportPath(report: Pick<Report, "meta">, context: ReportPresentationContext = {}): string | null {
+  const id = presentationReportId(report,context);
   return typeof id === "number" && Number.isSafeInteger(id) ? `/api/export/${id}?format=audit` : null;
 }
 
@@ -1650,7 +1696,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         // D-67: the letter is withheld under the evidence floor on every surface.
         hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : withNeutral(aspect.band, aspect.score),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
-        `${Math.round(aspect.dataCompleteness * 100)}%`,
+        evidencePercentText(aspect.dataCompleteness),
         aspect.notApplicableReason ?? aspect.note,
       ];
     }),
@@ -1664,7 +1710,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         const why = scores.aspects[key].dataCompleteness < MIN_HEADLINE_EVIDENCE
           ? `below the ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}% floor for a letter`
           : "all from one signal, and a letter needs a second";
-        return `${SCORE_ASPECT_LABEL[key]} has evidence for ${Math.round(scores.aspects[key].dataCompleteness * 100)}% of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
+        return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
       }).join(" ")}`,
     }),
   };
@@ -1678,7 +1724,7 @@ export function assessmentLine(scores: NonNullable<Report["scores"]>): string | 
     `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
     `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
-    `evidence available for ${formatPct(a.evidenceCompleteness * 100, 0)} of the signal weight`,
+    `evidence available for ${evidencePercentText(a.evidenceCompleteness)} of the signal weight`,
   ].join(" · ");
 }
 

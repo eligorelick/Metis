@@ -41,6 +41,7 @@ import {
 } from "@/report/format";
 import { ClaimText } from "./ClaimText";
 import { GRADE_SURFACE_BY_KEY } from "@/report/surfaceManifest";
+import { evidenceAttributes } from "./evidenceIdentity";
 
 export {
   formatCurrency,
@@ -68,13 +69,15 @@ function Disclosure({
   trigger,
   children,
   open,
+  evidence,
 }: {
   trigger: ReactNode;
   children: ReactNode;
   open?: boolean;
+  evidence?: ReturnType<typeof evidenceAttributes>;
 }) {
   return (
-    <details className="group" open={open}>
+    <details {...evidence} className="group" open={open}>
       <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
         <span className="mono select-none text-[10px] text-faint transition-transform group-open:rotate-90">
           ▸
@@ -212,7 +215,7 @@ export function TracedStat({
   showSourceDetails?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 border border-edge bg-raised px-2 py-1.5">
+    <div className="traced-stat flex min-w-0 flex-col gap-0.5 border border-edge bg-raised px-2 py-1.5">
       <div className="truncate text-[9px] uppercase tracking-[0.1em] text-faint">
         {label}
       </div>
@@ -313,7 +316,7 @@ export function GradeReasoning({
       </div>
       <div className="px-2.5 py-2">
         <p className="text-[12px] leading-snug text-fg">{displayProse(block.oneLineWhy)}</p>
-          {gradeContractText(block) && <p className="mono mt-1 text-[10px] text-faint">{displayProse(gradeContractText(block)!)}</p>}
+          {gradeContractText(block) && <details className="grade-admission-details"><summary>Grade admission details</summary><p className="mono mt-1 text-[12px] text-faint">{displayProse(gradeContractText(block)!)}</p></details>}
         {block.confidenceCap && (
           <p className="mono mt-1 text-[10px] text-faint">
             Confidence capped at {block.confidenceCap.to}: {block.confidenceCap.reason}
@@ -389,7 +392,7 @@ export function TracedNumberSourceDetails({ n, label = "Number provenance" }: { 
   ] as const;
   return (
     <div className="min-w-0">
-      <Disclosure trigger={<span className="text-[10px] text-faint hover:text-accent">{label}</span>}>
+      <Disclosure evidence={evidenceAttributes("number", n)} trigger={<span className="text-[10px] text-faint hover:text-accent">{label}</span>}>
         <dl className="mono mt-1.5 flex flex-col gap-1 text-[10px] text-faint">
           {fields.map(([label, value]) => (
             <div key={label} className="break-all">

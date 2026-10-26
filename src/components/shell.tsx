@@ -10,6 +10,7 @@ import { MetisLogo } from "@/brand/MetisLogo";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { SidebarNavigation } from "./SidebarNavigation";
+import { WorkspaceToolbar } from "./WorkspaceToolbar";
 
 export function AppShell({
   sidebar,
@@ -20,6 +21,7 @@ export function AppShell({
 }) {
   return (
     <div className="thesis-shell flex h-screen flex-col overflow-hidden bg-bg text-fg">
+      <a href="#main-content" className="skip-to-content">Skip to research</a>
       {/* Header bar */}
       <header className="thesis-header flex h-16 shrink-0 items-center justify-between border-b border-edge bg-panel px-4">
         <div className="flex items-center gap-5">
@@ -35,6 +37,8 @@ export function AppShell({
           </span>
         </div>
         <nav className="flex items-center gap-3 text-[11px]">
+          <Link href="/" className="dossier-only text-muted hover:text-accent">Coverage</Link>
+          <WorkspaceToolbar />
           <Link
             href="/settings"
             className="mono uppercase tracking-[0.1em] text-muted hover:text-accent"
@@ -47,7 +51,7 @@ export function AppShell({
       {/* Sidebar + main */}
       <div className="thesis-frame flex min-h-0 flex-1">
         <SidebarNavigation>{sidebar}</SidebarNavigation>
-        <main className="thesis-main min-w-0 flex-1 overflow-y-auto">{children}</main>
+        <main id="main-content" tabIndex={-1} className="thesis-main min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
 
       {/* Global disclaimer footer — hard product requirement */}

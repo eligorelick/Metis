@@ -41,7 +41,7 @@ export function RemoveButtonView({ symbol, busy, error, onRemove }: {
         disabled={busy}
         aria-label={`remove ${symbol}`}
         title={`remove ${symbol}`}
-        className={`mono shrink-0 px-1 text-[12px] leading-none ${
+        className={`watch-remove-button mono shrink-0 px-1 text-[12px] leading-none ${
           busy ? "text-faint opacity-60" : "text-faint hover:text-neg"
         }`}
       >

@@ -75,7 +75,7 @@ describe("B-30: the house DCF base rate beside the headline", () => {
       status: "available", method: "excess-return", methodVersion: "x", basis: [], reasons: [], upsidePct: 10,
       perShare: { value: er.perShare!, unit: "USD/share", source: "computed.valuation.excessReturn.perShare", asOf: "2026-06-30" } as FairValue["perShare"],
     };
-    const row = keyDataRows(reportWith(fairValue)).find((r) => r.label === "Model fair value (DCF)");
+    const row = keyDataRows(reportWith(fairValue)).find((r) => r.label === "Model fair value (excess return)");
     expect(row).toBeDefined();
     expect(row?.note ?? "").not.toContain("base rate");
   });

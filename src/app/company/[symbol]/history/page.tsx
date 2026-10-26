@@ -16,10 +16,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/shell";
+import { getConfig } from "@/config/env";
+import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
+import { ResearchNavigation } from "@/components/report/ResearchNavigation";
+import { RevisionDigest } from "@/components/report/RevisionDigest";
+import { diffReports } from "@/report/diff";
 import { GradeChip, Badge, Panel } from "@/components/ui";
 import { ExportButtons } from "@/components/report/ExportButtons";
 import {
   listReportsForSymbol,
+  loadReportPairForSymbol,
+  orderPairChronologically,
   type ReportSummary,
   type GradeStripCell,
 } from "@/report/history";
@@ -123,7 +130,7 @@ function ReportRow({
   const vr =
     r.verificationRate === null
       ? "—"
-      : `${(r.verificationRate * 100).toFixed(0)}%`;
+      : `${(r.verificationRate * 100).toFixed(1)}%`;
   const cost = r.costUsd === null ? "—" : `$${r.costUsd.toFixed(2)}`;
   const statusTone =
     r.status === "done" ? "pos" : r.status === "error" ? "neg" : "muted";
@@ -136,12 +143,12 @@ function ReportRow({
       <td className="px-2 py-1.5">
         <div className="mono text-[12px] text-fg">{date}</div>
         <div className="mono text-[9px] text-faint">
-          {time} · #{r.id}
+          {time} UTC · #{r.id}
         </div>
       </td>
       <td className="px-2 py-1.5">
         <span className="mono text-[11px] text-muted" title={`Requested model: ${r.model}`}>
-          {(r.actualModels ?? [r.model]).map(shortModel).join(" · ")}
+          {r.actualModels?.length ? r.actualModels.map(shortModel).join(" · ") : `Requested: ${shortModel(r.model)}; actual model not recorded`}
         </span>
       </td>
       <td className="px-2 py-1.5">
@@ -203,16 +210,31 @@ export default async function HistoryPage({
 
   const compareOptions: CompareOption[] = reports.map((r) => ({
     id: r.id,
-    label: `#${r.id} · ${r.createdAt.slice(0, 10)} · ${(r.actualModels ?? [r.model]).map(shortModel).join(" · ")}`,
+    label: `#${r.id} · ${r.createdAt.slice(0, 10)} · ${r.actualModels?.length ? r.actualModels.map(shortModel).join(" · ") : `Requested: ${shortModel(r.model)}; actual model not recorded`}`,
   }));
   const displayedGradeSurfaces = GRADE_SURFACES.filter((descriptor) =>
     reports.some((report) => report.gradeStrip?.some((cell) => cell.key === descriptor.key)));
+  const dossier = getConfig().uiRedesign;
+  const readable = reports.filter(report => report.gradeStrip !== null);
+  let revision = null;
+  if (dossier && readable.length >= 2) {
+    try {
+      const pair = loadReportPairForSymbol(readable[1]!.id, readable[0]!.id, symbol);
+      if (pair) {
+        const { older, newer } = orderPairChronologically(pair);
+        revision = { older: older.row.id, newer: newer.row.id, diff: diffReports(older.report, newer.report, {
+          fromReportVersion: older.report.meta.pipelineVersion, toReportVersion: newer.report.meta.pipelineVersion,
+          fromSpecVersion: older.row.specVersion, toSpecVersion: newer.row.specVersion,
+        }) };
+      }
+    } catch { /* The complete history and explicit compare controls remain available. */ }
+  }
 
   return (
-    <AppShell sidebar={<Sidebar symbol={symbol} />}>
+    <AppShell sidebar={dossier ? <WatchlistSidebar activeSymbol={symbol} /> : <Sidebar symbol={symbol} />}>
       <div className="mx-auto flex max-w-5xl flex-col gap-3 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="mono text-[16px] font-semibold tracking-[0.08em] text-fg">
+          <h1 className="dossier-company-title mono text-[16px] font-semibold tracking-[0.08em] text-fg">
             {symbol} <span className="text-faint">· report history</span>
           </h1>
           <span className="text-[11px] text-faint">
@@ -220,6 +242,8 @@ export default async function HistoryPage({
           </span>
         </div>
 
+        {dossier && <ResearchNavigation symbol={symbol} active="revisions" />}
+        {dossier && !loadError && (revision ? <><p className="text-[12px] text-muted">Latest readable pair: #{revision.older} → #{revision.newer}. All saved rows remain listed below.</p><RevisionDigest diff={revision.diff} compareHref={`/company/${encodeURIComponent(symbol)}/history/diff?a=${revision.older}&b=${revision.newer}`} /></> : <p className="text-[13px] text-muted">{readable.length < 2 ? "No prior readable report is available for comparison." : "The latest readable pair could not be compared. Select reports below to inspect availability."}</p>)}
         {loadError ? (
           <div className="border border-neg/40 bg-neg/10 px-4 py-3 text-[12px] text-neg">
             <div className="mono font-semibold">could not load history</div>
@@ -267,8 +291,8 @@ export default async function HistoryPage({
                           ? `· ${displayedGradeSurfaces.map((descriptor) => descriptor.shortLabel).join("/")}`
                           : ""}
                       </Th>
-                      <Th align="right">cited</Th>
-                      <Th align="right">cost</Th>
+                      <Th align="right">figures traced</Th>
+                      <Th align="right">recorded API charge</Th>
                       <Th>status</Th>
                       <Th align="right">actions</Th>
                     </tr>

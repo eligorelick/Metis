@@ -21,10 +21,12 @@ export function RunsDisclosure({
   symbol,
   runs,
   defaultOpen = false,
+  selectedReportId,
 }: {
   symbol: string;
   runs: RunRef[];
   defaultOpen?: boolean;
+  selectedReportId?: number;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -53,11 +55,12 @@ export function RunsDisclosure({
             <li key={r.id}>
               <Link
                 href={`${base}${r.id}`}
+                aria-current={r.id === selectedReportId ? "page" : undefined}
                 className="mono flex items-center justify-between gap-2 py-1 pl-6 pr-3 text-[10px] text-muted hover:bg-raised hover:text-accent"
               >
-                <span className="truncate">
+                <span className="min-w-0 break-words">
                   <span className="text-faint">#{r.id}</span> {r.createdAt.slice(0, 10)}
-                  <span className="text-faint"> {r.createdAt.slice(11, 16)}</span>
+                  <span className="text-faint"> {r.createdAt.slice(11, 16)} UTC</span>{r.id === selectedReportId && <span> · selected</span>}
                 </span>
                 <RunStatus status={r.status} />
               </Link>

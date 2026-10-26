@@ -327,6 +327,18 @@ function diffContext(from: Report, to: Report) {
  * ------------------------------------------------------------------------ */
 
 describe("ReportSchema — valid fixture", () => {
+  it("preserves saved snapshot timestamps at minute, second and fractional precision", () => {
+    for (const capturedAt of ["2026-10-18T00:00Z", "2026-10-18T00:00:00Z", "2026-10-18T00:00:00.123456Z"]) {
+      const report = makeReport();
+      report.meta.runSnapshot = { hash: "a".repeat(64), formatVersion: "RUN_INPUT_SNAPSHOT_1", capturedAt };
+      expect(ReportSchema.parse(report).meta.runSnapshot?.capturedAt).toBe(capturedAt);
+    }
+    for (const capturedAt of ["2026-11-31T00:00Z", "2026-10-18T24:00Z", "2026-10-18T00:00", "2026-10-18T00:00+02:00"]) {
+      const report = makeReport();
+      report.meta.runSnapshot = { hash: "a".repeat(64), formatVersion: "RUN_INPUT_SNAPSHOT_1", capturedAt };
+      expect(ReportSchema.safeParse(report).success).toBe(false);
+    }
+  });
   it("parses a minimal valid report", () => {
     const result = ReportSchema.safeParse(makeReport());
     if (!result.success) {
@@ -850,6 +862,50 @@ describe("collapseNullableComplexity + fillNullableGaps", () => {
     expect(tracedNumberDef?.required).not.toContain("asOf");
     expect(tracedNumberDef?.properties).not.toHaveProperty("verified");
     expect(tracedNumberDef?.properties).not.toHaveProperty("verificationNote");
+  });
+
+  it("keeps nullable primitives and shared leaves on the omission-based wire contract after emitter updates", () => {
+    const Amount = z.number().nullable().describe("Observed amount, or no observation");
+    const Input = z.object({
+      amount: Amount,
+      repeated: Amount,
+      when: z.string().nullable(),
+      verified: z.boolean().nullable(),
+      readings: z.array(z.number().nullable()),
+      always: z.string(),
+    }).strict();
+    expect(toStructuredJsonSchema(Input)).toEqual({
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        amount: { $ref: "#/$defs/__schema0" },
+        repeated: { $ref: "#/$defs/__schema0" },
+        when: { type: "string" },
+        verified: { type: "boolean" },
+        readings: { type: "array", items: { type: "number" } },
+        always: { type: "string" },
+      },
+      required: ["readings", "always"],
+      $defs: {
+        __schema0: { $ref: "#/$defs/__schema1", description: "Observed amount, or no observation" },
+        __schema1: { type: "number" },
+      },
+    });
+    const raw = { readings: [1, null], always: "required" };
+    expect(Input.safeParse(raw).success).toBe(false);
+    expect(Input.parse(fillNullableGaps(Input, raw))).toEqual({
+      ...raw, amount: null, repeated: null, when: null, verified: null,
+    });
+    expect(raw).toEqual({ readings: [1, null], always: "required" });
+  });
+
+  it("retains genuine mixed-type choices and their required keys", () => {
+    const Input = z.object({ value: z.union([z.string(), z.number()]) }).strict();
+    expect(toStructuredJsonSchema(Input)).toMatchObject({
+      properties: { value: { type: ["string", "number"] } },
+      required: ["value"],
+    });
   });
 
   it("pins the EMITTED shape for a shared nullable leaf, hoisted into $defs", () => {

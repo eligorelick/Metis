@@ -639,7 +639,8 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     expect(markdown).toContain(String.raw`P30PROJECTIONNA \<script data-p30=projection-na\>bad\</script\> \\\| PROJECTIONNAPIPE`);
     expect(markdown).toContain(String.raw`P30APPENDIX \<img data-p30=appendix src=x\> \\\| P30APPENDIXPIPE`);
     expect(markdown).toContain(String.raw`P30ONCE\\\|one, P30ONCE\*two\*\|tail`);
-    expect(countOccurrences(markdown, reason)).toBe(2);
+    // The analysis-process table now also retains the full escaped availability reason.
+    expect(countOccurrences(markdown, reason)).toBe(3);
     expect(markdown).not.toContain(String.raw`P30ONCE\\\\\\\|one`);
   });
 
@@ -964,8 +965,8 @@ describe("persisted Markdown and PDF export boundaries", () => {
     report.meta.symbol = "P30SYMBOL";
     const storedBytes = JSON.stringify(report);
     const id = seedReport(report);
-    const expectedMarkdown = reportToMarkdown(report);
-    const expectedPrint = reportToPrintHtml(report, { autoPrint: true });
+    const expectedMarkdown = reportToMarkdown(report,{selectedReportId:id});
+    const expectedPrint = reportToPrintHtml(report, { autoPrint: true, selectedReportId:id });
 
     const markdownResponse = await exportGET(...exportRequest(String(id), "md"));
     const printResponse = await exportGET(...exportRequest(String(id), "pdf"));

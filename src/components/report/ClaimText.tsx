@@ -15,6 +15,7 @@ import { Badge, type Tone } from "@/components/ui";
 import type { ClaimLabel } from "@/types/core";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
 import { displayClaimText, sourceLabel } from "@/report/presentation";
+import { evidenceAttributes } from "./evidenceIdentity";
 
 const LABEL_TONE: Record<ClaimLabel, Tone> = {
   FACT: "muted",
@@ -38,7 +39,7 @@ function Provenance({
   asOf: string | null;
 }) {
   return (
-    <div className="mono flex flex-col gap-0.5 text-[10px] leading-snug text-faint">
+    <div className="claim-provenance mono flex flex-col gap-0.5 text-[10px] leading-snug text-faint">
       {/* D-62: one source marker — the reader label, with the registry id only
           when it differs from it; an absent id is not printed as "n/a". */}
       <span className="break-all">
@@ -75,16 +76,16 @@ export function ClaimText({
   numbers?: readonly TracedNumber[];
 }) {
   return (
-    <details className={`group flex flex-col gap-1 ${className ?? ""}`}>
+    <details {...evidenceAttributes("claim", claim)} className={`report-claim group flex flex-col gap-1 ${className ?? ""}`}>
       <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
-        <span className="mt-px shrink-0">
+        <span className="claim-label mt-px shrink-0">
           <ClaimLabelChip label={claim.label} />
         </span>
-        <span className="min-w-0 flex-1 text-[12px] leading-snug text-fg">
+        <span className="claim-text min-w-0 flex-1 text-[12px] leading-snug text-fg">
           {/* D-67: registry ids under reader labels, figures at reader precision. */}
           {displayClaimText(claim, numbers)}{" "}
           <span
-            className="mono align-baseline text-[10px] text-faint group-hover:text-accent"
+            className="claim-source mono align-baseline text-[10px] text-faint group-hover:text-accent"
             title={`${claim.source}${claim.asOf ? ` · as of ${claim.asOf}` : ""}`}
           >
             <span className="group-open:hidden">›src</span>

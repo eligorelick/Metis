@@ -14,7 +14,7 @@
  */
 
 import type { ReactNode } from "react";
-import { compositeDisplay, compositeNote, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
+import { evidencePercentText, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueWithheldText } from "@/report/fairValueText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
@@ -48,6 +48,7 @@ import {
   priceTiming,
   pruneTable,
   qualityAccrualClarifications,
+  reportIdentityNote,
   runSummary,
   scoreDriverTable,
   scorecardTable,
@@ -126,6 +127,9 @@ import {
 } from "@/report/surfaceManifest";
 
 import { SensitivityHeatmap } from "@/components/charts/SensitivityHeatmap";
+import { CapitalBridge } from "./CapitalBridge";
+import { RecordedSensitivity } from "./RecordedSensitivity";
+import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
 
 import {
@@ -171,10 +175,11 @@ export function SectionFrame({
   return (
     <section
       id={sectionAnchorId(id)}
+      tabIndex={-1}
       // scroll-margin so the sticky grade strip + nav don't cover the heading.
-      className="scroll-mt-28 border border-edge bg-panel"
+      className="report-section scroll-mt-28 border border-edge bg-panel"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-2">
+      <div className="report-section-heading flex items-center justify-between gap-2 border-b border-edge px-3 py-2">
         <div className="flex items-baseline gap-2">
           <span className="mono text-[10px] text-faint">
             {String(index).padStart(2, "0")}
@@ -189,7 +194,7 @@ export function SectionFrame({
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-3 px-3 py-3">{children}</div>
+      <div className="report-section-body flex flex-col gap-3 px-3 py-3">{children}</div>
     </section>
   );
 }
@@ -228,7 +233,7 @@ function AuditTable({
   rows: readonly AuditRow[];
 }) {
   return (
-    <div className="overflow-x-auto border border-edge">
+    <div className="overflow-x-auto border border-edge" tabIndex={0} aria-label="Scrollable report data table">
       <table className="w-full border-collapse text-[10px]">
         <thead>
           <tr className="border-b border-edge bg-raised">
@@ -286,13 +291,20 @@ export function GradeStripBar({
   gradeStrip,
   compact = false,
   scores,
+  presentation = "default",
 }: {
   gradeStrip: Verdict["gradeStrip"];
   compact?: boolean;
   /** D-67: the deterministic scores, so a limited-evidence aspect shows its score and marker. */
   scores?: Scoring;
+  presentation?: "default" | "dossier";
 }) {
   const entries = gradeSurfaceEntries(gradeStrip);
+  if (compact && presentation === "dossier") return <nav className="dossier-grade-navigation" aria-label="Section assessment shortcuts">
+    {entries.map(({ descriptor, block }) => <a key={descriptor.id} href={`#${sectionAnchorId(descriptor.sectionKey)}`} title={`${descriptor.label}: ${block.oneLineWhy}`} aria-label={`${descriptor.label}: ${gradeDisplayLabel(block, scores?.aspects[descriptor.key])}`}>
+      <span className="text-muted">{descriptor.key === "leadership" ? "Leadership proxy" : descriptor.label}</span><HeadlineGrade block={block} aspect={scores?.aspects[descriptor.key]} />
+    </a>)}
+  </nav>;
   return (
     <div
       className={`grid grid-cols-3 gap-1.5 ${entries.length === 7 ? "lg:grid-cols-7" : "lg:grid-cols-6"} ${compact ? "" : ""}`}
@@ -346,23 +358,24 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
   })}</>;
 }
 
-export function CompositeScorecard({ scores }: { scores: Scoring }) {
+export function CompositeScorecard({ scores, mode = "default" }: { scores: Scoring; mode?: "default" | "cover" }) {
   const c = scores.composite;
   // F-19: no letter under the evidence floor; the qualifier inside 45–55.
   const shown = compositeDisplay(scores);
   return (
-    <div className="border border-edge-strong bg-panel">
+    <div className={`${mode === "cover" ? "dossier-scorecard" : ""} border border-edge-strong bg-panel`}>
       <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-1.5">
-        <SectionHeading>composite scorecard</SectionHeading>
-        <span className="mono text-[9px] text-faint">bands {scores.bandsVersion}</span>
+        <SectionHeading>{mode === "cover" ? "Deterministic scorecard" : "composite scorecard"}</SectionHeading>
+        {mode !== "cover" && <span className="mono text-[9px] text-faint">bands {scores.bandsVersion}</span>}
       </div>
-      <div className="flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center">
+      {mode === "cover" && <p className="scorecard-scale">All aspect bars: 0–100; center marker 50. Limited evidence withholds the headline band.</p>}
+      <div className="scorecard-summary flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center">
         <div className="flex shrink-0 items-center gap-3 border-b border-edge pb-3 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
           <div className="flex flex-col">
             <span className="text-[9px] uppercase tracking-[0.1em] text-faint">
               {SCORE_SURFACE_BY_KEY.composite.label.toLowerCase()}
             </span>
-            <span className="mono text-[30px] leading-none text-fg">
+            <span className="composite-score-value mono text-[30px] leading-none text-fg">
               {formatScore(c.score)}
             </span>
           </div>
@@ -373,7 +386,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
                 {isNeutralScore(c.score) && <span className="mono text-[10px] text-faint">neutral</span>}
               </span>)}
         </div>
-        <div className="grid flex-1 grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="scorecard-aspects grid flex-1 grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-7">
           {SCORE_SURFACES.map((descriptor) => {
             if (descriptor.kind !== "aspect") return null;
             const a = scores.aspects[descriptor.key];
@@ -381,10 +394,11 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
               <a
                 key={descriptor.id}
                 href={`#${sectionAnchorId(descriptor.sectionKey)}`}
-                className="flex flex-col gap-1 border border-edge bg-raised px-2 py-1.5 transition-colors hover:border-accent/50"
+                className="scorecard-aspect flex flex-col gap-1 border border-edge bg-raised px-2 py-1.5 transition-colors hover:border-accent/50"
                 title={a.notApplicableReason ?? a.note}
               >
                 <span className="text-[9px] uppercase tracking-[0.09em] text-faint">{descriptor.label}</span>
+                {mode === "cover" && a.score !== null && !hasLimitedEvidence(a) && <span className="factor-score-track" aria-hidden="true"><i style={{ width: `${a.score}%` }} /></span>}
                 <div className="flex items-center justify-between gap-1">
                   {hasLimitedEvidence(a)
                     ? <span className="mono text-[10px] text-warn">limited evidence</span>
@@ -392,12 +406,13 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
                   {a.score !== null && a.dataCompleteness < 1 && (
                     <span
                       className="mono text-[9px] text-warn"
-                      title={`data completeness ${(a.dataCompleteness * 100).toFixed(0)}%`}
+                      title={`Signal evidence availability ${evidencePercentText(a.dataCompleteness)}; recorded fraction ${a.dataCompleteness}`}
                     >
-                      {Math.round(a.dataCompleteness * 100)}%
+                      {evidencePercentText(a.dataCompleteness)}{mode === "cover" ? " evidence" : ""}
                     </span>
                   )}
                 </div>
+                {mode === "cover" && <span className="scorecard-weight">{a.weightPct}% weight</span>}
               </a>
             );
           })}
@@ -406,11 +421,12 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
       <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
         <p className="text-[11px] text-muted">Composite: {compositeNote(scores)}</p>
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
-        <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />
+        {mode === "cover" ? <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p className="mono">Band policy: {scores.bandsVersion}</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
+          : <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />}
       </div>
-      <div className="border-t border-edge px-3 py-1.5">
+      {mode !== "cover" && <div className="border-t border-edge px-3 py-1.5">
         <p className="text-[10px] leading-snug text-faint">{c.methodology}</p>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -918,6 +934,7 @@ export function ValuationSection({
   evidenceTiming,
   report,
   grading = {},
+  presentation = "classic",
 }: {
   /** D-62: consensus/market data and the filing tables that are some figures' home. */
   report?: Report;
@@ -929,8 +946,12 @@ export function ValuationSection({
   index: number;
   openReasoning?: boolean;
   evidenceTiming?: readonly EvidenceTimingRow[];
+  presentation?: "classic" | "dossier";
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
+  const modelLabel = presentation === "classic" ? "DCF · intrinsic value / share"
+    : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
+      : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
   return (
     <SectionFrame id="valuation" index={index} title="Valuation">
       {/* D-62: evidence timing is in the audit export. */}
@@ -947,7 +968,7 @@ export function ValuationSection({
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-2 border border-edge bg-raised px-3 py-2.5">
           <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
-            DCF · intrinsic value / share
+            {modelLabel}
           </div>
           {dcf.perShare ? (
             <TracedFigure n={dcf.perShare} tone="accent" className="text-[24px]" />
@@ -964,7 +985,7 @@ export function ValuationSection({
               </span>
             </div>
           )}
-          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label="DCF provenance" />}
+          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" ? "Model value provenance" : "DCF provenance"} />}
           {fairValue ? (
             <p className="text-[10px] leading-snug text-faint">
               {fairValue.status === "available"
@@ -974,7 +995,7 @@ export function ValuationSection({
           ) : null}
           <div className="mt-1 border-t border-edge pt-2">
             <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
-              reverse DCF — market is pricing
+              {presentation === "dossier" ? "Reverse valuation — market-implied assumptions" : "reverse DCF — market is pricing"}
             </div>
             <div className="mono mt-0.5 text-[13px] text-warn">
               {reverseDcf.impliedValue === null
@@ -987,7 +1008,7 @@ export function ValuationSection({
           </div>
         </div>
 
-        <SubBlock label="DCF assumptions">
+        <SubBlock label={presentation === "dossier" ? "Recorded valuation assumptions" : "DCF assumptions"}>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[11px]">
               <thead>
@@ -1024,9 +1045,10 @@ export function ValuationSection({
         </SubBlock>
       </div>
 
-      <SubBlock label="sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low">
-        <SensitivityGrid dcf={dcf} />
-        <ExtraAuditTables tables={valuationAuditTables(dcf)}/>
+      {presentation === "dossier" && <CapitalBridge dcf={dcf} />}
+      <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
+        {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} />}
+        {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} /> : <ExtraAuditTables tables={valuationAuditTables(dcf)} />}
       </SubBlock>
 
       <SubBlock label="multiples vs peers & own 5-yr history">
@@ -1640,6 +1662,7 @@ export function CatalystsRisksPanel({
   return (
     <section
       id={sectionAnchorId("catalystsRisks")}
+      tabIndex={-1}
       className="scroll-mt-28 border-2 border-accent/50 bg-panel shadow-[0_0_0_1px_rgba(59,167,245,0.08)]"
     >
       <div className="flex items-center justify-between gap-2 border-b border-accent/40 bg-accent/5 px-3 py-2">
@@ -1658,7 +1681,7 @@ export function CatalystsRisksPanel({
         </span>
       </div>
 
-      <div className="grid gap-4 px-3 py-3 lg:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 px-3 py-3 lg:grid-cols-2">
         {/* Catalysts timeline */}
         <div className="flex flex-col gap-2">
           <div className="text-[9px] uppercase tracking-[0.12em] text-faint">
@@ -1935,7 +1958,7 @@ export function KeyDataBox({ report }: { report: Report }) {
   const rows = keyDataRows(report);
   if (rows.length === 0) return null;
   return (
-    <div className="border border-edge-strong bg-panel">
+    <div className="key-data-ledger border border-edge-strong bg-panel">
       <div className="border-b border-edge px-3 py-1.5">
         <SectionHeading>key data</SectionHeading>
       </div>
@@ -1956,10 +1979,12 @@ export function KeyDataBox({ report }: { report: Report }) {
 
 export function AppendixSection({
   report,
+  selectedReportId,
   completeness,
   index,
 }: {
   report: Report;
+  selectedReportId?: number;
   completeness?: ReportCompletenessPresentation;
   index: number;
 }) {
@@ -1974,7 +1999,7 @@ export function AppendixSection({
   const checked = checks ? checks.direction.checked + checks.period.checked + checks.unit.checked + checks.namedIndividual.checked : 0;
   const failed = checks ? checks.direction.failed + checks.period.failed + checks.unit.failed + checks.namedIndividual.failed : 0;
   const families = gapSummary(appendix.missingData, presentation.classification);
-  const auditPath = auditExportPath(report);
+  const auditPath = auditExportPath(report,{selectedReportId});
 
   return (
     <SectionFrame
@@ -2075,9 +2100,11 @@ export function AppendixSection({
 
 export function ReportMetaStrip({
   report,
+  selectedReportId,
   completeness,
 }: {
   report: Report;
+  selectedReportId?: number;
   completeness?: ReportCompletenessPresentation;
 }) {
   const m = report.meta;
@@ -2088,6 +2115,7 @@ export function ReportMetaStrip({
   );
   const verification = trustHeadline(m.provenanceCoverage, report.appendix.verificationLog);
   const evidenceScope = evidenceScopeSummary(report);
+  const identityNote = reportIdentityNote(report,{selectedReportId});
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border border-edge bg-panel px-3 py-2">
       <div className="flex items-baseline gap-3">
@@ -2122,13 +2150,14 @@ export function ReportMetaStrip({
             : presentation.state === "degraded" || presentation.state === "unknown"
               ? "font-semibold text-amber-500"
               : "text-muted"}
-          title="Persisted completeness metadata reconciled against the missing-data manifest."
+          title="Data state; metadata agreement is a separate reconciliation check."
           data-report-completeness={presentation.metadataStatus}
         >
           Data completeness · {dataStateText(presentation)}
         </span>
       </div>
       {verification && <p className="mt-2 basis-full text-[11px] text-muted">Verification · {verification}</p>}
+      {identityNote && <p className="basis-full text-[12px] text-warn">{identityNote}</p>}
       {/* WS6 (D-19): the stored disclaimer, verbatim, on the page that shows
           seven letter grades and three price targets. */}
       <p className="basis-full text-[10px] leading-snug text-faint">{m.disclaimer}</p>

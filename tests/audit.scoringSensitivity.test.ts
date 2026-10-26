@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CompositeScorecard } from "@/components/report/sections";
+import { ReportView } from "@/components/report/ReportView";
 import { scoreAuditTables } from "@/report/auditTables";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
@@ -96,6 +97,28 @@ describe("factor contribution sensitivity", () => {
     const table = sensitivity(s);
     expect(table?.rows.length).toBe(s.factorExposure!.length);
     expect(table?.rows[0][0]).not.toBe("Unavailable");
+  });
+
+  it("shows admitted positive and negative family contributions with their unchanged neutralization results", () => {
+    const report = loadTask28Fixture();
+    report.scores = scores();
+    const before = JSON.stringify(report);
+    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    expect(html).toContain('aria-label="Composite factor attribution"');
+    expect(html).toContain('data-contribution-points="12.00"');
+    expect(html).toContain('data-contribution-points="-4.00"');
+    expect(html).toContain("53.00");
+    expect(html).toContain("69.00");
+    expect(html).toContain("weights and missingness stay unchanged");
+    expect(JSON.stringify(report)).toBe(before);
+  });
+
+  it("withholds factor bars when the canonical reconciliation is unavailable", () => {
+    const report = loadTask28Fixture();
+    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    expect(html).toContain('aria-label="Composite factor attribution"');
+    expect(html).not.toContain("data-contribution-points=");
+    expect(html).toContain("Complete signal-family weights and contributions must reconcile");
   });
 });
 

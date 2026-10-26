@@ -3,7 +3,7 @@ import { displayProse } from "@/report/presentation";
 
 export function ValuationReview(props: ValuationReviewInputs) {
   return valuationReviewBlocks(props).map((block) => (
-    <section key={block.title} className="min-w-0 border border-edge bg-raised px-3 py-3">
+    <section key={block.title} className="valuation-review-block min-w-0 border border-edge bg-raised px-3 py-3">
       <h3 className="mb-2 text-[12px] font-semibold text-fg">{block.title}</h3>
       {block.paragraphs.map((paragraph, i) => <p key={i} className="mb-1 break-words text-[11px] leading-relaxed text-muted">{displayProse(paragraph)}</p>)}
       {block.items.map((item, i) => (

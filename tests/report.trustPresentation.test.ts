@@ -55,12 +55,12 @@ describe("report trust presentation", () => {
     report.appendix.provenanceCoverage = coverage;
 
     const output = render(ReportSchema.parse(report))
-      .match(/\d+\/\d+ \(\d+%\) figures traced to a cited source[^<\n|]+/)?.[0];
+      .match(/\d+\/\d+ \(\d+\.\d%\) figures traced to a cited source[^<\n|]+/)?.[0];
 
-    expect(output).toContain("107/119 (90%) figures traced to a cited source");
+    expect(output).toContain("107/119 (89.9%) figures traced to a cited source");
     expect(output).toContain("38/38 factual claims cited");
     // A report recorded before the qualitative split counts every claim as numeric.
-    expect(output).toContain("0/38 numeric claims validated");
+    expect(output).toContain("0/38 numeric claims numerically matched (not whole-claim validation)");
     expect(output).toContain("0 contradicted");
     expect(output).not.toContain("Factual prose claims");
   });
@@ -77,8 +77,8 @@ describe("report trust presentation", () => {
     report.appendix.provenanceCoverage = coverage;
     const output = render(ReportSchema.parse(report));
 
-    expect(output).toContain("286/292 (98%) figures traced to a cited source");
-    expect(output).toContain("no factual claim states a figure to validate");
+    expect(output).toContain("286/292 (97.9%) figures traced to a cited source");
+    expect(output).toContain("no factual claim states a figure to match");
     expect(output).toContain("30 qualitative claims cited, not machine-checkable");
     expect(output).not.toMatch(/0\/30 (?:numeric claims )?validated/);
   });

@@ -83,7 +83,8 @@ export function SettingsPageView({
 
   return (
     <AppShell sidebar={sidebar}>
-      <div className="mx-auto flex max-w-2xl flex-col gap-3 p-4">
+      <div className="research-settings mx-auto flex max-w-2xl flex-col gap-3 p-4">
+        <div className="dossier-only settings-introduction"><p className="section-eyebrow">Workspace configuration</p><h1 className="metis-heading">Settings</h1><p>Appearance, research connections and analysis preferences. Changes apply through the existing saved settings below.</p></div>
         {state.error !== null && (
           <div className="border border-neg/40 bg-neg/10 px-3 py-2 text-[12px] text-neg">
             {state.error}

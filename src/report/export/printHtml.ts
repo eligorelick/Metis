@@ -31,7 +31,7 @@ import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { applyReportAssessmentStatus, compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeContractText, gradeDisplayLabel, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
@@ -137,6 +137,7 @@ import {
   type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -205,14 +206,24 @@ function sectionHeading(key: ReportSectionKey): string {
   return h2(section.index, section.printTitle);
 }
 
+/** Allocate print space by column role, never by a financial value. */
+function printColumnWeight(header: string): number {
+  if (/^(?:why|what it measures|basis|note|reason|explanation|fallback|detail)/i.test(header)) return 5;
+  if (/^(?:metric|aspect|section|signal|assumption|multiple|period|measured over|source|endpoint|field|component|name)$/i.test(header)) return 1.8;
+  return 1.2;
+}
+
 /** A table from escaped header + body cells (cells may carry inner markup). */
 function table(headers: string[], rows: string[][]): string {
+  const weights = headers.map(printColumnWeight);
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const columns = `<colgroup>${weights.map((weight) => `<col style="width:${(weight / total * 100).toFixed(3)}%">`).join("")}</colgroup>`;
   const head = `<thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>`;
   const body =
     rows.length === 0
       ? `<tbody><tr><td colspan="${headers.length}" class="empty">${DASH}</td></tr></tbody>`
       : `<tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
-  return `<table>${head}${body}</table>`;
+  return `<table class="print-ledger-table">${columns}${head}${body}</table>`;
 }
 
 /**
@@ -298,12 +309,15 @@ function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
  * Header, key data, verdict
  * ======================================================================== */
 
-function headerBlock(report: Report, completeness: ReportCompletenessPresentation): string {
+function headerBlock(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
   const m = report.meta;
   const meta = table(
     ["Report", "Detail"],
     [
       ["Generated", m.generatedAt],
+      ["Saved report", presentationReportId(report,context) === undefined ? "ID not recorded" : `#${presentationReportId(report,context)}`],
+      ["Snapshot", "Saved research; observations retain their recorded dates"],
+      ...(reportIdentityNote(report,context) ? [["Embedded identity", reportIdentityNote(report,context)!]] : []),
       ["Model", runSummary(report)],
       ["Usage", usageSummary(report)],
       ["Data completeness", dataStateText(completeness)],
@@ -316,6 +330,7 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
     <div class="metis-print-brand">${METIS_LOCKUP_SVG}</div>
     <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
     <p class="subtitle">Equity Research Report</p>
+    ${syntheticNotice(report) ? `<p class="disclaimer">${esc(syntheticNotice(report)!)}</p>` : ""}
     ${meta}
     <p class="disclaimer">${esc(m.disclaimer)}</p>
   </header>`;
@@ -679,7 +694,7 @@ function sectionMacro(m: Macro): string {
   return `<section class="block">${sectionHeading("macro")}${series}${subsection("Sensitivity notes", claimList(m.sensitivityNotes))}<p class="attribution">${esc(m.fredAttribution)}</p></section>`;
 }
 
-function sectionAppendix(report: Report, completeness: ReportCompletenessPresentation): string {
+function sectionAppendix(report: Report, completeness: ReportCompletenessPresentation, context: ReportPresentationContext): string {
   const a: Appendix = report.appendix;
   const m = report.meta;
   const methodology = `<div class="methodology"><h3>Methodology and limitations</h3><ul>${methodologyNotes(report).map((note) => `<li>${esc(note)}</li>`).join("")}</ul></div>`;
@@ -707,15 +722,15 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   const verification = `<h3>Verification</h3>${dataOnly
     ? "<p>No completed citation-check pass. Deterministic values retain their source paths; these paths do not establish independently checked factual claims.</p>"
     : trust.length > 0 ? table(["Check", "Result"], trust.map((row) => [esc(row.label), esc(row.value)])) : ""}
-    <p>Citation coverage: <strong>${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(0)}%`}</strong> of report figures trace to a citation or payload value (provenance, not correctness).</p>${checkLine}`;
+    <p>Citation coverage: <strong>${a.verificationRate === null ? DASH : `${(a.verificationRate * 100).toFixed(1)}%`}</strong> of report figures trace to a citation or payload value (provenance, not correctness).</p>${checkLine}`;
   // D-67: one row per underlying data gap; process disclosures and moot entries apart.
   const families = gapSummary(a.missingData, completeness.classification);
-  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
+  const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${table(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(a.missingData, completeness).map(row => [esc(row.label), String(row.groups), String(row.entries)]))}${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
   const sources = `<h3>Sources</h3>${table(
     SOURCE_ENTRY_FIELDS.map((field) => field.label),
     a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : esc(source[field.key])))),
   )}`;
-  const path = auditExportPath(report);
+  const path = auditExportPath(report,context);
   const audit = `<h3>Audit trail</h3><p>The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (<span class="mono">${esc(path)}</span>)` : ""}.</p>`;
   return `<section class="block">${sectionHeading("appendix")}${methodology}${run}${verification}${gaps}${sources}${audit}</section>`;
 }
@@ -724,7 +739,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * The report BODY (sections only) as an HTML fragment — reused by both the
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
-export function reportToPrintBody(report: Report): string {
+export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
@@ -742,10 +757,10 @@ export function reportToPrintBody(report: Report): string {
     outlook: sectionOutlook(report),
     projections: report.projections ? sectionProjections(report.projections) : "",
     macro: sectionMacro(report.macro),
-    appendix: sectionAppendix(report, completeness),
+    appendix: sectionAppendix(report, completeness, context),
   };
   return [
-    headerBlock(report, completeness),
+    headerBlock(report, completeness, context),
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
     keyDataBlock(report),
@@ -760,9 +775,9 @@ export function reportToPrintBody(report: Report): string {
  * React print page can inject the identical stylesheet.
  */
 export const PRINT_CSS = `
-:root { color-scheme: light; }
+:root { color-scheme: light; background: #ffffff; color: #181b19; }
 * { box-sizing: border-box; }
-body {
+body, body[data-ui-design], body[data-ui-layout] {
   margin: 0; padding: 0;
   background: #ffffff; color: #181b19;
   font-family: Georgia, "Times New Roman", serif;
@@ -789,6 +804,7 @@ p { margin: 4pt 0; overflow-wrap: anywhere; }
 .asof { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 .src { color: #6f685c; font-size: 8.5pt; font-family: "SF Mono", Consolas, monospace; }
 table { width: 100%; border-collapse: collapse; margin: 5pt 0 9pt; font-size: 9.5pt; break-inside: auto; page-break-inside: auto; }
+.print-ledger-table { table-layout: fixed; }
 .report-header table { table-layout: fixed; }
 .report-header th:first-child, .report-header td:first-child { width: 22%; }
 thead { display: table-header-group; }
@@ -802,15 +818,15 @@ ul.claims li { margin: 3pt 0; }
 .label { display: inline-block; font-family: Arial, sans-serif; font-size: 7.5pt; font-weight: bold; text-transform: uppercase; padding: 0 3pt; border: 1px solid currentColor; border-radius: 2px; letter-spacing: 0.04em; }
 .label.fact { color: #665b4c; }
 .label.estimate { color: #785b32; }
-.label.judgment { color: #9a6b00; }
+.label.judgment { color: #896000; }
 .chip { display: inline-block; min-width: 1.4em; text-align: center; font-family: Arial, sans-serif; font-weight: bold; padding: 0 4pt; border: 1.5px solid currentColor; border-radius: 2px; }
-.g-a { color: #1a7f4b; } .g-b { color: #3a8f3a; } .g-c { color: #9a6b00; } .g-d { color: #b5521a; } .g-f { color: #c0392b; }
+.g-a { color: #1a7f4b; } .g-b { color: #476719; } .g-c { color: #896000; } .g-d { color: #b5521a; } .g-f { color: #c0392b; }
 .gradeblock { border: 1px solid #d5cbbb; background: #faf8f3; padding: 8pt 10pt; margin: 6pt 0 10pt; }
 .gradehead { font-size: 11pt; }
 .conf { color: #6f685c; font-size: 9pt; }
 .why { font-style: italic; margin: 4pt 0; }
 .interp { margin: 4pt 0; color: #2a2e36; border-left: 2px solid #d5cbbb; padding-left: 8pt; }
-.v.ok { color: #1a7f4b; } .v.warn { color: #b5521a; font-size: 8pt; } .v.faint { color: #b5bac4; }
+.v.ok { color: #1a7f4b; } .v.warn { color: #b5521a; font-size: 8pt; } .v.faint { color: #6f685c; }
 .scenario { border: 1px solid #d5cbbb; margin: 6pt 0; padding: 6pt 8pt; break-inside: avoid; }
 .scenario.bull { border-left: 3px solid #1a7f4b; }
 .scenario.base { border-left: 3px solid #785b32; }
@@ -843,7 +859,7 @@ ul.claims li { margin: 3pt 0; }
  */
 const AUTOPRINT_SCRIPT = `<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},250);});</script>`;
 
-export interface ReportToPrintHtmlOptions {
+export interface ReportToPrintHtmlOptions extends ReportPresentationContext {
   /** When true, embed a script that fires window.print() on load. */
   autoPrint?: boolean;
 }
@@ -864,7 +880,7 @@ export function reportToPrintHtml(report: Report, options: ReportToPrintHtmlOpti
 </head>
 <body>
 <div class="print-doc">
-${reportToPrintBody(report)}
+${reportToPrintBody(report,options)}
 </div>
 ${options.autoPrint ? AUTOPRINT_SCRIPT : ""}
 </body>

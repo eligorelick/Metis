@@ -25,6 +25,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/ai/gemini.ts",
   "src/ai/mutex.ts",
   "src/components/charts/plotData.ts",
+  "src/components/report/evidenceIdentity.ts",
   "src/ai/store.ts",
   "src/ai/transport.ts",
   "src/app/api/ai/connections/route.ts",
@@ -92,6 +93,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/query.ts",
   "src/report/history.ts",
   "src/report/diff.ts",
+  "src/report/diffPresentation.ts",
   "src/report/legacyEntitySafety.ts",
   "src/report/principalAggregationSafety.ts",
   "src/report/enterpriseValueSafety.ts",
@@ -204,6 +206,7 @@ const EXPECTED_RISK_SOURCES = [
  */
 const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
   "src/appearance/preference.ts": "nonsecret browser display cookie only; parsing/write-failure tests in appearance.preference.test.ts; never controls research, spend or DB state",
+  "src/appearance/density.ts": "nonsecret spacing cookie only; parsing/write-failure and server/client alignment tests in appearance.density.test.ts and appearance.surfaces.test.ts; never changes research, spend or DB state",
   "src/components/charts/palette.ts": "display colors for optional workspace; never changes chart values, research, spend or persistence",
   "src/app/company/[symbol]/format.ts": "display formatting for the company page; exercised by the page tests, not risk-bearing",
   "src/components/charts/format.ts": "chart label formatting; covered by tests/charts.format.test.ts, a wrong label is visible, never persisted",

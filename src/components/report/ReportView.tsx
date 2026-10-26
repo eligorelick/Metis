@@ -34,6 +34,12 @@ import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSaf
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
+import { DossierCover } from "./DossierCover";
+import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
+import { EvidenceInspector } from "./EvidenceInspector";
+import { evidenceIdentity } from "./evidenceIdentity";
+import { dataStateText, presentationReportId, syntheticNotice } from "@/report/presentation";
+import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
@@ -67,6 +73,7 @@ import {
   TechnicalsSection,
   ValuationSection,
   VerdictHeader,
+  SectionFrame,
 } from "./sections";
 
 /* ------------------------------------------------------------------------ *
@@ -159,12 +166,18 @@ export function ReportView({
   technicalsChart,
   /** Optional chart node mounted inside the Fundamentals section. */
   fundamentalsChart,
+  layout = "classic",
+  selectedReportId,
 }: {
   report: Report;
   technicalsChart?: ReactNode;
   fundamentalsChart?: ReactNode;
+  layout?: "classic" | "dossier";
+  selectedReportId?: number;
 }) {
   const report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport));
+  const reportId = presentationReportId(report,{selectedReportId});
+  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", report) : "";
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,
@@ -174,7 +187,8 @@ export function ReportView({
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
-      <div id={sectionAnchorId("verdict")} className="scroll-mt-28">
+      <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
+        {layout === "dossier" ? <DossierCover report={report} completeness={completeness} /> : <>
         <VerdictHeader verdict={report.verdict} />
         {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && (
           <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
@@ -183,53 +197,57 @@ export function ReportView({
         <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
         {/* D-62: the bull/bear debate sits with the verdict it informs. */}
         {report.disagreements.length > 0 && <div className="mt-3 border border-edge bg-panel px-3 py-3"><DisagreementsBlock disagreements={report.disagreements} /></div>}
+        </>}
       </div>
     ),
     business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
     fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={filingDisclosureTables(report.filingDisclosures, "fundamentals")} />,
     balanceSheet: <BalanceSheetSection report={report} grading={grading("balanceSheet")} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
-    valuation: <ValuationSection report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
+    valuation: <ValuationSection presentation={layout} report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={report.routeMetrics} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} evidenceTiming={evidenceTimingRows(report)} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} grading={grading("quality")} index={reportSection("quality").index} />,
     technicals: <TechnicalsSection report={report} grading={grading("technicals")} technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
     leadership: <LeadershipSection report={report} grading={grading("leadership")} leadership={report.leadership} index={reportSection("leadership").index} />,
     competitive: <CompetitiveSection report={report} grading={grading("moat")} competitive={report.competitive} index={reportSection("competitive").index} />,
     catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
-    projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : null,
+    projections: report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : layout === "dossier" ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></SectionFrame> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
-    appendix: <AppendixSection report={report} completeness={completeness} index={reportSection("appendix").index} />,
+    appendix: <AppendixSection report={report} selectedReportId={reportId} completeness={completeness} index={reportSection("appendix").index} />,
   };
 
   return (
-    <div className="thesis-report mx-auto flex max-w-[1400px] flex-col gap-3 p-4">
-      <div className="flex items-center gap-4 border-b border-edge pb-3">
+    <div className="thesis-report mx-auto flex max-w-[1400px] flex-col gap-3 p-4" data-report-layout={layout}>
+      {layout === "classic" && <ClassicReportScrollOffset />}
+      {layout === "dossier" && <SourceEvidenceCatalog report={report} />}
+      {layout === "classic" && <div className="flex items-center gap-4 border-b border-edge pb-3">
         <MetisLogo className="h-7 w-[111px] shrink-0" />
         <span className="text-[10px] uppercase tracking-[0.16em] text-faint">Equity research report</span>
-      </div>
+      </div>}
       {/* Sticky grade strip — clickable, deep-links to each graded section. */}
-      <div className="sticky top-0 z-20 -mx-4 border-b border-edge bg-bg/95 px-4 py-2 backdrop-blur">
-        <GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} compact />
+      <div className="report-grade-strip sticky top-0 z-20 -mx-4 border-b border-edge bg-bg/95 px-4 py-2 backdrop-blur">
+        {layout === "dossier" && <div className="report-sticky-context"><span>{report.meta.symbol} · {reportId === undefined ? "saved snapshot" : `#${reportId}`}</span><ReportContents key={`${report.meta.symbol}:${report.meta.generatedAt}`} reportIdentity={`${report.meta.symbol}:${reportId ?? report.meta.generatedAt}`} hasProjections={report.projections !== undefined} /></div>}
+        <GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} compact presentation={layout === "dossier" ? "dossier" : "default"} />
       </div>
 
-      {report.meta && <ReportMetaStrip report={report} completeness={completeness} />}
+      {report.meta && (layout === "dossier" ? <details className="report-snapshot-details"><summary>Run, usage &amp; provenance details</summary><ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} /></details> : <ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} />)}
+      {layout === "classic" && syntheticNotice(report) && <p className="text-warn">{syntheticNotice(report)}</p>}
 
-      {completeness.bannerText && <DataOnlyBanner text={completeness.bannerText} />}
+      {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}
 
       {newerResultsBanner(report.filingDisclosures) && <NewerResultsBanner text={newerResultsBanner(report.filingDisclosures)!} />}
 
-      <KeyDataBox report={report} />
+      {layout === "classic" && <KeyDataBox report={report} />}
 
       <div className="report-columns flex gap-4">
         {/* Main column */}
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="report-reading flex min-w-0 flex-1 flex-col gap-3">
           {REPORT_SECTION_MANIFEST.map((section) => (
             <div key={section.key} className="contents">{sections[section.key]}</div>
           ))}
         </div>
 
         {/* Right-rail anchor nav (denser than tabs). */}
-        <AnchorNav />
-        <WorkspaceOnly><ReportEvidenceRail report={report} /></WorkspaceOnly>
+        {layout === "dossier" ? <ReportEvidenceRail report={report} selectedReportId={reportId} inspector={<EvidenceInspector key={inspectionIdentity} reportIdentity={inspectionIdentity} />} /> : <><AnchorNav /><WorkspaceOnly><ReportEvidenceRail report={report} selectedReportId={reportId} /></WorkspaceOnly></>}
       </div>
     </div>
   );

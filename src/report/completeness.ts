@@ -131,7 +131,7 @@ export function gapDatasetKey(field: string): string {
 
 /** Analysis-process disclosures: how the passes ran and what verification found. */
 export function isProcessDisclosure(field: string): boolean {
-  return /^(?:llm|verify)\./.test(field);
+  return field === "analysis.llm" || /^(?:llm|verify)\./.test(field);
 }
 
 /**
@@ -272,7 +272,7 @@ export function deriveReportCompletenessPresentation(
     retainedSources.some((source) => source.provider === "edgar" && source.endpoint.trim() !== "") ? "partial" : persisted!.edgar;
 
   const statusText = metadataStatus === "confirmed"
-    ? `Completeness confirmed: state ${persisted!.state}; critical ${persisted!.criticalCount}; warnings ${persisted!.warningCount}; EDGAR ${edgar}; XBRL ${persisted!.xbrl}; forensics ${persisted!.forensicValidation}.`
+    ? `Data completeness: ${persisted!.state}; recorded entries: critical ${persisted!.criticalCount}; warnings ${persisted!.warningCount}; EDGAR ${edgar}; XBRL ${persisted!.xbrl}; forensics ${persisted!.forensicValidation}.`
     : metadataStatus === "missing"
       ? "Completeness unknown: persisted completeness metadata was not recorded."
       : "Completeness unknown: persisted completeness metadata could not be confirmed against the missing-data manifest.";

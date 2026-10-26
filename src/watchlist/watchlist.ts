@@ -80,6 +80,8 @@ export interface WatchlistRowView {
   gradeLabels?: WatchlistGradeLabels;
   /** ISO createdAt of the latest done report, or null. */
   lastReportAt?: string | null;
+  /** Identity of the saved report that supplied these grades. */
+  latestReportId?: number | null;
   /** Verification rate of the latest done report (0..1), or null. */
   verificationRate?: number | null;
   /** Next future earnings date (ISO YYYY-MM-DD), or null. */
@@ -257,6 +259,7 @@ async function enrichSymbol(
     gradeLabels: report.gradeLabels,
     lastReportAt: report.lastReportAt,
     verificationRate: report.verificationRate,
+    latestReportId: report.latestReportId,
     nextEarnings,
     runs,
     gaps,
@@ -320,6 +323,7 @@ async function loadPrice(
 }
 
 interface ReportEnrichment {
+  latestReportId?: number | null;
   grades: WatchlistGrades | null;
   lastReportAt: string | null;
   verificationRate: number | null;
@@ -342,6 +346,7 @@ function loadReport(symbol: string, gaps: string[]): ReportEnrichment {
       grades,
       ...(latest.report ? { gradeLabels: extractGradeLabels(latest.report) } : {}),
       lastReportAt: latest.createdAt,
+      latestReportId: latest.reportId,
       verificationRate: latest.verificationRate,
       ...(latest.report?.meta.companyName
         ? { companyName: latest.report.meta.companyName }

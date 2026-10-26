@@ -1,5 +1,5 @@
 import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
-import { withNeutral } from "./assessment";
+import { evidencePercentText, withNeutral } from "./assessment";
 import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
 import { formatScore } from "./scoreText";
 import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
@@ -68,7 +68,7 @@ export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
     tables.push({ heading: "Assessment dimensions", headers: ["Dimension", "Score / band", "Meaning"], rows: [
       ["Business quality", `${a.businessQuality.score === null ? "unavailable" : formatScore(a.businessQuality.score, 2)} / ${a.businessQuality.band === null ? "unavailable" : withNeutral(a.businessQuality.band, a.businessQuality.score)}`, a.businessQuality.basis],
       ["Price attractiveness", `${a.valuation.score === null ? "unavailable" : formatScore(a.valuation.score, 2)} / ${a.valuation.band === null ? "unavailable" : withNeutral(a.valuation.band, a.valuation.score)}`, a.valuation.basis],
-      ["Evidence availability", `${n(a.evidenceCompleteness*100,1)}%`, "Availability is separate from source correctness, freshness and predictive confidence. Grade bands remain unbacktested house rules."],
+      ["Evidence availability", evidencePercentText(a.evidenceCompleteness), "Share of route-applicable signal weight with evidence. Availability is separate from source correctness, freshness and predictive confidence. Grade bands remain unbacktested house rules."],
     ] });
   }
   const signals = Object.entries(scores.aspects).flatMap(([aspect, data])=>(data.signals ?? []).map(s=>[aspect,s.id,n(s.raw,6),s.period ?? "measurement period unavailable",s.windowYears === null ? "—" : n(s.windowYears,2),n(s.transformedScore),`${n(s.effectiveCompositeWeightPct,3)}%`,n(s.contributionPoints,4),s.fallbackReason ?? "—"]));
@@ -179,6 +179,7 @@ export function factualValidationText(coverage?: ProvenanceCoverage): string | n
   // zero numeric figures tracing to their source.
   // Claims that state no figure have nothing to check numerically; say how
   // many of the unchecked are those (NVDA report 34: 60 of 89).
-  const unchecked = v.qualitative === undefined ? `${v.unchecked} unchecked` : `${v.unchecked} unchecked (${v.qualitative} qualitative with no figure to check)`;
-  return `Factual prose claims (numeric support): ${v.validated}/${v.total} validated; ${v.contradicted} contradicted; ${unchecked}. Citation presence: ${v.cited}/${v.total}. Numeric figure provenance: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (separate from prose claims). Numeric matches do not validate whole prose claims; unchecked qualitative claims remain unvalidated.`;
+  const qualitative = v.qualitative ?? 0;
+  const split = v.qualitative === undefined ? "Qualitative split was not recorded in this legacy snapshot." : `${qualitative} qualitative claims cited but not machine-checkable.`;
+  return `${v.validated}/${v.total - qualitative} numeric factual claims numerically matched; ${v.unchecked - qualitative} unmatched numeric claims. ${split} Recorded factual-claim statuses: ${v.validated} numeric matches, ${v.unchecked} unchecked, ${v.contradicted} contradicted; ${v.total} total. Factual claims cited: ${v.cited}/${v.total}. Figure traceability: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (a separate denominator). Numeric matches do not validate whole prose claims.`;
 }

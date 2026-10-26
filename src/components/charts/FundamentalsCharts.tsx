@@ -40,7 +40,7 @@ import { compactMoneyIn, compactNumber, currencyAxisTickIn, fiscalYear, pct, sig
 const THEME = SVG_CHART_THEME;
 
 const CHART_HEIGHT = 220;
-const AXIS_FONT = 10;
+const AXIS_FONT = 11;
 const MONO = "ui-monospace, 'Cascadia Code', Consolas, monospace";
 
 // ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ export function RevenueTrendChart({ rows, currency }: { rows: readonly RevenueRo
         <EmptyChart />
       ) : (
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <ComposedChart data={rows as RevenueRow[]} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+          <ComposedChart data={rows as RevenueRow[]} margin={{ top: 6, right: 24, bottom: 0, left: 0 }}>
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxisProps()} />
             <YAxis
@@ -262,7 +262,7 @@ export function MarginTrendChart({ rows }: { rows: readonly MarginRow[] }) {
         <EmptyChart />
       ) : (
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <ComposedChart data={rows as MarginRow[]} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+          <ComposedChart data={rows as MarginRow[]} margin={{ top: 6, right: 24, bottom: 0, left: 0 }}>
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxisProps()} />
             <YAxis
@@ -304,7 +304,7 @@ export function FcfChart({ rows, currency }: { rows: readonly FcfRow[]; currency
         <EmptyChart />
       ) : (
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <ComposedChart data={rows as FcfRow[]} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+          <ComposedChart data={rows as FcfRow[]} margin={{ top: 6, right: 24, bottom: 0, left: 0 }}>
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxisProps()} />
             <YAxis
@@ -377,7 +377,7 @@ export function ShareCountChart({ rows }: { rows: readonly ShareCountRow[] }) {
         <EmptyChart />
       ) : (
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <ComposedChart data={arr} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+          <ComposedChart data={arr} margin={{ top: 6, right: 24, bottom: 0, left: 0 }}>
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxisProps()} />
             <YAxis

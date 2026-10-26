@@ -165,7 +165,7 @@ describe("the manifest as a reader counts it", () => {
   it("states the counts in the header, the appendix sentence and the gap tables", () => {
     const c = deriveReportCompletenessPresentation(undefined, gaps);
     const confirmed = { ...c, metadataStatus: "confirmed" as const, state: "degraded" as const, edgar: "available" as const, xbrl: "checked" as const, forensicValidation: "complete" as const };
-    expect(dataStateText(confirmed)).toBe("Degraded: 0 critical gaps, 3 data warnings; 3 analysis-process disclosures (not data gaps); EDGAR available; XBRL checked; forensics complete.");
+    expect(dataStateText(confirmed)).toBe("Degraded: 0 critical data issues, 3 data issues; 3 analysis-process disclosures (not data gaps); EDGAR available; XBRL checked; forensics complete.");
     expect(gapCountText(gaps, c)).toBe("11 manifest entries: 1 expected disclosure, 1 informational note, 1 recorded warning shown as information, 3 analysis-process disclosures and 3 data gaps (5 entries).");
     const tables = dataGapTables(c);
     expect(tables.map((t) => t.heading)).toEqual(["Data warnings and critical gaps", "Analysis-process disclosures", "Recorded warnings shown as information"]);
@@ -216,11 +216,11 @@ describe("one rule for an aspect under the evidence floor", () => {
     report.verdict.gradeStrip.leadership = { ...report.verdict.gradeStrip.leadership, grade: "C", assessmentStatus: "limited-evidence" };
     report.leadership.graded = { ...report.leadership.graded, grade: "C", assessmentStatus: "limited-evidence" };
     const parsed = ReportSchema.parse(report);
-    const label = "Not assessed — limited evidence (score 61/100 on 45% of signals)";
+    const label = "Not assessed — limited evidence (score 61/100 on 45.5% of signals)";
     expect(gradeDisplayLabel(parsed.leadership.graded, parsed.scores!.aspects.leadership)).toBe(label);
     const card = scorecardTable(parsed.scores!);
     expect(card.rows.find((row) => row[0] === "Leadership (capital-stewardship proxy)")?.slice(1, 3)).toEqual(["61", "limited evidence"]);
-    expect(card.note).toMatch(/Leadership \(capital-stewardship proxy\) has evidence for 45% of its signal weight, below the 50% floor/);
+    expect(card.note).toMatch(/Leadership \(capital-stewardship proxy\) has evidence for 45.5% of its signal weight, below the 50% floor/);
     const markdown = reportToMarkdown(parsed);
     expect(markdown).toContain(`| Leadership (capital-stewardship proxy) | ${label} |`);
     expect(markdown).toContain(`**Leadership (capital-stewardship proxy) — ${label}**`);

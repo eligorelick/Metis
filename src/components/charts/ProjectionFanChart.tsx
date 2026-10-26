@@ -37,7 +37,7 @@ import {
 const THEME = SVG_CHART_THEME;
 
 const CHART_HEIGHT = 200;
-const AXIS_FONT = 10;
+const AXIS_FONT = 11;
 const MONO = "ui-monospace, 'Cascadia Code', Consolas, monospace";
 
 /** Format a value by the series metric (compact currency, %, or plain). */
@@ -158,7 +158,7 @@ export function ProjectionFanChart({ series }: { series: ProjectionSeries }) {
         <span className="mono text-[9px] text-faint">{series.unit}</span>
       </div>
       <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-        <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 2, left: 0 }}>
+        <ComposedChart data={data} margin={{ top: 6, right: 24, bottom: 2, left: 0 }}>
           <CartesianGrid stroke={THEME.border} strokeDasharray="2 3" vertical={false} />
           <XAxis
             dataKey="period"

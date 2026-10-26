@@ -13,9 +13,9 @@ import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { prepareTickerSubmission } from "./addTickerInput";
 
-export function AddTicker() {
+export function AddTicker({ initialValue = "", submitLabel, onAdded }: { initialValue?: string; submitLabel?: string; onAdded?(symbol: string): void } = {}) {
   const router = useRouter();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
@@ -43,13 +43,14 @@ export function AddTicker() {
         }
         setValue("");
         startTransition(() => router.refresh());
+        onAdded?.(symbol);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setSubmitting(false);
       }
     },
-    [router],
+    [router, onAdded],
   );
 
   const busy = submitting || pending;
@@ -83,11 +84,11 @@ export function AddTicker() {
               : "border-accent/50 text-accent hover:bg-accent/10"
           }`}
         >
-          {busy ? "…" : "+"}
+          {busy ? "…" : submitLabel ?? "+"}
         </button>
       </div>
       {error ? (
-        <div className="text-[10px] leading-snug text-neg">{error}</div>
+        <div role="alert" className="text-[10px] leading-snug text-neg">{error}</div>
       ) : null}
     </form>
   );
