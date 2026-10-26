@@ -51,6 +51,7 @@ import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { BAND_THRESHOLDS_TEXT, compositeDisplay, evidencePct, isNeutralScore, MIN_HEADLINE_EVIDENCE, NEUTRAL_SCORE_BAND } from "@/report/assessment";
 import { fairValueDegradedText } from "@/report/fairValueText";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import type { EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import {
   PROJECTION_PATH_ORDER,
@@ -414,7 +415,8 @@ export interface ContextPayload {
 // D-103: regained WACC, debt, EBITDA and class-tagged market cap, the newer-results notice and 10-Q passages updating a 10-K operating figure alter admitted context.
 // D-104: the retirement and environmental bridge lines, the regulated-utility balance sheet and the WACC and cost of debt withheld on equity-valued routes alter admitted context.
 // D-105: regained diluted shares, per-share values, NCI, WACC, EBIT, cash, net charge-offs and managed-care routes, the EV/EBITDA lower-bound caveat and the quote section's class-scope caveat alter admitted context.
-export const PAYLOAD_VERSION = "1.45.0" as const;
+// D-107: the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
+export const PAYLOAD_VERSION = "1.46.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -3306,6 +3308,9 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
       "Every figure below is tagged [source · as-of]. Cite that tag; if a figure is not here or in a fetched web source, do not state it.",
     ].join("\n"),
   );
+  // Audit 2026-10-22 F-1: the run-level provider-fallback line the reader sees in the report header.
+  const fallback = providerFallbackNotice({ appendix: { missingData: payload.missingData } });
+  if (fallback !== null) parts.push(`${fallback} Never attribute a substituted figure to FMP or FRED DGS10.`);
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));

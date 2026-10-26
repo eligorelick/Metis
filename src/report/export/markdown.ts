@@ -116,6 +116,7 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
   markdownBlockquote,
@@ -339,6 +340,7 @@ function renderHeader(report: Report, completeness: ReportCompletenessPresentati
     // Mandatory disclaimer, verbatim.
     `> ${markdownBlockquote(m.disclaimer)}`,
     ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
+    ...(providerFallbackNotice(report) ? ["", `> ${markdownBlockquote(providerFallbackNotice(report)!)}`] : []),
   ];
   return lines.join("\n");
 }

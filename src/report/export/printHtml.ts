@@ -138,6 +138,7 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows } from "@/report/presentation";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -331,6 +332,7 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
     <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
     <p class="subtitle">Equity Research Report</p>
     ${syntheticNotice(report) ? `<p class="disclaimer">${esc(syntheticNotice(report)!)}</p>` : ""}
+    ${providerFallbackNotice(report) ? `<p class="disclaimer">${esc(providerFallbackNotice(report)!)}</p>` : ""}
     ${meta}
     <p class="disclaimer">${esc(m.disclaimer)}</p>
   </header>`;

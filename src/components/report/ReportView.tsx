@@ -39,6 +39,7 @@ import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
 import { dataStateText, presentationReportId, syntheticNotice } from "@/report/presentation";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
@@ -231,6 +232,7 @@ export function ReportView({
 
       {report.meta && (layout === "dossier" ? <details className="report-snapshot-details"><summary>Run, usage &amp; provenance details</summary><ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} /></details> : <ReportMetaStrip report={report} selectedReportId={reportId} completeness={completeness} />)}
       {layout === "classic" && syntheticNotice(report) && <p className="text-warn">{syntheticNotice(report)}</p>}
+      {layout === "classic" && providerFallbackNotice(report) && <p className="text-warn">{providerFallbackNotice(report)}</p>}
 
       {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}
 

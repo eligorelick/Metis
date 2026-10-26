@@ -2037,6 +2037,20 @@ substitutes by design (its keyless entries are `expected`), so its value carries
 no entry. Neither does a withheld rate, which its own gap already discloses. The
 peer medians do not feed the headline value, so a peer refusal is not named here.
 
+**Provider fallback line** (audit 2026-10-22 F-1, an owner decision). When a run's
+providers fell back, one line under the report header names them and what
+replaced them: "Provider fallback · FMP did not serve every member, so the annual
+income statement … are from SEC EDGAR and the quote is from Yahoo; the risk-free
+rate is … (observation …), not FRED DGS10." It is built from the recorded
+`keyless.<member>` substitutions that are not `expected` and from the
+`riskFree.substitution` entry, in a fixed member and source order
+(`src/report/providerFallback.ts`). It appears in the saved-snapshot header in
+both layouts, under the classic report header, at the head of the Markdown,
+audit and print exports, and in the AI context, which is told never to
+attribute a substituted figure to FMP or FRED `DGS10`. A keyless plan, or
+`THESIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line. The
+fair value's degraded-inputs entry uses the same wording.
+
 The **5 × 5 sensitivity grid** uses WACC offsets of −2, −1, 0, +1 and +2
 percentage points (D-60; ±1pp spanned less than one regression beta's
 uncertainty) and terminal-growth offsets of −1, −0.5, 0, +0.5 and +1. It holds

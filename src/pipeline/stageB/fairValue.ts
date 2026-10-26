@@ -29,7 +29,7 @@ import {
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
-import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
+import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
@@ -62,35 +62,6 @@ function suppressed(reasons: ManifestEntry[], basis: string[]): FairValue {
   };
 }
 
-/**
- * Per-share unit label. The trading currency is NOT defaulted to USD: it
- * becomes the printed unit, so assuming it would denominate a foreign issuer's
- * figures in dollars on no evidence. Unknown reads as unknown.
- */
-/** Reader names of the keyless members that can replace an FMP member. */
-const KEYLESS_MEMBER_LABEL: Record<string, string> = {
-  profile: "company profile",
-  quote: "quote",
-  incomeAnnual: "annual income statement",
-  incomeQuarterly: "quarterly income statement",
-  balanceAnnual: "annual balance sheet",
-  balanceQuarterly: "quarterly balance sheet",
-  cashflowAnnual: "annual cash flow statement",
-  cashflowQuarterly: "quarterly cash flow statement",
-  eodPrices: "daily price history",
-  spy: "SPY benchmark prices",
-  sectorEtf: "sector ETF prices",
-  enterpriseValues: "enterprise values",
-  marketCapHistory: "market-cap history",
-  sharesFloat: "shares float",
-};
-const KEYLESS_MEMBER_PLURAL = new Set(["enterpriseValues", "eodPrices", "spy", "sectorEtf"]);
-const KEYLESS_SOURCE_LABEL: Record<string, string> = { edgar: "from SEC EDGAR", yahoo: "from Yahoo", computed: "computed from filed facts and prices" };
-
-function listText(items: string[]): string {
-  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
-}
-
 export interface DegradedInputs {
   /** `riskFreePct(bundle)`: the rate and the series it came from. */
   riskFree: { pct: number | null; asOf: string | null; seriesId: string | null };
@@ -112,27 +83,10 @@ export interface DegradedInputs {
 export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | null {
   const parts: string[] = [];
   const { riskFree } = inputs;
-  if (riskFree.pct !== null && riskFree.seriesId !== null && riskFree.seriesId !== "fred:DGS10") {
-    parts.push(`the risk-free rate is ${riskFreeSourceLabel(riskFree.seriesId)} (observation ${riskFree.asOf ?? "date not reported"}), not FRED DGS10`);
-  }
-  const bySource = new Map<string, string[]>();
-  for (const gap of inputs.bundleGaps) {
-    const member = gap.field.startsWith("keyless.") ? gap.field.slice("keyless.".length) : "";
-    const label = KEYLESS_MEMBER_LABEL[member];
-    if (label === undefined || gap.expected === true || gap.severity !== "info" || !gap.reason.startsWith("served by ")) continue;
-    const source = gap.reason.slice("served by ".length).split(" ")[0] ?? "";
-    const list = bySource.get(source) ?? [];
-    list.push(member);
-    bySource.set(source, list);
-  }
-  if (bySource.size > 0) {
-    const groups = [...bySource].map(([source, members]) => {
-      const subject = listText(members.map((m) => `the ${KEYLESS_MEMBER_LABEL[m]}`));
-      const verb = members.length > 1 || KEYLESS_MEMBER_PLURAL.has(members[0]!) ? "are" : "is";
-      return `${subject} ${verb} ${KEYLESS_SOURCE_LABEL[source] ?? `from ${source}`}`;
-    });
-    parts.push(`${listText(groups)}, not FMP`);
-  }
+  const rate = riskFree.pct === null ? null : riskFreeSubstitutionText(riskFree.seriesId, riskFree.asOf);
+  if (rate !== null) parts.push(rate);
+  const keyless = keylessSubstitutionText(inputs.bundleGaps);
+  if (keyless !== null) parts.push(`${keyless}, not FMP`);
   if (inputs.valuationGaps.some((g) => g.field === "valuation.dcf.analystGrowth" && g.severity === "warn")) {
     parts.push("the analyst-consensus growth method was left out because the provider refused the analyst estimates");
   }
@@ -150,6 +104,11 @@ export function withDegradedInputs(fairValue: FairValue, reason: ManifestEntry |
   return { ...fairValue, reasons: [...fairValue.reasons, reason] };
 }
 
+/**
+ * Per-share unit label. The trading currency is NOT defaulted to USD: it
+ * becomes the printed unit, so assuming it would denominate a foreign issuer's
+ * figures in dollars on no evidence. Unknown reads as unknown.
+ */
 export function perShareUnit(currency: string | null): string {
   return currency !== null && currency.trim().length > 0
     ? `${currency}/share`

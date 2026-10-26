@@ -19,6 +19,9 @@ import {
 import { createFmpClient } from "@/providers/fmp";
 import { createYahooClient, type YahooClient } from "@/providers/yahoo";
 import { makeLimiter } from "@/providers/http";
+import { TREASURY_PAR_CURVE_ENDPOINT } from "@/providers/treasury";
+import { TREASURY_PAR_CURVE_SERIES_ID } from "@/pipeline/riskFreeSeries";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FinraConfig } from "@/providers/finra";
 import type { FinnhubConfig } from "@/providers/finnhub";
@@ -633,5 +636,62 @@ describe("market-wide inputs for a real ticker without an FMP key", () => {
     expect(wacc.riskFreePct).toBe(4);
     expect(wacc.erpSource).toBe("vendor");
     expect(wacc.erpPct).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Audit 2026-10-22 F-1: one run-level line when a keyed plan's providers fell back
+// ---------------------------------------------------------------------------
+
+describe("a keyed plan whose FMP quota runs out after the first response (audit 2026-10-22 F-1)", () => {
+  it("records every replaced member as an unexpected substitution and names them, with the rate's stand-in, in one header line", async () => {
+    let served = 0;
+    const fmpFetch: typeof fetch = (async (input: string | URL | Request) => {
+      const url = new URL(String(input instanceof Request ? input.url : input));
+      const endpoint = /\/stable\/(.+)$/.exec(url.pathname)![1]!;
+      if (endpoint === "profile" && served === 0) {
+        served += 1;
+        return new Response(JSON.stringify([{ symbol: "AAPL", companyName: "Apple Inc.", sector: "Technology", currency: "USD", country: "US", cik: "0000320193" }]), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response("Limit Reach . Please upgrade your plan or visit our documentation for more details at https://site.financialmodelingprep.com/", { status: 429 });
+    }) as unknown as typeof fetch;
+    const bundle = await buildDataBundle("AAPL", {
+      now: () => NOW,
+      fmp: createFmpClient({ apiKey: "KEYED-F1-QUOTA", fetchImpl: fmpFetch, limiter: makeLimiter(1e6, 1e6), now: () => NOW, sleep: () => Promise.resolve() }),
+      edgar: createEdgarClient({ transport: edgarTransport() }),
+      yahoo: fakeYahoo(),
+      ...noNetworkConfigs(),
+      riskFreeFallback: async () => ({
+        ok: true,
+        value: { data: { date: "2026-08-31", value: 4.21, seriesId: TREASURY_PAR_CURVE_SERIES_ID }, asOf: "2026-08-31", source: "treasury", endpoint: TREASURY_PAR_CURVE_ENDPOINT, fetchedAt: NOW.toISOString() },
+      }),
+    });
+    expect(bundle.statements.incomeAnnual.ok && bundle.statements.incomeAnnual.value.source).toBe("edgar");
+    expect(bundle.quote.ok && bundle.quote.value.source).toBe("yahoo");
+    const substituted = bundle.gaps.filter((g) => /^keyless\.[a-zA-Z]+$/.test(g.field) && g.reason.startsWith("served by "));
+    expect(substituted.length).toBeGreaterThanOrEqual(8);
+    // A keyed plan expected FMP: every substitution is an incident, not the plan's design.
+    expect(substituted.every((g) => g.expected === false)).toBe(true);
+
+    const notice = providerFallbackNotice({ appendix: { missingData: bundle.gaps } });
+    expect(notice).toBe(
+      "Provider fallback · FMP did not serve every member, so the annual income statement, the quarterly income statement, the annual balance sheet, " +
+        "the quarterly balance sheet, the annual cash flow statement, the quarterly cash flow statement and the shares float are from SEC EDGAR, " +
+        "the quote, the daily price history, the SPY benchmark prices and the sector ETF prices are from Yahoo and the market-cap history is computed " +
+        "from filed facts and prices; the risk-free rate is the U.S. Treasury daily par yield curve 10 Yr (observation 2026-08-31), not FRED DGS10. " +
+        "A run with these providers healthy can give different figures; each substitution is listed under missing data.",
+    );
+  }, 60_000);
+
+  it("adds no line to the same run on a keyless plan, whose substitutions are its design", async () => {
+    const bundle = await buildDataBundle("AAPL", {
+      now: () => NOW,
+      fmp: createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" }),
+      edgar: createEdgarClient({ transport: edgarTransport() }),
+      yahoo: fakeYahoo(),
+      ...noNetworkConfigs(),
+    });
+    expect(bundle.gaps.some((g) => g.field === "keyless.incomeAnnual")).toBe(true);
+    expect(providerFallbackNotice({ appendix: { missingData: bundle.gaps } })).toBeNull();
   });
 });

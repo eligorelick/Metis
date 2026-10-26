@@ -123,6 +123,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/format.ts",
   "src/report/scoreText.ts",
   "src/report/fairValueText.ts",
+  "src/report/providerFallback.ts",
   "src/report/ownHistoryPresentation.ts",
   "src/settings/contracts.ts",
   "src/settings/settings.ts",

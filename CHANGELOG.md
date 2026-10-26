@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.40.1** and
-payload **1.45.0** (fixes from the live five-company check, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.41.0** and
+payload **1.46.0** (audit batch 6, degrade visibly when providers fail, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -23,6 +23,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Treat FRED answering HTTP 200 with an HTML page (its site-maintenance page or any outage page) as an outage on both endpoints: the request is retried with backoff, the keyed API then tries `fredgraph.csv`, and the gap reads "returned a maintenance/HTML page (HTTP 200)" instead of an unrecognized payload or an unknown series id (B-1).
 - Keep the WACC when FRED `DGS10` and FMP treasury rates both fail: the current WACC takes the last good cached `DGS10` observation if it is at most 10 business days old, else the 10 Yr point of the U.S. Treasury daily par yield curve (`home.treasury.gov`, no key or identity sent). The WACC line names the source and its observation date, a `riskFree.substitution` entry says which source stood in and why, the AI context cites the series actually used, and with every source down the WACC is withheld as before (B-4; owner order). Stage B ACCOUNTING_EVIDENCE_24 (D-107).
 - Name every substituted input beside the headline fair value. When the risk-free rate is not FRED `DGS10`, when the keyless layer served a statement, the quote or prices after an FMP refusal, or when the analyst-consensus growth method was dropped because the estimates were refused, `fairValue.reasons` carries a "Degraded inputs: …" entry. It prints under the headline in both layouts, in the Key data note, the Markdown and print exports, the data-only verdict and the AI context. A keyless-by-configuration run carries none. The DEMO control gains the entry for its FMP treasury rate, and no figure moves (F-13; owner decision).
+- Say on the first screen when providers fell back. One "Provider fallback · …" line names the FMP members that SEC EDGAR, Yahoo or filed-fact computation served after an FMP refusal, and the risk-free rate's stand-in with its observation date. It appears in the saved-snapshot header in both layouts, under the classic header, at the head of the Markdown, audit and print exports, and in the AI context. A keyless-by-configuration run shows none (F-1; owner decision). Report spec 1.41.0 and payload 1.46.0 (D-107).
 
 ## Unreleased - fixes from the live five-company check (2026-10-26)
 
