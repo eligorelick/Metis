@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.40.2** and
-payload **1.46.0** (readable figures in the reader notes, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.40.3** and
+payload **1.46.0** (a per-share basis named in claim words, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,11 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - a per-share basis named in claim words (2026-10-26)
+
+- Read a claim's figure in the cited record's per-share unit when the record is per share and the claim's metric words say "per share" ("Our DCF per share as of 2026-10-26 is USD 320.63"); the live MSFT report counted that correct claim as contradicted. The value is still checked, so a wrong figure or a total stays contradicted.
+- Report 1.40.3 and pipeline stage-c-1.6.3 (D-109).
 
 ## Unreleased - parent net income without a NetIncomeLoss tag (2026-10-26)
 

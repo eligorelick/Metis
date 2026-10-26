@@ -2232,3 +2232,14 @@ Audit 2026-10-22 B-18 (Medium). The keyless netIncome chain is `NetIncomeLoss`, 
   - No other company, column or gap family moves; no new withhold or gap.
 
 Stored reports and snapshots keep their bytes.
+
+## D-109 - A per-share basis named in a claim's metric words (2026-10-26)
+
+The live MSFT check of 2026-10-26 (report #47, ChatGPT 6.1 Sol High, keyless) traced 270 of 270 figures and counted one claim as contradicted: "Our DCF per share as of 2026-10-26 is USD 320.63." It cites the DCF per-share record, whose value is USD 320.63 per share, so the claim is right. The verifier reads "USD 320.63" as a currency amount because "per share" is not written after the figure, and a currency amount set against a per-share record was a unit contradiction. The D-66 rule already treats "per share" as the record's unit, not a metric word, but only where it follows the figure.
+
+- **The per-share basis may be named in the metric words.** When the record is per share, the prose figure is a currency amount and the claim's metric words say "per share", the figure is read in the record's per-share unit, and its value is then checked as usual: USD 320.63 validates, and USD 330.63 or a total in billions is still contradicted.
+- **Unchanged:** a currency figure whose words do not say "per share" is still not read as per share, and a total record never takes the per-share reading.
+- Report spec 1.40.3 and pipeline stage-c-1.6.3 mark the verifier change; Stage B and the payload do not move.
+
+Stored reports and snapshots keep their bytes.
+

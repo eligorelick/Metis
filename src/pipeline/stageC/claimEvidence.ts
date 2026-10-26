@@ -713,8 +713,13 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     if (quantity.unit === null) return support("unchecked", "text-ambiguous", "prose quantity has no established unit");
     // A percent can state an explicitly declared unit fraction. A generic
     // ratio (including a P/E multiple) provides no such scale evidence.
+    // The per-share basis may be named in the metric words instead of after
+    // the figure ("Our DCF per share as of 2026-10-26 is USD 320.63"): it is
+    // the record's own unit, not a total (live MSFT check, 2026-10-26).
+    const perShareInWords = quantity.unit === "currency" && record.unit === "currency-per-share" && /\bper\s+share\b/i.test(own.label);
     const normalizedQuantity = quantity.unit === "percent" && record.unit === "ratio" && record.unitScale === "fraction"
-      ? { ...quantity, value: quantity.value / 100, step: quantity.step / 100, unit: "ratio" as const } : quantity;
+      ? { ...quantity, value: quantity.value / 100, step: quantity.step / 100, unit: "ratio" as const }
+      : perShareInWords ? { ...quantity, unit: "currency-per-share" as const } : quantity;
     if (normalizedQuantity.unit !== record.unit) return support("contradicted", "unit-mismatch", "prose unit contradicts the cited numeric record");
     if (quantity.unit === "currency" || quantity.unit === "currency-per-share") {
       const currency = resolvedCurrency(quantity, options.reportingCurrency);
