@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { aiDirectory, claimAiRuntime, readAiStore, withAiStore, type AiStore } from "@/ai/store";
+import { aiDirectory, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntime, claimAiRuntimeForRun, isAiRuntimeConflict, readAiStore, withAiStore, type AiStore } from "@/ai/store";
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "thesis-ai-store-"));
 beforeAll(() => { vi.stubEnv("LOCALAPPDATA", directory); vi.stubEnv("XDG_CONFIG_HOME", directory); });
@@ -44,4 +44,26 @@ describe.skipIf(process.platform === "darwin")("protected connection storage", (
       claimAiRuntime(store); expect(store.runtimeOwnerPid).toBe(process.pid);
     } finally { probe.mockRestore(); }
   });
+  it("claims the runtime for a run only when a saved store exists, and refuses a live foreign owner (audit 2026-10-22 F-12)", async () => {
+    const file = path.join(aiDirectory(), "connections.v1.json");
+    const saved = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
+    try {
+      fs.rmSync(file, { force: true });
+      await claimAiRuntimeForRun();
+      expect(fs.existsSync(file)).toBe(false);
+      await withAiStore((store) => { store.runtimeOwnerPid = process.pid + 1; });
+      const probe = vi.spyOn(process, "kill").mockImplementation(() => true);
+      try {
+        const refused = await claimAiRuntimeForRun().then(() => null, (error: unknown) => error);
+        expect(isAiRuntimeConflict(refused)).toBe(true);
+        expect((refused as Error).message).toBe(AI_RUNTIME_CONFLICT_MESSAGE);
+      } finally { probe.mockRestore(); }
+      expect(readAiStore()?.runtimeOwnerPid).toBe(process.pid + 1);
+      await withAiStore((store) => { delete store.runtimeOwnerPid; });
+      await claimAiRuntimeForRun();
+      expect(readAiStore()?.runtimeOwnerPid).toBe(process.pid);
+    } finally {
+      if (saved === null) fs.rmSync(file, { force: true }); else fs.writeFileSync(file, saved);
+    }
+  }, 120_000);
 });

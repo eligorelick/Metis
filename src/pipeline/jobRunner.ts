@@ -33,6 +33,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
 import { parseSubscriptionModel, subscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
+import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
 import { costLog, jobPassArtifacts, jobs, reports, type JobRow } from "@/db/schema";
@@ -422,6 +423,18 @@ export interface PipelinePasses<TPayload = unknown> {
     continuation?: PassContinuation,
   ): Promise<PassResultLike<AnalystCase>>;
 
+  /**
+   * Audit 2026-10-22 D-3: split the sections kept from a cut-off response
+   * into those that validate on their own and those the retry must write
+   * again (a kept section overrides the retry's copy, so a bad one would fail
+   * the merged output by construction). Optional: without it every kept
+   * section is carried.
+   */
+  checkCarriedSections?(
+    pass: "bull" | "bear" | "synthesize",
+    sections: Record<string, unknown>,
+  ): { kept: Record<string, unknown>; dropped: string[] };
+
   /** Judge/synthesis pass: bull + bear + payload → JudgeOutput (report minus meta/appendix). */
   runJudgePass(
     deps: PassDeps<TPayload>,
@@ -508,8 +521,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). */
-export const PIPELINE_VERSION = "stage-c-1.6.4" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). */
+export const PIPELINE_VERSION = "stage-c-1.6.5" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -1485,6 +1498,26 @@ function partialTextOfError(err: unknown): string {
   return typeof partial === "string" ? partial : "";
 }
 
+/** The carried sections a retry may keep, and the ones it must write again (audit 2026-10-22 D-3). */
+function checkCarried(
+  passes: Pick<PipelinePasses, "checkCarriedSections">,
+  pass: "bull" | "bear" | "synthesize",
+  sections: Record<string, unknown>,
+): { kept: Record<string, unknown>; dropped: string[] } {
+  if (Object.keys(sections).length === 0) return { kept: sections, dropped: [] };
+  return passes.checkCarriedSections?.(pass, sections) ?? { kept: sections, dropped: [] };
+}
+
+/** How an analyst retry's step detail names what it kept and what it asks for again. */
+function carriedDetail(continuation: PassContinuation | undefined, dropped: readonly string[]): string {
+  const parts: string[] = [];
+  if (continuation !== undefined) parts.push(`kept: ${Object.keys(continuation.completed).join(", ")}`);
+  if (dropped.length > 0) {
+    parts.push(`dropped as not matching ${dropped.length === 1 ? "its" : "their"} schema, so asked for again: ${dropped.join(", ")}`);
+  }
+  return parts.length === 0 ? "" : ` (${parts.join("; ")})`;
+}
+
 function rawTextOfError(err: unknown): string {
   if (err === null || typeof err !== "object" || !("rawText" in err)) return "";
   const raw = (err as { rawText?: unknown }).rawText;
@@ -2268,6 +2301,11 @@ export interface RunJobOptions<TPayload = unknown> {
   /** Options forwarded to buildDataBundle (injectable clients/clock in tests). */
   bundleOptions?: BuildDataBundleOptions;
   /**
+   * The plan-connection runtime claim made before the data fetch (audit
+   * 2026-10-22 F-12). Defaults to `claimAiRuntimeForRun`; tests inject it.
+   */
+  claimAiRuntime?: () => Promise<void>;
+  /**
    * Test/override hook: skip live fetch and use this bundle directly. When set,
    * the fetch step is marked done immediately with this bundle.
    */
@@ -2741,6 +2779,18 @@ export async function runJob<TPayload = unknown>(
 
     // -- fetch ----------------------------------------------------------------
     startStep(state, "fetch");
+    // Audit 2026-10-22 F-12: a plan connection owned by another Metis server
+    // ends the job here, in one attempt, before any data is fetched. Any other
+    // store problem is left to the pass, which reports its own reason. A
+    // signed-out connection runs no pass, so it claims nothing.
+    if ("connectionId" in aiSelection && hasKey) {
+      try {
+        await (opts.claimAiRuntime ?? claimAiRuntimeForRun)();
+      } catch (err) {
+        if (isAiRuntimeConflict(err)) return failRun(state, "fetch", new Error(`${AI_RUNTIME_CONFLICT_MESSAGE} ${AI_RUNTIME_CONFLICT_HELP}`));
+      }
+      throwIfJobAborted(jobSignal);
+    }
     let bundle: DataBundle;
     const stageBConfig = { evIncludeLeases: getConfig().evIncludeLeases };
     try {
@@ -3175,10 +3225,15 @@ export async function runJob<TPayload = unknown>(
               // mixed into that path.
               carriedSections = {};
             } else {
-              carriedSections = { ...completedTopLevelFields(partialTextOfError(err)), ...carriedSections };
+              const checked = checkCarried(passes, "synthesize", { ...completedTopLevelFields(partialTextOfError(err)), ...carriedSections });
+              carriedSections = checked.kept;
               const kept = Object.keys(carriedSections);
               if (kept.length > 0) {
                 keptNote = ` (kept ${kept.length} completed section${kept.length === 1 ? "" : "s"} of the cut-off response: ${kept.join(", ")}; the retry asks only for the rest)`;
+              }
+              if (checked.dropped.length > 0) {
+                const n = checked.dropped.length;
+                keptNote += ` (dropped ${n} cut-off section${n === 1 ? "" : "s"} that did not match ${n === 1 ? "its" : "their"} schema, so the retry writes ${n === 1 ? "it" : "them"} again: ${checked.dropped.join(", ")})`;
               }
               if (now().getTime() - attemptStartedAt >= SUBSCRIPTION_TIME_LIMIT_NEAR_MS) {
                 timeLimitCutoffs += 1;
@@ -3885,9 +3940,11 @@ export async function runJob<TPayload = unknown>(
           const raw = capRawOutput((side === "bull" ? partial?.bullRawText : partial?.bearRawText) ?? "");
           // A dropped side that had already completed some sections keeps them:
           // the retry asks only for the rest instead of starting over.
-          const kept = recoveryOf(side) === "retry"
-            ? completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? "")
-            : {};
+          const firstCheck = recoveryOf(side) === "retry"
+            ? checkCarried(passes, side, completedTopLevelFields((side === "bull" ? partial?.bullPartialText : partial?.bearPartialText) ?? ""))
+            : { kept: {}, dropped: [] };
+          const kept = firstCheck.kept;
+          let dropped = firstCheck.dropped;
           const subscriptionRetry = recoveryOf(side) === "retry" && parseSubscriptionModel(analysisModel) !== null;
           let continuation: PassContinuation | undefined =
             Object.keys(kept).length > 0 || subscriptionRetry ? { completed: kept, ...(subscriptionRetry ? { sectionRetryCount: 1 } : {}) } : undefined;
@@ -3914,9 +3971,7 @@ export async function runJob<TPayload = unknown>(
               side,
               mode,
               feedback,
-              continuation === undefined
-                ? currentDetail
-                : `${currentDetail} (kept: ${Object.keys(continuation.completed).join(", ")})`,
+              `${currentDetail}${carriedDetail(continuation, dropped)}`,
               continuation,
               `${n + 1}/${attempts + 1}`,
             );
@@ -3937,7 +3992,9 @@ export async function runJob<TPayload = unknown>(
               return persistDataOnly(state, bundle, validation, computed, now, hasKey);
             }
             // Keep whatever this attempt finished, beside what was kept before.
-            const keptNow = { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) };
+            const checkedNow = checkCarried(passes, side, { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) });
+            const keptNow = checkedNow.kept;
+            dropped = checkedNow.dropped;
             const sectionRetryCount = parseSubscriptionModel(analysisModel) !== null ? (continuation?.sectionRetryCount ?? 0) + 1 : 0;
             continuation = Object.keys(keptNow).length > 0 || sectionRetryCount > 0
               ? { completed: keptNow, ...(sectionRetryCount > 0 ? { sectionRetryCount } : {}) } : undefined;

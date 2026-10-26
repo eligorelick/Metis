@@ -50,6 +50,8 @@ import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentR
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
 import { BAND_THRESHOLDS_TEXT, compositeDisplay, evidencePct, isNeutralScore, MIN_HEADLINE_EVIDENCE, NEUTRAL_SCORE_BAND } from "@/report/assessment";
+import { fairValueDegradedText } from "@/report/fairValueText";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import type { EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import {
   PROJECTION_PATH_ORDER,
@@ -414,7 +416,8 @@ export interface ContextPayload {
 // D-104: the retirement and environmental bridge lines, the regulated-utility balance sheet and the WACC and cost of debt withheld on equity-valued routes alter admitted context.
 // D-105: regained diluted shares, per-share values, NCI, WACC, EBIT, cash, net charge-offs and managed-care routes, the EV/EBITDA lower-bound caveat and the quote section's class-scope caveat alter admitted context.
 // D-107: the EV bridge note's amounts printed with grouped digits alter admitted context.
-export const PAYLOAD_VERSION = "1.46.0" as const;
+// 1.47.0 (D-111): the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
+export const PAYLOAD_VERSION = "1.47.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -715,7 +718,7 @@ function computedSections(
     ...(r.wacc.withheld ? [] : [{ label: "WACC", value: r.wacc.waccPct, unit: "%", source: "computed.returns.wacc", asOf: isoDay(computed.builtAt) }]),
     { label: "cost of equity", value: r.wacc.costOfEquityPct, unit: "%", source: "computed.returns.wacc.costOfEquity", asOf: r.wacc.asOf?.riskFreeRate ?? null },
     ...(r.wacc.withheld ? [] : [{ label: "cost of debt (pre-tax)", value: r.wacc.costOfDebtPct, unit: "%", source: `computed.returns.wacc.costOfDebt(${r.wacc.costOfDebtMethod})`, asOf: r.wacc.asOf?.statements ?? null }]),
-    { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: "computed.returns.wacc.riskFree(fred:DGS10)", asOf: r.wacc.asOf?.riskFreeRate ?? null },
+    { label: "risk-free rate", value: r.wacc.riskFreePct, unit: "%", source: `computed.returns.wacc.riskFree(${r.wacc.riskFreeSeriesId ?? "fred:DGS10"})`, asOf: r.wacc.asOf?.riskFreeRate ?? null },
     { label: "ERP used", value: r.wacc.erpPct, unit: "%", source: "computed.returns.wacc.erp", asOf: null },
     { label: "beta (final)", value: r.wacc.betaFinal, unit: "x", source: "computed.returns.wacc.beta", asOf: null },
     { label: "ROIC (latest)", value: r.roic.latestRoicPct, unit: "%", source: "computed.returns.roic", asOf: r.roic.asOf },
@@ -1112,8 +1115,11 @@ function computedSections(
         `${anchoredLabels.length > 0 ? ` (${anchoredLabels[0]}${anchoredLabels.length > 1 ? ` through ${anchoredLabels[anchoredLabels.length - 1]}` : ""})` : ""}; ` +
         `the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.`,
   ];
+  // Audit 2026-10-22 F-13: the model is told which inputs were substituted.
+  const degradedInputs = fairValueDegradedText(computed.fairValue);
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
     ...val.notes,
+    ...(degradedInputs === null ? [] : [`${degradedInputs} Say so wherever the model value is cited.`]),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => stat.basis?.trim() ? [`${stat.key}: ${stat.basis}`] : [])),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string"))),
     ...consensusNote,
@@ -3303,6 +3309,9 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
       "Every figure below is tagged [source · as-of]. Cite that tag; if a figure is not here or in a fetched web source, do not state it.",
     ].join("\n"),
   );
+  // Audit 2026-10-22 F-1: the run-level provider-fallback line the reader sees in the report header.
+  const fallback = providerFallbackNotice({ appendix: { missingData: payload.missingData } });
+  if (fallback !== null) parts.push(`${fallback} Never attribute a substituted figure to FMP or FRED DGS10.`);
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));

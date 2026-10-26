@@ -26,6 +26,7 @@ import {
 } from "@/report/format";
 import { displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import { figureCitationStatus, indexVerificationMarks } from "@/report/verificationMarks";
+import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -468,6 +469,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
       "",
       `> ${markdownBlockquote("Machine-checkable record behind the report: raw values, registry ids, checks and data gaps. It is not a second report and adds no analysis.")}`,
       ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
+      ...(providerFallbackNotice(report) ? ["", `> ${markdownBlockquote(providerFallbackNotice(report)!)}`] : []),
     ].join("\n"),
     renderRun(report,context),
     report.marketData?.enterpriseValueNote ? `## Historical enterprise-value presentation\n\n${markdownProse(report.marketData.enterpriseValueNote)}` : "",

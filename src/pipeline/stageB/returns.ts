@@ -33,6 +33,7 @@ import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
 import { leaseDebtScopeRefusal } from "./leaseScope";
 import { marginalTaxFloor } from "@/pipeline/stageB/valuation";
+import { riskFreeSeriesText } from "@/pipeline/riskFreeSeries";
 
 // ---------------------------------------------------------------------------
 // SPREADS_2026_01 — Damodaran synthetic-rating spread table (verbatim)
@@ -1060,11 +1061,11 @@ export function waccDisclosure(result: WaccResult): WaccDisclosure {
       : "";
   const betaSourceText = result.betaSource ? ` — ${result.betaSource}` : "";
   const summary =
-    result.withheld ? `Cost of equity ${pctOrNa(result.costOfEquityPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${result.riskFreeSeriesId ?? "series not stated"}` +
+    result.withheld ? `Cost of equity ${pctOrNa(result.costOfEquityPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${riskFreeSeriesText(result.riskFreeSeriesId)}` +
     `${rfAsOf ? `, observation ${rfAsOf}` : ""}); ERP ${pctOrNa(result.erpPct)} (${erpSourceLabel ?? "unavailable"}` +
     `${result.erpSource === "vendor" ? erpVintageText : result.erpAsOf ? `${erpVintageText || `, as of ${result.erpAsOf}`}` : ""}); beta ${result.betaFinal === null ? "n/a" : fmt(result.betaFinal)}` +
     ` (${BETA_METHOD_LABEL}${result.betaRaw !== null ? `, raw ${fmt(result.betaRaw)}${betaSourceText}${regressionText}` : ""}); WACC and pre-tax cost of debt withheld on this route` :
-    `WACC ${pctOrNa(result.waccPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${result.riskFreeSeriesId ?? "series not stated"}` +
+    `WACC ${pctOrNa(result.waccPct)}: risk-free ${pctOrNa(result.riskFreePct)} (${riskFreeSeriesText(result.riskFreeSeriesId)}` +
     `${rfAsOf ? `, observation ${rfAsOf}` : ""}); ERP ${pctOrNa(result.erpPct)} (${erpSourceLabel ?? "unavailable"}` +
     `${result.erpSource === "vendor" ? erpVintageText : result.erpAsOf ? `${erpVintageText || `, as of ${result.erpAsOf}`}` : ""}); beta ${result.betaFinal === null ? "n/a" : fmt(result.betaFinal)}` +
     ` (${BETA_METHOD_LABEL}${result.betaRaw !== null ? `, raw ${fmt(result.betaRaw)}${betaSourceText}${regressionText}` : ""}); cost of equity ${pctOrNa(result.costOfEquityPct)}; ` +

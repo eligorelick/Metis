@@ -65,6 +65,7 @@ import {
   type EdgarSubmissions,
 } from "@/providers/edgar";
 import { createYahooClient, type YahooClient } from "@/providers/yahoo";
+import { primaryRiskFreeAvailable, resolveRiskFreeFallback, riskFreeSubstitutionGap, type CachedDgs10Row, type RiskFreeFallbackObservation } from "@/pipeline/riskFreeFallback";
 import {
   extractFromExhibit,
   extractSection,
@@ -1670,6 +1671,14 @@ export interface BuildDataBundleOptions {
    * uncached path — the same way injecting `fmp`/`edgar` bypasses their caches.
    */
   fredFetch?: FredSeriesFetch;
+  /**
+   * Audit 2026-10-22 B-4: the risk-free rate's last two sources (the last good
+   * cached DGS10 observation, then the U.S. Treasury par yield curve), asked
+   * only when DGS10 and FMP treasury both had no value. On by default; a run
+   * with an injected `fred` or `fredFetch` gets it only when this is given, so
+   * a test never reads the shared cache or reaches Treasury.gov. false disables it.
+   */
+  riskFreeFallback?: ((today: string) => Promise<FetchResult<RiskFreeFallbackObservation>>) | false;
   finnhub?: FinnhubConfig;
   finra?: FinraConfig;
   /** Bounded public website/IR fallback; injected providers require an explicit config to permit this extra network source. */
@@ -2063,6 +2072,25 @@ export async function buildDataBundle(
     gicsSector,
     attribution: FRED_ATTRIBUTION,
   };
+  // B-4: when FRED DGS10 and FMP treasury both have no value, the last good
+  // cached DGS10 observation (ten business days at most) and then the
+  // Treasury's own par yield curve stand in, each disclosed with its date.
+  const riskFreeFallbackFetch =
+    reserved || opts.riskFreeFallback === false
+      ? null
+      : opts.riskFreeFallback ??
+        (opts.fred === undefined && opts.fredFetch === undefined
+          ? (day: string) =>
+              resolveRiskFreeFallback(day, {
+                cachedDgs10Rows: async () => (await import("@/cache/apiCache")).listCachedBodies<CachedDgs10Row["data"]>("fred", "series/DGS10"),
+                treasury: { signal: opts.signal },
+              })
+          : null);
+  const riskFreeFallback =
+    riskFreeFallbackFetch !== null && !primaryRiskFreeAvailable(macro.core["DGS10"], treasury)
+      ? await settle("riskFree.fallback", riskFreeFallbackFetch(today))
+      : undefined;
+  const riskFreeSubstitution = reserved ? null : riskFreeSubstitutionGap(macro.core["DGS10"], treasury, riskFreeFallback);
   let edgarBundle = await pEdgar;
 
   // ---- keyless fallbacks: fill what FMP could not serve from EDGAR + Yahoo ---
@@ -2358,6 +2386,7 @@ export async function buildDataBundle(
     insiderSentiment: insiderSentimentRes,
     macro,
     treasury,
+    ...(riskFreeFallback === undefined ? {} : { riskFreeFallback }),
     marketRiskPremium,
     edgar: edgarBundle,
   };
@@ -2423,6 +2452,7 @@ export async function buildDataBundle(
       // the provider gaps. Empty whenever the fallback layer was off or skipped.
       ...keylessGaps,
       ...configuredFallbackGaps,
+      ...(riskFreeSubstitution === null ? [] : [riskFreeSubstitution]),
       // WS4 (D-11): one entry naming the whole reserved-symbol rule, so a
       // reader of a DEMO/DBNK report is told that nothing here came from a
       // provider — not merely that individual members are missing.

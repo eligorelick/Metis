@@ -225,6 +225,33 @@ export function readCachedResponse<T>(
   }
 }
 
+/**
+ * Every cached body for one provider endpoint, whatever its params (audit
+ * 2026-10-22 B-4). A FRED row's key carries the request's five-year window
+ * start, so yesterday's DGS10 row is a different key from today's request and
+ * the stale-serving path never finds it; the risk-free fallback reads the last
+ * good observation across all of them instead. Read-only, never refreshes, and
+ * a read or decode failure yields no rows rather than an error.
+ */
+export function listCachedBodies<T>(provider: string, endpoint: string): Array<{ params: string; data: T; fetchedAt: string }> {
+  try {
+    const rows = getDb()
+      .select()
+      .from(apiCache)
+      .where(and(eq(apiCache.provider, provider), eq(apiCache.endpoint, endpoint)))
+      .all();
+    return rows.flatMap((row) => {
+      try {
+        return [{ params: row.paramsJson, data: JSON.parse(decodeCacheBody(row)) as T, fetchedAt: row.fetchedAt }];
+      } catch {
+        return [];
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
 function storeRow(db: ThesisDb, row: NewApiCacheRow): void {
   // Large bodies move into the bodyGz BLOB (src/cache/compression.ts). The
   // upsert must always set bodyGz too, or a body that shrinks below the

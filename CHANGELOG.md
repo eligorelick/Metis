@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.41.0** and
-payload **1.46.0** (audit batch 5, trust signals, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.42.0** and
+payload **1.47.0** (audit batch 6, degrade visibly when providers fail, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed audit batch 6: degrade visibly when providers fail (2026-10-26)
+
+- Treat FRED answering HTTP 200 with an HTML page (its site-maintenance page or any outage page) as an outage on both endpoints: the request is retried with backoff, the keyed API then tries `fredgraph.csv`, and the gap reads "returned a maintenance/HTML page (HTTP 200)" instead of an unrecognized payload or an unknown series id. The body decides (it opens with `<`), not the content type, so a good CSV an edge labels `text/html` is still read (B-1).
+- Keep the WACC when FRED `DGS10` and FMP treasury rates both fail: the current WACC takes the last good cached `DGS10` observation if it is at most 10 business days old, else the 10 Yr point of the U.S. Treasury daily par yield curve (`home.treasury.gov`, no key or identity sent; the previous year's file only in January, when the current one can still be missing or empty). The WACC line names the source and its observation date, a `riskFree.substitution` entry says which source stood in and why, the AI context cites the series actually used, and with every source down the WACC is withheld as before (B-4; owner order). Stage B ACCOUNTING_EVIDENCE_26 (D-111).
+- Name every substituted input beside the headline fair value. When the risk-free rate is not FRED `DGS10`, when a DCF's ROIC-vs-WACC history had no `DGS10` observation at all (so the terminal ROIC rule compared every fiscal year to the current WACC), when the keyless layer served a statement, the quote or prices the value reads after an FMP refusal (not the sector ETF prices or the shares float), or when the analyst-consensus growth method was dropped because the estimates were refused, `fairValue.reasons` carries a "Degraded inputs: …" entry. It prints under the headline in both layouts, in the Key data note, the Markdown and print exports, the data-only verdict and the AI context. A keyless-by-configuration run carries none, and neither does a member the key's subscription never serves, whose stand-in is now `expected` like FMP's own refusal. The DEMO control gains the entry for its FMP treasury rate and its current-WACC-only history, and no figure moves (F-13; owner decision).
+- Say on the first screen when providers fell back. One "Provider fallback · …" line names the FMP members that SEC EDGAR, Yahoo or filed-fact computation served after an FMP refusal, and the risk-free rate's stand-in with its observation date. It appears in the saved-snapshot header in both layouts, under the classic header, at the head of the Markdown, audit and print exports, and in the AI context. A keyless-by-configuration run shows none (F-1; owner decision). Report spec 1.42.0 and payload 1.47.0 (D-111).
+- Stop a plan-connection job at once when another Metis server owns the AI connection. The runtime is now claimed at the start of the fetch step, so the job ends in one attempt before any data is fetched. A pass refused mid-run gives the same reason and is not retried. A signed-out connection runs no pass, so it claims nothing and still ends in a data-only report. Both name the OPERATIONS troubleshooting row "AI store is held by another server". Pipeline stage-c-1.6.5 (F-12).
+- Check each section kept from a cut-off bull, bear or judge response against its own part of the schema before keeping it. A section that fails is dropped and the retry is asked to write it again, so one malformed kept section no longer makes the retry fail whatever it returns (RIVN judge, 2026-10-22: `fundamentals.graded` held the four tables). The retry's step detail names each dropped section, and on a plan connection that writes in parts a section reloaded from the section checkpoint is checked the same way (D-3).
 
 ## Proposed audit batch 5: make the trust signals mean what they say (2026-10-26)
 

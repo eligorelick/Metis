@@ -28,6 +28,8 @@ import {
 } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
+import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
+import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
@@ -58,6 +60,60 @@ function suppressed(reasons: ManifestEntry[], basis: string[]): FairValue {
     basis,
     reasons,
   };
+}
+
+export interface DegradedInputs {
+  /** `riskFreePct(bundle)`: the rate and the series it came from. */
+  riskFree: { pct: number | null; asOf: string | null; seriesId: string | null };
+  /**
+   * A DCF whose ROIC-vs-WACC history had no DGS10 observation at all (FRED
+   * down), so every fiscal year was compared to the current WACC and the
+   * terminal ROIC rule read that comparison.
+   */
+  waccHistoryCurrentOnly?: boolean;
+  /** The bundle's gaps: the keyless layer's `keyless.<member>` substitutions. */
+  bundleGaps: readonly ManifestEntry[];
+  /** The valuation's gaps: a dropped analyst-growth method for a refused feed. */
+  valuationGaps: readonly ManifestEntry[];
+}
+
+/**
+ * Audit 2026-10-22 F-13 (owner decision): the "degraded inputs" reason beside
+ * an available headline fair value, naming each substitution an outage or a
+ * refusal forced — the risk-free rate from a source other than FRED DGS10, a
+ * ROIC-vs-WACC history with no per-year DGS10, an FMP member the value reads served by the keyless layer, the analyst-growth method left out
+ * because the provider refused the estimates. A substitution the run was
+ * configured for (`expected`: a keyless plan, THESIS_STATEMENT_SOURCE=edgar) is
+ * not a degradation and is not named. Null when nothing was substituted.
+ */
+/** Keyless members no fair-value model reads: the sector ETF feeds technicals only, the float nothing in Stage B. */
+const NOT_VALUE_INPUTS = new Set(["keyless.sectorEtf", "keyless.sharesFloat"]);
+
+export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | null {
+  const parts: string[] = [];
+  const { riskFree } = inputs;
+  const rate = riskFree.pct === null ? null : riskFreeSubstitutionText(riskFree.seriesId, riskFree.asOf);
+  if (rate !== null) parts.push(rate);
+  if (inputs.waccHistoryCurrentOnly === true) {
+    parts.push("the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates");
+  }
+  const keyless = keylessSubstitutionText(inputs.bundleGaps.filter((g) => !NOT_VALUE_INPUTS.has(g.field)));
+  if (keyless !== null) parts.push(`${keyless}, not FMP`);
+  if (inputs.valuationGaps.some((g) => g.field === "valuation.dcf.analystGrowth" && g.severity === "warn")) {
+    parts.push("the analyst-consensus growth method was left out because the provider refused the analyst estimates");
+  }
+  if (parts.length === 0) return null;
+  return {
+    field: FAIR_VALUE_DEGRADED_FIELD,
+    reason: `Degraded inputs: ${parts.join("; ")}. A run with these providers healthy can give a different value.`,
+    severity: "warn",
+  };
+}
+
+/** The available fair value with its degraded-inputs reason; any other status, or no reason, unchanged. */
+export function withDegradedInputs(fairValue: FairValue, reason: ManifestEntry | null): FairValue {
+  if (reason === null || fairValue.status !== "available") return fairValue;
+  return { ...fairValue, reasons: [...fairValue.reasons, reason] };
 }
 
 /**
