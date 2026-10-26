@@ -3696,3 +3696,16 @@ capital although the filing establishes the figure.
   sum is used, in net debt and invested capital alike, and the substitution is
   disclosed. A combined figure above the components, or from another filing,
   is left as it is, and net debt still refuses a conflict.
+
+**Net charge-offs from cash-flow recoveries (C-13).** The bank route's net
+charge-off rate needs a year's write-offs net of recoveries, from a net tag or
+an allowance roll-forward pair. Capital One tags its write-offs on the
+roll-forward but its recovery total only as a dimensional fact, which
+companyfacts drops; undimensioned, the recoveries appear only on the
+cash-flow statement as `ProceedsFromRecoveriesOfLoanPreviouslyChargedOff`.
+The rate was withheld and the balance-sheet grade renormalised without it.
+When no roll-forward pair is filed, write-offs now pair with that cash-flow
+line for the same fiscal year, unit and filing, and the basis says the
+recoveries come from the cash-flow statement (COF FY2025: 18,166 − 5,064 =
+13,102 million, its reported net charge-offs; 3.35% of average loans against
+the 3.30% it reports on average loans held for investment).
