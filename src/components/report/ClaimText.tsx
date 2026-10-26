@@ -14,6 +14,7 @@
 import { Badge, type Tone } from "@/components/ui";
 import type { ClaimLabel } from "@/types/core";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
+import { claimStatusMarkText } from "@/report/verificationMarks";
 import { displayClaimText, sourceLabel } from "@/report/presentation";
 import { evidenceAttributes } from "./evidenceIdentity";
 
@@ -75,6 +76,8 @@ export function ClaimText({
   className?: string;
   numbers?: readonly TracedNumber[];
 }) {
+  // F-21: the verification status after the citation; judgments carry none.
+  const statusMark = claimStatusMarkText(claim);
   return (
     <details {...evidenceAttributes("claim", claim)} className={`report-claim group flex flex-col gap-1 ${className ?? ""}`}>
       <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
@@ -91,6 +94,7 @@ export function ClaimText({
             <span className="group-open:hidden">›src</span>
             <span className="hidden group-open:inline">‹src</span>
           </span>
+          {statusMark && <span className="claim-status mono ml-1 align-baseline text-[10px] text-muted">{statusMark}</span>}
         </span>
       </summary>
       <div className="ml-[3.25rem] border-l border-edge pl-2">

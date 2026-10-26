@@ -6,6 +6,7 @@ import {
   type EntityRegistry,
 } from "@/pipeline/stageC/entityValidation";
 import { buildDataCompleteness } from "@/report/completeness";
+import { claimCoverageWithout, factualValidationWithout, isCountedClaimEntry } from "@/report/claimMatching";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { attributeJudgeProtocolDisclosures } from "@/report/execution";
@@ -19,7 +20,9 @@ import {
 import {
   ReportSchema,
   withLenientLegacyRead,
+  type ProvenanceCoverage,
   type Report,
+  type VerificationLogEntry,
 } from "@/report/schema";
 
 export interface LegacyEntitySafetyResult {
@@ -108,6 +111,8 @@ export function sanitizeLegacyEntityConflicts(
   // reported "2 legacy statements" for one (audit 2026-09-06, F194).
   const withheldTexts = new Set<string>();
   let invalidCitationCount = 0;
+  // Counted claim entries withheld below, as recorded before the rewrite.
+  const withdrawn: VerificationLogEntry[] = [];
   const walk = (value: unknown): unknown => {
     if (typeof value === "string") {
       const found = validateEntityText(value, registry, null).issues.filter(
@@ -141,6 +146,8 @@ export function sanitizeLegacyEntityConflicts(
       (entry.outcome === "verified" || entry.outcome === "unverified" || entry.outcome === "removed")) {
       // A sanitized log claim can now equal the section's same placeholder.
       // Its prior support belongs to the withheld original, never this text.
+      const original = value as VerificationLogEntry;
+      if (isCountedClaimEntry(original, "factual-claim") || isCountedClaimEntry(original, "judgment")) withdrawn.push(original);
       output.outcome = "removed";
       output.traceKind = "untraced";
       output.validationStatus = "contradicted";
@@ -176,6 +183,21 @@ export function sanitizeLegacyEntityConflicts(
 
   const safe = walk(cloned) as Report;
   const withheldCount = withheldTexts.size;
+  // Audit 2026-10-22 F-21 (review): the header counts the claims the report
+  // marks. A withheld claim prints as an unmarked placeholder, so it leaves
+  // the counts at the status it was recorded with.
+  if (withdrawn.length > 0) {
+    const factual = withdrawn.filter((entry) => entry.evidenceKind === "factual-claim");
+    const judgments = withdrawn.filter((entry) => entry.evidenceKind === "judgment");
+    const without = (coverage: ProvenanceCoverage | undefined): ProvenanceCoverage | undefined => {
+      if (coverage === undefined) return undefined;
+      const next = claimCoverageWithout(coverage, factual, judgments);
+      return next.factualValidation === undefined ? next
+        : { ...next, factualValidation: factualValidationWithout(next.factualValidation, factual, (entry) => entry.validationStatus) };
+    };
+    if (safe.meta.provenanceCoverage) safe.meta.provenanceCoverage = without(safe.meta.provenanceCoverage);
+    if (safe.appendix.provenanceCoverage) safe.appendix.provenanceCoverage = without(safe.appendix.provenanceCoverage);
+  }
   if (withheldCount > 0 || invalidCitationCount > 0) {
     safe.appendix.missingData = [
       ...(withheldCount > 0 ? [{

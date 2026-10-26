@@ -509,7 +509,7 @@ export interface ReportMetaInput {
  * ------------------------------------------------------------------------ */
 
 /** pipelineVersion stamped into meta (bump when the orchestration changes). */
-export const PIPELINE_VERSION = "stage-c-1.6.3" as const;
+export const PIPELINE_VERSION = "stage-c-1.6.4" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;

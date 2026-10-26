@@ -132,6 +132,15 @@ function fact(text: string, source: string, asOf: string | null): SourcedClaim {
   return { text, label: "FACT", source, asOf: isoDay(asOf) };
 }
 
+/**
+ * A statement about this analysis — its method, a heuristic or proxy, a house
+ * score's band, a data gap — not about the issuer. JUDGMENT, as the shared
+ * prompt rule labels such statements (audit 2026-10-22 F-20).
+ */
+function judgment(text: string, source: string, asOf: string | null): SourcedClaim {
+  return { text, label: "JUDGMENT", source, asOf: isoDay(asOf) };
+}
+
 function fmtNum(v: number, dp = 2): string {
   return v.toLocaleString("en-US", { maximumFractionDigits: dp, minimumFractionDigits: 0 });
 }
@@ -263,7 +272,7 @@ function gradeBlock(
       assessmentStatus: "not-assessed",
       oneLineWhy: `Not scored — ${reason}; no completed analyst assessment is available.`,
       reasoning: [
-        fact(`Deterministic ${ASPECT_LABEL[key]} score unavailable: ${reason}.`, source, asOf),
+        judgment(`Deterministic ${ASPECT_LABEL[key]} score unavailable: ${reason}.`, source, asOf),
         flagClaim,
       ],
       confidence: "low",
@@ -277,7 +286,7 @@ function gradeBlock(
     assessmentStatus: limited ? "limited-evidence" : "deterministic",
     oneLineWhy: `${limited ? "Not assessed — limited evidence. " : ""}Deterministic score ${fmtScore(aspect.score, 1)}/100 (raw band ${withNeutral(aspect.band, aspect.score)}) on ${completenessPct}% of intended signals; no completed analyst assessment is available.`,
     reasoning: [
-      fact(
+      judgment(
         `Deterministic ${ASPECT_LABEL[key]} score ${fmtScore(aspect.score, 2)}/100 maps to band ${withNeutral(aspect.band, aspect.score)} under the versioned house band table; ${completenessPct}% of the aspect's intended signal weight had data. ${aspect.note}`,
         source,
         asOf,
@@ -445,7 +454,7 @@ function balanceSheetSection(
       ),
     );
   }
-  if (nd.note) debtCommentary.push(fact(nd.note, "computed.capital.netDebtToEbitda", nd.asOf));
+  if (nd.note) debtCommentary.push(judgment(nd.note, "computed.capital.netDebtToEbitda", nd.asOf));
 
   const coverageCommentary: SourcedClaim[] = [];
   if (isNum(cap.interestCoverage.value)) {
@@ -454,7 +463,7 @@ function balanceSheetSection(
     );
   }
   if (cap.interestCoverage.note) {
-    coverageCommentary.push(fact(cap.interestCoverage.note, "computed.capital.interestCoverage", cap.asOf));
+    coverageCommentary.push(judgment(cap.interestCoverage.note, "computed.capital.interestCoverage", cap.asOf));
   }
 
   const capexCommentary: SourcedClaim[] = [];
@@ -468,7 +477,7 @@ function balanceSheetSection(
       ),
     );
   }
-  capexCommentary.push(fact(cap.maintenanceVsGrowthCapex.note, "computed.capital.maintenanceVsGrowthCapex", cap.asOf));
+  capexCommentary.push(judgment(cap.maintenanceVsGrowthCapex.note, "computed.capital.maintenanceVsGrowthCapex", cap.asOf));
 
   const allocation: SourcedClaim[] = [];
   const sc = cap.shareCount;
@@ -492,7 +501,10 @@ function balanceSheetSection(
   }
   // N3: dilution from outstanding awards is SHOWN, or its unavailability is
   // stated — criterion (d). It reached no reader surface before.
-  allocation.push(fact(cap.dilution.note, "computed.capital.dilution", cap.dilution.asOf));
+  // An unavailable overhang is a data-gap statement; a computed one states figures.
+  allocation.push(
+    (cap.dilution.overhangPct === null ? judgment : fact)(cap.dilution.note, "computed.capital.dilution", cap.dilution.asOf),
+  );
   const bb = cap.buybackPriceAnalysis;
   // A total of repurchases across the analysed years is a sum of cash-flow
   // rows: stated only when every one of those years is established in one
@@ -505,18 +517,27 @@ function balanceSheetSection(
     // D-61: the premium is measured on the proxy price, so the current price is
     // that percentage above (or below) it — price appreciation since the
     // repurchases, not timing. Timing is stated separately when measurable.
+    // Both rest on the year-average-price proxy, so they are a sentence of
+    // their own, labelled JUDGMENT; the cash total stays FACT (F-20).
     const priceNote = isNum(bb.premiumDiscountPct)
-      ? `; the current price is ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "above" : "below"} the average repurchase price proxy (price appreciation since the repurchases, not timing)`
-      : "";
+      ? `the current price is ${fmtPct(Math.abs(bb.premiumDiscountPct))} ${bb.premiumDiscountPct >= 0 ? "above" : "below"} the average repurchase price proxy (price appreciation since the repurchases, not timing)`
+      : null;
     const timing = bb.timingPct ?? null;
     const timingNote = isNum(timing)
-      ? `; at each fiscal year's average price the shares bought would have cost ${fmtPct(Math.abs(timing))} ${timing >= 0 ? "more" : "less"} than was paid`
-      : "";
+      ? `at each fiscal year's average price the shares bought would have cost ${fmtPct(Math.abs(timing))} ${timing >= 0 ? "more" : "less"} than was paid`
+      : null;
     allocation.push(
-      fact(`Repurchased ${fmtMoney(bb.totalRepurchased, repurchaseCurrency)} of stock across the analysed years${priceNote}${timingNote}.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
+      fact(`Repurchased ${fmtMoney(bb.totalRepurchased, repurchaseCurrency)} of stock across the analysed years.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
     );
+    const proxyNotes = [priceNote, timingNote].filter((note): note is string => note !== null);
+    if (proxyNotes.length > 0) {
+      const sentence = proxyNotes.join("; ");
+      allocation.push(
+        judgment(`${sentence[0]!.toUpperCase()}${sentence.slice(1)}.`, "computed.capital.buybackPriceAnalysis", cap.asOf),
+      );
+    }
   }
-  if (bb.note) allocation.push(fact(bb.note, "computed.capital.buybackPriceAnalysis", cap.asOf));
+  if (bb.note) allocation.push(judgment(bb.note, "computed.capital.buybackPriceAnalysis", cap.asOf));
 
   return {
     debtProfile: { commentary: debtCommentary, numbers: debtNumbers },

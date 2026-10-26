@@ -23,15 +23,15 @@ describe("explicit fraction provenance in numeric claims", () => {
   it("does not infer fraction semantics from a metric name or an untyped legacy ratio", () => {
     const legacy = { ...fraction };
     delete legacy.unitScale;
-    expect(check("The DCF terminal-value share is 48.9%.", legacy)).toMatchObject({ status: "contradicted", reason: "unit-mismatch" });
+    expect(check("The DCF terminal-value share is 48.9%.", legacy)).toMatchObject({ status: "unchecked", reason: "unit-mismatch" });
   });
   it("does not turn an ordinary valuation multiple into a percentage", () => {
     const multiple = { ...fraction, id: "computed.price-to-earnings", label: "price to earnings", origin: "computed.pe", value: 20, unitScale: undefined };
-    expect(check("Price to earnings is 20%.", multiple)).toMatchObject({ status: "contradicted", reason: "unit-mismatch" });
+    expect(check("Price to earnings is 20%.", multiple)).toMatchObject({ status: "unchecked", reason: "unit-mismatch" });
     expect(check("Price to earnings is 20x.", multiple).status).toBe("validated");
   });
   it("does not confuse a fractional level with percentage-point changes", () => {
-    expect(check("The DCF terminal-value share is 48.9 percentage points.")).toMatchObject({ status: "contradicted", reason: "unit-mismatch" });
+    expect(check("The DCF terminal-value share is 48.9 percentage points.")).toMatchObject({ status: "unchecked", reason: "unit-mismatch" });
   });
   it("retains explicit fraction semantics when assembling the real computed payload registry", () => {
     const bundle = completeCurrencyBundle({});

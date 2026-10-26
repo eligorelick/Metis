@@ -39,6 +39,7 @@ import { z } from "zod";
 import { EvidenceTimingSchema } from "@/report/evidenceTiming";
 import { PeriodContextSchema } from "@/types/periodContext";
 import { SourceFactSummarySchema } from "@/report/sourceFactSchema";
+import { displayedValidationStatus } from "@/report/claimMatching";
 
 import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 
@@ -131,6 +132,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.40.1 (D-106): a dated interval claim citing a filing fact whose period is the whole span is checked against that span.
 // 1.40.2 (D-107): the EV bridge note, the issuer-common equity headline and the grid guard note in reader terms.
 // 1.40.3 (D-109): a per-share basis named in a claim's metric words reads as the per-share unit.
+// 1.41.0 (D-110): "contradicted" reserved for a value conflict, per-claim verification marks, "computed" for a data-only report's figures and JUDGMENT for code-written method and data-gap notes.
 // 1.42.0 (D-111): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
 export const REPORT_SPEC_VERSION = "1.42.0" as const;
 
@@ -1592,6 +1594,10 @@ export type VerificationLogEntry = z.infer<typeof VerificationLogEntrySchema>;
 export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): string {
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
+  // A contradicted claim was cited; a legacy metadata gap reads as unchecked (F-22).
+  if (entry.claimSupportStatus === "contradicted") {
+    return displayedValidationStatus(entry) === "unchecked" ? "Cited; prose unchecked" : "Cited; contradicted by its source";
+  }
   if (entry.claimSupportStatus === "cited") return "Cited; prose unchecked";
   if (entry.outcome === "unverified" && entry.evidenceKind === "number" && entry.source?.trim()) return "untraced";
   return citationOutcomeLabel(entry.outcome);

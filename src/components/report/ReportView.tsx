@@ -31,6 +31,7 @@
 import { MetisLogo } from "@/brand/MetisLogo";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
+import { indexVerificationMarks } from "@/report/verificationMarks";
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
@@ -179,6 +180,8 @@ export function ReportView({
   selectedReportId?: number;
 }) {
   const report = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport));
+  // F-21: the claim chips below read each claim's verification status.
+  indexVerificationMarks(report);
   const reportId = presentationReportId(report,{selectedReportId});
   const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", report) : "";
   const completeness = deriveReportCompletenessPresentation(

@@ -29,7 +29,16 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Let a trailing twelve months span a reorganisation when the successor's own filing re-presents the predecessor's net income and per-share figures unchanged, and name a resolved predecessor in the successor's no-annual-report gaps (B-36: ExxonMobil Holdings regains its P/E, 22.4x). Reading the predecessor's 10-K sections is left for later.
 - B-24 and C-16 were already fixed by batch 3a.
 - Review of this change: judge a successor's own history without the facts merged from newer filings, read every discontinued-operations element on its own (and one withheld from the row) before continuing-operations EPS stands in, add cash-flow D&A to operating income only on the same period (the fiscal year's own cash-flow D&A beside a fiscal-year operating income), label a fiscal-year P/E "P/E (current, FY2025)" in the AI payload, and judge a scenario fan on the values the report shows.
-- Report 1.42.0, payload 1.47.0 and Stage B ACCOUNTING_EVIDENCE_26 (D-111); pipeline stage-c-1.6.3 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
+- Report 1.42.0, payload 1.47.0 and Stage B ACCOUNTING_EVIDENCE_26 (D-111); pipeline stage-c-1.6.4 is unchanged. See the [disposition record](docs/audit/2026-10-22-audit-batch4-freshness.md).
+
+## Proposed audit batch 5: make the trust signals mean what they say (2026-10-26)
+
+- Count a claim or figure as contradicted only for a value conflict: an amount outside its cited figure's rounding interval, or a direction word against the sign of its cited change. A period, unit or currency the cited record does not establish now reads "unverified (period or unit not established)", and a direction conflict stays contradicted when the period or unit word also fails; stored reports are read the same way, including the audit export's support and outcome columns, where a contradicted claim now reads cited, not uncited (F-22).
+- Lead the verification line with numeric claims matched to a cited figure, for example "40/109 (36.7%) numeric claims numerically matched to a cited figure (not whole-claim validation)", and move figures traced to a source and claims carrying a citation to a separate Provenance line in the report, print and page headers (B-10).
+- Mark each logged factual claim `[validated]`, `[unverified]`, `[contradicted]` or `[qualitative]` after its citation, in both page layouts, the Markdown and the print report; the header counts equal the marked claims, grade-strip reasoning that no surface prints is left out of them, as the audit export says, and a removed log entry (an earnings-reference guard row, a legacy claim withheld on read) marks and counts nothing (F-21).
+- Print "computed" in place of ✓ for a data-only report's figures, with a legend under the first table that has a Cited column (a checked report gets none); the page's figure detail and the audit export say "computed (no citation check ran)" (F-23).
+- Label the capital grading basis, the debt-bridge convention, the HEURISTIC capex and buyback notes, the repurchase-price proxy comparison, score-to-band sentences and data-gap notes JUDGMENT, not FACT; computed-figure sentences stay FACT (F-20).
+- Report 1.41.0 and pipeline stage-c-1.6.4 (D-110); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. No figure changes.
 
 ## Unreleased - a per-share basis named in claim words (2026-10-26)
 
