@@ -10146,25 +10146,11 @@
       ]
     },
     {
-      "name": "live-check-fixes-20261026",
-      "decisions": [
-        "D-106"
-      ],
-      "reason": "Fixes from the live five-company check of 2026-10-26 (D-106), as they reach this provider-free DEMO control: only the report stamp moves, to spec 1.40.1 (a dated interval claim citing a filing fact is checked against the fact's whole-span period), out of audit-batch3-complete-evidence-20261022, whose record for 1.40.0 stands in its disposition note. The keyless statements' DebtSecuritiesCurrent reading does not reach this fixture, and no other value moves. See docs/audit/DECISIONS.md, D-106.",
-      "deltas": [
-        {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.40.1"
-        }
-      ]
-    },
-    {
       "name": "audit-batch5-trust-signals-20261022",
       "decisions": [
         "D-107"
       ],
-      "reason": "Audit batch 5 (D-107), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. They move out of the group that first blessed them. See docs/audit/DECISIONS.md, D-107.",
+      "reason": "Audit batch 5 (D-107), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of live-check-fixes-20261026, whose record for 1.40.1 stands in D-106. No figure moves. See docs/audit/DECISIONS.md, D-107.",
       "deltas": [
         {
           "path": "report.balanceSheet.coverage.commentary.1",
@@ -10185,6 +10171,11 @@
             "source": "computed.capital.current",
             "asOf": "2025-12-31"
           }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.41.0"
         }
       ]
     }
