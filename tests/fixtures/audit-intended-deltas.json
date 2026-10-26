@@ -10157,9 +10157,9 @@
     {
       "name": "audit-batch5-trust-signals-20261022",
       "decisions": [
-        "D-108"
+        "D-109"
       ],
-      "reason": "Audit batch 5 (D-108), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of readable-note-figures-20261026, whose record for 1.40.2 stands in D-107. No figure moves. See docs/audit/DECISIONS.md, D-108.",
+      "reason": "Audit batch 5 (D-109), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of readable-note-figures-20261026, whose record for 1.40.2 stands in D-107. No figure moves. See docs/audit/DECISIONS.md, D-109.",
       "deltas": [
         {
           "path": "report.balanceSheet.coverage.commentary.1",

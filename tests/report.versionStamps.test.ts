@@ -87,7 +87,7 @@ describe("new version stamps", () => {
   it("stamps financial integrity and evidence-context conventions", () => {
     expect(REPORT_SPEC_VERSION).toBe("1.41.0");
     expect(PAYLOAD_VERSION).toBe("1.46.0");
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_24");
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_10_ACCOUNTING_EVIDENCE_25");
   });
 
   it("stamps a newly built report and payload with them", () => {

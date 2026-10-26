@@ -25,7 +25,13 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Mark each logged factual claim `[validated]`, `[unverified]`, `[contradicted]` or `[qualitative]` after its citation, in both page layouts, the Markdown and the print report; the header counts equal the marked claims, grade-strip reasoning that no surface prints is left out of them, as the audit export says, and a removed log entry (an earnings-reference guard row, a legacy claim withheld on read) marks and counts nothing (F-21).
 - Print "computed" in place of ✓ for a data-only report's figures, with a legend under the first table that has a Cited column (a checked report gets none); the page's figure detail and the audit export say "computed (no citation check ran)" (F-23).
 - Label the capital grading basis, the debt-bridge convention, the HEURISTIC capex and buyback notes, the repurchase-price proxy comparison, score-to-band sentences and data-gap notes JUDGMENT, not FACT; computed-figure sentences stay FACT (F-20).
-- Report 1.41.0 and pipeline stage-c-1.6.3 (D-108); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107) are unchanged by this batch. No figure changes.
+- Report 1.41.0 and pipeline stage-c-1.6.3 (D-109); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. No figure changes.
+
+## Unreleased - parent net income without a NetIncomeLoss tag (2026-10-26)
+
+- Derive net income attributable to the parent as `ProfitLoss` less the noncontrolling interests' share when a filer tags no `NetIncomeLoss` for the period, and disclose it; consolidated profit had been taken instead (FCX FY2025 4,152 million against 2,204 million; DuPont ROE 22.8% against about 12%; audit B-18).
+- Read that figure as parent income in Stage B, so the NCI share is not deducted twice and a TTM window mixing it with `NetIncomeLoss` quarters is no longer refused as mixed.
+- Stage B ACCOUNTING_EVIDENCE_25 (D-108); report 1.40.2 and payload 1.46.0 are unchanged.
 
 ## Unreleased - readable figures in the reader notes (2026-10-26)
 

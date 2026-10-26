@@ -2217,7 +2217,23 @@ The live NVDA check (D-106) also found reader text that printed raw source units
 
 Stored reports and snapshots keep their bytes.
 
-## D-108 - Audit batch 5: make the trust signals mean what they say: "contradicted" for value conflicts only, the numeric validation share first, a status mark on each claim, "computed" for a data-only report's figures, and JUDGMENT for code-written method notes (2026-10-26)
+## D-108 - Net income attributable to the parent when NetIncomeLoss is not filed (2026-10-26)
+
+Audit 2026-10-22 B-18 (Medium). The keyless netIncome chain is `NetIncomeLoss`, then consolidated `ProfitLoss`, then the amount available to common. Freeport-McMoRan files no `NetIncomeLoss` in its 10-K/10-Q facts, so every annual row from 2016 and most quarters resolved to `ProfitLoss`, which includes the noncontrolling interests' share. Net income, net margin and the DuPont ROE carried it: FY2025 4,152 million against 2,204 million to the parent, and ROE 22.8% against about 12%, set against a parent-only equity denominator and beside the report's own 12.4% return on tangible common equity. The TTM mixed one `NetIncomeLoss` quarter with three `ProfitLoss` quarters, so P/E was withheld as an inconsistent ownership basis.
+
+- **The parent figure is derived by the taxonomy's calculation.** After `NetIncomeLoss`, the chain takes `ProfitLoss` less `NetIncomeLossAttributableToNoncontrollingInterest` for the same period, each resolved (and, for a quarter, derived) on its own tag. The step is disclosed as a substitution for every period it serves. Without an NCI tag for the period the chain falls to consolidated profit as before, whose basis stays "consolidated" and whose NCI deduction Stage B already makes.
+- **Stage B reads it as parent income.** The ownership basis was inferred from the netIncome tags, and `ProfitLoss` among them meant "consolidated", which would have deducted the NCI share a second time. A figure whose tags carry both `ProfitLoss` and the NCI tag is now "parent".
+- **Unchanged:** the consolidated-profit field, the cash-flow statement's net income (it starts from consolidated profit), the vendor path, and REIT FFO's own net-income read.
+- Stage B ACCOUNTING_EVIDENCE_25 marks the change; the report spec and payload do not move.
+- **Control panel** (45 audited companies, keyless and offline against the audit's cached data behind a dead proxy, clock pinned to 2026-10-22T06:00Z; base `7f5221d`, head this change; both sides 45 of 45 done). Every moved figure is intended:
+  - FCX: TTM net income 4,183 million → 2,945 million (the oracle's parent figure); FY2025 DuPont ROE 22.76% → 12.08% and net margin 16.02% → 8.50% (the audit's parent figures); P/E (TTM) is now produced, 33.6× on parent income, where it was withheld as a mixed ownership basis, so that warning is gone; composite 54.47 → 53.63.
+  - AMT: composite 52.77 → 52.84 (parent income on the quarters that lacked NetIncomeLoss).
+  - MA: the P/E basis now reads "parent income"; its NCI income is a few million, and the withheld P/E is unchanged.
+  - No other company, column or gap family moves; no new withhold or gap.
+
+Stored reports and snapshots keep their bytes.
+
+## D-109 - Audit batch 5: make the trust signals mean what they say: "contradicted" for value conflicts only, the numeric validation share first, a status mark on each claim, "computed" for a data-only report's figures, and JUDGMENT for code-written method notes (2026-10-26)
 
 The 2026-10-22 audit found that the report's trust signals overstated what had been checked. The owner set each convention below on 2026-10-26.
 
@@ -2227,4 +2243,4 @@ The 2026-10-22 audit found that the report's trust signals overstated what had b
 - **"computed", not ✓, on a data-only report (F-23).** No citation-check pass runs on a data-only report, so its figures print "computed" under Cited and beside each figure, with a legend under the first table that uses the column. The stored `verified` value is unchanged, because the enterprise-value and debt checks read it.
 - **Code-written method notes are JUDGMENT (F-20).** The capital grading basis, the debt-bridge convention, the HEURISTIC maintenance-capex and buyback-price notes, the price-versus-repurchase-proxy comparison, each aspect's score-to-band sentence and the data-gap notes carry JUDGMENT, the label the shared prompt rule gives methodology, data-gap and coverage statements. Computed-figure sentences stay FACT. A METHOD label was not added: the label set is the model's structured-output schema, so a new value would change the contract every pass and stored report is validated against.
 
-No figure changes. Report 1.41.0 and pipeline stage-c-1.6.3 mark these conventions; payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107) are unchanged by this batch. Stored reports and snapshots keep their bytes.
+No figure changes. Report 1.41.0 and pipeline stage-c-1.6.3 mark these conventions; payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. Stored reports and snapshots keep their bytes.
