@@ -61,6 +61,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",
+  "src/pipeline/riskFreeSeries.ts",
   "src/pipeline/stageA/manifest.ts",
   "src/pipeline/stageA/validate.ts",
   "src/pipeline/stageC/citations.ts",
