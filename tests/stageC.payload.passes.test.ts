@@ -1018,7 +1018,7 @@ describe("payload determinism + provenance", () => {
       // prints the EV bridge note's amounts with grouped digits; this
       // fixture's EV appears four times in the prompt's notes, so the prompt
       // grows by sixteen commas and no record or registry moves.
-      // Audit batch 6 (D-109): only the versioned header moves with payload
+      // Audit batch 6 (D-110): only the versioned header moves with payload
       // 1.47.0; this fixture's rate is FRED DGS10 and no member fell back, so
       // no degraded-inputs note or provider-fallback line enters its prompt.
       fingerprint: "1.47.0:f24fe9d5",

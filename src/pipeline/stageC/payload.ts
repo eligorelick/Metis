@@ -416,7 +416,7 @@ export interface ContextPayload {
 // D-104: the retirement and environmental bridge lines, the regulated-utility balance sheet and the WACC and cost of debt withheld on equity-valued routes alter admitted context.
 // D-105: regained diluted shares, per-share values, NCI, WACC, EBIT, cash, net charge-offs and managed-care routes, the EV/EBITDA lower-bound caveat and the quote section's class-scope caveat alter admitted context.
 // D-107: the EV bridge note's amounts printed with grouped digits alter admitted context.
-// 1.47.0 (D-109): the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
+// 1.47.0 (D-110): the risk-free series actually used, the fair value's degraded-inputs note and the provider-fallback line alter admitted context.
 export const PAYLOAD_VERSION = "1.47.0" as const;
 
 /* ------------------------------------------------------------------------ *

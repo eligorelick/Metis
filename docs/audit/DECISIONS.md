@@ -2233,7 +2233,17 @@ Audit 2026-10-22 B-18 (Medium). The keyless netIncome chain is `NetIncomeLoss`, 
 
 Stored reports and snapshots keep their bytes.
 
-## D-109 - Audit batch 6: degrade visibly when providers fail: a FRED HTML page as an outage, the risk-free rate's fallback order, the degraded-inputs note, the provider-fallback line, a plan connection held by another server, and kept sections checked before they are kept (2026-10-26)
+## D-109 - A per-share basis named in a claim's metric words (2026-10-26)
+
+The live MSFT check of 2026-10-26 (report #47, ChatGPT 6.1 Sol High, keyless) traced 270 of 270 figures and counted one claim as contradicted: "Our DCF per share as of 2026-10-26 is USD 320.63." It cites the DCF per-share record, whose value is USD 320.63 per share, so the claim is right. The verifier reads "USD 320.63" as a currency amount because "per share" is not written after the figure, and a currency amount set against a per-share record was a unit contradiction. The D-66 rule already treats "per share" as the record's unit, not a metric word, but only where it follows the figure.
+
+- **The per-share basis may be named in the metric words.** When the record is per share, the prose figure is a currency amount and the claim's metric words say "per share", the figure is read in the record's per-share unit, and its value is then checked as usual: USD 320.63 validates, and USD 330.63 or a total in billions is still contradicted.
+- **Unchanged:** a currency figure whose words do not say "per share" is still not read as per share, and a total record never takes the per-share reading.
+- Report spec 1.40.3 and pipeline stage-c-1.6.3 mark the verifier change; Stage B and the payload do not move.
+
+Stored reports and snapshots keep their bytes.
+
+## D-110 - Audit batch 6: degrade visibly when providers fail: a FRED HTML page as an outage, the risk-free rate's fallback order, the degraded-inputs note, the provider-fallback line, a plan connection held by another server, and kept sections checked before they are kept (2026-10-26)
 
 The independent audit of 2026-10-22 found that a provider failure could change a report without the reader being told, or could cost a run more than it needed to. This batch fixes B-1, B-4, F-13, F-1, F-12 and D-3. The Low items on the same code paths (D-4, F-16, F-15, F-18, F-17 and F-14) are postponed by the owner. Every rule is class-wide; none names a ticker.
 
@@ -2262,4 +2272,4 @@ The independent audit of 2026-10-22 found that a provider failure could change a
 - **A plan connection held by another server (F-12).** A job on a ChatGPT or Gemini plan connection claims the AI runtime at the start of the fetch step. If another Metis server owns it, the job ends in that one attempt, before any data is fetched. A pass refused mid-run gives the same reason and is not retried as a dropped connection. Both name the OPERATIONS troubleshooting row "AI store is held by another server". A signed-out connection runs no pass, so it claims nothing and still ends in a data-only report. A busy credentials lock is unchanged.
 - **Kept sections are checked before they are kept (D-3).** When a bull, bear or judge response is cut off, each top-level section it finished is normalized as the whole parse normalizes it. It is then checked alone against its own sub-schema and the rating-safety walk; a key the schema lacks also fails. A failing section is dropped, the retry is asked to write it again, and the step detail names it. On a plan connection that writes in parts, sections reloaded from the run's section checkpoint get the same check. Before, a kept section that parsed but did not match its schema made the merged output fail whatever the retry returned.
 
-Report 1.41.0, payload 1.47.0, pipeline stage-c-1.6.3 and Stage B ACCOUNTING_EVIDENCE_26 mark these conventions. In the provider-free DEMO control, `fairValue.reasons` gains the degraded-inputs entry for its FMP treasury rate and its current-WACC-only ROIC-vs-WACC history, and the spec version moves; no figure moves. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch6-provider-failures.md).
+Report 1.41.0, payload 1.47.0, pipeline stage-c-1.6.4 and Stage B ACCOUNTING_EVIDENCE_26 mark these conventions. In the provider-free DEMO control, `fairValue.reasons` gains the degraded-inputs entry for its FMP treasury rate and its current-WACC-only ROIC-vs-WACC history, and the spec version moves; no figure moves. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch6-provider-failures.md).
