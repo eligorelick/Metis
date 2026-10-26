@@ -166,6 +166,12 @@ describe("the manifest as a reader counts it", () => {
     const c = deriveReportCompletenessPresentation(undefined, gaps);
     const confirmed = { ...c, metadataStatus: "confirmed" as const, state: "degraded" as const, edgar: "available" as const, xbrl: "checked" as const, forensicValidation: "complete" as const };
     expect(dataStateText(confirmed)).toBe("Degraded: 0 critical data issues, 3 data issues; 3 analysis-process disclosures (not data gaps); EDGAR available; XBRL checked; forensics complete.");
+    // Persisted "blocked" by process entries alone is not stated as a blocked
+    // data state beside zero critical data issues; the analysis is what is blocked.
+    expect(dataStateText({ ...confirmed, state: "blocked" as const })).toBe("Degraded: 0 critical data issues, 3 data issues; 3 analysis-process disclosures (not data gaps), which block the analysis; EDGAR available; XBRL checked; forensics complete.");
+    expect(dataStateText({ ...confirmed, state: "blocked" as const, dataWarningCount: 0, processDisclosureCount: 1 })).toBe("Complete: 0 critical data issues, 0 data issues; 1 analysis-process disclosure (not data gaps), which blocks the analysis; EDGAR available; XBRL checked; forensics complete.");
+    // A critical data gap keeps the persisted blocked state.
+    expect(dataStateText({ ...confirmed, state: "blocked" as const, dataCriticalCount: 1 })).toMatch(/^Blocked: 1 critical data issue, 3 data issues; 3 analysis-process disclosures \(not data gaps\); /);
     expect(gapCountText(gaps, c)).toBe("11 manifest entries: 1 expected disclosure, 1 informational note, 1 recorded warning shown as information, 3 analysis-process disclosures and 3 data gaps (5 entries).");
     const tables = dataGapTables(c);
     expect(tables.map((t) => t.heading)).toEqual(["Data warnings and critical gaps", "Analysis-process disclosures", "Recorded warnings shown as information"]);
