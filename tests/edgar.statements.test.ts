@@ -2689,7 +2689,7 @@ describe("buildStatementsFromCompanyFacts — EPS from continuing operations (au
       NetIncomeLoss: annual(2_200),
       Assets: [{ end: "2025-12-31", val: 55_000, ...K }],
       ...extra,
-    }, {}, Object.fromEntries(Object.keys(extra).filter((tag) => /PerBasicShare|PerDilutedShare/.test(tag)).map((tag) => [tag, "USD/shares"])));
+    }, {}, Object.fromEntries(Object.keys(extra).filter((tag) => /Per(Basic|Diluted|BasicAndDiluted)Share$/.test(tag)).map((tag) => [tag, "USD/shares"])));
 
   it("reads continuing-operations EPS as EPS when no net-income EPS and no discontinued result is filed", () => {
     // Freeport-McMoRan has tagged only IncomeLossFromContinuingOperationsPer*
@@ -2730,5 +2730,39 @@ describe("buildStatementsFromCompanyFacts — EPS from continuing operations (au
     );
     expect(perShare.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
     expect(perShare.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it.each([
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxAttributableToReportingEntity", -40],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax", -40],
+    ["DiscontinuedOperationGainLossOnDisposalOfDiscontinuedOperationNetOfTax", 15],
+    ["IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicAndDilutedShare", -0.03],
+    ["DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTaxPerBasicAndDilutedShare", -0.03],
+  ])("withholds the stand-in beside a discontinued result filed as %s", (tag, val) => {
+    const built = buildStatementsFromCompanyFacts(
+      base({ IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52), [tag]: annual(val) }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    expect(built.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it("treats a discontinued result it could not read as filed, and names no working field", () => {
+    // A discontinued result in another currency is withheld from the row; it
+    // was still filed, so the continuing figure is not the net figure.
+    const built = buildStatementsFromCompanyFacts(
+      facts({
+        Revenues: annual(25_000),
+        NetIncomeLoss: annual(2_200),
+        Assets: [{ end: "2025-12-31", val: 55_000, ...K }],
+        IncomeLossFromContinuingOperationsPerDilutedShare: annual(1.52),
+        DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax: annual(-40),
+      }, {}, { IncomeLossFromContinuingOperationsPerDilutedShare: "USD/shares", DiscontinuedOperationIncomeLossFromDiscontinuedOperationNetOfTax: "EUR" }),
+      { ...OPTS, symbol: "FCX" },
+    );
+    expect(built.incomeAnnual.rows[0]!.epsDiluted).toBeNull();
+    const working = /ContinuingOperations|DiscontinuedOperations|discontinuedOperationsIncome/;
+    expect(built.incomeAnnual.withheld.map((held) => held.field).filter((field) => working.test(field) && field !== "netIncomeFromDiscontinuedOperations")).toEqual([]);
+    expect(built.incomeAnnual.notes.filter((note) => /^(epsContinuingOperations|epsDilutedContinuingOperations|epsDiscontinuedOperations|discontinuedOperationsIncome) /.test(note))).toEqual([]);
   });
 });

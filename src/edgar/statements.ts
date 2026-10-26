@@ -646,6 +646,7 @@ const CONTINUING_EPS_FIELDS = {
   eps: "epsContinuingOperations",
   epsDiluted: "epsDilutedContinuingOperations",
   discontinued: "epsDiscontinuedOperations",
+  discontinuedIncome: "discontinuedOperationsIncome",
 } as const;
 
 const INCOME_CHAINS: Record<string, ChainSpec> = {
@@ -739,6 +740,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   [CONTINUING_EPS_FIELDS.eps]: lineItemChain(CONTINUING_EPS_FIELDS.eps, "perShare"),
   [CONTINUING_EPS_FIELDS.epsDiluted]: lineItemChain(CONTINUING_EPS_FIELDS.epsDiluted, "perShare"),
   [CONTINUING_EPS_FIELDS.discontinued]: lineItemChain(CONTINUING_EPS_FIELDS.discontinued, "perShare"),
+  [CONTINUING_EPS_FIELDS.discontinuedIncome]: lineItemChain(CONTINUING_EPS_FIELDS.discontinuedIncome, "money"),
 };
 
 /**
@@ -3333,14 +3335,18 @@ const CONTINUING_EPS_DISCLOSURE =
  * continuing operations (Freeport-McMoRan has tagged no EarningsPerShare* since
  * FY2022). Net EPS is continuing EPS plus discontinued EPS, so with no
  * discontinued result filed for the period, in dollars or per share, the
- * reported continuing figure is the net figure. With one filed, or when the
- * net figure is tagged, the working fields are dropped unused.
+ * reported continuing figure is the net figure. With one filed, even one
+ * withheld from the row, or when the net figure is tagged, the working fields
+ * are dropped unused, with any note or withholding they raised.
  */
 function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes: NoteSink): void {
+  const discontinuedFields: string[] = ["netIncomeFromDiscontinuedOperations", CONTINUING_EPS_FIELDS.discontinued, CONTINUING_EPS_FIELDS.discontinuedIncome];
   for (const row of rows) {
     const record = row as unknown as Record<string, unknown>;
-    const discontinued = [row.netIncomeFromDiscontinuedOperations, record[CONTINUING_EPS_FIELDS.discontinued]];
-    const noDiscontinued = discontinued.every((v) => v === null || v === undefined || v === 0);
+    const noDiscontinued = discontinuedFields.every((field) => {
+      const v = record[field];
+      return (v === null || v === undefined || v === 0) && !notes.withheld.some((held) => held.field === field && typeof row.date === "string" && held.periods.includes(row.date));
+    });
     for (const target of ["eps", "epsDiluted"] as const) {
       const source = CONTINUING_EPS_FIELDS[target];
       const value = record[source];
@@ -3361,6 +3367,13 @@ function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes
       if (original !== undefined) delete original[field];
     }
     if (original !== undefined && Object.keys(original).length === 0) delete record.original;
+  }
+  const working = new Set<string>(Object.values(CONTINUING_EPS_FIELDS));
+  for (const list of [notes.withheld, notes.substitutions]) {
+    for (let i = list.length - 1; i >= 0; i--) if (working.has(list[i]!.field)) list.splice(i, 1);
+  }
+  for (let i = notes.notes.length - 1; i >= 0; i--) {
+    if (working.has(notes.notes[i]!.split(" ", 1)[0]!)) notes.notes.splice(i, 1);
   }
 }
 
