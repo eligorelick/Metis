@@ -1,6 +1,6 @@
 # Audit batch 5: make the trust signals mean what they say (2026-10-26)
 
-Base: `2f2aa3b` (origin/main), merged with origin/main at `6df9ed9` (readable note figures, D-107) and `c10bb4b` (parent net income, D-108). Scope: batch 5 of the independent audit of 2026-10-22, the findings where the report's trust signals overstated what had been checked: F-22, B-10, F-21, F-23 and F-20, with B-31 and the Batch 1 quote-label carry-over. Decision: D-109 in [DECISIONS](DECISIONS.md); report 1.41.0 and pipeline stage-c-1.6.3. This batch leaves the payload (1.46.0 after the merges) and Stage B (ACCOUNTING_EVIDENCE_25 after the merges) unchanged. The audit evidence folders stay out of the repository.
+Base: `2f2aa3b` (origin/main), merged with origin/main at `6df9ed9` (readable note figures, D-107) `c10bb4b` (parent net income, D-108) and `4bebf17` (per-share basis in a claim's words, D-109). Scope: batch 5 of the independent audit of 2026-10-22, the findings where the report's trust signals overstated what had been checked: F-22, B-10, F-21, F-23 and F-20, with B-31 and the Batch 1 quote-label carry-over. Decision: D-110 in [DECISIONS](DECISIONS.md); report 1.41.0 and pipeline stage-c-1.6.4. This batch leaves the payload (1.46.0 after the merges) and Stage B (ACCOUNTING_EVIDENCE_25 after the merges) unchanged. The audit evidence folders stay out of the repository.
 
 This change made no model calls and no paid provider calls. The only provider traffic was the keyless, data-only control panel below, served from the run cache behind a dead proxy. No fixture file was added; the new tests use the repository's existing report fixtures and synthetic bundles.
 
@@ -41,7 +41,7 @@ META's 8 and SO's 6 "contradicted" were all period or unit gaps (F-22), so they 
 
 ## Control panel
 
-Both sides (base `2f2aa3b`, head this branch before the merges of `6df9ed9` and `c10bb4b`, whose own controls cover their changes) ran the 45-company keyless panel data-only, behind a dead proxy, from copies of the census run cache, with the clock fixed at 2026-10-22T06:00:00Z. Both completed 45 of 45 at zero cost, with no cost-log rows and no FMP key.
+Both sides (base `2f2aa3b`, head this branch before the merges of `6df9ed9`, `c10bb4b` and `4bebf17`, whose own controls cover their changes) ran the 45-company keyless panel data-only, behind a dead proxy, from copies of the census run cache, with the clock fixed at 2026-10-22T06:00:00Z. Both completed 45 of 45 at zero cost, with no cost-log rows and no FMP key.
 
 | Output | Base → head |
 |---|---|

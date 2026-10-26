@@ -25,7 +25,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Mark each logged factual claim `[validated]`, `[unverified]`, `[contradicted]` or `[qualitative]` after its citation, in both page layouts, the Markdown and the print report; the header counts equal the marked claims, grade-strip reasoning that no surface prints is left out of them, as the audit export says, and a removed log entry (an earnings-reference guard row, a legacy claim withheld on read) marks and counts nothing (F-21).
 - Print "computed" in place of ✓ for a data-only report's figures, with a legend under the first table that has a Cited column (a checked report gets none); the page's figure detail and the audit export say "computed (no citation check ran)" (F-23).
 - Label the capital grading basis, the debt-bridge convention, the HEURISTIC capex and buyback notes, the repurchase-price proxy comparison, score-to-band sentences and data-gap notes JUDGMENT, not FACT; computed-figure sentences stay FACT (F-20).
-- Report 1.41.0 and pipeline stage-c-1.6.3 (D-109); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. No figure changes.
+- Report 1.41.0 and pipeline stage-c-1.6.4 (D-110); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. No figure changes.
+
+## Unreleased - a per-share basis named in claim words (2026-10-26)
+
+- Read a claim's figure in the cited record's per-share unit when the record is per share and the claim's metric words say "per share" ("Our DCF per share as of 2026-10-26 is USD 320.63"); the live MSFT report counted that correct claim as contradicted. The value is still checked, so a wrong figure or a total stays contradicted.
+- Report 1.40.3 and pipeline stage-c-1.6.3 (D-109).
 
 ## Unreleased - parent net income without a NetIncomeLoss tag (2026-10-26)
 
