@@ -214,10 +214,10 @@ export function normalizeReportedCurrency(value: unknown): string | null {
   return currency !== null && /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
 
-/** Parse a leading 4-digit SIC code out of "6021" or "6021 NATIONAL COMMERCIAL BANKS". */
 /** Hospital and medical service plans (audit 2026-10-22 E-6). */
 const MANAGED_CARE_SIC = 6324;
 
+/** Parse a leading 4-digit SIC code out of "6021" or "6021 NATIONAL COMMERCIAL BANKS". */
 function parseSic(sic: string | null): number | null {
   if (sic === null) return null;
   const m = /^(\d{4})/.exec(sic.trim());
