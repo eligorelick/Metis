@@ -131,8 +131,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.40.1 (D-106): a dated interval claim citing a filing fact whose period is the whole span is checked against that span.
 // 1.40.2 (D-107): the EV bridge note, the issuer-common equity headline and the grid guard note in reader terms.
 // 1.40.3 (D-109): a per-share basis named in a claim's metric words reads as the per-share unit.
-// 1.41.0 (D-110): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
-export const REPORT_SPEC_VERSION = "1.41.0" as const;
+// 1.42.0 (D-111): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
+export const REPORT_SPEC_VERSION = "1.42.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

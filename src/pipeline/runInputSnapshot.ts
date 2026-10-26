@@ -25,7 +25,7 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-106: current debt securities tagged DebtSecuritiesCurrent read as short-term investments in the keyless statements.
 // D-107: the EV bridge note's amounts printed with grouped digits, and the grid guard note says its cells are withheld.
 // D-108: net income attributable to the parent derived as ProfitLoss less NCI income when NetIncomeLoss is not filed, and read as parent income.
-// D-110: newer 10-Q instance facts merged into companyfacts, an undated release ordered by filing, a newer release's dollars bound to a single-currency history, each multiple's period, the non-bracketing scenario fan withheld, continuing-operations EPS and the economic issuer of a re-presented predecessor's rows.
+// D-111: newer 10-Q instance facts merged into companyfacts, an undated release ordered by filing, a newer release's dollars bound to a single-currency history, each multiple's period, the non-bracketing scenario fan withheld, continuing-operations EPS and the economic issuer of a re-presented predecessor's rows.
 export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_10_ACCOUNTING_EVIDENCE_26" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
