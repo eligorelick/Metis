@@ -1004,8 +1004,10 @@ describe("payload determinism + provenance", () => {
       // versioned header moves with payload 1.44.0, and the score-bands stamp
       // SCORE_BANDS_2026_10_REGULATED_UTILITY (two characters longer) moves the
       // prompt bytes, the registry and the finance block. With the preceding
-      // stamp every other pin here is unchanged; no value moves.
-      fingerprint: "1.44.0:d8f80fe4",
+      // stamp every other pin here is unchanged; no value moves. Audit batch 3
+      // (D-105): only the versioned header moves with payload 1.45.0; no byte
+      // of this fixture's prompt or any record changes.
+      fingerprint: "1.45.0:37e206c3",
       promptBytes: 140_885,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
@@ -1173,7 +1175,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.44.0");
+    expect(first.payloadVersion).toBe("1.45.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2702,7 +2704,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.39.0");
+    expect(report.meta.specVersion).toBe("1.40.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
