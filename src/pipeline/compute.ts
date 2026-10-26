@@ -1699,6 +1699,8 @@ function totalDebtSnapshot(
   /** D-60: the newer balance of the pair on the same lease basis, and what it is. */
   latest?: number | null;
   latestBasis?: string;
+  /** Audit 2026-10-22 C-1: why no average was established, naming the balance date. */
+  unavailable?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
   const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
@@ -1708,24 +1710,35 @@ function totalDebtSnapshot(
         return Number.isFinite(t) && Math.abs(quarterEndMs - t - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS;
       })
     : undefined;
-  let pair: [FmpBalanceSheetRow | undefined, FmpBalanceSheetRow | undefined];
-  let which: string;
-  if (
+  type Pair = [FmpBalanceSheetRow | undefined, FmpBalanceSheetRow | undefined];
+  // Audit 2026-10-22 C-1: a lease-scope refusal blocks a pair; it no longer
+  // vetoes an average it is not part of.
+  const leaseRefusal = (rows: readonly (FmpBalanceSheetRow | undefined)[]): string | null =>
+    rows.map(row => row === undefined ? null : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row)).find(reason => reason !== null) ?? null;
+  const quarterPair: Pair | null =
     interestBasis === "ttm" &&
     quarterEnd !== undefined &&
     yearEarlier !== undefined &&
     num(quarterEnd.totalDebt) !== null &&
     num(yearEarlier.totalDebt) !== null
-  ) {
-    pair = [quarterEnd, yearEarlier];
-    which = `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd.date)} and ${isoDay(yearEarlier.date)})`;
+      ? [quarterEnd, yearEarlier]
+      : null;
+  const annualPair: Pair = [balancesAnnual[0], balancesAnnual[1]];
+  const quarterRefusal = quarterPair === null ? null : leaseRefusal(quarterPair);
+  let pair: Pair;
+  let which: string;
+  if (quarterPair !== null && (quarterRefusal === null || leaseRefusal(annualPair) !== null)) {
+    pair = quarterPair;
+    which = `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`;
   } else {
-    pair = [balancesAnnual[0], balancesAnnual[1]];
+    pair = annualPair;
     which =
       "the latest two fiscal-year-end balances" +
-      (interestBasis === "ttm"
-        ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)"
-        : "");
+      (quarterPair !== null
+        ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterRefusal})`
+        : interestBasis === "ttm"
+          ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)"
+          : "");
   }
   const a = bookDebtOnLeaseBasis(pair[0], includeOperatingLeases);
   const b = bookDebtOnLeaseBasis(pair[1], includeOperatingLeases);
@@ -1736,27 +1749,43 @@ function totalDebtSnapshot(
         ? "book totalDebt with the operating-lease liability kept in (THESIS_EV_INCLUDE_LEASES=1)"
         : "book totalDebt (no operating-lease liability disclosed separately, so lease liabilities remain inside it)";
   const scopeNotes = pair.flatMap(row => { const coverage = incompleteLeaseCoverage(row); return coverage ? [`${isoDay(row?.date)}: ${coverage.note}`] : []; });
-  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? `; retained lease coverage: ${scopeNotes.join(" ")}` : ""}`;
+  const newestBalance = [balancesQuarterly[0], balancesAnnual[0]].filter((row): row is FmpBalanceSheetRow => row !== undefined)
+    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
+  // The newest balance is the debt weight's (D-60). Outside the pair, a lease
+  // refusal on it withholds only that weight, which then uses the average.
+  const newestInPair = newestBalance === undefined || pair.some(row => isoDay(row?.date) === isoDay(newestBalance.date));
+  const newestRefusal = newestInPair ? null : leaseRefusal([newestBalance]);
+  const newestNote = newestRefusal === null ? ""
+    : `; the newest balance (${isoDay(newestBalance!.date)}) is not used for the debt weight, which uses this average: ${newestRefusal}`;
+  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? `; retained lease coverage: ${scopeNotes.join(" ")}` : ""}${newestNote}`;
   const used = [a.value !== null ? pair[0] : undefined, b.value !== null ? pair[1] : undefined].filter(
     (row): row is FmpBalanceSheetRow => row !== undefined,
   );
   const currency = establishedRowsCurrency(used, currencyEvidence);
-  const newestBalance = [balancesQuarterly[0], balancesAnnual[0]].filter((row): row is FmpBalanceSheetRow => row !== undefined)
-    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
   const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
-  if (refused !== undefined) return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency };
-  const scopeRefusal = [...pair, newestBalance].map(row => leaseDebtScopeRefusal(row, includeOperatingLeases)).find(reason => reason !== null);
-  if (scopeRefusal) return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency };
+  if (refused !== undefined) {
+    const unavailable = `${isoDay(refused.date)}: ${refused.fieldConflicts!.totalDebt!.reason}`;
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable };
+  }
+  const scopeRefused = [...pair, ...(newestInPair ? [newestBalance] : [])].find(row => row !== undefined && leaseDebtScopeRefusal(row, includeOperatingLeases) !== null);
+  if (scopeRefused) {
+    const scopeRefusal = leaseDebtScopeRefusal(scopeRefused, includeOperatingLeases)!;
+    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}` };
+  }
   // Invalid supplied balances are not missing observations that the other
   // year may replace. Preserve the raw negative sentinel before lease guards
   // null the adjusted values, and reject contradictory lease compositions.
   const negativeObservation = pair.map(row => num(row?.totalDebt)).find(value => value !== null && value < 0) ?? null;
   if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency };
-  const leaseConflict = pair.map(row => leaseDebtConflict(row ?? {})).find(reason => reason !== null) ?? null;
-  if (leaseConflict !== null) {
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency };
+  const conflicted = pair.find(row => leaseDebtConflict(row ?? {}) !== null);
+  if (conflicted !== undefined) {
+    const leaseConflict = leaseDebtConflict(conflicted)!;
+    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}` };
   }
-  if (a.value === null && b.value === null) return { average: null, negativeObservation: null, basis, currency };
+  if (a.value === null && b.value === null) {
+    return { average: null, negativeObservation: null, basis, currency,
+      unavailable: `no book total debt on ${pair.map(row => isoDay(row?.date) ?? "a missing balance").join(" or ")}` };
+  }
   // D-60: the newest balance sheet (quarterly or annual, whichever is newer),
   // in the same established currency as the averaged pair.
   const newestRow = [balancesQuarterly[0], balancesAnnual[0]]
@@ -1764,7 +1793,7 @@ function totalDebtSnapshot(
     .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
   const newestDebt = newestRow === undefined ? null : bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).value;
   const newestCurrency = newestRow === undefined ? null : establishedRowsCurrency([newestRow], currencyEvidence);
-  const latest = newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
+  const latest = newestRefusal === null && newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
     ? { latest: newestDebt, latestBasis: `${leaseText}, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets${incompleteLeaseCoverage(newestRow)?.note ? `; ${incompleteLeaseCoverage(newestRow)!.note}` : ""}` }
     : {};
   if (a.value !== null && b.value !== null) {
@@ -2942,6 +2971,7 @@ function computeReturns(
         : null,
     totalDebtAvg: debtSnapshot.average,
     totalDebtBasis: debtSnapshot.basis,
+    totalDebtUnavailable: debtSnapshot.unavailable ?? null,
     totalDebtLatest: debtSnapshot.latest ?? null,
     totalDebtLatestBasis: debtSnapshot.latestBasis ?? null,
     currentCoverageBasis: coverageBasis,

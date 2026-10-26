@@ -3636,3 +3636,20 @@ balance, and no zero is inferred from a filing that tags no NCI column, so an
 issuer with no evidenced NCI stays behind the gate. When the gate does
 withhold the DCF, the critical gap now names it ("noncontrolling ownership
 unresolved at <date>") instead of "DCF inputs not provided by caller".
+
+**Average debt behind a refused balance (C-1).** The WACC's cost of debt
+divides a year of interest by an average of two balances, and its debt weight
+uses the newest balance. A lease-scope refusal on the newest balance (AT&T's
+10-Q tags only the noncurrent operating lease, so its lease-exclusive debt is
+not established) withheld the whole WACC, and with it the DCF, although the
+two balances averaged were clean; the critical gap said only "average total
+debt missing". Owner decision: such a refusal now withholds only what it
+touches. When the newest balance is outside the averaged pair, the debt
+weight uses the clean average instead, and the basis says the newest balance
+is not used and why. When the refusal falls on the TTM window's quarter-end
+pair, the average falls back to the latest two fiscal-year-end balances if
+they are clean, and the basis names the pair not used. The refused balance is
+never used, so the EV bridge at that date stays withheld. A refused debt
+carrying total (an incomplete debt note) still withholds the WACC wherever
+it falls. When no average is established, the critical gap names the balance
+date and the cause.
