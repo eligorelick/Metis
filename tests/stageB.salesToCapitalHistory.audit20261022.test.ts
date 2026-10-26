@@ -47,9 +47,11 @@ describe("A-2: sales-to-capital floor yields to the issuer's own history", () =>
 
   it("floors at the established ratio, not 0.5, when the current year sits below it", () => {
     // History 0.4 (capital 2500); the current balance 4000 gives 0.25.
-    const { a } = assumptions(YEARS.slice(1).map((d) => capitalRow(d, 1500)).concat([]), YEARS);
+    const { a, notes } = assumptions(YEARS.slice(1).map((d) => capitalRow(d, 1500)).concat([]), YEARS);
     expect(a.salesToCapital.value).toBeCloseTo(0.4, 12);
     expect(a.salesToCapital.basis).toMatch(/lower floor 0\.4000x.*issuer's own filed history/);
+    // The clamp is noted as the house floor's is, naming the floor it applied.
+    expect(notes.join(" ")).toMatch(/sales-to-capital clamped 0\.25 -> 0\.4 \(the issuer's filed-history floor/);
   });
 
   it("keeps the 0.5 house floor with fewer than three filed years, and says why", () => {

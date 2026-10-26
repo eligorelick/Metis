@@ -181,7 +181,6 @@ const gapEntry = (
   severity: ManifestEntry["severity"],
 ): ManifestEntry => ({ field, reason, severity });
 
-/** Clamp with a note appended when the clamp actually fires. */
 /**
  * Audit 2026-10-22 A-2: the issuer's own sales-to-capital, the median of the
  * newest five fiscal years with revenue and positive invested capital filed
@@ -225,19 +224,21 @@ function establishedSalesToCapital(
   };
 }
 
+/** Clamp with a note appended when the clamp actually fires. */
 function clampWithNote(
   v: number,
   lo: number,
   hi: number,
   label: string,
   notes: string[],
+  range = `house rule range [${lo}, ${hi}]`,
 ): number {
   if (v < lo) {
-    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(lo)} (house rule range [${lo}, ${hi}])`);
+    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(lo)} (${range})`);
     return lo;
   }
   if (v > hi) {
-    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(hi)} (house rule range [${lo}, ${hi}])`);
+    notes.push(`${label} clamped ${fmtNum(v)} -> ${fmtNum(hi)} (${range})`);
     return hi;
   }
   return v;
@@ -2151,7 +2152,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // so it yields to a lower ratio the issuer's own filings establish.
   const s2cHistory = establishedSalesToCapital(inputs.incomeHistory, inputs.capitalHistory ?? null, leaseExcluded);
   const s2cFloor = s2cHistory.ratio !== null && s2cHistory.ratio < S2C_CLAMP[0] ? s2cHistory.ratio : S2C_CLAMP[0];
-  const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes) : Math.min(Math.max(rawS2c, s2cFloor), S2C_CLAMP[1]);
+  const s2c = s2cFloor === S2C_CLAMP[0] ? clampWithNote(rawS2c, S2C_CLAMP[0], S2C_CLAMP[1], "sales-to-capital", notes)
+    : clampWithNote(rawS2c, s2cFloor, S2C_CLAMP[1], "sales-to-capital", notes, `the issuer's filed-history floor ${fmtNum(s2cFloor)} in place of the house floor ${S2C_CLAMP[0]}; house cap ${S2C_CLAMP[1]}`);
   let s2cBasis = operatingIc !== null
     ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
     : `${periodBasis} revenue / invested capital (totalDebt + consolidated equity [${equity.basis}] - cashAndShortTermInvestments, ${bal.basis} balance as of ${bal.date}; ${equity.reason}` +
