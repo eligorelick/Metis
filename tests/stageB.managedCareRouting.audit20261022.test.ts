@@ -9,10 +9,12 @@
 import { describe, expect, it } from "vitest";
 
 import { sectorIndustryForSic } from "@/edgar/sic";
+import { runStageB } from "@/pipeline/compute";
 import { deriveRoutingEvidence } from "@/pipeline/stageB/routingEvidence";
 import { routeCompany, type RoutingProfile } from "@/pipeline/stageB/sectorRouting";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FetchResult } from "@/types/core";
+import { currencyBundle } from "./helpers/currencyBundle";
 
 /** Premiums earned and claim reserves: what a health plan files, and the insurer evidence rule's signals. */
 function planFacts(): FetchResult<CompanyFacts> {
@@ -43,6 +45,22 @@ describe("managed care is not a life insurer (audit 2026-10-22 E-6)", () => {
     expect(result.base).toBe("general");
     expect(result.notes.some(n => /SIC 6324.*managed care.*general map/.test(n))).toBe(true);
     expect(result.gaps.some(g => g.field === "route.evidence.conflict")).toBe(false);
+  });
+
+  it("keeps a health plan's financing debt in its WACC and enterprise value, whatever the vendor's industry label", () => {
+    const run = (sic: string) => {
+      const bundle = currencyBundle({ sic });
+      if (bundle.profile.ok) Object.assign(bundle.profile.value.data.rows[0]!, { sector: "Financial Services", industry: "Insurance - Life" });
+      return runStageB(bundle);
+    };
+    const plan = run("6324");
+    expect(plan.route.base).toBe("general");
+    expect(plan.returns.wacc.costOfDebtPct).not.toBeNull();
+    expect(plan.returns.wacc.weightDebt).toBeGreaterThan(0);
+    expect(plan.valuation.multiples?.enterpriseValue.value).not.toBeNull();
+    const lifeInsurer = run("6311");
+    expect(lifeInsurer.route.base).toBe("insurer");
+    expect(lifeInsurer.returns.wacc.waccPct).toBeNull();
   });
 
   it("keeps a life insurer on the insurer map", () => {
