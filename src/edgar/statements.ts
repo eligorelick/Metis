@@ -611,6 +611,26 @@ const DEPRECIATION_SPEC: ChainSpec = {
   ],
 };
 
+/**
+ * The EV/EBITDA caveat for rows whose D&A was composed from its separate lines
+ * (DEPRECIATION_SPEC's lower bounds), naming each such period; null when every
+ * row's D&A came from a combined tag or carries no SEC provenance (audit
+ * 2026-10-22 B-7).
+ */
+export function lowerBoundDAndACaveat(rows: readonly { date?: unknown; fieldProvenance?: Record<string, StatementFieldProvenance> }[]): string | null {
+  const components = new Set(DEPRECIATION_COMPONENT_TAGS.map((tag) => `us-gaap/${tag}`));
+  const composed = rows.flatMap((row) => {
+    const tags = row.fieldProvenance?.depreciationAndAmortization?.tags ?? [];
+    return typeof row.date === "string" && tags.length > 0 && tags.every((tag) => components.has(tag)) ? [{ date: row.date, tags }] : [];
+  });
+  if (composed.length === 0) return null;
+  const withAmortization = composed.some((row) => row.tags.length > 1);
+  const parts = withAmortization
+    ? composed.every((row) => row.tags.length > 1) ? "Depreciation + AmortizationOfIntangibleAssets" : "Depreciation + AmortizationOfIntangibleAssets, or Depreciation alone"
+    : "Depreciation alone";
+  return `D&A is a lower bound for ${composed.map((row) => row.date).join(", ")} (no combined depreciation-and-amortization tag is filed; it is the filer's ${parts}), so EBITDA omits any other amortization and EV/EBITDA may read high`;
+}
+
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,
   costOfRevenue: lineItemChain("costOfRevenue", "money"),

@@ -3365,6 +3365,8 @@ export interface MultiplesIncomeTtm extends CommonIncomeInputs {
   noncontrollingIncome?: number | null;
   netIncomeOwnershipBasis?: "parent" | "consolidated";
   epsSecurityBasis?: "ordinary" | "quoted";
+  /** Audit 2026-10-22 B-7: the caveat when this slice's D&A was composed from separate lines (a lower bound). */
+  dAndALowerBound?: string | null;
 }
 
 /** TTM cash-flow slice (FMP names; capitalExpenditure is NEGATIVE). */
@@ -3665,6 +3667,12 @@ export interface MultipleStat {
    * ranks the next own-history multiple and the report caveats the P/E.
    */
   gainInflatedEarnings?: { nonOperatingSharePct: number; basis: string };
+  /**
+   * Audit 2026-10-22 B-7: set on EV/EBITDA when the EBITDA's D&A was composed
+   * from separate lines, a lower bound; the report caveats the row. Unlike the
+   * P/E caveat, the own-history rank stays: the history is built the same way.
+   */
+  ebitdaLowerBound?: { basis: string };
 }
 
 /** Share of pre-tax income above which non-operating income makes the P/E unrepresentative. */
@@ -4075,6 +4083,7 @@ export function multiplesFramework(
       : null;
   const ebitda =
     isNum(inc?.operatingIncome) && isNum(dAndA) ? inc.operatingIncome + dAndA : null;
+  const ebitdaLowerBound = ebitda !== null && isNum(inc?.depreciationAndAmortization) && inc.dAndALowerBound ? inc.dAndALowerBound : null;
   if (!financialsRoute && inc && !isNum(dAndA)) {
     gaps.push(gapEntry("valuation.multiples.ebitda", "depreciationAndAmortization missing — EBITDA (computed) unavailable", "info"));
   }
@@ -4511,7 +4520,8 @@ export function multiplesFramework(
       (price !== null && eps !== null && inc?.basis !== "annual" && inc?.epsDilutedBasis === "sum-quarterly-diluted-eps"
         ? ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum."
         : ""),
-    evToEbitda: `EV / (operatingIncome + D&A), ${incomeBasisLabel}-computed — vendor ebitda field not trusted. ${evBridgeBasis} Balance basis: ${balanceBasisLabel}.`,
+    evToEbitda: `EV / (operatingIncome + D&A), ${incomeBasisLabel}-computed — vendor ebitda field not trusted. ${evBridgeBasis} Balance basis: ${balanceBasisLabel}.` +
+      (ebitdaLowerBound === null ? "" : ` ${ebitdaLowerBound}.`),
     evToSales: `EV / revenue (${incomeBasisLabel}). ${evBridgeBasis}`,
     priceToFcf:
       `marketCap / (operatingCashFlow + capitalExpenditure) (${cashFlowBasisLabel}; FMP capex negative) — free cash flow BEFORE ` +
@@ -4551,6 +4561,7 @@ export function multiplesFramework(
       current: cur,
       basis: basisByKey[key],
       ...(key === "priceToFcf" && historicalFcfScope ? { basis: `${basisByKey[key]}. ${historicalFcfScope}`, historyScope: historicalFcfScope } : {}),
+      ...(key === "evToEbitda" && ebitdaLowerBound !== null && cur !== null ? { ebitdaLowerBound: { basis: ebitdaLowerBound } } : {}),
       ownHistory: priceCurrency.comparable && marketCapSecurityKnown
         ? bandFor(history[key], cur, historyBasisByKey[key] ?? "no usable multiple history", historyDetails[key])
         : null,

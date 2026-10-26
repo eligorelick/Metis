@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { buildStatementsFromCompanyFacts, lowerBoundDAndACaveat } from "@/edgar/statements";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import type { CompanyFacts } from "@/edgar/xbrl";
 
@@ -1917,6 +1917,23 @@ describe("buildStatementsFromCompanyFacts — income-statement fallbacks", () =>
     expect(built.incomeAnnual.substitutions).toEqual([
       { field: "depreciationAndAmortization", periods: ["2025-12-31"], text: expect.stringMatching(/Depreciation alone.*lower bound/) },
     ]);
+  });
+
+  it("names the periods whose D&A is a composed lower bound, for the EV/EBITDA caveat (audit 2026-10-22 B-7)", () => {
+    const composed = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(-2_000), Depreciation: annual(10_757), AmortizationOfIntangibleAssets: annual(949) }),
+      { ...OPTS, symbol: "INTC" },
+    );
+    expect(lowerBoundDAndACaveat(composed.incomeAnnual.rows)).toMatch(/^D&A is a lower bound for 2025-12-31 .*Depreciation \+ AmortizationOfIntangibleAssets.*EV\/EBITDA/);
+    const alone = buildStatementsFromCompanyFacts(base({ OperatingIncomeLoss: annual(4_355), Depreciation: annual(5_030) }), { ...OPTS, symbol: "TSLA" });
+    expect(lowerBoundDAndACaveat(alone.incomeAnnual.rows)).toMatch(/Depreciation alone/);
+    const combined = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(1_000), DepreciationDepletionAndAmortization: annual(12_000), Depreciation: annual(10_757) }),
+      { ...OPTS, symbol: "INTC" },
+    );
+    expect(lowerBoundDAndACaveat(combined.incomeAnnual.rows)).toBeNull();
+    // A vendor row carries no SEC provenance and no caveat.
+    expect(lowerBoundDAndACaveat([{ date: "2025-12-31" }])).toBeNull();
   });
 
   it("keeps a combined D&A tag over the components, and composes nothing from amortization alone", () => {

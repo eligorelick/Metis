@@ -140,7 +140,7 @@ import { estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
-import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases } from "@/edgar/statements";
+import { longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
@@ -3500,6 +3500,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         preferredDividendsPaid: preferredDividendsTtm,
         epsDiluted: ttmInc.epsDiluted,
         epsDilutedBasis: ttmInc.epsDilutedBasis,
+        dAndALowerBound: lowerBoundDAndACaveat(incomeQuarterly.filter((row) => String(row.date ?? "") <= ttmInc.date).slice(0, 4)),
       }
     : inc0
       ? {
@@ -3517,6 +3518,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           netIncomeAvailableToCommon: num(inc0.netIncomeAvailableToCommon),
           preferredDividendsPaid: annualPreferredDividends,
           epsDiluted: num(inc0.epsDiluted),
+          dAndALowerBound: lowerBoundDAndACaveat([inc0]),
         }
       : null;
   const multiplesCashFlowTtm: MultiplesCashFlowTtm | null = ttmCf

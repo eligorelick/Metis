@@ -3579,3 +3579,15 @@ and neither derived, the basic count stands in for the diluted count. The
 stand-in is disclosed per period as an info entry: dilution too small to move
 EPS at its reported rounding is not reflected. When basic and diluted EPS
 differ, or either is missing, the diluted count stays withheld.
+
+**The lower-bound D&A on the EV/EBITDA row (B-7, left by batch 3a).** Batch
+3a composed D&A from `Depreciation` and `AmortizationOfIntangibleAssets` when
+no combined tag is filed, and disclosed it as a lower bound in the data gaps
+only. The EV/EBITDA row now says so itself. When any statement period behind
+the multiple's EBITDA (the four trailing quarters, or the annual row on the
+annual fallback) has a composed D&A, the row's basis and its Key data line
+carry the caveat, naming those periods and the composition: EBITDA omits any
+other amortization, so EV/EBITDA may read high. Unlike the P/E caveat for
+gain-inflated earnings, the own-history rank stays, because the history uses
+the same composed D&A. A D&A taken from the cash-flow statement, or from a
+vendor row without SEC provenance, carries no caveat.

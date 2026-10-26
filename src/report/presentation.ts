@@ -848,7 +848,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Forward P/E (model base-case operating EPS)", value: formatMultiple(price / nextEps.value.value), note: `${nextEps.period}; excludes investment gains` });
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
-  if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current) });
+  // Audit 2026-10-22 B-7: an EBITDA on a composed, lower-bound D&A says so.
+  if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current), ...(evEbitda.earningsCaveat ? { note: `caveat: ${evEbitda.earningsCaveat}` } : {}) });
   else {
     // Net debt the pipeline withheld for the current EV is not an absent
     // input: say the multiple was withheld, so the box cannot read as merely
