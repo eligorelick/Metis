@@ -174,6 +174,8 @@ const posOrNull = (v: number | null | undefined): number | null =>
   isNum(v) && v > 0 ? v : null;
 
 const fmtNum = (v: number): string => String(Math.round(v * 100) / 100);
+/** An exact amount for reader text, digits grouped ("42,783,000,000"), at fmtNum's two-decimal precision. */
+const fmtGrouped = (v: number): string => (Math.round(v * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 const gapEntry = (
   field: string,
@@ -2897,7 +2899,7 @@ export interface SensitivityGrid {
 export function sensitivityGrid(assumptions: DcfAssumptions, base: DcfRunOptions): SensitivityGrid {
   const notes: string[] = [
     "Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.",
-    `grid cells with WACC - gTerm < ${GRID_TV_GUARD_PP}pp rendered null (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
+    `grid cells with WACC - gTerm < ${GRID_TV_GUARD_PP}pp are withheld and shown as — (Gordon TV guard; docs/METHODOLOGY.md, Fade and horizon)`,
   ];
   const gaps: ManifestEntry[] = [];
   const waccPcts = SENSITIVITY_WACC_STEPS_PP.map((s) => base.waccPct + s);
@@ -4175,18 +4177,18 @@ export function multiplesFramework(
       : `Enterprise value EXCLUDES the OPERATING-lease liability${EV_LEASE_SETTING_TEXT.excluded}. `) +
     "EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments" +
     (netDebt.nonOperatingEquitySecurities !== undefined
-      ? ` excluding ${fmtNum(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
+      ? ` excluding ${fmtGrouped(netDebt.nonOperatingEquitySecurities)} of marketable equity securities, which are not cash (the D-60 net cash the DCF bridge and the key-data EV use; house rule D-65)`
       : "") +
     (leaseLiability === null
       ? evLeaseScope !== null
         ? `; ${evLeaseScope}, and EV is reported as-is`
         : totalLeaseLiability === null
         ? "; lease liabilities were not disclosed separately, so they could not be separated from totalDebt and EV is reported as-is"
-        : `; a total lease liability of ${fmtNum(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
-      : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtNum(leaseLiability)}` +
+        : `; a total lease liability of ${fmtGrouped(totalLeaseLiability)} is disclosed but its operating slice is not, so no lease adjustment was made and EV is reported as-is`
+      : `, ${includeLeases ? "keeping" : "less"} ${incompleteLeases === null ? "an OPERATING lease liability" : "a disclosed operating-lease portion"} of ${fmtGrouped(leaseLiability)}` +
         (financeLeaseLiability === null || financeLeaseLiability === 0
           ? ""
-          : `; the finance-lease liability of ${fmtNum(financeLeaseLiability)} STAYS in EV on both bases`) +
+          : `; the finance-lease liability of ${fmtGrouped(financeLeaseLiability)} STAYS in EV on both bases`) +
         " (both already inside totalDebt under FMP's definition)") +
     ". EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it" +
     (incompleteLeases !== null
@@ -4201,7 +4203,7 @@ export function multiplesFramework(
     "Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value. " +
     (evIncludingLeases === null || evExcludingLeases === null
       ? ""
-      : ` EV excluding ${incompleteLeases === null ? "the operating-lease liability" : "the disclosed operating-lease portion"} ${fmtNum(evExcludingLeases)}; ${incompleteLeases === null ? "EV as reported" : "EV on retained debt basis"} ${fmtNum(evIncludingLeases)}.`);
+      : ` EV excluding ${incompleteLeases === null ? "the operating-lease liability" : "the disclosed operating-lease portion"} ${fmtGrouped(evExcludingLeases)}; ${incompleteLeases === null ? "EV as reported" : "EV on retained debt basis"} ${fmtGrouped(evIncludingLeases)}.`);
   const enterpriseValue: EnterpriseValueBridge = {
     equityScope,
     noncontrollingInterestBasis: unknownNciAllocation ? "unknown-allocation" : isNum(bal?.minorityInterest) && bal.minorityInterest !== 0 ? "book-value-proxy" : "none-disclosed",

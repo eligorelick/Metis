@@ -129,7 +129,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // D-104: the retirement and environmental bridge lines, the regulated-utility balance-sheet basis, the sales-to-capital floor basis and the cost-of-equity row without a WACC.
 // D-105: the EV/EBITDA lower-bound caveat, the stand-in and equity-statement NCI bases, the named debt and NCI gaps, the cash and charge-off bases, the managed-care route note and the composed-debt leverage basis.
 // 1.40.1 (D-106): a dated interval claim citing a filing fact whose period is the whole span is checked against that span.
-export const REPORT_SPEC_VERSION = "1.40.1" as const;
+// 1.40.2 (D-107): the EV bridge note, the issuer-common equity headline and the grid guard note in reader terms.
+export const REPORT_SPEC_VERSION = "1.40.2" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

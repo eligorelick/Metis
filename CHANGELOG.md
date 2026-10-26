@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.40.1** and
-payload **1.45.0** (fixes from the live five-company check, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.40.2** and
+payload **1.46.0** (readable figures in the reader notes, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - readable figures in the reader notes (2026-10-26)
+
+- Print the EV bridge note's amounts and the issuer-common equity headline's share count and capitalization with grouped digits ("42,783,000,000", "119,996,000"), at unchanged precision; they printed raw source units.
+- Say that sensitivity-grid cells failing the Gordon guard are "withheld and shown as —", not "rendered null".
+- Report 1.40.2, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 (D-107); no value moves.
 
 ## Unreleased - fixes from the live five-company check (2026-10-26)
 
