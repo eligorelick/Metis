@@ -3727,6 +3727,20 @@ capital although the filing establishes the figure.
   so NVIDIA's 42,783 million of marketable equity stays in invested capital
   on the keyless path, where the vendor's combined total lets D-60 carry it
   as non-operating.
+- *Net income attributable to the parent (D-108).* The keyless net income
+  reads `NetIncomeLoss`, the parent's figure. A filer that omits it but tags
+  consolidated `ProfitLoss` and `NetIncomeLossAttributableToNoncontrollingInterest`
+  for the period gets the parent figure by the taxonomy's own calculation,
+  ProfitLoss less the noncontrolling interests' share, and the derivation is
+  disclosed for each period it serves. Only without an NCI tag does the chain
+  fall to consolidated profit, then to the amount available to common, as
+  before. Freeport-McMoRan files no `NetIncomeLoss` in its 10-K/10-Q facts, so
+  its net income, net margin and DuPont ROE carried the NCI share (FY2025
+  4,152 million against 2,204 million to the parent; ROE 22.8% against about
+  12%; audit 2026-10-22 B-18). Stage B reads the derived figure as parent
+  income, so the NCI share is not deducted a second time, and a TTM window
+  mixing derived and `NetIncomeLoss` quarters is one ownership basis. The
+  cash-flow statement still starts from consolidated profit.
 
 **Net charge-offs from cash-flow recoveries (C-13).** The bank route's net
 charge-off rate needs a year's write-offs net of recoveries, from a net tag or
@@ -3774,7 +3788,7 @@ liabilities, where current notes would count twice.
 
 The independent audit of 2026-10-22 found reports that ended a quarter or two
 before what the issuer had already filed, or that read its newest results
-release wrongly. Decision: D-107.
+release wrongly. Decision: D-109.
 
 **A release that states no period (B-26).** A results release whose period
 could not be parsed ranked below every older release with a parsed period, so

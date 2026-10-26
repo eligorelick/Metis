@@ -263,10 +263,10 @@ describe("issuer economic-share scope", () => {
     const report = loadTask28Fixture();
     report.valuation = applyMultiples(report.valuation, { kind: "dcf-suppressed", route: "general", multiples, notes: [], gaps: [] });
     const stored = ReportSchema.parse(report);
-    expect(stored.valuation.multiplesBasis).toContain("119996000 economic shares");
+    expect(stored.valuation.multiplesBasis).toContain("119,996,000 economic shares");
     const surfaces = [renderToStaticMarkup(createElement(ReportView, { report: stored })), reportToMarkdown(stored), reportToPrintHtml(stored, { autoPrint: false }), reportToAuditMarkdown(stored)];
     for (const surface of surfaces) {
-      for (const text of ["119996000 economic shares", "2026-06-30", "34672844200 USD", "same-price approximation", "not a traded quote", "book-value proxy", "not comprehensively resolved"]) expect(surface).toContain(text);
+      for (const text of ["119,996,000 economic shares", "2026-06-30", "34,672,844,200 USD", "same-price approximation", "not a traded quote", "book-value proxy", "not comprehensively resolved"]) expect(surface).toContain(text);
     }
     expect(JSON.stringify(judgeOutputToJsonSchema())).not.toContain('"multiplesBasis"');
   });

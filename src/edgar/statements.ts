@@ -516,6 +516,34 @@ function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): Cha
 const REVENUE_SPEC: ChainSpec = { kind: "first", tags: [...REVENUE_TAGS], unit: "money" };
 
 /**
+ * Net income attributable to the parent. `NetIncomeLoss` is that figure. A
+ * filer that omits it but tags consolidated `ProfitLoss` and the
+ * noncontrolling interests' share gets the parent figure by the taxonomy's own
+ * calculation (ProfitLoss = NetIncomeLoss + NCI income), BEFORE the chain falls
+ * to consolidated profit: FCX files no NetIncomeLoss in its 10-K/10-Q facts,
+ * so its net income, net margin and DuPont ROE carried the NCI share (FY2025
+ * 4,152M against 2,204M to the parent; ROE 22.8% against about 12%; audit
+ * 2026-10-22 B-18). Without an NCI tag for the period the chain goes on to the
+ * consolidated figure as before, and its ownership basis is read from the tag.
+ */
+const NET_INCOME_SPEC: ChainSpec = {
+  kind: "chain",
+  unit: "money",
+  steps: [
+    { kind: "first", tags: tagsFor("netIncome").slice(0, 1), unit: "money" },
+    {
+      kind: "diff",
+      plus: "ProfitLoss",
+      minus: tagsFor("netIncomeAttributableToNoncontrollingInterest")[0] as string,
+      unit: "money",
+      disclose:
+        "no NetIncomeLoss element is filed for the period; net income attributable to the parent is derived as consolidated profit (ProfitLoss) less net income attributable to noncontrolling interests",
+    },
+    { kind: "first", tags: tagsFor("netIncome").slice(1), unit: "money" },
+  ],
+};
+
+/**
  * `InterestExpenseOperating` is LAST among the income-statement tags: for a
  * bank it is the whole interest expense (JPM FY2025 97.9B, and it files none
  * of the four tags before it, so the chain resolved nothing and the keyless
@@ -732,7 +760,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
   incomeTaxExpense: lineItemChain("incomeTaxExpense", "money"),
   equityMethodIncomeLoss: lineItemChain("equityMethodIncomeLoss", "money"),
   totalOtherIncomeExpensesNet: lineItemChain("totalOtherIncomeExpensesNet", "money"),
-  netIncome: lineItemChain("netIncome", "money"),
+  netIncome: NET_INCOME_SPEC,
   netIncomeConsolidated: lineItemChain("netIncomeConsolidated", "money"),
   netIncomeAttributableToNoncontrollingInterest: lineItemChain("netIncomeAttributableToNoncontrollingInterest", "money"),
   netIncomeAvailableToCommon: lineItemChain("netIncomeAvailableToCommon", "money"),

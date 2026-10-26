@@ -68,7 +68,7 @@ it.each([true, false])("retrieves and retains source-bound class capital through
     expect(scope).toMatchObject({ economicShares: 120_000_000, shareCountAsOf: "2026-07-24", marketCap: 12_000_000_000, approximate: true, priceAsOf: "2026-10-14" });
     expect(bundle.economicShareEvidence?.[0].sourceHash).toMatch(/^[a-f0-9]{64}$/);
     expect(reportToAuditMarkdown(stored)).toContain("same-price approximation");
-    expect(reportToAuditMarkdown(stored)).toContain("120000000 economic shares");
+    expect(reportToAuditMarkdown(stored)).toContain("120,000,000 economic shares");
   } else {
     expect(scope?.marketCap).toBeNull();
     expect(reportToAuditMarkdown(stored)).toContain("scope unresolved");

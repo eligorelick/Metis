@@ -2559,8 +2559,8 @@ describe("multiplesFramework — EV bridge and THESIS_EV_INCLUDE_LEASES", () => 
     expect(r.enterpriseValue.financeLeaseLiability).toBe(80);
     expect(r.enterpriseValue.basis).toContain("EXCLUDES the OPERATING-lease liability");
     expect(r.enterpriseValue.basis).toContain("the finance-lease liability of 80 STAYS in EV on both bases");
-    expect(r.enterpriseValue.basis).toContain("EV excluding the operating-lease liability 11430");
-    expect(r.enterpriseValue.basis).toContain("EV as reported 11650");
+    expect(r.enterpriseValue.basis).toContain("EV excluding the operating-lease liability 11,430");
+    expect(r.enterpriseValue.basis).toContain("EV as reported 11,650");
     // Both earnings frames are stated, and it is the SAME EV the multiple divides.
     expect(r.enterpriseValue.basis).toContain("EBIT and EBITDA are already AFTER it");
     expect(r.enterpriseValue.basis).toContain("Finance-lease right-of-use amortisation is included in EBIT");

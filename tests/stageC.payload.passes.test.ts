@@ -536,7 +536,7 @@ describe("payload determinism + provenance", () => {
     const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
     const currentBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction)";
     const precedingBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; net income less disclosed preferred distributions (parent income; no second NCI deduction))";
-    // Audit 2026-10-22 B-20 (D-107) names only the formula that ran, and
+    // Audit 2026-10-22 B-20 (D-109) names only the formula that ran, and
     // B-9 records each multiple's period; restore the D-85 wording and drop
     // the period leaf for the preceding pin.
     const ranBasis = "price / epsDiluted (TTM)";
@@ -636,6 +636,11 @@ describe("payload determinism + provenance", () => {
       // Audit batch 2b (D-104): the band tables gain the regulated-utility
       // ranges, which this general-route fixture does not use; only the stamp moves.
       ["SCORE_BANDS_2026_10_REGULATED_UTILITY", "SCORE_BANDS_2026_10_FRESHNESS_AUDIT", 1],
+      // D-107: the EV bridge note prints its amounts with grouped digits (this
+      // fixture's only one is its EV, in four notes), and the grid guard note
+      // says the cells are withheld rather than "rendered null". No value moves.
+      ["3,196,000,000,000", "3196000000000", 8],
+      ["are withheld and shown as —", "rendered null", 1],
     ];
     const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
       typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
@@ -670,7 +675,7 @@ describe("payload determinism + provenance", () => {
     const f19Restorations: [string, string, number][] = [
       [" (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)", "", 1],
       [", neutral 45–55)", ")", 1],
-      // Audit 2026-10-22 B-20 (D-107): the P/E note names only the formula that ran.
+      // Audit 2026-10-22 B-20 (D-109): the P/E note names only the formula that ran.
       ["peTtm: price / epsDiluted (TTM). EPS convention", "peTtm: price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction). EPS convention", 1],
     ];
     const payloadText = JSON.stringify(payload);
@@ -1015,14 +1020,17 @@ describe("payload determinism + provenance", () => {
       // prompt bytes, the registry and the finance block. With the preceding
       // stamp every other pin here is unchanged; no value moves. Audit batch 3
       // (D-105): only the versioned header moves with payload 1.45.0; no byte
-      // of this fixture's prompt or any record changes. Audit batch 4 (D-107,
-      // -120 prompt bytes): the P/E note names only the formula that ran
-      // (B-20); restoring it above reproduces every preceding pin, and the
-      // versioned header moves with payload 1.46.0. This fixture's multiples
+      // of this fixture's prompt or any record changes. D-107: payload 1.46.0
+      // prints the EV bridge note's amounts with grouped digits; this
+      // fixture's EV appears four times in the prompt's notes, so the prompt
+      // grows by sixteen commas and no record or registry moves. Audit batch 4
+      // (D-109, -120 prompt bytes): the P/E note names only the formula that
+      // ran (B-20); restoring it above reproduces every preceding pin, and the
+      // versioned header moves with payload 1.47.0. This fixture's multiples
       // are TTM, so their records keep their labels, ids and null period (B-9
       // names only a fiscal-year multiple's year, in its label).
-      fingerprint: "1.46.0:f9b27757",
-      promptBytes: 140_765,
+      fingerprint: "1.47.0:6cbff5ec",
+      promptBytes: 140_781,
       provenanceCount: 531,
       // Codex review of PR #49 (D-102): the fair-value and scenario-target
       // method stamps the registry records as computation basis move
@@ -1065,9 +1073,10 @@ describe("payload determinism + provenance", () => {
       // this fixture's runs are inside it, so no target or byte moves. The
       // same review moves the two method stamps (D-102), restored above.
       // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      // Audit batch 4 (D-107): the P/E basis and the Stage B multiples' period
+      // D-107: the grouped EV digits and the grid guard wording, restored above.
+      // Audit batch 4 (D-109): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
-      financeHash: "1b80b65d",
+      financeHash: "4022589a",
     });
   });
 
@@ -1191,7 +1200,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.46.0");
+    expect(first.payloadVersion).toBe("1.47.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");

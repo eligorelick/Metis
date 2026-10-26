@@ -1,6 +1,6 @@
 # Audit batch 4: freshness and the earnings window (2026-10-22)
 
-Base: `2f2aa3b` (main, after PR #55). Scope: batch 4 of the independent audit of 2026-10-22, findings B-26, B-24, B-27, B-23, B-9 with B-20, B-36, C-16 and FCX-4: reports that ended a quarter or two before what the issuer had already filed, that read its newest results release wrongly, or that labelled a multiple for a period it did not cover. Decision: D-107 in [DECISIONS](DECISIONS.md) (PR #55 took D-106); report 1.41.0, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24, the stamps after D-106's. Pipeline stage-c-1.6.2 is unchanged: the orchestration did not change. The audit evidence folders stay out of the repository.
+Base: `2f2aa3b` (main, after PR #55). Scope: batch 4 of the independent audit of 2026-10-22, findings B-26, B-24, B-27, B-23, B-9 with B-20, B-36, C-16 and FCX-4: reports that ended a quarter or two before what the issuer had already filed, that read its newest results release wrongly, or that labelled a multiple for a period it did not cover. Decision: D-109 in [DECISIONS](DECISIONS.md) (PR #55 took D-106); report 1.41.0, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24, the stamps after D-106's. Pipeline stage-c-1.6.2 is unchanged: the orchestration did not change. The audit evidence folders stay out of the repository.
 
 This change made no model calls and no paid provider calls. The only provider traffic was the keyless, data-only control panel below, served from the run cache behind a dead proxy. No fixture file was added; the new tests build their inputs inline from the wording and figures of public SEC filings.
 
@@ -60,7 +60,7 @@ A second review, `/code-review` and a fresh subagent again, ran over the fixes a
 | S6 | A working figure backed out of year-to-date marked the row derived and named itself in the derivation note (both reviews). | Fixed in `3314075`. |
 | S7 | The merged-filings record is optional on the keyless inputs, so a caller that drops it would judge a successor's history on merged facts (code review). | Not changed: it is absent exactly when nothing was merged, the one builder sets it whenever a filing is merged, and a test pins the merged case. |
 | S8 | The presentation layer reads a fiscal-year multiple's label from its provenance id by pattern (code review). | Not changed: design. Tests pin the ids and labels; a structured period field would replace the pattern (left for later, with R11). |
-| S9 | Docs still named the payload label "peTtm (current, FY2025)" (code review). | Fixed in this note, METHODOLOGY, D-107 and the changelog. |
+| S9 | Docs still named the payload label "peTtm (current, FY2025)" (code review). | Fixed in this note, METHODOLOGY, D-109 and the changelog. |
 
 ## Control panel
 

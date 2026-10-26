@@ -448,8 +448,11 @@ function commonFlowScope(row: FmpStatementRow, field: string, basis: "annual" | 
 
 function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "quarter", admissionAsOf?: string): CommonIncomeInputs {
   const tags = row.fieldProvenance?.netIncome?.tags ?? [];
+  const consolidatedTag = tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`));
+  // Consolidated profit less the NCI share is the parent's figure (audit B-18).
+  const nciDeducted = consolidatedTag && tagsFor("netIncomeAttributableToNoncontrollingInterest").some(tag => tags.includes(`us-gaap/${tag}`));
   const ownership = row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
-    tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`)) ? "consolidated" :
+    nciDeducted ? "parent" : consolidatedTag ? "consolidated" :
       tags.includes("us-gaap/NetIncomeLoss") ? "parent" : undefined;
   return { netIncome: num(row.netIncome), netIncomeAvailableToCommon: num(row.netIncomeAvailableToCommon),
     admissionAsOf, targetScope: { issuerId: economicIssuerId(row), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },

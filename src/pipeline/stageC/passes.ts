@@ -3333,6 +3333,11 @@ export const MULTIPLE_LABELS: Record<MultipleKey, string> = {
   priceToAffo: "P/AFFO",
 };
 
+/** An exact count or amount for reader text, digits grouped ("119,996,000"); nothing is rounded away. */
+function groupedFigure(v: number | null): string {
+  return v === null || !Number.isFinite(v) ? "n/a" : v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
 /**
  * Audit 2026-10-22 B-9: a P/E or EV/EBITDA whose earnings are the latest
  * fiscal year (TTM suppressed) is named for that year, "P/E (FY2025)", never
@@ -3403,7 +3408,7 @@ export function applyMultiples(
   void _modelMarketValueScope;
   const scope = mr?.enterpriseValue?.equityScope;
   const headline = scope?.status === "resolved"
-    ? `Issuer-common equity: ${scope.economicShares} economic shares outstanding at ${scope.shareCountAsOf}; capitalization ${scope.marketCap} ${scope.currency ?? "(currency unavailable)"}. ` : "";
+    ? `Issuer-common equity: ${groupedFigure(scope.economicShares)} economic shares outstanding at ${scope.shareCountAsOf}; capitalization ${groupedFigure(scope.marketCap)} ${scope.currency ?? "(currency unavailable)"}. ` : "";
   const ownershipScopes = [...new Set(mr?.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string")) ?? [])];
   const multiplesBasis = [mr?.enterpriseValue?.basis && readerBridge !== null ? headline + readerBridge +
     (scope && !mr.enterpriseValue.basis.includes(scope.basis) ? ` ${scope.basis}` : "") : "", ...ownershipScopes].filter(Boolean).join(" ") || undefined;

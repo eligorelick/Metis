@@ -2206,7 +2206,34 @@ A live NVDA report run on merged main (GPT-6.1-Sol, high effort, 2026-10-26) and
 
 Stage B ACCOUNTING_EVIDENCE_23, report 1.40.1 and pipeline stage-c-1.6.2 mark these conventions; payload 1.45.0 is unchanged. Stored reports and snapshots keep their bytes.
 
-## D-107 - Audit batch 4: freshness and the earnings window: undated releases, a newer release's currency, 10-Qs companyfacts lags, multiple labels by period, continuing-operations EPS and a TTM across a reorganisation (2026-10-26)
+## D-107 - Readable figures in the reader notes (2026-10-26)
+
+The live NVDA check (D-106) also found reader text that printed raw source units: the EV bridge note read "excluding 42783000000 of marketable equity securities ... EV excluding the operating-lease liability 5156250780000; EV as reported 5161744780000", the multiples note's issuer-common headline printed "119996000 economic shares ... capitalization 34672844200 USD", and the sensitivity grid's guard note said its cells were "rendered null".
+
+- **Grouped digits, not rounding.** Those amounts and counts now print with grouped digits ("42,783,000,000", "119,996,000"), at the same two-decimal precision as before. A compact form ("42.78B", "120M") was tried and rejected: it rounded 119,996,000 economic shares to 120M, and the exact figures are what the share-class and bridge tests pin. Every value is unchanged; only its digits are grouped.
+- **The grid guard note** says the cells are "withheld and shown as —", which is what the grid shows.
+- **The EV bridge note reaches the model's payload** (the valuation notes and each EV multiple's basis), so payload 1.46.0 marks it; in the pinned Stage C fixture the prompt grows by the sixteen grouping commas of one EV printed four times, and no provenance record, citation or value moves. Stage B ACCOUNTING_EVIDENCE_24 and report 1.40.2 mark the wording.
+- **Not changed: keyless marketable equity (D-106).** Treating `EquitySecuritiesFvNi` as non-operating on the keyless path was considered and left out: companyfacts does not say whether an undivided stake is current or already inside a long-term investments line, so a rule could count it twice. The difference to the vendor path stays disclosed in METHODOLOGY.
+
+Stored reports and snapshots keep their bytes.
+
+## D-108 - Net income attributable to the parent when NetIncomeLoss is not filed (2026-10-26)
+
+Audit 2026-10-22 B-18 (Medium). The keyless netIncome chain is `NetIncomeLoss`, then consolidated `ProfitLoss`, then the amount available to common. Freeport-McMoRan files no `NetIncomeLoss` in its 10-K/10-Q facts, so every annual row from 2016 and most quarters resolved to `ProfitLoss`, which includes the noncontrolling interests' share. Net income, net margin and the DuPont ROE carried it: FY2025 4,152 million against 2,204 million to the parent, and ROE 22.8% against about 12%, set against a parent-only equity denominator and beside the report's own 12.4% return on tangible common equity. The TTM mixed one `NetIncomeLoss` quarter with three `ProfitLoss` quarters, so P/E was withheld as an inconsistent ownership basis.
+
+- **The parent figure is derived by the taxonomy's calculation.** After `NetIncomeLoss`, the chain takes `ProfitLoss` less `NetIncomeLossAttributableToNoncontrollingInterest` for the same period, each resolved (and, for a quarter, derived) on its own tag. The step is disclosed as a substitution for every period it serves. Without an NCI tag for the period the chain falls to consolidated profit as before, whose basis stays "consolidated" and whose NCI deduction Stage B already makes.
+- **Stage B reads it as parent income.** The ownership basis was inferred from the netIncome tags, and `ProfitLoss` among them meant "consolidated", which would have deducted the NCI share a second time. A figure whose tags carry both `ProfitLoss` and the NCI tag is now "parent".
+- **Unchanged:** the consolidated-profit field, the cash-flow statement's net income (it starts from consolidated profit), the vendor path, and REIT FFO's own net-income read.
+- Stage B ACCOUNTING_EVIDENCE_25 marks the change; the report spec and payload do not move.
+- **Control panel** (45 audited companies, keyless and offline against the audit's cached data behind a dead proxy, clock pinned to 2026-10-22T06:00Z; base `7f5221d`, head this change; both sides 45 of 45 done). Every moved figure is intended:
+  - FCX: TTM net income 4,183 million → 2,945 million (the oracle's parent figure); FY2025 DuPont ROE 22.76% → 12.08% and net margin 16.02% → 8.50% (the audit's parent figures); P/E (TTM) is now produced, 33.6× on parent income, where it was withheld as a mixed ownership basis, so that warning is gone; composite 54.47 → 53.63.
+  - AMT: composite 52.77 → 52.84 (parent income on the quarters that lacked NetIncomeLoss).
+  - MA: the P/E basis now reads "parent income"; its NCI income is a few million, and the withheld P/E is unchanged.
+  - No other company, column or gap family moves; no new withhold or gap.
+
+Stored reports and snapshots keep their bytes.
+
+## D-109 - Audit batch 4: freshness and the earnings window: undated releases, a newer release's currency, 10-Qs companyfacts lags, multiple labels by period, continuing-operations EPS and a TTM across a reorganisation (2026-10-26)
 
 The independent audit of 2026-10-22 found reports that ended a quarter or two before what the issuer had already filed, or that read its newest results release wrongly. Batch 3a fixed B-24 (the newer-results notice) and C-16 (the 10-Q supersession pass); this batch fixes the rest: B-26, B-27, B-23, B-9 with B-20, B-36 in part and FCX-4. Every rule is class-wide; none names a ticker. Each withholds with a specific reason where its evidence is incomplete.
 
@@ -2218,4 +2245,4 @@ The independent audit of 2026-10-22 found reports that ended a quarter or two be
 - **Owner decision: continuing-operations EPS (FCX-4).** When no net-income EPS is tagged for a period and no discontinued result is filed for it, in dollars or per share, the filer's EPS from continuing operations stands in (net EPS is continuing plus discontinued EPS, ASC 260-10-45-3), with its own provenance and a substitution disclosure. A discontinued result filed under any of the elements filers use, each read on its own, even one withheld from the row, keeps EPS empty. A fourth-quarter diluted EPS is still never derived from it.
 - **Owner decision: a TTM across a reorganisation (B-36).** When a successor's own filing re-presents at least one predecessor net income, and every re-presented net-income and per-share comparative agrees with the predecessor's (within 0.5 and 0.005), the two are one reporting entity on one share basis: the predecessor rows name the successor as their economic issuer and the TTM may span the reorganisation, with the matched periods named in the predecessor disclosure. Without that evidence the TTM is still refused. A successor's no-annual-report gaps name a resolved predecessor. Reading the predecessor's 10-K for Item 1A, MD&A and notes is left for later: it needs live SEC requests and an identity design for the 10-K parsers, which bind their evidence to the registrant's own CIK.
 
-Report 1.41.0, payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_24 mark these conventions; pipeline stage-c-1.6.2 is unchanged. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch4-freshness.md).
+Report 1.41.0, payload 1.47.0 and Stage B ACCOUNTING_EVIDENCE_26 mark these conventions; pipeline stage-c-1.6.2 is unchanged. Stored reports and snapshots keep their bytes. See the [disposition record](2026-10-22-audit-batch4-freshness.md).
