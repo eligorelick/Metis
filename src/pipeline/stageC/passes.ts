@@ -3380,6 +3380,7 @@ export function applyMultiples(
             ...(history?.observationDetails ? { ownHistoryDetails: history.observationDetails } : {}),
             ...(typeof history?.basis === "string" ? { ownHistoryBasis: history.basis } : {}),
             ...(stat.gainInflatedEarnings ? { ownHistoryBasis: `not ranked: ${stat.gainInflatedEarnings.basis}`, earningsCaveat: stat.gainInflatedEarnings.basis } : {}),
+            ...(stat.ebitdaLowerBound ? { earningsCaveat: stat.ebitdaLowerBound.basis } : {}),
             sectorAppropriate: mr.sectorAppropriate.includes(stat.key),
           };
         });

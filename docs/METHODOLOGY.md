@@ -652,10 +652,10 @@ reports one, otherwise a derivation from pre-tax income that adds back interest
 expense and removes the non-operating results the filing discloses. It is never
 pre-tax income plus interest on its own. That sum reintroduces every
 non-operating item the derivation removed, and where the derivation is refused
-outright — a bank, where interest is an operating cost, or a non-operating
-aggregate that already contains the interest being added back — EBIT is
-withheld and named in the missing-data manifest rather than published under a
-second name.
+outright — a bank, where interest is an operating cost — EBIT is withheld and
+named in the missing-data manifest rather than published under a second name.
+Interest the taxonomy nests inside the non-operating aggregate the filer
+tagged is not added back (audit 2026-10-22 B-39, below).
 
 Terminal growth is **min(2.5%, risk-free rate)** — nothing grows faster than
 the risk-free rate in perpetuity (Damodaran). Like the terminal-ROIC rule below
@@ -1283,6 +1283,11 @@ code, and tag evidence read from EDGAR companyfacts.
    Explicit fee-based insurance-broker industry or SIC classifications retain
    their general route; conflicting evidence is disclosed. No ticker overrides
    are used.
+4. **Managed care** (SIC 6324, hospital and medical service plans; audit
+   2026-10-22 E-6) goes to the general map whatever its industry string or
+   tags say, with a note. Its earnings and free cash flow measure it, and its
+   debt finances the business rather than float. The keyless SIC label is
+   `Healthcare` / `Medical - Healthcare Plans`, FMP's own classification.
 
 #### What the tags decide
 
@@ -2789,7 +2794,7 @@ The row discloses the substitution. These class figures can include current debt
 - both a generic notes total and a convertible-notes total are tagged;
 - two class figures lie within 2% of each other. Secured debt classifies by collateral, so it can hold the same notes or loans another class holds. Across SEC filers' FY2025 facts, every multi-class pair this close was one obligation tagged twice (Sun Communities' `LoansPayable` 2,429.0m beside `SecuredDebt` 2,472.2m, for example). REIT mortgages beside unsecured notes sit far apart and still compose. A secured class that holds only part of another class cannot be seen from the tags; the debt plausibility check below catches understatement, not that overlap.
 
-A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone (Piotroski ΔLEVER, Beneish LVGI) therefore treat it as missing, with a `forensics.longTermDebt` info gap: ΔLEVER is not evaluated and LVGI takes Beneish's neutral 1.0.
+A withheld noncurrent figure withholds total and net debt. A composed figure that holds current debt (an inclusive class total or a class's current variant) is right as part of total debt but is not noncurrent debt. The forensic tests that read long-term debt alone therefore do not take it as noncurrent debt, with a `forensics.longTermDebt` info gap: LVGI, which adds it to current liabilities, takes Beneish's neutral 1.0. ΔLEVER compares the composed figure year on year when both years compose it from the same tags, and is not evaluated, with both tag sets named, when they differ (audit 2026-10-22 E-8).
 
 **Debt plausibility.** Tag lists cannot cover extension tags, so Stage B also tests resolved debt against the interest it carried. Resolved debt here is current debt, noncurrent debt and finance leases, or the published total for rows without components. Finance leases are not added again when long-term debt was tagged with them (`LongTermDebtAndCapitalLeaseObligations` or `LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities`). The year's interest expense is divided by the average debt resolved at the balance dates of that year, opening to closing; an annual row also counts the quarterly balances inside its year, so a borrowing repaid between year-ends still explains part of its interest. Above 25%, the components cannot be the debt that carried the interest. A collapse is tested as well: debt that fell by more than 60% from the previous balance date, to a closing balance on which the interest implies more than 25%, needs net debt repayment in the period's cash flow of at least half the fall. In either case total, net and long-term debt are withheld with a manifest gap, and every leverage, EV, WACC and forensic leverage consumer sees the gap. That includes the report's derived historical EV for that date. Quarters are judged on the smaller of their trailing four quarters and the latest fiscal year, so one unusual quarter cannot trigger the check. A reported interest expense of zero is read as undisclosed (the zero-vs-undisclosed policy), so it never stands in as the smaller basis. Interest rows join balance rows within ±5 days of fiscal-date drift, as statement joins elsewhere do. The check does not run in three cases:
 - interest below 0.25% of total assets;
@@ -3559,3 +3564,193 @@ example "[kept first: passages updating the 10-K's figures for gigawatts,
 megawatts]". The 10-Q passage is selected, not compared: Métis does not judge
 whether the newer figure supersedes the older one, and the passes see both
 with their filings and dates.
+
+### Audit batch 3: stop withholding where the filed evidence is complete (October 26, 2026)
+
+The independent audit of 2026-10-22 found figures withheld although the filed
+evidence was complete. Batch 3a fixed the high-severity ones; this batch fixes
+the medium ones on the same code paths. Decision: D-105.
+
+**Diluted weighted shares (B-35).** On the SEC path the diluted weighted share
+count came only from `WeightedAverageNumberOfDilutedSharesOutstanding`. Exxon
+Mobil has tagged none since FY2013, so it had no diluted count and no
+per-share fair value, although its basic and diluted EPS are the same figure
+in every period. Two changes: the combined elements
+`WeightedAverageNumberOfShareOutstandingBasicAndDiluted` and
+`EarningsPerShareBasicAndDiluted` are read as both the basic and the diluted
+figure; and when a period has no diluted count but the filer reports basic and
+diluted EPS that are equal, for the same interval as its basic weighted count
+and neither derived, the basic count stands in for the diluted count. The
+stand-in is disclosed per period as an info entry: dilution too small to move
+EPS at its reported rounding is not reflected. In a loss from continuing
+operations (ASC 260's control number: the filed continuing-operations result,
+or net EPS when no discontinued result is filed) the entry says instead that
+potential shares are antidilutive and excluded, so the basic count is the
+diluted count by definition. When basic and diluted EPS
+differ, or either is missing, the diluted count stays withheld.
+
+**The lower-bound D&A on the EV/EBITDA row (B-7, left by batch 3a).** Batch
+3a composed D&A from `Depreciation` and `AmortizationOfIntangibleAssets` when
+no combined tag is filed, and disclosed it as a lower bound in the data gaps
+only. The EV/EBITDA row now says so itself. When any statement period behind
+the multiple's EBITDA (the four trailing quarters, or the annual row on the
+annual fallback) has a composed D&A, the row's basis and its Key data line
+carry the caveat, naming those periods and the composition: EBITDA omits any
+other amortization, so EV/EBITDA may read high. Unlike the P/E caveat for
+gain-inflated earnings, the own-history rank stays, because the history uses
+the same composed D&A. A D&A taken from the cash-flow statement, or from a
+vendor row without SEC provenance, carries no caveat.
+
+**Per-share value for issuers with more than one common class (B-37, left by
+batch 3a).** A per-share intrinsic value needs a diluted share count on the
+same basis as the all-class equity value. The valuation accepted only a count
+marked as issuer-economic, but nothing ever marked one, so every issuer with
+more than one common class (Expedia, Meta) had its per-share value withheld.
+The filed diluted count is now marked issuer-economic when three tests pass:
+the issuer's class scope is resolved from the filed class inventory; the
+basic weighted count from the same income row matches the inventory's
+all-class economic share total on exactly one class's unit basis, within 3%
+and within half the smallest class's share of that total, so a count that
+leaves out a class cannot pass; and that row ends within 120 days of the
+inventory date. The diluted count is then restated in quoted-share units (a
+count filed in Class A equivalents is multiplied by the Class A units per
+quoted share) and the basis is disclosed as an info entry. Otherwise the
+per-share value stays withheld, and the warning names the test that failed.
+ADRs are out of scope: their per-share bridge needs a depositary ratio and
+dated security evidence that no data path supplies yet.
+
+**The quote's market cap in the AI context (B-8, left by batch 3a).** When a
+second common class leaves the issuer's economic scope unresolved, the report
+labels the quote's market cap as possibly covering one share class only, but
+the AI context's quote section stated the figure bare. It now carries the same
+caveat, citing the filing that shows the second class, and says the figure is
+not the issuer's market capitalization.
+
+**NCI from the quarter's own equity statement (C-15).** Some filers tag their
+noncontrolling interest on the 10-K face (`MinorityInterest`) but in each 10-Q
+only as a dimensional fact: the consolidated-equity concept on
+`StatementEquityComponentsAxis = NoncontrollingInterestMember`. Companyfacts
+drops dimensional facts, so the latest quarterly balance had consolidated
+equity only, and the ownership gate withheld the DCF and every EV and book
+multiple (Southern Co.). The primary 10-Q and 10-K documents Métis already
+fetches are now read for that NCI column. A balance row with consolidated
+equity and neither NCI nor parent equity takes the split from the latest such
+filing at the same date, but only when the filing's undimensioned consolidated
+total at that date equals the row's total equity; parent equity is the total
+less the NCI, and the source is disclosed as an info entry. A column on any
+other member (a co-registrant subsidiary on `LegalEntityAxis`) is not the
+issuer's; an instant whose facts disagree, or whose total does not tie, is not
+admitted, and a warning says why. No NCI is carried forward from an older
+balance, and no zero is inferred from a filing that tags no NCI column, so an
+issuer with no evidenced NCI stays behind the gate. When the gate does
+withhold the DCF, the critical gap now names it ("noncontrolling ownership
+unresolved at <date>") instead of "DCF inputs not provided by caller".
+
+**Average debt behind a refused balance (C-1).** The WACC's cost of debt
+divides a year of interest by an average of two balances, and its debt weight
+uses the newest balance. A lease-scope refusal on the newest balance (AT&T's
+10-Q tags only the noncurrent operating lease, so its lease-exclusive debt is
+not established) withheld the whole WACC, and with it the DCF, although the
+two balances averaged were clean; the critical gap said only "average total
+debt missing". Owner decision: such a refusal now withholds only what it
+touches. When the newest balance is outside the averaged pair, the debt
+weight uses the clean average instead, and the basis says the newest balance
+is not used and why. When the refusal falls on the TTM window's quarter-end
+pair, the average falls back to the latest two fiscal-year-end balances if
+both are present, both carry total debt and neither is refused, and the basis
+names the pair not used; otherwise the quarter pair's refusal stands and the
+gap names it. The refused balance is
+never used, so the EV bridge at that date stays withheld. A refused debt
+carrying total (an incomplete debt note) still withholds the WACC wherever
+it falls. When no average is established, the critical gap names the balance
+date and the cause.
+
+**Operating income when interest sits inside the non-operating total
+(B-39).** A filer with no `OperatingIncomeLoss` line gets EBIT derived as
+pretax income + interest expense − the non-operating items it tags. When its
+interest is tagged `InterestExpenseNonoperating`, which the us-gaap
+calculation makes a component of the `NonoperatingIncomeExpense` aggregate it
+also filed, adding the interest back would count it twice, so the figure was
+withheld, and EBIT with it. Eli Lilly had no EBIT, so when its effective cost
+of debt (2.35%) fell below the acceptance band there was no synthetic rating
+to fall back on, and no WACC or DCF. Pretax income less that aggregate is the
+operating result exactly, so EBIT is now derived that way: the interest is
+not added back, and the disclosure says why (LLY FY2025: 25,731 + 571 =
+26,302 million). Owner decision: the taxonomy nesting is taken as the filer's
+presentation, as the withholding rule already did; the disclosure says that
+where a filer's aggregate leaves its interest out, the figure understates
+EBIT by that interest.
+
+**Cash chains (B-43, B-34).** Two cash rules withheld net debt and invested
+capital although the filing establishes the figure.
+
+- *Restrictions tagged as restricted cash (B-43).* When a filer tags no
+  unrestricted cash line, cash is derived from the combined
+  restricted-plus-unrestricted total less the current and noncurrent
+  restrictions, all from one filing. The restrictions were read only as
+  `RestrictedCashAndCashEquivalentsAtCarryingValue` and
+  `RestrictedCashAndCashEquivalentsNoncurrent`. Chevron, whose balance-sheet
+  cash line has used a custom tag since Q3 2024, tags them
+  `RestrictedCashCurrent` and `RestrictedCashNoncurrent`, so its cash, net
+  debt and invested capital were withheld and no DCF was built. Those two
+  tags are now read, each after the cash-and-equivalents form; both sides are
+  still required, from the same filing, and none is presumed zero (2026-06-30:
+  9,582 − 236 − 819 = 8,527 million, Chevron's balance-sheet cash).
+- *A combined total narrower than its components (B-34).* Cisco's FY2026 10-K
+  tags `CashCashEquivalentsAndShortTermInvestments` as the total of its
+  fair-valued investment schedule, 14,297 million, which leaves out bank
+  deposits; its balance-sheet cash (7,218) and short-term investments (8,700)
+  sum to 15,918. The combined field won, so net debt was refused for the
+  conflict while sales-to-capital used the narrower figure. Owner decision:
+  when the combined figure is below the same filing's cash plus short-term
+  investments, the two components are disjoint balance-sheet lines, so their
+  sum is used, in net debt and invested capital alike, and the substitution is
+  disclosed. A combined figure above the components, or from another filing,
+  is left as it is, and net debt still refuses a conflict. A shortfall within
+  display rounding is not a narrower scope: two separately rounded lines can
+  sum above their rounded total, so the combined figure stands when the gap is
+  no more than the coarsest rounding unit the three figures share (up to a
+  million) or 0.01% of the total, the vendor-agreement tolerance of audit A-11.
+  Johnson & Johnson's quarters (38,780 against 38,474 + 307) keep their total.
+
+**Net charge-offs from cash-flow recoveries (C-13).** The bank route's net
+charge-off rate needs a year's write-offs net of recoveries, from a net tag or
+an allowance roll-forward pair. Capital One tags its write-offs on the
+roll-forward but its recovery total only as a dimensional fact, which
+companyfacts drops; undimensioned, the recoveries appear only on the
+cash-flow statement as `ProceedsFromRecoveriesOfLoanPreviouslyChargedOff`.
+The rate was withheld and the balance-sheet grade renormalised without it.
+When no roll-forward pair is filed, write-offs now pair with that cash-flow
+line for the same fiscal year, unit and filing, and the basis says the
+recoveries come from the cash-flow statement (COF FY2025: 18,166 − 5,064 =
+13,102 million, its reported net charge-offs; 3.35% of average loans against
+the 3.30% it reports on average loans held for investment).
+
+**Managed care is not a life insurer (E-6).** SIC 6324 (UnitedHealth,
+Elevance, Cigna, Humana, Centene, Molina) was labelled "Insurance - Life" on
+the keyless path and routed to the insurer map, which withholds financial debt
+and values on excess return over book value (UNH: $73.3B of filed debt
+withheld). Owner decision: these issuers go on the general route with a note.
+Their earnings and free cash flow are the right yardstick, and their debt is
+financing debt, not float. The premium and claim-reserve tags a health plan
+files match the insurer evidence rule, so for SIC 6324 that evidence is noted
+rather than used to re-route. The forensic financial band (SIC 6000 to 6499
+and 6700 to 6799) still includes 6324, unchanged, so a health plan's Altman
+Z, Beneish M-score and accruals ratio are still withheld as for a financial
+company, and its Piotroski score uses the financial variant; whether managed
+care leaves that band too is left for a later owner decision.
+
+**Piotroski leverage on a composed long-term debt (E-8).** Realty Income and
+NNN compose long-term debt from instrument-class totals (`NotesPayable`,
+`LoansPayable`) that may hold current notes. That figure is kept out of the
+forensic long-term debt, which nulled ΔLEVER and renormalised the F-score
+over the other signals (O's passing signal and NNN's failing one were both
+dropped). The level overstates long-term debt, but the direction of leverage
+is still measurable when both years compose the figure from the same tags, so
+ΔLEVER now compares the composed figures on that basis and says so (O:
+39.64% → 37.80%, a pass). Owner decision: the comparison is by tag set,
+because the provenance does not carry a value for each class. When the tags
+differ, the signal is withheld and both tag sets are named. NNN stays
+withheld: its FY2025 figure carries a `LoansPayable` tag, at zero, that
+FY2024's lacks. LVGI is unchanged: it adds long-term debt to current
+liabilities, where current notes would count twice.

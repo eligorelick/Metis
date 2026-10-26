@@ -86,13 +86,17 @@ describe("lease scope is an admission rule for numeric consumers", () => {
     expect(included.valuation.multiples?.enterpriseValue.value).toBeNull();
     expect(included.returns.wacc.waccPct).toBeNull();
   });
+  // Audit 2026-10-22 C-1 (owner decision): the clean older pair still carries
+  // WACC's average debt, with the refusal named; the unsafe current balance
+  // is never revived as the debt weight or in EV.
   it.each(["Operating", "Finance"] as const)("does not revive unsafe current %s debt from complete older annual rows", kind => {
     const bundle = scenario(kind, true);
     if (!bundle.statements.balanceQuarterly.ok) throw new Error("Missing balance fixture");
     const current = bundle.statements.balanceQuarterly.value.data.rows[0]!;
     Object.assign(current, operands(current.date!, kind));
     const result = runStageB(bundle, { evIncludeLeases: true });
-    expect(result.returns.wacc.waccPct).toBeNull();
+    expect(result.returns.wacc.waccPct).not.toBeNull();
+    expect(result.returns.wacc.debtBasis).toContain(`the newest balance (${current.date}) is not used for the debt weight`);
     expect(result.valuation.multiples?.enterpriseValue.value).toBeNull();
   });
   it.each(["Operating", "Finance"] as const)("preserves complete %s totals for both selected EV/WACC policies", kind => {

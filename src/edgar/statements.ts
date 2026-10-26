@@ -48,6 +48,7 @@ import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, Stateme
 import type { ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
+import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
@@ -358,6 +359,13 @@ function durationDays(p: FactPoint): number | null {
   return p.start !== undefined ? daysBetween(p.start, p.end) : null;
 }
 
+/** The coarsest power of ten, up to a million, that divides every value: the rounding unit the filer displayed them in. */
+function displayRoundingUnit(values: readonly number[]): number {
+  let unit = 1_000_000;
+  while (unit > 1 && values.some(v => Math.abs(v) % unit !== 0)) unit /= 10;
+  return unit;
+}
+
 /**
  * Strip binary-float noise from a derived value and normalise `-0` to `0`.
  * EPS differences are the motivating case (7.5 - 5.9 = 1.5999999999999996).
@@ -420,12 +428,12 @@ export type ChainSpec =
         notWhenBaseTag?: readonly string[];
       }[];
       /**
-       * Tag pairs that make the whole derivation unsound: when `partTag` served
-       * a part AND `adjustmentTag` resolved as an adjustment, the taxonomy puts
-       * the first inside the second and the sum would double-count it. The
-       * figure is withheld with `disclose` as the reason.
+       * Tag pairs the taxonomy nests: when `partTag` served a part AND
+       * `adjustmentTag` resolved as an adjustment, the first is already inside
+       * the second, so that part is not added (audit 2026-10-22 B-39; it was
+       * withheld) and `disclose` says so.
        */
-      withholdWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string }[];
+      notAddedWhen?: readonly { partTag: string; adjustmentTag: string; disclose: string }[];
       discloseAdjusted?: (ctx: {
         subtracted: string[];
         unavailable: string[];
@@ -434,6 +442,8 @@ export type ChainSpec =
         notInBase: string[];
         /** Each part's label with the tag(s) that actually served it. */
         parts: { label: string; tags: string[] }[];
+        /** The `notAddedWhen` disclosures for parts left out of the sum. */
+        notAdded: string[];
       }) => string;
     }
   | { kind: "diff"; plus: string; minus: string; unit: "money"; disclose?: string }
@@ -611,6 +621,26 @@ const DEPRECIATION_SPEC: ChainSpec = {
   ],
 };
 
+/**
+ * The EV/EBITDA caveat for rows whose D&A was composed from its separate lines
+ * (DEPRECIATION_SPEC's lower bounds), naming each such period; null when every
+ * row's D&A came from a combined tag or carries no SEC provenance (audit
+ * 2026-10-22 B-7).
+ */
+export function lowerBoundDAndACaveat(rows: readonly { date?: unknown; fieldProvenance?: Record<string, StatementFieldProvenance> }[]): string | null {
+  const components = new Set(DEPRECIATION_COMPONENT_TAGS.map((tag) => `us-gaap/${tag}`));
+  const composed = rows.flatMap((row) => {
+    const tags = row.fieldProvenance?.depreciationAndAmortization?.tags ?? [];
+    return typeof row.date === "string" && tags.length > 0 && tags.every((tag) => components.has(tag)) ? [{ date: row.date, tags }] : [];
+  });
+  if (composed.length === 0) return null;
+  const withAmortization = composed.some((row) => row.tags.length > 1);
+  const parts = withAmortization
+    ? composed.every((row) => row.tags.length > 1) ? "Depreciation + AmortizationOfIntangibleAssets" : "Depreciation + AmortizationOfIntangibleAssets, or Depreciation alone"
+    : "Depreciation alone";
+  return `D&A is a lower bound for ${composed.map((row) => row.date).join(", ")} (no combined depreciation-and-amortization tag is filed; it is the filer's ${parts}), so EBITDA omits any other amortization and EV/EBITDA may read high`;
+}
+
 const INCOME_CHAINS: Record<string, ChainSpec> = {
   revenue: REVENUE_SPEC,
   costOfRevenue: lineItemChain("costOfRevenue", "money"),
@@ -659,7 +689,7 @@ const INCOME_CHAINS: Record<string, ChainSpec> = {
           ...(a.componentOf === undefined ? {} : { componentOf: a.componentOf }),
           ...(a.notWhenBaseTag === undefined ? {} : { notWhenBaseTag: a.notWhenBaseTag }),
         })),
-        withholdWhen: [EBIT_INTEREST_INSIDE_AGGREGATE],
+        notAddedWhen: [EBIT_INTEREST_INSIDE_AGGREGATE],
         discloseAdjusted: describeDerivedEbit,
       },
     ],
@@ -710,6 +740,7 @@ function describeDerivedEbit(ctx: {
   alreadyInside: string[];
   notInBase: string[];
   parts: { label: string; tags: string[] }[];
+  notAdded: string[];
 }): string {
   // WHICH pretax element served decides whether the equity-method subtraction
   // is right, so the derivation names it rather than saying "pretax income".
@@ -729,7 +760,8 @@ function describeDerivedEbit(ctx: {
       `NOT subtracted because the pretax element that served is measured before them: ${ctx.notInBase.join(", ")}`,
     );
   }
-  if (ctx.subtracted.includes("NonoperatingIncomeExpense")) {
+  parts.push(...ctx.notAdded);
+  if (ctx.subtracted.includes("NonoperatingIncomeExpense") && ctx.notAdded.length === 0) {
     parts.push(EBIT_AGGREGATE_MAY_HOLD_INTEREST);
   }
   if (ctx.unavailable.length > 0) {
@@ -812,6 +844,9 @@ const CURRENT_MATURITY_TAGS: readonly string[] = [...tagsFor("debtCurrent"), ...
 
 const MATURITIES_STAND_IN_SPEC = standInSteps(standInsFor("currentMaturitiesOfLongTermDebt"), "money");
 
+const RESTRICTED_CASH_CURRENT_TAGS = tagsFor("restrictedCashCurrent");
+const RESTRICTED_CASH_NONCURRENT_TAGS = tagsFor("restrictedCashNoncurrent");
+
 const BALANCE_CHAINS: Record<string, ChainSpec> = {
   /**
    * Bank tagging (JPM): `CashAndCashEquivalentsAtCarryingValue` goes stale — its
@@ -820,14 +855,18 @@ const BALANCE_CHAINS: Record<string, ChainSpec> = {
    * cash. It can establish unrestricted cash only with a same-filing tagged
    * current AND noncurrent restricted components, validated below before they
    * supply liquidity. AtCarryingValue describes only CURRENT restrictions.
+   * Audit 2026-10-22 B-43: filers that tag the restrictions as restricted cash
+   * (`RestrictedCashCurrent` / `RestrictedCashNoncurrent`; Chevron since its
+   * balance-sheet cash moved to a custom tag) are read too, each after the
+   * cash-and-equivalents form.
    */
   cashAndCashEquivalents: {
     kind: "chain", unit: "money", steps: [
       lineItemChain("cashAndCashEquivalents", "money"),
       { kind: "sumAll", unit: "money", parts: [
         { label: "combined cash", spec: lineItemChain("cashAndCashEquivalentsIncludingRestricted", "money") },
-        { label: "current restrictions", spec: { kind: "first", tags: ["RestrictedCashAndCashEquivalentsAtCarryingValue"], unit: "money", sign: -1 } },
-        { label: "noncurrent restrictions", spec: { kind: "first", tags: tagsFor("restrictedCashAndCashEquivalentsNoncurrent"), unit: "money", sign: -1 } },
+        { label: "current restrictions", spec: { kind: "first", tags: ["RestrictedCashAndCashEquivalentsAtCarryingValue", ...RESTRICTED_CASH_CURRENT_TAGS], unit: "money", sign: -1 } },
+        { label: "noncurrent restrictions", spec: { kind: "first", tags: [...tagsFor("restrictedCashAndCashEquivalentsNoncurrent"), ...RESTRICTED_CASH_NONCURRENT_TAGS], unit: "money", sign: -1 } },
       ], disclose: "unrestricted cash derived as combined cash minus separately tagged current AND noncurrent restrictions; neither an absent component nor an ambiguous restricted-cash aggregate is treated as zero" },
     ],
   },
@@ -1568,6 +1607,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       const unavailable: string[] = [];
       const alreadyInside: string[] = [];
       const notInBase: string[] = [];
+      const notAdded: string[] = [];
       if (spec.minusAny !== undefined) {
         const resolvedByLabel = new Map<string, Resolved>();
         for (const adjustment of spec.minusAny) {
@@ -1583,14 +1623,16 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
             }
           }
         }
-        // A pair the taxonomy nests makes the whole derivation double-count, so
-        // the figure is withheld rather than published wrong.
-        for (const rule of spec.withholdWhen ?? []) {
+        // A part the taxonomy nests inside a subtracted aggregate is already
+        // in it, so it is not added back (audit 2026-10-22 B-39).
+        for (const rule of spec.notAddedWhen ?? []) {
           const inside = [...resolvedByLabel.values()].some((r) => r.tags.includes(rule.adjustmentTag));
-          if (!servedByPart.has(rule.partTag) || !inside) continue;
-          notes.add(`${label}: ${rule.disclose}`);
-          if (at !== undefined) notes.withhold(at.field, at.period, rule.disclose);
-          return null;
+          const index = present.findIndex((r) => r.tags.includes(rule.partTag));
+          if (index < 0 || !inside) continue;
+          total -= present[index]!.value;
+          present.splice(index, 1);
+          partTags.splice(index, 1);
+          notAdded.push(rule.disclose);
         }
         for (const adjustment of spec.minusAny) {
           const hit = resolvedByLabel.get(adjustment.label);
@@ -1613,7 +1655,7 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
       }
       const combined = combine(tidy(total, MONEY_DECIMALS), present);
       if (spec.discloseAdjusted !== undefined) {
-        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags });
+        const text = spec.discloseAdjusted({ subtracted, unavailable, alreadyInside, notInBase, parts: partTags, notAdded });
         notes.add(`${label}: ${text}`);
         if (at !== undefined) notes.substitute(at.field, at.period, text);
         return combined;
@@ -2038,8 +2080,8 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
   // a fallback, which quietly undid every rule the operating-income derivation
   // enforces: the non-operating items it subtracts, the guard that refuses to
   // derive one for a bank (where interest IS an operating cost, so the sum is
-  // not EBIT), and the withholding when the filer's non-operating aggregate
-  // already contains the interest being added back. Whenever both operands
+  // not EBIT), and the interest not added back when the filer's non-operating
+  // aggregate already contains it. Whenever both operands
   // existed the raw sum won, so a figure that had just been refused or
   // corrected was published anyway under a different name — and EBIT is the one
   // valuation actually reads.
@@ -2053,8 +2095,8 @@ function computeIncome(v: FieldValues, notes: NoteSink, ctx: string, cc: Compute
     if (v.ebit === null && strictSum !== null) {
       const text =
         `ebit WITHHELD: pre-tax income plus interest expense is available, but that sum is EBIT only where operating ` +
-        `income could be derived, and here it could not — a bank-style filer, where interest is an operating cost, or ` +
-        `a non-operating aggregate that already contains the interest being added back. Publishing the sum would ` +
+        `income could be derived, and here it could not — a bank-style filer, where interest is an operating cost. ` +
+        `Publishing the sum would ` +
         `restate under a second name the figure the operating-income derivation refused.`;
       notes.add(`income ${ctx}: ${text}`);
       notes.withhold("ebit", ctx, text);
@@ -2080,6 +2122,35 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     const reason = "unrestricted cash unavailable: complete compatible current AND noncurrent restrictions are required to subtract from combined cash; no missing restriction is assumed zero";
     notes.withhold("cashAndCashEquivalents", ctx, reason);
     notes.add(`cashAndCashEquivalents ${ctx}: ${reason}`);
+  }
+  // Audit 2026-10-22 B-34: a combined cash-and-short-term-investments total
+  // below the same filing's cash plus short-term investments is a narrower
+  // schedule (Cisco's FY2026 total covers its fair-valued investments only,
+  // not its bank deposits). The two components are disjoint balance lines, so
+  // their sum is the total; a combined figure ABOVE them is left alone, since
+  // nothing says what the components would be missing. Two separately rounded
+  // lines can sum above their rounded total, so a gap within one display unit
+  // or the house 0.01% rounding tolerance (audit A-11) is not a narrower scope.
+  const combinedCash = cc.resolved.get("cashAndShortTermInvestments");
+  const cashPart = cc.resolved.get("cashAndCashEquivalents");
+  const investmentsPart = cc.resolved.get("shortTermInvestments");
+  if (combinedCash && cashPart && investmentsPart && !restrictionDerived &&
+      v.cashAndShortTermInvestments != null && v.cashAndCashEquivalents != null && v.shortTermInvestments != null) {
+    const parts = [combinedCash, cashPart, investmentsPart];
+    const filings = new Set(parts.flatMap(r => (r.evidencePoints ?? [r.point]).map(p => `${p.accn}|${p.filed}`)));
+    const componentSum = tidy(v.cashAndCashEquivalents + v.shortTermInvestments, MONEY_DECIMALS);
+    const combined = v.cashAndShortTermInvestments;
+    if (filings.size === 1 && parts.every(r => r.unit === combinedCash.unit) && v.cashAndCashEquivalents >= 0 && v.shortTermInvestments >= 0 &&
+        componentSum - combined > Math.max(displayRoundingUnit([combined, v.cashAndCashEquivalents, v.shortTermInvestments]), Math.abs(combined) * VENDOR_SEC_TOLERANCE.share)) {
+      const fmt = (n: number) => n.toLocaleString("en-US");
+      const text = `CashCashEquivalentsAndShortTermInvestments (${fmt(combined)}) is below the same filing's ${cashPart.tags.join(" + ")} ` +
+        `(${fmt(v.cashAndCashEquivalents)}) plus ${investmentsPart.tags.join(" + ")} (${fmt(v.shortTermInvestments)}), so it is a narrower ` +
+        `schedule than the balance sheet's two lines; their sum ${fmt(componentSum)} is used (audit 2026-10-22 B-34)`;
+      v.cashAndShortTermInvestments = componentSum;
+      cc.replace?.("cashAndShortTermInvestments", combine(componentSum, [cashPart, investmentsPart]));
+      notes.substitute("cashAndShortTermInvestments", ctx, text);
+      notes.add(`cashAndShortTermInvestments ${ctx}: ${text}`);
+    }
   }
   // A strict `add` here returned null for every filer that presents a single
   // "Cash and cash equivalents" line and tags no short-term-investment concept
@@ -2549,7 +2620,7 @@ function balanceEvidenceGuards(facts: CompanyFacts, asOf: string): Pick<BuildSta
   const temporaryEquityPeriods = new Set<string>();
   const balanceRefusals = new Map<string, string>();
   const sensitiveTags = new Set([...TEMPORARY_EQUITY_TAGS, "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
-    "RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalentsNoncurrent"]);
+    "RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalentsNoncurrent", ...RESTRICTED_CASH_CURRENT_TAGS, ...RESTRICTED_CASH_NONCURRENT_TAGS]);
   for (const tag of sensitiveTags) {
     const raw = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
     if (!raw.success) continue;
@@ -3196,6 +3267,51 @@ function deriveFourthQuarterPerShare(
   }
 }
 
+/** Disclosure for a diluted share count served by the basic count (audit 2026-10-22 B-35). */
+const BASIC_SHARES_FOR_DILUTED_DISCLOSURE =
+  "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; the basic weighted count is the diluted stand-in, so dilution too small to move EPS at its reported rounding is not reflected";
+// In a loss from continuing operations, ASC 260's control number, every
+// potential share is antidilutive and excluded, so the diluted count is the
+// basic count by definition (ASC 260-10-45-18 to 45-20). Net EPS alone does
+// not show that when a discontinued result is filed.
+const BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE =
+  "no diluted weighted share count is tagged for the period, and the filer's basic and diluted EPS are equal for it; it is a loss period for continuing operations, in which potential shares are antidilutive and excluded, so the basic weighted count is the diluted count";
+
+/**
+ * A filer that tags no diluted weighted count (Exxon Mobil has tagged none
+ * since FY2013) but reports the same basic and diluted EPS for the period has
+ * no dilution that moves EPS, so its basic weighted count stands in for the
+ * diluted one. Both EPS figures must be reported (not derived) for the very
+ * interval of the basic count; with any doubt the diluted count stays null.
+ */
+function standInDilutedSharesFromBasic(rows: FmpIncomeStatementRow[], notes: NoteSink): void {
+  for (const row of rows) {
+    if (typeof row.date !== "string" || row.weightedAverageShsOutDil != null) continue;
+    const basic = row.weightedAverageShsOut;
+    const provenance = row.fieldProvenance;
+    const shares = provenance?.weightedAverageShsOut;
+    const eps = provenance?.eps;
+    const epsDiluted = provenance?.epsDiluted;
+    if (!isNum(basic) || !(basic > 0) || !isNum(row.eps) || !isNum(row.epsDiluted) || row.eps !== row.epsDiluted) continue;
+    if (provenance === undefined || shares === undefined || eps === undefined || epsDiluted === undefined) continue;
+    const sameInterval = [eps, epsDiluted].every((p) => p.derivation === undefined && p.periodStart === shares.periodStart && p.periodEnd === shares.periodEnd);
+    if (shares.derivation !== undefined || !sameInterval) continue;
+    row.weightedAverageShsOutDil = basic;
+    provenance.weightedAverageShsOutDil = {
+      ...shares,
+      tags: [...new Set([...shares.tags, ...eps.tags, ...epsDiluted.tags])],
+      filings: [...new Map([...shares.filings, ...eps.filings, ...epsDiluted.filings].map((f) => [`${f.accn}|${f.filed}`, f])).values()],
+      calculation: "basic-shares-equal-eps",
+    };
+    const continuing = row.netIncomeFromContinuingOperations;
+    const discontinued = row.netIncomeFromDiscontinuedOperations;
+    const continuingLoss = isNum(continuing) ? continuing < 0 : (!isNum(discontinued) || discontinued === 0) && row.eps < 0;
+    const disclosure = continuingLoss ? BASIC_SHARES_FOR_DILUTED_LOSS_DISCLOSURE : BASIC_SHARES_FOR_DILUTED_DISCLOSURE;
+    notes.substitute("weightedAverageShsOutDil", row.date, disclosure);
+    notes.add(`weightedAverageShsOutDil ${row.date}: ${disclosure}`);
+  }
+}
+
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
@@ -3269,6 +3385,8 @@ export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: State
     incomeQuarterlyNotes,
   );
   deriveFourthQuarterPerShare(incomeQuarterly.rows, incomeAnnual.rows, incomeQuarterlyNotes);
+  standInDilutedSharesFromBasic(incomeAnnual.rows, incomeAnnualNotes);
+  standInDilutedSharesFromBasic(incomeQuarterly.rows, incomeQuarterlyNotes);
   const balanceAnnual = buildStatementRows<FmpBalanceSheetRow>(
     BALANCE_DEF,
     annualYears.map((fy) => ({ date: fy.end, resolve: instantResolver(index, fy.end), quarter: null })),

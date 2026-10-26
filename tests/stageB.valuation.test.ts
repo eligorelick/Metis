@@ -1028,6 +1028,23 @@ describe("multiplesFramework", () => {
     expect(by.priceToTbv).toBeCloseTo(10000 / 3000, 9);
   });
 
+  it("caveats EV/EBITDA when the EBITDA rests on a lower-bound D&A (audit 2026-10-22 B-7)", () => {
+    const caveat = "D&A is a lower bound for 2025-12-31: composed from Depreciation";
+    const r = multiplesFramework("general", { ...baseInputs, incomeTtm: { ...baseInputs.incomeTtm!, dAndALowerBound: caveat } });
+    const ev = r.multiples.find((m) => m.key === "evToEbitda")!;
+    expect(ev.current).toBeCloseTo(11500 / 1200, 9);
+    expect(ev.ebitdaLowerBound).toEqual({ basis: caveat });
+    expect(ev.basis).toContain(caveat);
+    const plain = multiplesFramework("general", baseInputs).multiples.find((m) => m.key === "evToEbitda")!;
+    expect(plain.ebitdaLowerBound).toBeUndefined();
+    // No EBITDA from the income slice, no caveat on it.
+    const noIncomeDa = multiplesFramework("general", {
+      ...baseInputs,
+      incomeTtm: { ...baseInputs.incomeTtm!, depreciationAndAmortization: null, dAndALowerBound: caveat },
+    }).multiples.find((m) => m.key === "evToEbitda")!;
+    expect(noIncomeDa.ebitdaLowerBound).toBeUndefined();
+  });
+
   it("renders negative-denominator multiples as n/m (null)", () => {
     const r = multiplesFramework("general", {
       ...baseInputs,

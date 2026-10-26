@@ -186,6 +186,12 @@ export const CHARGE_OFF_RECOVERY_PAIRS = [
   ],
   ["FinancingReceivableAllowanceForCreditLossesWriteOffs", "FinancingReceivableAllowanceForCreditLossesRecovery"],
 ] as const;
+/**
+ * Audit 2026-10-22 C-13: recoveries tagged only on the cash-flow statement
+ * (Capital One, whose roll-forward recovery total is a dimensional fact). They
+ * pair with a write-off total of the same fiscal year and filing only.
+ */
+export const CASH_FLOW_RECOVERY_TAG = "ProceedsFromRecoveriesOfLoanPreviouslyChargedOff";
 export const DEPOSITS_TAGS = ["Deposits"] as const;
 /**
  * Held-to-maturity securities (D-47). The unrecognised holding loss and gain
@@ -375,6 +381,8 @@ interface TagHit {
   end: string;
   /** Filing date of the winning fact. */
   filed: string;
+  /** Accession of the winning fact. */
+  accn?: string;
   sourcePath: string;
 }
 
@@ -389,7 +397,7 @@ function resolveTag(
   const r = getConcept(facts, chain, { period });
   if (!r.ok) return null;
   const v = r.value.data;
-  return { value: v.value, unit: v.unit, tag: v.tag, start: v.period.start, end: v.period.end, filed: v.filed, sourcePath: tagPath(v.tag) };
+  return { value: v.value, unit: v.unit, tag: v.tag, start: v.period.start, end: v.period.end, filed: v.filed, accn: v.accn, sourcePath: tagPath(v.tag) };
 }
 
 /** An ISO-4217 code, or null: the currency a money metric is stated in. */
@@ -873,7 +881,7 @@ function bankMetrics(
                   ? `the filer tags no ${loans.tag} fact at the prior fiscal year end — average loans need both ends`
                   : "average loans are not positive",
           "net charge-offs (write-offs − recoveries) / average loans",
-          [...NET_CHARGE_OFF_TAGS.map(tagPath), ...CHARGE_OFF_RECOVERY_PAIRS.flat().map(tagPath), ...LOANS_TAGS.slice(0, 1).map(tagPath)],
+          [...NET_CHARGE_OFF_TAGS.map(tagPath), ...CHARGE_OFF_RECOVERY_PAIRS.flat().map(tagPath), tagPath(CASH_FLOW_RECOVERY_TAG), ...LOANS_TAGS.slice(0, 1).map(tagPath)],
         ),
   );
 
@@ -1301,6 +1309,21 @@ function netChargeOffs(
     return {
       value: writeoff.value - recovery.value,
       basis: `${writeoffTag} ${writeoff.value} − ${recoveryTag} ${recovery.value}`,
+      sources: [writeoff.sourcePath, recovery.sourcePath],
+      hits: [writeoff, recovery],
+    };
+  }
+  for (const [writeoffTag] of CHARGE_OFF_RECOVERY_PAIRS) {
+    const writeoff = resolveTag(facts, [writeoffTag], flow);
+    const recovery = resolveTag(facts, [CASH_FLOW_RECOVERY_TAG], flow);
+    if (writeoff === null || recovery === null) continue;
+    if (writeoff.start !== recovery.start || writeoff.end !== recovery.end || writeoff.unit !== recovery.unit || writeoff.accn !== recovery.accn) {
+      return { reason: `${writeoffTag} and ${CASH_FLOW_RECOVERY_TAG} cover different periods, units or filings — net charge-offs not computed` };
+    }
+    return {
+      value: writeoff.value - recovery.value,
+      basis: `${writeoffTag} ${writeoff.value} − ${CASH_FLOW_RECOVERY_TAG} ${recovery.value}; recoveries are the cash-flow statement's ` +
+        "principal recovered on loans previously charged off, as no undimensioned allowance roll-forward recovery is tagged",
       sources: [writeoff.sourcePath, recovery.sourcePath],
       hits: [writeoff, recovery],
     };

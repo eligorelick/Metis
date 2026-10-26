@@ -150,6 +150,8 @@ export interface EdgarRegistrant {
 export interface EdgarBundle {
   /** Source-bound cash PPE/hardware scope; original filing observations retained. */
   cashInvestment?: import("@/edgar/cashInvestment").FilingCashInvestment[];
+  /** Audit 2026-10-22 C-15: NCI from the fetched 10-K/10-Q equity statements. */
+  equityStatementNci?: import("@/edgar/equityStatementNci").FilingEquityStatementNci[];
   /** Matched primary annual geography; retained even when usable vendor data wins. */
   annualGeography?: FetchResult<AnnualGeography>;
   /** Primary filing cover inventories, including unresolved economic rights. */

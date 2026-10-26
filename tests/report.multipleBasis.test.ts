@@ -86,3 +86,32 @@ describe("P/E on gain-inflated earnings (AMZN audit 2026-10-20)", () => {
     expect(ranked.ownHistoryObservations).toBe(20);
   });
 });
+
+describe("EV/EBITDA on a lower-bound D&A (audit 2026-10-22 B-7)", () => {
+  const caveat = "D&A is a lower bound for 2026-03-31";
+  it("carries the caveat to the EV/EBITDA row in Key data and every export", () => {
+    const { computed, report } = fixture();
+    const ev = computed.valuation.multiples!.multiples.find(m => m.key === "evToEbitda")!;
+    expect(ev.current).not.toBeNull();
+    // As Stage B sets it: on the row's basis and as the row's caveat.
+    ev.basis = `${ev.basis} ${caveat}.`;
+    ev.ebitdaLowerBound = { basis: caveat };
+    report.valuation = applyMultiples(report.valuation, computed.valuation);
+    const stored = ReportSchema.parse(report);
+    const row = keyDataRows(stored).find(r => /^EV\/EBITDA/.test(r.label));
+    expect(row?.note).toBe(`caveat: ${caveat}`);
+    for (const text of [reportToMarkdown(stored), reportToAuditMarkdown(stored), reportToPrintBody(stored), renderToStaticMarkup(createElement(ReportView, { report: stored }))]) {
+      // Markdown escapes the ampersand, so the check reads past it.
+      expect(text).toContain("is a lower bound for 2026-03-31");
+    }
+  });
+  it("keeps the EV/EBITDA own-history rank, which the P/E caveat suppresses", () => {
+    const { computed, report } = fixture();
+    const ev = computed.valuation.multiples!.multiples.find(m => m.key === "evToEbitda")!;
+    ev.ownHistory = { ...(ev.ownHistory ?? {}), percentileRank: 40, observations: 20, basis: "20 quarter-end observations", observationDetails: [] } as unknown as typeof ev.ownHistory;
+    ev.ebitdaLowerBound = { basis: caveat };
+    const row = applyMultiples(report.valuation, computed.valuation).multiples.find(m => /^EV\/EBITDA/.test(m.name))!;
+    expect(row.own5yPercentile).toBe(40);
+    expect(row.earningsCaveat).toBe(caveat);
+  });
+});

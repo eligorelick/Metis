@@ -206,6 +206,8 @@ export interface WaccInputs {
    * proxy for the debt WEIGHT. Absent ⇒ the average is used for the weight too.
    */
   totalDebtLatest?: number | null;
+  /** Audit 2026-10-22 C-1: why the average is unavailable, for the critical gap. */
+  totalDebtUnavailable?: string | null;
   totalDebtLatestBasis?: string | null;
   /** Current market cap (currency units) — market-value equity weight. */
   marketCap: number | null;
@@ -619,7 +621,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     notes.push("totalDebtAvg missing — debt/equity weights and WACC are unavailable");
     gaps.push({
       field: "returns.wacc.weights",
-      reason: "average total debt missing — cannot distinguish debt-free from unknown leverage",
+      reason: `average total debt missing — cannot distinguish debt-free from unknown leverage${inputs.totalDebtUnavailable ? `: ${inputs.totalDebtUnavailable}` : ""}`,
       severity: "critical",
     });
     return {

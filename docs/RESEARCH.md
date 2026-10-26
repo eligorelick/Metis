@@ -676,7 +676,10 @@ elements; WFC's undimensioned loan, allowance and charge-off facts stop in
 only tangible leverage on file, its balance sheet is unscored. JPM, BAC and PNC tag the
 `…AllowanceForCreditLossWriteoff` / `…Recovery` pair (and the after-recovery
 total); C uses `FinancingReceivableAllowanceForCreditLossesWriteOffs` /
-`…Recovery`. None tags a CET1 ratio after 2013, so CET1 is displayed when
+`…Recovery`. A filer that tags its write-offs but its recovery total only
+dimensionally (Capital One) is netted against the same filing's cash-flow line
+`ProceedsFromRecoveriesOfLoanPreviouslyChargedOff` (audit 2026-10-22 C-13).
+None tags a CET1 ratio after 2013, so CET1 is displayed when
 tagged and never graded. Undimensioned nonaccrual totals end in 2021-22, so the
 NPL input is usually withheld and the other weights renormalise.
 
