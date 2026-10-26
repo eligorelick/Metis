@@ -3700,7 +3700,12 @@ capital although the filing establishes the figure.
   investments, the two components are disjoint balance-sheet lines, so their
   sum is used, in net debt and invested capital alike, and the substitution is
   disclosed. A combined figure above the components, or from another filing,
-  is left as it is, and net debt still refuses a conflict.
+  is left as it is, and net debt still refuses a conflict. A shortfall within
+  display rounding is not a narrower scope: two separately rounded lines can
+  sum above their rounded total, so the combined figure stands when the gap is
+  no more than the coarsest rounding unit the three figures share (up to a
+  million) or 0.01% of the total, the vendor-agreement tolerance of audit A-11.
+  Johnson & Johnson's quarters (38,780 against 38,474 + 307) keep their total.
 
 **Net charge-offs from cash-flow recoveries (C-13).** The bank route's net
 charge-off rate needs a year's write-offs net of recoveries, from a net tag or

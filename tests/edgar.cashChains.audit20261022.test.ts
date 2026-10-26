@@ -68,6 +68,18 @@ describe("a combined cash total narrower than its own components (audit 2026-10-
     expect(row.cashAndShortTermInvestments).toBe(14_297);
   });
 
+  it("keeps the combined total when it differs from the components by display rounding only", () => {
+    // Johnson & Johnson, 2025-03-30 (in millions): 38,780 against 38,474 + 307 = 38,781.
+    const built = build({ CashAndCashEquivalentsAtCarryingValue: { value: 38_474e6 }, ShortTermInvestments: { value: 307e6 },
+      CashCashEquivalentsAndShortTermInvestments: { value: 38_780e6 } });
+    expect(built.balanceAnnual.rows[0]!.cashAndShortTermInvestments).toBe(38_780e6);
+    expect(built.balanceAnnual.substitutions.some(s => s.field === "cashAndShortTermInvestments")).toBe(false);
+    // 2024-03-31: 26,216 against 25,473 + 745 = 26,218, within the house 0.01% rounding tolerance (audit A-11).
+    const earlier = build({ CashAndCashEquivalentsAtCarryingValue: { value: 25_473e6 }, ShortTermInvestments: { value: 745e6 },
+      CashCashEquivalentsAndShortTermInvestments: { value: 26_216e6 } });
+    expect(earlier.balanceAnnual.rows[0]!.cashAndShortTermInvestments).toBe(26_216e6);
+  });
+
   it("keeps the combined total when it is above the components, which cannot say what they miss", () => {
     const row = build({ ...cisco, CashCashEquivalentsAndShortTermInvestments: { value: 17_000 } }).balanceAnnual.rows[0]!;
     expect(row.cashAndShortTermInvestments).toBe(17_000);

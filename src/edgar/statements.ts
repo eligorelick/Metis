@@ -48,6 +48,7 @@ import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, Stateme
 import type { ManifestEntry } from "@/types/core";
 import { fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
+import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
@@ -362,6 +363,13 @@ function durationDays(p: FactPoint): number | null {
  * Strip binary-float noise from a derived value and normalise `-0` to `0`.
  * EPS differences are the motivating case (7.5 - 5.9 = 1.5999999999999996).
  */
+/** The coarsest power of ten, up to a million, that divides every value: the rounding unit the filer displayed them in. */
+function displayRoundingUnit(values: readonly number[]): number {
+  let unit = 1_000_000;
+  while (unit > 1 && values.some(v => Math.abs(v) % unit !== 0)) unit /= 10;
+  return unit;
+}
+
 function tidy(x: number, decimals: number): number {
   if (!Number.isFinite(x)) return x;
   const r = Number(x.toFixed(decimals));
@@ -2120,7 +2128,9 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   // schedule (Cisco's FY2026 total covers its fair-valued investments only,
   // not its bank deposits). The two components are disjoint balance lines, so
   // their sum is the total; a combined figure ABOVE them is left alone, since
-  // nothing says what the components would be missing.
+  // nothing says what the components would be missing. Two separately rounded
+  // lines can sum above their rounded total, so a gap within one display unit
+  // or the house 0.01% rounding tolerance (audit A-11) is not a narrower scope.
   const combinedCash = cc.resolved.get("cashAndShortTermInvestments");
   const cashPart = cc.resolved.get("cashAndCashEquivalents");
   const investmentsPart = cc.resolved.get("shortTermInvestments");
@@ -2131,7 +2141,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
     const componentSum = tidy(v.cashAndCashEquivalents + v.shortTermInvestments, MONEY_DECIMALS);
     const combined = v.cashAndShortTermInvestments;
     if (filings.size === 1 && parts.every(r => r.unit === combinedCash.unit) && v.cashAndCashEquivalents >= 0 && v.shortTermInvestments >= 0 &&
-        componentSum - combined > Math.max(1, Math.abs(combined) * 1e-6)) {
+        componentSum - combined > Math.max(displayRoundingUnit([combined, v.cashAndCashEquivalents, v.shortTermInvestments]), Math.abs(combined) * VENDOR_SEC_TOLERANCE.share)) {
       const fmt = (n: number) => n.toLocaleString("en-US");
       const text = `CashCashEquivalentsAndShortTermInvestments (${fmt(combined)}) is below the same filing's ${cashPart.tags.join(" + ")} ` +
         `(${fmt(v.cashAndCashEquivalents)}) plus ${investmentsPart.tags.join(" + ")} (${fmt(v.shortTermInvestments)}), so it is a narrower ` +
