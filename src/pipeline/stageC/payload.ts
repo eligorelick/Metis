@@ -2296,7 +2296,8 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
  * commentary's stated outlook as text.
  */
 /** Preserve a stated duration, without inferring fiscal basis from its dates. */
-function filingFactPeriod(fact: { period: string | null; asOf: string | null }): Pick<PayloadFigure, "period" | "periodContext"> {
+/** Exported for the verifier tests: the period a filing-fact duration record carries. */
+export function filingFactPeriod(fact: { period: string | null; asOf: string | null }): Pick<PayloadFigure, "period" | "periodContext"> {
   const span = /^(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})$/.exec(fact.period ?? "");
   if (span && span[2] === fact.asOf) {
     const parsed = PeriodContextSchema.safeParse({ kind: "duration", start: span[1], end: span[2] });

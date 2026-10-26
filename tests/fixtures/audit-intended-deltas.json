@@ -10166,16 +10166,16 @@
       ]
     },
     {
-      "name": "audit-batch3-complete-evidence-20261022",
+      "name": "live-check-fixes-20261026",
       "decisions": [
-        "D-105"
+        "D-106"
       ],
-      "reason": "Audit batch 3 of 2026-10-22 (stop withholding where the filed evidence is complete, D-105), as it reaches this provider-free DEMO control: only the report stamp moves, to spec 1.40.0 (the EV/EBITDA lower-bound caveat, the stand-in and equity-statement NCI bases, the named debt and NCI gaps, the cash and charge-off bases, the managed-care route note and the composed-debt leverage basis), out of audit-batch2b-valuation-mediums-20261022, whose record for 1.39.0 stands in its disposition note. The diluted-share stand-in, the multi-class diluted count, equity-statement NCI, the debt-pair fallback, the EBIT derivation, the cash chains, cash-flow recoveries, the managed-care route and the composed-debt leverage signal do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch3-complete-evidence.md.",
+      "reason": "Fixes from the live five-company check of 2026-10-26 (D-106), as they reach this provider-free DEMO control: only the report stamp moves, to spec 1.40.1 (a dated interval claim citing a filing fact is checked against the fact's whole-span period), out of audit-batch3-complete-evidence-20261022, whose record for 1.40.0 stands in its disposition note. The keyless statements' DebtSecuritiesCurrent reading does not reach this fixture, and no other value moves. See docs/audit/DECISIONS.md, D-106.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.40.0"
+          "after": "1.40.1"
         }
       ]
     }

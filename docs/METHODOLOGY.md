@@ -3712,6 +3712,21 @@ capital although the filing establishes the figure.
   no more than the coarsest rounding unit the three figures share (up to a
   million) or 0.01% of the total, the vendor-agreement tolerance of audit A-11.
   Johnson & Johnson's quarters (38,780 against 38,474 + 307) keep their total.
+- *Current debt securities (D-106).* The keyless short-term investments read
+  `ShortTermInvestments`, `MarketableSecuritiesCurrent`,
+  `AvailableForSaleSecuritiesDebtSecuritiesCurrent` and
+  `InterestBearingDepositsInBanks`, then `DebtSecuritiesCurrent`, the
+  taxonomy's current debt securities of every class. NVIDIA moved its
+  marketable securities line to `DebtSecuritiesCurrent` with its FY2026 10-K
+  (39,065 million at 2026-01-25, 34,143 million at 2026-07-26), so whenever
+  FMP was unavailable its cash and short-term investments fell to cash alone
+  and invested capital rose by the whole securities balance (sales-to-capital
+  1.53 against the vendor path's 2.58). The tag is read last, so a period that
+  tags an element above keeps it. Equity securities are not added here: the
+  undivided `EquitySecuritiesFvNi` does not say whether a stake is current,
+  so NVIDIA's 42,783 million of marketable equity stays in invested capital
+  on the keyless path, where the vendor's combined total lets D-60 carry it
+  as non-operating.
 
 **Net charge-offs from cash-flow recoveries (C-13).** The bank route's net
 charge-off rate needs a year's write-offs net of recoveries, from a net tag or

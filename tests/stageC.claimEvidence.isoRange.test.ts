@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { runVerifyPass } from "@/pipeline/stageC/passes";
-import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, filingFactPeriod } from "@/pipeline/stageC/payload";
 import { runStageB } from "@/pipeline/compute";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -57,6 +57,19 @@ describe("typed source explicit ISO duration claims", () => {
     { periodContext: { kind: "duration" as const, start: "2025-01-01", end: "2025-06-30", fiscalLabel: "Q2 FY2025" }, fiscalPeriod: "FY2025" },
   ])("does not invent missing or conflicting source duration proof: %j", changes => {
     expect(check(sentence(), changes).status).not.toBe("validated");
+  });
+  // The payload registers a filing-fact duration with the whole span as its
+  // period and a matching duration context (filingFactPeriod). NVDA report #1,
+  // 2026-10-26: "Accounts receivable cash-flow contribution for 2026-01-26 to
+  // 2026-07-26 was negative USD 24.59 billion." was counted as contradicted
+  // against its own record.
+  it("validates the interval the payload's filing-fact record carries", () => {
+    const registered = filingFactPeriod({ period: "2025-01-01 to 2025-06-30", asOf: "2025-06-30" });
+    expect(registered).toEqual({ period: "2025-01-01 to 2025-06-30", periodContext: { kind: "duration", start: "2025-01-01", end: "2025-06-30" } });
+    expect(check(sentence(), registered).status).toBe("validated");
+    expect(check(sentence("2025-04-01 to 2025-06-30"), registered).status).not.toBe("validated");
+    expect(check(sentence(), { ...registered, period: "2025-04-01 to 2025-06-30" }).status).not.toBe("validated");
+    expect(check(sentence(), { ...registered, periodContext: { kind: "duration", start: "2025-04-01", end: "2025-06-30" } }).status).not.toBe("validated");
   });
   it("does not turn a duration's start date into an independent observation date", () => {
     expect(check(sentence("2025-01-01")).status).not.toBe("validated");

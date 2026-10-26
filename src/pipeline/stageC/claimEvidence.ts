@@ -413,7 +413,10 @@ function recordWindow(record: NumericProvenanceRecord): { key: string; start: st
 /** A pipeline-owned terminal duration label can establish its start, never an arbitrary second date. */
 function explicitLabelSpan(text: string, record: NumericProvenanceRecord): { start: string; end: string } | null {
   const span = /,\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/i.exec(record.label ?? "");
-  if (span === null || !isIsoDate(span[1]) || !isIsoDate(span[2]) || span[1] > span[2] || record.period !== span[2]) return null;
+  // The record's period is the span's end, or the whole span as the payload
+  // registers a filing-fact duration (filingFactPeriod); either way it must be this span.
+  if (span === null || !isIsoDate(span[1]) || !isIsoDate(span[2]) || span[1] > span[2] ||
+    (record.period !== span[2] && record.period !== `${span[1]} to ${span[2]}`)) return null;
   const sourceDates = periodLabels(record.label ?? "");
   const claimDates = periodLabels(text);
   const claimed = [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\b/gi)];

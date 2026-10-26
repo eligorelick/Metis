@@ -6,9 +6,9 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.40.0** and
-payload **1.45.0** (audit batch 3, stop withholding where the filed evidence
-is complete, 2026-10-26). The checked-in
+Current source declares application **0.1.0**, report spec **1.40.1** and
+payload **1.45.0** (fixes from the live five-company check, 2026-10-26). The
+checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -17,6 +17,18 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - fixes from the live five-company check (2026-10-26)
+
+- Read current debt securities tagged `DebtSecuritiesCurrent` as short-term investments in the keyless statements, so a filer that moved its marketable securities there keeps them in cash and short-term investments when FMP is unavailable (NVDA: 34,143 million at 2026-07-26; keyless sales-to-capital 1.53 → 1.85, against 2.58 on the vendor path, whose combined total also lets D-60 carry marketable equity as non-operating).
+- Check a dated interval claim that cites a filing fact against the fact's whole-span period, so a correct "START to END" claim is no longer counted as contradicted (NVDA report #1: the receivables cash-flow contribution for 2026-01-26 to 2026-07-26).
+- Report 1.40.1, pipeline stage-c-1.6.2 and Stage B ACCOUNTING_EVIDENCE_23 (D-106); payload 1.45.0 is unchanged.
+
+## Unreleased - opt-in dossier reading layout (2026-10-25 to 2026-10-26)
+
+- `METIS_UI_REDESIGN=1` opts into the dossier layout for saved reports and the workspace; `0`, the default, keeps the classic layout. It adds a dossier cover with the composite and the seven aspects, an evidence inspector, report-local notes kept in this browser, a capital bridge, recorded sensitivity cells, factor attribution, a command palette, a coverage desk and a revision digest. It presents the same saved snapshot, figures, gaps and disclosures as the classic layout; see the [preservation ledger](docs/ui-redesign-parity.md).
+- Dossier tables wrap long cells instead of clipping them; a quote observation reads as its date (or to the minute in UTC) and the generation time to the millisecond in UTC, with the raw value kept in `<time dateTime>`; a report blocked only by an analysis-process disclosure states its data as complete or degraded and says that the disclosure blocks it (#51).
+- The dossier's sticky grade shortcuts take their own row when they do not fit beside the report identity, so all seven grades show from 1440px; where they still scroll, a shadow marks each edge with shortcuts beyond it (#52).
 
 ## Proposed audit batch 3: stop withholding where the filed evidence is complete (2026-10-26)
 
