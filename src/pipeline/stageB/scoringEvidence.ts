@@ -124,7 +124,26 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     }
   } else if (aspect === "balanceSheet") {
     result.family = id === "sbcPctOfFcf" ? "equity-compensation" : "financial-strength";
-    if (i.route.base === "bank") {
+    if (id === "cfoPreWcToDebt" || id === "debtToBookCapitalization") {
+      // Audit 2026-10-22 B-13: the regulated-utility ratios, on the window and balance sheet they were computed on.
+      const credit = i.utilityCredit ?? null;
+      const o = credit?.operands;
+      const cfo = id === "cfoPreWcToDebt";
+      dates(cfo ? i.capital.current?.periodStart : null, credit?.asOf);
+      if (cfo) result.period = `${i.capital.current?.basis ?? "annual"} ${result.period ?? "period unavailable"}`;
+      result.fallbackReason = credit === null ? "Regulated-utility credit ratios not computed." : null;
+      if (cfo) {
+        operand("operating cash flow", o?.operatingCashFlow, "computed.utilityCredit.operands.operatingCashFlow");
+        operand("working-capital change", o?.changeInWorkingCapital, "computed.utilityCredit.operands.changeInWorkingCapital");
+        operand("total debt", o?.totalDebt, "computed.utilityCredit.operands.totalDebt");
+        operand("CFO before working capital / debt, percent", credit?.cfoPreWcToDebtPct, "computed.utilityCredit.cfoPreWcToDebtPct");
+      } else {
+        operand("total debt", o?.totalDebt, "computed.utilityCredit.operands.totalDebt");
+        operand("total equity", o?.totalEquity, "computed.utilityCredit.operands.totalEquity");
+        operand("deferred income taxes", o?.deferredIncomeTaxes, "computed.utilityCredit.operands.deferredIncomeTaxes");
+        operand("debt / book capitalization, percent", credit?.debtToBookCapitalizationPct, "computed.utilityCredit.debtToBookCapitalizationPct");
+      }
+    } else if (i.route.base === "bank") {
       const key = id === "tceToTangibleAssets" ? "tangibleLeverage" : id;
       const metric = i.financialMetrics?.route === "bank" ? i.financialMetrics.metrics.find(m => m.key === key) : undefined;
       dates(null, metric?.asOf); result.period = metric ? `${metric.basis}; measured at ${result.endDate ?? "unavailable"}` : null;

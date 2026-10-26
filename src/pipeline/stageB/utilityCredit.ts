@@ -41,6 +41,8 @@ export interface UtilityCreditMetrics {
   debtToBookCapitalizationPct: number | null;
   /** The inputs of each ratio, or why it was withheld. */
   notes: string[];
+  /** The figures each ratio reads, for the score evidence. */
+  operands?: { operatingCashFlow: number | null; changeInWorkingCapital: number | null; totalDebt: number | null; totalEquity: number | null; deferredIncomeTaxes: number | null };
 }
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -87,5 +89,9 @@ export function utilityCreditMetrics(i: UtilityCreditInputs): UtilityCreditMetri
       notes.push(`Debt / book capitalization ${debtToBookCapitalizationPct.toFixed(1)}%: total debt ${billions(debt)} over debt plus total equity ${billions(i.totalEquity)} plus deferred income taxes (${i.deferredIncomeTaxes.basis}).`);
     }
   }
-  return { asOf: i.asOf, cfoPreWcToDebtPct, debtToBookCapitalizationPct, notes };
+  return {
+    asOf: i.asOf, cfoPreWcToDebtPct, debtToBookCapitalizationPct, notes,
+    operands: { operatingCashFlow: i.operatingCashFlow, changeInWorkingCapital: i.changeInWorkingCapital, totalDebt: i.totalDebt,
+      totalEquity: i.totalEquity, deferredIncomeTaxes: i.deferredIncomeTaxes?.value ?? null },
+  };
 }

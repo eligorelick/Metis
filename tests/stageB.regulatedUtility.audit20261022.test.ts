@@ -14,6 +14,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { CompanyFacts } from "@/edgar/xbrl";
+import { runStageB } from "@/pipeline/compute";
+import type { ScoringInputs } from "@/pipeline/stageB/grading";
+import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
+import { signalLabel } from "@/report/presentation";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { selectAltmanVariant } from "@/pipeline/stageB/forensics";
 import { deriveRoutingEvidence } from "@/pipeline/stageB/routingEvidence";
 import { metricPolicy, routeCompany, type RoutingProfile, type RoutingStatements } from "@/pipeline/stageB/sectorRouting";
@@ -66,6 +71,10 @@ describe("B-13: regulated-utility evidence and routing", () => {
     expect(deriveRoutingEvidence(fetched(later), { today: TODAY }).regulatedUtility).toEqual([]);
     const both = facts({ RegulatoryAssetsNoncurrent: [pt("2026-03-31", 15e9), pt("2026-09-30", 16e9, "10-Q", "2026-11-05")] });
     expect(deriveRoutingEvidence(fetched(both), { today: TODAY }).regulatedUtility.map((sig) => sig.end)).toEqual(["2026-03-31"]);
+    // A period re-filed after the run (next year's comparative column) is read as it was first filed.
+    const refiled = facts({ RegulatedOperatingRevenueElectricNonNuclear: [
+      pt("2025-12-31", 30e9, "10-K", "2026-02-20", "2025-01-01"), pt("2025-12-31", 30e9, "10-K", "2027-02-20", "2025-01-01")] });
+    expect(deriveRoutingEvidence(fetched(refiled), { today: "2026-06-01" }).regulatedUtility.map((sig) => sig.accn)).toEqual(["0001326160-26-0220"]);
   });
 
   it("puts a utility SIC with regulatory evidence on the regulated-utility overlay of the general route", () => {
@@ -129,5 +138,37 @@ describe("B-13: Moody's financial-strength ratios", () => {
     });
     expect(negative.debtToBookCapitalizationPct).toBeNull();
     expect(negative.notes.join(" ")).toMatch(/book capitalization is not positive/);
+  });
+});
+
+describe("B-13: the utility balance-sheet signals' evidence", () => {
+  const credit = utilityCreditMetrics({
+    asOf: "2026-03-31", operatingCashFlow: 12_300e6, changeInWorkingCapital: -700e6,
+    totalDebt: 90_000e6, totalEquity: 55_000e6, deferredIncomeTaxes: { value: 12_500e6, basis: "us-gaap/DeferredIncomeTaxesAndOtherTaxLiabilitiesNoncurrent" },
+  });
+  function inputs(): ScoringInputs {
+    const c = runStageB(completeCurrencyBundle({}), { evIncludeLeases: false });
+    return { route: { ...c.route, overlays: ["regulated-utility"] }, policy: metricPolicy(c.route), growth: c.growth, ...c.returns,
+      capital: c.capital, forensics: c.forensics, technicals: c.technicals, valuation: c.valuation, financialMetrics: c.financialMetrics,
+      utilityCredit: credit, currentPrice: 100, asOf: "2026-10-17" };
+  }
+
+  it("names the two Moody's ratios in words", () => {
+    expect(signalLabel("cfoPreWcToDebt")).toBe("CFO before working-capital changes / debt");
+    expect(signalLabel("debtToBookCapitalization")).toBe("Debt / book capitalization (with deferred taxes)");
+  });
+
+  it("traces each ratio to its operands at the utility balance date, not the industrial capital snapshot", () => {
+    const cfo = describeScoreEvidence(inputs(), "balanceSheet", "cfoPreWcToDebt");
+    expect(cfo.endDate).toBe("2026-03-31");
+    expect(cfo.fallbackReason).toBeNull();
+    expect(cfo.operands.map((o) => [o.name, o.value])).toEqual([
+      ["operating cash flow", 12_300e6], ["working-capital change", -700e6], ["total debt", 90_000e6], ["CFO before working capital / debt, percent", credit.cfoPreWcToDebtPct]]);
+    const cap = describeScoreEvidence(inputs(), "balanceSheet", "debtToBookCapitalization");
+    expect(cap.endDate).toBe("2026-03-31");
+    expect(cap.operands.map((o) => [o.name, o.value])).toEqual([
+      ["total debt", 90_000e6], ["total equity", 55_000e6], ["deferred income taxes", 12_500e6], ["debt / book capitalization, percent", credit.debtToBookCapitalizationPct]]);
+    const missing = describeScoreEvidence({ ...inputs(), utilityCredit: null }, "balanceSheet", "cfoPreWcToDebt");
+    expect(missing.fallbackReason).toMatch(/not computed/);
   });
 });

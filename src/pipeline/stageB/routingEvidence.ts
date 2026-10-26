@@ -215,9 +215,9 @@ function newestPoint(facts: CompanyFacts, tag: string, filedBy?: string): { poin
   const tp = tagPoints(facts, tag);
   if (tp === null) return null;
   let best: FactPoint | null = null;
-  for (const p of dedupFactPoints(tp.points)) {
+  // Filed-by first: a period re-filed after the run is read as it was filed before it.
+  for (const p of dedupFactPoints(filedBy === undefined ? tp.points : tp.points.filter((q) => q.filed <= filedBy))) {
     if (!Number.isFinite(p.val) || p.val === 0) continue;
-    if (filedBy !== undefined && !(p.filed <= filedBy)) continue;
     if (best === null || p.end > best.end || (p.end === best.end && p.filed > best.filed)) best = p;
   }
   return best === null ? null : { point: best, unit: tp.unit };

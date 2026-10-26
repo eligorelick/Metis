@@ -258,6 +258,8 @@ export function signalLabel(id: string): string {
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
     shareCountTrend: "Annualized weighted-average diluted common-share trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
     pctFromHigh52w: "Distance from 52-week high", smaGap: "SMA 50 / SMA 200 gap",
+    // Audit 2026-10-22 B-13: the regulated-utility balance sheet.
+    cfoPreWcToDebt: "CFO before working-capital changes / debt", debtToBookCapitalization: "Debt / book capitalization (with deferred taxes)",
   };
   return fixed[id] ?? sentence(segmentWords(id));
 }
