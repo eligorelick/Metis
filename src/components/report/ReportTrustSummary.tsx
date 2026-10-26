@@ -10,7 +10,7 @@ export function ReportTrustSummary({report, completeness:c}: {report:Report; com
   return <section className="report-trust-summary" aria-label="Research evidence summary">
     <p className="trust-condition">{dataStateText(c)}</p>
     <dl className="trust-measures">
-      {["Figures traced to a cited source", "Factual claims carrying a citation", "Numeric factual claims numerically matched to a cited figure"].map(label => <div key={label}><dt>{label}</dt><dd>{rows.find(row => row.label === label)?.value ?? `Not recorded${c.dataOnly ? " · no completed verification pass" : ""}`}</dd></div>)}
+      {["Numeric factual claims numerically matched to a cited figure", "Figures traced to a cited source", "Factual claims carrying a citation"].map(label => <div key={label}><dt>{label}</dt><dd>{rows.find(row => row.label === label)?.value ?? `Not recorded${c.dataOnly ? " · no completed verification pass" : ""}`}</dd></div>)}
       <div><dt>Signal evidence availability</dt><dd>{share === undefined ? "Not recorded" : `${evidencePercentText(share)} of route-applicable signal weight`}</dd></div>
     </dl>
     <p>Citations trace sources; numerical matches check figures, not entire prose claims. Availability, completeness and model confidence are separate. None measures investment success.</p>

@@ -2998,16 +2998,6 @@
           }
         },
         {
-          "path": "report.balanceSheet.debtProfile.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "The debt bridge distinguishes debt including leases from debt excluding operating leases, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.",
-            "label": "FACT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
-          }
-        },
-        {
           "path": "report.balanceSheet.debtProfile.numbers.1",
           "beforeMissing": true,
           "after": {
@@ -6960,16 +6950,6 @@
       "reason": "EXPE audit repairs consolidated equity scope and explicit capital/SBC/accrual definitions, records historical growth-window context, removes unused projection priors and exposes valuation ownership uncertainty. The simple no-NCI DEMO fixture retains its financial numbers and composite formula; these reviewed differences are explanatory notes, evidence operands, reconciliation metadata and version stamps.",
       "deltas": [
         {
-          "path": "report.balanceSheet.coverage.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
-            "label": "FACT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
-          }
-        },
-        {
           "path": "report.quality.notes",
           "beforeMissing": true,
           "after": [
@@ -10093,7 +10073,7 @@
       "decisions": [
         "D-107"
       ],
-      "reason": "Readable figures in the reader notes (D-107), as they reach this provider-free DEMO control: the EV bridge note prints its amounts with grouped digits (6,700,000,000 and 100,000,000 here) and the sensitivity grid's guard note says its cells are withheld and shown as a dash rather than \"rendered null\", and the report stamp moves to spec 1.40.2. Each of these nine paths equals its previously blessed value once the grouping and that wording are undone, so no number, date or availability moves; they are reclassified here from expe-ownership-and-evidence, expe-primary-evidence-followup, amzn-deferred-fixes-20261020, first-report-source-and-sensitivity-evidence and live-check-fixes-20261026, whose records stand for the earlier wording. See docs/audit/DECISIONS.md, D-107.",
+      "reason": "Readable figures in the reader notes (D-107), as they reach this provider-free DEMO control: the EV bridge note prints its amounts with grouped digits (6,700,000,000 and 100,000,000 here) and the sensitivity grid's guard note says its cells are withheld and shown as a dash rather than \"rendered null\". The report stamp moved to spec 1.40.2 with them; that path has since moved on with later stamps. Each of these eight paths equals its previously blessed value once the grouping and that wording are undone, so no number, date or availability moves; they are reclassified here from expe-ownership-and-evidence, expe-primary-evidence-followup, amzn-deferred-fixes-20261020, first-report-source-and-sensitivity-evidence and live-check-fixes-20261026, whose records stand for the earlier wording. See docs/audit/DECISIONS.md, D-107.",
       "deltas": [
         {
           "path": "report.valuation.dcf.sensitivityNotes",
@@ -10175,16 +10155,36 @@
       ]
     },
     {
-      "name": "per-share-label-unit-20261026",
+      "name": "audit-batch5-trust-signals-20261022",
       "decisions": [
-        "D-109"
+        "D-110"
       ],
-      "reason": "Live MSFT check of 2026-10-26 (D-109), as it reaches this provider-free DEMO control: only the report stamp moves, to spec 1.40.3 (a per-share basis named in a claim's metric words reads as the record's per-share unit), out of readable-note-figures-20261026, whose record for 1.40.2 stands in its disposition note. The verifier change does not reach this fixture, and no other value moves. See docs/audit/DECISIONS.md, D-109.",
+      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
       "deltas": [
+        {
+          "path": "report.balanceSheet.coverage.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+            "label": "JUDGMENT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
+          }
+        },
+        {
+          "path": "report.balanceSheet.debtProfile.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "The debt bridge distinguishes debt including leases from debt excluding operating leases, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero.",
+            "label": "JUDGMENT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
+          }
+        },
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.40.3"
+          "after": "1.41.0"
         }
       ]
     }

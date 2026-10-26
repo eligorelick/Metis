@@ -85,9 +85,10 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     for (const field of ["netDebtToEbitda", "interestCoverage", "fcfConversionBeforeSbc", "sbcPctOfFcf"] as const) {
       append(next.balanceSheet.coverage.numbers, numeric(`computed.capital.current.${field}`, current[field], field === "sbcPctOfFcf" ? "%" : "x", current.asOf, null, period));
     }
-    next.balanceSheet.coverage.commentary.push({ label: "FACT", source: "computed.capital.current", asOf: current.asOf,
+    // Method statements, not issuer facts: JUDGMENT (audit 2026-10-22 F-20).
+    next.balanceSheet.coverage.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
       text: `Capital grading basis: ${period}. ${current.fallbackReason ?? "Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled."} ${current.cashBridge.definition}` });
-    next.balanceSheet.debtProfile.commentary.push({ label: "FACT", source: "computed.capital.current", asOf: current.asOf,
+    next.balanceSheet.debtProfile.commentary.push({ label: "JUDGMENT", source: "computed.capital.current", asOf: current.asOf,
       text: current.debtBridge.leaseScopeNote ?? "The debt bridge distinguishes debt including leases from debt excluding operating leases, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero." });
   }
   const accrual = computed.forensics?.accruals;

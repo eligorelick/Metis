@@ -98,7 +98,7 @@ describe("public-readiness regressions", () => {
       factualClaims: { supported: 140, total: 140, rate: 1 }, judgments: { cited: 0, total: 0, rate: null },
       factualValidation: { cited: 140, validated: 36, unchecked: 104, contradicted: 0, qualitative: 19, total: 140, rate: 36 / 140 } };
     expect(trustRows(coverage).find(row => row.label.startsWith("Numeric factual"))?.value).toBe("36/121; 85 not matched to a cited figure");
-    expect(trustHeadline(coverage)).toContain("36/121 numeric claims numerically matched");
+    expect(trustHeadline(coverage)).toMatch(/^36\/121 \(29\.8%\) numeric claims numerically matched/);
     expect(factualValidationText(coverage)).toContain("85 unmatched numeric claims");
     coverage.factualValidation = { cited: 0, validated: 0, unchecked: 0, contradicted: 0, total: 0, rate: null };
     coverage.factualClaims = { supported: 0, total: 0, rate: null };

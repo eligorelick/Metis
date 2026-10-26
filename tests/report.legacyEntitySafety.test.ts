@@ -144,6 +144,37 @@ describe("read-only legacy export safety", () => {
     expect(entry?.reason).toContain("1 legacy statement(s)");
   });
 
+  it("takes a withheld claim out of the header counts and marks no placeholder (review of F-21)", () => {
+    const report = fixtureReport("DEMO");
+    const clean = "Revenue was 100 USD.";
+    const conflict = "DEMO-TRIAL evaluates ControlMed at 100 USD.";
+    report.fundamentals.commentary = [
+      { text: clean, label: "FACT", source: "edgar:10-K", asOf: "2025-12-31" },
+      { text: conflict, label: "FACT", source: "edgar:10-K", asOf: "2025-12-31" },
+    ];
+    const logged = (path: string, claim: string) => ({
+      path, claim, source: "edgar:10-K", outcome: "verified" as const, evidenceKind: "factual-claim" as const, reason: "supported" as const,
+      traceKind: "source-cited" as const, validationStatus: "validated" as const, claimSupportStatus: "numeric-only" as const,
+    });
+    report.appendix.verificationLog = [logged("fundamentals.commentary[0]", clean), logged("fundamentals.commentary[1]", conflict)];
+    report.meta.provenanceCoverage = {
+      ...report.meta.provenanceCoverage!,
+      factualClaims: { supported: 2, total: 2, rate: 1 },
+      factualValidation: { cited: 2, validated: 2, unchecked: 0, contradicted: 0, qualitative: 0, total: 2, rate: 1 },
+    };
+
+    const safe = sanitizeLegacyEntityConflicts(report, SYNTHETIC_ENTITY_REGISTRY).report;
+    expect(safe.fundamentals.commentary[1].text).toContain("Legacy statement withheld");
+    expect(safe.meta.provenanceCoverage).toMatchObject({
+      factualClaims: { supported: 1, total: 1, rate: 1 },
+      factualValidation: { cited: 1, validated: 1, unchecked: 0, contradicted: 0, qualitative: 0, total: 1, rate: 1 },
+    });
+    const markdown = reportToMarkdown(safe);
+    expect(markdown).toContain("[validated]");
+    expect(markdown).not.toContain("[contradicted]");
+    expect(sanitizeLegacyEntityConflicts(safe, SYNTHETIC_ENTITY_REGISTRY).report.meta.provenanceCoverage).toEqual(safe.meta.provenanceCoverage);
+  });
+
   it("invalidates log support when an entity-conflict claim is withheld instead of admitting the shared placeholder", () => {
     const report = fixtureReport("LLY");
     const text = ENTITY_CONFLICT;

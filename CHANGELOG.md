@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.40.3** and
-payload **1.46.0** (a per-share basis named in claim words, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.41.0** and
+payload **1.46.0** (audit batch 5, trust signals, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed audit batch 5: make the trust signals mean what they say (2026-10-26)
+
+- Count a claim or figure as contradicted only for a value conflict: an amount outside its cited figure's rounding interval, or a direction word against the sign of its cited change. A period, unit or currency the cited record does not establish now reads "unverified (period or unit not established)", and a direction conflict stays contradicted when the period or unit word also fails; stored reports are read the same way, including the audit export's support and outcome columns, where a contradicted claim now reads cited, not uncited (F-22).
+- Lead the verification line with numeric claims matched to a cited figure, for example "40/109 (36.7%) numeric claims numerically matched to a cited figure (not whole-claim validation)", and move figures traced to a source and claims carrying a citation to a separate Provenance line in the report, print and page headers (B-10).
+- Mark each logged factual claim `[validated]`, `[unverified]`, `[contradicted]` or `[qualitative]` after its citation, in both page layouts, the Markdown and the print report; the header counts equal the marked claims, grade-strip reasoning that no surface prints is left out of them, as the audit export says, and a removed log entry (an earnings-reference guard row, a legacy claim withheld on read) marks and counts nothing (F-21).
+- Print "computed" in place of ✓ for a data-only report's figures, with a legend under the first table that has a Cited column (a checked report gets none); the page's figure detail and the audit export say "computed (no citation check ran)" (F-23).
+- Label the capital grading basis, the debt-bridge convention, the HEURISTIC capex and buyback notes, the repurchase-price proxy comparison, score-to-band sentences and data-gap notes JUDGMENT, not FACT; computed-figure sentences stay FACT (F-20).
+- Report 1.41.0 and pipeline stage-c-1.6.4 (D-110); payload 1.46.0 and Stage B ACCOUNTING_EVIDENCE_25 (D-108) are unchanged by this batch. No figure changes.
 
 ## Unreleased - a per-share basis named in claim words (2026-10-26)
 

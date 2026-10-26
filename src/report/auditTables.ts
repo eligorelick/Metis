@@ -1,5 +1,5 @@
-import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
-import { numericClaimPartition } from "./claimMatching";
+import type { Dcf, Projections, ProvenanceCoverage, Scoring, VerificationLogEntry } from "./schema";
+import { displayedFactualValidation, numericClaimPartition, unprintedFactualClaimCount } from "./claimMatching";
 import { evidencePercentText, withNeutral } from "./assessment";
 import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
 import { formatScore } from "./scoreText";
@@ -172,8 +172,8 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
   return tables;
 }
 
-export function factualValidationText(coverage?: ProvenanceCoverage): string | null {
-  const v = coverage?.factualValidation;
+export function factualValidationText(coverage?: ProvenanceCoverage, log?: readonly VerificationLogEntry[]): string | null {
+  const v = coverage?.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (!v || !coverage) return null;
   // This partition counts non-judgment prose claims, not TracedNumber objects.
   // Preserve the separate denominator so zero prose matches cannot be read as
@@ -183,5 +183,8 @@ export function factualValidationText(coverage?: ProvenanceCoverage): string | n
   const partition = numericClaimPartition(v);
   const matching = partition.total === null ? partition.unknownText : `${v.validated}/${partition.total} numeric factual claims numerically matched; ${partition.unmatched} unmatched numeric claims`;
   const split = v.qualitative === undefined ? "Qualitative split was not recorded in this legacy snapshot." : `${v.qualitative} qualitative claims cited but not machine-checkable.`;
-  return `${matching}. ${split} Recorded factual-claim statuses: ${v.validated} numeric matches, ${v.unchecked} unchecked, ${v.contradicted} contradicted; ${v.total} total. Factual claims cited: ${v.cited}/${v.total}. Figure traceability: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (a separate denominator). Numeric matches do not validate whole prose claims.`;
+  // F-21: the grade strip's reasoning claims stay in the log but are not counted.
+  const unprinted = unprintedFactualClaimCount(coverage.factualValidation!, log);
+  const unprintedText = unprinted === 0 ? "" : ` ${unprinted} grade-strip reasoning claim${unprinted === 1 ? "" : "s"}, which no report surface prints, ${unprinted === 1 ? "is" : "are"} listed in the verification log but not counted.`;
+  return `${matching}. ${split} Displayed factual-claim statuses: ${v.validated} numeric matches, ${v.unchecked} unchecked, ${v.contradicted} contradicted; ${v.total} total. Factual claims cited: ${v.cited}/${v.total}. Figure traceability: ${coverage.numeric.supported}/${coverage.numeric.total} citation-traced (a separate denominator). Numeric matches do not validate whole prose claims.${unprintedText}`;
 }

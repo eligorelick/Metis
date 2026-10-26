@@ -39,8 +39,8 @@ describe("explicit total and per-share dividend appositives", () => {
     expect(check(CLAIM.replace("third quarter", "second quarter")).status).not.toBe("validated");
     expect(check(CLAIM.replace("2026", "2025")).status).not.toBe("validated");
     expect(check(CLAIM, excerpt, "2026-07-30").status).not.toBe("validated");
-    expect(check(CLAIM.replace("USD", "EUR"))).toMatchObject({ status: "contradicted", reason: "currency-mismatch" });
-    expect(check("Cash dividends paid in the third quarter of fiscal 2026 were EUR 0.92 per share.")).toMatchObject({ status: "contradicted", reason: "currency-mismatch" });
+    expect(check(CLAIM.replace("USD", "EUR"))).toMatchObject({ status: "unchecked", reason: "currency-mismatch" });
+    expect(check("Cash dividends paid in the third quarter of fiscal 2026 were EUR 0.92 per share.")).toMatchObject({ status: "unchecked", reason: "currency-mismatch" });
   });
 
   it("does not share a metric across an unproved pair, another metric or mixed currencies", () => {
