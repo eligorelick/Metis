@@ -37,10 +37,10 @@ export interface MarketableEquityBalance {
 }
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-const validDay = (d: unknown): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
+export const validDay = (d: unknown): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
 
 /** Newest-filed instant fact for `tag` at exactly `end`, in `unit`, filed by `observedDay`. */
-function instantFact(facts: CompanyFacts, tag: string, unit: string, end: string, observedDay: string): FactPoint | null {
+export function instantFact(facts: CompanyFacts, tag: string, unit: string, end: string, observedDay: string): FactPoint | null {
   const concept = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
   const points = parseFactPoints(concept?.units?.[unit] ?? []).filter((p) =>
     p.start === undefined && p.end === end && p.val >= 0 && CORE_FACT_FORMS.has(p.form) && validDay(p.filed) && p.filed <= observedDay);

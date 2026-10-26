@@ -153,6 +153,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/vendorAgreement.ts",
   "src/edgar/debtPresentation.ts",
   "src/edgar/issuerFacts.ts",
+  "src/edgar/equityStatementNci.ts",
   "src/providers/companyEvents.ts",
   "src/providers/companyIr.ts",
   "src/pipeline/runInputSnapshot.ts",

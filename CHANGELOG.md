@@ -6,9 +6,9 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.38.0** and
-payload **1.43.0** (audit batch 3a, the remaining high-severity findings,
-2026-10-22). The checked-in
+Current source declares application **0.1.0**, report spec **1.40.0** and
+payload **1.45.0** (audit batch 3, stop withholding where the filed evidence
+is complete, 2026-10-26). The checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
@@ -17,6 +17,29 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Proposed audit batch 3: stop withholding where the filed evidence is complete (2026-10-26)
+
+- Read the combined basic-and-diluted share and EPS elements for both bases, and let the basic weighted count stand in for an untagged diluted count when the filer's basic and diluted EPS are equal for the same interval, disclosed per period, and in a loss from continuing operations as antidilution (B-35: XOM regains diluted shares and a per-share value).
+- Carry batch 3a's lower-bound D&A caveat onto the EV/EBITDA row and its Key data line, naming the periods composed from `Depreciation` and `AmortizationOfIntangibleAssets` (B-7).
+- Mark a multi-class issuer's filed diluted count issuer-economic when its class scope is resolved and the same row's basic count matches the all-class economic total on one class's unit basis, so its per-share value returns; otherwise the warning names the test that failed (B-37: EXPE, META). The AI context's quote section now carries the report's one-class market-cap caveat when the scope is unresolved (B-8).
+- Read a quarter's noncontrolling interest from the 10-Q's own equity statement when companyfacts holds it only dimensionally, admitted only when the filing's consolidated total ties to the row, with a nil fact read as no value; the critical DCF gap names the ownership gate instead of a missing caller input (C-15).
+- Keep the clean average debt when a lease-scope refusal falls only on a balance outside the averaged pair, fall back to the fiscal-year-end pair when it falls on the TTM pair and both fiscal-year balances carry clean total debt, and name the balance date and cause when no average is established (C-1: AT&T regains its WACC; owner decision).
+- Derive operating income as pretax income less the filed non-operating total when the interest tag is nested inside it, with the interest not added back (B-39: LLY FY2025 EBIT 26,302 million and its WACC).
+- Read `RestrictedCashCurrent` and `RestrictedCashNoncurrent` as the restrictions on a combined cash total (B-43: CVX), and use a filing's cash plus short-term investments when its combined total is the narrower figure by more than display rounding (B-34: CSCO).
+- Net bank write-offs against the same filing's cash-flow recoveries when no roll-forward recovery is tagged (C-13: COF).
+- Route managed-care issuers (SIC 6324) to the general map with a sector note (E-6: UNH; owner decision).
+- Score Piotroski leverage on a composed long-term debt when both years compose it from the same tags, and name both tag sets when they differ (E-8: O).
+- Report 1.40.0, payload 1.45.0 and Stage B ACCOUNTING_EVIDENCE_22 (D-105). See the [disposition record](docs/audit/2026-10-22-audit-batch3-complete-evidence.md).
+
+## Proposed audit batch 2b: deferred valuation items (2026-10-22)
+
+- Deduct filed asset-retirement obligations and environmental remediation accruals in the DCF equity bridge when they are tagged (the filed total, else noncurrent plus current, at the bridge's balance date or else the latest date in the year before it, named on the bridge line, never a current portion alone, and never past a balance filed as zero or an annual balance sheet that no longer tags it), before tax, net of funds legally restricted to settle the retirement obligations beyond the investments already added; untagged issuers are unchanged (E-7: FCX, SO, BA).
+- Add a regulated-utility overlay on the general route for SIC 4911, 4924, 4931, 4932 or 4941 with filed rate-regulated revenue or regulatory assets: its balance sheet is scored on Moody's "Regulated Electric and Gas Utilities" (6 August 2024) Standard Grid ranges for CFO before working capital / debt and debt / book capitalization, and Altman Z is withheld from quality and the forensic table; the score evidence names both ratios and traces them to their operands (B-13, A-3: DUK, NEE, SO).
+- Apply the 0.5 sales-to-capital floor only when the issuer's own history does not establish a lower ratio: with at least three fiscal years of filed revenue and operating invested capital, the median of the newest five is the lower bound when below 0.5 and at least 0.1 (lower is read as a scale error), and the basis lists the years (A-2: DUK, NEE, SO).
+- Withhold the WACC and the pre-tax cost of debt on the bank, insurer and mortgage-REIT routes, which value equity at the cost of equity: the cost of equity is kept, no per-year WACC history is computed, the Returns table's cost-of-equity row says why the other two are absent, and neither reaches the LLM payload or the company page, whose WACC build also shows its weights and tax rate as not used (B-31: BAC printed 22.7% and 13.5%).
+- KO's DCF 57% below price is diagnosed as the house calibration batch 2's base-rate line already states, not a defect, and is left unchanged (B-3); the composite's band distribution over the 45-company panel is reported and a recalibration is proposed to the owner, not applied (B-33).
+- Report 1.39.0, payload 1.44.0, Stage B ACCOUNTING_EVIDENCE_21 and score bands SCORE_BANDS_2026_10_REGULATED_UTILITY (D-104). See the [disposition record](docs/audit/2026-10-22-audit-batch2b-valuation-mediums.md).
 
 ## Proposed audit batch 3a: the remaining high-severity findings (2026-10-22)
 

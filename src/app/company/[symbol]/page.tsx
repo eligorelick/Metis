@@ -372,7 +372,7 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
           delta={roicAsOf ? <span className="text-faint">{roicAsOf.slice(0, 4)}</span> : undefined}
           tone="neutral"
         />
-        <StatCell label="wacc" value={fmtPct(r.wacc.waccPct)} tone="neutral" />
+        <StatCell label="wacc" value={r.wacc.withheld ? "not used" : fmtPct(r.wacc.waccPct)} tone="neutral" />
         <StatCell
           label="spread"
           value={spreadDisplay === null ? "n/a" : `${spreadDisplay >= 0 ? "+" : ""}${spreadDisplay.toFixed(1)} pp`}
@@ -381,8 +381,8 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
         <StatCell label="cost of equity" value={fmtPct(r.wacc.costOfEquityPct)} tone="muted" />
         <StatCell
           label="cost of debt"
-          value={fmtPct(r.wacc.costOfDebtPct)}
-          delta={<span className="text-faint">{r.wacc.costOfDebtMethod}</span>}
+          value={r.wacc.withheld ? "not used" : fmtPct(r.wacc.costOfDebtPct)}
+          delta={r.wacc.withheld ? undefined : <span className="text-faint">{r.wacc.costOfDebtMethod}</span>}
           tone="muted"
         />
       </div>
@@ -394,9 +394,9 @@ function ReturnsPanel({ computed }: { computed: ComputedMetrics }) {
             <Row k="beta (raw → final)" v={`${fmtNum(r.wacc.betaRaw, 2)} → ${fmtNum(r.wacc.betaFinal, 2)}`} />
             <Row k="risk-free" v={fmtPct(r.wacc.riskFreePct)} />
             <Row k="ERP" v={fmtPct(r.wacc.erpPct)} />
-            <Row k="tax used" v={r.wacc.taxRateUsed === null ? "n/a" : fmtPct(r.wacc.taxRateUsed * 100)} />
+            <Row k="tax used" v={r.wacc.withheld ? "not used" : r.wacc.taxRateUsed === null ? "n/a" : fmtPct(r.wacc.taxRateUsed * 100)} />
             {r.wacc.syntheticRating ? <Row k="synthetic rating" v={r.wacc.syntheticRating} /> : null}
-            <Row k="weight E / D" v={`${fmtFractionPct(r.wacc.weightEquity)} / ${fmtFractionPct(r.wacc.weightDebt)}`} />
+            <Row k="weight E / D" v={r.wacc.withheld ? "not used" : `${fmtFractionPct(r.wacc.weightEquity)} / ${fmtFractionPct(r.wacc.weightDebt)}`} />
           </dl>
         </div>
         <div className="text-[11px]">

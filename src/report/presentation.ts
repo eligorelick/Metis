@@ -258,6 +258,8 @@ export function signalLabel(id: string): string {
     buybackDiscipline: "Current price vs average repurchase price", capitalDeployment: "Capital deployment (ROIC − WACC)",
     shareCountTrend: "Annualized weighted-average diluted common-share trend", relStrength12m1m: "Relative strength vs SPY, 12-1 month",
     pctFromHigh52w: "Distance from 52-week high", smaGap: "SMA 50 / SMA 200 gap",
+    // Audit 2026-10-22 B-13: the regulated-utility balance sheet.
+    cfoPreWcToDebt: "CFO before working-capital changes / debt", debtToBookCapitalization: "Debt / book capitalization (with deferred taxes)",
   };
   return fixed[id] ?? sentence(segmentWords(id));
 }
@@ -846,7 +848,8 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     rows.push({ label: "Forward P/E (model base-case operating EPS)", value: formatMultiple(price / nextEps.value.value), note: `${nextEps.period}; excludes investment gains` });
   }
   const evEbitda = report.valuation.multiples.find((m) => /^EV\/EBITDA/i.test(m.name) && m.current !== null);
-  if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current) });
+  // Audit 2026-10-22 B-7: an EBITDA on a composed, lower-bound D&A says so.
+  if (evEbitda) rows.push({ label: `${evEbitda.name} (TTM)`, value: formatMultiple(evEbitda.current), ...(evEbitda.earningsCaveat ? { note: `caveat: ${evEbitda.earningsCaveat}` } : {}) });
   else {
     // Net debt the pipeline withheld for the current EV is not an absent
     // input: say the multiple was withheld, so the box cannot read as merely

@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-23",
+  "generatedAt": "2026-10-26",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -6985,11 +6985,6 @@
           "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
         },
         {
-          "path": "report.scores.bandsVersion",
-          "before": "SCORE_BANDS_2026_07",
-          "after": "SCORE_BANDS_2026_10_FRESHNESS_AUDIT"
-        },
-        {
           "path": "report.sourceFactSummary",
           "beforeMissing": true,
           "after": {
@@ -7102,11 +7097,6 @@
           "path": "stageB.scores.aspects.moat.note",
           "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
           "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
-        },
-        {
-          "path": "stageB.scores.bandsVersion",
-          "before": "SCORE_BANDS_2026_07",
-          "after": "SCORE_BANDS_2026_10_FRESHNESS_AUDIT"
         },
         {
           "path": "stageB.valuation.assumptions.sbc",
@@ -10157,16 +10147,35 @@
       ]
     },
     {
-      "name": "audit-batch3a-priority-highs-20261022",
+      "name": "audit-batch2b-valuation-mediums-20261022",
       "decisions": [
-        "D-103"
+        "D-104"
       ],
-      "reason": "Audit batch 3a of 2026-10-22 (the remaining high-severity findings, D-103), as it reaches this provider-free DEMO control: only the report stamp moves, to spec 1.38.0 (the newer-results notice and headline row, issuer-common capitalization withheld for an unresolved class scope, the economic-weight basis). The path moves out of audit-batch2-valuation-domain-20261022, whose record stands for 1.37.0. The tax-rate, debt-band, vendor-tolerance, D&A, share-class, newer-results and 10-Q selection changes do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch3a-priority-highs.md.",
+      "reason": "Audit batch 2b of 2026-10-22 (the deferred valuation items, D-104), as it reaches this provider-free DEMO control: only stamps move. The report stamp moves to spec 1.39.0 (the retirement and environmental bridge lines, the regulated-utility balance-sheet basis, the sales-to-capital floor basis and the cost-of-equity row without a WACC), out of audit-batch3a-priority-highs-20261022, whose record for 1.38.0 stands in its disposition note. The score-bands stamp moves to SCORE_BANDS_2026_10_REGULATED_UTILITY in the report and in Stage B (the band tables gain Moody's regulated-utility leverage ranges), out of expe-ownership-and-evidence, whose record stands for SCORE_BANDS_2026_10_FRESHNESS_AUDIT. This general-route fixture tags no retirement or environmental obligation, is not a utility, has no sales-to-capital floor in play and is not valued at the cost of equity, so no other value moves. See docs/audit/2026-10-22-audit-batch2b-valuation-mediums.md.",
+      "deltas": [
+        {
+          "path": "report.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10_REGULATED_UTILITY"
+        },
+        {
+          "path": "stageB.scores.bandsVersion",
+          "before": "SCORE_BANDS_2026_07",
+          "after": "SCORE_BANDS_2026_10_REGULATED_UTILITY"
+        }
+      ]
+    },
+    {
+      "name": "audit-batch3-complete-evidence-20261022",
+      "decisions": [
+        "D-105"
+      ],
+      "reason": "Audit batch 3 of 2026-10-22 (stop withholding where the filed evidence is complete, D-105), as it reaches this provider-free DEMO control: only the report stamp moves, to spec 1.40.0 (the EV/EBITDA lower-bound caveat, the stand-in and equity-statement NCI bases, the named debt and NCI gaps, the cash and charge-off bases, the managed-care route note and the composed-debt leverage basis), out of audit-batch2b-valuation-mediums-20261022, whose record for 1.39.0 stands in its disposition note. The diluted-share stand-in, the multi-class diluted count, equity-statement NCI, the debt-pair fallback, the EBIT derivation, the cash chains, cash-flow recoveries, the managed-care route and the composed-debt leverage signal do not reach this fixture, and no other value moves. See docs/audit/2026-10-22-audit-batch3-complete-evidence.md.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.38.0"
+          "after": "1.40.0"
         }
       ]
     }

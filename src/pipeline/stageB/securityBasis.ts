@@ -160,6 +160,66 @@ export function resolveEconomicEquityScope(
     basis: "Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope." };
 }
 
+/** Audit 2026-10-22 B-37: the filed weighted-average counts, both from one income row. */
+export interface WeightedShareCounts {
+  basic: number | null;
+  diluted: number | null;
+  periodEnd: string | null;
+}
+
+const ECONOMIC_COUNT_TOLERANCE = 0.03;
+const ECONOMIC_COUNT_WINDOW_DAYS = 120;
+
+/**
+ * Audit 2026-10-22 B-37: the filed diluted count is on the all-class economic
+ * basis when the basic count from the same row matches the resolved economic
+ * share total on exactly one class's unit basis, within 3% and within half the
+ * smallest class's share of that total, so a count that leaves out a class
+ * cannot pass. Null when no resolved multi-class scope applies.
+ */
+export function issuerEconomicDilutedShares(
+  scope: EconomicEquityScope,
+  evidence: readonly EconomicShareEvidence[],
+  counts: WeightedShareCounts,
+): { shares: number; basis: string } | { shares: null; reason: string } | null {
+  if (scope.status !== "resolved" || !evidence.some(row => row.classes.length > 1)) return null;
+  const refuse = (why: string) => ({ shares: null, reason: `The filed diluted count is not established on the all-class economic basis: ${why}.` });
+  const total = scope.economicShares;
+  const countDay = scope.shareCountAsOf;
+  const priceDay = scope.priceAsOf;
+  if (!finite(total) || total <= 0 || !countDay || !priceDay) return refuse("the resolved class inventory carries no dated economic share total");
+  const { basic, diluted, periodEnd } = counts;
+  if (!finite(diluted) || diluted <= 0) return refuse("no diluted weighted-average count is filed");
+  if (!finite(basic) || basic <= 0) return refuse("no basic weighted-average count is filed for the same period, so the diluted count cannot be shown to span every class");
+  if (!periodEnd || !day(periodEnd) || Math.abs(Date.parse(periodEnd) - Date.parse(countDay)) / 86_400_000 > ECONOMIC_COUNT_WINDOW_DAYS) {
+    return refuse(`the weighted counts for the period ending ${periodEnd ?? "on an unknown date"} are more than ${ECONOMIC_COUNT_WINDOW_DAYS} days from the class inventory at ${countDay}`);
+  }
+  const classes = new Map<string, { shares: number; units: number }>();
+  for (const row of evidence) {
+    if (!day(row.effectiveFrom) || row.effectiveFrom > priceDay || (row.effectiveTo !== null && row.effectiveTo <= priceDay)) continue;
+    for (const cls of row.classes) {
+      if (finite(cls.shares) && cls.shares > 0 && finite(cls.economicUnitsPerQuotedShare) && cls.economicUnitsPerQuotedShare > 0) {
+        classes.set(cls.classId, { shares: cls.shares, units: cls.economicUnitsPerQuotedShare });
+      }
+    }
+  }
+  if (!classes.size) return refuse("no class in force on the price day has a positive outstanding count");
+  const tolerance = Math.min(ECONOMIC_COUNT_TOLERANCE, Math.min(...[...classes.values()].map(cls => cls.shares * cls.units / total)) / 2);
+  const units = [...new Set([...classes.values()].map(cls => cls.units))];
+  const matches = units.filter(unit => Math.abs(basic * unit / total - 1) <= tolerance);
+  const count = (v: number): string => Math.round(v).toLocaleString("en-US");
+  const pct = `${(tolerance * 100).toFixed(1)}%`;
+  if (matches.length !== 1) {
+    return refuse(`the basic weighted-average count ${count(basic)} (period ending ${periodEnd}) does not match the all-class economic share total of ${count(total)} quoted-share units at ${countDay} on exactly one class's unit basis within ${pct}`);
+  }
+  const unit = matches[0];
+  const scaled = unit === 1 ? "" : ` × ${unit} units per share`;
+  return { shares: diluted * unit,
+    basis: `Diluted shares on the issuer-economic basis: the basic weighted-average count ${count(basic)}${scaled} for the period ending ${periodEnd} ` +
+      `matches the all-class economic share total of ${count(total)} quoted-share units at ${countDay} within ${pct}, so the filed diluted count ` +
+      `${count(diluted)}${scaled}${unit === 1 ? "" : ` = ${count(diluted * unit)} quoted-share units`} spans every class (audit 2026-10-22 B-37).` };
+}
+
 /** The economic flow interval, independent of a nearby display date. */
 export interface CommonIncomeFlowScope {
   issuerId?: string | null;

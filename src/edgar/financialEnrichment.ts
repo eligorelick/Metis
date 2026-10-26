@@ -8,6 +8,7 @@ import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 
 /** Already acquired filing sections only; no additional provider reads. */
 export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | "tenKNotes"> | undefined): ExtractedSection[] {
@@ -407,8 +408,44 @@ function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: Compa
     fieldProvenance: { ...row.fieldProvenance, shortTermDebt: note.evidence, longTermDebt: note.evidence, totalDebt: totalEvidence } };
 }
 
+/**
+ * Audit 2026-10-22 C-15: a balance row with the consolidated total only takes
+ * its parent/NCI split from a filing's equity statement (`equityStatementNci`)
+ * at the same instant, when that filing's consolidated total is the row's.
+ * The latest filing wins; its observations must agree.
+ */
+function admitEquityStatementNci<T extends FmpStatementRow>(row: T, filings: readonly FilingEquityStatementNci[], cik: number, currency: string, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const total = row.totalEquity;
+  if (isNum(row.minorityInterest) || isNum(row.totalStockholdersEquity) || !isNum(total) || !filings.length) return { row, gaps: [] };
+  const candidates = filings.filter(f => Number(f.issuerId) === cik && f.source.filingDate <= observedAt.slice(0, 10))
+    .flatMap(f => f.observations.filter(o => o.end === row.date && o.currency === currency).map(o => ({ o, source: f.source })))
+    .sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate) || b.source.accession.localeCompare(a.source.accession));
+  if (!candidates.length) return { row, gaps: [] };
+  const field = `statements.balance.${row.date}.minorityInterest`;
+  const latest = candidates.filter(c => c.source.filingDate === candidates[0]!.source.filingDate);
+  if (new Set(latest.map(c => `${c.o.noncontrollingInterest}|${c.o.totalEquity}`)).size > 1) {
+    return { row, gaps: [{ field, reason: `noncontrolling interest at ${row.date} not admitted: the equity statements filed ${latest[0]!.source.filingDate} disagree`, severity: "warn" }] };
+  }
+  const { o, source } = latest[0]!;
+  if (o.totalEquity === null || !vendorAgreesWithFiled(total, o.totalEquity)) {
+    return { row, gaps: [{ field, reason: `noncontrolling interest at ${row.date} not admitted from ${source.form} ${source.accession}: ` +
+      (o.totalEquity === null ? "its equity statement tags no consolidated total at that date to tie to the row" : `its consolidated total ${o.totalEquity} ${currency} differs from the row's total equity ${total}`), severity: "warn" }] };
+  }
+  const tag = "us-gaap/StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest";
+  const evidence: StatementFieldProvenance = { source: "edgar", unit: currency, periodStart: null, periodEnd: o.end, observedAt, tags: [tag],
+    filings: [{ accn: source.accession, filed: source.filingDate, form: source.form }] };
+  const out = { ...row, minorityInterest: o.noncontrollingInterest, totalStockholdersEquity: total - o.noncontrollingInterest,
+    fieldProvenance: { ...row.fieldProvenance, minorityInterest: { ...evidence, calculation: "equity-statement-nci" as const },
+      totalStockholdersEquity: { ...evidence, calculation: "total-equity-less-equity-statement-nci" as const } } } as T;
+  return { row: out, gaps: [{ field, severity: "info", expected: true,
+    reason: `noncontrolling interest ${o.noncontrollingInterest} ${currency} at ${row.date} read from the ${source.form} ${source.accession} equity statement ` +
+      `(StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest on StatementEquityComponentsAxis = NoncontrollingInterestMember, a dimensional fact companyfacts does not carry); ` +
+      `its consolidated total equals the row's total equity, and parent equity is that total less the NCI` }] };
+}
+
 /** Enrich missing details; retain conflicting observations in raw evidence and refusal records. */
-export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
+export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalanceSheetRow>>, cashflow: FetchResult<FmpPayload<FmpCashFlowRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, presentations: readonly ExtractedSection[] = [], cashInvestment: readonly FilingCashInvestment[] = [], equityStatementNci: readonly FilingEquityStatementNci[] = []): { balance: typeof balance; cashflow: typeof cashflow; gaps: ManifestEntry[] } {
   const gaps: ManifestEntry[] = [];
   const temporaryRows = balance.ok ? temporaryEquityRows(facts, scope, observedAt) : null;
   function enrich<T extends FmpStatementRow>(input: FetchResult<FmpPayload<T>>, kind: "balance" | "cashflow"): FetchResult<FmpPayload<T>> {
@@ -472,6 +509,9 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const admitted = admitDebtFields(out, facts, currency, observedAt, presentations);
         out = admitted.row;
         gaps.push(...admitted.gaps);
+        const nci = admitEquityStatementNci(out, equityStatementNci, facts.cik, currency, observedAt);
+        out = nci.row;
+        gaps.push(...nci.gaps);
       }
       const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind);
       out = cashAdmission.row;

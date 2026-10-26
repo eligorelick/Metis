@@ -214,6 +214,9 @@ export function normalizeReportedCurrency(value: unknown): string | null {
   return currency !== null && /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
 
+/** Hospital and medical service plans (audit 2026-10-22 E-6). */
+const MANAGED_CARE_SIC = 6324;
+
 /** Parse a leading 4-digit SIC code out of "6021" or "6021 NATIONAL COMMERCIAL BANKS". */
 function parseSic(sic: string | null): number | null {
   if (sic === null) return null;
@@ -247,8 +250,21 @@ export function routeCompany(
   // ---- base route: industry-prefix matching FIRST, case-insensitive, trimmed
   let base: SectorRoute = "general";
   let baseMatched = false;
+  // Audit 2026-10-22 E-6: a health plan (SIC 6324) is managed care. Its
+  // premium and claim-reserve tags are the insurer evidence rule's signals,
+  // but its earnings and free cash flow measure it and its debt finances the
+  // business rather than float, so it takes the general map whatever the
+  // label or tags say.
+  const managedCare = parseSic(sicRaw) === MANAGED_CARE_SIC;
 
-  if (profile.isEtf === true || profile.isFund === true) {
+  if (managedCare && profile.isEtf !== true && profile.isFund !== true) {
+    baseMatched = true;
+    notes.push(
+      `SIC ${sicRaw} (hospital and medical service plans) is managed care: routed to the general map, not the insurer ` +
+        "map. Earnings and free cash flow measure a health plan, and its debt is financing debt rather than float, so " +
+        "the insurer map's excess return over book value and its withheld debt do not fit.",
+    );
+  } else if (profile.isEtf === true || profile.isFund === true) {
     notes.push(
       "profile.isEtf/isFund is true — funds/ETFs are out of scope for company routing " +
         "(docs/METHODOLOGY.md, Routing); no company report should be generated.",
@@ -352,7 +368,7 @@ export function routeCompany(
   // developers) and 66 are not financial companies — the band the forensics
   // classifier uses — so a developer's SIC cannot corroborate REIT evidence.
   const sicIsFinancial =
-    sicNum !== null && ((sicNum >= 6000 && sicNum <= 6499) || (sicNum >= 6700 && sicNum <= 6799));
+    sicNum !== null && sicNum !== MANAGED_CARE_SIC && ((sicNum >= 6000 && sicNum <= 6499) || (sicNum >= 6700 && sicNum <= 6799));
   const sectorIsFinancial = sectorLc === "financial services" || sectorLc === "financial";
   const evidenceSuggests = evidence?.suggests ?? null;
   const evidenceSignalsFor = (cls: NonNullable<typeof evidenceSuggests>): string =>
@@ -411,7 +427,15 @@ export function routeCompany(
     !(industryLc === null && sicNum !== null && sicNum >= 6400 && sicNum <= 6499) &&
     (industryLc === null || /^(?:financial\s*-\s*)?(?:capital markets|financial conglomerates|financial services|diversified financial services)$/.test(industryLc));
 
-  if (broadFinancialClassification && evidenceSuggests === "bank" && evidence?.available) {
+  if (managedCare) {
+    if (evidenceSuggests !== null && evidence !== null) {
+      notes.push(
+        `routing evidence (${evidence.source}${evidenceAsOf}) suggests '${evidenceSuggests}' ` +
+          `(${evidence.basis ?? evidenceSignalsFor(evidenceSuggests)}); a health plan files premiums and claim reserves, ` +
+          "so managed care stays on the general map.",
+      );
+    }
+  } else if (broadFinancialClassification && evidenceSuggests === "bank" && evidence?.available) {
     base = "bank";
     baseMatched = true;
     notes.push(
@@ -857,6 +881,28 @@ export function routeCompany(
     }
   }
 
+  // regulated-utility (audit 2026-10-22 B-13): a utility SIC alone also covers
+  // merchant generators and marketers, so filed evidence of rate regulation
+  // must accompany it. The base route is untouched; only the balance-sheet
+  // scoring and the Altman suppression follow from the overlay.
+  if (sicNum !== null && REGULATED_UTILITY_SICS.includes(sicNum) && base === "general") {
+    const signals = evidence?.available === true ? evidence.regulatedUtility : [];
+    if (signals.length > 0) {
+      overlays.push("regulated-utility");
+      notes.push(
+        `regulated-utility overlay applied: SIC ${sicRaw} with rate-regulation evidence (${describeSignals(signals)}). ` +
+          "The balance sheet is scored on Moody's regulated-utility financial-strength ranges and Altman Z is withheld " +
+          "(audit 2026-10-22 B-13, owner decision).",
+      );
+    } else {
+      notes.push(
+        `regulated-utility overlay not applied: SIC ${sicRaw} is a utility code, but ${evidence?.available === true
+          ? "companyfacts carry no rate-regulated revenue or regulatory assets within the recency window"
+          : (evidence?.unavailableReason ?? "no XBRL evidence was supplied")} — the general map applies.`,
+      );
+    }
+  }
+
   const materialModelConflict = evidence?.available === true &&
     (evidenceSuggests === "bank" || evidenceSuggests === "insurer" ||
       (evidenceSuggests === "reit-mortgage" && mortgageEvidenceCorroborated)) &&
@@ -1114,6 +1160,9 @@ const BASE_POLICIES: Readonly<Record<SectorRoute, { suppress: readonly string[];
   },
 };
 
+/** SEC SIC codes of electric, gas, combination and water utilities (audit 2026-10-22 B-13). */
+export const REGULATED_UTILITY_SICS: readonly number[] = [4911, 4924, 4931, 4932, 4941];
+
 const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly string[]; lead: readonly string[] }>> = {
   // overlay behavior.
   unprofitable: {
@@ -1135,6 +1184,12 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
   adr: {
     suppress: [],
     lead: ["adrRatio", "withholdingGrossYield"],
+  },
+  // B-13 / A-3: the Z models were estimated on manufacturers; a utility's
+  // rate base and regulatory assets are not the balance sheet they describe.
+  "regulated-utility": {
+    suppress: ["altmanZ"],
+    lead: [],
   },
 };
 

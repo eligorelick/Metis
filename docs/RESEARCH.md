@@ -616,6 +616,11 @@ What the report does:
   the band, but an equity REIT is an operating landlord, so Z″ is shown with a
   caution note rather than withheld (`selectAltmanVariant`; METHODOLOGY
   *Altman Z, Beneish M, accrual ratios*).
+- **Altman Z is also withheld for a regulated utility** (the regulated-utility
+  overlay, audit 2026-10-22 B-13 and A-3): its rate base and regulatory assets
+  are not the manufacturing balance sheets the Z models were estimated on, and
+  its balance sheet is scored on Moody's regulated-utility leverage ranges
+  instead (METHODOLOGY *Balance sheet of a regulated utility*).
 - **Accrual ratios are suppressed** for financial companies.
 - **The Piotroski cash-flow signals are withheld** — both of them, with the
   current ratio and gross margin, on every financial route, and ΔLEVER and
@@ -671,7 +676,10 @@ elements; WFC's undimensioned loan, allowance and charge-off facts stop in
 only tangible leverage on file, its balance sheet is unscored. JPM, BAC and PNC tag the
 `…AllowanceForCreditLossWriteoff` / `…Recovery` pair (and the after-recovery
 total); C uses `FinancingReceivableAllowanceForCreditLossesWriteOffs` /
-`…Recovery`. None tags a CET1 ratio after 2013, so CET1 is displayed when
+`…Recovery`. A filer that tags its write-offs but its recovery total only
+dimensionally (Capital One) is netted against the same filing's cash-flow line
+`ProceedsFromRecoveriesOfLoanPreviouslyChargedOff` (audit 2026-10-22 C-13).
+None tags a CET1 ratio after 2013, so CET1 is displayed when
 tagged and never graded. Undimensioned nonaccrual totals end in 2021-22, so the
 NPL input is usually withheld and the other weights renormalise.
 
@@ -797,7 +805,11 @@ rate. It is the standard approach for an issuer with no rated public debt.
 "plausible" is [rf − 1, rf + 19] percentage points, outside which the synthetic
 rating is used instead; and debt below **2% of assets** is treated as noise,
 because an effective rate computed on a trivial balance is arithmetic rather
-than a cost of capital. The method that actually ran is always named.
+than a cost of capital. The method that actually ran is always named. On the
+bank, insurer and mortgage-REIT routes neither the cost of debt nor the WACC is
+computed (audit 2026-10-22 B-31): those routes value equity at the cost of
+equity, and a bank's interest expense over its debt is mostly deposit and repo
+funding, not a borrowing cost.
 
 ### 7.4 Terminal value
 
@@ -830,8 +842,10 @@ as one.
 Every bound in this section — the beta clamp, the ERP band, the cost-of-debt
 plausibility range, the WACC clamp of [max(6%, rf + 1%), 20%] — and the two
 that bound the DCF's paths — the EBIT-margin range of [−20%, max(45%, the
-issuer's own five-year maximum)] and the sales-to-capital range of [0.5, 5]
-(METHODOLOGY "Fade and horizon") — exists to stop a **broken input** producing
+issuer's own five-year maximum)] and the sales-to-capital range of [0.5, 5],
+whose floor yields to the issuer's own lower ratio when at least three filed
+fiscal years establish one (METHODOLOGY "Fade and horizon"; audit 2026-10-22
+A-2) — exists to stop a **broken input** producing
 a confident number. None of them is a view about what a company's cost of
 capital or margin should be; the margin ceiling in particular never binds
 below a level the issuer has demonstrably earned.

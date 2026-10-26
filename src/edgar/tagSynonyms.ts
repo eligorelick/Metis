@@ -170,25 +170,23 @@ export const EBIT_NON_OPERATING_ADJUSTMENTS: readonly EbitNonOperatingAdjustment
 /**
  * The interest-expense element the taxonomy makes a CHILD of
  * `NonoperatingIncomeExpense`. When a filer tags both, "pretax + interest −
- * aggregate" adds back an interest expense the aggregate already removed and
- * overstates EBIT by exactly that interest, so the derivation is withheld
- * rather than published (see `EBIT_INTEREST_INSIDE_AGGREGATE`).
+ * aggregate" would add back an interest expense the aggregate already removed,
+ * so the interest is not added: pretax less the aggregate is the EBIT (see
+ * `EBIT_INTEREST_INSIDE_AGGREGATE`; audit 2026-10-22 B-39, it was withheld).
  */
 export const INTEREST_INSIDE_NONOPERATING_TAG = "InterestExpenseNonoperating";
 
 /**
- * The pair whose co-presence makes the derivation unsound, with the disclosure
- * the withheld figure carries.
+ * The nested pair, with the disclosure the derived figure carries.
  */
 export const EBIT_INTEREST_INSIDE_AGGREGATE = {
   partTag: INTEREST_INSIDE_NONOPERATING_TAG,
   adjustmentTag: "NonoperatingIncomeExpense",
   disclose:
-    "operating income WITHHELD rather than derived: the filer reports no OperatingIncomeLoss line, and its interest " +
-    `expense is tagged ${INTEREST_INSIDE_NONOPERATING_TAG}, which the us-gaap calculation makes a component of the ` +
-    "NonoperatingIncomeExpense aggregate it also filed. \"Pretax income + interest expense − the aggregate\" would " +
-    "therefore add back an interest expense the aggregate has already removed and overstate EBIT by exactly that " +
-    "interest, so no figure is published for this period.",
+    `interest expense (${INTEREST_INSIDE_NONOPERATING_TAG}) is not added back: the us-gaap calculation makes it a ` +
+    "component of the NonoperatingIncomeExpense aggregate subtracted here, so pretax income less that aggregate " +
+    "already excludes it; where the filer's aggregate leaves its interest out, the figure understates EBIT by that " +
+    "interest",
 } as const;
 
 /**
@@ -262,10 +260,13 @@ export const LINE_ITEM_TAGS = {
     "DepreciationAndAmortization",
     "DepreciationAmortizationAndAccretionNet",
   ]),
-  eps: entry(["EarningsPerShareBasic"]),
-  epsDiluted: entry(["EarningsPerShareDiluted"]),
-  weightedAverageShsOut: entry(["WeightedAverageNumberOfSharesOutstandingBasic"]),
-  weightedAverageShsOutDil: entry(["WeightedAverageNumberOfDilutedSharesOutstanding"]),
+  // A filer with no dilutive securities can tag one figure for both bases with
+  // the combined elements; each is the basic and the diluted figure at once
+  // (audit 2026-10-22 B-35).
+  eps: entry(["EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"]),
+  epsDiluted: entry(["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"]),
+  weightedAverageShsOut: entry(["WeightedAverageNumberOfSharesOutstandingBasic", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),
+  weightedAverageShsOutDil: entry(["WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfShareOutstandingBasicAndDiluted"]),
 
   // --- balance sheet --------------------------------------------------------
   cashAndCashEquivalents: entry([
@@ -276,6 +277,10 @@ export const LINE_ITEM_TAGS = {
   cashAndCashEquivalentsIncludingRestricted: entry(["CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"]),
   restrictedCashAndCashEquivalents: entry(["RestrictedCashAndCashEquivalentsAtCarryingValue", "RestrictedCashAndCashEquivalents"]),
   restrictedCashAndCashEquivalentsNoncurrent: entry(["RestrictedCashAndCashEquivalentsNoncurrent"]),
+  // Audit 2026-10-22 B-43: restrictions tagged as restricted cash only, read
+  // as unrestricted cash's subtrahends after the cash-and-equivalents forms.
+  restrictedCashCurrent: entry(["RestrictedCashCurrent"]),
+  restrictedCashNoncurrent: entry(["RestrictedCashNoncurrent"]),
   shortTermInvestments: entry([
     "ShortTermInvestments",
     "MarketableSecuritiesCurrent",

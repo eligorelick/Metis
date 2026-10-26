@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { buildStatementsFromCompanyFacts, lowerBoundDAndACaveat } from "@/edgar/statements";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 import type { CompanyFacts } from "@/edgar/xbrl";
 
@@ -1919,6 +1919,23 @@ describe("buildStatementsFromCompanyFacts — income-statement fallbacks", () =>
     ]);
   });
 
+  it("names the periods whose D&A is a composed lower bound, for the EV/EBITDA caveat (audit 2026-10-22 B-7)", () => {
+    const composed = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(-2_000), Depreciation: annual(10_757), AmortizationOfIntangibleAssets: annual(949) }),
+      { ...OPTS, symbol: "INTC" },
+    );
+    expect(lowerBoundDAndACaveat(composed.incomeAnnual.rows)).toMatch(/^D&A is a lower bound for 2025-12-31 .*Depreciation \+ AmortizationOfIntangibleAssets.*EV\/EBITDA/);
+    const alone = buildStatementsFromCompanyFacts(base({ OperatingIncomeLoss: annual(4_355), Depreciation: annual(5_030) }), { ...OPTS, symbol: "TSLA" });
+    expect(lowerBoundDAndACaveat(alone.incomeAnnual.rows)).toMatch(/Depreciation alone/);
+    const combined = buildStatementsFromCompanyFacts(
+      base({ OperatingIncomeLoss: annual(1_000), DepreciationDepletionAndAmortization: annual(12_000), Depreciation: annual(10_757) }),
+      { ...OPTS, symbol: "INTC" },
+    );
+    expect(lowerBoundDAndACaveat(combined.incomeAnnual.rows)).toBeNull();
+    // A vendor row carries no SEC provenance and no caveat.
+    expect(lowerBoundDAndACaveat([{ date: "2025-12-31" }])).toBeNull();
+  });
+
   it("keeps a combined D&A tag over the components, and composes nothing from amortization alone", () => {
     const combined = buildStatementsFromCompanyFacts(
       base({ OperatingIncomeLoss: annual(1_000), DepreciationDepletionAndAmortization: annual(12_000), Depreciation: annual(10_757), AmortizationOfIntangibleAssets: annual(949) }),
@@ -2223,11 +2240,12 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
     expect(built.substitutions[0]!.text).toMatch(/may ALREADY contain the interest expense added back/);
   });
 
-  it("WITHHOLDS the derived EBIT when the interest tag is a taxonomy child of the aggregate", () => {
+  it("does not add back interest the taxonomy nests inside the subtracted aggregate (audit 2026-10-22 B-39)", () => {
     // InterestExpenseNonoperating sits inside NonoperatingIncomeExpense, so
-    // "pretax + interest − aggregate" adds back interest the aggregate already
-    // removed: a true EBIT of 1,000 with interest 100 and an aggregate of −50
-    // would publish 1,100. No figure is published at all instead.
+    // "pretax + interest − aggregate" would add back interest the aggregate
+    // already removed: a true EBIT of 1,000 with interest 100 and an aggregate
+    // of −50 would publish 1,100. The figure used to be withheld; pretax less
+    // the aggregate is exact, so it is 1,000 and says why.
     const built = ebit(
       facts({
         Revenues: annual(64_000),
@@ -2238,26 +2256,30 @@ describe("buildStatementsFromCompanyFacts — derived EBIT subtracts non-operati
         NonoperatingIncomeExpense: annual(-50),
       }),
     );
-    expect(built.rows[0]!.operatingIncome).toBeNull();
-    // And no figure means no figure: `ebit` used to publish the 1,050 sum the
-    // derivation had just refused, under a second name, and `ebit` is the field
-    // valuation reads. Both are withheld together.
-    expect(built.rows[0]!.ebit).toBeNull();
-    expect(built.substitutions).toEqual([]);
-    expect(built.withheld).toEqual([
-      {
-        field: "operatingIncome",
-        periods: ["2025-12-31"],
-        text: expect.stringMatching(/^operating income WITHHELD rather than derived/),
-      },
-      {
-        field: "ebit",
-        periods: ["2025-12-31"],
-        text: expect.stringMatching(/^ebit WITHHELD: pre-tax income plus interest expense is available/),
-      },
-    ]);
-    expect(built.withheld[0]!.text).toMatch(/overstate EBIT by exactly that interest/);
-    expect(built.notes.some((n) => /operating income WITHHELD rather than derived/.test(n))).toBe(true);
+    expect(built.rows[0]!.operatingIncome).toBe(1_000);
+    expect(built.rows[0]!.ebit).toBe(1_000);
+    expect(built.rows[0]!.interestExpense).toBe(100);
+    expect(built.withheld).toEqual([]);
+    const text = built.substitutions.find((s) => s.field === "operatingIncome")!.text;
+    expect(text).toMatch(/^EBIT derived as pretax income \(IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest\): /);
+    expect(text).toMatch(/interest expense \(InterestExpenseNonoperating\) is not added back/);
+    expect(text).not.toMatch(/may ALREADY contain the interest expense added back/);
+  });
+
+  it("derives Eli Lilly's operating income from pretax less its non-operating total", () => {
+    // LLY FY2025 as filed (USD millions): no OperatingIncomeLoss line.
+    const built = ebit(
+      facts({
+        Revenues: annual(65_179),
+        NetIncomeLoss: annual(20_640),
+        Assets: [{ end: "2025-12-31", val: 117_000, ...K }],
+        IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: annual(25_731),
+        InterestExpenseNonoperating: annual(895),
+        NonoperatingIncomeExpense: annual(-571),
+      }),
+    );
+    expect(built.rows[0]!.operatingIncome).toBe(26_302);
+    expect(built.rows[0]!.ebit).toBe(26_302);
   });
 
   it("still derives when that interest tag serves and no aggregate was filed", () => {
@@ -2532,5 +2554,128 @@ describe("buildStatementsFromCompanyFacts — non-current investments (AMZN audi
   it("leaves long-term investments null when no non-current investment is tagged", () => {
     const { row } = quarterRow(holder({ MarketableSecuritiesCurrent: instant(44.77 * B) }));
     expect(row.longTermInvestments).toBeNull();
+  });
+});
+
+describe("buildStatementsFromCompanyFacts — diluted weighted shares (audit 2026-10-22 B-35)", () => {
+  const K = { form: "10-K", fp: "FY", fy: 2025, filed: "2026-02-13" } as const;
+  const annual = (val: number): Pt[] => [{ start: "2025-01-01", end: "2025-12-31", val, ...K }];
+  const base = (extra: Record<string, Pt[]>): CompanyFacts =>
+    facts({
+      Revenues: annual(330_000),
+      NetIncomeLoss: annual(28_800),
+      Assets: [{ end: "2025-12-31", val: 450_000, ...K }],
+      ...extra,
+    });
+
+  it("stands basic weighted shares in for the diluted count when basic and diluted EPS are equal for the period", () => {
+    // Exxon Mobil has tagged no diluted count since FY2013; its basic and
+    // diluted EPS are the same figure (FY2025 6.70) and basic shares 4,305M.
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        EarningsPerShareBasic: annual(6.7),
+        EarningsPerShareDiluted: annual(6.7),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_305_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    const row = built.incomeAnnual.rows[0]!;
+    expect(row.weightedAverageShsOutDil).toBe(4_305_000_000);
+    expect(row.fieldProvenance?.weightedAverageShsOutDil).toMatchObject({
+      periodStart: "2025-01-01",
+      periodEnd: "2025-12-31",
+      calculation: "basic-shares-equal-eps",
+    });
+    expect(built.incomeAnnual.substitutions).toEqual([
+      { field: "weightedAverageShsOutDil", periods: ["2025-12-31"], text: expect.stringMatching(/basic and diluted EPS are equal.*stand-in/) },
+    ]);
+  });
+
+  it("says a loss period's equal EPS reflects antidilution, not dilution too small to show", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        NetIncomeLoss: annual(-5_160),
+        EarningsPerShareBasic: annual(-1.2),
+        EarningsPerShareDiluted: annual(-1.2),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_300_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(built.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBe(4_300_000_000);
+    const text = built.incomeAnnual.substitutions.find(s => s.field === "weightedAverageShsOutDil")?.text;
+    expect(text).toMatch(/loss.*antidilutive/);
+    expect(text).not.toMatch(/too small/);
+  });
+
+  it("keys the loss wording on continuing operations, ASC 260's control number, not on net EPS", () => {
+    const disclosure = (extra: Record<string, Pt[]>) => buildStatementsFromCompanyFacts(
+      base({ WeightedAverageNumberOfSharesOutstandingBasic: annual(4_300_000_000), ...extra }),
+      { ...OPTS, symbol: "XOM" },
+    ).incomeAnnual.substitutions.find(s => s.field === "weightedAverageShsOutDil")?.text;
+    // A net loss from a discontinued-operations charge while continuing operations earn a profit.
+    expect(disclosure({
+      NetIncomeLoss: annual(-2_150), IncomeLossFromContinuingOperations: annual(3_000), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(-5_150),
+      EarningsPerShareBasic: annual(-0.5), EarningsPerShareDiluted: annual(-0.5),
+    })).toMatch(/too small/);
+    // A continuing loss offset by a discontinued gain.
+    expect(disclosure({
+      NetIncomeLoss: annual(2_150), IncomeLossFromContinuingOperations: annual(-3_000), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(5_150),
+      EarningsPerShareBasic: annual(0.5), EarningsPerShareDiluted: annual(0.5),
+    })).toMatch(/loss.*antidilutive/);
+    // A net loss with a discontinued result but no continuing-operations figure: no loss claim.
+    expect(disclosure({
+      NetIncomeLoss: annual(-2_150), IncomeLossFromDiscontinuedOperationsNetOfTax: annual(-5_150),
+      EarningsPerShareBasic: annual(-0.5), EarningsPerShareDiluted: annual(-0.5),
+    })).toMatch(/too small/);
+  });
+
+  it("keeps the diluted count null when basic and diluted EPS differ, or when either is missing", () => {
+    const differ = buildStatementsFromCompanyFacts(
+      base({
+        EarningsPerShareBasic: annual(3.5),
+        EarningsPerShareDiluted: annual(3.48),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_174_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(differ.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBeNull();
+    expect(differ.incomeAnnual.substitutions).toEqual([]);
+    const basicOnly = buildStatementsFromCompanyFacts(
+      base({ EarningsPerShareBasic: annual(3.48), WeightedAverageNumberOfSharesOutstandingBasic: annual(4_174_000_000) }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(basicOnly.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBeNull();
+  });
+
+  it("keeps a tagged diluted count over the stand-in", () => {
+    const built = buildStatementsFromCompanyFacts(
+      base({
+        EarningsPerShareBasic: annual(3.48),
+        EarningsPerShareDiluted: annual(3.48),
+        WeightedAverageNumberOfSharesOutstandingBasic: annual(4_174_000_000),
+        WeightedAverageNumberOfDilutedSharesOutstanding: annual(4_180_000_000),
+      }),
+      { ...OPTS, symbol: "XOM" },
+    );
+    expect(built.incomeAnnual.rows[0]!.weightedAverageShsOutDil).toBe(4_180_000_000);
+    expect(built.incomeAnnual.substitutions).toEqual([]);
+  });
+
+  it("reads the combined basic-and-diluted elements for both counts and both EPS figures", () => {
+    const combined = base({
+      EarningsPerShareBasicAndDiluted: annual(3.48),
+      WeightedAverageNumberOfShareOutstandingBasicAndDiluted: annual(4_174_000_000),
+    });
+    // The element's name says "Share", which the fixture helper's unit guess misses.
+    const concept = combined.facts["us-gaap"]!.WeightedAverageNumberOfShareOutstandingBasicAndDiluted as { units: Record<string, unknown> };
+    concept.units = { shares: concept.units.USD };
+    const built = buildStatementsFromCompanyFacts(combined, { ...OPTS, symbol: "XYZ" });
+    expect(built.incomeAnnual.rows[0]).toMatchObject({
+      eps: 3.48,
+      epsDiluted: 3.48,
+      weightedAverageShsOut: 4_174_000_000,
+      weightedAverageShsOutDil: 4_174_000_000,
+    });
+    expect(built.incomeAnnual.substitutions).toEqual([]);
   });
 });

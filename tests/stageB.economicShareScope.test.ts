@@ -104,6 +104,19 @@ describe("issuer economic-share scope", () => {
     expect(result.valuation.gaps.some(gap => gap.field === "valuation.perShare.economicClassBasis")).toBe(true);
   });
 
+  // Audit 2026-10-22 B-8, left by batch 3a: the AI context states the quote's cap with the same caveat as the report.
+  it("caveats the quote section's market cap when a second common class leaves the scope unresolved", () => {
+    const plain = completeCurrencyBundle({});
+    expect(serializePayloadForPrompt(assembleContextPayload(plain, runStageB(plain), { checks: [], flags: [], gaps: [] }))).not.toContain("may cover one share class only");
+    const bundle = completeCurrencyBundle({});
+    bundle.edgar.tenQNotes = { ok: true, value: { data: { sectionName: "tenQNotes", text: "Capital stock", statementsText: "Common stock, issued and outstanding: 114,473 shares. Class B common stock, issued and outstanding: 5,523 shares.", method: "header-regex", chars: 13, accession: "filing", form: "10-Q", filingDate: "2026-05-06", reportDate: "2026-03-31", documentUrl: "https://www.sec.gov/filing" }, source: "edgar", endpoint: "filing:notes", asOf: "2026-03-31", fetchedAt: bundle.builtAt } };
+    const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
+    const note = payload.quote.notes.find(text => text.includes("marketCap"));
+    expect(note).toContain("may cover one share class only");
+    expect(note).toContain("filing:notes");
+    expect(serializePayloadForPrompt(payload)).toContain("may cover one share class only");
+  });
+
   it("keeps prior filed class ambiguity when a newer statement omits the capital description", () => {
     const bundle = completeCurrencyBundle({});
     const section = (filingDate: string, statement: string, sectionName: "tenKNotes" | "tenQNotes") => ({ ok: true as const, value: { data: { sectionName, text: "Notes", statementsText: statement, method: "header-regex" as const, chars: 5, accession: filingDate, form: sectionName === "tenKNotes" ? "10-K" : "10-Q", filingDate, reportDate: "2025-12-31", documentUrl: "https://www.sec.gov/filing" }, source: "edgar" as const, endpoint: `filing:${filingDate}`, asOf: "2025-12-31", fetchedAt: bundle.builtAt } });

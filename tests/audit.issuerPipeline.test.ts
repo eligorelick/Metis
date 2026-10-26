@@ -302,12 +302,18 @@ describe("audit issuers through buildDataBundle and runStageB, keyless (2026-10-
     expect(run("SNOW").out.valuation.multiples!.enterpriseValue.noncontrollingInterestBasis).toBe("none-disclosed");
   });
 
-  it("keep long-term debt that holds current notes out of the forensic leverage tests", () => {
+  it("keep long-term debt that holds current notes out of LVGI, and score Piotroski leverage on the composed basis when the tags match", () => {
     // O and NNN compose debt from inclusive class totals (NotesPayable, LoansPayable).
-    for (const ticker of ["O", "NNN"] as const) {
-      expect(run(ticker).out.forensics.piotroski?.signals.leverageDown.value, ticker).toBeNull();
-      expect(run(ticker).out.forensics.beneish?.neutralized, ticker).toContain("LVGI");
-    }
+    for (const ticker of ["O", "NNN"] as const) expect(run(ticker).out.forensics.beneish?.neutralized, ticker).toContain("LVGI");
+    // Audit 2026-10-22 E-8: O composes both years from the same classes, as before the composed debt was withheld (39.64% → 37.80%).
+    const o = run("O").out.forensics.piotroski?.signals.leverageDown;
+    expect(o?.value).toBe(1);
+    expect(o?.detail).toContain("LTD/avg TA 39.64% → 37.80%");
+    expect(o?.detail).toContain("NotesPayable + LoansPayable + SecuredDebt in both years, which may include current notes");
+    // NNN's FY2025 figure also carries a LoansPayable tag that FY2024's lacks, so the direction stays withheld, with the reason.
+    const nnn = run("NNN").out.forensics.piotroski?.signals.leverageDown;
+    expect(nnn?.value).toBeNull();
+    expect(nnn?.detail).toContain("the tags differ between years (NotesPayable + LoansPayable vs NotesPayable)");
     expect(run("FCX").out.forensics.piotroski?.signals.leverageDown.value).not.toBeNull();
   });
 
