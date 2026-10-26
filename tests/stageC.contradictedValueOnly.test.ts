@@ -48,14 +48,24 @@ describe("F-22: contradicted is reserved for value conflicts", () => {
     value: 130_301e6, unit: "currency", currency: "USD", period: "ttm: 2025-07-01 to 2026-06-30", asOf: "2026-06-30",
     origin: "computed.capital.current.cashBridge.operatingCashFlow", formulaVersion: null, displayPrecision: 4,
   };
-  const verify = async (text: string) => {
+  const verify = async (text: string, record: NumericProvenanceRecord = ttm) => {
     const bundle = completeCurrencyBundle({});
     bundle.edgar.companyFacts = { ok: false, gap: { field: "synthetic.companyFacts", reason: "Synthetic fixture has no SEC facts", severity: "info" } };
     const payload = assembleContextPayload(bundle, runStageB(bundle), validateBundle(bundle));
-    payload.provenanceRegistry = [...payload.provenanceRegistry!.filter((record) => record.id !== ttm.id), ttm];
+    payload.provenanceRegistry = [...payload.provenanceRegistry!.filter((existing) => existing.id !== record.id), record];
     return runVerifyPass({ model: "must-not-call", runPass: async () => { throw new Error("No model call permitted"); } },
-      payload, { claims: [{ label: "FACT" as const, text, source: ttm.id, asOf: ttm.asOf }] });
+      payload, { claims: [{ label: "FACT" as const, text, source: record.id, asOf: record.asOf }] });
   };
+
+  it("contradicts a direction conflict even when the same claim's period word also fails (review of F-22)", async () => {
+    const change: NumericProvenanceRecord = { ...annual, id: "computed.growth.revenue-change", label: "revenue change", value: -5, unit: "percent", period: "2025-12-31" };
+    const verified = await verify("Revenue change rose 5% in 2024.", change);
+    const entry = verified.log.find((row) => row.path === "claims[0]" && row.check === undefined);
+    expect(verified.log.some((row) => row.path === "claims[0]" && row.check === "period")).toBe(true);
+    expect(verified.log.some((row) => row.path === "claims[0]" && row.check === "direction")).toBe(true);
+    expect(entry).toMatchObject({ validationStatus: "contradicted", reason: "direction-mismatch" });
+    expect(verified.coverage.factualValidation?.contradicted).toBe(1);
+  });
 
   it("does not count a period-word check failure on a correct TTM figure as a contradiction (META deep dive)", async () => {
     const verified = await verify("Operating cash flow for the trailing twelve months ended June 30, 2026 was USD 130.30 billion.");

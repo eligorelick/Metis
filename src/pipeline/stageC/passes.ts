@@ -3015,12 +3015,14 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       validation.reason = "supported";
       validation.note = "citation and ordered declared text values matched; metric-specific content remains unchecked";
     }
-    const semanticFailure = supported ? consistency.findings.find((finding) => finding.path === path &&
-      (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : undefined;
+    const semanticFailures = supported ? consistency.findings.filter((finding) => finding.path === path &&
+      (finding.check === "direction" || finding.check === "period" || finding.check === "unit")) : [];
+    const semanticFailure = semanticFailures.find((finding) => finding.check === "direction") ?? semanticFailures[0];
     // F-22: a direction word against the sign of its cited change is a value
-    // conflict. A period or unit word the check could not establish against
-    // the cited record is a metadata gap: the claim is unverified, never
-    // validated, and contradicted only when its value conflicts as well.
+    // conflict, and it outranks a period or unit finding on the same claim.
+    // A period or unit word the check could not establish against the cited
+    // record is a metadata gap: the claim is unverified, never validated, and
+    // contradicted only when its value conflicts as well.
     const validationStatus = semanticFailure === undefined ? validation.status
       : semanticFailure.check === "direction" || validation.status === "contradicted" ? "contradicted" : "unchecked";
     // The recorded reason names the conflict, so a contradicted entry never
