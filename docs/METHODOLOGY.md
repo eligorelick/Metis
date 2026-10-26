@@ -1283,6 +1283,11 @@ code, and tag evidence read from EDGAR companyfacts.
    Explicit fee-based insurance-broker industry or SIC classifications retain
    their general route; conflicting evidence is disclosed. No ticker overrides
    are used.
+4. **Managed care** (SIC 6324, hospital and medical service plans; audit
+   2026-10-22 E-6) goes to the general map whatever its industry string or
+   tags say, with a note. Its earnings and free cash flow measure it, and its
+   debt finances the business rather than float. The keyless SIC label is
+   `Healthcare` / `Medical - Healthcare Plans`, FMP's own classification.
 
 #### What the tags decide
 
@@ -3709,3 +3714,14 @@ line for the same fiscal year, unit and filing, and the basis says the
 recoveries come from the cash-flow statement (COF FY2025: 18,166 − 5,064 =
 13,102 million, its reported net charge-offs; 3.35% of average loans against
 the 3.30% it reports on average loans held for investment).
+
+**Managed care is not a life insurer (E-6).** SIC 6324 (UnitedHealth,
+Elevance, Cigna, Humana, Centene, Molina) was labelled "Insurance - Life" on
+the keyless path and routed to the insurer map, which withholds financial debt
+and values on excess return over book value (UNH: $73.3B of filed debt
+withheld). Owner decision: these issuers go on the general route with a note.
+Their earnings and free cash flow are the right yardstick, and their debt is
+financing debt, not float. The premium and claim-reserve tags a health plan
+files match the insurer evidence rule, so for SIC 6324 that evidence is noted
+rather than used to re-route. The forensic band that keeps Altman Z off
+financial SIC codes still includes 6324, unchanged.

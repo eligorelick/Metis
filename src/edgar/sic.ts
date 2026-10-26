@@ -39,7 +39,9 @@ const SPECIFIC: Readonly<Record<number, readonly [string, string]>> = {
   6282: ["Financial Services", "Asset Management"],
   6311: ["Financial Services", "Insurance - Life"],
   6321: ["Financial Services", "Insurance - Life"],
-  6324: ["Financial Services", "Insurance - Life"],
+  // Audit 2026-10-22 E-6: hospital and medical service plans are managed care,
+  // not life insurance; FMP files them under this healthcare industry.
+  6324: ["Healthcare", "Medical - Healthcare Plans"],
   6331: ["Financial Services", "Insurance - Property & Casualty"],
   6351: ["Financial Services", "Insurance - Specialty"],
   6361: ["Financial Services", "Insurance - Specialty"],
