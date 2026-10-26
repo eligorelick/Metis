@@ -130,6 +130,7 @@ import {
   sourceLabel,
   splitCommonLines,
   evidenceScopeSummary,
+  provenanceHeadline,
   trustHeadline,
   trustRows,
   usageSummary,
@@ -323,6 +324,7 @@ function headerBlock(report: Report, completeness: ReportCompletenessPresentatio
       ["Data completeness", dataStateText(completeness)],
       ...evidenceRow(report),
       ["Verification", trustHeadline(m.provenanceCoverage, report.appendix.verificationLog) ?? "Not recorded; a citation is a provenance check, not factual validation."],
+      ...(provenanceHeadline(m.provenanceCoverage) ? [["Provenance", provenanceHeadline(m.provenanceCoverage)!]] : []),
       ["Versions", `spec ${m.specVersion} · pipeline ${m.pipelineVersion}`],
     ].map((r) => r.map((c) => esc(String(c)))),
   );

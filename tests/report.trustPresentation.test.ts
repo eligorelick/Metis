@@ -54,11 +54,11 @@ describe("report trust presentation", () => {
     report.meta.provenanceCoverage = coverage;
     report.appendix.provenanceCoverage = coverage;
 
-    const output = render(ReportSchema.parse(report))
-      .match(/\d+\/\d+ \(\d+\.\d%\) figures traced to a cited source[^<\n|]+/)?.[0];
+    const rendered = render(ReportSchema.parse(report));
+    const output = rendered.match(/0 recorded numerical matches; numeric-claim denominator unknown[^<\n|]+/)?.[0];
 
-    expect(output).toContain("107/119 (89.9%) figures traced to a cited source");
-    expect(output).toContain("38/38 factual claims cited");
+    // B-10: tracing and citation are provenance, on their own line.
+    expect(rendered).toContain("107/119 (89.9%) figures traced to a cited source; 38/38 factual claims carry a citation (provenance, not validation)");
     // An absent qualitative partition cannot establish a numeric denominator.
     expect(output).toContain("numeric-claim denominator unknown");
     expect(output).not.toContain("0/38 numeric claims");

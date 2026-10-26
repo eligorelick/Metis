@@ -1051,10 +1051,8 @@ function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"
 
 export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): TrustRow[] {
   if (!coverage) return [];
-  const rows: TrustRow[] = [
-    { label: "Figures traced to a cited source", value: ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate) },
-    { label: "Factual claims carrying a citation", value: ratio(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate) },
-  ];
+  // Audit 2026-10-22 B-10: validation first; citation and tracing are provenance.
+  const rows: TrustRow[] = [];
   const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (v) {
     const partition = numericClaimPartition(v);
@@ -1068,26 +1066,38 @@ export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readon
     rows.push({ label: "Claims contradicted by their cited source", value: contradicted.split === null ? String(contradicted.count) : `${contradicted.count} (${contradicted.split})` });
     if (v.qualitative !== undefined) rows.push({ label: "Qualitative factual claims (cited; not machine-checkable)", value: String(v.qualitative) });
   }
+  rows.push(
+    { label: "Figures traced to a cited source", value: ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate) },
+    { label: "Factual claims carrying a citation", value: ratio(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate) },
+  );
   if (coverage.judgments.total > 0) rows.push({ label: "Judgments carrying a citation", value: ratio(coverage.judgments.cited, coverage.judgments.total, coverage.judgments.rate) });
   return rows;
 }
 
-/** One-line header form of {@link trustRows}. */
+/**
+ * One-line header form of {@link trustRows}: what was checked against a cited
+ * figure. Audit 2026-10-22 B-10: the line leads with the numeric validation
+ * fraction; tracing and citation are provenance, on {@link provenanceHeadline}.
+ */
 export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: readonly VerificationLogEntry[]): string | null {
   if (!coverage) return null;
-  const parts = [
-    `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source`,
-    `${coverage.factualClaims.supported}/${coverage.factualClaims.total} factual claims cited`,
-  ];
   const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
-  if (v) {
-    const partition = numericClaimPartition(v);
-    parts.push(partition.total === null ? partition.unknownText : partition.total === 0 ? "no factual claim states a figure to match" : `${v.validated}/${partition.total} numeric claims numerically matched (not whole-claim validation)`);
-    const contradicted = contradictedCount(v, log);
-    parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
-    if (v.qualitative !== undefined && v.qualitative > 0) parts.push(`${v.qualitative} qualitative claims cited, not machine-checkable`);
-  }
+  if (!v) return "numeric claims not validated: no verification result recorded";
+  const partition = numericClaimPartition(v);
+  const parts = [partition.total === null ? partition.unknownText : partition.total === 0
+    ? "no factual claim states a figure to match"
+    : `${ratio(v.validated, partition.total, v.validated / partition.total)} numeric claims numerically matched to a cited figure (not whole-claim validation)`];
+  const contradicted = contradictedCount(v, log);
+  parts.push(`${contradicted.count} contradicted${contradicted.split === null ? "" : ` (${contradicted.split})`}`);
+  if (v.qualitative !== undefined && v.qualitative > 0) parts.push(`${v.qualitative} qualitative claims cited, not machine-checkable`);
   return parts.join("; ");
+}
+
+/** The header's provenance line: figures traced and claims cited, which are not validation (B-10). */
+export function provenanceHeadline(coverage: ProvenanceCoverage | undefined): string | null {
+  if (!coverage) return null;
+  return `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source; ` +
+    `${coverage.factualClaims.supported}/${coverage.factualClaims.total} factual claims carry a citation (provenance, not validation)`;
 }
 
 /* ======================================================================== *

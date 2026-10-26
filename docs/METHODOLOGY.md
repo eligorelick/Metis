@@ -2659,6 +2659,18 @@ counting only passes that ran to a usable analysis: a failed attempt a
 data-only report lists, or a model the registry refused, is left out (see
 "AMZN audit fixes (October 20, 2026)").
 
+The verification line leads with the share of numeric factual claims
+numerically matched to a cited figure, as a fraction and a percentage, for
+example "40/109 (36.7%) numeric claims numerically matched to a cited figure
+(not whole-claim validation); 0 contradicted; 41 qualitative claims cited, not
+machine-checkable" (audit 2026-10-22 B-10). The figures traced to a cited
+source and the factual claims carrying a citation follow on a separate
+Provenance line in the report header, the print header and the page header,
+because a citation shows where a figure came from, not that the prose matches
+it. A stored report with no recorded validation result reads "numeric claims
+not validated: no verification result recorded". The Verification table lists
+the numeric validation row first and the provenance rows after it.
+
 `src/pipeline/stageC/dataOnlyReport.ts` preserves available deterministic
 sections and missing reasons when AI is unavailable or a pass fails. The
 report's execution metadata distinguishes requested mode and actual outcome;
