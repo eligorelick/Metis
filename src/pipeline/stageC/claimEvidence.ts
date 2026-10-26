@@ -683,7 +683,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     const window = recordWindow(record);
     const explicitSpan = explicitLabelSpan(claim.text, record);
     if (window === null && /\b\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}\b/i.test(claim.text) && explicitSpan === null) {
-      return support(record.period === null ? "unchecked" : "contradicted", "period-mismatch",
+      return support("unchecked", "period-mismatch",
         "the cited numeric record does not establish the complete ordered prose date interval");
     }
     const labelled = labelWindows(record);
@@ -696,12 +696,15 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // A record that carries no period cannot contradict a prose period; it can
     // only fail to establish it (NVDA final rerun: "DCF base-case year-one
     // revenue growth over trailing revenue is 82.1353%" against a period-less
-    // reverse-DCF context record was counted as a contradiction).
+    // reverse-DCF context record was counted as a contradiction). Audit
+    // 2026-10-22 F-22: nor can a record whose period differs. A period, unit or
+    // currency the record does not establish leaves the claim unverified;
+    // "contradicted" is reserved for a value or sign conflict.
     if (own.periods.length > 0 && !own.periods.every(periodAgrees)) {
       const unknownFiscal = fiscalPeriod === undefined && own.periods.some((period) => /\bFY\s*\d{4}\b/i.test(period.label));
       return record.period === null || unknownFiscal
         ? support("unchecked", "period-mismatch", "the cited numeric record carries no compatible period or fiscal basis, so the prose period cannot be checked against it")
-        : support("contradicted", "period-mismatch", "prose period is not established by the cited numeric record");
+        : support("unchecked", "period-mismatch", "prose period is not established by the cited numeric record");
     }
     const direction = own.direction;
     if (direction !== null && (direction.negated || !isDeltaRecord(record) || direction.relation !== "change")) {
@@ -715,11 +718,11 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // ratio (including a P/E multiple) provides no such scale evidence.
     const normalizedQuantity = quantity.unit === "percent" && record.unit === "ratio" && record.unitScale === "fraction"
       ? { ...quantity, value: quantity.value / 100, step: quantity.step / 100, unit: "ratio" as const } : quantity;
-    if (normalizedQuantity.unit !== record.unit) return support("contradicted", "unit-mismatch", "prose unit contradicts the cited numeric record");
+    if (normalizedQuantity.unit !== record.unit) return support("unchecked", "unit-mismatch", "prose unit is not established by the cited numeric record");
     if (quantity.unit === "currency" || quantity.unit === "currency-per-share") {
       const currency = resolvedCurrency(quantity, options.reportingCurrency);
       if (currency === null) return support("unchecked", "currency-mismatch", "prose currency is not established");
-      if (currency !== record.currency) return support("contradicted", "currency-mismatch", "prose currency contradicts the cited numeric record");
+      if (currency !== record.currency) return support("unchecked", "currency-mismatch", "prose currency is not established by the cited numeric record");
     }
     const signed = direction !== null && normalizedQuantity.value >= 0 ? { ...normalizedQuantity, value: normalizedQuantity.value * direction.polarity } : normalizedQuantity;
     return equalValue(signed, record.value)
@@ -766,10 +769,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
           candidate.context.periods.every((period) => own.periods.some((stated) => stated.key === period.key))
         : own.periods.every((period) => candidate.inherited.some((source) => source.key === period.key)));
     if (matchingPeriods.length === 0) {
-      // One stated other period contradicts; a flattened table's header of
-      // several periods binds no column, so it stays unchecked.
+      // One stated other period is a period mismatch (unverified, F-22); a
+      // flattened table's header of several periods binds no column.
       if (own.periods.length > 0 && candidates.length === 1 && candidates[0].context.periods.length === 1) {
-        return support("contradicted", "period-mismatch", "the uniquely bound source figure is for another period", [candidates[0].span]);
+        return support("unchecked", "period-mismatch", "the uniquely bound source figure is for another period", [candidates[0].span]);
       }
       return support("unchecked", "text-context-mismatch", "no source quantity establishes the metric and period", spans);
     }
@@ -812,12 +815,12 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (own.direction.relation !== sourceDirection.relation) return support("unchecked", "text-context-mismatch", "a change magnitude and a resulting level are different numeric relations", [candidate.span]);
     }
     if (candidate.quantity.unit === null) return support("unchecked", "text-ambiguous", "the source figure's unit is not established", [candidate.span]);
-    if (candidate.quantity.unit !== quantity.unit) return support("contradicted", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
+    if (candidate.quantity.unit !== quantity.unit) return support("unchecked", "unit-mismatch", "the bound source figure uses another unit", [candidate.span]);
     if (quantity.unit === "currency" || quantity.unit === "currency-per-share") {
       const currency = resolvedCurrency(quantity, options.reportingCurrency);
       const sourceCurrency = resolvedCurrency(candidate.quantity, options.reportingCurrency);
       if (currency === null || sourceCurrency === null) return support("unchecked", "currency-mismatch", "the source or prose currency is not established", [candidate.span]);
-      if (currency !== sourceCurrency) return support("contradicted", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
+      if (currency !== sourceCurrency) return support("unchecked", "currency-mismatch", "the bound source figure uses another currency", [candidate.span]);
     }
     if (Math.abs(quantity.value - candidate.quantity.value) > (quantity.step + candidate.quantity.step) / 2 +
       1e-10 * Math.max(1, Math.abs(candidate.quantity.value))) {

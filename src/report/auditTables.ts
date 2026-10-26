@@ -1,5 +1,5 @@
-import type { Dcf, Projections, ProvenanceCoverage, Scoring } from "./schema";
-import { numericClaimPartition } from "./claimMatching";
+import type { Dcf, Projections, ProvenanceCoverage, Scoring, VerificationLogEntry } from "./schema";
+import { displayedFactualValidation, numericClaimPartition } from "./claimMatching";
 import { evidencePercentText, withNeutral } from "./assessment";
 import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
 import { formatScore } from "./scoreText";
@@ -172,8 +172,8 @@ export function projectionAuditTables(p: Projections): ReportAuditTable[] {
   return tables;
 }
 
-export function factualValidationText(coverage?: ProvenanceCoverage): string | null {
-  const v = coverage?.factualValidation;
+export function factualValidationText(coverage?: ProvenanceCoverage, log?: readonly VerificationLogEntry[]): string | null {
+  const v = coverage?.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (!v || !coverage) return null;
   // This partition counts non-judgment prose claims, not TracedNumber objects.
   // Preserve the separate denominator so zero prose matches cannot be read as

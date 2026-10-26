@@ -17,7 +17,8 @@ import { PRINCIPAL_CORRECTION_FIELD } from "@/report/principalAggregationSafety"
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, MIN_HEADLINE_EVIDENCE, withNeutral } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { numericClaimPartition } from "@/report/claimMatching";
+import { displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
+export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
@@ -1040,7 +1041,7 @@ function ratio(supported: number, total: number, rate: number | null): string {
  * figure contradicted while the header, counting prose claims only, said 0).
  */
 function contradictedCount(v: NonNullable<ProvenanceCoverage["factualValidation"]>, log: readonly VerificationLogEntry[] | undefined): { count: number; split: string | null } {
-  const figures = (log ?? []).filter((entry) => entry.evidenceKind === "number" && entry.validationStatus === "contradicted").length;
+  const figures = (log ?? []).filter((entry) => entry.evidenceKind === "number" && displayedValidationStatus(entry) === "contradicted").length;
   const claims = v.contradicted;
   return {
     count: claims + figures,
@@ -1054,7 +1055,7 @@ export function trustRows(coverage: ProvenanceCoverage | undefined, log?: readon
     { label: "Figures traced to a cited source", value: ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate) },
     { label: "Factual claims carrying a citation", value: ratio(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate) },
   ];
-  const v = coverage.factualValidation;
+  const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (v) {
     const partition = numericClaimPartition(v);
     rows.push({
@@ -1078,7 +1079,7 @@ export function trustHeadline(coverage: ProvenanceCoverage | undefined, log?: re
     `${ratio(coverage.numeric.supported, coverage.numeric.total, coverage.numeric.rate)} figures traced to a cited source`,
     `${coverage.factualClaims.supported}/${coverage.factualClaims.total} factual claims cited`,
   ];
-  const v = coverage.factualValidation;
+  const v = coverage.factualValidation && displayedFactualValidation(coverage.factualValidation, log);
   if (v) {
     const partition = numericClaimPartition(v);
     parts.push(partition.total === null ? partition.unknownText : partition.total === 0 ? "no factual claim states a figure to match" : `${v.validated}/${partition.total} numeric claims numerically matched (not whole-claim validation)`);

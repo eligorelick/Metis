@@ -84,7 +84,7 @@ describe("contradicted count (AMZN audit 2026-10-20 finding 12)", () => {
     };
     r.appendix.provenanceCoverage = r.meta.provenanceCoverage;
     r.appendix.verificationLog = [
-      { claim: "185000 USD: annual salary", outcome: "unverified", note: "[unverified] unit-mismatch", path: "leadership.graded.keyNumbers[22]", evidenceKind: "number", source: "edgar:8-K", reason: "unit-mismatch", validationStatus: "contradicted" },
+      { claim: "185000 USD: annual salary", outcome: "unverified", note: "[unverified] value-mismatch", path: "leadership.graded.keyNumbers[22]", evidenceKind: "number", source: "edgar:8-K", reason: "value-mismatch", validationStatus: "contradicted" },
       { claim: "Revenue grew 11%", outcome: "verified", path: "growth.graded.reasoning[0]", evidenceKind: "factual-claim", source: "edgar:10-Q", reason: "supported", validationStatus: "validated", claimSupportStatus: "numeric-only" },
     ];
     return r;
@@ -104,6 +104,20 @@ describe("contradicted count (AMZN audit 2026-10-20 finding 12)", () => {
     expect(reportToAuditMarkdown(r)).toContain("| Claims contradicted by their cited source | 1 (1 cited figure, 0 prose claims) |");
     expect(reportToPrintBody(r)).toContain("1 contradicted (1 cited figure, 0 prose claims)");
     expect(renderToStaticMarkup(createElement(ReportView, { report: r }))).toContain("1 contradicted (1 cited figure, 0 prose claims)");
+  });
+
+  // Audit 2026-10-22 F-22: report #43's only contradiction was this salary
+  // recorded contradicted for its unit. A unit the record does not establish
+  // is a metadata gap, so a stored log reads it as unverified everywhere.
+  it("reads a stored unit-mismatch figure as unverified, not contradicted", () => {
+    const r = contradictedFigureReport();
+    r.appendix.verificationLog![0] = { ...r.appendix.verificationLog![0], note: "[unverified] unit-mismatch", reason: "unit-mismatch" };
+    const coverage = r.meta.provenanceCoverage;
+    const log = r.appendix.verificationLog;
+    expect(trustHeadline(coverage, log)).toContain("; 0 contradicted");
+    expect(reportToAuditMarkdown(r).split("\n").find((line) => line.startsWith("| 185000 USD: annual salary |")))
+      .toContain("| unchecked (recorded contradicted; period or unit not established) |");
+    expect(renderToStaticMarkup(createElement(ReportView, { report: r }))).toContain("0 contradicted");
   });
 
   it("keeps the coverage count when no log is stored", () => {

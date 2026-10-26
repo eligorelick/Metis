@@ -2630,10 +2630,24 @@ quarters. A number that cannot be located confidently in its sentence is
 unchecked, not guessed. Coverage and checked counts accompany the results,
 so these checks are not a comprehensive proof that the narrative is true.
 
+"Contradicted" means a value conflict only: a stated amount outside its cited
+figure's rounding interval, or a direction word against the sign of its cited
+change (audit 2026-10-22 F-22, an owner decision). A period, unit or currency
+the cited record does not establish is a metadata gap, so the claim or figure is
+unverified (period or unit not established), never contradicted. That covers a
+missing or null record period, a prose period or year the period-word check
+cannot match to the record's window ("the twelve months ended June 30, 2026"
+against `ttm: 2025-07-01 to 2026-06-30`), and a unit or currency mismatch. The
+period-word and unit-word check failures are still listed in the verification
+log and the missing-data manifest. A stored report whose log recorded such a
+metadata gap as contradicted is read under the same rule: its counts move the
+entry to unverified, and the audit export prints "unchecked (recorded
+contradicted; period or unit not established)" in the entry's status column.
+
 The report header's verification line and the Verification table count as
 contradicted both the prose claims the coverage counts contradicted and the
-cited figures the verification log marks contradicted (a value, period, unit or
-currency mismatch). These are the records the audit export prints. When a figure
+cited figures the verification log marks contradicted (a value mismatch). These
+are the records the audit export prints. When a figure
 is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
 prose claims)". The audit export's prose-claim sentence still counts prose
 claims only. A pass that ran on a plan allowance (ChatGPT or Gemini CLI) sends

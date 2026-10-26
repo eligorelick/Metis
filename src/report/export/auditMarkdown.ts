@@ -25,7 +25,7 @@ import {
   numericCitationTraceLabel,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -137,7 +137,7 @@ function renderVerification(report: Report): string {
   const coverage = a.provenanceCoverage ?? report.meta.provenanceCoverage;
   const rows = trustRows(coverage, a.verificationLog);
   if (rows.length > 0) lines.push(table(["Check", "Result"], rows.map((row) => [row.label, row.value])), "");
-  const detail = factualValidationText(coverage);
+  const detail = factualValidationText(coverage, a.verificationLog);
   if (detail) lines.push(markdownProse(detail), "");
   if (coverage) lines.push(provenanceCoverageTable(coverage), "");
   lines.push(
@@ -163,6 +163,10 @@ function renderVerification(report: Report): string {
         a.verificationLog.map((entry) =>
           VERIFICATION_LOG_FIELDS.map((field) => {
             if (field.key === "outcome") return verificationEntryOutcomeLabel(entry);
+            // F-22: a legacy metadata gap recorded as contradicted reads as unverified.
+            if (field.key === "validationStatus" && displayedValidationStatus(entry) !== entry.validationStatus) {
+              return `${auditValue(displayedValidationStatus(entry))} (recorded ${auditValue(entry.validationStatus)}; period or unit not established)`;
+            }
             return auditValue(entry[field.key]);
           })),
       ),
