@@ -108,6 +108,39 @@ describe("E-7: reading the filed obligations at the bridge's balance date", () =
     expect(debtLikeObligationsAt(quarter, "2026-06-30", "USD", "2026-10-22")?.assetRetirement?.value).toBe(2_000e6);
   });
 
+  it("does not reach back past an annual balance sheet between the bridge's quarter and the balance found", () => {
+    // Tagged in the Q3 10-Q, gone from the 10-K at year end: the Q3 balance is not this quarter's.
+    const settled = facts({
+      Assets: [usd("2025-12-31", 50_000e6, "10-K", "2026-02-12"), usd("2026-09-30", 51_000e6, "10-Q", "2026-10-30")],
+      AssetRetirementObligationsNoncurrent: [usd("2025-09-30", 2_000e6, "10-Q", "2025-11-05")],
+    });
+    expect(debtLikeObligationsAt(settled, "2026-09-30", "USD", "2026-11-15")).toBeNull();
+    // A balance at the annual date itself still stands in for the quarter's.
+    const atYearEnd = facts({
+      Assets: [usd("2025-12-31", 50_000e6, "10-K", "2026-02-12"), usd("2026-09-30", 51_000e6, "10-Q", "2026-10-30")],
+      AssetRetirementObligationsNoncurrent: [usd("2025-09-30", 2_000e6, "10-Q", "2025-11-05"), usd("2025-12-31", 2_100e6)],
+    });
+    expect(debtLikeObligationsAt(atYearEnd, "2026-09-30", "USD", "2026-11-15")?.assetRetirement?.asOf).toBe("2025-12-31");
+  });
+
+  it("stops at a balance filed as zero, which says the obligation is gone", () => {
+    const sold = facts({ AssetRetirementObligation: [usd("2025-12-31", 2_000e6), usd("2026-06-30", 0, "10-Q", "2026-07-30")] });
+    expect(debtLikeObligationsAt(sold, "2026-06-30", "USD", "2026-10-22")).toBeNull();
+    const soldParts = facts({
+      AssetRetirementObligation: [usd("2025-12-31", 2_000e6)],
+      AssetRetirementObligationsNoncurrent: [usd("2026-06-30", 0, "10-Q", "2026-07-30")],
+    });
+    expect(debtLikeObligationsAt(soldParts, "2026-06-30", "USD", "2026-10-22")).toBeNull();
+  });
+
+  it("knows a year-end balance sheet is annual after a 10-Q re-files it as the comparative column", () => {
+    const settled = facts({
+      Assets: [usd("2025-12-31", 50_000e6, "10-K", "2026-02-12"), usd("2025-12-31", 50_000e6, "10-Q", "2026-05-01")],
+      AssetRetirementObligation: [usd("2025-06-30", 2_000e6, "10-Q", "2025-08-01")],
+    });
+    expect(debtLikeObligationsAt(settled, "2025-12-31", "USD", "2026-06-01")).toBeNull();
+  });
+
   it("reads the retirement fund at the date of the obligation it offsets", () => {
     const q = facts({
       AssetRetirementObligation: [usd("2025-12-31", 9_625e6)],

@@ -8,9 +8,9 @@
  * Only the issuer's own XBRL facts count: the filed total, else noncurrent
  * plus current, at the bridge's balance date, else at the latest date in the
  * year before it (many filers, FCX among them, tag these in the 10-K only), with
- * that date disclosed. A current portion alone is not the obligation, and an
- * annual balance sheet that no longer tags it ends the look-back (settled or
- * sold). The undiscounted "Gross" environmental tag is not the
+ * that date disclosed. A current portion alone is not the obligation, and a
+ * balance filed as zero, or an annual balance sheet that no longer tags it,
+ * ends the look-back (settled or sold). The undiscounted "Gross" environmental tag is not the
  * recognised liability and is never read. Assets the filer tags as legally
  * restricted to settle the retirement obligations (nuclear decommissioning
  * trusts) are read at the retirement obligation's date and returned beside it
@@ -60,15 +60,26 @@ const filing = (f: FactPoint): string => `${f.form} filed ${f.filed}`;
 const MAX_LAG_DAYS = 366;
 const DAY_MS = 86_400_000;
 
-/** Whether the balance sheet at `date` is an annual report's: then an untagged obligation is absent, not omitted. */
-function annualBalanceDate(facts: CompanyFacts, unit: string, date: string, observedDay: string): boolean {
-  return /^(10-K|20-F|40-F)/.test(instantFact(facts, "Assets", unit, date, observedDay)?.form ?? "");
+/**
+ * Balance dates an annual report filed by the run states (any 10-K, 20-F or 40-F `Assets` fact, though later 10-Qs
+ * re-file the year end as their comparative column): there an untagged obligation is absent, not omitted.
+ */
+function annualBalanceDates(facts: CompanyFacts, unit: string, observedDay: string): Set<string> {
+  const concept = facts.facts["us-gaap"]?.Assets as { units?: Record<string, unknown[]> } | undefined;
+  return new Set(parseFactPoints(concept?.units?.[unit] ?? []).filter((p) =>
+    p.start === undefined && /^(10-K|20-F|40-F)/.test(p.form) && CORE_FACT_FORMS.has(p.form) && validDay(p.filed) && p.filed <= observedDay)
+    .map((p) => p.end));
 }
 
-/** The bridge date, then each earlier date within a year at which one of the choice's tags was filed by the run. */
+/**
+ * The bridge date, then each earlier date within a year at which one of the choice's tags was filed by the run,
+ * never before the latest annual balance sheet on or before the bridge date.
+ */
 function candidateDates(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): string[] {
-  if (annualBalanceDate(facts, unit, date, observedDay)) return [date];
-  const floor = new Date(Date.parse(`${date}T00:00:00Z`) - MAX_LAG_DAYS * DAY_MS).toISOString().slice(0, 10);
+  const annual = annualBalanceDates(facts, unit, observedDay);
+  if (annual.has(date)) return [date];
+  const yearBefore = new Date(Date.parse(`${date}T00:00:00Z`) - MAX_LAG_DAYS * DAY_MS).toISOString().slice(0, 10);
+  const floor = [...annual].filter((d) => d < date).reduce((a, b) => (b > a ? b : a), yearBefore);
   const earlier = [...choice.total, ...choice.parts].flatMap((tag) => {
     const concept = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
     return parseFactPoints(concept?.units?.[unit] ?? []).filter((p) =>
@@ -78,9 +89,18 @@ function candidateDates(facts: CompanyFacts, choice: TagChoice, unit: string, da
   return [date, ...[...new Set(earlier)].sort().reverse()];
 }
 
+/** Whether the filer states the obligation as zero at `date` (the total, or the noncurrent part with no current part). */
+function filedZero(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): boolean {
+  const val = (tag: string): number | undefined => instantFact(facts, tag, unit, date, observedDay)?.val;
+  return choice.total.some((tag) => val(tag) === 0) ||
+    (choice.parts.length > 0 && val(choice.parts[0]!) === 0 && choice.parts.every((tag) => (val(tag) ?? 0) === 0));
+}
+
 function readLatest(facts: CompanyFacts, choice: TagChoice, unit: string, date: string, observedDay: string): (FiledObligation & { date: string }) | null {
   for (const at of candidateDates(facts, choice, unit, date, observedDay)) {
     const found = read(facts, choice, unit, at, observedDay);
+    // A balance filed as zero is the filer's statement that nothing is owed, not an omission.
+    if (found === null && filedZero(facts, choice, unit, at, observedDay)) return null;
     if (found !== null) {
       return at === date ? { ...found, date: at }
         : { ...found, date: at, asOf: at, basis: `${found.basis}; the latest filed balance, as the ${date} balance sheet does not tag it` };
