@@ -286,6 +286,12 @@ export const LINE_ITEM_TAGS = {
     "MarketableSecuritiesCurrent",
     "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
     "InterestBearingDepositsInBanks",
+    // The taxonomy's current debt securities of every class (available for
+    // sale, held to maturity, trading). NVIDIA's balance-sheet marketable
+    // securities moved here from MarketableSecuritiesCurrent with its FY2026
+    // 10-K (39.065B at 2026-01-25); last, so a period that tags an element
+    // above keeps it.
+    "DebtSecuritiesCurrent",
   ]),
   cashAndShortTermInvestments: entry(["CashCashEquivalentsAndShortTermInvestments"]),
   netReceivables: entry(["AccountsReceivableNetCurrent", "ReceivablesNetCurrent"]),
