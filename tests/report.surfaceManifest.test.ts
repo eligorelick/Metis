@@ -780,4 +780,39 @@ describe("shared report surface manifest", () => {
     expect(projectionPeriodRows(series)).toEqual(rows);
     expect(series).toEqual(before);
   });
+
+  /**
+   * NVDA report #48 (2026-10-26): history is labelled "FY2023" and the
+   * forecast "12M ending 2027-07-26", and a string sort put every forward
+   * period first, so the chart drew history to the right of the forecast.
+   */
+  it("orders projection periods chronologically across label shapes", () => {
+    const point = (period: string) => ({
+      period,
+      value: { value: 1, unit: "USD", currency: "USD" as const, period, source: "computed", asOf: "2026-10-26", verified: true },
+    });
+    const rolling = ["12M ending 2028-07-26", "12M ending 2027-07-26"].map(point);
+    const series = {
+      metric: "revenue",
+      unit: "USD",
+      historical: ["FY2026", "FY2023", "FY2025", "FY2024"].map(point),
+      bull: rolling,
+      base: rolling,
+      bear: rolling,
+      weighted: rolling,
+      assumptions: [],
+      disclosures: [],
+    } satisfies ProjectionSeries;
+    expect(projectionPeriodRows(series).map((row) => row.period)).toEqual([
+      "FY2023", "FY2024", "FY2025", "FY2026", "12M ending 2027-07-26", "12M ending 2028-07-26",
+    ]);
+
+    const fiscal = ["FY2027 ending 2027-01-31"].map(point);
+    const unbased = ["Y+10 (period basis unavailable)", "Y+2 (period basis unavailable)"].map(point);
+    expect(projectionPeriodRows({ ...series, bull: fiscal, base: unbased, bear: [], weighted: [] })
+      .map((row) => row.period)).toEqual([
+      "FY2023", "FY2024", "FY2025", "FY2026", "FY2027 ending 2027-01-31",
+      "Y+2 (period basis unavailable)", "Y+10 (period basis unavailable)",
+    ]);
+  });
 });

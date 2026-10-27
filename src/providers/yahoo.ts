@@ -45,6 +45,7 @@ import {
 } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import { unavailableSplitEvidence, type VendorSplitEvidence, type VendorSplitEvent } from "@/providers/splitEvents";
+import { quoteTtlMs } from "@/providers/usSession";
 
 const DEFAULT_BASE_URL = "https://query1.finance.yahoo.com";
 const MINUTE = 60_000;
@@ -534,7 +535,7 @@ export class YahooClient {
     // never be read as "no splits".
     const query = "range=5d&interval=1d&events=div%2Csplits";
     const endpoint = chartEndpoint(ySymbol, "range=5d&interval=1d&events=splits");
-    const fetched = await this.chartRaw(ySymbol, query, endpoint, YAHOO_TTLS.quote);
+    const fetched = await this.chartRaw(ySymbol, query, endpoint, quoteTtlMs(YAHOO_TTLS.quote, this.now()));
     if (!fetched.ok) return gap(field, fetched.reason, [fetched.endpoint]);
 
     const meta = metaOf(fetched.result);

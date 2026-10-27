@@ -19,6 +19,18 @@ export interface DataCompleteness {
 export function buildDataCompleteness(
   gaps: readonly ManifestEntry[],
 ): DataCompleteness {
+  return classifyCompleteness(gaps, false);
+}
+
+/**
+ * `edgarNotesCount`: the rule before report 1.44.0, under which an `info`
+ * EDGAR entry also marked EDGAR missing. Only the check of a stored report's
+ * metadata uses it (deriveReportCompletenessPresentation).
+ */
+function classifyCompleteness(
+  gaps: readonly ManifestEntry[],
+  edgarNotesCount: boolean,
+): DataCompleteness {
   // Expected structural omissions (for example, a non-standardized filing
   // section that is intentionally absent for an issuer) are disclosures, not
   // provider failures. Exclude them from headline completeness states while
@@ -36,8 +48,13 @@ export function buildDataCompleteness(
   // companyfacts — the best possible EDGAR outcome — reported `edgar: "missing"`
   // and downgraded forensics to "provisional". When EDGAR really is unavailable
   // its own `edgar.*` member gaps are in this same manifest and still classify.
+  // An `info` entry is a note about one derived reading, not an outage: NVDA
+  // report #48 (2026-10-26) recorded `edgar: "missing"` and provisional
+  // forensics for "No unique matched annual geography revenue table" beside
+  // 15 retained EDGAR sources, and the page then read "EDGAR partial".
   const edgarGaps = actionableGaps.filter(
-    (gap) => /^(?:legacy\.audit\.)?(?:edgar(?:[.:(]|$)|company.?facts(?:[.:(]|$))/i.test(gap.field),
+    (gap) => (edgarNotesCount || gap.severity !== "info") &&
+      /^(?:legacy\.audit\.)?(?:edgar(?:[.:(]|$)|company.?facts(?:[.:(]|$))/i.test(gap.field),
   );
   // Routing evidence and financial-method disclosures may mention successful
   // XBRL reads. Only cross-check namespaces describe the cross-check outcome.
@@ -254,9 +271,11 @@ export function deriveReportCompletenessPresentation(
   retainedSources: readonly CompletenessSource[] = [],
 ): ReportCompletenessPresentation {
   const recomputed = buildDataCompleteness(gaps);
+  // A report stored before 1.44.0 recorded its metadata under the earlier
+  // EDGAR rule; it is confirmed against that rule, never rewritten.
   const metadataStatus: CompletenessMetadataStatus = persisted === undefined
     ? "missing"
-    : completenessMatches(persisted, recomputed)
+    : completenessMatches(persisted, recomputed) || completenessMatches(persisted, classifyCompleteness(gaps, true))
       ? "confirmed"
       : "inconsistent";
   const analysisEntries = gaps.filter((gap) => gap.field === "analysis.llm");

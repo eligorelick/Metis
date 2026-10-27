@@ -521,8 +521,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). */
-export const PIPELINE_VERSION = "stage-c-1.6.5" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. */
+export const PIPELINE_VERSION = "stage-c-1.6.6" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -954,12 +954,16 @@ function failureSettlement(
   };
 }
 
-function settlementStepDetail<T>(settlement: PassSettlement<T>): string {
+/** `total`: the step's cost and attempt count when earlier attempts settled too. */
+function settlementStepDetail<T>(
+  settlement: PassSettlement<T>,
+  total?: { costUsd: number; attempts: number },
+): string {
   if (settlement.outcome === "failure") return settlement.failure.message;
   return passDetail({
     data: settlement.data,
     model: settlement.telemetry.model,
-    costUsd: settlement.telemetry.costUsd,
+    costUsd: total?.costUsd ?? settlement.telemetry.costUsd,
     fallbackUsed: settlement.telemetry.fallbackUsed,
     usage: {
       input_tokens: settlement.telemetry.inputTokens,
@@ -969,7 +973,7 @@ function settlementStepDetail<T>(settlement: PassSettlement<T>): string {
     },
     webSearches: settlement.telemetry.webSearches,
     fetchedUrls: settlement.telemetry.fetchedUrls,
-  });
+  }, total?.attempts);
 }
 
 /** Adopt the one exact-current settlement snapshot after its outer transaction commits. */
@@ -1371,6 +1375,7 @@ function createSettlementCheckpoint<T>(
         step: {
           finishedAt: findStep(state, pass).finishedAt ?? nowIso(),
           detail: settlementStepDetail(settlement),
+          detailAcrossAttempts: (costUsd, attempts) => settlementStepDetail(settlement, { costUsd, attempts }),
         },
       });
       // Once settlePaidPassLease returns inserted truth, a later projection
@@ -5226,8 +5231,8 @@ function naScore(): Report["quality"]["forensicScores"]["altman"] {
  * Small utilities
  * ------------------------------------------------------------------------ */
 
-function passDetail(pass: PassResultLike<unknown>): string {
-  const parts = [`model ${pass.model}`, `$${pass.costUsd.toFixed(4)}`];
+function passDetail(pass: PassResultLike<unknown>, attempts = 1): string {
+  const parts = [`model ${pass.model}`, `$${pass.costUsd.toFixed(4)}${attempts > 1 ? ` over ${attempts} attempts` : ""}`];
   if (pass.fallbackUsed) parts.push("fallback served");
   return parts.join(", ");
 }

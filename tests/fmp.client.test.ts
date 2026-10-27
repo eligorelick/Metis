@@ -796,10 +796,26 @@ describe("fmpCacheKey", () => {
       return { value: await loader() };
     };
     const { fetch } = fakeFetch([{ symbol: "AAPL", price: 1 }], 200);
-    await liveClient(fetch, cachedFetch).quote("AAPL");
+    const at = (iso: string) => createFmpClient({
+      apiKey: "test-key",
+      fixturesDir: FIXTURES_DIR,
+      fetchImpl: fetch,
+      limiter: makeLimiter(1000, 1000),
+      cachedFetch,
+      now: () => new Date(iso),
+    });
+    // Tuesday 11:00 New York: the session is open, so the plain quote TTL.
+    await at("2026-10-27T15:00:00Z").quote("AAPL");
     expect(seen).toHaveLength(1);
     expect(seen[0]?.key).toBe("fmp:/stable/quote?symbol=AAPL");
     expect(seen[0]?.ttlMs).toBe(FMP_TTLS.quote);
+    // Monday 19:06 New York, NVDA report #48's run: a quote fetched after
+    // 16:30 is still the latest price, so it stays fresh (usSession.ts).
+    await at("2026-10-26T23:06:37Z").quote("AAPL");
+    expect(seen[1]?.ttlMs).toBe(Date.parse("2026-10-26T23:06:37Z") - Date.parse("2026-10-26T20:30:00Z"));
+    // Statements keep their fixed TTL whatever the session.
+    await at("2026-10-26T23:06:37Z").incomeStatement("AAPL");
+    expect(seen[2]?.ttlMs).toBe(FMP_TTLS.incomeStatement);
     expect(FMP_TTLS.quote).toBe(15 * 60_000);
     expect(FMP_TTLS.incomeStatement).toBe(24 * 3_600_000);
     expect(FMP_TTLS.sectorPeSnapshot).toBe(3_600_000);

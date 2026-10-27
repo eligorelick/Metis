@@ -8,7 +8,9 @@ import { fmpCacheKey } from "@/providers/fmp";
 import { ReportSchema, REPORT_SPEC_VERSION } from "@/report/schema";
 import { addToWatchlist, getWatchlistView } from "@/watchlist/watchlist";
 
-const NOW = new Date("2026-10-16T12:00:00.000Z");
+// Friday 11:00 New York: inside a US session, so a quote keeps its plain
+// 15-minute TTL (usSession.ts).
+const NOW = new Date("2026-10-16T15:00:00.000Z");
 let handle: DatabaseHandle;
 let network: ReturnType<typeof vi.fn>;
 
@@ -116,6 +118,21 @@ describe("default watchlist cache-only boundary", () => {
     expect(row?.priceStale).toBe(true);
     expect(network).not.toHaveBeenCalled();
     expect(handle.db.select().from(apiCache).all()).toEqual(before);
+  });
+
+  it("keeps a quote fetched after the last close fresh until the open", async () => {
+    // Friday 08:00 New York: Thursday's 16:00 close is the latest price.
+    vi.setSystemTime(new Date("2026-10-16T12:00:00.000Z"));
+    seedCache("quote", { fetchedAt: "2026-10-16T11:00:00.000Z" });
+    const [fresh] = await getWatchlistView();
+    expect(fresh).toMatchObject({ price: 211.5, priceStale: false });
+
+    handle.db.delete(apiCache).run();
+    // Fetched at 15:00 Thursday, before that close: not the final price.
+    seedCache("quote", { fetchedAt: "2026-10-15T19:00:00.000Z" });
+    const [stale] = await getWatchlistView();
+    expect(stale).toMatchObject({ price: 211.5, priceStale: true });
+    expect(network).not.toHaveBeenCalled();
   });
 
   it.each([

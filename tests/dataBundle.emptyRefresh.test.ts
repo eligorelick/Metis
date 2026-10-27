@@ -59,6 +59,9 @@ async function refreshLastGoodWith(refresh: () => Response): Promise<void> {
     fetchImpl,
     limiter: makeLimiter(1000, 1000),
     cachedFetch: makeFmpCachedFetch(),
+    // Inside a US session, so the quote keeps its plain 15-minute TTL whenever
+    // the suite runs (usSession.ts).
+    now: () => new Date("2026-10-27T15:00:00Z"),
   });
 
   const first = await client.quote("AAPL");

@@ -1204,11 +1204,39 @@ function normalizeAnalystCase(raw: unknown): unknown {
   return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(raw)));
 }
 
+/**
+ * Why one section of a schema-valid analyst case is too thin to stand, or
+ * null. NVDA report #48's bull (2026-10-26) was one thesis claim, no drivers,
+ * risks or catalysts and a price target of 0 with no horizon; the schema
+ * accepted it, so every debate card read "Not addressed by the bull case".
+ * Catalysts and evidence may be empty: the framing asks for catalysts only
+ * where they exist.
+ */
+function analystSectionGap(key: string, value: unknown): string | null {
+  if (key === "thesis" || key === "keyDrivers" || key === "risksToCase") {
+    return Array.isArray(value) && value.length === 0 ? `\`${key}\` is empty: give it at least one sourced claim` : null;
+  }
+  if (key !== "priceTarget" || value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const target = value as { value?: unknown; horizon?: unknown };
+  const gaps = [
+    ...(typeof target.value === "number" && !(target.value > 0) ? ["`priceTarget.value` must be a positive price"] : []),
+    ...(typeof target.horizon === "string" && target.horizon.trim().length === 0 ? ["`priceTarget.horizon` is empty: state the horizon"] : []),
+  ];
+  return gaps.length === 0 ? null : gaps.join("; ");
+}
+
+/**
+ * Schema validation, then the content check: a thin case fails like a schema
+ * error, so the runner's one repair re-asks with this reason as its feedback.
+ */
 const parseAnalystCase = (raw: unknown) => {
   const r = ANALYST_CASE_SCHEMA.safeParse(normalizeAnalystCase(raw));
-  return r.success
+  if (!r.success) return { ok: false, error: r.error.message } as const;
+  const sections: Record<string, unknown> = r.data;
+  const gaps = ANALYST_CASE_KEYS.flatMap((key) => analystSectionGap(key, sections[key]) ?? []);
+  return gaps.length === 0
     ? ({ ok: true, value: r.data } as const)
-    : ({ ok: false, error: r.error.message } as const);
+    : ({ ok: false, error: `the case is incomplete: ${gaps.join("; ")}` } as const);
 };
 
 /** Run the bull pass. Web search on, ANALYST_CASE_SCHEMA structured output. */
@@ -2148,9 +2176,16 @@ export function checkCarriedJudgeSections(sections: Record<string, unknown>): Ca
   );
 }
 
-/** As checkCarriedJudgeSections, for a bull or bear case. */
+/**
+ * As checkCarriedJudgeSections, for a bull or bear case. A carried section
+ * that is too thin (analystSectionGap) would fail the merged case the same
+ * way, so it is asked for again too.
+ */
 export function checkCarriedAnalystSections(sections: Record<string, unknown>): CarriedSectionCheck {
-  return splitCarriedSections(sections, normalizeAnalystCase(sections), invalidAnalystCaseSections);
+  return splitCarriedSections(sections, normalizeAnalystCase(sections), (normalized) => [
+    ...invalidAnalystCaseSections(normalized),
+    ...Object.keys(normalized).filter((key) => analystSectionGap(key, normalized[key]) !== null),
+  ]);
 }
 
 /* ------------------------------------------------------------------------ *

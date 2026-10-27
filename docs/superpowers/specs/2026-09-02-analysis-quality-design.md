@@ -267,6 +267,13 @@ repair attempt is disclosed as "repair attempt after schema-invalid output
 also failed: …". Each attempt is its own cost row and pass artifact, as the
 judge's retries are.
 
+A case the schema accepts but that is empty counts as rejected too (D-113):
+an empty `thesis`, `keyDrivers` or `risksToCase`, or a price target without a
+positive value and a horizon, fails the parse with a reason naming each gap,
+and that reason is the repair feedback. Catalysts and evidence may be empty.
+A kept section that is empty in the same way is asked for again (D-3). The
+run panel's step detail states the step's cost over all its attempts.
+
 ### 8. No-trend growth anchor (`src/pipeline/stageB/valuation.ts`)
 
 **Superseded by WS6 decision D-18** (recorded in

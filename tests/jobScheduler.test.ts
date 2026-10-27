@@ -1986,6 +1986,39 @@ describe("atomic paid settlement", () => {
       .toBe(claim.revision + 1);
   });
 
+  /**
+   * NVDA's bear row (2026-10-26) read "$0.2817" beside a step cost of
+   * "$0.5784": the repair's detail named only its own cost.
+   */
+  it("records a repaired step's detail from the cost of every attempt", async () => {
+    const { acquirePaidPassLease, claimNextQueuedJob, settlePaidPassLease } = await scheduler();
+    seedJob(first.db, "job-repair", "AAPL");
+    const claim = claimNextQueuedJob("jobs", NOW, LIMITS, first.db)!;
+    const across: Array<[number, number]> = [];
+    const settle = (attemptId: string, costUsd: number) => {
+      const acquired = acquirePaidPassLease(claim, "bear", attemptId, 0.5, NOW, LIMITS, first.db);
+      if (!acquired.acquired) throw new Error("fixture lease was not acquired");
+      settlePaidPassLease(acquired.lease, {
+        settlement: analystSettlement(costUsd),
+        payloadFingerprint: "1.3.0:repair",
+        step: {
+          detail: `this attempt $${costUsd}`,
+          detailAcrossAttempts: (stepCostUsd, attempts) => {
+            across.push([stepCostUsd, attempts]);
+            return `$${stepCostUsd.toFixed(4)} over ${attempts} attempts`;
+          },
+        },
+      }, first.db, NOW);
+      const steps = JSON.parse(first.db.select().from(jobs).where(eq(jobs.id, claim.jobId)).get()!.stepsJson);
+      return steps.find((step: { step: string }) => step.step === "bear");
+    };
+
+    expect(settle("first", 0.2966)).toMatchObject({ detail: "this attempt $0.2966", costUsd: 0.2966 });
+    expect(across).toEqual([]);
+    expect(settle("repair", 0.2818)).toMatchObject({ detail: "$0.5784 over 2 attempts", costUsd: 0.5784 });
+    expect(across).toEqual([[0.5784, 2]]);
+  });
+
   it.each(invalidStepSnapshots())(
     "commits a known charge once when exact-current steps are %s, then reports projection failure",
     async (_label, corruptStepsJson) => {

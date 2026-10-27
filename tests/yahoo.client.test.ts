@@ -677,9 +677,20 @@ describe("YahooClient.quote and meta", () => {
       return { value: await loader() };
     };
     const { impl } = fakeFetch(() => ({ status: 200, body: chart() }));
+    // The suite's clock, 2026-09-01T00:00Z, is Monday 20:00 New York: after
+    // the close, a quote fetched since 16:30 stays fresh (usSession.ts).
     await client(impl, cachedFetch).meta("brk.b");
+    const open = createYahooClient({
+      fetchImpl: impl,
+      limiter: makeLimiter(1000, 1000),
+      now: () => new Date("2026-09-01T15:00:00Z"),
+      cachedFetch,
+    });
+    await open.meta("brk.b");
+    const key = "yahoo:/v8/finance/chart/BRK-B?range=5d&interval=1d&events=splits";
     expect(keys).toEqual([
-      { key: "yahoo:/v8/finance/chart/BRK-B?range=5d&interval=1d&events=splits", ttl: YAHOO_TTLS.quote },
+      { key, ttl: 3.5 * 3_600_000 },
+      { key, ttl: YAHOO_TTLS.quote },
     ]);
   });
 });

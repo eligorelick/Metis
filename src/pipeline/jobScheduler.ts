@@ -1658,7 +1658,17 @@ export interface SettlePaidPassInput<T> {
   payloadFingerprint: string | null;
   settledAt?: string;
   /** Canonical terminal step metadata merged in the same exact-current transaction. */
-  step?: { finishedAt?: string; detail?: string };
+  step?: {
+    finishedAt?: string;
+    detail?: string;
+    /**
+     * The detail to record instead when earlier attempts of this step were
+     * settled too. The step row carries the cost of every attempt, so a detail
+     * naming only the last attempt's cost contradicted it: NVDA's bear row
+     * read "$0.2817" beside "$0.5784" after a repair (2026-10-26).
+     */
+    detailAcrossAttempts?: (stepCostUsd: number, attempts: number) => string;
+  };
 }
 
 /** Did any provider request settle beneath this pass attempt (D-10 `#rN` rows)? */
@@ -1844,14 +1854,18 @@ export function settlePaidPassLease<T>(
           step.startedAt ??= authorityAt;
           step.finishedAt = input.step?.finishedAt ?? authorityAt;
           step.completedAt = step.finishedAt;
-          step.detail = input.step?.detail ?? (
-            input.settlement.outcome === "success"
-              ? `${lease.pass} pass settled`
-              : input.settlement.failure.message
-          );
           const stepCost = tx.select({ costUsd: costLog.costUsd }).from(costLog)
             .where(and(eq(costLog.jobId, lease.jobId), eq(costLog.step, lease.pass))).all()
             .reduce((total, row) => total + row.costUsd, 0);
+          // Counted like the cost: every settled attempt of this step in this job.
+          const attempts = tx.select({ attemptId: jobPassArtifacts.attemptId }).from(jobPassArtifacts)
+            .where(and(eq(jobPassArtifacts.jobId, lease.jobId), eq(jobPassArtifacts.pass, lease.pass))).all().length;
+          step.detail = (attempts > 1 ? input.step?.detailAcrossAttempts?.(stepCost, attempts) : undefined) ??
+            input.step?.detail ?? (
+              input.settlement.outcome === "success"
+                ? `${lease.pass} pass settled`
+                : input.settlement.failure.message
+            );
           if (prepared.telemetry.billable || stepCost > 0) step.costUsd = stepCost;
           currentSteps = latest;
           set.stepsJson = JSON.stringify(latest);
