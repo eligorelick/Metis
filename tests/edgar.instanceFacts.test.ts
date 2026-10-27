@@ -4,6 +4,9 @@ import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 
+// The bundle's merge is imported below; it is server-only.
+vi.mock("server-only", () => ({}));
+
 // Audit 2026-10-22 B-23: companyfacts ran a quarter behind the filed 10-Qs
 // (Visa, Duke, NextEra, Coca-Cola, Prologis). The newer 10-Q's XBRL instance
 // is already fetched for segment revenue; its own facts are merged so the
@@ -202,7 +205,6 @@ describe("the bundle's companyfacts after the merge (audit 2026-10-22 B-23)", ()
   } };
 
   it("names the instance in the endpoint, moves the as-of date and discloses the merge", async () => {
-    vi.mock("server-only", () => ({}));
     const { withNewerFilings, companyFactsInstanceEntries } = await import("@/pipeline/dataBundle");
     const { companyFacts, companyFactsInstances } = withNewerFilings(served, [q2]);
     if (!companyFacts.ok) throw new Error("merge dropped companyfacts");
@@ -216,7 +218,6 @@ describe("the bundle's companyfacts after the merge (audit 2026-10-22 B-23)", ()
   });
 
   it("leaves companyfacts as served when it already carries every filing read", async () => {
-    vi.mock("server-only", () => ({}));
     const { withNewerFilings } = await import("@/pipeline/dataBundle");
     const older = parseInstanceFacts(instance(Q2_CONTEXTS, Q2_FACTS), { ...Q2_FILING, filingDate: "2026-05-01" }, CIK);
     const result = withNewerFilings(served, [older]);

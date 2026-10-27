@@ -89,14 +89,16 @@ function Selector({
   onChange: (id: number) => void;
 }) {
   return (
-    <label className="flex flex-col gap-0.5">
+    // A select is as wide as its longest option ("#49 · 2026-10-27 · Requested:
+    // …"); capped, it no longer widens a phone's page to 505 px.
+    <label className="flex min-w-0 max-w-full flex-col gap-0.5">
       <span className="text-[9px] uppercase tracking-[0.1em] text-faint">
         {label}
       </span>
       <select
         value={value}
         onChange={(e) => onChange(Number.parseInt(e.target.value, 10))}
-        className="mono border border-edge-strong bg-bg px-2 py-1 text-[11px] text-fg focus:border-accent focus:outline-none"
+        className="mono max-w-full border border-edge-strong bg-bg px-2 py-1 text-[11px] text-fg focus:border-accent focus:outline-none"
       >
         {options.map((o) => (
           <option key={o.id} value={o.id}>
