@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - repair note follow-ups (2026-10-27)
+
+- Give a rejected output's issues in words even when the stored failure detail was cut at 4,096 characters: a rejection with about 15 or more issues printed raw JSON on the run panel. The note now reads "N or more fields failed the schema: …".
+- Close a repair that is rejected again in words ("bull attempt 2/2 rejected (…)"), where the row named no field. The judge's retry and final rows name its failing fields the same way.
+- Keep the Zod issue array out of a data-only report: the missing-data reason for a failed bull, bear or judge pass keeps the pass and failure kind and gives the issues in words, without a rule's own message (which can quote the rejected value).
+- Queue only a received-and-rejected output for repair; a dropped plan connection was labelled "rejected …; repair queued" with the wrong attempt count. Drop a null `sourceId` like a blank one, and stop printing an empty "(kept: )" on a retry that kept no sections.
+- Pipeline stage-c-1.6.8 (D-115). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged.
+
 ## Unreleased - phone layout and a warning-free build (2026-10-27)
 
 - Fit the report history page's compare picker on a phone: each select sized itself to its longest option ("#49 · 2026-10-27 · Requested: …") and widened a 375 px page to 505 px.

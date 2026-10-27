@@ -522,8 +522,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. */
-export const PIPELINE_VERSION = "stage-c-1.6.7" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. */
+export const PIPELINE_VERSION = "stage-c-1.6.8" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -964,39 +964,120 @@ const ISSUE_WORDS: Record<string, string> = {
   unrecognized_keys: "has unexpected fields",
 };
 
+/** `text` on one line, at most `max` characters. */
+function oneLine(text: string, max: number): string {
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+interface ZodIssueList {
+  issues: Record<string, unknown>[];
+  /** Where the array opens and ends in the text. */
+  start: number;
+  end: number;
+  /** False when the text stops before the array's closing bracket. */
+  closed: boolean;
+}
+
 /**
- * A rejected analyst output in words a reader can follow. The run panel printed
- * the parse error as the raw Zod issue array, six JSON objects deep, on NVDA
- * run #49 (2026-10-26). The full text still goes back to the model as repair
- * feedback; only the step detail is shortened.
+ * The Zod issue array in `text`: each complete issue object, read up to the
+ * array's own closing bracket. A stored failure detail is cut at 4,096
+ * characters (serializePassFailure), so a rejection with about 15 or more
+ * issues arrives without its end and no longer parses as a whole; the issues
+ * before the cut still count.
  */
-export function plainRejectionNote(detail: string): string {
-  const start = detail.search(/\[\s*\{/);
-  const end = detail.lastIndexOf("]");
-  if (start >= 0 && end > start) {
-    try {
-      const issues = JSON.parse(detail.slice(start, end + 1)) as unknown;
-      if (Array.isArray(issues) && issues.length > 0) {
-        const fields = issues.map((issue) => {
-          const { path, code } = (issue ?? {}) as { path?: unknown; code?: unknown };
-          const where = Array.isArray(path) && path.length > 0
-            ? path.map((part, i) => typeof part === "number" ? `[${part}]` : `${i === 0 ? "" : "."}${String(part)}`).join("")
-            : "the output";
-          return `${where} ${ISSUE_WORDS[String(code)] ?? "is invalid"}`;
-        });
-        const shown = fields.slice(0, 3).join("; ");
-        const more = fields.length > 3 ? `; and ${fields.length - 3} more` : "";
-        return `${fields.length} field${fields.length === 1 ? "" : "s"} failed the schema: ${shown}${more}`;
+function zodIssueList(text: string): ZodIssueList | null {
+  const start = text.search(/\[\s*\{/);
+  if (start < 0) return null;
+  const issues: Record<string, unknown>[] = [];
+  let depth = 0;
+  let objectStart = -1;
+  let inString = false;
+  let escaped = false;
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === "{" || ch === "[") {
+      if (depth === 0) objectStart = ch === "{" ? i : -1;
+      depth++;
+    } else if (ch === "}" || ch === "]") {
+      if (depth === 0) return issues.length === 0 ? null : { issues, start, end: i + 1, closed: true };
+      depth--;
+      if (depth === 0 && objectStart >= 0) {
+        try {
+          const issue = JSON.parse(text.slice(objectStart, i + 1)) as unknown;
+          if (issue !== null && typeof issue === "object" && !Array.isArray(issue)) issues.push(issue as Record<string, unknown>);
+        } catch {
+          // Not an issue object; leave it out.
+        }
+        objectStart = -1;
       }
-    } catch {
-      // Not an issue list: fall through to the text itself.
     }
   }
+  return issues.length === 0 ? null : { issues, start, end: text.length, closed: false };
+}
+
+/**
+ * The issues in words: "2 fields failed the schema: thesis[0].sourceId is
+ * empty or too short; …". `ruleMessages` adds a custom rule's own message,
+ * for the run panel only: the date rule quotes the rejected value and the
+ * rating rule names the words it bans, and neither belongs in a saved report.
+ */
+function issueListInWords(list: ZodIssueList, ruleMessages: boolean): string {
+  const fields = list.issues.map(({ path, code, message }) => {
+    const where = Array.isArray(path) && path.length > 0
+      ? path.map((part, i) => typeof part === "number" ? `[${part}]` : `${i === 0 ? "" : "."}${String(part)}`).join("")
+      : "the output";
+    if (ruleMessages && code === "custom" && typeof message === "string" && message.trim() !== "") {
+      return `${where}: ${oneLine(message, 80)}`;
+    }
+    return `${where} ${ISSUE_WORDS[String(code)] ?? "is invalid"}`;
+  });
+  const count = list.closed
+    ? `${fields.length} field${fields.length === 1 ? "" : "s"}`
+    : `${fields.length} or more fields`;
+  const more = !list.closed ? "; and more" : fields.length > 3 ? `; and ${fields.length - 3} more` : "";
+  return `${count} failed the schema: ${fields.slice(0, 3).join("; ")}${more}`;
+}
+
+/**
+ * A rejected analyst output in words a reader can follow, for the run panel.
+ * NVDA run #49 (2026-10-26) printed the parse error there as the raw Zod
+ * issue array. The full text still goes back to the model as repair feedback
+ * and stays on the pass artifact.
+ */
+export function plainRejectionNote(detail: string): string {
+  const list = zodIssueList(detail);
+  if (list !== null) return issueListInWords(list, true);
   const incomplete = detail.indexOf("the case is incomplete:");
-  if (incomplete >= 0) return detail.slice(incomplete);
+  if (incomplete >= 0) return oneLine(detail.slice(incomplete), 200);
   if (detail.includes("pass output was not valid JSON")) return "the output was not valid JSON";
-  const line = detail.replace(/\s+/g, " ").trim();
-  return line.length > 200 ? `${line.slice(0, 199)}…` : line;
+  return oneLine(detail, 200);
+}
+
+/**
+ * `text` with its Zod issue array, if it has one, put in words and the rest
+ * kept, for a saved report's missing-data reason: it still names the pass and
+ * the failure kind, without the array or any rule's message.
+ */
+export function withPlainIssueList(text: string): string {
+  const list = zodIssueList(text);
+  return list === null ? text : `${text.slice(0, list.start)}${issueListInWords(list, false)}${text.slice(list.end)}`;
+}
+
+/** The kind and retryability a pass error carries (PassRunError), for its fallback settlement. */
+function passErrorDetails(error: unknown): { kind?: string; retryable?: boolean } {
+  if (error === null || typeof error !== "object") return {};
+  const { kind, retryable } = error as { kind?: unknown; retryable?: unknown };
+  return {
+    ...(typeof kind === "string" ? { kind } : {}),
+    ...(typeof retryable === "boolean" ? { retryable } : {}),
+  };
 }
 
 /** `total`: the step's cost and attempt count when earlier attempts settled too. */
@@ -1136,11 +1217,11 @@ function createSettlementCheckpoint<T>(
   /** Model the reservation was priced for; recorded on the durable lease. */
   reservationModel = "",
   /**
-   * The step note for a failure the run will still repair, or null. The step
-   * then stays running under that note instead of reading ERROR until its
-   * repair starts.
+   * The step note for a failed settlement, or null for the failure's own
+   * message. `repairQueued`: the run will still repair it, so the step stays
+   * running under the note instead of reading ERROR until the repair starts.
    */
-  repairQueuedNote?: (failure: SerializedPassFailure) => string | null,
+  failureNote?: (failure: SerializedPassFailure) => { detail: string; repairQueued: boolean } | null,
 ): SettlementCheckpoint<T> {
   const attemptId = randomUUID();
   let called = false;
@@ -1420,16 +1501,18 @@ function createSettlementCheckpoint<T>(
         requestSequence > 0 && settlement.telemetry.billable
           ? { ...settlement, telemetry: { ...settlement.telemetry, billable: false } }
           : settlement;
-      const queuedNote = settlement.outcome === "failure" ? repairQueuedNote?.(settlement.failure) ?? null : null;
+      const note = settlement.outcome === "failure" ? failureNote?.(settlement.failure) ?? null : null;
       const persisted = settlePaidPassLease(lease, {
         settlement: settlementForPass,
         payloadFingerprint,
-        step: queuedNote !== null
-          ? { detail: queuedNote, repairQueued: true }
+        step: note?.repairQueued === true
+          ? { detail: note.detail, repairQueued: true }
           : {
             finishedAt: findStep(state, pass).finishedAt ?? nowIso(),
-            detail: settlementStepDetail(settlement),
-            detailAcrossAttempts: (costUsd, attempts) => settlementStepDetail(settlement, { costUsd, attempts }),
+            detail: note?.detail ?? settlementStepDetail(settlement),
+            ...(note === null
+              ? { detailAcrossAttempts: (costUsd: number, attempts: number) => settlementStepDetail(settlement, { costUsd, attempts }) }
+              : {}),
           },
       });
       // Once settlePaidPassLease returns inserted truth, a later projection
@@ -1570,7 +1653,8 @@ function checkCarried(
 /** How an analyst retry's step detail names what it kept and what it asks for again. */
 function carriedDetail(continuation: PassContinuation | undefined, dropped: readonly string[]): string {
   const parts: string[] = [];
-  if (continuation !== undefined) parts.push(`kept: ${Object.keys(continuation.completed).join(", ")}`);
+  const kept = Object.keys(continuation?.completed ?? {});
+  if (kept.length > 0) parts.push(`kept: ${kept.join(", ")}`);
   if (dropped.length > 0) {
     parts.push(`dropped as not matching ${dropped.length === 1 ? "its" : "their"} schema, so asked for again: ${dropped.join(", ")}`);
   }
@@ -3313,7 +3397,7 @@ export async function runJob<TPayload = unknown>(
               );
             }
             const retrying = lastJudgeFailureRetryable && attempt < maxJudgeRetries;
-            const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${lastValidationDetail}${keptNote}`;
+            const detail = `judge attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying" : ""}: ${withPlainIssueList(lastValidationDetail)}${keptNote}`;
             if (retrying) {
               startStep(state, "synthesize");
               await backOffIfOverloaded(err, attempt + 1, "synthesize");
@@ -3505,7 +3589,7 @@ export async function runJob<TPayload = unknown>(
           }
           lastJudgeFailureRetryable = !reusedArtifact;
           const retrying = !reusedArtifact && attempt < maxJudgeRetries;
-          const detail = `report assembly attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying judge" : ""}: ${lastValidationDetail}`;
+          const detail = `report assembly attempt ${attempt + 1}/${maxJudgeRetries + 1} failed${retrying ? "; retrying judge" : ""}: ${withPlainIssueList(lastValidationDetail)}`;
           updateRunningStepDetail(state, "synthesize", detail);
           updateRunningStepDetail(state, "verify", detail);
           if (retrying) {
@@ -3528,12 +3612,13 @@ export async function runJob<TPayload = unknown>(
       // when the judge never produced output, verify never ran and is honestly
       // "skipped" — same convention as the bull/bear-failure path.
       if (assembled === null) {
+        const plainDetail = withPlainIssueList(lastValidationDetail);
         const detail = lastJudgeFailureRetryable
-          ? `report failed schema validation after ${maxJudgeRetries + 1} attempt(s): ${lastValidationDetail}`
-          : `synthesize failed: ${lastValidationDetail}`;
+          ? `report failed schema validation after ${maxJudgeRetries + 1} attempt(s): ${plainDetail}`
+          : `synthesize failed: ${plainDetail}`;
         finishStep(state, "synthesize", "error", detail);
         if (findStep(state, "verify").status === "pending") {
-          markSkipped(state, "verify", `upstream synthesize failed: ${lastValidationDetail}`);
+          markSkipped(state, "verify", `upstream synthesize failed: ${plainDetail}`);
         } else {
           finishStep(state, "verify", "error", detail);
         }
@@ -3695,7 +3780,7 @@ export async function runJob<TPayload = unknown>(
           }
           computed.gaps.push({
             field: `llm.${side}`,
-            reason: errMessage(err),
+            reason: withPlainIssueList(errMessage(err)),
             severity: "critical",
             attemptedSources:
               analystCheckpoint.wasLaunched() || billedAttempt !== null ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [],
@@ -3721,11 +3806,18 @@ export async function runJob<TPayload = unknown>(
     // (below), so its step waits under a plain note rather than reading ERROR.
     // The pass settles the rejection before the runner knows whether the
     // sibling can continue; a run that gives up closes the step with the reason.
+    // A dropped plan connection is retryable too, but it is retried, not
+    // repaired, on its own attempt count: its row is unchanged.
     const repairQueued = new Set<"bull" | "bear">();
-    const queueRepairNote = (side: "bull" | "bear") => (failure: SerializedPassFailure): string | null => {
-      if (failure.retryable !== true || passes.runAnalystPass === undefined || !(MAX_ANALYST_REPAIRS > 0)) return null;
+    const rejectedOutput = (failure: SerializedPassFailure): boolean =>
+      failure.retryable === true && (failure.kind === "schema" || failure.kind === "parse");
+    const queueRepairNote = (side: "bull" | "bear") => (failure: SerializedPassFailure) => {
+      if (!rejectedOutput(failure) || passes.runAnalystPass === undefined || !(MAX_ANALYST_REPAIRS > 0)) return null;
       repairQueued.add(side);
-      return `${side} attempt 1/${MAX_ANALYST_REPAIRS + 1} rejected (${plainRejectionNote(failure.detail ?? failure.message)}); repair queued`;
+      return {
+        detail: `${side} attempt 1/${MAX_ANALYST_REPAIRS + 1} rejected (${plainRejectionNote(failure.detail ?? failure.message)}); repair queued`,
+        repairQueued: true,
+      };
     };
     const closeQueuedRepairs = (why: string): void => {
       for (const side of repairQueued) {
@@ -3825,6 +3917,9 @@ export async function runJob<TPayload = unknown>(
         jobSignal,
         jobController,
         analysisModel,
+        (failure) => rejectedOutput(failure)
+          ? { detail: `${side} attempt ${attemptLabel} rejected (${plainRejectionNote(failure.detail ?? failure.message)})`, repairQueued: false }
+          : null,
       );
       try {
         await passes.preflightPass?.(deps, { pass: side });
@@ -3861,7 +3956,7 @@ export async function runJob<TPayload = unknown>(
           (checkpoint.wasLaunched() || billedAttempt !== null)
         ) {
           await checkpoint.hook(
-            failureSettlement(repairErr, telemetryFromAttempt(billedAttempt, analysisModel)),
+            failureSettlement(repairErr, telemetryFromAttempt(billedAttempt, analysisModel), passErrorDetails(repairErr)),
           );
         }
         return { ok: false, error: repairErr };
@@ -4064,7 +4159,7 @@ export async function runJob<TPayload = unknown>(
             if (!again) {
               computed.gaps.push({
                 field: `llm.${side}`,
-                reason: `${RECOVERY_GAP[mode]}: ${errMessage(out.error)}`,
+                reason: `${RECOVERY_GAP[mode]}: ${withPlainIssueList(errMessage(out.error))}`,
                 severity: "critical",
                 attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
               });
@@ -4107,7 +4202,7 @@ export async function runJob<TPayload = unknown>(
         const launched = side === "bull" ? bullLaunched : bearLaunched;
         computed.gaps.push({
           field: `llm.${side}`,
-          reason: sideError ?? errMessage(err),
+          reason: withPlainIssueList(sideError ?? errMessage(err)),
           severity: "critical",
           attemptedSources: launched ? [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"] : [],
         });
