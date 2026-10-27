@@ -181,7 +181,9 @@ function existingToken(): string | undefined {
   const minted = tokenStash().current;
   if (minted !== undefined) return minted.token;
   try {
-    const stored = fs.readFileSync(requestTokenPath(), "utf8").trim();
+    // The path is runtime configuration: without the hint Turbopack traces the
+    // whole project into the server output.
+    const stored = fs.readFileSync(/* turbopackIgnore: true */ requestTokenPath(), "utf8").trim();
     return TOKEN_SHAPE.test(stored) ? stored : undefined;
   } catch {
     return undefined;

@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - phone layout and a warning-free build (2026-10-27)
+
+- Fit the report history page's compare picker on a phone: each select sized itself to its longest option ("#49 · 2026-10-27 · Requested: …") and widened a 375 px page to 505 px.
+- Build without warnings: the request-token read in `src/app/api/sameOrigin.ts` uses a runtime path, so Turbopack traced the whole project into the server output; it now carries the same `turbopackIgnore` hint as the other runtime-path reads.
+- Move a test's `server-only` mock to the top level, where Vitest hoists it anyway; a nested call is slated to become an error. No report, payload, pipeline or Stage B stamp moves.
+
 ## Unreleased - blank source IDs and the repair note (2026-10-26)
 
 - Read a blank `sourceId` in a bull, bear or judge output as absent, so the claim cites its `source`. Claude wrote `sourceId: ""` wherever it had no registry ID, and all four first attempts of NVDA reports #48 and #49 failed the schema on that and paid for a repair. A claim whose `source` is also blank is still rejected.
