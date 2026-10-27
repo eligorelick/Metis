@@ -147,6 +147,7 @@ import {
   NO_KEY_SKIP_REASON,
   NO_ANALYZABLE_DATA_REASON,
   plainRejectionNote,
+  withPlainIssueList,
   MAX_JUDGE_RETRIES,
   MODEL_RESOLUTION_SKIP_PREFIX,
   COMPUTE_FAILURE_DATA_ONLY_REASON,
@@ -164,6 +165,7 @@ import {
   parseLegacyAnalystSnapshot,
   persistPassSettlement,
   readCurrentGenerationPassArtifacts,
+  serializePassFailure,
 } from "@/pipeline/jobArtifacts";
 import { readJobResumeState } from "@/pipeline/jobStore";
 import {
@@ -6198,7 +6200,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.7");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.8");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -7549,6 +7551,35 @@ describe("runJob — judge retry on schema-validation failure", () => {
     );
     expect(retryDetail).toBeDefined();
     expect(retryDetail!.step.detail).toContain("judge attempt 1/3 failed; retrying");
+  });
+
+  it("shows a rejected judge's issues in words and feeds the full text back", async () => {
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    const validJudge = passes.runJudgePass;
+    const issues = JSON.stringify([{ origin: "object", code: "invalid_type", expected: "object", path: ["valuation", "dcf"], message: "Invalid input: expected object, received undefined" }], null, 2);
+    const feedbacks: Array<string | undefined> = [];
+    let judgeAttempts = 0;
+    passes.runJudgePass = async (...args) => {
+      judgeAttempts += 1;
+      feedbacks.push(args[3]);
+      if (judgeAttempts === 1) {
+        throw Object.assign(new Error(`judge pass failed (schema): schema-invalid structured output for llm.judge: ${issues}`), { retryable: true, kind: "schema" });
+      }
+      return validJudge(...args);
+    };
+    const events: JobEvent[] = [];
+    subscribeJob(jobId, (e) => events.push(e));
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW });
+
+    expect(result.status).toBe("done");
+    const details = events.flatMap((e) => e.type === "step-update" && e.step.step === "synthesize" && typeof e.step.detail === "string" ? [e.step.detail] : []);
+    expect(details).toContain(
+      "judge attempt 1/3 failed; retrying: judge pass failed (schema): schema-invalid structured output for llm.judge: 1 field failed the schema: valuation.dcf has the wrong type",
+    );
+    expect(details.join("\n")).not.toContain('"code"');
+    expect(feedbacks[1]).toContain('"code": "invalid_type"');
   });
 
   it("retries the judge on an assembleReport (report-schema) failure then succeeds", async () => {
@@ -9547,6 +9578,179 @@ describe("analyst repair attempt after schema-invalid output", () => {
         .toBe("the case is incomplete: `keyDrivers` is empty: give it at least one sourced claim");
       expect(plainRejectionNote("pass output was not valid JSON: Unexpected token } in JSON at position 4")).toBe("the output was not valid JSON");
       expect(plainRejectionNote(SCHEMA_ERROR)).toBe(SCHEMA_ERROR);
+    });
+
+    /**
+     * Audit of PR #64 (2026-10-27): a stored failure detail is cut at 4,096
+     * characters, so a rejection with about 15 or more issues no longer parsed
+     * and the queued note printed the first 200 characters of raw JSON.
+     */
+    it("reads a rejection cut short by the stored detail limit", () => {
+      const issues = Array.from({ length: 16 }, (_, i) => ({
+        origin: "string", code: "invalid_format", format: "regex", pattern: "/^\\d{4}-\\d{2}-\\d{2}$/",
+        path: ["thesis", i, "asOf"], message: "Invalid string: must match pattern /^\\d{4}-\\d{2}-\\d{2}$/",
+      }));
+      const full = `pass output failed schema validation: ${JSON.stringify(issues, null, 2)}`;
+      const cut = serializePassFailure(new Error("schema-invalid structured output for llm.bull"), { kind: "schema", retryable: true, detail: full }).detail!;
+      expect(full.length).toBeGreaterThan(4_096);
+      expect(cut.length).toBe(4_096);
+      const note = plainRejectionNote(cut);
+      expect(note).toMatch(/^\d+ or more fields failed the schema: thesis\[0\]\.asOf has the wrong format; thesis\[1\]\.asOf has the wrong format; thesis\[2\]\.asOf has the wrong format; and more$/);
+      expect(note).not.toContain("{");
+      // Uncut, the same list is counted exactly.
+      expect(plainRejectionNote(full)).toBe(
+        "16 fields failed the schema: thesis[0].asOf has the wrong format; thesis[1].asOf has the wrong format; thesis[2].asOf has the wrong format; and 13 more",
+      );
+    });
+
+    it("names a custom rule's message on the run panel and keeps it out of the report", () => {
+      const ratingRule = JSON.stringify([{ code: "custom", path: ["thesis", 0, "text"], message: "investment-rating language (buy, sell or hold used as a recommendation on the security) is prohibited" }]);
+      expect(plainRejectionNote(ratingRule)).toBe(
+        "1 field failed the schema: thesis[0].text: investment-rating language (buy, sell or hold used as a recommendation on the s…",
+      );
+      expect(withPlainIssueList(`bull pass failed (schema): schema-invalid structured output for llm.bull: ${ratingRule}`)).toBe(
+        "bull pass failed (schema): schema-invalid structured output for llm.bull: 1 field failed the schema: thesis[0].text is invalid",
+      );
+      // Text with no issue list is left as it was.
+      expect(withPlainIssueList("bear pass failed (refusal): declined")).toBe("bear pass failed (refusal): declined");
+    });
+
+    it("reads the issue list up to its own closing bracket and caps a long gap list", () => {
+      const list = JSON.stringify([{ code: "too_small", path: ["keyDrivers"] }]);
+      expect(plainRejectionNote(`rejected: ${list} (see [the schema])`)).toBe("1 field failed the schema: keyDrivers is empty or too short");
+      expect(withPlainIssueList(`rejected: ${list} (see [the schema])`)).toBe("rejected: 1 field failed the schema: keyDrivers is empty or too short (see [the schema])");
+      const gaps = "the case is incomplete: " + "`keyDrivers` is empty: give it at least one sourced claim; ".repeat(20);
+      expect(plainRejectionNote(gaps)).toHaveLength(200);
+      expect(plainRejectionNote(gaps).startsWith("the case is incomplete: `keyDrivers` is empty")).toBe(true);
+    });
+
+    it("closes a repair rejected again in words, on its row and in the report", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      passes.runBullThenBear = async (_deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        await launchTestAnalystSide(hooks, "bear");
+        throw bothRejected();
+      };
+      // As the real pass does: settle the rejection itself, then throw (stageC unwrap).
+      passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch) => {
+        await beforeProviderLaunch?.();
+        await settlement?.({
+          outcome: "failure",
+          failure: { name: "Error", message: `schema-invalid structured output for llm.${side}`, kind: "schema", retryable: true, detail: ZOD_ISSUES },
+          telemetry: testTelemetry(testAnalystPass(side, 0.2)),
+        } as Parameters<NonNullable<typeof settlement>>[0]);
+        throw Object.assign(new Error(rejected(side)), { retryable: true, kind: "schema" });
+      };
+
+      const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+      expect(result.dataOnly).toBe(true);
+      const plain = "2 fields failed the schema: thesis[0].sourceId is empty or too short; evidence[0].sourceId is empty or too short";
+      const steps = stepsOf(jobId);
+      expect(steps.get("bull")).toMatchObject({ status: "error", detail: `bull attempt 2/2 rejected (${plain})` });
+      expect(steps.get("bear")).toMatchObject({ status: "error", detail: `bear attempt 1/2 rejected (${plain}); not repaired: the bull repair failed` });
+      const row = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+      const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+      expect(report.appendix.missingData.find((gap) => gap.field === "llm.bull")?.reason).toBe(
+        `repair attempt after schema-invalid output also failed: bull pass failed (schema): schema-invalid structured output for llm.bull: ${plain}`,
+      );
+      expect(report.appendix.missingData.map((gap) => gap.reason).join("\n")).not.toContain("origin");
+    });
+
+    it("closes a queued side when its sibling failed in a way no repair fixes", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      const REFUSED = "bear pass failed (refusal): the model declined";
+      passes.runBullThenBear = async (_deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        await launchTestAnalystSide(hooks, "bear");
+        throw Object.assign(new Error(REFUSED), {
+          bullError: rejected("bull"),
+          bullBilledAttempt: { ...bearBilledAttempt, costUsd: 0.43 },
+          bullRetryable: true,
+          bullRawText: RAW,
+          bearError: REFUSED,
+          bearBilledAttempt: { ...bearBilledAttempt, costUsd: 0.05 },
+          bearRetryable: false,
+          bearFailureKind: "refusal",
+        });
+      };
+      let repairs = 0;
+      passes.runAnalystPass = async () => {
+        repairs += 1;
+        throw new Error("no repair should run");
+      };
+
+      const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+      expect(repairs).toBe(0);
+      expect(result.dataOnly).toBe(true);
+      const plain = "2 fields failed the schema: thesis[0].sourceId is empty or too short; evidence[0].sourceId is empty or too short";
+      expect(stepsOf(jobId).get("bull")).toMatchObject({
+        status: "error",
+        detail: `bull attempt 1/2 rejected (${plain}); not repaired: the other pass failed in a way a repair cannot fix`,
+      });
+      const row = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+      const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+      expect(report.appendix.missingData.find((gap) => gap.field === "llm.bull")?.reason).toBe(
+        `bull pass failed (schema): schema-invalid structured output for llm.bull: ${plain}`,
+      );
+    });
+
+    /**
+     * A dropped plan connection is retryable too, and the runner's fallback
+     * settlement marked it so: the waiting side read "rejected (…); repair
+     * queued" with a count of 1/2 where the run makes four tries.
+     */
+    it("leaves a dropped connection's row alone: it is retried, not repaired", async () => {
+      vi.mocked(resolveModel).mockResolvedValueOnce({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      const plan = (side: "bull" | "bear") => ({ ...testAnalystPass(side, 0), model: "chatgpt/gpt-6.1-sol" });
+      const dropped = (side: "bull" | "bear") => `${side} pass failed (transport): ChatGPT did not complete the pass (error: server_is_overloaded).`;
+      passes.runBullThenBear = async (_deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        await launchTestAnalystSide(hooks, "bear");
+        throw Object.assign(new Error(dropped("bull")), {
+          bullError: dropped("bull"),
+          bearError: dropped("bear"),
+          bullLaunched: true,
+          bearLaunched: true,
+          bullRetryable: true,
+          bearRetryable: true,
+          bullFailureKind: "transport",
+          bearFailureKind: "transport",
+        });
+      };
+      const paidJudge = passes.runJudgePass;
+      passes.runJudgePass = (async (...args: Parameters<PipelinePasses["runJudgePass"]>) => ({
+        ...(await paidJudge(args[0], args[1], args[2])),
+        costUsd: 0,
+        model: "chatgpt/gpt-6.1-sol",
+      })) as PipelinePasses["runJudgePass"];
+      const paidVerify = passes.runVerifyPass;
+      passes.runVerifyPass = (async (...args: Parameters<PipelinePasses["runVerifyPass"]>) => ({
+        ...(await paidVerify(...args)),
+        costUsd: 0,
+        model: "chatgpt/gpt-6.1-sol",
+      })) as PipelinePasses["runVerifyPass"];
+      const waiting: Array<StepProgress | undefined> = [];
+      passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch) => {
+        if (side === "bull") waiting.push(stepsOf(jobId).get("bear"));
+        await beforeProviderLaunch?.();
+        const fresh = plan(side);
+        await settlement?.(testSuccessSettlement(fresh, false));
+        return fresh;
+      };
+
+      const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW, overloadBackoffMs: 1 });
+
+      expect(result.status).toBe("done");
+      expect(waiting).toHaveLength(1);
+      expect(waiting[0]?.detail ?? "").not.toMatch(/rejected|repair queued/);
+      // The retry names its own count: one first attempt and three retries.
+      expect(stepsOf(jobId).get("bear")?.status).toBe("done");
     });
   });
 

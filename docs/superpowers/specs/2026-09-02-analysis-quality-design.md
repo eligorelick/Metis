@@ -284,6 +284,19 @@ why. The repair attempt's own detail uses the same plain note; the full
 validation error is still the model's repair feedback and stays on the pass
 artifact.
 
+D-115 closes the gaps an audit of that change found. The issue list is read
+object by object up to its own closing bracket (`zodIssueList`), so a stored
+detail cut at 4,096 characters still yields "N or more fields failed the
+schema" rather than raw JSON. A recovery attempt that is rejected closes its
+row as "<side> attempt 2/2 rejected (…)". Only a received-and-rejected output
+(failure kind "schema" or "parse") is queued for repair; a dropped connection
+keeps its retry wording and count. The judge's retry and final rows, and every
+missing-data reason built from a pass error, go through `withPlainIssueList`:
+the text around the array is kept, the array is put in words, and a custom
+rule's message (which can quote the rejected value or name banned rating words)
+appears only on the run panel. A null `sourceId` is dropped like a blank one,
+since the judge's schema is not enforced as a grammar.
+
 ### 8. No-trend growth anchor (`src/pipeline/stageB/valuation.ts`)
 
 **Superseded by WS6 decision D-18** (recorded in

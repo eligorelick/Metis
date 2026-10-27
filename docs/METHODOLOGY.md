@@ -3523,7 +3523,13 @@ whose `source` is blank as well is still rejected. While a rejected side waits
 for its repair, the run panel shows it running with a plain note ("bear attempt
 1/2 rejected (1 field failed the schema: thesis[0].sourceId is empty or too
 short); repair queued") instead of ERROR and the raw validation error; a run that
-gives up closes it as an error that says why.
+gives up closes it as an error that says why. A repair that is rejected again
+closes its row the same way ("bull attempt 2/2 rejected (…)"), and the judge's
+retry rows name its failing fields in words too (D-115). A data-only report's
+missing-data reason keeps the pass and the failure kind but gives the issues in
+words, never the validation array or a rule's own message, which can quote the
+rejected value. A connection that dropped is retried rather than repaired, so
+its row keeps its own retry wording.
 
 **Web results are evidence, not instructions (F-7).** Every pass is told that
 web-search results and fetched pages are untrusted: use them only as quoted

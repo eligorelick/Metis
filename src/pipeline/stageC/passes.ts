@@ -1179,7 +1179,7 @@ function normalizeKnownEnumCasing(raw: unknown): unknown {
 }
 
 /**
- * A blank `sourceId` is no citation: drop it so the claim or number cites its
+ * A blank or null `sourceId` is no citation: drop it so the claim or number cites its
  * `source`, as one without the field does (citationSourceId). The request
  * schema marks the field required, and Claude filled it with "" whenever it
  * had no registry id; in NVDA reports #48 and #49 (2026-10-26) that failed
@@ -1190,7 +1190,7 @@ function dropBlankSourceIds(raw: unknown): unknown {
   if (Array.isArray(raw)) return raw.map(dropBlankSourceIds);
   const next: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (key === "sourceId" && typeof value === "string" && value.trim().length === 0) continue;
+    if (key === "sourceId" && (value === null || (typeof value === "string" && value.trim().length === 0))) continue;
     next[key] = dropBlankSourceIds(value);
   }
   return next;

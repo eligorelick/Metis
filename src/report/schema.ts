@@ -3041,9 +3041,10 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   "insiderActivity",
   "compensation",
   "tam",
-  // Fresh model output must carry the canonical source identity separately
-  // from the legacy display field. The Zod field stays optional only so old
-  // persisted reports remain readable.
+  // Fresh model output carries the canonical source identity separately from
+  // the legacy display field. The Zod field stays optional so old persisted
+  // reports remain readable; a blank or null value from a model that had no
+  // registry ID is read as absent, so the claim cites its `source` (D-114).
   "sourceId",
   // WS7 (D-20): the analyst self-assessment. Optional on the Zod schema only so
   // a bull/bear artifact persisted before the field existed still parses on

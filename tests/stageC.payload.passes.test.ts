@@ -2975,15 +2975,17 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
 });
 
 describe("normalizeJudgeOutput — strips judge-authored scenario targets", () => {
-  it("drops a blank sourceId so the claim cites its source", () => {
+  it("drops a blank or null sourceId so the claim cites its source", () => {
     const jo = judgeOutput();
     const claim = jo.business.whatTheySell[0]!;
     const normalized = normalizeJudgeOutput({
       ...jo,
-      business: { ...jo.business, whatTheySell: [{ ...claim, sourceId: "" }, { ...claim, sourceId: "fmp:profile" }] },
+      business: { ...jo.business, whatTheySell: [{ ...claim, sourceId: "" }, { ...claim, sourceId: "fmp:profile" }, { ...claim, sourceId: null }] },
     }) as JudgeOutput;
     expect(normalized.business.whatTheySell[0]).toEqual(claim);
     expect(normalized.business.whatTheySell[1]?.sourceId).toBe("fmp:profile");
+    // The judge's schema is not enforced as a grammar, so null can arrive.
+    expect(normalized.business.whatTheySell[2]).not.toHaveProperty("sourceId");
   });
 
   it("discards invented scenario odds before validating or comparing judge outputs", () => {
