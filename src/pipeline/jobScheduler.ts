@@ -1668,6 +1668,12 @@ export interface SettlePaidPassInput<T> {
      * read "$0.2817" beside "$0.5784" after a repair (2026-10-26).
      */
     detailAcrossAttempts?: (stepCostUsd: number, attempts: number) => string;
+    /**
+     * A failure the run will repair: the step stays running under `detail`
+     * instead of reading ERROR while the repair waits (NVDA run #49,
+     * 2026-10-26). Ignored for a success.
+     */
+    repairQueued?: boolean;
   };
 }
 
@@ -1850,10 +1856,16 @@ export function settlePaidPassLease<T>(
           if (step === undefined) {
             throw new Error(`jobScheduler: missing durable step ${lease.pass}`);
           }
-          step.status = input.settlement.outcome === "success" ? "done" : "error";
+          const repairQueued = input.settlement.outcome === "failure" && input.step?.repairQueued === true;
+          step.status = input.settlement.outcome === "success" ? "done" : repairQueued ? "running" : "error";
           step.startedAt ??= authorityAt;
-          step.finishedAt = input.step?.finishedAt ?? authorityAt;
-          step.completedAt = step.finishedAt;
+          if (repairQueued) {
+            delete step.finishedAt;
+            delete step.completedAt;
+          } else {
+            step.finishedAt = input.step?.finishedAt ?? authorityAt;
+            step.completedAt = step.finishedAt;
+          }
           const stepCost = tx.select({ costUsd: costLog.costUsd }).from(costLog)
             .where(and(eq(costLog.jobId, lease.jobId), eq(costLog.step, lease.pass))).all()
             .reduce((total, row) => total + row.costUsd, 0);

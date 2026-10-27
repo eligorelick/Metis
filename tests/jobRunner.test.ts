@@ -146,6 +146,7 @@ import {
   LLM_STEPS,
   NO_KEY_SKIP_REASON,
   NO_ANALYZABLE_DATA_REASON,
+  plainRejectionNote,
   MAX_JUDGE_RETRIES,
   MODEL_RESOLUTION_SKIP_PREFIX,
   COMPUTE_FAILURE_DATA_ONLY_REASON,
@@ -6197,7 +6198,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.6");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.7");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -9435,6 +9436,118 @@ describe("analyst repair attempt after schema-invalid output", () => {
     const report = ReportSchema.parse(JSON.parse(reportRow.reportJson ?? "{}"));
     const bearGap = report.appendix.missingData.find((gap) => gap.field === "llm.bear");
     expect(bearGap?.reason).toMatch(/^repair attempt after schema-invalid output also failed: .*\(again\)/);
+  });
+
+  /**
+   * NVDA run #49 (2026-10-26): both first attempts were rejected. While the
+   * bull was repaired, the bear row read ERROR although its own repair was
+   * still to come, and the bull row printed the raw Zod issue array.
+   */
+  describe("while a repair is pending", () => {
+    const ZOD_ISSUES = JSON.stringify([0, 1].map((i) => ({
+      origin: "string", code: "too_small", minimum: 1, inclusive: true,
+      path: i === 0 ? ["thesis", 0, "sourceId"] : ["evidence", 0, "sourceId"],
+      message: "Too small: expected string to have >=1 characters",
+    })), null, 2);
+    const rejected = (side: "bull" | "bear") =>
+      `${side} pass failed (schema): schema-invalid structured output for llm.${side}: ${ZOD_ISSUES}`;
+    function bothRejected(): Error {
+      return Object.assign(new Error(rejected("bull")), {
+        bullError: rejected("bull"),
+        bullBilledAttempt: { ...bearBilledAttempt, costUsd: 0.43 },
+        bullRetryable: true,
+        bullRawText: RAW,
+        bearError: rejected("bear"),
+        bearBilledAttempt: { ...bearBilledAttempt, costUsd: 0.05 },
+        bearRetryable: true,
+        bearRawText: RAW,
+      });
+    }
+    const stepsOf = (jobId: string) => new Map(
+      (JSON.parse(handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()?.stepsJson ?? "[]") as StepProgress[])
+        .map((step) => [step.step, step]),
+    );
+
+    it("keeps a rejected side running under a plain note until its repair starts", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      passes.runBullThenBear = async (_deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        await launchTestAnalystSide(hooks, "bear");
+        throw bothRejected();
+      };
+      const seen: Array<{ side: string; bull?: StepProgress; bear?: StepProgress }> = [];
+      passes.runAnalystPass = async (_deps, side, settlement, beforeProviderLaunch) => {
+        const steps = stepsOf(jobId);
+        seen.push({ side, bull: steps.get("bull"), bear: steps.get("bear") });
+        await beforeProviderLaunch?.();
+        const fresh = testAnalystPass(side);
+        await settlement?.(testSuccessSettlement(fresh));
+        return fresh;
+      };
+
+      const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+      expect(result.status).toBe("done");
+      expect(result.dataOnly).toBe(false);
+      expect(seen.map((entry) => entry.side)).toEqual(["bull", "bear"]);
+      // The bull is being repaired, in words; the bear waits its turn, not ERROR.
+      const plain = "2 fields failed the schema: thesis[0].sourceId is empty or too short; evidence[0].sourceId is empty or too short";
+      expect(seen[0]!.bull).toMatchObject({ status: "running", detail: `bull attempt 2/2: repairing schema-invalid output — ${plain}` });
+      expect(seen[0]!.bear).toMatchObject({ status: "running", detail: `bear attempt 1/2 rejected (${plain}); repair queued` });
+      expect(seen[0]!.bear?.finishedAt).toBeUndefined();
+      expect(seen[0]!.bear?.costUsd).toBeCloseTo(0.05, 6);
+      expect(seen[1]!.bear?.detail).toBe(`bear attempt 2/2: repairing schema-invalid output — ${plain}`);
+      for (const entry of seen) {
+        expect(JSON.stringify(entry)).not.toContain('"origin"');
+      }
+      const steps = stepsOf(jobId);
+      expect(steps.get("bull")?.status).toBe("done");
+      expect(steps.get("bear")?.status).toBe("done");
+      expect(steps.get("bear")?.detail).toBe("model claude-opus-4-8, $0.5200 over 2 attempts");
+    });
+
+    it("closes a queued side as an error with the reason when the run gives up", async () => {
+      const { jobId } = createJob("AAPL");
+      const { passes } = mockPasses();
+      passes.runBullThenBear = async (_deps, hooks) => {
+        await launchTestAnalystSide(hooks, "bull");
+        await launchTestAnalystSide(hooks, "bear");
+        throw bothRejected();
+      };
+      passes.runAnalystPass = async (_deps, side, _settlement, beforeProviderLaunch) => {
+        await beforeProviderLaunch?.();
+        throw Object.assign(new Error(`${side} pass failed (schema): schema-invalid structured output for llm.${side} (again)`), {
+          billedAttempt: { model: "claude-opus-4-8", costUsd: 0.2, fallbackUsed: false },
+          retryable: true,
+        });
+      };
+
+      const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+      expect(result.dataOnly).toBe(true);
+      const steps = stepsOf(jobId);
+      expect(steps.get("bull")?.status).toBe("error");
+      expect(steps.get("bear")).toMatchObject({
+        status: "error",
+        detail: "bear attempt 1/2 rejected (2 fields failed the schema: thesis[0].sourceId is empty or too short; evidence[0].sourceId is empty or too short); not repaired: the bull repair failed",
+      });
+      expect(steps.get("bear")?.finishedAt).toBeDefined();
+    });
+
+    it("reads a rejection in plain words", () => {
+      expect(plainRejectionNote(rejected("bull"))).toBe(
+        "2 fields failed the schema: thesis[0].sourceId is empty or too short; evidence[0].sourceId is empty or too short",
+      );
+      const many = JSON.stringify([0, 1, 2, 3, 4].map((i) => ({ code: "invalid_type", path: ["keyDrivers", i, "label"], message: "x" })));
+      expect(plainRejectionNote(many)).toBe(
+        "5 fields failed the schema: keyDrivers[0].label has the wrong type; keyDrivers[1].label has the wrong type; keyDrivers[2].label has the wrong type; and 2 more",
+      );
+      expect(plainRejectionNote("bull pass failed (schema): schema-invalid structured output for llm.bull: the case is incomplete: `keyDrivers` is empty: give it at least one sourced claim"))
+        .toBe("the case is incomplete: `keyDrivers` is empty: give it at least one sourced claim");
+      expect(plainRejectionNote("pass output was not valid JSON: Unexpected token } in JSON at position 4")).toBe("the output was not valid JSON");
+      expect(plainRejectionNote(SCHEMA_ERROR)).toBe(SCHEMA_ERROR);
+    });
   });
 
   it("gives a plan-connection analyst side several backed-off tries through transient provider faults", async () => {

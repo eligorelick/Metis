@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - blank source IDs and the repair note (2026-10-26)
+
+- Read a blank `sourceId` in a bull, bear or judge output as absent, so the claim cites its `source`. Claude wrote `sourceId: ""` wherever it had no registry ID, and all four first attempts of NVDA reports #48 and #49 failed the schema on that and paid for a repair. A claim whose `source` is also blank is still rejected.
+- Keep a side whose rejected output waits for its repair running in the run panel, under a plain note such as "bear attempt 1/2 rejected (1 field failed the schema: thesis[0].sourceId is empty or too short); repair queued". NVDA run #49 showed that side as ERROR and printed the raw Zod issue array on the side being repaired. A run that gives up closes the waiting side as an error that says why.
+- Pipeline stage-c-1.6.7 (D-114). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged.
+
 ## Unreleased - fixes from the NVDA report review (2026-10-26)
 
 - Repair an empty bull or bear case. A case with an empty `thesis`, `keyDrivers` or `risksToCase`, or a price target without a positive value and a horizon, now fails like a schema error and gets the one repair attempt, with a reason naming each gap. NVDA report #48's bull was one thesis claim, no drivers, risks or catalysts, and a price target of 0 with no horizon; it was stored as a success, so every debate card read "Not addressed by the bull case". A kept section that is empty the same way is asked for again. Pipeline stage-c-1.6.6.

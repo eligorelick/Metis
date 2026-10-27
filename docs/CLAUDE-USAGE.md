@@ -101,7 +101,8 @@ structured-output grammar. Invalid judge/report output can receive up to two
 additional repair attempts; completed rejected requests still incur usage.
 A rejected bull or bear case gets one repair attempt, including a schema-valid
 case that is empty (no drivers or risks, or no positive price target with a
-horizon). Entity-validation repairs can also add analyst work.
+horizon). A blank `sourceId` is read as absent rather than rejected, so it no
+longer costs a repair. Entity-validation repairs can also add analyst work.
 
 `METIS_JUDGE_ORDER` defaults to `random`, deterministically seeded by job ID.
 `bull-first` and `bear-first` fix the presentation order. `both` requests a
