@@ -134,6 +134,49 @@ describe("report data completeness", () => {
     });
   });
 
+  /**
+   * NVDA report #48 (2026-10-26): its one EDGAR entry was this info note, yet
+   * the report recorded EDGAR missing and forensics provisional beside 15
+   * retained EDGAR sources, and the page read "EDGAR partial".
+   */
+  const GEOGRAPHY_NOTE: ManifestEntry = {
+    field: "edgar.annualGeography",
+    reason: "No unique matched annual geography revenue table (0 eligible tables); values and allocation basis withheld.",
+    severity: "info",
+  };
+
+  it("does not read an info EDGAR note as an EDGAR outage", () => {
+    expect(buildDataCompleteness([GEOGRAPHY_NOTE])).toEqual({
+      state: "degraded",
+      criticalCount: 0,
+      warningCount: 0,
+      edgar: "available",
+      xbrl: "checked",
+      forensicValidation: "complete",
+    });
+    expect(buildDataCompleteness([GEOGRAPHY_NOTE, { field: "edgar.companyFacts(NVDA)", reason: "EDGAR HTTP 503", severity: "warn" }]))
+      .toMatchObject({ edgar: "missing", forensicValidation: "provisional" });
+  });
+
+  it("confirms a stored report's metadata recorded under the earlier EDGAR rule without rewriting it", () => {
+    const stored: DataCompleteness = {
+      state: "degraded", criticalCount: 0, warningCount: 0,
+      edgar: "missing", xbrl: "checked", forensicValidation: "provisional",
+    };
+    const sources = [{ provider: "edgar", endpoint: "/cgi-bin/browse-edgar?CIK=0001045810" }];
+    expect(deriveReportCompletenessPresentation(stored, [GEOGRAPHY_NOTE], sources)).toMatchObject({
+      metadataStatus: "confirmed",
+      edgar: "partial",
+      forensicValidation: "provisional",
+    });
+    expect(deriveReportCompletenessPresentation(buildDataCompleteness([GEOGRAPHY_NOTE]), [GEOGRAPHY_NOTE], sources))
+      .toMatchObject({ metadataStatus: "confirmed", edgar: "available", forensicValidation: "complete" });
+    // Neither rule produces an available EDGAR state beside a warn EDGAR gap.
+    const warn: ManifestEntry = { field: "edgar.companyFacts(NVDA)", reason: "EDGAR HTTP 503", severity: "warn" };
+    expect(deriveReportCompletenessPresentation({ ...stored, warningCount: 1, edgar: "available", forensicValidation: "complete" }, [warn]))
+      .toMatchObject({ metadataStatus: "inconsistent", edgar: "unknown" });
+  });
+
   it("keeps an unexplained missing 10-Q MD&A actionable and degraded", () => {
     expect(
       buildDataCompleteness([

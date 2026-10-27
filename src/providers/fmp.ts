@@ -40,6 +40,7 @@ import { canonicalEntitySymbol, isValidSymbol, sameEntitySymbol } from "@/symbol
 // WS4 (D-11): DEMO and DBNK are reserved fixture symbols and never reach the vendor.
 import { anyReservedFixtureSymbol, isReservedFixtureSymbol } from "@/providers/reservedSymbols";
 import { FmpAccessError, FmpQuotaError, assertFmpQuotaAvailable, currentFmpQuota, fmpAccessKey, fmpQuotaError, parseFmpRestriction, releaseGuessedFmpQuota, resetFmpAccess, withFmpAccess } from "@/providers/fmpAccess";
+import { quoteTtlMs } from "@/providers/usSession";
 
 // ---------------------------------------------------------------------------
 // Cache contract (implemented by @/cache/apiCache — injected to keep this
@@ -785,6 +786,9 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 /** "immutable"/frozen-day-1 classes — effectively forever */
 const FOREVER = 3650 * DAY;
+
+/** Endpoints priced off the live quote: their TTL follows the US session (quoteTtlMs). */
+const QUOTE_DRIVEN_METHODS: ReadonlySet<string> = new Set(["quote", "batchQuote", "marketCap"]);
 
 export const FMP_TTLS = {
   profile: DAY,
@@ -1584,7 +1588,9 @@ export class FmpClient {
     const endpointPath = qs ? `/stable/${spec.endpoint}?${qs}` : `/stable/${spec.endpoint}`;
     const url = `${this.baseUrl}/${spec.endpoint}${qs ? `?${qs}` : ""}`;
     const cacheKey = fmpCacheKey(spec.endpoint, params);
-    const ttlMs = FMP_TTLS[spec.method];
+    const ttlMs = QUOTE_DRIVEN_METHODS.has(spec.method)
+      ? quoteTtlMs(FMP_TTLS[spec.method], this.now())
+      : FMP_TTLS[spec.method];
     const expectedEntityScope = spec.entityScope === undefined ? undefined : canonicalEntityScope(spec.entityScope);
     const accessKey = fmpAccessKey(apiKey, this.baseUrl);
 

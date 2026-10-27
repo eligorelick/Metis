@@ -238,7 +238,13 @@ overwrites an existing target or applies with an explicit `METIS_DB_PATH`.
 
 Cache freshness uses each caller's TTL and optional stale limit. Eligible stale
 rows can return immediately while revalidation runs; bounded stale policies
-force a refresh once that limit is exceeded. Cache admission validates provider
+force a refresh once that limit is exceeded. Quote-priced rows (FMP quote,
+batch quote and market cap, and Yahoo's quote) keep their 15-minute TTL during
+the US regular session, 09:30 to 16:00 New York on weekdays. Between sessions
+a row fetched at least 30 minutes after the last close stays fresh until the
+next open, because no newer price exists ([usSession](../src/providers/usSession.ts)).
+Exchange holidays and early closes are not modelled, so on those days the plain
+TTL applies. Cache admission validates provider
 payloads, and selected empty-refresh guards retain a previously nonempty row.
 On opening the DB, maintenance runs at most once per 24 hours: compress large
 plain cache rows, purge rows older than stored TTL plus 30 days, and VACUUM

@@ -219,8 +219,9 @@ function fakeJudgeOutput(): JudgeOutput {
 function fakeAnalystCase(): AnalystCase {
   return {
     thesis: [{ text: "t", label: "JUDGMENT", source: "payload", asOf: null }],
-    keyDrivers: [],
-    risksToCase: [],
+    // The pass rejects a case with no drivers or risks (analystSectionGap).
+    keyDrivers: [{ text: "d", label: "JUDGMENT", source: "payload", asOf: null }],
+    risksToCase: [{ text: "r", label: "JUDGMENT", source: "payload", asOf: null }],
     catalysts: [],
     priceTarget: { value: 250, horizon: "12mo", assumptions: [] },
     evidence: [],

@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.43.0** and
-payload **1.48.0** (audit batch 4, freshness and the earnings window, 2026-10-26). The
+Current source declares application **0.1.0**, report spec **1.44.0** and
+payload **1.48.0** (fixes from the NVDA report review, 2026-10-26). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - fixes from the NVDA report review (2026-10-26)
+
+- Repair an empty bull or bear case. A case with an empty `thesis`, `keyDrivers` or `risksToCase`, or a price target without a positive value and a horizon, now fails like a schema error and gets the one repair attempt, with a reason naming each gap. NVDA report #48's bull was one thesis claim, no drivers, risks or catalysts, and a price target of 0 with no horizon; it was stored as a success, so every debate card read "Not addressed by the bull case". A kept section that is empty the same way is asked for again. Pipeline stage-c-1.6.6.
+- Draw the Weighted Projections fan in time order, history ("FY2023") before the forecast ("12M ending 2027-07-26"): a string sort put every 12-month period first, so history sat to the right of the forecast. Ticks are short ("FY23", "Jul ’27"; the tooltip keeps the full period) and thinned to what fits a two-column or phone chart, since Recharts measured them without their font and let them overlap; the value axis steps by 1, 2, 2.5 or 5 × 10ⁿ instead of Recharts' 0.55T, and each tick label is exact ("1.5T" and "2T", not "2T" twice).
+- State a repaired step's cost over all its attempts in the run panel: "model claude-opus-5-5, $0.5784 over 2 attempts" beside the step total, where the detail named only the repair's $0.2817.
+- Keep a quote fetched after the close fresh until the next open. Quote-priced FMP rows (quote, batch quote, market cap) and Yahoo's quote keep the 15-minute TTL during the US regular session; between sessions a row fetched at least 30 minutes after the 16:00 New York close stays fresh. NVDA report #48 reused its 22:44 UTC quotes at 23:06 and marked the 20:00 UTC closing quote "stale". Exchange holidays are not modelled, so on those days the plain TTL applies.
+- Count only warn and critical EDGAR entries as an EDGAR outage. An info note about one derived reading ("No unique matched annual geography revenue table") recorded EDGAR missing and forensics provisional beside 15 retained EDGAR sources, and the page read "EDGAR partial". Stored reports keep their metadata and are confirmed against the rule they were written under.
+- Report 1.44.0 and pipeline stage-c-1.6.6 (D-113); payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. No figure changes.
 
 ## Unreleased - ChatGPT plan usage and speed per OpenAI's documentation (2026-10-26)
 

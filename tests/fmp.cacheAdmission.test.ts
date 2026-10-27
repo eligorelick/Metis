@@ -73,8 +73,16 @@ describe("FMP schema drift never reaches the durable cache", () => {
   });
 
   it("stores the millisecond TTLs of the provider clients as seconds (audit 2026-09-06, F232)", async () => {
+    // An open session, where a quote's TTL is the plain constant (usSession.ts).
+    const now = () => new Date("2026-09-03T15:00:00Z");
     const fmpFetch = vi.fn(async () => json([{ symbol: "AAPL", price: 201 }]));
-    const quote = await client(fmpFetch).quote("AAPL");
+    const quote = await createFmpClient({
+      apiKey: "FMP-KEY",
+      fetchImpl: fmpFetch,
+      limiter: makeLimiter(1000, 1000),
+      cachedFetch: makeFmpCachedFetch(),
+      now,
+    }).quote("AAPL");
     expect(quote.ok).toBe(true);
     const fmpRow = cacheRows().find((row) => row.provider === "fmp");
     expect(fmpRow?.ttlSeconds).toBe(FMP_TTLS.quote / 1000);
@@ -106,6 +114,7 @@ describe("FMP schema drift never reaches the durable cache", () => {
       fetchImpl: yahooFetch as unknown as typeof fetch,
       limiter: makeLimiter(1000, 1000),
       cachedFetch: makeYahooCachedFetch(),
+      now,
     }).meta("AAPL");
     expect(meta.ok).toBe(true);
     const yahooRow = cacheRows().find((row) => row.provider === "yahoo");

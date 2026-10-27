@@ -6190,14 +6190,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.43.0");
+    expect(repRow?.specVersion).toBe("1.44.0");
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.5");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.6");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -9183,6 +9183,10 @@ describe("analyst repair attempt after schema-invalid output", () => {
     expect(costRows.filter((r) => r.step === "bear").map((r) => r.costUsd).sort()).toEqual([0.31, 0.47]);
     expect(costRows.filter((r) => r.step === "bull")).toHaveLength(1);
     expect(result.totalCostUsd).toBeCloseTo(0.9 + 0.31 + 0.47 + 0.4 + 0.2, 6);
+    // The row's detail states the step's cost, not the repair's alone (NVDA, 2026-10-26).
+    expect(byStep.get("bear")?.costUsd).toBeCloseTo(0.78, 6);
+    expect(byStep.get("bear")?.detail).toBe("model claude-opus-4-8, $0.7800 over 2 attempts");
+    expect(byStep.get("bull")?.detail).toBe("model claude-opus-4-8, $0.9000");
   });
 
   it("marks the discarded attempt in the cost breakdown and says so in the manifest", async () => {

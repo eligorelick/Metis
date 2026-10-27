@@ -54,10 +54,66 @@ function formatValue(metric: ProjectionSeries["metric"], v: number | null, digit
   return `${sign}${abs.toFixed(digits)}`;
 }
 
-/** Terser format for axis ticks (no decimals on large magnitudes). */
-function formatAxis(metric: ProjectionSeries["metric"], v: number | null): string {
-  if (metric === "operatingMargin") return v === null ? "" : `${v.toFixed(0)}%`;
-  return formatValue(metric, v, 0);
+/**
+ * Round value-axis ticks (steps of 1, 2, 2.5 or 5 × 10ⁿ) covering zero and
+ * every plotted value. Recharts' own steps are multiples of 0.05 × 10ⁿ, which
+ * put a "550B" tick on NVDA report #48's revenue axis (2026-10-26).
+ */
+export function projectionValueTicks(values: readonly number[]): number[] | undefined {
+  const finite = values.filter((v) => Number.isFinite(v));
+  const min = Math.min(0, ...finite);
+  const max = Math.max(0, ...finite);
+  if (min === max) return undefined;
+  const raw = (max - min) / 4;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const fraction = raw / power;
+  const step = power * (fraction < 1.5 ? 1 : fraction < 2.25 ? 2 : fraction < 3.5 ? 2.5 : fraction < 7.5 ? 5 : 10);
+  const start = Math.floor(min / step) * step;
+  const intervals = Math.ceil((max - start) / step - 1e-9);
+  return Array.from({ length: intervals + 1 }, (_, i) => Number((start + i * step).toPrecision(12)));
+}
+
+/**
+ * An exact value-axis label ("500B", "1.5T", "0.25"): rounding to whole
+ * units printed both 1.5T and 2T as "2T" on the same axis.
+ */
+export function projectionAxisLabel(metric: ProjectionSeries["metric"], v: number): string {
+  const exact = (n: number) => String(Number(n.toPrecision(12)));
+  if (metric === "operatingMargin") return `${exact(v)}%`;
+  if (metric === "epsDiluted") return exact(v);
+  const abs = Math.abs(v);
+  const [divisor, suffix] = ([[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]] as const)
+    .find(([size]) => abs >= size) ?? [1, ""];
+  return `${v < 0 ? "-" : ""}${exact(abs / divisor)}${suffix}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Short time-axis label; the tooltip keeps the full period. Full labels
+ * ("12M ending 2027-07-26") are too wide for one tick each and ran together.
+ */
+export function projectionTickLabel(period: string): string {
+  const fiscal = /^FY\d{2}(\d{2})(?: ending \d{4}-\d{2}-\d{2})?$/.exec(period);
+  if (fiscal) return `FY${fiscal[1]}`;
+  const rolling = /^12M ending \d{2}(\d{2})-(\d{2})-\d{2}$/.exec(period);
+  const month = rolling ? MONTHS[Number(rolling[2]) - 1] : undefined;
+  if (rolling && month) return `${month} ’${rolling[1]}`;
+  return /^Y\+\d+/.exec(period)?.[0] ?? period;
+}
+
+/** A monospace axis character at AXIS_FONT, and the plot width of a two-column or phone chart. */
+const TICK_CHAR_PX = 0.6 * AXIS_FONT;
+const NARROW_PLOT_PX = 300;
+
+/**
+ * Show every time-axis label, or every second or third one, so that the set
+ * fits a narrow chart. Recharts measures tick text without its font family,
+ * so it did not see the monospace labels collide and drew them over each other.
+ */
+export function projectionTickInterval(periods: readonly string[]): number {
+  const widest = Math.max(0, ...periods.map((period) => projectionTickLabel(period).length));
+  return Math.max(0, Math.ceil((periods.length * (widest * TICK_CHAR_PX + 8)) / NARROW_PLOT_PX) - 1);
 }
 
 interface FanDatum {
@@ -151,6 +207,8 @@ function tooltip(metric: ProjectionSeries["metric"]) {
 
 export function ProjectionFanChart({ series }: { series: ProjectionSeries }) {
   const { data, firstForward } = buildData(series);
+  const ticks = projectionValueTicks(data.flatMap((row) =>
+    [row.hist, row.bull, row.bear, row.base, row.weighted].filter((v): v is number => v !== null)));
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between">
@@ -165,14 +223,16 @@ export function ProjectionFanChart({ series }: { series: ProjectionSeries }) {
             tick={{ fill: THEME.fgFaint, fontSize: AXIS_FONT, fontFamily: MONO }}
             axisLine={{ stroke: THEME.border }}
             tickLine={{ stroke: THEME.border }}
-            minTickGap={4}
+            tickFormatter={projectionTickLabel}
+            interval={projectionTickInterval(data.map((row) => row.period))}
           />
           <YAxis
             tick={{ fill: THEME.fgFaint, fontSize: AXIS_FONT, fontFamily: MONO }}
             axisLine={{ stroke: THEME.border }}
             tickLine={{ stroke: THEME.border }}
             width={52}
-            tickFormatter={(v: number) => formatAxis(series.metric, v)}
+            {...(ticks === undefined ? {} : { ticks, domain: [ticks[0]!, ticks.at(-1)!] })}
+            tickFormatter={(v: number) => projectionAxisLabel(series.metric, v)}
           />
           <Tooltip content={tooltip(series.metric)} />
           {firstForward && (

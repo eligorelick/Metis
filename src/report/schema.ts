@@ -135,7 +135,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.41.0 (D-110): "contradicted" reserved for a value conflict, per-claim verification marks, "computed" for a data-only report's figures and JUDGMENT for code-written method and data-gap notes.
 // 1.42.0 (D-111): the degraded-inputs note beside the headline fair value, the run-level provider-fallback line and the risk-free stand-in named on the WACC line.
 // 1.43.0 (D-112): the newer-filing notice, newer 10-Q facts merged into the statements, multiple labels named for their period and formula, a scenario fan that does not bracket its base withheld, continuing-operations EPS and a TTM across a re-presented reorganisation.
-export const REPORT_SPEC_VERSION = "1.43.0" as const;
+// 1.44.0 (D-113): an `info` EDGAR note (one derived reading withheld) no longer marks EDGAR missing or forensics provisional.
+export const REPORT_SPEC_VERSION = "1.44.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

@@ -2735,7 +2735,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.43.0");
+    expect(report.meta.specVersion).toBe("1.44.0");
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -4558,6 +4558,51 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
   });
 
   /**
+   * NVDA report #48 (2026-10-26): the bull returned one thesis claim, nothing
+   * else and a price target of 0 with no horizon. The schema accepted it and
+   * the report shipped a one-sided debate; it must fail as repairable instead.
+   */
+  it("rejects a schema-valid but empty case as repairable and names every gap", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", {
+      thesis: [{ text: "Revenue for the quarter was USD 96.22 billion.", label: "FACT", sourceId: "x", source: "payload.statements.income-statement-quarterly.2026-07-26.revenue", asOf: "2026-07-26" }],
+      keyDrivers: [],
+      risksToCase: [],
+      catalysts: [],
+      priceTarget: { value: 0, horizon: "", assumptions: [] },
+      evidence: [],
+      case_strength: 3,
+    });
+    mock.onJson("llm.bear", analystCase("bear"));
+
+    const { bull, bear } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(bull.ok).toBe(false);
+    if (!bull.ok) {
+      expect(bull.error.kind).toBe("schema");
+      expect(bull.validationError).toBe(
+        "the case is incomplete: `keyDrivers` is empty: give it at least one sourced claim; " +
+          "`risksToCase` is empty: give it at least one sourced claim; " +
+          "`priceTarget.value` must be a positive price; `priceTarget.horizon` is empty: state the horizon",
+      );
+    }
+    expect(bear.ok, "a thin case is repairable, so the sibling keeps running").toBe(true);
+  });
+
+  it("accepts a case with no catalysts or evidence", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    mock.onJson("llm.bull", { ...analystCase("bull"), catalysts: [], evidence: [] });
+    mock.onJson("llm.bear", analystCase("bear"));
+
+    const { bull, bear } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(bull.ok).toBe(true);
+    expect(bear.ok).toBe(true);
+  });
+
+  /**
    * The second `abandon.bear.signal.aborted` check sits AFTER bear's
    * `beforePass` (where the runner acquires bear's durable lease) and before
    * `onPassStart` / `beforeProviderLaunch`: a bull that ends the run while
@@ -5118,5 +5163,16 @@ describe("sections carried from a cut-off response are checked before they are k
       priceTarget: { ...bull.priceTarget, value: "300" },
     });
     expect(checked).toEqual({ kept: { thesis: bull.thesis }, dropped: ["keyDrivers", "priceTarget"] });
+  });
+
+  it("asks again for a carried section too thin to stand in the merged case", () => {
+    const bull = analystCase("bull");
+    const checked = checkCarriedAnalystSections({
+      thesis: bull.thesis,
+      keyDrivers: [],
+      catalysts: [],
+      priceTarget: { ...bull.priceTarget, horizon: " " },
+    });
+    expect(checked).toEqual({ kept: { thesis: bull.thesis, catalysts: [] }, dropped: ["keyDrivers", "priceTarget"] });
   });
 });

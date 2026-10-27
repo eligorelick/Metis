@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-10-26",
+  "generatedAt": "2026-10-27",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10208,11 +10208,6 @@
       "reason": "Audit batch 4 (D-112), as it reaches this provider-free DEMO control. Its TTM was suppressed, so the income-derived multiples fall back to FY2025: each now records that period (B-9) and the P/E and EV/EBITDA names say it (\"P/E (FY2025)\", \"EV/EBITDA (FY2025)\"), and the P/E basis names only the formula that ran, price / diluted EPS, without the unused fallback (B-20). The report stamp moves to spec 1.43.0, out of audit-batch6-provider-failures-20261026, whose record for 1.42.0 stands in D-111; the two basis leaves move here out of the D-85/D-86 common-earnings group, whose record stands in its decisions. No value, availability flag or order moves. See docs/audit/DECISIONS.md, D-112.",
       "deltas": [
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.43.0"
-        },
-        {
           "path": "report.valuation.multiples.0.basis",
           "beforeMissing": true,
           "after": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)"
@@ -10246,6 +10241,20 @@
           "path": "stageB.valuation.multiples.multiples.2.period",
           "beforeMissing": true,
           "after": "FY2025"
+        }
+      ]
+    },
+    {
+      "name": "nvda48-report-issues-20261026",
+      "decisions": [
+        "D-113"
+      ],
+      "reason": "NVDA report #48 fixes (D-113), as they reach this provider-free DEMO control. Only the report stamp moves, to spec 1.44.0 (an info-severity EDGAR note no longer marks EDGAR missing or forensics provisional), out of audit-batch4-freshness-20261026, whose record for 1.43.0 stands in D-112. The control is a reserved fixture, so its EDGAR state stays missing and its forensics provisional; no value, availability flag or order moves. See docs/audit/DECISIONS.md, D-113.",
+      "deltas": [
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.44.0"
         }
       ]
     }

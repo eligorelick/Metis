@@ -1228,8 +1228,9 @@ function emptyPayload(): ContextPayload {
 function analystCase(): AnalystCase {
   return {
     thesis: [{ text: "case", label: "JUDGMENT", source: "payload", asOf: null }],
-    keyDrivers: [],
-    risksToCase: [],
+    // The pass rejects a case with no drivers or risks (analystSectionGap).
+    keyDrivers: [{ text: "driver", label: "JUDGMENT", source: "payload", asOf: null }],
+    risksToCase: [{ text: "risk", label: "JUDGMENT", source: "payload", asOf: null }],
     catalysts: [],
     priceTarget: { value: 100, horizon: "12mo", assumptions: [] },
     evidence: [],
