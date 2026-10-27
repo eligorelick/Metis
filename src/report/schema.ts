@@ -786,6 +786,13 @@ export const ProviderExecutionSchema = z.object({
   requestedServiceTier: z.enum(["default", "fast"]).optional(),
   effectiveServiceTier: z.string().min(1).max(128).nullable().optional(),
   observedModels: z.array(z.string().min(1).max(256)).max(64).optional(),
+  // D-116: sections kept from an earlier attempt, with their writers' evidence.
+  carriedSections: z.array(z.object({
+    section: z.string().min(1).max(128),
+    digest: z.string().regex(/^[0-9a-f]{64}$/),
+    modelObserved: z.boolean().optional(),
+    usageReported: z.boolean().optional(),
+  }).strict()).max(64).optional(),
 }).strict();
 
 export const ExecutionMetadataEntrySchema = z

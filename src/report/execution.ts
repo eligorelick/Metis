@@ -41,10 +41,50 @@ export interface ProviderExecution {
   requestedServiceTier?: "default" | "fast";
   effectiveServiceTier?: string | null;
   observedModels?: string[];
-  /** False means a request id must not be represented as an observed model. */
+  /**
+   * False means a request id must not be represented as an observed model.
+   * It covers every request whose text the pass returns, including the writers
+   * of `carriedSections`.
+   */
   modelObserved?: boolean;
-  /** False distinguishes unavailable usage from legacy telemetry's zero placeholders. */
+  /**
+   * False distinguishes unavailable usage from legacy telemetry's zero
+   * placeholders. It covers this attempt's own requests, the ones its usage sums.
+   */
   usageReported?: boolean;
+  /**
+   * D-116: top-level sections this attempt kept from an earlier one instead of
+   * writing them, each with its writer's evidence when that was saved with it.
+   * Absent flags mean no evidence was saved.
+   */
+  carriedSections?: CarriedSection[];
+}
+export interface CarriedSection {
+  section: string;
+  /** The kept text's digest (`sectionDigest`), joining it to the attempt that held it. */
+  digest: string;
+  modelObserved?: boolean;
+  usageReported?: boolean;
+}
+
+/**
+ * The run-detail sentence for sections kept from an earlier attempt (D-116):
+ * which were kept, which have no observed writer, and what the tokens cover.
+ */
+function carriedSectionsNote(step: string, carried: readonly CarriedSection[], tokensShown: boolean): string {
+  const names = (list: readonly CarriedSection[]): string => list.map((entry) => entry.section).join(", ");
+  const them = (list: readonly CarriedSection[]): string =>
+    list.length === carried.length ? (carried.length === 1 ? "it" : "them") : names(list);
+  const unknownWriter = carried.filter((entry) => entry.modelObserved !== true);
+  const unreported = carried.filter((entry) => entry.usageReported === false);
+  return `${step}: ${carried.length === 1
+    ? `the ${carried[0]!.section} section was kept from an earlier attempt`
+    : `${carried.length} sections were kept from an earlier attempt (${names(carried)})`}` +
+    (unknownWriter.length === 0 ? ""
+      : `; no observed model was saved with ${them(unknownWriter)}, so the model, reasoning effort and speed of the whole pass are not established`) +
+    (!tokensShown ? ""
+      : `; the token counts cover only this attempt's requests${unreported.length === 0 ? "" : `, and no usage was reported for ${them(unreported)}`}`) +
+    ".";
 }
 export type ExecutionAdjustment =
   | "model-floor"
@@ -158,7 +198,15 @@ export function buildExecutionMetadataEntry(input: {
       ? `${input.step}: the request was configured for ${provider} usage. Provider usage was not reported, so allowance consumption is unknown. $0 records API charges only, not free or unlimited usage. Provider limits and account credit settings apply. No additional web search was configured.`
       : `${input.step}: ${provider} allowance was used. $0 records API charges only, not free or unlimited usage. Provider limits and account credit settings apply. This pass used the supplied evidence without additional web search.`);
   }
-  if (input.execution?.modelObserved === false) notes.push(`${input.step}: the provider did not report which model executed the request.`);
+  const carried = input.execution?.carriedSections ?? [];
+  if (carried.length > 0) notes.push(carriedSectionsNote(input.step, carried, usage?.input_tokens != null || usage?.output_tokens != null));
+  // A kept section's missing writer is named above (D-116). The provider is
+  // blamed only for a pass that kept nothing, whose requests are all its own.
+  if (input.execution?.modelObserved === false && carried.every((entry) => entry.modelObserved === true)) {
+    notes.push(carried.length === 0
+      ? `${input.step}: the provider did not report which model executed the request.`
+      : `${input.step}: which model executed every request of the pass could not be established.`);
+  }
   if (subscription && input.execution?.modelObserved !== false && input.execution?.observedModels && input.execution.observedModels.length > 1) {
     notes.push(`${input.step}: provider reported usage for ${input.execution.observedModels.join(", ")}; the combined usage is not attributed to a single model.`);
   }

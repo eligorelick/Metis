@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - a resumed plan pass names its model (2026-10-27)
+
+- Name the model, reasoning effort and speed of a plan pass whose retry kept sections a cut-off attempt wrote. NVDA report #50's judge kept the verdict from a first attempt whose stream the ChatGPT plan endpoint closed at 15 minutes. Both attempts reported GPT-6.1 Sol at max reasoning, yet the run details named synthesis's model "unknown" and said the provider had reported no model and no usage.
+  - The section checkpoint now saves the evidence of the request that wrote each section, bound to its text by a digest. The pass's evidence includes it.
+  - A kept section without saved evidence still leaves the model unestablished. The note now says so instead of blaming the provider.
+- Say what a resumed pass's tokens cover: this attempt's requests only, with the kept sections named. With the judge's model known again, the same-family judge sentence (D-20) and the cost-breakdown model return.
+- Stop calling a failed attempt thrown away when its sections were kept. Its missing-data entry names the kept sections, and its cost row is not marked discarded.
+- Give a dropped connection a reason that is not circular: "the provider request failed before a usable response arrived".
+- Pipeline stage-c-1.6.9 (D-116). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports keep their bytes, #50's included.
+
 ## Unreleased - repair note follow-ups (2026-10-27)
 
 - Give a rejected output's issues in words even when the stored failure detail was cut at 4,096 characters: a rejection with about 15 or more issues printed raw JSON on the run panel. The note now reads "N or more fields failed the schema: …".

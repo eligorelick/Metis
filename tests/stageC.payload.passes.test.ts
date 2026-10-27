@@ -96,7 +96,7 @@ import {
   ANALYST_SECTION_PARTS,
   type RunPassArgs,
 } from "@/pipeline/stageC/passes";
-import { completedTopLevelFields, continuationInstruction, mergeContinuation } from "@/pipeline/stageC/continuation";
+import { completedTopLevelFields, continuationInstruction, mergeContinuation, type SectionEvidence } from "@/pipeline/stageC/continuation";
 import { JUDGE_OUTPUT_KEYS, JUDGE_OUTPUT_SCHEMA, fillNullableGaps } from "@/report/schema";
 import type { CostBreakdownEntry as _CBE } from "@/report/schema";
 
@@ -4172,11 +4172,87 @@ describe("mock-driven bull/bear/judge passes", () => {
       const next = partProvider(whole);
       const resumed = await runJudgePass({ ...sectioned(next.runPass), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
       expect(resumed.ok).toBe(true);
-      if (resumed.ok) expect(resumed.result.execution).toMatchObject({ modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null });
+      // This checkpoint keeps no evidence of who wrote the kept sections, so
+      // the pass's model, effort and speed stay unestablished.
+      if (resumed.ok) {
+        expect(resumed.result.execution).toMatchObject({ modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null });
+        expect(resumed.result.execution?.carriedSections).toEqual(kept.map((section) => ({ section, digest: expect.stringMatching(/^[0-9a-f]{64}$/) })));
+      }
       for (const prompt of next.prompts) {
         const asked = /ONLY these top-level sections now: ([^.]+)\./.exec(prompt)![1]!.split(", ");
         expect(asked.some((key) => kept.includes(key))).toBe(false);
       }
+    });
+
+    type EvidenceStore = Map<string, { completed: Record<string, unknown>; evidence: Record<string, SectionEvidence> }>;
+    /** A checkpoint that keeps each section's evidence beside it, as the real one does (D-116). */
+    function evidenceCheckpoint(from?: { store: EvidenceStore }) {
+      const store: EvidenceStore = new Map(structuredClone([...(from?.store ?? [])]));
+      return {
+        store,
+        load: (field: string) => structuredClone(store.get(field)?.completed ?? {}),
+        loadEvidence: (field: string) => structuredClone(store.get(field)?.evidence ?? {}),
+        save: (field: string, completed: Record<string, unknown>, evidence: Record<string, SectionEvidence> = {}) => {
+          store.set(field, structuredClone({ completed, evidence }));
+        },
+      };
+    }
+    /** The plan endpoint's evidence: a cut-off stream reports its model and reasoning, but no usage or service tier. */
+    const observed = (runPass: PassDeps["runPass"]): PassDeps["runPass"] => async (args) => {
+      const outcome = await runPass(args);
+      const execution = { requestedModel: args.model, requestedEffort: "max" as const, requestedServiceTier: "default" as const, modelObserved: true, effectiveEffort: "max" as const };
+      if (outcome.ok) outcome.value.data.execution = { ...execution, usageReported: true, effectiveServiceTier: "default" };
+      else outcome.error.execution = { ...execution, usageReported: false, effectiveServiceTier: null };
+      return outcome;
+    };
+
+    // NVDA report #50: the judge's first request lost its stream after writing
+    // the verdict, the retry kept that verdict, and the report then named no
+    // model for synthesis although every request had reported gpt-6.1-sol.
+    it("names the model that wrote a resumed pass, its kept sections included (D-116)", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const checkpoint = evidenceCheckpoint();
+      const failed = await runJudgePass({ ...sectioned(observed(partProvider(whole, 1).runPass)), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
+      expect(failed.ok).toBe(false);
+      const [first] = JUDGE_OUTPUT_KEYS;
+      const next = partProvider(whole);
+      const resumed = await runJudgePass({ ...sectioned(observed(next.runPass)), sectionCheckpoint: checkpoint }, payload, analystCase("bull"), analystCase("bear"));
+      expect(resumed.ok).toBe(true);
+      if (!resumed.ok) return;
+      expect(resumed.result.model).toBe("chatgpt/gpt-6.1-sol");
+      expect(resumed.result.execution).toMatchObject({
+        modelObserved: true, observedModels: ["gpt-6.1-sol"], requestedEffort: "max", effectiveEffort: "max",
+        // The cut-off request reported no tier, so the whole pass's tier is not established.
+        requestedServiceTier: "default", effectiveServiceTier: null,
+        // Usage is this attempt's own requests', and each of them reported it.
+        usageReported: true,
+        carriedSections: [{ section: first, digest: expect.stringMatching(/^[0-9a-f]{64}$/), modelObserved: true, usageReported: false }],
+      });
+      expect(resumed.result.usage).toMatchObject({ input_tokens: 10 * next.prompts.length, output_tokens: 5 * next.prompts.length });
+    });
+
+    it("attributes a section the job runner carries only to evidence saved for exactly that text (D-116)", async () => {
+      const { payload } = buildInputs();
+      const whole = judgeOutput() as Record<string, unknown>;
+      const afterFailure = evidenceCheckpoint();
+      const failed = await runJudgePass({ ...sectioned(observed(partProvider(whole, 1).runPass)), sectionCheckpoint: afterFailure }, payload, analystCase("bull"), analystCase("bear"));
+      expect(failed.ok).toBe(false);
+      const carried = completedTopLevelFields(failed.ok ? "" : failed.error.partialText ?? "");
+      const [first] = JUDGE_OUTPUT_KEYS;
+      expect(Object.keys(carried)).toEqual([first]);
+      const resume = async (completed: Record<string, unknown>) => {
+        const run = await runJudgePass({ ...sectioned(observed(partProvider(whole).runPass)), sectionCheckpoint: evidenceCheckpoint(afterFailure) },
+          payload, analystCase("bull"), analystCase("bear"), undefined, undefined, undefined, { completed, sectionRetryCount: 1 });
+        expect(run.ok).toBe(true);
+        return run.ok ? run.result.execution : undefined;
+      };
+      expect(await resume(carried)).toMatchObject({ modelObserved: true, effectiveEffort: "max", carriedSections: [{ section: first, modelObserved: true, usageReported: false }] });
+      const verdict = carried[first!] as Record<string, unknown>;
+      const altered = { [first!]: { ...verdict, synthesis: `${String(verdict.synthesis)} ` } };
+      const unattributed = await resume(altered);
+      expect(unattributed).toMatchObject({ modelObserved: false, effectiveEffort: null });
+      expect(unattributed?.carriedSections).toEqual([{ section: first, digest: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
     });
 
     // Audit 2026-10-22 D-3: the checkpoint is a second carrier of cut-off

@@ -105,7 +105,7 @@ import {
 } from "@/pipeline/events";
 import { mutateJobSnapshotInTransaction } from "@/pipeline/jobState";
 import { normalizeLinkedReportRecoverySteps } from "@/pipeline/jobSteps";
-import { completedTopLevelFields, type PassContinuation } from "@/pipeline/stageC/continuation";
+import { completedTopLevelFields, sectionDigest, type PassContinuation } from "@/pipeline/stageC/continuation";
 import {
   classifyInstrumentSupport,
   type InstrumentSupport,
@@ -116,6 +116,7 @@ import {
   parseLegacyAnalystSnapshot,
   readJobPassArtifactLineage,
   serializePassFailure,
+  type CurrentGenerationPassArtifact,
   type DurablePass,
   type ComputedJobResumePlan,
   type PassSettlement,
@@ -522,8 +523,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. */
-export const PIPELINE_VERSION = "stage-c-1.6.8" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. */
+export const PIPELINE_VERSION = "stage-c-1.6.9" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -4681,6 +4682,8 @@ interface DiscardedAttempt {
   reason: string;
   model: string;
   billable: boolean;
+  /** D-116: its completed sections that the pass's final output kept ({@link keptSectionsOf}). */
+  kept: string[];
 }
 
 /**
@@ -4697,6 +4700,9 @@ interface DiscardedAttempt {
 const DISCARDED_REASON_BY_KIND: Readonly<Record<string, string>> = {
   schema: "its output did not satisfy the report schema",
   parse: "its output was not valid JSON",
+  // D-116: the default restated the failure ("did not produce usable output
+  // because the attempt did not produce a usable result").
+  transport: "the provider request failed before a usable response arrived",
 };
 const DISCARDED_REASON_DEFAULT = "the attempt did not produce a usable result";
 
@@ -4720,7 +4726,8 @@ function readerSafeFailureText(failure: { kind?: string }): string {
  */
 function readDiscardedAttempts(jobId: string): DiscardedAttempt[] {
   try {
-    return readJobPassArtifactLineage(jobId).flatMap((artifact) => {
+    const lineage = readJobPassArtifactLineage(jobId);
+    return lineage.flatMap((artifact) => {
       if (artifact.envelope.outcome !== "failure") return [];
       return [{
         pass: artifact.pass,
@@ -4728,11 +4735,33 @@ function readDiscardedAttempts(jobId: string): DiscardedAttempt[] {
         reason: readerSafeFailureText(artifact.envelope.failure),
         model: artifact.telemetry.model,
         billable: artifact.telemetry.billable,
+        kept: keptSectionsOf(artifact, lineage),
       }];
     });
   } catch {
     return [];
   }
+}
+
+/**
+ * D-116: the completed sections a failed attempt held that the pass's final
+ * output kept. A retry reuses a cut-off attempt's finished sections, so that
+ * attempt's output was not all thrown away: NVDA report #50's verdict came
+ * from a judge attempt the report called excluded. A section counts only when
+ * the final output's kept text has the digest of the text this attempt held.
+ */
+function keptSectionsOf(artifact: CurrentGenerationPassArtifact, lineage: readonly CurrentGenerationPassArtifact[]): string[] {
+  if (artifact.envelope.outcome !== "failure") return [];
+  const final = lineage
+    .filter((other) => other.pass === artifact.pass && other.envelope.outcome === "success" && other.settledAt >= artifact.settledAt)
+    .sort((left, right) => left.settledAt.localeCompare(right.settledAt))
+    .at(-1);
+  const carried = final?.telemetry.execution?.carriedSections ?? [];
+  if (carried.length === 0) return [];
+  const held = completedTopLevelFields(artifact.envelope.failure.partialText ?? "");
+  return carried
+    .filter((entry) => Object.hasOwn(held, entry.section) && sectionDigest(held[entry.section]) === entry.digest)
+    .map((entry) => entry.section);
 }
 
 function buildCostBreakdown(state: RunState): CostBreakdownEntry[] {
@@ -4743,7 +4772,7 @@ function buildCostBreakdown(state: RunState): CostBreakdownEntry[] {
       step: row.step,
       model: row.model,
       costUsd: row.costUsd,
-      ...(match === undefined ? {} : { discarded: true, discardedReason: match.reason }),
+      ...(match === undefined || match.kept.length > 0 ? {} : { discarded: true, discardedReason: match.reason }),
     };
   });
   return [...entries, ...readPlanCostBreakdown(state.jobId)];
@@ -4754,12 +4783,13 @@ function readPlanCostBreakdown(jobId: string, db: ThesisDb = getDb()): CostBreak
   // Plan-allowance attempts intentionally have no API-charge ledger row.
   // Their durable artifacts still belong in the report, including failures.
   try {
-    for (const artifact of readJobPassArtifactLineage(jobId, db)) {
+    const lineage = readJobPassArtifactLineage(jobId, db);
+    for (const artifact of lineage) {
       if (artifact.telemetry.billable || !parseSubscriptionModel(artifact.telemetry.model)) continue;
       const failure = artifact.envelope.outcome === "failure" ? artifact.envelope.failure : null;
       entries.push({ step: artifact.pass, model: artifact.telemetry.execution?.modelObserved === false
         ? `unknown (requested ${artifact.telemetry.execution.requestedModel ?? artifact.telemetry.model})` : artifact.telemetry.model, costUsd: 0,
-        ...(failure === null ? {} : { discarded: true, discardedReason: readerSafeFailureText(failure) }),
+        ...(failure === null || keptSectionsOf(artifact, lineage).length > 0 ? {} : { discarded: true, discardedReason: readerSafeFailureText(failure) }),
       });
     }
   } catch { /* Invalid artifacts must not replace verified API accounting. */ }
@@ -4778,11 +4808,16 @@ function discardedAttemptGaps(state: RunState): ManifestEntry[] {
     const wasted = ledger
       .filter((row) => costRowBelongsToAttempt(row.attemptId, attempt.attemptId))
       .reduce((sum, row) => sum + row.costUsd, 0);
+    const kept = attempt.kept.length === 1
+      ? `The completed section it held when it stopped (${attempt.kept[0]}) was kept and appears in this report`
+      : `The ${attempt.kept.length} completed sections it held when it stopped (${attempt.kept.join(", ")}) were kept and appear in this report`;
     return {
       field: `llm.${attempt.pass}.discardedAttempt`,
       reason:
         parseSubscriptionModel(attempt.model) && !attempt.billable
-          ? `A ${attempt.pass} attempt did not produce usable output because ${attempt.reason}. It used the connected provider allowance and recorded $0 in API charges. The rejected output is excluded from this report; usage and failure details remain saved with the run.`
+          ? attempt.kept.length > 0
+            ? `A ${attempt.pass} attempt stopped before it finished because ${attempt.reason}. ${kept}; the remaining sections were requested again. It used the connected provider allowance and recorded $0 in API charges; usage and failure details remain saved with the run.`
+            : `A ${attempt.pass} attempt did not produce usable output because ${attempt.reason}. It used the connected provider allowance and recorded $0 in API charges. The rejected output is excluded from this report; usage and failure details remain saved with the run.`
           : `the ${attempt.pass} pass was run more than once: an earlier attempt was billed and its output thrown ` +
         `away because ${attempt.reason}. That attempt cost $${wasted.toFixed(4)}, which is included in the ` +
         "reported total and appears in the cost breakdown marked `discarded`. The analysis itself comes from the " +

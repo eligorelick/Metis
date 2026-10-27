@@ -3500,6 +3500,26 @@ again rather than reused. Before, a kept section that
 parsed but did not match the schema made the merged output fail whatever the
 retry returned (the RIVN judge, 2026-10-22, lost one attempt this way).
 
+**A kept section keeps its writer (D-116).** A pass that keeps sections from
+an earlier attempt states its model, reasoning effort and speed only when they
+are known for every request whose text it returns. That includes the requests
+that wrote the kept sections. So the section checkpoint saves, beside each
+section, the evidence of the request that wrote it, bound to the section's exact
+text.
+
+NVDA report #50 (2026-10-27) kept a verdict from a judge attempt whose stream
+was cut at 15 minutes. Both attempts reported GPT-6.1 Sol at max reasoning, but
+the report named no model for synthesis.
+
+A kept section with no saved evidence still leaves the model unestablished.
+This happens with a checkpoint written before this change, or when a worker
+stopped mid-stream. The run details then name that section; they no longer say
+the provider did not report.
+
+A resumed pass's tokens count only its own requests, and the run details say
+so. A failed attempt whose sections reached the report is described as kept,
+not thrown away.
+
 **An empty analyst case is repaired (D-113).** The schema checks the shape of
 a bull or bear case, not whether it argues anything. NVDA report #48
 (2026-10-26) shipped a bull case of one thesis claim, no drivers, risks or
