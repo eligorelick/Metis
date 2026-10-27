@@ -121,6 +121,7 @@ import {
   type PassSettlement,
   type PassSettlementHook,
   type PassTelemetry,
+  type SerializedPassFailure,
 } from "@/pipeline/jobArtifacts";
 import {
   linkedReportBlocksResume,
@@ -521,8 +522,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. */
-export const PIPELINE_VERSION = "stage-c-1.6.6" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. */
+export const PIPELINE_VERSION = "stage-c-1.6.7" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -954,6 +955,50 @@ function failureSettlement(
   };
 }
 
+const ISSUE_WORDS: Record<string, string> = {
+  too_small: "is empty or too short",
+  too_big: "is too long",
+  invalid_type: "has the wrong type",
+  invalid_value: "is not an allowed value",
+  invalid_format: "has the wrong format",
+  unrecognized_keys: "has unexpected fields",
+};
+
+/**
+ * A rejected analyst output in words a reader can follow. The run panel printed
+ * the parse error as the raw Zod issue array, six JSON objects deep, on NVDA
+ * run #49 (2026-10-26). The full text still goes back to the model as repair
+ * feedback; only the step detail is shortened.
+ */
+export function plainRejectionNote(detail: string): string {
+  const start = detail.search(/\[\s*\{/);
+  const end = detail.lastIndexOf("]");
+  if (start >= 0 && end > start) {
+    try {
+      const issues = JSON.parse(detail.slice(start, end + 1)) as unknown;
+      if (Array.isArray(issues) && issues.length > 0) {
+        const fields = issues.map((issue) => {
+          const { path, code } = (issue ?? {}) as { path?: unknown; code?: unknown };
+          const where = Array.isArray(path) && path.length > 0
+            ? path.map((part, i) => typeof part === "number" ? `[${part}]` : `${i === 0 ? "" : "."}${String(part)}`).join("")
+            : "the output";
+          return `${where} ${ISSUE_WORDS[String(code)] ?? "is invalid"}`;
+        });
+        const shown = fields.slice(0, 3).join("; ");
+        const more = fields.length > 3 ? `; and ${fields.length - 3} more` : "";
+        return `${fields.length} field${fields.length === 1 ? "" : "s"} failed the schema: ${shown}${more}`;
+      }
+    } catch {
+      // Not an issue list: fall through to the text itself.
+    }
+  }
+  const incomplete = detail.indexOf("the case is incomplete:");
+  if (incomplete >= 0) return detail.slice(incomplete);
+  if (detail.includes("pass output was not valid JSON")) return "the output was not valid JSON";
+  const line = detail.replace(/\s+/g, " ").trim();
+  return line.length > 200 ? `${line.slice(0, 199)}…` : line;
+}
+
 /** `total`: the step's cost and attempt count when earlier attempts settled too. */
 function settlementStepDetail<T>(
   settlement: PassSettlement<T>,
@@ -1090,6 +1135,12 @@ function createSettlementCheckpoint<T>(
   controller: AbortController,
   /** Model the reservation was priced for; recorded on the durable lease. */
   reservationModel = "",
+  /**
+   * The step note for a failure the run will still repair, or null. The step
+   * then stays running under that note instead of reading ERROR until its
+   * repair starts.
+   */
+  repairQueuedNote?: (failure: SerializedPassFailure) => string | null,
 ): SettlementCheckpoint<T> {
   const attemptId = randomUUID();
   let called = false;
@@ -1369,14 +1420,17 @@ function createSettlementCheckpoint<T>(
         requestSequence > 0 && settlement.telemetry.billable
           ? { ...settlement, telemetry: { ...settlement.telemetry, billable: false } }
           : settlement;
+      const queuedNote = settlement.outcome === "failure" ? repairQueuedNote?.(settlement.failure) ?? null : null;
       const persisted = settlePaidPassLease(lease, {
         settlement: settlementForPass,
         payloadFingerprint,
-        step: {
-          finishedAt: findStep(state, pass).finishedAt ?? nowIso(),
-          detail: settlementStepDetail(settlement),
-          detailAcrossAttempts: (costUsd, attempts) => settlementStepDetail(settlement, { costUsd, attempts }),
-        },
+        step: queuedNote !== null
+          ? { detail: queuedNote, repairQueued: true }
+          : {
+            finishedAt: findStep(state, pass).finishedAt ?? nowIso(),
+            detail: settlementStepDetail(settlement),
+            detailAcrossAttempts: (costUsd, attempts) => settlementStepDetail(settlement, { costUsd, attempts }),
+          },
       });
       // Once settlePaidPassLease returns inserted truth, a later projection
       // error must remain an idempotent committed callback, never a rebill.
@@ -3663,6 +3717,25 @@ export async function runJob<TPayload = unknown>(
     // streaming path); ensureStepStarted backfills for hook-less mocks so a
     // step never jumps pending -> terminal.
     const analystLaunched = { bull: false, bear: false };
+    // A first attempt whose output was received and rejected gets a repair
+    // (below), so its step waits under a plain note rather than reading ERROR.
+    // The pass settles the rejection before the runner knows whether the
+    // sibling can continue; a run that gives up closes the step with the reason.
+    const repairQueued = new Set<"bull" | "bear">();
+    const queueRepairNote = (side: "bull" | "bear") => (failure: SerializedPassFailure): string | null => {
+      if (failure.retryable !== true || passes.runAnalystPass === undefined || !(MAX_ANALYST_REPAIRS > 0)) return null;
+      repairQueued.add(side);
+      return `${side} attempt 1/${MAX_ANALYST_REPAIRS + 1} rejected (${plainRejectionNote(failure.detail ?? failure.message)}); repair queued`;
+    };
+    const closeQueuedRepairs = (why: string): void => {
+      for (const side of repairQueued) {
+        const step = findStep(state, side);
+        if (step.status === "running") {
+          finishStep(state, side, "error", (step.detail ?? `${side} output rejected`).replace(/; repair queued$/, `; ${why}`));
+        }
+      }
+      repairQueued.clear();
+    };
     const bullCheckpoint = createSettlementCheckpoint<AnalystCase>(
       state,
       "bull",
@@ -3671,6 +3744,7 @@ export async function runJob<TPayload = unknown>(
       jobSignal,
       jobController,
       analysisModel,
+      queueRepairNote("bull"),
     );
     const bearCheckpoint = createSettlementCheckpoint<AnalystCase>(
       state,
@@ -3680,6 +3754,7 @@ export async function runJob<TPayload = unknown>(
       jobSignal,
       jobController,
       analysisModel,
+      queueRepairNote("bear"),
     );
     const analystHooks: AnalystPassHooks = {
       beforePass: async (side) => {
@@ -3736,10 +3811,11 @@ export async function runJob<TPayload = unknown>(
       attemptLabel: string,
     ): Promise<{ ok: true; value: PassResultLike<AnalystCase> } | { ok: false; error: unknown }> => {
       startStep(state, side);
+      repairQueued.delete(side);
       updateRunningStepDetail(
         state,
         side,
-        `${side} attempt ${attemptLabel}: ${RECOVERY_LABEL[mode]} — ${failureDetail}`,
+        `${side} attempt ${attemptLabel}: ${RECOVERY_LABEL[mode]} — ${mode === "repair" ? plainRejectionNote(failureDetail) : failureDetail}`,
       );
       const checkpoint = createSettlementCheckpoint<AnalystCase>(
         state,
@@ -3992,6 +4068,7 @@ export async function runJob<TPayload = unknown>(
                 severity: "critical",
                 attemptedSources: [parseSubscriptionModel(analysisModel)?.provider ?? "anthropic"],
               });
+              closeQueuedRepairs(`not repaired: the ${side} repair failed`);
               markSkipped(state, "synthesize", "upstream bull/bear pass failed");
               markSkipped(state, "verify", "upstream bull/bear pass failed");
               return persistDataOnly(state, bundle, validation, computed, now, hasKey);
@@ -4007,7 +4084,10 @@ export async function runJob<TPayload = unknown>(
             feedback = undefined;
             currentDetail = errMessage(out.error);
           }
-          if (repaired === null) return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+          if (repaired === null) {
+            closeQueuedRepairs(`not repaired: the ${side} pass could not be recovered`);
+            return persistDataOnly(state, bundle, validation, computed, now, hasKey);
+          }
           if (side === "bull") repairedBull = repaired;
           else repairedBear = repaired;
         }
@@ -4019,6 +4099,7 @@ export async function runJob<TPayload = unknown>(
       // transport failures were only visible on the transient pipeline view).
       // A side that DID succeed is persisted (with the fingerprint) so its
       // paid output survives for a partial resume instead of being discarded.
+      closeQueuedRepairs("not repaired: the other pass failed in a way a repair cannot fix");
       for (const side of ["bull", "bear"] as const) {
         const checkpoint = side === "bull" ? bullCheckpoint : bearCheckpoint;
         if (checkpoint.lastSettlement()?.outcome === "success") continue;

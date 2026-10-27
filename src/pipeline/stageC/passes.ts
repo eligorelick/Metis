@@ -1178,6 +1178,24 @@ function normalizeKnownEnumCasing(raw: unknown): unknown {
   return next;
 }
 
+/**
+ * A blank `sourceId` is no citation: drop it so the claim or number cites its
+ * `source`, as one without the field does (citationSourceId). The request
+ * schema marks the field required, and Claude filled it with "" whenever it
+ * had no registry id; in NVDA reports #48 and #49 (2026-10-26) that failed
+ * the parse and cost a repair on all four analyst first attempts.
+ */
+function dropBlankSourceIds(raw: unknown): unknown {
+  if (raw === null || typeof raw !== "object") return raw;
+  if (Array.isArray(raw)) return raw.map(dropBlankSourceIds);
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (key === "sourceId" && typeof value === "string" && value.trim().length === 0) continue;
+    next[key] = dropBlankSourceIds(value);
+  }
+  return next;
+}
+
 function removeUnsafeAnalystAssumptions(raw: unknown): unknown {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
   const root = raw as Record<string, unknown>;
@@ -1201,7 +1219,7 @@ function normalizeAnalystCase(raw: unknown): unknown {
   // fillNullableGaps: the request schema lets the model OMIT a nullable field
   // instead of sending null (collapseNullableComplexity, report/schema.ts) —
   // restore the null before validating against the still-strict Zod schema.
-  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(raw)));
+  return fillNullableGaps(ANALYST_CASE_SCHEMA, removeUnsafeAnalystAssumptions(normalizeKnownEnumCasing(dropBlankSourceIds(raw))));
 }
 
 /**
@@ -2073,7 +2091,7 @@ function cleanRatingSafeArray(value: unknown): unknown {
 }
 
 export function normalizeJudgeOutput(raw: unknown): unknown {
-  const enumNormalized = normalizeKnownEnumCasing(raw);
+  const enumNormalized = normalizeKnownEnumCasing(dropBlankSourceIds(raw));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
     return enumNormalized;
   }

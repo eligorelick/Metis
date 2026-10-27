@@ -2975,6 +2975,17 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
 });
 
 describe("normalizeJudgeOutput — strips judge-authored scenario targets", () => {
+  it("drops a blank sourceId so the claim cites its source", () => {
+    const jo = judgeOutput();
+    const claim = jo.business.whatTheySell[0]!;
+    const normalized = normalizeJudgeOutput({
+      ...jo,
+      business: { ...jo.business, whatTheySell: [{ ...claim, sourceId: "" }, { ...claim, sourceId: "fmp:profile" }] },
+    }) as JudgeOutput;
+    expect(normalized.business.whatTheySell[0]).toEqual(claim);
+    expect(normalized.business.whatTheySell[1]?.sourceId).toBe("fmp:profile");
+  });
+
   it("discards invented scenario odds before validating or comparing judge outputs", () => {
     const jo = judgeOutput();
     jo.valuation.scenarios[0].probability = 0.99;
@@ -4600,6 +4611,45 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
 
     expect(bull.ok).toBe(true);
     expect(bear.ok).toBe(true);
+  });
+
+  /**
+   * NVDA reports #48 and #49 (2026-10-26): every Claude first attempt sent
+   * `sourceId: ""` where it had no registry id, so the whole case failed the
+   * schema and cost a repair. A blank id is no citation; the source still is.
+   */
+  it("treats a blank sourceId as absent and cites the source", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bull = analystCase("bull");
+    mock.onJson("llm.bull", {
+      ...bull,
+      thesis: [{ ...bull.thesis[0]!, sourceId: "" }],
+      evidence: [{ ...bull.evidence[0]!, sourceId: "  " }],
+    });
+    mock.onJson("llm.bear", analystCase("bear"));
+
+    const { bull: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(true);
+    if (run.ok) {
+      expect(run.result.output.thesis[0]).toEqual(bull.thesis[0]);
+      expect(run.result.output.evidence[0]?.sourceId).toBeUndefined();
+      expect(run.result.output.evidence[0]?.source).toBe(bull.evidence[0]!.source);
+    }
+  });
+
+  it("still rejects a claim whose source is blank as well", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bull = analystCase("bull");
+    mock.onJson("llm.bull", { ...bull, thesis: [{ ...bull.thesis[0]!, sourceId: "", source: "" }] });
+    mock.onJson("llm.bear", analystCase("bear"));
+
+    const { bull: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(false);
+    if (!run.ok) expect(run.validationError).toContain('"source"');
   });
 
   /**

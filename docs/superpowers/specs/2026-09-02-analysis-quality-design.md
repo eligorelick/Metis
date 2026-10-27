@@ -274,6 +274,16 @@ and that reason is the repair feedback. Catalysts and evidence may be empty.
 A kept section that is empty in the same way is asked for again (D-3). The
 run panel's step detail states the step's cost over all its attempts.
 
+A blank or whitespace `sourceId` is dropped before the analyst and judge parses
+(`dropBlankSourceIds`), so the claim cites its `source` and costs no repair
+(D-114). A first attempt whose output was received and rejected settles with
+its step still running under a plain note (`plainRejectionNote`: the failing
+fields in words, never the Zod issue array), ending "repair queued", until its
+repair starts. If the run gives up first, the step closes as an error naming
+why. The repair attempt's own detail uses the same plain note; the full
+validation error is still the model's repair feedback and stays on the pass
+artifact.
+
 ### 8. No-trend growth anchor (`src/pipeline/stageB/valuation.ts`)
 
 **Superseded by WS6 decision D-18** (recorded in
