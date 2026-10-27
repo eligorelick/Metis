@@ -40,15 +40,41 @@ describe("durable section checkpoints", () => {
     expect(createSectionCheckpoint("identity", dir).load("llm.judge:request")).toEqual({ verdict: {}, business: {} });
     expect(fs.readdirSync(dir).some((file) => file.endsWith(".tmp"))).toBe(false);
   });
+  // D-116: a section kept for a retry keeps the evidence of the request that
+  // wrote it, so the retry can still say which model wrote the whole pass.
+  it("keeps the evidence of the request that wrote each section beside it", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "metis-sections-")); directories.push(dir);
+    const checkpoint = createSectionCheckpoint("identity", dir);
+    const verdict = { digest: "a".repeat(64), model: "chatgpt/gpt-6.1-sol",
+      execution: { requestedModel: "chatgpt/gpt-6.1-sol", modelObserved: true, usageReported: false, effectiveEffort: "max" as const, effectiveServiceTier: null } };
+    // Evidence for a section the checkpoint does not hold is not saved.
+    checkpoint.save("llm.judge:request", { verdict: { synthesis: "s" }, business: {} }, { verdict, macro: { digest: "b".repeat(64) } });
+    const reopened = createSectionCheckpoint("identity", dir);
+    expect(reopened.load("llm.judge:request")).toEqual({ verdict: { synthesis: "s" }, business: {} });
+    expect(reopened.loadEvidence("llm.judge:request")).toEqual({ verdict });
+    // A checkpoint saved without evidence, as before D-116, has none.
+    checkpoint.save("llm.bull:request", { thesis: [] });
+    expect(reopened.loadEvidence("llm.bull:request")).toEqual({});
+    expect(reopened.loadEvidence("llm.bear:request")).toEqual({});
+    // An unreadable entry is dropped on its own; its section is still reused.
+    const file = path.join(dir, fs.readdirSync(dir).find((name) => name.endsWith(".json") && JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")).field === "llm.judge:request")!);
+    const envelope = JSON.parse(fs.readFileSync(file, "utf8"));
+    fs.writeFileSync(file, JSON.stringify({ ...envelope, evidence: { verdict: { ...verdict, digest: "short" }, business: { digest: "c".repeat(64), execution: { invented: true } } } }));
+    expect(reopened.loadEvidence("llm.judge:request")).toEqual({});
+    expect(reopened.load("llm.judge:request")).toEqual({ verdict: { synthesis: "s" }, business: {} });
+    fs.writeFileSync(file, JSON.stringify({ ...envelope, evidence: [] }));
+    expect(reopened.loadEvidence("llm.judge:request")).toEqual({});
+  });
   it("rejects corrupted, oversized and mismatched snapshots", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "metis-sections-")); directories.push(dir);
     const checkpoint = createSectionCheckpoint("identity", dir);
-    checkpoint.save("llm.bull", { thesis: [] });
+    checkpoint.save("llm.bull", { thesis: [] }, { thesis: { digest: "d".repeat(64) } });
     const file = path.join(dir, fs.readdirSync(dir)[0]!);
     const envelope = JSON.parse(fs.readFileSync(file, "utf8"));
     for (const change of [{ version: 2 }, { identity: "other" }, { field: "llm.bear" }, { completed: [] }, { completed: null }]) {
       fs.writeFileSync(file, JSON.stringify({ ...envelope, ...change }));
       expect(checkpoint.load("llm.bull")).toEqual({});
+      expect(checkpoint.loadEvidence("llm.bull")).toEqual({});
     }
     fs.writeFileSync(file, "x".repeat(4_000_001));
     expect(checkpoint.load("llm.bull")).toEqual({});

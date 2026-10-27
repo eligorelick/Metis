@@ -1328,7 +1328,7 @@ describe("Stage C provider adapter branches", () => {
   it("journals against the launch attempt even when the current owner changes before a response", async () => {
     let currentAttempt = "original-attempt";
     const record = vi.fn();
-    vi.spyOn(sectionCheckpoints, "createSectionCheckpoint").mockReturnValue({ load: () => ({}), save: () => {}, record });
+    vi.spyOn(sectionCheckpoints, "createSectionCheckpoint").mockReturnValue({ load: () => ({}), loadEvidence: () => ({}), save: () => {}, record });
     const model = "chatgpt/example";
     vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockImplementation(async () => {
       await Promise.resolve();

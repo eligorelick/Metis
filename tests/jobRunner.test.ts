@@ -190,6 +190,7 @@ import { runStageB } from "@/pipeline/compute";
 import { validateBundle } from "@/pipeline/stageA/validate";
 import { pipelinePasses } from "@/pipeline/stageC";
 import { previousOutputBlock } from "@/pipeline/stageC/payload";
+import { sectionDigest } from "@/pipeline/stageC/continuation";
 import {
   completeJudgeProtocol,
   resolveJudgeOrder,
@@ -6200,7 +6201,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.8");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.9");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -6777,6 +6778,116 @@ describe("runJob — LLM pass failure", () => {
     expect(report.appendix.missingData.find((gap) => gap.field === "llm.bull")?.attemptedSources).toEqual(["chatgpt"]);
     expect(report.appendix.missingData.find((gap) => gap.field === "llm.bear")?.attemptedSources).toEqual([]);
     expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()).toEqual([]);
+  });
+  // D-116, NVDA report #50: the judge's first attempt lost its stream after
+  // writing the verdict, and the retry kept it. The report said that attempt's
+  // output was excluded, for a reason that only restated the failure.
+  /** Mock passes for a plan connection: analysts and verification record no API charge. */
+  function planPasses(): PipelinePasses {
+    vi.mocked(resolveModel).mockResolvedValueOnce({ model: "chatgpt/gpt-6.1-sol", resolvedFrom: "explicit" });
+    const { passes } = mockPasses();
+    const plan = (side: "bull" | "bear") => ({ ...testAnalystPass(side, 0), model: "chatgpt/gpt-6.1-sol" });
+    passes.runBullThenBear = async (_deps, hooks, settlements) => {
+      const sides = { bull: plan("bull"), bear: plan("bear") };
+      for (const side of ["bull", "bear"] as const) {
+        await launchTestAnalystSide(hooks, side);
+        await settlements?.[side]?.(testSuccessSettlement(sides[side], false));
+        hooks?.onPassFinish?.(side);
+      }
+      return sides;
+    };
+    const paidVerify = passes.runVerifyPass;
+    passes.runVerifyPass = (async (...args: Parameters<PipelinePasses["runVerifyPass"]>) => ({
+      ...(await paidVerify(...args)),
+      costUsd: 0,
+      model: "chatgpt/gpt-6.1-sol",
+    })) as PipelinePasses["runVerifyPass"];
+    return passes;
+  }
+  it("says a cut-off plan judge attempt's kept sections reached the report", async () => {
+    const passes = planPasses();
+    const { jobId } = createJob("AAPL");
+    const validJudge = passes.runJudgePass;
+    const verdict = { synthesis: "kept" };
+    const partialText = JSON.stringify({ verdict });
+    const execution = { requestedModel: "chatgpt/gpt-6.1-sol", requestedEffort: "max" as const, effectiveEffort: "max" as const, modelObserved: true };
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, , settlement, beforeProviderLaunch] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        unknown,
+        ((settled: unknown) => Promise<void>) | undefined,
+        (() => void | Promise<void>) | undefined,
+      ];
+      await beforeProviderLaunch?.();
+      attempt += 1;
+      const judge = { ...(await validJudge(deps, bull, bear)), costUsd: 0, model: "chatgpt/gpt-6.1-sol" };
+      if (attempt === 1) {
+        await settlement?.({ outcome: "failure", failure: { name: "Error", message: "ChatGPT stream ended before completion", kind: "transport", partialText },
+          telemetry: { ...testTelemetry({ ...judge, usage: { input_tokens: 0, output_tokens: 0 } }, false), execution: { ...execution, usageReported: false } } });
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), { retryable: true, kind: "transport", partialText });
+      }
+      const retried = { ...judge, execution: { ...execution, usageReported: true,
+        carriedSections: [{ section: "verdict", digest: sectionDigest(verdict), modelObserved: true, usageReported: false }] } };
+      await settlement?.({ outcome: "success", data: retried.data, telemetry: { ...testTelemetry(retried, false), execution: retried.execution } });
+      return retried;
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(result).toMatchObject({ status: "done", dataOnly: false });
+    const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toBe(
+      "A synthesize attempt stopped before it finished because the provider request failed before a usable response arrived. " +
+        "The completed section it held when it stopped (verdict) was kept and appears in this report; the remaining sections were requested again. " +
+        "It used the connected provider allowance and recorded $0 in API charges; usage and failure details remain saved with the run.",
+    );
+    const synthesizeRows = report.appendix.costBreakdown.filter((row) => row.step === "synthesize");
+    expect(synthesizeRows.length).toBeGreaterThan(1);
+    expect(synthesizeRows.every((row) => row.model === "chatgpt/gpt-6.1-sol" && row.discarded === undefined)).toBe(true);
+    const synthesis = report.meta.execution?.find((entry) => entry.step === "synthesize");
+    expect(synthesis?.effectiveModel).toBe("chatgpt/gpt-6.1-sol");
+    expect(synthesis?.note).toContain("the verdict section was kept from an earlier attempt");
+  });
+
+  it("names a dropped plan attempt's failure in words when its output is thrown away", async () => {
+    const passes = planPasses();
+    const { jobId } = createJob("AAPL");
+    const validJudge = passes.runJudgePass;
+    let attempt = 0;
+    passes.runJudgePass = (async (...args: unknown[]) => {
+      const [deps, bull, bear, , settlement, beforeProviderLaunch] = args as [
+        Parameters<PipelinePasses["runJudgePass"]>[0],
+        Parameters<PipelinePasses["runJudgePass"]>[1],
+        Parameters<PipelinePasses["runJudgePass"]>[2],
+        unknown,
+        ((settled: unknown) => Promise<void>) | undefined,
+        (() => void | Promise<void>) | undefined,
+      ];
+      await beforeProviderLaunch?.();
+      attempt += 1;
+      const judge = { ...(await validJudge(deps, bull, bear)), costUsd: 0, model: "chatgpt/gpt-6.1-sol" };
+      if (attempt === 1) {
+        await settlement?.({ outcome: "failure", failure: { name: "Error", message: "ChatGPT stream ended before completion", kind: "transport" },
+          telemetry: testTelemetry({ ...judge, usage: { input_tokens: 0, output_tokens: 0 } }, false) });
+        throw Object.assign(new Error("judge pass failed (transport): ChatGPT stream ended before completion"), { retryable: true, kind: "transport" });
+      }
+      await settlement?.({ outcome: "success", data: judge.data, telemetry: testTelemetry(judge, false) });
+      return judge;
+    }) as PipelinePasses["runJudgePass"];
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    const report = ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!.reportJson!));
+    expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toBe(
+      "A synthesize attempt did not produce usable output because the provider request failed before a usable response arrived. " +
+        "It used the connected provider allowance and recorded $0 in API charges. The rejected output is excluded from this report; usage and failure details remain saved with the run.",
+    );
+    expect(report.appendix.costBreakdown.filter((row) => row.step === "synthesize" && row.discarded === true)).toEqual([
+      expect.objectContaining({ discardedReason: "the provider request failed before a usable response arrived" }),
+    ]);
   });
   it("marks bull/bear error, skips downstream, persists a data-only report", async () => {
     const { jobId } = createJob("AAPL");

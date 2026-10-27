@@ -19,7 +19,26 @@
  * case text the model read, so they are enveloped as untrusted data.
  */
 
+import { createHash } from "node:crypto";
 import { renderUntrustedJson } from "@/pipeline/stageC/payload";
+import type { ProviderExecution } from "@/report/execution";
+
+/**
+ * D-116: the provider evidence of the request that wrote one kept section,
+ * bound by `digest` to that section's exact text so it never describes
+ * different text. A retry that reuses the section folds this evidence into
+ * the pass's model, effort and speed; without it they stay unestablished.
+ */
+export interface SectionEvidence {
+  digest: string;
+  model?: string;
+  execution?: ProviderExecution;
+}
+
+/** The digest that binds a kept section to the evidence of its writer. */
+export function sectionDigest(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
 
 /** Sections carried into a retry, and the keys the full response must hold. */
 export interface PassContinuation {

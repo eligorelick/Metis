@@ -2334,3 +2334,42 @@ An audit of PR #64 (D-114), run against its head with probe tests, found that th
 Not changed: a blank ID still falls back to the claim's `source` instead of costing a repair (D-114). The audit's alternative, a repair that might produce a registry ID, costs a paid attempt to fix what verification already handles. A display-style `source` is still flagged by verification as an unknown source. The unreachable `repaired === null` guard stays, because it narrows the type.
 
 Pipeline stage-c-1.6.8 marks these conventions; report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports and artifacts keep their bytes.
+
+## D-116 - A kept section keeps its writer: a resumed plan pass names its model, and an attempt whose sections were kept is not called thrown away (2026-10-27)
+
+NVDA report #50 (GPT-6.1 Sol, max reasoning, ChatGPT plan, 2026-10-27).
+
+- **What happened.** The judge's first attempt sent one request. The plan endpoint closed its stream at 15 minutes, after the verdict section was complete.
+  - The attempt's artifact records the observed model gpt-6.1-sol and max reasoning. It has no usage or service tier, since those arrive with the completion event.
+  - The retry kept the verdict word for word and wrote the other twelve sections in five requests. Each reported gpt-6.1-sol, max reasoning, the default speed and its usage: 744,102 input and 99,406 output tokens in all.
+- **What the report said.** D-70 treats a reused section as having no known writer. So the run details named synthesis's model "unknown" and left out its tokens. They said "the provider did not report which model executed the request" and "Provider usage was not reported", and both were false.
+  - With the judge's family unknown, the same-family sentence (D-20) was missing.
+  - The cost breakdown read "unknown (requested chatgpt/gpt-6.1-sol)".
+  - The first attempt's missing-data entry said its "rejected output is excluded from this report", although its verdict was in the report. Its reason only restated the failure ("because the attempt did not produce a usable result").
+- **Options.**
+  - (a) Keep D-70's rule and only reword the notes. The model stays unknown although the evidence exists.
+  - (b) Take an earlier attempt's artifact as the writer of every kept section. But a kept section can come from any earlier attempt or a restarted worker, and an artifact does not say which sections its requests wrote.
+  - (c) Save the writer's evidence beside each section in the checkpoint, bound to the section's text, and fold it into the pass's evidence.
+- **Choice: (c).**
+  - **What the checkpoint saves.** Beside each completed section it saves the model and execution evidence of the request that wrote it, and the SHA-256 of the section's JSON.
+    - A section streamed before its request ends gets that request's evidence when the request finishes or fails. A worker that dies mid-stream leaves it without evidence.
+    - A section the job runner carries in uses the evidence saved for exactly its text.
+  - **Model, effort and speed.** These are established across this attempt's requests and every kept section's writer, the way D-70 aggregates section requests. A kept section with no saved evidence, or whose writer reported no model, leaves them unestablished for the whole pass, as before. Requested settings stay the attempt's own.
+  - **Usage.** Usage stays the attempt's own: the tokens and `usageReported` cover the requests this attempt sent. A kept section's request is recorded with its own attempt.
+  - **Run details.** They name the kept sections and say the token counts cover only this attempt's requests. When the writer's evidence records no usage, they say so. A model withheld because of a kept section names that section, not the provider.
+  - **Storage.** `carriedSections` on the execution evidence keeps all of this through storage: the section, its digest, and the writer's observed-model and usage flags when they were saved.
+  - **Discarded-attempt disclosure.** It joins a failed attempt to the final output by digest. When the attempt's sections reached the report, it says so: "The completed section it held when it stopped (verdict) was kept and appears in this report; the remaining sections were requested again." The attempt's cost row is then not marked discarded.
+  - **Transport failures.** The reason now reads "the provider request failed before a usable response arrived".
+  - **Compatibility.** Checkpoints and artifacts written before this change carry no evidence, so they keep D-70's withholding. An older build still reads a checkpoint saved by this one, because the evidence is an extra field.
+- **Limits.**
+  - The evidence is local recovery data, not a provider receipt (D-70).
+  - A digest match proves the text is the same, not which attempt wrote it, so the disclosure says the attempt "held" the section.
+  - With `THESIS_JUDGE_ORDER=both`, the mirrored request carries the same kept sections but loads no evidence for them from the primary's checkpoint. Such a pass stays unestablished, and its note says the model "could not be established" instead of blaming the provider.
+- **Validation.** Failing-first tests cover:
+  - the checkpoint evidence;
+  - #50's sequence: a cut-off first request, then a resumed attempt;
+  - a carried section with matching and with altered text;
+  - the run-detail notes and the same-family sentence;
+  - the discarded-attempt disclosure and cost rows.
+
+Pipeline stage-c-1.6.9 marks these conventions. Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports and artifacts keep their bytes, #50's included.

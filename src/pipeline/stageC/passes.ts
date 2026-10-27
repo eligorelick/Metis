@@ -124,9 +124,11 @@ import {
   continuationInstruction,
   hasCompletedSections,
   mergeContinuation,
+  sectionDigest,
   sectionRequestInstruction,
   splitSections,
   type PassContinuation,
+  type SectionEvidence,
 } from "@/pipeline/stageC/continuation";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { applyFinancialDiagnostics, assessExecutiveEvidence, executiveEvidenceKind } from "@/report/financialDiagnostics";
@@ -336,7 +338,9 @@ export interface PassDeps {
   sectionedOutput?: boolean;
   sectionCheckpoint?: {
     load: (field: string) => Record<string, unknown>;
-    save: (field: string, completed: Record<string, unknown>) => void;
+    /** D-116: each saved section's writer evidence; absent when the store keeps none. */
+    loadEvidence?: (field: string) => Record<string, SectionEvidence>;
+    save: (field: string, completed: Record<string, unknown>, evidence?: Record<string, SectionEvidence>) => void;
     /** Append-only observations remain auditable even if the worker dies before settlement. */
     record?: (field: string, telemetry: { model: string; usage: PassUsage; costUsd: number; execution?: ProviderExecution }) => void;
   };
@@ -757,36 +761,59 @@ function sumUsage(a: PassUsage, b: PassUsage): PassUsage {
   };
 }
 
-/** Attribute section usage only to provider evidence shared by all requests. */
+/** One provider request's evidence, as a section request or a kept section's writer reports it. */
+type RequestObservation = { model?: string; execution?: ProviderExecution };
+
+/**
+ * Attribute section usage only to provider evidence shared by all requests.
+ * D-116: a section kept from an earlier attempt counts its writer's request
+ * among them, so the model, effort and speed describe every request whose text
+ * the pass returns; a kept section with no saved writer leaves them
+ * unestablished. Usage stays this attempt's own.
+ */
 function sectionExecution(
   requestedModel: string,
-  observations: { model?: string; execution?: ProviderExecution }[],
-  recoveredSections: boolean,
+  observations: RequestObservation[],
+  carried: readonly { section: string; digest: string; writer?: SectionEvidence }[] = [],
 ): { model: string; execution?: ProviderExecution } {
-  let model = observations.at(-1)?.model ?? requestedModel;
+  const writers: RequestObservation[] = carried.map(({ writer }) => writer === undefined ? {} : {
+    ...(writer.model === undefined ? {} : { model: writer.model }),
+    ...(writer.execution === undefined ? {} : { execution: writer.execution }),
+  });
+  const all = [...writers, ...observations];
+  let model = observations.at(-1)?.model ?? writers.at(-1)?.model ?? requestedModel;
   const provider = parseSubscriptionModel(requestedModel)?.provider;
-  if (provider === undefined || !observations.some((o) => o.execution !== undefined)) {
-    return { model, ...(provider !== undefined && recoveredSections ? { execution: {
-      requestedModel, modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null,
+  const carriedSections = carried.map(({ section, digest, writer }) => ({ section, digest,
+    ...(writer?.execution?.modelObserved === undefined ? {} : { modelObserved: writer.execution.modelObserved }),
+    ...(writer?.execution?.usageReported === undefined ? {} : { usageReported: writer.execution.usageReported }),
+  }));
+  const kept = carried.length === 0 ? {} : { carriedSections };
+  if (provider === undefined || !all.some((o) => o.execution !== undefined)) {
+    return { model, ...(provider !== undefined && carried.length > 0 ? { execution: {
+      requestedModel, modelObserved: false, usageReported: false, effectiveEffort: null, effectiveServiceTier: null, ...kept,
     } } : {}) };
   }
-  const same = <K extends keyof ProviderExecution>(key: K): ProviderExecution[K] | null => {
-    const first = observations[0]?.execution?.[key];
-    return first !== undefined && observations.every((o) => o.execution?.[key] === first) ? first : null;
+  const same = <K extends keyof ProviderExecution>(key: K, among: readonly RequestObservation[] = all): ProviderExecution[K] | null => {
+    const first = among[0]?.execution?.[key];
+    return first !== undefined && among.every((o) => o.execution?.[key] === first) ? first : null;
   };
-  const observedModels = [...new Set(observations.flatMap((o) => o.execution?.modelObserved !== true ? []
+  // Requested settings are the attempt's own: a kept section's writer ran under
+  // the same captured settings, and one saved without evidence must not erase them.
+  const own = observations.length > 0 ? observations : writers;
+  const observedModels = [...new Set(all.flatMap((o) => o.execution?.modelObserved !== true ? []
     : o.execution.observedModels ?? (o.model === undefined ? [] : [parseSubscriptionModel(o.model)?.model ?? o.model])))];
   if (observedModels.length > 1) model = subscriptionModel(provider, "multiple-models");
-  const requestedServiceTier = same("requestedServiceTier");
+  const requestedServiceTier = same("requestedServiceTier", own);
   return { model, execution: {
     requestedModel,
-    requestedEffort: same("requestedEffort"),
-    effectiveEffort: recoveredSections ? null : same("effectiveEffort"),
+    requestedEffort: same("requestedEffort", own),
+    effectiveEffort: same("effectiveEffort"),
     ...(requestedServiceTier === null ? {} : { requestedServiceTier }),
-    ...(provider === "chatgpt" ? { effectiveServiceTier: recoveredSections ? null : same("effectiveServiceTier") } : {}),
-    modelObserved: !recoveredSections && observations.every((o) => o.execution?.modelObserved === true),
-    usageReported: !recoveredSections && observations.every((o) => o.execution?.usageReported === true),
+    ...(provider === "chatgpt" ? { effectiveServiceTier: same("effectiveServiceTier") } : {}),
+    modelObserved: all.every((o) => o.execution?.modelObserved === true),
+    usageReported: observations.length > 0 && observations.every((o) => o.execution?.usageReported === true),
     observedModels,
+    ...kept,
   } };
 }
 
@@ -812,22 +839,37 @@ async function runPassInSections<T>(a: {
   // The mirror and schema repair are different draws even within one job.
   const checkpointField = `${a.field}:${createHash("sha256").update(JSON.stringify({ model: a.base.model, system: a.base.system, messages: a.base.messages, schema: a.base.outputSchema })).digest("hex")}`;
   const stored = a.deps.sectionCheckpoint?.load(checkpointField) ?? {};
+  const storedEvidence = a.deps.sectionCheckpoint?.loadEvidence?.(checkpointField) ?? {};
   // Audit 2026-10-22 D-3: the checkpoint carries cut-off sections too, so a
   // stored section that fails its schema is asked for again, not reused.
   const completed: Record<string, unknown> = {
     ...a.checkStored(Object.fromEntries(Object.entries(stored).filter(([key]) => a.allKeys.includes(key)))).kept,
     ...(a.completed ?? {}),
   };
-  let lastCheckpoint = JSON.stringify(stored);
+  // D-116: the writer of each section held here. A kept section (stored, or
+  // carried in by the caller) has one only when evidence was saved for exactly
+  // its text; one written now gets its request's evidence when the request ends.
+  const evidence: Record<string, SectionEvidence> = {};
+  for (const [key, value] of Object.entries(completed)) {
+    const saved = storedEvidence[key];
+    if (saved !== undefined && saved.digest === sectionDigest(value)) evidence[key] = saved;
+  }
+  const carried = Object.entries(completed).filter(([section]) => a.allKeys.includes(section)).map(([section, value]) => ({
+    section, digest: sectionDigest(value), ...(evidence[section] === undefined ? {} : { writer: evidence[section] }),
+  }));
+  const wrote = (key: string, value: unknown, by: RequestObservation): void => {
+    evidence[key] = { digest: sectionDigest(value), ...(by.model === undefined ? {} : { model: by.model }), ...(by.execution === undefined ? {} : { execution: by.execution }) };
+  };
+  let lastCheckpoint = JSON.stringify([stored, storedEvidence]);
   const checkpoint = (sections: Record<string, unknown>): void => {
-    const json = JSON.stringify(sections);
+    const known = Object.fromEntries(Object.entries(evidence).filter(([key]) => key in sections));
+    const json = JSON.stringify([sections, known]);
     if (json === lastCheckpoint) return;
-    a.deps.sectionCheckpoint?.save(checkpointField, sections);
+    a.deps.sectionCheckpoint?.save(checkpointField, sections, known);
     lastCheckpoint = json;
   };
   let last: Extract<RunPassOutcome, { ok: true }> | null = null;
-  const observations: { model?: string; execution?: ProviderExecution }[] = [];
-  const recoveredSections = Object.keys(completed).length > 0;
+  const observations: RequestObservation[] = [];
   let usage: PassUsage = { input_tokens: 0, output_tokens: 0 };
   let costUsd = 0;
   const pending = (keys: readonly string[]): string[] => keys.filter((key) => !(key in completed));
@@ -853,16 +895,20 @@ async function runPassInSections<T>(a: {
       a.deps.validateRunPass?.(request);
       const outcome = await a.deps.runPass(request);
       if (!outcome.ok) {
-        observations.push({ model: outcome.error.model, execution: outcome.error.execution });
+        const failed = { model: outcome.error.model, execution: outcome.error.execution };
+        observations.push(failed);
         const kept = { ...completed };
         for (const [key, value] of Object.entries(completedTopLevelFields(outcome.error.partialText ?? ""))) {
-          if (keys.includes(key)) kept[key] = value;
+          if (keys.includes(key)) {
+            kept[key] = value;
+            wrote(key, value, failed);
+          }
         }
         const partialText = Object.keys(kept).length > 0 ? JSON.stringify(kept) : undefined;
         checkpoint(kept);
         return finishStructuredPass(
           { ...outcome, error: { ...outcome.error, usage: sumUsage(usage, outcome.error.usage ?? { input_tokens: 0, output_tokens: 0 }), costUsd: costUsd + (outcome.error.costUsd ?? 0),
-            ...sectionExecution(a.requestedModel, observations, recoveredSections), ...(partialText === undefined ? {} : { partialText }) } },
+            ...sectionExecution(a.requestedModel, observations, carried), ...(partialText === undefined ? {} : { partialText }) } },
           a.parse,
           a.field,
           a.requestedModel,
@@ -882,12 +928,14 @@ async function runPassInSections<T>(a: {
         if (tries === 0) continue;
         // Report the unparseable part exactly as a single response would be.
         return finishStructuredPass({ ...outcome, value: { data: { ...outcome.value.data, usage, costUsd,
-          ...sectionExecution(a.requestedModel, observations, recoveredSections) } } }, a.parse, a.field, a.requestedModel);
+          ...sectionExecution(a.requestedModel, observations, carried) } } }, a.parse, a.field, a.requestedModel);
       }
       last = outcome;
       if (json !== null && typeof json === "object" && !Array.isArray(json)) {
         for (const key of keys) {
-          if (key in (json as Record<string, unknown>)) completed[key] = (json as Record<string, unknown>)[key];
+          if (!(key in (json as Record<string, unknown>))) continue;
+          completed[key] = (json as Record<string, unknown>)[key];
+          wrote(key, completed[key], outcome.value.data);
         }
       }
       checkpoint(completed);
@@ -931,9 +979,9 @@ async function runPassInSections<T>(a: {
         execution: { requestedModel: a.requestedModel, modelObserved: false, usageReported: false },
       };
   // Execution evidence must describe every newly completed request, rather
-  // than inheriting the last part's settings. Recovered text has no execution
-  // metadata in the checkpoint; retain the request but withhold attribution.
-  Object.assign(data, sectionExecution(a.requestedModel, observations, recoveredSections));
+  // than inheriting the last part's settings, and every kept section's writer
+  // (D-116); a kept section with no saved writer withholds attribution.
+  Object.assign(data, sectionExecution(a.requestedModel, observations, carried));
   const merged: RunPassOutcome = {
     ok: true,
     value: {
@@ -2477,6 +2525,8 @@ function mergeJudgeBilling(
       ...(provider === "chatgpt" ? { effectiveServiceTier: primary.execution?.effectiveServiceTier === mirroredExecution?.effectiveServiceTier
         ? primary.execution?.effectiveServiceTier ?? null : null } : {}),
       observedModels,
+      // D-116: the primary's text is the report's, so its kept sections are.
+      ...(primary.execution?.carriedSections === undefined ? {} : { carriedSections: primary.execution.carriedSections }),
     };
   }
   const add = (a: number | null | undefined, b: number | null | undefined): number =>
