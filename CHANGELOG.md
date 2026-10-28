@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - every paid request settled and shown at its real cost (2026-10-28)
+
+- Record a paid request that fails after it started generating at its reported usage plus what it could still have generated (the request maximum when it carries web search or a server fallback), marked presumed, whatever ended it: the idle guard, the caller, a server error event or a dropped connection (AI-113). A request the provider had answered but that was cancelled before any usage arrived is presumed at the request maximum instead of dropped (AI-113-V1).
+- Do not charge a request whose connection never opened (AI-307). One network blip used to book $315.84 presumed on an Opus 5.5 bull pass (six attempts at the $52.64 request maximum) for requests Anthropic never received.
+- Make a pass's recorded cost and tokens equal the sum of its requests' settlements, failed pause resumptions included (AI-114).
+- Keep a finished response when the database writer lock delays its cost record: the write is retried three times, then the response is kept and the lease is presumed at expiry (AI-308).
+- Date a presumed cost row on the day its request was authorized, so `costs:reconcile` compares it with the right day (JOB-203).
+- Admit paid work against the lower of the job's recorded cap and the cap configured now (JOB-209).
+- Run Claude Haiku 4.5 on current payloads: the context check now estimates input tokens per tokenizer instead of counting bytes as tokens (AI-309).
+- Compare section grades only when `METIS_JUDGE_ORDER=both` (AI-109), and skip and disclose the mirrored judge pass on a retry that keeps sections (AI-108).
+- Mark a judge attempt whose output could not be assembled into a report as discarded, and stop the judge retries when an identical second assembly failure repeats (AI-112). State a step's whole cost in its detail, the presumed part named (JOB-204). Print the discarded mark in the audit export's charge breakdown and keep the marks durable recovery can read (RPT-210).
+- Pipeline stage-c-1.6.10 (D-next-1..7). Report 1.44.0, payload 1.48.0 and Stage B ACCOUNTING_EVIDENCE_27 are unchanged. Stored reports keep their bytes; #48's and #49's audit exports now print their stored discarded marks.
+
 ## Unreleased - a resumed plan pass names its model (2026-10-27)
 
 - Name the model, reasoning effort and speed of a plan pass whose retry kept sections a cut-off attempt wrote. NVDA report #50's judge kept the verdict from a first attempt whose stream the ChatGPT plan endpoint closed at 15 minutes. Both attempts reported GPT-6.1 Sol at max reasoning, yet the run details named synthesis's model "unknown" and said the provider had reported no model and no usage.
