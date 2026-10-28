@@ -711,12 +711,13 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   });
 }
 
-// Audit 2026-10-27 AI-303-V4 / C-4: "latest" on a figure from a reported-period
+// Audit 2026-10-27 AI-303-V4 / C-4: "latest" (directly before, or one word before, a period
+// or filing noun, so "the latest guidance" is not a recency claim) on a figure from a reported-period
 // series (statement, quarterly-trend and segment rows) must be the newest period
 // of that series the registry holds. A series is a registry id carrying exactly
 // one ISO date that equals the record's own period and is not after its as-of, so
 // analyst estimates and projections (periods after the as-of) are never a series.
-const RECENCY = /\b(?:latest|most[\s‐‑–—-]+recent|newest)\b/i;
+const RECENCY = /\b(?:latest|most[\s‐‑–—-]+recent|newest)\s+(?:\S+\s+)?(?:quarter\w*|year\w*|annual\w*|fiscal|period\w*|months?|results?|reported|figures?|10-?[QK]|filings?|reports?)\b/i;
 
 function reportedSeries(record: NumericProvenanceRecord): { key: string; date: string } | null {
   const dates = record.id.match(/\d{4}-\d{2}-\d{2}/g);

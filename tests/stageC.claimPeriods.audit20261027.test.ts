@@ -288,3 +288,44 @@ describe("AI-303-V4 latest", () => {
       expect((await cite(registry, record.id, text)).entry.validationStatus).toBe("validated");
   });
 });
+
+// AI-303-V4 fix round 1: the recency word must modify a period or a filing.
+describe("AI-303-V4 recency word modifies a period", () => {
+  const registry = [Q_REV, Q1_REV, Q_DEBT, Q1_DEBT, FY_REV, GM];
+  it.each([
+    "Revenue for Q1 FY2027 was USD 81.62 billion, the latest NVIDIA.",
+    "Revenue for Q1 FY2027 was USD 81.62 billion, latest.",
+  ])("a recency word on something else does not reject an exact period: %s", async (text) => {
+    expect((await cite(registry, Q1_REV.id, text)).entry.validationStatus).toBe("validated");
+  });
+  // "the latest guidance" / "the latest product launch" add metric words the record does not carry, so the metric
+  // check stops them (text-context-mismatch) whatever the recency rule does; what matters here is that the
+  // recency rule is not the reason (no period-mismatch).
+  it.each([
+    "Revenue for Q1 FY2027 was USD 81.62 billion, below the latest guidance.",
+    "Revenue for Q1 FY2027 was USD 81.62 billion, ahead of the latest product launch.",
+  ])("a recency word on guidance or a launch is not read as a recency claim: %s", async (text) => {
+    expect((await cite(registry, Q1_REV.id, text)).entry.reason).not.toBe("period-mismatch");
+  });
+  it.each([
+    "Revenue for the latest quarter was USD 81.62 billion.",
+    "Revenue for the latest quarter, Q1 FY2027, was USD 81.62 billion.",
+  ])("a recency word on a period still rejects an older row (%#)", async (text) => {
+    expect((await cite(registry, Q1_REV.id, text)).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  // A filing word is also a recency target; the extra words stop these earlier on the metric check, so only the status is pinned.
+  it.each([
+    "Revenue in the latest 10-Q was USD 81.62 billion.",
+    "Revenue for the latest reported period was USD 81.62 billion.",
+  ])("a recency word on a filing or reported period never validates an older row: %s", async (text) => {
+    expect((await cite(registry, Q1_REV.id, text)).entry.validationStatus).toBe("unchecked");
+  });
+  it("an older annual row called the most recent fiscal year is rejected once a later annual is registered", async () => {
+    const FY_NEW = rec({ ...FY_REV, id: "payload.statements.income-statement-annual.2027-01-31.revenue", period: "2027-01-31", asOf: "2027-03-01",
+      periodContext: { kind: "duration", start: "2026-01-26", end: "2027-01-31", basis: "fiscal-year", fiscalLabel: "FY2027" }, fiscalPeriod: "FY2027", value: 300e9 });
+    expect((await cite([FY_REV, FY_NEW], FY_REV.id, "Revenue for the most recent fiscal year was USD 215.94 billion.")).entry).toMatchObject({ validationStatus: "unchecked", reason: "period-mismatch" });
+  });
+  it("control: the newest annual row called the latest fiscal year validates beside newer quarterly rows (separate series)", async () => {
+    expect((await cite(registry, FY_REV.id, "Revenue for the latest fiscal year was USD 215.94 billion.")).entry.validationStatus).toBe("validated");
+  });
+});
