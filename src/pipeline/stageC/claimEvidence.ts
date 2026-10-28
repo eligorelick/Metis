@@ -717,7 +717,12 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
 // of that series the registry holds. A series is a registry id carrying exactly
 // one ISO date that equals the record's own period and is not after its as-of, so
 // analyst estimates and projections (periods after the as-of) are never a series.
-const RECENCY = /\b(?:latest|most[\s‐‑–—-]+recent|newest)\s+(?:\S+\s+)?(?:quarter\w*|year\w*|annual\w*|fiscal|period\w*|months?|results?|reported|figures?|10-?[QK]|filings?|reports?)\b/i;
+const RECENCY = /\b(?:latest|most[\s‐‑–—-]+recent|newest)[\s‐‑–—-]+(?:[^\s‐‑–—-]+[\s‐‑–—-]+)?(?:quarter\w*|year\w*|annual\w*|fiscal|FY(?:\s*\d{4})?|Q[1-4]|period\w*|months?|results?|reported|figures?|10-?[QK]|filings?|reports?)\b/i;
+
+/** True when a recency word modifies a period or a filing ("the latest-quarter", "latest FY", "latest 10-Q"). */
+export function namesRecency(text: string): boolean {
+  return RECENCY.test(text);
+}
 
 function reportedSeries(record: NumericProvenanceRecord): { key: string; date: string } | null {
   const dates = record.id.match(/\d{4}-\d{2}-\d{2}/g);
@@ -772,7 +777,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "text-context-mismatch", "prose does not identify the metric of the cited numeric record");
     }
     // AI-303-V4: a record citation states one figure, so the whole claim is read.
-    const series = RECENCY.test(typedText) ? reportedSeries(record) : null;
+    const series = namesRecency(typedText) ? reportedSeries(record) : null;
     if (series !== null && (options.seriesLatest?.get(series.key) ?? series.date) > series.date) {
       return support("unchecked", "period-mismatch", "the prose calls the figure the latest, but a later period of the cited series is registered");
     }

@@ -3,7 +3,7 @@
 // (fixtures/edgar/nvda-current-reports/) or are round numbers. No provider,
 // network, database or model call.
 import { describe, expect, it } from "vitest";
-import { reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
+import { namesRecency, reportedSeriesLatest, windowsNamed } from "@/pipeline/stageC/claimEvidence";
 import { runVerifyPass, type PassDeps, type VerifyResult } from "@/pipeline/stageC/passes";
 import { consistencyManifestEntries } from "@/pipeline/stageC/consistency";
 import type { ContextPayload, TextExcerpt } from "@/pipeline/stageC/payload";
@@ -327,5 +327,48 @@ describe("AI-303-V4 recency word modifies a period", () => {
   });
   it("control: the newest annual row called the latest fiscal year validates beside newer quarterly rows (separate series)", async () => {
     expect((await cite(registry, FY_REV.id, "Revenue for the latest fiscal year was USD 215.94 billion.")).entry.validationStatus).toBe("validated");
+  });
+});
+
+// AI-303-V4 fix round 2: hyphenated and labelled recency phrasings are checked too.
+describe("AI-303-V4 hyphenated and labelled recency", () => {
+  const FY_NEW = rec({ ...FY_REV, id: "payload.statements.income-statement-annual.2027-01-31.revenue", period: "2027-01-31", asOf: "2027-03-01",
+    periodContext: { kind: "duration", start: "2026-01-26", end: "2027-01-31", basis: "fiscal-year", fiscalLabel: "FY2027" }, fiscalPeriod: "FY2027", value: 300e9 });
+  const quarterly = [Q_REV, Q1_REV];
+  const annual = [FY_REV, FY_NEW];
+  it.each([
+    [quarterly, Q1_REV, "Revenue for the latest-quarter was USD 81.62 billion."],
+    [quarterly, Q1_REV, "Latest-quarter revenue was USD 81.62 billion."],
+    [quarterly, Q1_REV, "Revenue for the latest Q4 was USD 81.62 billion."],
+    [annual, FY_REV, "Revenue for the latest full-year was USD 215.94 billion."],
+    [annual, FY_REV, "Revenue for the latest FY2026 was USD 215.94 billion."],
+  ])("an older row called the latest in a hyphenated or labelled form stays unverified (%#)", async (registry, record, text) => {
+    const entry = (await cite(registry, record.id, text)).entry;
+    expect(entry.validationStatus).toBe("unchecked");
+    expect(entry.reason).toBe("period-mismatch");
+  });
+  it.each([
+    [quarterly, Q_REV, "Revenue for the latest-quarter was USD 96.22 billion."],
+    [quarterly, Q_REV, "Latest-quarter revenue was USD 96.22 billion."],
+    [annual, FY_NEW, "Revenue for the latest full-year was USD 300.00 billion."],
+    [annual, FY_NEW, "Revenue for the latest FY2027 was USD 300.00 billion."],
+  ])("control: the newest row called the latest in the same forms validates (%#)", async (registry, record, text) => {
+    expect((await cite(registry, record.id, text)).entry.validationStatus).toBe("validated");
+  });
+  // These phrasings carry words the metric check does not read ("FY", "twelve-month"), so they stop there; the status is pinned,
+  // and the predicate test below shows the recency rule itself recognises them.
+  it.each([
+    [annual, FY_REV, "Revenue for the latest FY was USD 215.94 billion."],
+    [annual, FY_REV, "Latest twelve-month revenue was USD 215.94 billion."],
+    [annual, FY_REV, "Revenue for the latest 12-month period was USD 215.94 billion."],
+  ])("an older row called the latest in a form the metric check stops is never validated (%#)", async (registry, record, text) => {
+    expect((await cite(registry, record.id, text)).entry.validationStatus).toBe("unchecked");
+  });
+  it("the recency predicate: period and filing nouns, hyphens and labels count; other nouns do not", () => {
+    for (const yes of ["the latest-quarter", "latest full-year", "latest twelve-month revenue", "latest 12-month", "the latest FY", "latest Q4", "latest FY2026",
+      "most recent fiscal year", "most-recent quarter", "newest annual figure", "the latest 10-Q", "the latest 10-K filing", "the latest filing", "the latest report", "latest reported results"])
+      expect(namesRecency(yes), yes).toBe(true);
+    for (const no of ["the latest guidance", "the latest product launch", "latest NVIDIA", "a recent quarter", "the latest, and", "latest."])
+      expect(namesRecency(no), no).toBe(false);
   });
 });
