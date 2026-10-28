@@ -639,9 +639,28 @@ export function findDirectionWords(sentence: string): DirectionHit[] {
 
 export interface QuantityDirection {
   polarity: 1 | -1;
-  relation: "change" | "level";
+  /**
+   * `change`: the figure is the size of the move. `level`: it is where the
+   * metric ended up. `unknown`: an accounting "gain of $X", which is a level
+   * although "gain" is a direction word (AI-401).
+   */
+  relation: "change" | "level" | "unknown";
   negated: boolean;
 }
+
+/**
+ * Approximation and bound words between a direction word and its figure. They
+ * do not decide whether the figure is a move or a level, so they are removed
+ * from the text read for DELTA_BREAKERS: "increased by about $X" is a change as
+ * "increased by $X" is, and "increased to about $X" is a level as "increased to
+ * $X" is (AI-401). The "to", "at" and "of" inside a phrase ("close to", "at
+ * least", "in excess of") would otherwise read as breakers.
+ */
+const HEDGE_WORDS = /(?<![A-Za-z])(?:about|around|approximately|approx\.?|roughly|nearly|almost|some|close\s+to|more\s+than|less\s+than|fewer\s+than|at\s+least|at\s+most|just\s+over|just\s+under|in\s+excess\s+of)(?![A-Za-z])/gi;
+
+/** A noun that names a move ("an increase of $X"); its "of" is the size of the move, not a breaker. */
+const CHANGE_NOUNS = new Set(["increase", "increases", "decrease", "decreases", "decline", "declines",
+  "drop", "drops", "rise", "rises", "fall", "falls", "expansion", "contraction"]);
 
 /** Direction belongs to the nearest quantity in the clause, never a nearby metric. */
 export function quantityDirection(
@@ -660,8 +679,14 @@ export function quantityDirection(
   if (!nearest) return null;
   const between = nearest.end <= start ? sentence.slice(nearest.end, start) : sentence.slice(end, nearest.start);
   const before = sentence.slice(Math.max(0, nearest.start - 30), nearest.start);
-  return { polarity: nearest.polarity,
-    relation: nearest.end <= start && DELTA_BREAKERS.test(between) ? "level" : "change",
+  // Hedges are stripped only here; the negation test below reads `between` as written.
+  const bridge = between.replace(HEDGE_WORDS, " ");
+  let relation: QuantityDirection["relation"] = "change";
+  if (nearest.end <= start && DELTA_BREAKERS.test(bridge)) {
+    const ofOnly = /^\s*of\s*$/i.test(bridge);
+    relation = ofOnly && CHANGE_NOUNS.has(nearest.word) ? "change" : ofOnly && /^gains?$/.test(nearest.word) ? "unknown" : "level";
+  }
+  return { polarity: nearest.polarity, relation,
     negated: /(?:\b(?:not|never|no|without)\b|n't)\s+(?:[a-z]+\s+){0,2}$/i.test(before) || /\b(?:not|never)\b|n't/i.test(between) };
 }
 
